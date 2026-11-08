@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-105"]
+tags: ["compliance_control", "count-110"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,9 +10,13 @@ status: stable
 
 # compliance_control
 
-105 tool(s) in this mandate-type group:
+110 tool(s) in this mandate-type group:
 
 - [Corridor Cost Averages](../tools/787-corridor-cost-averages.md)
+- [Event Contract Terms Lint](../tools/806-event-contract-terms-lint.md)
+- [Ethereum Epoch Accounting Recompute](../tools/813-eth-staking-accounting.md)
+- [Ethereum Base Fee and Blob Base Fee Recompute](../tools/815-eth-fee-market.md)
+- [ZIP-317 Transfer Fee](../tools/824-zip317-transfer-fee.md)
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
 - [Mastercard Agentic Token Scope Builder](../tools/art-24-mastercard-agentic-token-builder.md)
@@ -117,3 +121,4 @@ status: stable
 - [TSV Stoppage Concurrency](../tools/art-710-tsv-stoppage-concurrency.md)
 - [HDHP vs. PPO Break-Even](../tools/art-758-hdhp-ppo-break-even.md)
 - [Beacon-Seeded Fair-Sampling Deriver V2](../tools/art-774-beacon-seeded-fair-sampling-v2.md)
+- [Quadratic Funding Round Recompute](../tools/art-814-qf-pairwise-recompute.md)

@@ -304,6 +304,29 @@ export const COVERED = [
     share: 'n/a (new 2026-09-17, S18-FRESHNESS-DURABLE-FIX-1)',
   },
   {
+    // ZK-TRUST-STAGES-GATE-1 (2026-11-03): the trust-model page's trust.* COUNT
+    // sentinels (chaingraph/zk-trust-stages.html) join the single-writer set.
+    // The count source is the estate inventory recomputed from chaingraph.json
+    // (scripts/zk-trust-inventory.mjs) — main-regenerated — so the gate command
+    // is advisory-on-PR via the generic ADVISORY_ON_PR categorisation and
+    // blocking on main; it is also DERIVED_ROOT-aware (DERIVED_ROOT_GATES
+    // below: on merge_group it overlay-reads the queue's ephemeral assembled
+    // monolith through derivedResolve). --fix heals ONLY the sentinel spans
+    // (writeIfChanged semantics: a second pass over a healed page is a no-op,
+    // no wall clock); banned wording on the page is content red the bot cannot
+    // heal — the writer holds and the strict gate owns it. The page's prose is
+    // hand-authored: this entry is the ONLY writer of its trust.* sentinels
+    // (verify-counts' scan list has no trust.* keys — measured at authoring).
+    id: 'zk-trust-page',
+    regen: 'node scripts/check-zk-trust-page.mjs --fix',
+    gate: 'node scripts/check-zk-trust-page.mjs',
+    writes: ['chaingraph/zk-trust-stages.html'],
+    artifacts: ['chaingraph/zk-trust-stages.html'],
+    // Reads the assembled monolith — assembler precedes it in the pass.
+    after: 'chaingraph-assemble',
+    share: 'n/a (new 2026-11-03, ZK-TRUST-STAGES-GATE-1)',
+  },
+  {
     id: 'catalog',
     // SO #28's "catalog counts". Python, but ubuntu-latest ships python3 and
     // preflight already shells to python for check_index_sync.py.
@@ -1505,6 +1528,17 @@ export const EXCLUDED = [
        + 'artifact here for main to own. Listed so the coverage gate reads it as a decision, not a gap.',
   },
   {
+    what: 'scripts/renumber-node.mjs (manual node-rename tool)',
+    script: 'scripts/renumber-node.mjs',
+    share: 'n/a — a manual tool, not a derived-artifact generator',
+    why: 'NOT A DERIVED GENERATOR. It is a human-invoked rename helper: it moves and rewrites one '
+       + 'unenrolled node\'s own source files (shard, page, kernel, proptest, fixtures, reservation) and '
+       + 'restamps them through gen-kernel-identity. It never writes a shared derived artifact '
+       + '(chaingraph.json, meta, index.mjs, catalogs) and refuses an enrolled node, so there is nothing '
+       + 'for main\'s regen to own and no regen command that could converge. Listed so the fan-out gate '
+       + 'reads a decision rather than a gap.',
+  },
+  {
     what: 'scripts/check-derived-declare-parity.mjs (DERIVED-DECLARE-PARITY-1)',
     script: 'scripts/check-derived-declare-parity.mjs',
     share: 'n/a — a gate, not a generator',
@@ -1719,6 +1753,10 @@ export const DERIVED_ROOT_GATES = new Set([
   'python scripts/verify_repo.py',                           // deploy gate sitemap leg (SITEMAP-DEPLOY-SPLIT-1; overlay read only)
   'node scripts/check-nav-reachability.mjs',                 // nav islands (reads the monolith for dynamic roots)
   'node scripts/check-nav-reachability.mjs --baseline-check',// nav-island baseline freshness
+  // CHAIN-ADD-PR-SIDE-EXECUTE-1 (2026-11-05): the chain-execute gate reads the monolith through
+  // derivedResolve, so the queue judges the assembled speculative tree (a chain-add PR's new
+  // chain) instead of the committed monolith that main's later regen would then red (#2736).
+  'node scripts/check-webmcp-chain-execute.mjs',             // chain-execute (reads the monolith's chains)
   // REGEN-VALIDATORS-IN-QUEUE-1 (mechanism A): the two post-regen copy
   // validators (derived-artifacts-regen.yml "Validate the regenerated
   // reader-facing copy") are DERIVED_ROOT-aware — under the merge_group
@@ -1729,25 +1767,38 @@ export const DERIVED_ROOT_GATES = new Set([
   // chaingraphJsonReadPath().
   'node scripts/check-copy-hallmarks.mjs',                   // reader-facing copy (#descriptions leg is DERIVED_ROOT-aware)
   'node scripts/check-shipped-prose.mjs',                    // shipped prose jargon/slugs (reads the monolith)
+  // S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1 (2026-10-31): the two §18 digest-freshness commands
+  // read the monolith (the .test.mjs also the calibration) through derivedResolve — the coverage
+  // gate's shape — so they must SEE the merge_group scratch tree. Stripped, they fell back to the
+  // COMMITTED monolith, whose OLD journal digest against the queue ref's NEW kernel source counted
+  // the edited node stale and failed the exact-equality calibration: every in-place kernel-edit PR
+  // ejected from the merge queue (#2730 twice, #2795 — PR-2730-MERGEQUEUE-EJECT-DIAG-1). Spelled
+  // exactly as preflight.mjs's GATES list runs them.
+  'node scripts/check-s18-digest-freshness.mjs',             // §18 digest-freshness ratchet (reads the monolith)
+  'node scripts/check-s18-digest-freshness.test.mjs',        // §18 freshness fixture proof (monolith + calibration)
+  // ZK-TRUST-STAGES-GATE-1 (2026-11-03): the trust-page count gate overlay-reads
+  // the queue's ephemeral assembled monolith via derivedResolve (the count
+  // source), so the merge_group tree is exactly the tree that will be main and
+  // the gate can go HARD there. The page's prose is hand-authored, but its
+  // trust.* sentinels are regen-written (this entry's --fix), so the CHECK
+  // reads the page through the overlay too: `--out` puts the freshly healed
+  // page in DERIVED_ROOT (PR-2888-DERIVED-PAGE-READ-1).
+  'node scripts/check-zk-trust-page.mjs',                    // trust-page stage counts (reads the monolith)
 ]);
 
-/** The non-empty DERIVED_ROOT, or '' — CI merge_group jobs only by convention,
- *  but any caller that sets the variable explicitly opts in to the overlay. */
-export function derivedRoot() {
-  const dr = process.env.DERIVED_ROOT;
-  return dr && dr.trim() ? dr.trim() : '';
-}
-
-/** Resolve a repo-relative derived-artifact path against the ephemeral tree
- *  when one is mounted, falling back to the real repo (overlay semantics: only
- *  files the assembly actually produced come from the scratch root). Accepts
- *  path segments, e.g. derivedResolve('chaingraph', 'chaingraph.json'). */
-export function derivedResolve(...parts) {
-  const rel = parts.join('/');
-  const dr = derivedRoot();
-  const scratch = dr ? resolve(REPO, dr, ...parts) : null;
-  return scratch && existsSync(scratch) ? scratch : resolve(REPO, ...parts);
-}
+// S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1 (2026-10-31): derivedRoot/derivedResolve moved VERBATIM
+// to _derived-resolve-lib.mjs (a leaf — imports nothing from this estate) and re-exported here so
+// every existing importer of this module is unchanged. In-place reason: THIS file statically
+// imports RECEIPT_BUNDLES_WRITES_REPORT_PATH from gen-receipt-bundles.mjs (see the import block
+// above), which imports computeStaleness from check-s18-digest-freshness.mjs; once check-s18
+// imported derivedResolve from HERE, that cycle left RECEIPT_BUNDLES_WRITES_REPORT_PATH in TDZ at
+// the 'receipt-bundles' entry's writesReport literal below whenever gen-receipt-bundles.mjs was
+// the ENTRY process — exactly what DERIVED-SET-SELFTEST-1 executes — with "ReferenceError:
+// Cannot access 'RECEIPT_BUNDLES_WRITES_REPORT_PATH' before initialization". The leaf breaks the
+// cycle at its root; the resolver's bytes and semantics are identical (same DERIVED_ROOT overlay,
+// same existsSync fallback, same REPO base).
+import { derivedRoot } from './_derived-resolve-lib.mjs';
+export { derivedResolve, derivedRoot } from './_derived-resolve-lib.mjs';
 
 /**
  * Is this a MAIN context (gates block) or a PR context (gates warn)?
@@ -1756,7 +1807,7 @@ export function derivedResolve(...parts) {
  * when we cannot prove we are on a PR. The downgrade is the privilege; it has to
  * be affirmatively earned, never inherited from a failed lookup.
  */
-export function isMainContext() {
+export function isMainContext({ cwd = REPO } = {}) {
   // ⚠ STRUCTURED AS A WHITELIST OF PR PROOFS, NOT A BLACKLIST OF MAIN ONES.
   // An earlier draft asked "is GITHUB_REF_NAME === 'main'?" and returned false
   // otherwise — which made an EMPTY/absent ref name read as "PR", i.e. it failed
@@ -1797,12 +1848,35 @@ export function isMainContext() {
 
   // Local pre-push: a feature branch is the PR proof. It must RESOLVE, and be
   // neither `main` nor a detached HEAD, before the downgrade applies.
+  //
+  // PREPUSH-DERIVED-ADVISORY-1: a DETACHED HEAD (scratch worktrees that merge main
+  // and push `HEAD:refs/heads/<branch>`) used to fail closed here, so a new-node PR
+  // pushed from one saw the main-only derived gates (kernel index, infra registry,
+  // node footers, a11y mid-flight enrol) HARD while the same tree is advisory in PR
+  // CI. A detached HEAD earns the SAME downgrade only on affirmative proof it is not
+  // main: origin/main resolves AND HEAD is NOT an ancestor of it (HEAD carries
+  // commits main lacks, which main itself never does). HEAD == origin/main, behind
+  // it, an unresolvable origin/main, or any git error all stay HARD (fail closed).
+  // No env var participates; a branch literally named `main` stays HARD.
+  return localHeadIsMain({ cwd });
+}
+
+/** Local-context probe. `cwd` is injectable ONLY so the self-test can aim it at a
+ *  fixture repo; production callers take the default (this checkout). */
+export function localHeadIsMain({ cwd = REPO } = {}) {
+  const git = (args) => execSync(`git ${args}`, { cwd, env: gitEnv(), stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
   try {
-    const branch = execSync('git rev-parse --abbrev-ref HEAD', {
-      cwd: REPO, env: gitEnv(), stdio: ['ignore', 'pipe', 'ignore'],
-    }).toString().trim();
-    if (!branch || branch === 'HEAD' || branch === 'main') return true; // fail closed
-    return false;
+    const branch = git('rev-parse --abbrev-ref HEAD');
+    if (!branch || branch === 'main') return true; // fail closed
+    if (branch !== 'HEAD') return false;           // named feature branch = PR proof
+    // Detached HEAD: needs the ancestry proof described above.
+    git('rev-parse --verify --quiet refs/remotes/origin/main');
+    try {
+      git('merge-base --is-ancestor HEAD refs/remotes/origin/main');
+      return true;  // exit 0: HEAD is main or behind it, no PR proof
+    } catch (e) {
+      return e && e.status === 1 ? false : true; // exit 1 = not an ancestor = PR proof; anything else fails closed
+    }
   } catch {
     return true; // undeterminable → fail closed, gates block
   }
@@ -1845,15 +1919,23 @@ function snapshotWritesReports(entries = COVERED) {
  *  report on every --write run (gen-manifest-examples.mjs, empty list included), so a second
  *  pass that writes nothing new would otherwise erase the first pass's list and --paths would
  *  stage none of those files. The declared artifacts[] stay the boundary: entryCommitPaths()
- *  still drops anything outside them or absent on disk. */
+ *  still drops anything outside them or absent on disk.
+ *  MAIN-REGEN-FVSTATUS-DELETE-1 (2026-11-03): `removed` is unioned the same way. A content-
+ *  addressed rename (gen-fv-status.mjs deletes fv-status/<old digest>.json and writes the new
+ *  one) attests the deletion ONLY in pass 1; pass 2 finds no orphan left and rewrites the
+ *  report with `removed: []`, so the deletion fell out of --paths and the stage step's escape
+ *  check red-flagged a DECLARED deletion as ` D` (runs 41712547414, 41716872657). */
 function unionWritesReports(before) {
+  const list = (r, k) => (r && Array.isArray(r[k]) ? r[k] : []);
   for (const [p, prev] of before) {
-    if (!prev || !Array.isArray(prev.written)) continue;
+    if (!prev || (!Array.isArray(prev.written) && !Array.isArray(prev.removed))) continue;
     let cur = null;
     try { cur = JSON.parse(readFileSync(p, 'utf8')); } catch { /* no report after the pass: restore the earlier one */ }
-    const now = cur && Array.isArray(cur.written) ? cur.written : [];
-    const written = [...new Set([...prev.written, ...now])].sort();
-    writeFileSync(p, JSON.stringify({ ...(cur || prev), written }, null, 2) + '\n', 'utf8');
+    const written = [...new Set([...list(prev, 'written'), ...list(cur, 'written')])].sort();
+    const merged = { ...(cur || prev), written };
+    const removed = [...new Set([...list(prev, 'removed'), ...list(cur, 'removed')])].sort();
+    if (removed.length || Array.isArray((cur || prev).removed)) merged.removed = removed;
+    writeFileSync(p, JSON.stringify(merged, null, 2) + '\n', 'utf8');
   }
 }
 
@@ -1869,6 +1951,53 @@ function classifyWithSecondPass({ regen = runRegenPass, gates = () => runVerifyG
   regen();
   unionWritesReports(before);
   return gates();
+}
+
+// ── RECEIPT-BUNDLES-SAME-RUN-PUBLISH-1 (2026-11-02, runs 41424221501 / 41428082131) ──
+// receipt-bundles is the one COVERED entry whose ANCHOR writer is not orderable
+// inside COVERED: the published registry-lineage checkpoint it byte-copies
+// (§3.4) is written by derived-artifacts-regen.yml's "Publish the registry
+// lineage log" step, which runs BETWEEN the --regen step and this --verify
+// step. On any landing that grows the F2 key set (first exercised by #2806's
+// art-782), one run does: regen writes bundles anchored at checkpoint N →
+// publish moves the log to N+1 → pass-1 gates see every bundle stale → pass 2
+// heals → the fixpoint classifier refuses, the bot commits NOTHING, and main
+// stays red forever because the external Sigsum log is already anchored at
+// N+1 while no run can ever commit the N+1-anchored bundles. No `after:` edge
+// can fix this — the writer is a workflow step, not a COVERED entry — so the
+// classifier must recognise the shape instead of refusing it.
+//
+// The recognition is PROOF-GATED and fails closed, in the same style as
+// LINEAGE-BINDING-REGEN-REPAIRABLE-1: the reclassification fires only when
+//   (1) pass 1's red set was EXACTLY [receipt-bundles] — no other gate moved;
+//   (2) pass 2 healed it and broke nothing (newlyRed empty);
+//   (3) the read-only `append-absence-lineage-record.mjs --verify-regen-binding`
+//       check proves BINDING-OK — the published log is a byte-identical prefix
+//       of the records file AND the last absence record is the recomputed root,
+//       i.e. the publish this run already ran is complete and the ONLY drift
+//       left is the bundles lagging it.
+// In that state the pass-2 tree IS the fresh, self-consistent fixpoint tree
+// (regen on the committed result is zero-drift: the publish's size-only skip
+// makes it a no-op on the next run), so committing it is the ONE-commit landing
+// the openapi edge pattern exists to produce — refusing it would demand an
+// order fix that the COVERED mechanism cannot express. Any other shape still
+// hard-fails as before.
+const SAME_RUN_PUBLISH_ENTRY_ID = 'receipt-bundles';
+export const SAME_RUN_PUBLISH_PROOF_CMD = 'node scripts/append-absence-lineage-record.mjs --verify-regen-binding';
+
+/** Pure decision (the embedded --verify --self-test drives it with an injected
+ *  exec; production runs the real read-only proof command). Throws from exec
+ *  are drift=false — an unrunnable proof can never unlock the commit path. */
+export function isSameRunPublishDrift(healed, newlyRed, exec = (cmd) =>
+  execSync(cmd, { cwd: REPO, env: { ...process.env, PYTHONIOENCODING: 'utf-8' }, stdio: ['ignore', 'pipe', 'pipe'] }).toString()
+) {
+  if (newlyRed.length) return false;
+  if (healed.length !== 1 || healed[0] !== SAME_RUN_PUBLISH_ENTRY_ID) return false;
+  try {
+    return exec(SAME_RUN_PUBLISH_PROOF_CMD).includes('BINDING-OK');
+  } catch {
+    return false;
+  }
 }
 
 /** One freshness-gate pass for --verify (MERGEGROUP-DERIVED-REGEN-FIX-1): in
@@ -2108,6 +2237,21 @@ if (isMain) {
       stagedRemoval2.includes('manifests/INJECTED-REGEN-ESCAPE.txt') && fail('an injected path is in neither report list and must never be staged');
       console.log('✓ self-test (g3): an attested removal is staged by pathspec; an injected file is in neither list and never staged');
 
+      // (g4) MAIN-REGEN-FVSTATUS-DELETE-1: a content-addressed rename in a declared
+      // directory survives the classification pass. Pass 1 deletes <old>.json and writes
+      // <new>.json; pass 2 finds no orphan and rewrites its report with both lists empty
+      // (gen-fv-status.mjs's skip-if-unchanged path). The deletion must stay in --paths,
+      // or the stage step reds ` D fv-status/<old>.json` (runs 41712547414, 41716872657).
+      // An undeclared removal carried through the same union is still dropped.
+      const FV_OLD = 'manifests/0000-selftest-old-digest.json';
+      const FV_OUT = 'chaingraph/UNDECLARED-SELFTEST.json';
+      const fvEntry = { id: 'selftest-content-addressed', artifacts: ['manifests/'], writesReport: rp, writesReportRequired: true };
+      writeFileSync(rp, JSON.stringify({ written: [MAN_A], removed: [FV_OLD, FV_OUT] }, null, 2) + '\n', 'utf8');
+      classifyWithSecondPass({ entries: [fvEntry], regen: () => writeFileSync(rp, JSON.stringify({ written: [], removed: [] }, null, 2) + '\n', 'utf8'), gates: contentRed });
+      const stagedG4 = entryCommitPaths(fvEntry).sort();
+      JSON.stringify(stagedG4) === JSON.stringify([MAN_A, FV_OLD].sort()) || fail(`a pass-1 attested deletion must stay staged after an empty pass-2 report, and an undeclared removal must stay dropped, got ${JSON.stringify(stagedG4)}`);
+      console.log('✓ self-test (g4): a content-addressed rename (pass-1 delete + write) stays staged across an empty pass-2 report; an undeclared removal is still dropped');
+
       // (h) a report-REQUIRED entry with an ABSENT report must REFUSE loudly, never
       // fall back to the bare-tree prefix — the silent fallback would restore the
       // exact blindness this row heals on every checkout that has not run the regen
@@ -2123,8 +2267,22 @@ if (isMain) {
       // documented "no --write in this checkout" behavior — manifest-examples
       // keeps it; this row did not change settled entries).
       const iEntry = { id: 'selftest-report-optional', artifacts: ['manifests/'], writesReport: join(udir, 'also-absent.json') };
-      JSON.stringify(entryCommitPaths(iEntry)) === JSON.stringify(['manifests/']) || fail('a report-optional entry must keep the declared-glob fallback');
+      JSON.stringify(entryCommitPaths(iEntry)) === JSON.stringify(['manifests/']) || fail('a report-optional entry must keep the documented declared-glob fallback');
       console.log('✓ self-test (i): a report-optional entry keeps the documented declared-glob fallback');
+
+      // (j) RECEIPT-BUNDLES-SAME-RUN-PUBLISH-1: the classifier's reclassification
+      // fires ONLY on the exact proven shape — healed set exactly [receipt-bundles],
+      // nothing newly red, and the read-only binding proof says BINDING-OK. Every
+      // other shape must stay a hard fixpoint refusal.
+      const bindOk = () => 'append-absence-lineage-record: BINDING-OK records=105 log=105 …';
+      const bindFail = () => { throw new Error('append-absence-lineage-record: BINDING-FAIL LAST-RECORD — …'); };
+      isSameRunPublishDrift(['receipt-bundles'], [], bindOk) || fail('healed=[receipt-bundles] + BINDING-OK must classify as same-run publish drift');
+      console.log('✓ self-test (j1): healed=[receipt-bundles] with a BINDING-OK proof classifies as same-run publish drift');
+      !isSameRunPublishDrift(['receipt-bundles'], [], bindFail) || fail('a failing binding proof must NOT classify as same-run publish drift');
+      !isSameRunPublishDrift(['receipt-bundles', 'trust-signals'], [], bindOk) || fail('a multi-entry healed set must NOT classify (only the proven single-entry shape)');
+      !isSameRunPublishDrift(['receipt-bundles'], ['sitemap-xml'], bindOk) || fail('a pass-2 NEW red must NOT classify (non-idempotent generator stays hard)');
+      !isSameRunPublishDrift(['openapi'], [], bindOk) || fail('a healed non-receipt-bundles entry must NOT classify');
+      console.log('✓ self-test (j2): every non-proven shape (failing proof, multi-entry, newlyRed, other entry) still hard-fails');
     } finally {
       cleanUnionDir();
     }
@@ -2188,6 +2346,11 @@ if (isMain) {
     const { failed: red2 } = classifyWithSecondPass();
     const healed = red1.filter((id) => !red2.includes(id));
     const newlyRed = red2.filter((id) => !red1.includes(id));
+    if (healed.length && isSameRunPublishDrift(healed, newlyRed)) {
+      console.warn(`::warning title=Same-run lineage publish ordering (receipt-bundles)::pass 1 was red ONLY on receipt-bundles because this run's "Publish the registry lineage log" step moved registry/lineage/checkpoint AFTER the regen pass had written the bundles (RECEIPT-BUNDLES-SAME-RUN-PUBLISH-1; runs 41424221501 / 41428082131). Pass 2 rewrote the bundles against the freshly published checkpoint, and ${SAME_RUN_PUBLISH_PROOF_CMD} proves BINDING-OK (published log is a byte-identical prefix of the records file; last absence record is the recomputed root) — so the pass-2 tree now staged is the fresh, self-consistent fixpoint tree. Committing it is the one-commit landing; no cascade, and the next run's regen is zero-drift.`);
+      console.log('\n✓ derived-artifacts --verify: same-run lineage-publish drift recognised (RECEIPT-BUNDLES-SAME-RUN-PUBLISH-1) — the healed pass-2 tree is committed as the fixpoint landing.');
+      process.exit(0);
+    }
     if (healed.length || newlyRed.length) {
       if (healed.length) {
         console.error(`\n✗ derived-artifacts --verify: the regen pass is NOT a fixpoint — ${healed.join(', ')} was stale after pass 1 and fresh after pass 2.`);

@@ -10,13 +10,13 @@ name: Automerge Label
 # fire `push: main` workflows, so deploy + derived-artifacts regen would
 # silently stop running on every automerged PR. Mint the same
 # ainumbers-spec-sync App installation token that regen uses, scoped to
-# pull-requests:write only (no contents write needed here — the merge itself
-# is done via `gh pr merge --auto`, not a push this job authors).
+# pull-requests:write and contents:write (the merge itself is done via
+# `gh pr merge --auto`, not a push this job authors).
 #
 # MERGEQUEUE-REQUEUE-ON-TIMEOUT-1 (2026-09-10): also fires on the
 # `pull_request` activity type `dequeued`. The merge queue (ruleset
 # main-ci-anchor, 20721322) removes an entry whose checks outlive
-# check_response_timeout_minutes (30) and publishes webhook
+# check_response_timeout_minutes (360 on the live ruleset, 2026-11-05) and publishes webhook
 # `pull_request.dequeued` with reason enum value `CI_TIMEOUT` (GraphQL
 # RemovedFromMergeQueueEvent.reason == checks_timed_out); the PR stays open
 # and labelled with nothing re-arming it. On that event — and ONLY that one;
@@ -25,21 +25,30 @@ name: Automerge Label
 # CI_TIMEOUT removals counted from the PR timeline; at the cap a comment is
 # posted and the PR is left un-queued.
 
+# Automerge workflow hardening (2026-11-02): the App installation has
+# `workflows: write` since 2026-11-02 (this row id), so a PR that edits
+# .github/workflows/** is armed like any other PR. A SENSITIVE workflow PR —
+# one touching a listed protected workflow, adding a workflow file, touching
+# .github/actions/**, or whose added workflow lines carry token minting,
+# secrets, pull_request_target or a write permission — arms only after the
+# `zizmor` workflow run on the PR head SHA concluded success; otherwise the
+# PR is left un-armed with one `automerge-held:` comment for the orchestrator
+# (which mints a heal row). Nothing routes to a human.
+#
 # Two automerge gaps measured on PR #2376 (2026-10-17):
-# (1) a PR that edits .github/workflows/** can never be armed by this App token
-# (it carries no `workflows` permission; GitHub refuses both
-# enablePullRequestAutoMerge and enqueuePullRequest). The App installation's
-# workflows grant could not be verified from CI, and requesting an ungranted
-# permission makes the token mint itself fail for EVERY PR, so the token is
-# left as-is and a workflow-touching PR now gets an explicit
-# `needs-human-merge` comment instead of a silently failed run.
+# (1) a PR that edits .github/workflows/** could never be armed by the App
+# token (it carried no `workflows` permission; GitHub refused both
+# enablePullRequestAutoMerge and enqueuePullRequest). Superseded 2026-11-02
+# (2026-11-02 hardening): the token now mints with
+# workflows:write and sensitive workflow PRs gate on zizmor instead of a
+# human merge.
 # (2) a labelled PR removed from the queue for any reason other than
 # checks_timed_out (e.g. failed_checks) and later green again was never
 # re-armed. The hourly `rearm-recovered` job below scans labelled open PRs and
 # arms any that are mergeStateStatus CLEAN with nothing pending.
 on:
   pull_request:
-    types: [labeled, dequeued]
+    types: [labeled, dequeued, synchronize]
   schedule:
     - cron: '17 * * * *'
   workflow_dispatch:
@@ -51,9 +60,17 @@ permissions:
 jobs:
   enable-automerge:
     name: Enable auto-merge on labeled PR
-    if: (github.event.action == 'labeled' && github.event.label.name == 'automerge') || (github.event.action == 'dequeued' && github.event.reason == 'CI_TIMEOUT' && contains(github.event.pull_request.labels.*.name, 'automerge'))
+    if: ((github.event.action == 'labeled' && github.event.label.name == 'automerge') || (github.event.action == 'dequeued' && contains(github.event.pull_request.labels.*.name, 'automerge'))) && !contains(github.event.pull_request.labels.*.name, 'mq-ejected')
     runs-on: ubuntu-latest
     steps:
+      # The merge-group-shadow gate below runs the repo's own decision helper,
+      # so the checkout is needed (depth 1, read-only — this job never pushes).
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
       # Held-draft shard PRs must never auto-merge (board/STANDING-ORDERS.md
       # -0.7) and a fork PR's head repo differs from the base repo, which the
       # App token cannot push/merge across without a second grant — skip both.
@@ -67,12 +84,63 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
-          WF=$(gh pr diff "$PR" -R "$BASE_REPO" --name-only | grep -c '^\.github/workflows/' || true)
+          # Workflow hardening (2026-11-02): workflow-file PRs
+          # are no longer skipped as a class — the App carries workflows:write.
+          # A PR is SENSITIVE when it touches a listed protected workflow, adds
+          # a workflow file, touches .github/actions/**, or its added workflow
+          # lines carry token minting, secrets, pull_request_target or a write
+          # permission. Sensitive PRs arm only after zizmor success (the
+          # zizmor-gate step below); everything else arms like any other PR.
+          #
+          # File list and added lines come from the paginated PR files API, not
+          # `gh pr diff`: the diff endpoint answers HTTP 406 above 300 files, so
+          # big PRs could never arm. One call emits
+          # tagged lines: F=every filename, N=added workflow file, M=workflow
+          # file with no `patch` (GitHub omits it for very large files),
+          # A=added (+) line of a workflow patch. The files API stops at 3000
+          # files; past that, or with a patch missing, the PR fails closed to
+          # SENSITIVE (arms only after green zizmor), never open.
+          CHANGED=$(gh api "repos/$BASE_REPO/pulls/$PR" --jq '.changed_files')
+          FILES=$(gh api --paginate "repos/$BASE_REPO/pulls/$PR/files?per_page=100" --jq '.[] | (.filename | startswith(".github/workflows/")) as $wf | "F\t\(.filename)", (select($wf and .status == "added") | "N\t\(.filename)"), (select($wf and .patch == null and .status != "removed" and .changes > 0) | "M\t\(.filename)"), (select($wf) | (.patch // "") | split("\n")[] | select(startswith("+")) | "A\t\(.)")')
+          NAME_ONLY=$(echo "$FILES" | sed -n 's/^F\t//p')
+          WF=$(echo "$NAME_ONLY" | grep -c '^\.github/workflows/' || true)
           echo "workflow_files=$WF" >> "$GITHUB_OUTPUT"
+          SENSITIVE_RULE=""
+          if [ "$CHANGED" -gt 3000 ]; then
+            SENSITIVE_RULE="over-3000-files:$CHANGED"
+            echo "::notice title=Fail-closed SENSITIVE::PR changes $CHANGED files; the files API lists only 3000, so the rest cannot be inspected."
+          fi
+          if [ "$(echo "$NAME_ONLY" | grep -c '^\.github/actions/' || true)" -gt 0 ]; then
+            [ -z "$SENSITIVE_RULE" ] && SENSITIVE_RULE="touches-.github/actions/**"
+          fi
           if [ "$WF" -gt 0 ]; then
-            echo "::notice title=Skipped::PR touches .github/workflows/**; the App token has no workflows permission, so it cannot be armed. Needs a human merge."
-            echo "proceed=false" >> "$GITHUB_OUTPUT"
-          elif [ "$IS_DRAFT" = "true" ]; then
+            ADDED_WF=$(echo "$FILES" | sed -n 's/^A\t//p')
+            NEW_WF=$(echo "$FILES" | sed -n 's/^N\t//p')
+            NOPATCH_WF=$(echo "$FILES" | sed -n 's/^M\t//p')
+            SENSITIVE_LIST=" automerge-label.yml ruleset-apply.yml ruleset-drift-gate.yml derived-artifacts-regen.yml derived-regen-deadman.yml deploy-to-dreamhost.yml deploy-docs.yml deploy-drift-check.yml sync-chaingraph-spec.yml pr-autofix.yml gitlab-backup.yml swh-save.yml ci-anchor.yml scripts-verify.yml html-verify.yml jsdoc-checkjs.yml land-verify.yml zizmor.yml "
+            for f in $NEW_WF; do
+              [ -z "$SENSITIVE_RULE" ] && SENSITIVE_RULE="adds-workflow-file:$f"
+            done
+            for base in $(echo "$NAME_ONLY" | grep '^\.github/workflows/' | xargs -n1 basename); do
+              case "$SENSITIVE_LIST" in *" $base "*)
+                [ -z "$SENSITIVE_RULE" ] && SENSITIVE_RULE="sensitive-workflow:$base" ;;
+              esac
+            done
+            if echo "$ADDED_WF" | grep -Eq 'create-github-app-token|secrets\.|pull_request_target|permissions:[[:space:]]*(write|write-all)|^\+[[:space:]]*[a-z-]+:[[:space:]]*write([[:space:]]|$)'; then
+              [ -z "$SENSITIVE_RULE" ] && SENSITIVE_RULE="added-workflow-lines-sensitive"
+            fi
+            for f in $NOPATCH_WF; do
+              echo "::notice title=Fail-closed SENSITIVE::GitHub returned no patch for $f, so its added lines cannot be scanned."
+              [ -z "$SENSITIVE_RULE" ] && SENSITIVE_RULE="workflow-patch-missing:$f"
+            done
+          fi
+          echo "sensitive_rule=$SENSITIVE_RULE" >> "$GITHUB_OUTPUT"
+          if [ -n "$SENSITIVE_RULE" ]; then
+            echo "sensitive=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "sensitive=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "$IS_DRAFT" = "true" ]; then
             echo "::notice title=Skipped::PR is a draft; auto-merge not enabled."
             echo "proceed=false" >> "$GITHUB_OUTPUT"
           elif [ "$HEAD_REPO" != "$BASE_REPO" ]; then
@@ -82,16 +150,53 @@ jobs:
             echo "proceed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # MERGE-GROUP-SHADOW GATE: pull_request CI judges the COMMITTED tree,
+      # merge_group judges the assembled DERIVED_ROOT tree. The
+      # `merge-group-shadow` job (scripts-verify.yml, pull_request-only,
+      # non-required) replays the queue's assembled-tree verdict on the PR;
+      # this step refuses to arm or enqueue a labelled PR whose shadow check
+      # is failing, pending or MISSING on its head. The decision is the repo's
+      # own helper (scripts/check-merge-group-shadow.mjs — pure over the
+      # `gh pr checks --json name,state` payload), and the refusal reason is
+      # posted verbatim to the job summary. Refusing is NOT a red job: the
+      # arming simply does not happen, exactly like the draft/fork skips above,
+      # with the summary saying why. Required checks are untouched.
+      - name: Guard merge-group-shadow parity check
+        id: shadow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          CHECKS=$(gh pr checks "$PR" -R "$REPO" --json name,state || echo '[]')
+          VERDICT=$(node scripts/check-merge-group-shadow.mjs "$CHECKS") && CODE=0 || CODE=$?
+          if [ "$CODE" = "0" ]; then
+            echo "verdict=proceed" >> "$GITHUB_OUTPUT"
+          else
+            echo "verdict=refuse" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Refused::merge-group-shadow is not green on this head (exit $CODE); auto-merge NOT enabled."
+          fi
+          {
+            echo "### merge-group-shadow gate"
+            echo ""
+            echo "$VERDICT"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
       # Mints a credential scoped to this one repo, expiring with the job.
       # Same App + same action pin as derived-artifacts-regen.yml and
-      # sync-chaingraph-spec.yml. BOTH permissions below are required: a
+      # sync-chaingraph-spec.yml. ALL THREE permissions below are required: a
       # pull-requests:write-only token gets "Resource not accessible by
       # integration (mergePullRequest)" from enablePullRequestAutoMerge —
       # measured 2026-08-16, run 31981224894 — because enabling auto-merge
-      # is gated on merge/contents permission, not just PR-write. The
-      # installation already grants contents:write (same as regen's token).
+      # is gated on merge/contents permission, not just PR-write.
+      # Hardening 2026-11-02: the installation
+      # also grants workflows:write (granted and accepted 2026-11-02), so
+      # workflow-file PRs arm through the same token instead of routing to a
+      # human.
       - name: Mint PR token
-        if: steps.guard.outputs.proceed == 'true' || steps.guard.outputs.workflow_files != '0'
+        if: steps.guard.outputs.proceed == 'true'
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
@@ -101,20 +206,36 @@ jobs:
           repositories: ${{ github.event.repository.name }}
           permission-pull-requests: write
           permission-contents: write
+          permission-workflows: write
 
-      - name: Notice - workflow-touching PR needs a human merge
-        if: steps.guard.outputs.workflow_files != '0'
+      # Hardening 2026-11-02: a SENSITIVE
+      # workflow PR arms only when the `zizmor` workflow run on this PR's
+      # head SHA concluded success. Otherwise the PR is left un-armed with
+      # ONE `automerge-held:` comment addressed to the orchestrator, which
+      # mints a heal row — no human step anywhere.
+      - name: Zizmor gate for sensitive workflow PRs
+        id: zizmor
+        if: steps.guard.outputs.proceed == 'true' && steps.guard.outputs.sensitive == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          RULE: ${{ steps.guard.outputs.sensitive_rule }}
         run: |
           set -euo pipefail
-          if gh pr view "$PR" -R "$REPO" --json comments -q '.comments[].body' | grep -q 'needs-human-merge'; then
-            echo "needs-human-merge notice already posted"
+          CONCLUSION=$(gh api "repos/$REPO/actions/runs?head_sha=$SHA" | jq -r '[.workflow_runs[] | select(.path == ".github/workflows/zizmor.yml")][0].conclusion // "none"')
+          echo "zizmor_conclusion=$CONCLUSION" >> "$GITHUB_OUTPUT"
+          if [ "$CONCLUSION" = "success" ]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          gh pr comment "$PR" -R "$REPO" --body "needs-human-merge: this PR changes \`.github/workflows/**\`. The automerge App token has no \`workflows\` permission, so GitHub refuses to arm or enqueue it. Auto-merge was NOT enabled; merge it by hand."
+          echo "proceed=false" >> "$GITHUB_OUTPUT"
+          if gh pr view "$PR" -R "$REPO" --json comments -q '.comments[].body' | grep -q 'automerge-held'; then
+            echo "automerge-held notice already posted"
+            exit 0
+          fi
+          gh pr comment "$PR" -R "$REPO" --body "automerge-held: $RULE; zizmor $CONCLUSION. Re-arming requires a successful zizmor run on this head SHA."
 
       # MERGEQUEUE-REQUEUE-ON-TIMEOUT-1 (2026-09-10): dequeued runs only —
       # count this PR's prior removals from the merge queue and re-queue on
@@ -127,7 +248,7 @@ jobs:
       # re-queue. Removals for any other reason are not counted and never
       # reach this job (job `if`).
       - name: Cap CI_TIMEOUT re-queues
-        if: github.event.action == 'dequeued'
+        if: github.event.action == 'dequeued' && github.event.reason == 'CI_TIMEOUT'
         id: timeout-cap
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -159,6 +280,83 @@ jobs:
           fi
           echo "proceed=true" >> "$GITHUB_OUTPUT"
 
+      # Re-queue once when a merge_group run dies because its
+      # gh-readonly-queue ref vanished before checkout (2026-11-05): dequeued runs for any
+      # reason other than CI_TIMEOUT. The job `if` lets every dequeue in (a
+      # `merged` dequeue included), so this step decides from the PR timeline's
+      # LAST removal reason (GraphQL spelling, measured on the live repo
+      # 2026-11-05: merged, failed_checks, merge_conflict) and never re-queues a
+      # merged or manual removal. Only failed_checks / merge_conflict go on to
+      # the log check: the newest failed merge_group run for this PR is classified
+      # by scripts/mq-eject-classify.mjs.
+      #   checkout-fatal -> `fatal: ... gh-readonly-queue/... is not a commit`
+      #     (the group was rebuilt before checkout; the PR did not fail). Re-queue
+      #     once through the step below, capped 1 per PR per hour, counted from
+      #     this step's own marker comments.
+      #   derived-gate -> a DERIVED_ROOT_GATES member failed (a real
+      #     stale-after-merge result). Never re-queued: one `[MQ-EJECT] #<n> <gate>
+      #     run <id>` warning + job summary line for the coordinator.
+      # If the log cannot be fetched the step does nothing (no re-queue).
+      - name: Classify merge_group ejection
+        if: github.event.action == 'dequeued' && github.event.reason != 'CI_TIMEOUT' && steps.guard.outputs.proceed == 'true'
+        id: mq-eject
+        env:
+          WEBHOOK_REASON: ${{ github.event.reason }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          echo "proceed=false" >> "$GITHUB_OUTPUT"
+          NODE_ID=$(gh pr view "$PR" -R "$REPO" --json id -q .id)
+          REASON=$(gh api graphql -f query='
+            query($id: ID!) {
+              node(id: $id) {
+                ... on PullRequest {
+                  timelineItems(itemTypes: [REMOVED_FROM_MERGE_QUEUE_EVENT], last: 1) {
+                    nodes { ... on RemovedFromMergeQueueEvent { reason } }
+                  }
+                }
+              }
+            }' -f id="$NODE_ID" | jq -r '.data.node.timelineItems.nodes[0].reason // "none"')
+          echo "last removal reason: $REASON (webhook reason: $WEBHOOK_REASON)"
+          case "$REASON" in failed_checks|merge_conflict) ;; *) echo "reason $REASON is never re-queued"; exit 0 ;; esac
+          RUN=$(gh api "repos/$REPO/actions/runs?event=merge_group&status=failure&per_page=50" | jq -r --arg p "gh-readonly-queue/main/pr-$PR-" '[.workflow_runs[] | select(.head_branch | startswith($p))][0].id // empty')
+          if [ -z "$RUN" ]; then echo "::notice title=No merge_group run::no failed merge_group run found for #$PR"; exit 0; fi
+          VERDICT=$(gh run view "$RUN" -R "$REPO" --log-failed 2>/dev/null | node scripts/mq-eject-classify.mjs || echo '{"kind":"other","gates":[]}')
+          KIND=$(echo "$VERDICT" | jq -r .kind)
+          echo "run $RUN classified: $VERDICT"
+          # Eject hold: any failed-check ejection that is not the checkout-fatal
+          # class is held at this head: `mq-ejected` label + ONE comment (updated in
+          # place on a repeat) naming the failing workflow, step, run and head sha.
+          # rearm-recovered and merge-lane skip the PR until a new head clears it.
+          if [ "$KIND" != "checkout-fatal" ] && [ "$REASON" = "failed_checks" ]; then
+            HEAD_SHA=$(gh pr view "$PR" -R "$REPO" --json headRefOid -q .headRefOid)
+            WF_NAME=$(gh run view "$RUN" -R "$REPO" --json workflowName -q .workflowName)
+            FAIL_STEP=$(gh api "repos/$REPO/actions/runs/$RUN/jobs?per_page=100" | jq -r '[.jobs[] | select(.conclusion == "failure") | .name as $j | ((.steps // [])[] | select(.conclusion == "failure") | "\($j) / \(.name)")][0] // "unknown"')
+            BODY=$(node scripts/mq-eject-hold.mjs comment "$WF_NAME" "$FAIL_STEP" "$RUN" "$HEAD_SHA")
+            gh label create mq-ejected -R "$REPO" --color B60205 --description "Ejected from the merge queue for a failed check; held until a new head commit" 2>/dev/null || true
+            gh pr edit "$PR" -R "$REPO" --add-label mq-ejected
+            CID=$(gh api "repos/$REPO/issues/$PR/comments?per_page=100" --paginate | jq -r '[.[] | select(.body | startswith("merge-queue: ejected"))][-1].id // empty')
+            if [ -n "$CID" ]; then
+              gh api -X PATCH "repos/$REPO/issues/comments/$CID" -f body="$BODY" > /dev/null
+            else
+              gh pr comment "$PR" -R "$REPO" --body "$BODY"
+            fi
+          fi
+          if [ "$KIND" = "derived-gate" ]; then
+            GATES=$(echo "$VERDICT" | jq -r '.gates | join(", ")')
+            echo "::warning title=MQ-EJECT::[MQ-EJECT] #$PR $GATES run $RUN"
+            echo "[MQ-EJECT] #$PR $GATES run $RUN" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          [ "$KIND" = "checkout-fatal" ] || exit 0
+          SINCE=$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ)
+          RECENT=$(gh pr view "$PR" -R "$REPO" --json comments | jq --arg s "$SINCE" '[.comments[] | select(.createdAt >= $s and (.body | startswith("merge-queue: checkout-fatal re-queue")))] | length')
+          if [ "$RECENT" -ge 1 ]; then echo "already re-queued for checkout-fatal within the hour; not again"; exit 0; fi
+          gh pr comment "$PR" -R "$REPO" --body "merge-queue: checkout-fatal re-queue (run $RUN: queue ref gone at checkout, group rebuilt). One re-queue per PR per hour."
+          echo "proceed=true" >> "$GITHUB_OUTPUT"
+
       # `gh pr merge --auto` silently no-ops on a PR that is ALREADY green
       # at label time, given the active merge_queue rule (main-ci-anchor,
       # 20721322) — measured 2026-08-17 on PR #1348, run 32029898577: the
@@ -171,7 +369,7 @@ jobs:
       # state via GraphQL and falls back to enqueuePullRequest directly
       # when native auto-merge left the PR untouched.
       - name: Enable auto-merge / enqueue
-        if: steps.guard.outputs.proceed == 'true' && steps.timeout-cap.outputs.proceed != 'false'
+        if: steps.guard.outputs.proceed == 'true' && steps.shadow.outputs.verdict == 'proceed' && steps.zizmor.outputs.proceed != 'false' && steps.timeout-cap.outputs.proceed != 'false' && (github.event.action != 'dequeued' || github.event.reason == 'CI_TIMEOUT' || steps.mq-eject.outputs.proceed == 'true')
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR: ${{ github.event.pull_request.number }}
@@ -231,12 +429,37 @@ jobs:
 
           gh pr comment "$PR" -R "$REPO" --body "auto-merge enabled by automerge-label.yml; GitHub merges this PR itself once every required check passes. No further \`gh pr merge\` needed."
 
+  # Eject hold: a new head commit clears the hold. Removing the label by
+  # hand (with a `[MQ-EJECT-OVERRIDE] #n <reason>` channel line) is the only
+  # other way to re-arm at the same head.
+  clear-mq-eject:
+    name: Clear mq-ejected hold on new head
+    if: github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'mq-ejected')
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Remove mq-ejected label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh pr edit "$PR" -R "$REPO" --remove-label mq-ejected
+
   # Recovery re-arm. Scheduled/manual only.
   rearm-recovered:
     name: Re-arm labelled PRs that recovered to green
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
       - name: Mint PR token
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
@@ -247,6 +470,7 @@ jobs:
           repositories: ${{ github.event.repository.name }}
           permission-pull-requests: write
           permission-contents: write
+          permission-workflows: write
 
       - name: Arm labelled, clean, un-armed PRs
         env:
@@ -256,14 +480,56 @@ jobs:
           set -euo pipefail
           FAILS=0
           for PR in $(gh pr list -R "$REPO" --label automerge --state open --draft=false --json number -q '.[].number'); do
-            VIEW=$(gh pr view "$PR" -R "$REPO" --json id,mergeStateStatus,autoMergeRequest,headRepositoryOwner,files)
+            VIEW=$(gh pr view "$PR" -R "$REPO" --json id,mergeStateStatus,autoMergeRequest,headRepositoryOwner,labels)
+            # Eject hold: ejected for a failed check and the head has not changed.
+            if echo "$VIEW" | jq -e '[.labels[].name] | index("mq-ejected")' > /dev/null; then echo "#$PR mq-ejected hold; not re-arming"; continue; fi
             STATE=$(echo "$VIEW" | jq -r .mergeStateStatus)
             ARMED=$(echo "$VIEW" | jq -r '.autoMergeRequest')
-            WF=$(echo "$VIEW" | jq '[.files[].path | select(startswith(".github/workflows/"))] | length')
             NODE_ID=$(echo "$VIEW" | jq -r .id)
             Q=$(gh api graphql -f query='query($id: ID!){node(id:$id){... on PullRequest{mergeQueueEntry{id}}}}' -f id="$NODE_ID" | jq -r '.data.node.mergeQueueEntry')
             if [ "$ARMED" != "null" ] || [ "$Q" != "null" ]; then echo "#$PR already armed/queued"; continue; fi
-            if [ "$WF" -gt 0 ]; then echo "#$PR touches workflows; needs human merge, skipped"; continue; fi
+            # Workflow hardening (2026-11-02): workflow PRs
+            # arm here like any other PR. Sensitive ones — same rules as the
+            # labeled-path guard step — arm only after a successful zizmor run
+            # on the head SHA; no PR routes to a human.
+            # Files come from the paginated PR files API, tagged exactly as in
+            # the guard step (F/M/A); `gh pr diff` 406s above 300 files and
+            # `gh pr view --json files` stops at 100, which could hide a
+            # workflow file on a big PR. Over 3000 files or a missing workflow
+            # patch fails closed to sensitive.
+            CHANGED=$(gh api "repos/$REPO/pulls/$PR" --jq '.changed_files')
+            FILES=$(gh api --paginate "repos/$REPO/pulls/$PR/files?per_page=100" --jq '.[] | (.filename | startswith(".github/workflows/")) as $wf | "F\t\(.filename)", (select($wf and .patch == null and .status != "removed" and .changes > 0) | "M\t\(.filename)"), (select($wf) | (.patch // "") | split("\n")[] | select(startswith("+")) | "A\t\(.)")')
+            NAME_ONLY=$(echo "$FILES" | sed -n 's/^F\t//p')
+            WF=$(echo "$NAME_ONLY" | grep -c '^\.github/workflows/' || true)
+            if [ "$WF" -gt 0 ] || [ "$CHANGED" -gt 3000 ]; then
+              RULE=""
+              if [ "$CHANGED" -gt 3000 ]; then RULE="over-3000-files:$CHANGED"; fi
+              if [ "$(echo "$NAME_ONLY" | grep -c '^\.github/actions/' || true)" -gt 0 ]; then [ -z "$RULE" ] && RULE="touches-.github/actions/**"; fi
+              if [ "$WF" -gt 0 ]; then
+                ADDED_WF=$(echo "$FILES" | sed -n 's/^A\t//p')
+                SENSITIVE_LIST=" automerge-label.yml ruleset-apply.yml ruleset-drift-gate.yml derived-artifacts-regen.yml derived-regen-deadman.yml deploy-to-dreamhost.yml deploy-docs.yml deploy-drift-check.yml sync-chaingraph-spec.yml pr-autofix.yml gitlab-backup.yml swh-save.yml ci-anchor.yml scripts-verify.yml html-verify.yml jsdoc-checkjs.yml land-verify.yml zizmor.yml "
+                for base in $(echo "$NAME_ONLY" | grep '^\.github/workflows/' | xargs -n1 basename); do
+                  case "$SENSITIVE_LIST" in *" $base "*) [ -z "$RULE" ] && RULE="sensitive-workflow:$base" ;; esac
+                done
+                if echo "$ADDED_WF" | grep -Eq 'create-github-app-token|secrets\.|pull_request_target|permissions:[[:space:]]*(write|write-all)|^\+[[:space:]]*[a-z-]+:[[:space:]]*write([[:space:]]|$)'; then
+                  [ -z "$RULE" ] && RULE="added-workflow-lines-sensitive"
+                fi
+                for f in $(echo "$FILES" | sed -n 's/^M\t//p'); do [ -z "$RULE" ] && RULE="workflow-patch-missing:$f"; done
+              fi
+              if [ -n "$RULE" ]; then
+                SHA=$(gh pr view "$PR" -R "$REPO" --json headRefOid -q .headRefOid)
+                CONC=$(gh api "repos/$REPO/actions/runs?head_sha=$SHA" | jq -r '[.workflow_runs[] | select(.path == ".github/workflows/zizmor.yml")][0].conclusion // "none"')
+                if [ "$CONC" != "success" ]; then echo "#$PR sensitive ($RULE); zizmor $CONC; not arming"; continue; fi
+              fi
+            fi
+            # Same merge-group-shadow gate the labeled/dequeued path enforces:
+            # never re-arm while the queue's assembled-tree verdict is failing,
+            # pending or missing on this head.
+            SHADOW_JSON=$(gh pr checks "$PR" -R "$REPO" --json name,state || echo '[]')
+            if ! node scripts/check-merge-group-shadow.mjs "$SHADOW_JSON" > /dev/null 2>&1; then
+              echo "#$PR merge-group-shadow not green (failing, pending or missing); not re-arming"
+              continue
+            fi
             if [ "$STATE" != "CLEAN" ]; then echo "#$PR mergeStateStatus=$STATE, not re-arming"; continue; fi
             echo "#$PR is CLEAN, labelled and un-armed; arming"
             gh pr merge "$PR" -R "$REPO" --auto --squash || true

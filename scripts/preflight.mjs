@@ -14,10 +14,13 @@
  *
  * ── MODES ───────────────────────────────────────────────────────────────────
  *   node scripts/preflight.mjs
- *       DEFAULT, UNCHANGED: fail-fast. Stops at the first red gate, exits 1, and
- *       reports nothing about the gates behind it. This is what CI
- *       (scripts-verify.yml), the pre-push hook and assemble-land.mjs run, and
- *       every line of that path is deliberately left exactly as it was.
+ *       Fail-fast, CONCURRENT (PREFLIGHT-PARALLEL-FAILFAST-1). Gates start in
+ *       list order up to the RAM-bound concurrency cap; on the first FAIL no
+ *       new gate starts, in-flight gates finish, and the run then names and
+ *       prints exactly what the old serial loop did — the FIRST failing gate
+ *       in LIST order, its full output, exit 1, nothing about the gates behind
+ *       it. This is what CI (scripts-verify.yml), the pre-push hook and
+ *       assemble-land.mjs run. Gates in SERIAL_GATES never share the pool.
  *
  *   node scripts/preflight.mjs --quiet
  *       Output-only: same gates/order/exit code; suppresses per-gate progress lines and
@@ -29,12 +32,13 @@
  *       PASS / FAIL / ADVISORY / UNAVAILABLE / DID-NOT-RUN list with totals derived
  *       from the gate list at runtime, and exits 1 if any unwaived gate failed.
  *       EXPECTRED-ENVPREFIX-GAP-1 (2026-08-29): this mode runs the gate list with
- *       bounded CONCURRENCY (default 8, override via AINUM_PREFLIGHT_CONCURRENCY),
- *       not serially — every gate here is a read-only checker/lint/test, so this
- *       changes wall-clock only, never which gates run, their order in the final
- *       ledger, or their pass/fail verdict. Fail-fast mode (no flag) is UNCHANGED
- *       and stays serial, since a run that stops at the first red has nothing to
- *       gain from concurrency.
+ *       bounded CONCURRENCY — min(env override, 8, floor(free RAM GB / 1.5)),
+ *       never below 1 — not serially; every gate here is a read-only
+ *       checker/lint/test, so this changes wall-clock only, never which gates
+ *       run, their order in the final ledger, or their pass/fail verdict.
+ *       PREFLIGHT-PARALLEL-FAILFAST-1 (2026-11-01): fail-fast mode reuses this
+ *       SAME pool with a stop-on-first-FAIL rule instead of a second serial
+ *       loop.
  *
  *   node scripts/preflight.mjs --self-test
  *       ...proves the machinery above is real. Also HOOK-TOUCHED-SET-REBASE-1's
@@ -92,9 +96,10 @@
 import { execSync, exec } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
 import { checkPreflightCap, refusalMessage } from './lib/preflight-cap.mjs';
+import { affectedPlan, missingHygiene, AFFECTED_HYGIENE_CMDS } from './lib/affected-gates.mjs';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpdir, freemem } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 // PREFLIGHT-STALE-REFUSE-1: resolve the site-repo path LOUDLY, then validate it
@@ -285,6 +290,14 @@ const QUIET = process.argv.includes('--quiet');
 // --self-test` asserts the subset ordering and the 90 s budget on a clean tree.
 // ⛔ It removes NO gate from the full suite below — the fence of its row.
 const QUICK = process.argv.includes('--quick');
+// PREPUSH-SAFETY-LEG-1: --push-safety — the pre-push hook's leg when the diff
+// touches gate machinery. Composition: the ENTIRE quick set (QUICK_GATES), plus
+// a changed-file secret scan, plus the per-kernel preflight of every touched
+// kernel, plus the self-test / node --test of every changed gate script. It
+// removes NO gate from the full suite (which still runs in CI on the PR head
+// and the merge_group tree); it replaces only the hook's LOCAL full run, whose
+// measured ≈660 s on the shared host capped push throughput for every builder.
+const PUSH_SAFETY = process.argv.includes('--push-safety');
 let _pendingLabel = null; // under --quiet we defer printing "▶ label" until we know it failed
 function gateStart(label) { if (QUIET) { _pendingLabel = label; return; } process.stdout.write(`▶ ${label} … `); }
 function gatePass(msg)    { if (QUIET) { _pendingLabel = null; return; } console.log(msg); }
@@ -764,6 +777,20 @@ function runSelfTest() {
     rmSync(tmpRoot, { recursive: true, force: true });
   }
 
+  // PREPUSH-HYGIENE-ALWAYS-1 — --affected never selects 0 gates. Drives the REAL
+  // affectedPlan() over synthetic gate lists: RED = an empty or undeterminable touched
+  // set must still pick the hygiene set AND say so loudly; GREEN = a normal diff is quiet.
+  console.log('\nPREPUSH-HYGIENE-ALWAYS-1 —--affected falls back to the hygiene set, loudly, never to zero gates:');
+  const hygGates = AFFECTED_HYGIENE_CMDS.map((c) => ['hygiene ' + c, c]);
+  const emptyPlan = affectedPlan(hygGates, []);
+  check('empty touched set: all hygiene gates picked, loud notice', emptyPlan.picked.length === hygGates.length && emptyPlan.loud === true, emptyPlan.note);
+  const fullGates = [...hygGates, ['some other gate', 'node scripts/other.mjs']];
+  const nullFull = affectedPlan(fullGates, null);
+  check('undeterminable touched set: fails closed to the FULL list (hygiene included), loud notice', nullFull.picked.length === fullGates.length && nullFull.loud === true, nullFull.note);
+  const quietPlan = affectedPlan(hygGates, ['README.md']);
+  check('a determinable diff keeps the hygiene gates and stays quiet', quietPlan.picked.length === hygGates.length && quietPlan.loud === false, quietPlan.note);
+  check('a hygiene command missing from the gate list is reported, not skipped silently', missingHygiene(hygGates.slice(1)).length === 1, missingHygiene(hygGates.slice(1)).join(', '));
+
   // END-TO-END RENDERER PROOF. Drives the REAL reporting path — the same
   // gateUnavailable() and printUnavailableBlock() the live advisories call — over a
   // REAL failed subprocess, so what a session would actually see is printed here
@@ -793,7 +820,7 @@ function runSelfTest() {
 // PREFLIGHT-QUICK-1: `--quick --self-test` is the QUICK suite's own control and
 // runs further down (after GATES/QUICK_GATES exist); the generic --self-test
 // above stays the reporting machinery's control and keeps exiting here.
-if (!QUICK && process.argv.includes('--self-test')) process.exit(runSelfTest());
+if (!QUICK && !PUSH_SAFETY && process.argv.includes('--self-test')) process.exit(runSelfTest());
 
 // PREPUSH-MERGE-HANG-1 (2026-10-16): the committed-vs-base leg of EVERY
 // touched-set computation below diffs against the PR base — `git merge-base
@@ -1163,8 +1190,14 @@ const GATES = [
   // against a mocked preflight — never the real gate suite, never a real push.
   // Was authored (PREREQ-EXPECTRED-FLAG-1) but never wired into GATES, so it
   // could rot unrun exactly like the reporting self-test above warns against.
+  // PREPUSH-HYGIENE-ALWAYS-1: the always-on hygiene set and the never-zero --affected
+  // plan, RED (empty / undeterminable / dropped command) and GREEN, over in-memory gate lists.
+  ['Affected-gates selection + hygiene fallback fixture proof (PREPUSH-HYGIENE-ALWAYS-1)',
+    'node scripts/lib/affected-gates.test.mjs'],
   ['Pre-push expect-red fixture proof (env + file routes, EXPECTRED-ENVPREFIX-GAP-1)',
     'node .githooks/pre-push.test.mjs'],
+  ['Pre-commit hygiene hook fixture proof (staged scoping, red blocks with gate and fix, green passes)',
+    'node .githooks/pre-commit.test.mjs'],
   // PREPUSH-NARROW-1: red/green controls for the hook's full-suite trigger
   // (which diff paths owe the FULL leg; docs-only scripts/ edits no longer do).
   ['Pre-push full-suite trigger controls (RED/GREEN path classes, PREPUSH-NARROW-1)',
@@ -1229,6 +1262,8 @@ const GATES = [
   ['Hash RFC 8785 vectors red-proof (GATE-SELFTEST-META-1 pair)', 'node chaingraph/standard/jcs-rfc8785-vectors.test.mjs --self-test'],
   ['Canonicalizer limits + __proto__ (HASH-PROTO-DEPTH-GUARD-1)', 'node chaingraph/kernels/_hash.test.mjs'],
   ['Kernel-identity monolith upsert controls (GENKERNELID-UPSERT-FIX-1)', 'node chaingraph/kernels/gen-kernel-identity.test.mjs'],
+  // RENUMBER-RESTAMP-1: renumber tool + its RED/GREEN self-test (SO #40b pair; the gate-side pair is T4-T6 in the test above).
+  ['Renumber-node tool self-test (RENUMBER-RESTAMP-1)', 'node scripts/renumber-node.mjs --self-test'],
   ['Determinism replay (N=3 + JCS)', 'node chaingraph/kernels/determinism-replay.test.mjs'],
   ['VM↔worker parity (§24)',       'node chaingraph/kernels/vm-parity-gate.mjs --strict'],
   ['Guest builtin safety (GUEST-BUILTIN-GATE-1)', 'node chaingraph/kernels/check-guest-builtin-safety.mjs'],
@@ -1528,9 +1563,9 @@ const GATES = [
   // shared-derived-artifact gate below.
   ['Debt ledger freshness (DEBT-LEDGER-1)', 'node scripts/gen-debt-ledger.mjs --check'],
   // KERNEL-INPUT-USAGE-CHECK-1: declared-input-usage ratchet (baseline
-  // scripts/kernel-input-usage-baseline.json, single-writer on main). The context
-  // split lives in the checker itself: ADVISORY on pull_request, BLOCKING on
-  // main/merge_group/local — see its header; --init ran exactly once, healing is --prune.
+  // scripts/kernel-input-usage-baseline.json, single-writer on main). BLOCKING in
+  // every context, pull_request included (MAIN-ONLY-PATHS-GATE-1) — see its header;
+  // --init ran exactly once, healing is --prune.
   ['Kernel input-usage ratchet (KERNEL-INPUT-USAGE-CHECK-1)', 'node scripts/check-kernel-input-usage.mjs'],
   // Paired red-proof (SO #40b / GATE-SELFTEST-META-1): the fixture proof entry below — the
   // pairing meta-gate requires it beside every new blocking gate.
@@ -1556,8 +1591,10 @@ const GATES = [
   // PR-ID-COLLISION-GATE-1 (2026-09-06): art-685/art-686 each collided twice in one
   // evening across OPEN PRs, which no in-tree uniqueness gate can ever see. This gate
   // scopes NEW node/manifest/tool ids in the PR diff against (a) origin/main,
-  // (b) chaingraph/graph/RESERVATIONS.json (the lock — same-line JSON conflicts in the
-  // merge queue are the mechanical backstop), (c) other open PRs (gh, token-free;
+  // (b) chaingraph/graph/reservations/art-<n>.json, one file per id (the lock — a
+  // same-id add/add conflict in the merge queue is the mechanical backstop; the legacy
+  // RESERVATIONS.json is read as a union while it exists, RESERVATIONS-SHARD-1),
+  // (c) other open PRs (gh, token-free;
   // skipped on merge_group — serial queue — and NAMED when unavailable, never silent).
   ['ID-collision gate (PR-ID-COLLISION-GATE-1)', 'node scripts/check-id-collision.mjs'],
   ['ID-collision gate controls (RED/GREEN fixtures, SO #34c pairing)', 'node scripts/check-id-collision.mjs --self-test'],
@@ -1598,6 +1635,19 @@ const GATES = [
   // declare no @keyframes and no animation property of its own.
   ['EXPLAINER-KIT inline copies + one animation system (EXPLAINER-KIT-1)', 'node scripts/sync-explainer-kit.mjs --check'],
   ['EXPLAINER-KIT gate controls (RED/GREEN mutations, SO #34c pairing)', 'node scripts/sync-explainer-kit.mjs --selftest'],
+  // ZK-TRUST-STAGES-GATE-1 (2026-11-03): the trust-model page's stage counts are
+  // derived, never typed — this gate recomputes the estate inventory
+  // (scripts/zk-trust-inventory.mjs, same ladder + classifier as the §18 estate
+  // gates) and fails on any trust.* sentinel drift on
+  // chaingraph/zk-trust-stages.html, plus bans the trust-model wording class
+  // there (trustless, tamper-proof, immutable, "one imageId covers all" outside
+  // a negated disclaimer sentence). The count source (chaingraph.json) is SO #35
+  // main-regenerated, so the generic ADVISORY_ON_PR categorisation downgrades it
+  // on a PR via the COVERED entry ('zk-trust-page', whose --fix heals the
+  // sentinels main-side after merge); it stays blocking on main and —
+  // DERIVED_ROOT-aware — in the merge queue.
+  ['ZK trust page counts + wording (ZK-TRUST-STAGES-GATE-1)', 'node scripts/check-zk-trust-page.mjs'],
+  ['ZK trust page gate controls (RED/GREEN fixtures, GATE-SELFTEST-META-1 pair)', 'node scripts/check-zk-trust-page.selftest.mjs'],
   // HUBSCENE-BUILD-1 (2026-10-07): the generated chain-flow scene region on
   // every hub guide page. ONE main-side writer (scripts/gen-hub-scenes.mjs,
   // derived-artifacts COVERED id 'hub-scenes'); this --check entry's command
@@ -1817,6 +1867,11 @@ const GATES = [
   // <meta name="ai-tool">, role="main" landmark; down-only baseline ratchet.
   ['Node page accessibility tree (TOOLPAGE-A11Y-1)', 'node scripts/check-a11y-tree.mjs'],
   ['Node page accessibility tree controls (RED+GREEN)', 'node scripts/check-a11y-tree.mjs --self-test'],
+  // MAIN-ONLY-PATHS-GATE-1: a PR may not carry a file only main's derived regen writes (SSOT
+  // scripts/derived-artifacts.mjs COVERED; derived-artifacts-regen.yml is the single writer, SO #35).
+  // HARD on pull_request and locally; not run on merge_group / push:main, which carry the regen's commits.
+  ['Main-only derived paths (MAIN-ONLY-PATHS-GATE-1)', 'node scripts/check-main-only-paths.mjs'],
+  ['Main-only derived paths controls (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-main-only-paths.mjs --self-test'],
   // COMPOSER-PLAN-AND-ROOT-WEBMCP-1: parity gate A (in-repo SSOT recompute of every
   // chain plan hash vs the committed derived set + page-literal sample) and parity
   // gate B fixtures (session-receipt Merkle; the site-side routine test is
@@ -2162,6 +2217,8 @@ const GATES = [
   // scripts/compute-proof-baseline.json (advisory on a PR, repaired by main's regen).
   ['§18 compute-proof baseline fresh (derived)', 'node scripts/check-compute-proof-coverage.mjs --check-baseline'],
   ['§18 coverage split controls (RED/GREEN-on-PR/HARD-on-main)', 'node scripts/check-compute-proof-coverage.test.mjs'],
+  // PREPUSH-DERIVED-ADVISORY-1: the context oracle's local arm (detached HEAD ahead of origin/main = PR proof; main/behind/undeterminable stay HARD).
+  ['Derived-gate context controls, detached HEAD (RED/GREEN, PREPUSH-DERIVED-ADVISORY-1)', 'node scripts/derived-context-detached.test.mjs'],
   ['§18 digest-freshness ratchet (S18-DIGEST-GATE-1)', 'node scripts/check-s18-digest-freshness.mjs'],
   ['§18 digest-freshness fixture proof', 'node scripts/check-s18-digest-freshness.test.mjs'],
   ['§18 freshness PR derived-root e2e (S18-FIXTURE-PR-DERIVED-ROOT-1)', 'node scripts/check-s18-freshness-fixture-derived-root.test.mjs'],
@@ -2173,7 +2230,7 @@ const GATES = [
   ['SO #36 sealed-kernel receipt controls (SO #40b pairing)', 'node scripts/check-sealed-kernel-receipt.test.mjs'],
   // Proven-digest freeze: a change may not move the sourceDigest() of a proven node unless a commit
   // message cites an audit finding (REPROVE-AUTHORIZED: art-<n> <path>#<id>) and the same change carries
-  // a fresh receipt. The advisory-on-PR split lives inside the gate; locally it blocks.
+  // a fresh receipt. Blocking everywhere since MAIN-ONLY-PATHS-GATE-1 (#2842).
   ['Proven-digest freeze (audit-cited re-prove only)', 'node scripts/check-proven-digest-freeze.mjs'],
   ['Proven-digest freeze fixture proof (RED/GREEN)', 'node scripts/check-proven-digest-freeze.test.mjs'],
   // S18-FRESHNESS-DURABLE-FIX-1: the regen-owned calibration artifact's own freshness — a COVERED
@@ -2511,9 +2568,73 @@ const MFSTSEC_LABEL = 'mfstSec presence (every tool)';
 // scoped this invocation to the tier leg alone, in which case exactly that one
 // entry runs (and the inline mfstSec check below sits out with it). Default
 // and 'skip' scopes run the whole list — unchanged.
+// AFFECTED-GATES-PREPUSH-1 (2026-11-05, Tim: "build it correct the first time"):
+// `--affected` narrows the run list to the full-suite gates that judge the
+// path classes this branch touches (vs merge-base origin/main). It exists
+// because builders ran only `--quick` before pushing, and measured 2026-11-05,
+// ~30 of 52 red PRs first-failed on a gate --quick does not contain but that
+// runs in seconds to a minute on the PR's own files (flags-computed, R4
+// null-class, flag-mirror, clause digest, kernel preflight, server card,
+// WebMCP freshness). research/HEAL-ROWS-VS-FIRST-TIME-RIGHT-2026-11-05.md.
+// The pre-push hook runs it after --quick for content diffs. It removes NO
+// gate from the full suite, which still runs in CI on the PR head and the
+// merge_group tree. Gate-machinery controls (selftests, fixture proofs,
+// mutation controls) are skipped here: a diff that touches gate machinery
+// already gets the push-safety leg instead (prepush-full-trigger.mjs).
+// Selection logic + tests: scripts/lib/affected-gates.mjs (+ .test.mjs).
+// PREPUSH-HYGIENE-ALWAYS-1: `--affected` never selects 0 gates. The whole-repo
+// hygiene set (AFFECTED_HYGIENE_CMDS in scripts/lib/affected-gates.mjs) always runs;
+// an empty or undeterminable touched set falls back to it with a loud notice.
+// `--hygiene` runs that set alone (the hook uses it on the push-safety leg, which
+// does not already contain it). Both share the --affected reporting path.
+const HYGIENE_ONLY = process.argv.includes('--hygiene');
+const AFFECTED = process.argv.includes('--affected') || HYGIENE_ONLY;
+// The touched set: committed work vs merge-base(origin/main, HEAD), plus, when NOT
+// running inside the pre-push hook, staged + unstaged + untracked files. A hook run
+// judges the commits being pushed; a hand run (a builder checking before commit)
+// must see work that is not committed yet. null = could not be determined.
+const IN_PUSH_HOOK = process.env.MUTATION_TIER_IN_HOOK === '1';
+function affectedChangedFiles() {
+  const lines = (out) => out.split('\n').map((l) => l.trim()).filter(Boolean);
+  try {
+    const base = execSync('git merge-base origin/main HEAD', { cwd: REPO, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    const files = new Set(lines(execSync(`git diff --name-only --diff-filter=d ${base} HEAD`, { cwd: REPO, env, encoding: 'utf8' })));
+    if (!IN_PUSH_HOOK) {
+      for (const cmd of ['git diff --name-only --diff-filter=d HEAD', 'git diff --name-only --diff-filter=d --cached', 'git ls-files --others --exclude-standard']) {
+        for (const f of lines(execSync(cmd, { cwd: REPO, env, encoding: 'utf8' }))) files.add(f);
+      }
+    }
+    return [...files];
+  } catch {
+    return null; // undeterminable: affectedPlan falls back to the hygiene set, loudly
+  }
+}
+let AFFECTED_NOTE = '';
+let AFFECTED_LOUD = false;
+function affectedRunList(gates) {
+  // A renamed or removed hygiene command would silently shrink the always-on set.
+  const missing = missingHygiene(gates);
+  if (missing.length) {
+    console.error(`❌ --affected: always-on hygiene command(s) no longer in GATES: ${missing.join(', ')}. Update AFFECTED_HYGIENE_CMDS in scripts/lib/affected-gates.mjs.`);
+    process.exit(2);
+  }
+  if (HYGIENE_ONLY) {
+    const picked = affectedPlan(gates, []).picked;
+    AFFECTED_NOTE = `--hygiene: only the ${picked.length} always-on whole-repo hygiene gates`;
+    return picked;
+  }
+  const plan = affectedPlan(gates, affectedChangedFiles());
+  AFFECTED_NOTE = plan.note;
+  AFFECTED_LOUD = plan.loud && !HYGIENE_ONLY;
+  return plan.picked;
+}
 const RUN_GATES = TIER_LEG === 'only'
   ? GATES.filter(([l]) => l.startsWith(TIER_GATE_LABEL_PREFIX))
-  : GATES;
+  : AFFECTED ? affectedRunList(GATES) : GATES;
+if (AFFECTED) {
+  console.log(`▶ ${HYGIENE_ONLY ? '--hygiene' : '--affected'} (PREPUSH-HYGIENE-ALWAYS-1): ${AFFECTED_NOTE}. The full suite still runs in CI.`);
+  if (AFFECTED_LOUD) console.log('⚠⚠⚠ --affected could not scope this diff. It did NOT select 0 gates; it fell back to the hygiene set. Do not read this as a diff-scoped green.');
+}
 if (TIER_LEG === 'only' && RUN_GATES.length !== 1) {
   console.error(`❌ tier-leg scoping: PREFLIGHT_TIER_LEG=only matched ${RUN_GATES.length} GATES entries by label prefix "${TIER_GATE_LABEL_PREFIX}" (expected exactly 1) — refusing to run a scope this file cannot account for.`);
   process.exit(2);
@@ -2527,7 +2648,9 @@ const RUN_LIST_SIZE = RUN_GATES.length + (TIER_ONLY_SCOPE ? 0 : 1);
 // PREFLIGHT-KEEPGOING-1: an --expect-red id that matches no gate would waive
 // nothing while reading as diligence, so it is a hard error before any gate runs.
 if (EXPECT_RED.length) {
-  const labels = [...RUN_GATES.map(([l]) => l), ...(TIER_ONLY_SCOPE ? [] : [MFSTSEC_LABEL])];
+  // AFFECTED-GATES-PREPUSH-1: the hook hands --quick and --affected the same
+  // --expect-red ids, so under --affected an id is valid if it names ANY gate.
+  const labels = [...(AFFECTED ? GATES : RUN_GATES).map(([l]) => l), ...(TIER_ONLY_SCOPE ? [] : [MFSTSEC_LABEL])];
   const unmatched = EXPECT_RED.filter((id) => !labels.some((l) => l.toLowerCase().includes(id.toLowerCase())));
   if (unmatched.length) {
     console.error(`❌ --expect-red: no gate label matches ${unmatched.map((u) => `"${u}"`).join(', ')}.`);
@@ -2586,6 +2709,8 @@ const QUICK_GATES = [
   // Proven-digest freeze: measured about 0.4 s (one git diff plus one cat-file batch over changed
   // node files only), well inside the 10 s bar for the quick subset.
   ['Proven-digest freeze (quick)', 'node scripts/check-proven-digest-freeze.mjs'],
+  // MAIN-ONLY-PATHS-GATE-1: one git diff against merge-base(origin/main, HEAD); well under 1 s.
+  ['Main-only derived paths (quick)', 'node scripts/check-main-only-paths.mjs'],
 ];
 
 async function runQuickSuite(selfTest) {
@@ -2632,7 +2757,7 @@ async function runQuickSuite(selfTest) {
   if (waived.length) console.log(`⚠ EXPECTED-RED (waived, this invocation only): ${waived.join(', ')}`);
   if (red.length) {
     console.log(`⛔ RED: ${red[0]}`);
-    console.log('   Fix it and re-run. (Ratchet gate only: run the --update-baseline command it names, then COMMIT the baseline.)');
+    console.log('   Fix it and re-run. (A ceiling ratchet is fixed in your code, never by raising the pin: BUILD-RIGHT-FIRST-1.)');
   }
   console.log(`Gates NOT run by --quick (${notRun.length} of the full ${RUN_LIST_SIZE}-gate suite — run \`node scripts/preflight.mjs\` for all of them):`);
   let wrap = '';
@@ -2694,6 +2819,186 @@ async function runQuickSuite(selfTest) {
   process.exit(red.length ? 1 : 0);
 }
 if (QUICK) await runQuickSuite(process.argv.includes('--self-test'));
+
+// ── PREPUSH-SAFETY-LEG-1: the --push-safety leg ─────────────────────────────
+// The pre-push hook runs this instead of the LOCAL full suite whenever the diff
+// touches gate machinery (scripts/**, .github/**, chaingraph/kernels/_*.mjs per
+// scripts/prepush-full-trigger.mjs) — the very case where the ~660 s full run
+// capped every builder's push on the one shared host. What this leg runs:
+//   1. the ENTIRE quick set (QUICK_GATES, unchanged);
+//   2. a secret scan over the changed files (private keys, cloud/API tokens,
+//      committed .env content) — safety gates must run on EVERY push;
+//   3. scripts/kernel-preflight.mjs --fast --keep-going for every kernel whose
+//      chaingraph/kernels/<id>.kernel.mjs the diff touches;
+//   4. the --self-test (where the script supports one) and node --test (where a
+//      sibling <name>.test.mjs exists) of every changed scripts/*.mjs gate.
+// Everything else waits for CI, which still runs the full suite on the PR head
+// and the merge_group tree. PREFLIGHT_FULL=1 keeps forcing the full suite.
+const PS_REF = 'origin/main';
+
+function psChangedFiles() {
+  try {
+    // Merge-base, not PS_REF directly: origin/main can move between branch cut
+    // and push, and files DELETED on main must never be scanned as if this
+    // branch still carried them (--diff-filter=d drops deletions either side).
+    const base = execSync(`git merge-base ${PS_REF} HEAD`, { cwd: REPO, env, encoding: 'utf8' }).trim();
+    const out = execSync(`git diff --name-only --diff-filter=d ${base} HEAD`, { cwd: REPO, env, encoding: 'utf8' });
+    return out.split('\n').map((l) => l.trim()).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+const SECRET_PATTERNS = [
+  [/-----BEGIN [A-Z ]*PRIVATE KEY-----/, 'private key block'],
+  [/AKIA[0-9A-Z]{16}/, 'AWS access key id'],
+  [/gh[pousr]_[A-Za-z0-9]{20,}/, 'GitHub token'],
+  [/github_pat_[A-Za-z0-9_]{20,}/, 'GitHub fine-grained PAT'],
+  [/xox[baprs]-[A-Za-z0-9-]{10,}/, 'Slack token'],
+  [/(?<![A-Za-z0-9_-])sk-(ant-)?[A-Za-z0-9_-]{20,}/, 'LLM API key'],
+];
+
+const ENV_OK = /\.(example|sample|template|dist)$/;
+function psIsEnvFile(p) {
+  const base = p.split('/').pop();
+  return base === '.env' || (base.startsWith('.env.') && !ENV_OK.test(base));
+}
+
+// Scan the COMMITTED bytes of each changed file (git show HEAD:<path>), the
+// content a push would actually publish. Binary/large files are skipped by a
+// NUL probe and a 1 MB cap; deleted paths resolve to nothing and are skipped.
+function psSecretScan(files) {
+  const hits = [];
+  for (const f of files) {
+    let content = '';
+    try {
+      content = execSync(`git show "HEAD:${f}"`, { cwd: REPO, env, encoding: 'utf8', maxBuffer: 4 << 20 });
+    } catch { continue; } // deleted, binary-unsafe as text, or unreadable — not scan content
+    if (content.includes('\u0000') || content.length > 1 << 20) continue;
+    if (psIsEnvFile(f)) { hits.push([f, 'committed .env content']); continue; }
+    for (const [re, what] of SECRET_PATTERNS) {
+      if (re.test(content)) { hits.push([f, what]); break; }
+    }
+  }
+  return hits;
+}
+
+function psTouchedKernelIds(files) {
+  const ids = new Set();
+  for (const f of files) {
+    const m = f.match(/^chaingraph\/kernels\/([^/]+)\.kernel\.mjs$/);
+    if (m) ids.add(m[1]);
+  }
+  return [...ids];
+}
+
+const PS_SELFTEST_CAP = 12;
+function psChangedGateChecks(files) {
+  const checks = [];
+  // BUILD-RIGHT-FIRST-1 (2026-11-05, measured on PR #2901's own first push): a change to the hook itself
+  // went red in CI on its fixture test, which this leg did not run. Run the hook's test when the hook moves.
+  if (files.some((f) => f === '.githooks/pre-push' || f === '.githooks/pre-push.test.mjs')
+      && existsSync(resolve(REPO, '.githooks/pre-push.test.mjs'))) {
+    checks.push(['Pre-push hook fixture test (changed hook)', 'node .githooks/pre-push.test.mjs']);
+  }
+  if (files.some((f) => f === '.githooks/pre-commit' || f === '.githooks/pre-commit.test.mjs' || f === 'scripts/precommit-hygiene.mjs' || f === 'scripts/_changed-files-lib.js')
+      && existsSync(resolve(REPO, '.githooks/pre-commit.test.mjs'))) {
+    checks.push(['Pre-commit hook fixture test (changed hook)', 'node .githooks/pre-commit.test.mjs']);
+  }
+  for (const f of files) {
+    const m = f.match(/^scripts\/([a-z0-9][a-z0-9._-]*\.mjs)$/);
+    if (!m) continue;
+    const name = m[1];
+    if (name.endsWith('.test.mjs')) continue;
+    let src = '';
+    try { src = readFileSync(resolve(REPO, 'scripts', name), 'utf8'); } catch { continue; }
+    if (src.includes("'--self-test'") || src.includes('"--self-test"')) {
+      checks.push([`Self-test of changed gate script scripts/${name}`, `node scripts/${name} --self-test`]);
+    }
+    const testFile = name.replace(/\.mjs$/, '.test.mjs');
+    if (existsSync(resolve(REPO, 'scripts', testFile))) {
+      checks.push([`node --test scripts/${testFile} (changed gate script)`, `node --test --test-reporter=dot scripts/${testFile}`]);
+    }
+    if (checks.length >= PS_SELFTEST_CAP * 2) break;
+  }
+  return checks;
+}
+
+async function runPushSafetySuite(selfTest) {
+  const files = psChangedFiles();
+  const kernelIds = psTouchedKernelIds(files);
+  const gates = [
+    ...QUICK_GATES,
+    ['Changed-file secret scan (PREPUSH-SAFETY-LEG-1)', '__SECRET_SCAN__'],
+    ...kernelIds.map((id) => [`Kernel gates (touched kernel ${id}, --fast --keep-going)`, `node scripts/kernel-preflight.mjs ${id} --fast --keep-going`]),
+    ...psChangedGateChecks(files),
+  ];
+  if (selfTest) {
+    // Structural assertions only — never executes the gates.
+    const failures = [];
+    const labels = gates.map(([l]) => l);
+    if (!QUICK_GATES.every(([l]) => labels.includes(l))) failures.push('push-safety does not contain the entire quick set');
+    if (!labels.some((l) => l.includes('secret scan'))) failures.push('push-safety is missing the changed-file secret scan');
+    const kId = psTouchedKernelIds(['chaingraph/kernels/999-example.kernel.mjs']);
+    if (JSON.stringify(kId) !== JSON.stringify(['999-example'])) failures.push(`kernel id mapping broken (got ${JSON.stringify(kId)})`);
+    if (psIsEnvFile('.env') === false || psIsEnvFile('.env.example') === true || psIsEnvFile('config/.env.production') === false) {
+      failures.push('.env classification broken');
+    }
+    const probe = psSecretScan(['nonexistent-file-xyz']); // deleted/absent path must not crash the scan
+    if (!Array.isArray(probe)) failures.push('secret scan not resilient to absent paths');
+    if (failures.length) {
+      for (const f of failures) console.error(`   ✗ ${f}`);
+      console.error('❌ --push-safety --self-test FAILED.');
+      process.exit(1);
+    }
+    console.log(`✅ --push-safety --self-test PASSED — quick set included, secret scan present, kernel/env classification and scan resilience green (${gates.length} gates in the leg for this tree).`);
+    process.exit(0);
+  }
+  const t0 = Date.now();
+  const red = [];
+  const green = [];
+  const waived = [];
+  for (const [label, cmd] of gates) {
+    process.stdout.write(`▶ ${label} … `);
+    if (cmd === '__SECRET_SCAN__') {
+      const hits = psSecretScan(files);
+      if (!hits.length) { console.log('✓ (0 hits)'); green.push(label); continue; }
+      console.log('✗');
+      for (const [f, what] of hits) console.log(`   ⛔ ${f}: ${what}`);
+      red.push(label);
+      break;
+    }
+    const g0 = Date.now();
+    try {
+      execSync(cmd, { cwd: REPO, env, stdio: ['ignore', 'pipe', 'pipe'] });
+      console.log(`✓ (${Date.now() - g0}ms)`);
+      green.push(label);
+    } catch (e) {
+      console.log(`✗ (${Date.now() - g0}ms)`);
+      console.log('\n' + ((e.stdout?.toString() || '') + (e.stderr?.toString() || '')).slice(0, 8000).trim() + '\n');
+      const declared = expectedRedFor(label);
+      if (declared) {
+        console.log(`   [EXPECTED-RED via --expect-red ${declared}] — waived for this invocation only`);
+        waived.push(label);
+        continue;
+      }
+      red.push(label);
+      break; // fail-fast, like --quick and the default full run
+    }
+  }
+  const wallMs = Date.now() - t0;
+  console.log('');
+  console.log(`--push-safety: ${green.length}/${gates.length} leg gates green, ${waived.length} EXPECTED-RED (declared), wall time ${(wallMs / 1000).toFixed(1)} s.`);
+  console.log('This is the push-safety leg (PREPUSH-SAFETY-LEG-1), NOT the full suite — the full suite runs in CI on the PR head and the merge_group tree.');
+  if (waived.length) console.log(`⚠ EXPECTED-RED (waived, this invocation only): ${waived.join(', ')}`);
+  if (red.length) {
+    console.log(`⛔ RED: ${red[0]}`);
+    console.log('   Fix it and re-run. (A ceiling ratchet is fixed in your code, never by raising the pin: BUILD-RIGHT-FIRST-1.)');
+    process.exit(1);
+  }
+  process.exit(0);
+}
+if (PUSH_SAFETY) await runPushSafetySuite(process.argv.includes('--self-test'));
 // PREFLIGHT-KEEPGOING-1: per-gate outcome ledger — { label, state, ms, note }.
 // state ∈ PASS | FAIL | EXPECTED-RED | DID-NOT-RUN. Written on every path, read
 // ONLY by the --keep-going summary, so it cannot affect default behaviour.
@@ -2703,164 +3008,197 @@ const advisoryFailures = []; // [label, cmd] — covered-artifact staleness on a
 const coveredFailures = []; // [label, cmd] — covered-artifact staleness on MAIN (hard red, classified below)
 const suiteStart = Date.now();
 
+// ── PREFLIGHT-PARALLEL-FAILFAST-1 (2026-11-01): ONE pool for BOTH modes ─────
+// Fail-fast no longer runs its own serial execSync loop; it reuses the EXACT
+// pool --keep-going uses (same pMapLimit, same worker, same classification —
+// no second pool), with two fail-fast-only rules added:
+//   1. STOP rule: the first hard FAIL (any FAIL verdict, completion order)
+//      sets a stop flag; no gate that has not already STARTED is started, and
+//      in-flight gates are allowed to finish. Printing then walks the list in
+//      GATES declaration order and stops at the FIRST failing gate in LIST
+//      order — the named gate, the printed output and the exit code are
+//      exactly what the old serial loop produced; the gates behind it still
+//      report nothing, exactly as before.
+//   2. SERIAL_GATES: labels matching a prefix below are pulled out of the
+//      pool entirely and run one at a time, in list order, ahead of the pool.
+const SERIAL_GATES_PREFIXES = [
+  // 'Mutation tier floor' — run-mutation-tier.mjs is the ONLY gate in GATES
+  // whose contract is "mutate a kernel copy, run the suite, revert": it never
+  // shares the machine with a peer gate. Every other entry is a read-only
+  // checker over the working tree or a self-test that mutates only its own
+  // mkdtemp()/tmpdir() fixture (shared scratch candidates were audited:
+  // ensureS18PrDerivedRoot() and MERGE_GROUP_DERIVED_ROOT both assemble their
+  // ephemeral tree synchronously and memoize it before any subprocess spawns,
+  // so two gates can never race its build) — and PREFLIGHT-KEEPGOING-1 has
+  // run the whole list concurrently at cap 8 since 2026-08 with zero
+  // shared-scratch collisions. The set starts at exactly one entry: the one
+  // deliberate mutator.
+  'Mutation tier floor',
+];
+
+// RAM-bound cap (PREFLIGHT-PARALLEL-FAILFAST-1): min(env override, 8,
+// floor(free RAM GB / 1.5)), never below 1. Free RAM is sampled once, here,
+// and the chosen cap is printed on the FIRST line of every gate-running
+// invocation.
+const CONCURRENCY_ENV_RAW = process.env.AINUM_PREFLIGHT_CONCURRENCY;
+const CONCURRENCY_ENV = Number(CONCURRENCY_ENV_RAW);
+const FREE_RAM_GB = freemem() / 2 ** 30;
+const CONCURRENCY = Math.max(1, Math.min(
+  Number.isFinite(CONCURRENCY_ENV) && CONCURRENCY_ENV > 0 ? CONCURRENCY_ENV : 8,
+  8,
+  Math.floor(FREE_RAM_GB / 1.5),
+));
+console.log(`▶ preflight: concurrency cap ${CONCURRENCY} (env ${CONCURRENCY_ENV_RAW || 'unset'}, free RAM ${FREE_RAM_GB.toFixed(1)} GB) — PREFLIGHT-PARALLEL-FAILFAST-1`);
+
 if (KEEP_GOING) {
   console.log('▶ preflight --keep-going: running EVERY gate and collecting every result.');
-  console.log('  (the default no-flag run is unchanged and still stops at the first red)');
+  console.log('  (the default no-flag run still stops at the first red — now on this same pool, PREFLIGHT-PARALLEL-FAILFAST-1)');
   if (EXPECT_RED.length) {
     console.log(`  --expect-red declared for THIS invocation only: ${EXPECT_RED.join(', ')}`);
   }
   console.log('');
 }
 
-if (!KEEP_GOING) {
-  // DEFAULT, UNCHANGED: fail-fast, serial, stops at the first red. Nothing to
-  // gain from concurrency on a run that stops here anyway, and every consumer
-  // of this path (CI's scripts-verify.yml, the pre-push hook, assemble-land.mjs)
-  // depends on exactly this behaviour — left byte-for-byte as it was.
-  for (const [label, cmd, meta] of RUN_GATES) {
-    gateStart(label);
-    const t0 = Date.now();
-    try {
-      execSync(cmd, { cwd: REPO, env: gateEnvFor(cmd), stdio: ['ignore', 'pipe', 'pipe'] });
-      const ms = Date.now() - t0;
-      timings.push([label, ms]);
-      gatePass(`✓ (${ms}ms)`);
-      results.push({ label, state: 'PASS', ms, note: meta?.note });
-    } catch (e) {
-      const ms = Date.now() - t0;
-      timings.push([label, ms]);
-      const out = (e.stdout?.toString() || '') + (e.stderr?.toString() || '');
-      if (!gateBlocks(cmd) && ADVISORY_ON_PR.has(cmd)) {
-        const c = classifyExecFailure(e);
-        if (c.ran) {
-          gateFail(`⚠ (${ms}ms) ADVISORY`);
-          console.log('\n' + out.trim() + '\n');
-          advisoryFailures.push([label, cmd]);
-          results.push({ label, state: 'ADVISORY', ms, note: meta?.note });
-        } else {
-          gateFail(`✗ (${ms}ms) UNAVAILABLE — ${c.reason}`);
-          console.log('\n' + out.trim() + '\n');
-          unavailableAdvisories.push({ label, reason: c.reason });
-          results.push({ label, state: 'UNAVAILABLE', ms, note: `${c.reason} — this gate reported NOTHING; ⛔ absence of a result is not a pass (SO #34c)` });
-        }
-        continue;
-      }
-      if (gateBlocks(cmd) && ADVISORY_ON_PR.has(cmd)) coveredFailures.push([label, cmd]);
-      gateFail(`✗ (${ms}ms)`);
-      console.log('\n' + out.trim() + '\n');
-      results.push({ label, state: 'FAIL', ms, note: meta?.note });
-      if (failed === null) failed = label; // where a fail-fast run stops
-      break;
+// EXPECTRED-ENVPREFIX-GAP-1 (defect 2, 2026-08-29): --expect-red implies
+// KEEP_GOING, which MUST run the full gate list to prove no OTHER gate is red
+// — never a partial scan, that would turn --expect-red into the blanket pass
+// it must never be. Running ~215 gates one at a time, each paying its own
+// Node/Python startup cost, is what pushed a real --expect-red push past the
+// 600s tool ceiling (measured on ML03-HANG-FIX-1: killed at exit 143 ~90
+// gates in) and denied the run its own final summary line — exactly the
+// evidence a session needs to certify "the declared gate was the only red"
+// (SO #34c / SO #56). Every GATES entry is a read-only checker/lint/test
+// (`--check`, `--quiet`, `--self-test`, `*.test.mjs` — none writes shared
+// state; several already run their own isolated scratch-worktree internally),
+// so running them CONCURRENTLY changes wall-clock only: same commands, same
+// classification, same full-breadth guarantee, same final ledger — just not
+// one at a time.
+const slots = new Array(RUN_GATES.length);
+const runnableIdx = [];
+const serialRunIdx = [];
+RUN_GATES.forEach(([label, , meta], i) => {
+  if (meta?.notRun && KEEP_GOING) {
+    // keep-going keeps its DID-NOT-RUN ledger entry. Fail-fast instead runs
+    // the gate's own command exactly as the old serial loop did — every
+    // notRun shape is a `node -e "1"` no-op that PASSes and prints as a PASS —
+    // so the fail-fast printed ledger is unchanged.
+    slots[i] = { label, state: 'DID-NOT-RUN', ms: 0, note: meta.notRun };
+    return;
+  }
+  if (SERIAL_GATES_PREFIXES.some((p) => label.startsWith(p))) serialRunIdx.push(i);
+  else runnableIdx.push(i);
+});
+
+async function pMapLimit(items, limit, worker) {
+  let cursor = 0;
+  async function run() {
+    while (cursor < items.length) {
+      const i = cursor++;
+      await worker(items[i]);
     }
   }
-} else {
-  // EXPECTRED-ENVPREFIX-GAP-1 (defect 2, 2026-08-29): --expect-red implies
-  // KEEP_GOING, which MUST run the full gate list to prove no OTHER gate is red
-  // — never a partial scan, that would turn --expect-red into the blanket pass
-  // it must never be. Running ~215 gates one at a time, each paying its own
-  // Node/Python startup cost, is what pushed a real --expect-red push past the
-  // 600s tool ceiling (measured on ML03-HANG-FIX-1: killed at exit 143 ~90
-  // gates in) and denied the run its own final summary line — exactly the
-  // evidence a session needs to certify "the declared gate was the only red"
-  // (SO #34c / SO #56). Every GATES entry is a read-only checker/lint/test
-  // (`--check`, `--quiet`, `--self-test`, `*.test.mjs` — none writes shared
-  // state; several already run their own isolated scratch-worktree internally),
-  // so running them CONCURRENTLY changes wall-clock only: same commands, same
-  // classification, same full-breadth guarantee, same final ledger — just not
-  // one at a time.
-  const slots = new Array(RUN_GATES.length);
-  const runnableIdx = [];
-  RUN_GATES.forEach(([label, , meta], i) => {
-    if (meta?.notRun) {
-      slots[i] = { label, state: 'DID-NOT-RUN', ms: 0, note: meta.notRun };
-    } else {
-      runnableIdx.push(i);
-    }
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, run));
+}
+
+async function runGateAt(i, ffStop) {
+  if (ffStop && ffStop.stop) return; // fail-fast: no NEW gate starts after the first FAIL
+  const [label, cmd, meta] = RUN_GATES[i];
+  const t0 = Date.now();
+  const { err, stdout, stderr } = await new Promise((res) => {
+    exec(cmd, { cwd: REPO, env: gateEnvFor(cmd) }, (err, stdout, stderr) => res({ err, stdout, stderr }));
   });
-
-  async function pMapLimit(items, limit, worker) {
-    let cursor = 0;
-    async function run() {
-      while (cursor < items.length) {
-        const i = cursor++;
-        await worker(items[i]);
-      }
-    }
-    await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, run));
-  }
-
-  const concurrency = Math.max(1, Number(process.env.AINUM_PREFLIGHT_CONCURRENCY) || 8);
-  await pMapLimit(runnableIdx, concurrency, async (i) => {
-    const [label, cmd, meta] = RUN_GATES[i];
-    const t0 = Date.now();
-    const { err, stdout, stderr } = await new Promise((res) => {
-      exec(cmd, { cwd: REPO, env: gateEnvFor(cmd) }, (err, stdout, stderr) => res({ err, stdout, stderr }));
-    });
-    const ms = Date.now() - t0;
-    timings.push([label, ms]);
-    if (!err) {
-      const declared = expectedRedFor(label);
-      slots[i] = {
-        label, state: 'PASS', ms,
-        note: declared ? `declared --expect-red ${declared} but PASSED — the declaration was unnecessary` : meta?.note,
-      };
-      return;
-    }
-    // exec()'s callback error uses `.code` for BOTH the numeric exit code and a
-    // spawn-errno string, depending on failure class; execSync (what
-    // classifyExecFailure was written against) splits those into `.status`
-    // (exit code) and `.code` (spawn errno). Normalize here, once, so the SAME
-    // classifier reused below sees the shape it expects either way.
-    if (typeof err.code === 'number') { err.status = err.code; err.code = undefined; }
-    err.stdout = stdout;
-    err.stderr = stderr;
-    const out = (stdout?.toString() || '') + (stderr?.toString() || '');
-    if (!gateBlocks(cmd) && ADVISORY_ON_PR.has(cmd)) {
-      const c = classifyExecFailure(err);
-      if (c.ran) {
-        advisoryFailures.push([label, cmd]);
-        slots[i] = { label, state: 'ADVISORY', ms, note: meta?.note, out, tag: 'ADVISORY' };
-      } else {
-        unavailableAdvisories.push({ label, reason: c.reason });
-        slots[i] = {
-          label, state: 'UNAVAILABLE', ms,
-          note: `${c.reason} — this gate reported NOTHING; ⛔ absence of a result is not a pass (SO #34c)`,
-          out, tag: 'UNAVAILABLE', reason: c.reason,
-        };
-      }
-      return;
-    }
-    if (gateBlocks(cmd) && ADVISORY_ON_PR.has(cmd)) coveredFailures.push([label, cmd]);
+  const ms = Date.now() - t0;
+  if (!err) {
     const declared = expectedRedFor(label);
-    if (failed === null) failed = label; // truthiness only under --keep-going; see PROBE_LABEL below
     slots[i] = {
-      label, state: declared ? 'EXPECTED-RED' : 'FAIL', ms,
-      note: declared ? `red, waived for this invocation only by --expect-red ${declared}` : meta?.note,
-      out, tag: declared ? 'EXPECTED-RED' : 'FAIL', declared,
+      label, state: 'PASS', ms,
+      note: declared ? `declared --expect-red ${declared} but PASSED — the declaration was unnecessary` : meta?.note,
     };
-  });
-
-  // Print and record in GATES DECLARATION ORDER (never completion order), so the
-  // KEEP-GOING SUMMARY, the "would have stopped at" index, and the run-list
-  // reconciliation below are identical to what a serial run would have produced.
-  for (const slot of slots) {
-    if (slot.state === 'DID-NOT-RUN') {
-      console.log(`⊘ ${slot.label} … DID NOT RUN`);
-      results.push(slot);
-      continue;
-    }
-    gateStart(slot.label);
-    if (slot.state === 'PASS') {
-      gatePass(`✓ (${slot.ms}ms)`);
-      results.push({ label: slot.label, state: slot.state, ms: slot.ms, note: slot.note });
-      continue;
-    }
-    if (slot.tag === 'ADVISORY') gateFail(`⚠ (${slot.ms}ms) ADVISORY`);
-    else if (slot.tag === 'UNAVAILABLE') gateFail(`✗ (${slot.ms}ms) UNAVAILABLE — ${slot.reason}`);
-    else gateFail(slot.declared ? `✗ (${slot.ms}ms) [EXPECTED-RED via --expect-red ${slot.declared}]` : `✗ (${slot.ms}ms)`);
-    console.log('\n' + slot.out.trim() + '\n');
-    results.push({ label: slot.label, state: slot.state, ms: slot.ms, note: slot.note });
+    return;
   }
+  // exec()'s callback error uses `.code` for BOTH the numeric exit code and a
+  // spawn-errno string, depending on failure class; execSync (what
+  // classifyExecFailure was written against) splits those into `.status`
+  // (exit code) and `.code` (spawn errno). Normalize here, once, so the SAME
+  // classifier reused below sees the shape it expects either way.
+  if (typeof err.code === 'number') { err.status = err.code; err.code = undefined; }
+  err.stdout = stdout;
+  err.stderr = stderr;
+  const out = (stdout?.toString() || '') + (stderr?.toString() || '');
+  if (!gateBlocks(cmd) && ADVISORY_ON_PR.has(cmd)) {
+    const c = classifyExecFailure(err);
+    if (c.ran) {
+      advisoryFailures.push([label, cmd]);
+      slots[i] = { label, state: 'ADVISORY', ms, note: meta?.note, out, tag: 'ADVISORY' };
+    } else {
+      unavailableAdvisories.push({ label, reason: c.reason });
+      slots[i] = {
+        label, state: 'UNAVAILABLE', ms,
+        note: `${c.reason} — this gate reported NOTHING; ⛔ absence of a result is not a pass (SO #34c)`,
+        out, tag: 'UNAVAILABLE', reason: c.reason,
+      };
+    }
+    return;
+  }
+  if (gateBlocks(cmd) && ADVISORY_ON_PR.has(cmd)) coveredFailures.push([label, cmd]);
+  const declared = expectedRedFor(label);
+  if (KEEP_GOING && failed === null) failed = label; // truthiness only under --keep-going; see PROBE_LABEL below
+  slots[i] = {
+    label, state: declared ? 'EXPECTED-RED' : 'FAIL', ms,
+    note: declared ? `red, waived for this invocation only by --expect-red ${declared}` : meta?.note,
+    out, tag: declared ? 'EXPECTED-RED' : 'FAIL', declared,
+  };
+  if (ffStop && !declared) ffStop.stop = true; // fail-fast: let in-flight gates finish, start no new ones
+}
+
+if (KEEP_GOING) {
+  await pMapLimit(runnableIdx, CONCURRENCY, (i) => runGateAt(i, null));
+} else {
+  const ffStop = { stop: false };
+  for (const i of serialRunIdx) {
+    if (ffStop.stop) break;
+    await runGateAt(i, ffStop);
+  }
+  await pMapLimit(runnableIdx, CONCURRENCY, (i) => runGateAt(i, ffStop));
+}
+
+// Print and record in GATES DECLARATION ORDER (never completion order), so the
+// KEEP-GOING SUMMARY, the "would have stopped at" index, and the run-list
+// reconciliation below are identical to what a serial run would have produced.
+function printSlot(slot) {
+  if (!slot) return; // never started (fail-fast stop reached first)
+  if (slot.state === 'DID-NOT-RUN') {
+    console.log(`⊘ ${slot.label} … DID NOT RUN`);
+    results.push(slot);
+    return;
+  }
+  gateStart(slot.label);
+  timings.push([slot.label, slot.ms]);
+  if (slot.state === 'PASS') {
+    gatePass(`✓ (${slot.ms}ms)`);
+    results.push({ label: slot.label, state: slot.state, ms: slot.ms, note: slot.note });
+    return;
+  }
+  if (slot.tag === 'ADVISORY') gateFail(`⚠ (${slot.ms}ms) ADVISORY`);
+  else if (slot.tag === 'UNAVAILABLE') gateFail(`✗ (${slot.ms}ms) UNAVAILABLE — ${slot.reason}`);
+  else gateFail(slot.declared ? `✗ (${slot.ms}ms) [EXPECTED-RED via --expect-red ${slot.declared}]` : `✗ (${slot.ms}ms)`);
+  console.log('\n' + slot.out.trim() + '\n');
+  results.push({ label: slot.label, state: slot.state, ms: slot.ms, note: slot.note });
+}
+
+if (KEEP_GOING) {
+  for (const slot of slots) printSlot(slot);
+} else {
+  // Fail-fast: name the FIRST failing gate in LIST order, then print exactly
+  // the gates the old serial loop would have printed — everything up to and
+  // including that gate, nothing behind it.
+  let stopIdx = -1;
+  for (let i = 0; i < slots.length; i++) {
+    if (slots[i] && slots[i].tag === 'FAIL') { stopIdx = i; break; }
+  }
+  if (stopIdx >= 0) failed = slots[stopIdx].label;
+  const lastPrinted = stopIdx >= 0 ? stopIdx : slots.length - 1;
+  for (let i = 0; i <= lastPrinted; i++) printSlot(slots[i]);
 }
 
 // mfstSec presence — every tool HTML must carry the manifest panel (CI hard gate).
@@ -3430,6 +3768,9 @@ if (KEEP_GOING && waivedCount) {
   // red, and saying "PASSED" here would be the exact overclaim this mode removes.
   console.log(`\n⚠️  preflight COMPLETE — every gate reached; ${waivedCount} DECLARED-RED gate(s) waived (${EXPECT_RED.join(', ')}), every other gate green.${UNAVAILABLE_CLAUSE}`);
   console.log('   This is NOT an unqualified pass. The waived gate(s) above are still red.');
+} else if (AFFECTED) {
+  // AFFECTED-GATES-PREPUSH-1: a subset verdict must never read as the full suite (SO #34c).
+  console.log(`\n✅ preflight --affected PASSED — the ${RUN_GATES.length} gate(s) (always-on hygiene set plus this diff's path classes) are green. NOT the full suite: CI still runs every gate on the PR head and the merge_group tree.${UNAVAILABLE_CLAUSE}`);
 } else {
   console.log(`\n✅ preflight PASSED — all hard CI gates green. Safe to push.${UNAVAILABLE_CLAUSE}`);
 }

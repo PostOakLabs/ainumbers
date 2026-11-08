@@ -126,8 +126,49 @@ env:
   GATE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
 
 jobs:
+  group-alive:
+    name: group-alive
+    # Group-alive guard (merge_group only). When the queue invalidates a group
+    # (an entry ahead failed or was removed) it deletes the temporary
+    # gh-readonly-queue ref, and every job of the doomed run would otherwise
+    # fail at Checkout. This probe runs before any checkout and reports
+    # alive=false ONLY when the API answers 404 for that ref three times in a
+    # row; any success, or any other error (rate limit, network), counts as
+    # alive so a real run always proceeds and a real failure can never be
+    # skipped. The queue rebuilds the group on a fresh ref, so nothing is lost.
+    # Every other event leaves the output empty, which downstream reads as alive.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      alive: ${{ steps.probe.outputs.alive }}
+    steps:
+      - name: Probe the queue ref
+        id: probe
+        if: github.event_name == 'merge_group'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          QUEUE_REF: ${{ github.ref }}
+        run: |
+          set -u
+          alive=true
+          for attempt in 1 2 3; do
+            if gh api "repos/${REPO}/git/ref/${QUEUE_REF#refs/}" >/dev/null 2>"${RUNNER_TEMP}/probe.err"; then alive=true; break; fi
+            if grep -q 'HTTP 404' "${RUNNER_TEMP}/probe.err"; then alive=false; sleep 5; else alive=true; break; fi
+          done
+          echo "alive=${alive}" >> "$GITHUB_OUTPUT"
+          if [ "$alive" = "false" ]; then
+            echo "::notice title=queue group invalidated::queue group invalidated; nothing to verify"
+          fi
+
   relevant:
     name: relevant
+    # Skipped only when group-alive explicitly reported alive=false; a failed or
+    # cancelled probe still lets this job run. Downstream jobs then skip, and the
+    # always-report job treats a skip as a pass.
+    needs: group-alive
+    if: ${{ !cancelled() && needs.group-alive.outputs.alive != 'false' }}
     # Always-report shape: fast path-relevance check, always dispatches (see
     # pull_request trigger comment above). On workflow_run / workflow_dispatch
     # this always reports hit=true — there is no `paths:` filter left to scope
@@ -204,6 +245,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: write   # fail-fast step below cancels this merge_group run; no other event uses it
     steps:
       - name: Report dispatch mode
         if: github.event_name == 'workflow_dispatch'
@@ -305,6 +347,9 @@ jobs:
           node scripts/derived-artifacts.mjs --out "${SCRATCH}"
           echo "root=${SCRATCH}" >> "$GITHUB_OUTPUT"
           echo "DERIVED_ROOT=${SCRATCH} — freshness gates judge the ephemeral regenerated tree (event: ${GITHUB_EVENT_NAME})."
+          # thin-YAML (2026-11-01): the root also lands in a file scripts/ci/run-gate.mjs
+          # reads, replacing the steps.*.outputs env plumbing on the gate steps.
+          echo "${SCRATCH}" > "${RUNNER_TEMP}/derived-root.txt"
 
       # The exact complement, so the committed-tree path is VISIBLE in the log
       # instead of a silently-skipped step: on the bot's own commit nothing is
@@ -331,65 +376,35 @@ jobs:
           SCRATCH="${RUNNER_TEMP}/s18-derived-tree"
           node scripts/assemble-chaingraph.mjs --out "${SCRATCH}/chaingraph/chaingraph.json"
           echo "root=${SCRATCH}" >> "$GITHUB_OUTPUT"
+          # thin-YAML (2026-11-01): see the derived-root.txt note on the merge_group step.
+          echo "${SCRATCH}" > "${RUNNER_TEMP}/s18-derived-root.txt"
 
       - name: Preflight (full gate suite)
+        # TIER-LEG SHARDING: this job runs EVERY gate EXCEPT the
+        # mutation-tier leg (PREFLIGHT_TIER_LEG=skip swaps that one GATES
+        # entry for its no-op notRun shape inside preflight; nothing else is
+        # scoped, softened or reordered). The leg itself runs in the
+        # scripts-verify-tier-shard matrix job below (PREFLIGHT_TIER_LEG=only,
+        # one round-robin slice of the same touched-kernel set per shard), and
+        # the reporter's aggregate fails iff this job OR any shard does.
+        # Union across the jobs = the single-job suite as it stood at base
+        # cc86ccbd (2026-09-16), byte for byte.
+        #
+        # check-id-collision.mjs leg (c) scans other OPEN PRs for a claimed art-id
+        # (the collision class no in-tree gate can see: two open PRs never share a
+        # tree, so file-level uniqueness gates cannot catch them). gh reads the job's
+        # own token from the environment — token-free, no extra secret.
+        #
+        # thin-YAML (2026-11-01): the computed env plumbing (S18_DERIVED_ROOT,
+        # DERIVED_ROOT) and the shell-level GITHUB_EVENT_NAME=merge_group
+        # presentation when the scratch tree is mounted moved verbatim into
+        # scripts/ci/run-gate.mjs under this name ($RUNNER_TEMP/derived-root.txt
+        # / s18-derived-root.txt). The literal env entries below stay — they are
+        # constants, not resolved context.
         env:
-          S18_DERIVED_ROOT: ${{ steps.s18tree.outputs.root }}
-          # TIER-LEG SHARDING: this job runs EVERY gate EXCEPT the
-          # mutation-tier leg (PREFLIGHT_TIER_LEG=skip swaps that one GATES
-          # entry for its no-op notRun shape inside preflight; nothing else is
-          # scoped, softened or reordered). The leg itself runs in the
-          # scripts-verify-tier-shard matrix job below (PREFLIGHT_TIER_LEG=only,
-          # one round-robin slice of the same touched-kernel set per shard), and
-          # the reporter's aggregate fails iff this job OR any shard does.
-          # Union across the jobs = the single-job suite as it stood at base
-          # cc86ccbd (2026-09-16), byte for byte.
           PREFLIGHT_TIER_LEG: skip
-          # check-id-collision.mjs leg (c) scans other OPEN PRs for a claimed art-id
-          # (the collision class no in-tree gate can see: two open PRs never share a
-          # tree, so file-level uniqueness gates cannot catch them). gh reads the job's
-          # own token from the environment — token-free, no extra secret.
           GITHUB_TOKEN: ${{ github.token }}
-          # Empty on pull_request and on push:main runs of the regen bot's own
-          # chore(derived) commit — those judge the committed tree, unchanged.
-          # Set to the ephemeral scratch tree on merge_group, on push:main of a
-          # human commit, and on workflow_dispatch (step above). preflight.mjs
-          # scopes this to the DERIVED_ROOT_GATES commands only; that list did
-          # not widen and no gate's blocking status moves.
-          DERIVED_ROOT: ${{ steps.derived.outputs.root }}
-          # When the scratch tree IS mounted, preflight must apply the SAME
-          # root-scoping rules it applies on merge_group: strip the root from
-          # every non-aware subprocess, run the DERIVED_ROOT_GATES commands
-          # HARD against it, and downgrade the non-aware COVERED freshness
-          # gates (e.g. EUC register, OKF bundle — they read in-tree paths
-          # and cannot overlay-read a scratch tree) while the aware
-          # `derived-artifacts.mjs --verify` enforces their freshness HARD
-          # against the scratch tree. That rule set keys on
-          # GITHUB_EVENT_NAME === 'merge_group' inside preflight.mjs (the
-          # 2026-09-06 merge_group hard-gates rule), and this row is fenced
-          # from editing gate scripts — so when DERIVED_ROOT is set the step
-          # presents the event name that selects those existing rules, via a
-          # shell-level override (GITHUB_* names are runner-reserved and a
-          # step-level env entry would be silently ignored — measured
-          # 2026-09-11, run 34654251817). Net enforcement is unchanged from
-          # the queue's proven shape: nothing becomes advisory that is not
-          # already advisory on merge_group, and every freshness verdict now
-          # comes from the fresh scratch tree. When the root is NOT mounted
-          # (pull_request, the regen bot's own push) preflight runs with the
-          # runner's real environment and the run is byte-for-byte today's
-          # behavior.
-          #
-          # NOTE: while the scratch tree is mounted this run intentionally
-          # takes merge_group's shape in full — including its fail-fast
-          # (no run-to-completion) on a red, and advisory statuses for the
-          # non-aware COVERED gates. Their freshness stays HARD via the
-          # aware --verify gate on the scratch tree.
-        run: |
-          if [ -n "$DERIVED_ROOT" ]; then
-            GITHUB_EVENT_NAME=merge_group node scripts/preflight.mjs
-          else
-            node scripts/preflight.mjs
-          fi
+        run: node scripts/ci/run-gate.mjs preflight
 
       # ── the per-PR derivables row: the four per-PR derivable gates, HARD on pull_request ──
       # The four-week red census of failed merge_group runs measured 44 §18
@@ -422,23 +437,23 @@ jobs:
       # Everything else keeps its downgrade: count-drift, sitemap, trust-signals
       # and the other main-side single-writer artifacts keep their downgrade untouched.
       - name: §18 ratchet + provenance (HARD on pull_request — per-PR derivables promotion)
-        env:
-          # Same PR-only scratch monolith the preflight step gets (steps.s18tree): without it this
-          # hard PR leg reads the committed chaingraph.json, where a first-prove PR's node is still
-          # deferred. Empty off pull_request, so push/merge_group behaviour is unchanged.
-          S18_DERIVED_ROOT: ${{ steps.s18tree.outputs.root }}
-        run: |
-          if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ]; then
-            GITHUB_EVENT_NAME=push node scripts/check-compute-proof-coverage.mjs
-          else
-            node scripts/check-compute-proof-coverage.mjs
-          fi
+        # thin-YAML (2026-11-01): the body (S18_DERIVED_ROOT from steps.s18tree, plus the
+        # shell-level GITHUB_EVENT_NAME=push presentation on pull_request — the
+        # per-PR derivables promotion) moved verbatim into scripts/ci/run-gate.mjs
+        # under this name ($RUNNER_TEMP/s18-derived-root.txt).
+        run: node scripts/ci/run-gate.mjs s18-ratchet
 
       - name: Manifest examples drift (HARD on pull_request — per-PR derivables promotion)
         run: node scripts/gen-manifest-examples.mjs --check
 
       - name: Ask-agent block freshness (HARD on pull_request — per-PR derivables promotion)
         run: node scripts/check-ask-agent-block.mjs
+
+      # Main-only paths: a PR may not carry a file only main's derived regen writes
+      # (SSOT scripts/derived-artifacts.mjs COVERED). HARD on pull_request; the script itself
+      # reports "not run" on merge_group / push / workflow_run, which carry the regen's commits.
+      - name: Main-only derived paths (HARD on pull_request)
+        run: node scripts/check-main-only-paths.mjs
 
       - name: Node page accessibility tree (HARD on pull_request — per-PR derivables promotion)
         # Queue/main a11y parity (2026-10-15): on merge_group this gate must
@@ -460,6 +475,16 @@ jobs:
         # condition (shard on disk not in chaingraph.meta.json order.nodes
         # with an in-repo page or manifest) in main contexts, warning on
         # pull_request — the queue can no longer pass what it cannot enumerate.
+        # Enrolment is main-side: that mid-flight finding is the ONLY advisory-on-PR
+        # path in this gate (the enrol is main-side: this ephemeral assembly's
+        # `assemble --enroll` pass writes it into the scratch meta, and the gate
+        # reads the scratch meta + monolith on merge_group, so only an AUTO-LAND
+        # additive verdict passes the queue). Every page finding stays HARD.
+        #
+        # thin-YAML (2026-11-01): this step keeps its literal invocation on purpose —
+        # check-workflow-gate-parity.mjs axis 3 reads workflow TEXT (comment-blind)
+        # for reverse presence, so routing this gate through scripts/ci/run-gate.mjs
+        # reads as "unwired". Its merge_group-only DERIVED_ROOT ternary stays here.
         env:
           DERIVED_ROOT: ${{ github.event_name == 'merge_group' && steps.derived.outputs.root || '' }}
         run: node scripts/check-a11y-tree.mjs
@@ -491,6 +516,20 @@ jobs:
         # shape (digest-resolution only; the value-match check reports
         # SKIPPED-NO-SNAPSHOT, never a pass).
         run: node scripts/check-citation-drift.mjs
+
+      # Fail-fast (merge_group only): a required job already failed, so the
+      # group is lost and the remaining jobs (notably the long tier shards)
+      # only hold the queue. Cancel the run. The always-report job below still
+      # runs on cancel (its `if: always()`), sees this job as failure, and
+      # reports the required context red, so the queue reacts at once. Never
+      # runs on pull_request or push, and never when the job passed.
+      - name: Fail fast, cancel the rest of this queue group run
+        if: failure() && github.event_name == 'merge_group'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: gh run cancel "$RUN_ID" --repo "$REPO" || echo "::warning::cancel request failed; the run finishes normally"
 
   scripts-verify-tier-shard:
     # This job NEVER sets MUTATION_TIER_IN_HOOK, so the hookSkipKernels advisory
@@ -528,6 +567,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: write   # fail-fast step below cancels this merge_group run; no other event uses it
     strategy:
       fail-fast: false
       # 6 shards: #1908's measured 400.5-min unsharded leg / 6 ≈ 67 min at even
@@ -590,6 +630,90 @@ jobs:
           if [ "$STATUS_OUT" = "failure" ]; then
             echo "::error title=tier shard $SHARD/6::Mutation tier floor RED on this shard — see the scan step log above. The scripts-verify / required aggregate will fail with it."
           fi
+
+      # Fail-fast (merge_group only): see the identical step in the main suite
+      # job. One red shard loses the group, so stop the sibling shards and the
+      # main suite instead of letting them hold the queue for hours.
+      - name: Fail fast, cancel the rest of this queue group run
+        if: failure() && github.event_name == 'merge_group'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: gh run cancel "$RUN_ID" --repo "$REPO" || echo "::warning::cancel request failed; the run finishes normally"
+
+  # MERGE-GROUP SHADOW (pull_request only, NON-REQUIRED by construction: this
+  # job is NOT in the scripts-verify-required aggregate below and is never
+  # added to any branch ruleset — its verdict alone can never block a PR).
+  #
+  # The parity gap this closes: pull_request CI judges the COMMITTED tree while
+  # merge_group judges the assembled DERIVED_ROOT tree (the "Ephemeral derived
+  # tree" step above). A PR can therefore be green on one and red on the other:
+  # #2797 was red on pull_request (nav island) yet green on merge_group and
+  # needed a bypass merge; #2730/#2795 were green on the PR side and were then
+  # ejected from the queue on §18 digest freshness. This job replays the
+  # queue's judgment ON the PR, where the author can still see and fix it.
+  #
+  # Shape: byte-for-byte the merge_group path. Same checkout (the merge ref via
+  # GATE_SHA), same assembly (assemble-chaingraph --out + derived-artifacts
+  # --out into a runner-temp scratch dir — nothing derived is ever committed),
+  # then the DERIVED_ROOT_GATES set HARD against the scratch tree. The
+  # shell-level `GITHUB_EVENT_NAME=merge_group` prefix is the SAME presentation
+  # plumbing the "Preflight (full gate suite)" step above uses on merge_group
+  # (GITHUB_* names are runner-reserved; a step-level env entry would be
+  # silently ignored — measured 2026-09-11, run 34654251817): with the scratch
+  # tree mounted, `derived-artifacts.mjs --verify` is the ephemeral GATE that
+  # runs exactly the DERIVED_ROOT_GATES set (every main-regen-owned covered
+  # gate is skipped with a printed reason), each HARD, in the third-state
+  # context merge_group earns. The full commit-scoped suite (mutation tier,
+  # per-PR derivables, citation drift) keeps running in the main job above —
+  # this job is ONLY the queue's freshness verdict, reported early.
+  merge-group-shadow:
+    name: merge-group-shadow
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ env.GATE_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node 20
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      - name: Ephemeral derived tree (the merge_group assembly, byte-for-byte)
+        id: derived
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRATCH="${RUNNER_TEMP}/derived-tree"
+          node scripts/assemble-chaingraph.mjs --out "${SCRATCH}/chaingraph/chaingraph.json"
+          node scripts/derived-artifacts.mjs --out "${SCRATCH}"
+          echo "root=${SCRATCH}" >> "$GITHUB_OUTPUT"
+
+      - name: DERIVED_ROOT_GATES against the assembled tree (merge_group shape, HARD)
+        shell: bash
+        run: |
+          set -euo pipefail
+          DERIVED_ROOT="${RUNNER_TEMP}/derived-tree" GITHUB_EVENT_NAME=merge_group node scripts/derived-artifacts.mjs --verify
+
+      - name: Assert clean tree (nothing derived was committed)
+        shell: bash
+        run: |
+          set -euo pipefail
+          s="$(git status --porcelain)"
+          if [ -n "$s" ]; then
+            echo "::error::shadow job dirtied the checkout — the ephemeral derived tree must never touch it:"
+            printf '%s\n' "$s"
+            exit 1
+          fi
+          echo "checkout clean — the ephemeral derived tree touched nothing."
 
   scripts-verify-required:
     name: scripts-verify / required
