@@ -22,6 +22,7 @@ import * as t732      from './732-borrower-escrow-auditor.kernel.mjs';
 import * as t733      from './733-servicing-compliance-clock.kernel.mjs';
 import * as t784      from './784-cbr-data-return-validator.kernel.mjs';
 import * as t787      from './787-corridor-cost-averages.kernel.mjs';
+import * as t792      from './792-curator-vault-cap-auditor.kernel.mjs';
 import * as t795      from './795-stablecoin-refund-dispute.kernel.mjs';
 import * as t806      from './806-event-contract-terms-lint.kernel.mjs';
 import * as t813      from './813-eth-staking-accounting.kernel.mjs';
@@ -685,6 +686,7 @@ import * as art814    from './art-814-qf-pairwise-recompute.kernel.mjs';
 import * as art818    from './art-818-zcash-reg-classifier.kernel.mjs';
 import * as art819    from './art-819-ucp-request-constraints.kernel.mjs';
 import * as art82     from './art-82-securities-settlement-message-linter.kernel.mjs';
+import * as art826    from './art-826-authenticator-assurance-level.kernel.mjs';
 import * as art83     from './art-83-buy-in-exposure-modeler.kernel.mjs';
 import * as art84     from './art-84-settlement-efficiency-kpi.kernel.mjs';
 import * as art85     from './art-85-pqc-timeline-fit-diagnostic.kernel.mjs';
@@ -740,6 +742,7 @@ export const KERNELS = {
   '733-servicing-compliance-clock':                             t733,
   '784-cbr-data-return-validator':                              t784,
   '787-corridor-cost-averages':                                 t787,
+  '792-curator-vault-cap-auditor':                              t792,
   '795-stablecoin-refund-dispute':                              t795,
   '806-event-contract-terms-lint':                              t806,
   '813-eth-staking-accounting':                                 t813,
@@ -1403,6 +1406,7 @@ export const KERNELS = {
   'art-818-zcash-reg-classifier':                               art818,
   'art-819-ucp-request-constraints':                            art819,
   'art-82-securities-settlement-message-linter':                art82,
+  'art-826-authenticator-assurance-level':                      art826,
   'art-83-buy-in-exposure-modeler':                             art83,
   'art-84-settlement-efficiency-kpi':                           art84,
   'art-85-pqc-timeline-fit-diagnostic':                         art85,
