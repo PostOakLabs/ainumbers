@@ -12,7 +12,6 @@
 - ai_literacy_programme (any, optional): type not evidenced by kernel source
 - annex_iii_match (any, optional): type not evidenced by kernel source
 - data_governance (any, optional): type not evidenced by kernel source
-- eu_nexus (any, optional): type not evidenced by kernel source
 - foundation_model_dependency (any, optional): type not evidenced by kernel source
 - fria_status (any, optional): type not evidenced by kernel source
 - logging_oversight (any, optional): type not evidenced by kernel source
@@ -20,7 +19,6 @@
 - post_market_monitoring (any, optional): type not evidenced by kernel source
 - prohibited_practice_exposure (any, optional): type not evidenced by kernel source
 - risk_mgmt_system (any, optional): type not evidenced by kernel source
-- system_name (any, optional): type not evidenced by kernel source
 - technical_documentation (any, optional): type not evidenced by kernel source
 - use_case (any, optional): type not evidenced by kernel source
 
