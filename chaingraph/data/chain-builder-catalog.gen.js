@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (714 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (716 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -199,6 +199,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/787-corridor-cost-averages.html",
     "description": "Computes one remittance corridor's cost THREE ways from caller-declared provider quotes and reports each against the SDG 10.c 3% target and ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "795-stablecoin-refund-dispute",
+    "display_name": "Stablecoin Refund Dispute Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/795-stablecoin-refund-dispute.html",
+    "description": "Recomputes the expected refund and dispute outcome of stablecoin payments held under an escrowed refund protocol (lock period, refund reques",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -7923,6 +7933,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-818-zcash-reg-classifier.html",
     "description": "Places caller-declared properties of a privacy-feature coin and of the declaring entity against two pinned provisions of the Official Journa",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-819-ucp-request-constraints",
+    "display_name": "Ucp Request Constraints",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/mcp.html",
+    "description": "Deterministic, verify-only preflight of a caller-pasted Universal Commerce Protocol (UCP) request against a caller-pasted set of ucp.request",
     "consumes": [],
     "feeds": [],
     "status": "live"
