@@ -1,0 +1,208 @@
+{
+  "tool_id": "822-zcash-supply-check",
+  "inventory_version": "1.0.0",
+  "authored_at": "2026-11-03",
+  "error_direction": "undirected",
+  "error_direction_rationale": "The check is exact integer equality over the pasted values: the conservation delta is reported exactly, in signed zatoshi, and negative pools are named individually, so the arithmetic neither over-reports nor under-reports anything. The residual risk is not approximation but authenticity: whether the pasted numbers are true of any chain is unknowable to this kernel and is declared as unrepresented_known, not smoothed over by an error direction.",
+  "derived_from": [
+    {
+      "digest": "sha256:874beb9279aace6bd4d43cf74d604342a475e570b2b2e9ed39971136af6b1efb",
+      "clause_path": "Chain Value Pool Balances section, lines 7778-7820: Transparent, Sprout, Sapling and Orchard pool balance definitions and the four negative-balance consensus rules"
+    },
+    {
+      "digest": "sha256:af5bcab68f37fd3b3f37c12a4c1ce155bb992235fca6da59a252c92cbe1f7fc9",
+      "clause_path": "src/rpc/blockchain.cpp lines 1085-1097: getblock help text, chainSupply and valuePools chainValueZat fields (integer zatoshi totals)"
+    }
+  ],
+  "branches": [
+    {
+      "id": "transparent-pool-negative-is-invalid-state",
+      "clause": "Chain Value Pool Balances, Transparent consensus rule (lines 7785-7786)",
+      "branch": "If the Transparent pool balance would become negative, all nodes MUST reject the block as invalid.",
+      "disposition": "represented",
+      "evidence": "negative_pools",
+      "note": "verdict negative_pool_balance; negative_pools[] names transparent; issues[].code NEGATIVE_POOL_TRANSPARENT; compliance_flags NEGATIVE_POOL_TRANSPARENT"
+    },
+    {
+      "id": "sprout-pool-negative-is-invalid-state",
+      "clause": "Chain Value Pool Balances, Sprout consensus rule (lines 7795-7796)",
+      "branch": "If the Sprout pool balance would become negative, all nodes MUST reject the block as invalid.",
+      "disposition": "represented",
+      "evidence": "negative_pools",
+      "note": "verdict negative_pool_balance; negative_pools[] names sprout; issues[].code NEGATIVE_POOL_SPROUT; compliance_flags NEGATIVE_POOL_SPROUT"
+    },
+    {
+      "id": "sapling-pool-negative-is-invalid-state",
+      "clause": "Chain Value Pool Balances, Sapling consensus rule (lines 7806-7807)",
+      "branch": "If the Sapling pool balance would become negative, all nodes MUST reject the block as invalid.",
+      "disposition": "represented",
+      "evidence": "negative_pools",
+      "note": "verdict negative_pool_balance; negative_pools[] names sapling; issues[].code NEGATIVE_POOL_SAPLING; compliance_flags NEGATIVE_POOL_SAPLING"
+    },
+    {
+      "id": "orchard-pool-negative-is-invalid-state",
+      "clause": "Chain Value Pool Balances, Orchard consensus rule (lines 7818-7819)",
+      "branch": "If the Orchard pool balance would become negative, all nodes MUST reject the block as invalid.",
+      "disposition": "represented",
+      "evidence": "negative_pools",
+      "note": "verdict negative_pool_balance; negative_pools[] names orchard; issues[].code NEGATIVE_POOL_ORCHARD; compliance_flags NEGATIVE_POOL_ORCHARD"
+    },
+    {
+      "id": "conservation-identity-pools-sum-to-claimed-supply",
+      "clause": "Chain Value Pool Balances, pool balance definitions (lines 7780-7815); the no-counterfeiting turnstile identity the caller's claimed supply must satisfy",
+      "branch": "The four pool balances together must equal the claimed total supply; any difference is value the pools cannot account for.",
+      "disposition": "represented",
+      "evidence": "delta_zat",
+      "note": "recomputed_total_zat, claimed_supply_zat, delta_zat; verdict conserved when delta_zat is 0, supply_mismatch otherwise; issues[].code SUPPLY_MISMATCH; compliance_flags SUPPLY_MISMATCH"
+    },
+    {
+      "id": "non-numeric-value-in-declared-field",
+      "clause": "values-only input contract (kernel-declared; a value-only statement carries integers, never identifiers or free text)",
+      "branch": "A string, boolean, null, or non-finite value in any declared field is identifier-like or free text and is refused, never echoed.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "NON_NUMERIC_VALUE_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": {
+          "pools": {
+            "transparent": 100000000000,
+            "sprout": 200000000000,
+            "sapling": 300000000000,
+            "orchard": "4f4f4f-balance"
+          },
+          "claimed_supply_zat": 1000000000000
+        },
+        "fixture": "822-zcash-supply-check.reachability.json#string-pool-value-reaches-refusal-r1"
+      }
+    },
+    {
+      "id": "pool-name-outside-pinned-four",
+      "clause": "Chain Value Pool Balances section scope: the pinned pool set is exactly transparent, sprout, sapling, orchard; the zcashd RPC's lockbox pool (a client-side addition) is outside the pinned protocol pool set",
+      "branch": "A pools key outside the four pinned pool names (typo, lockbox, deferred, or any other name) is refused rather than silently read as a zero balance.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "UNKNOWN_POOL_NAME_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": {
+          "pools": {
+            "transparent": 100000000000,
+            "sprout": 200000000000,
+            "sapling": 300000000000,
+            "orchard": 400000000000,
+            "lockbox": 123456789
+          },
+          "claimed_supply_zat": 1000000000000
+        },
+        "fixture": "822-zcash-supply-check.reachability.json#unknown-pool-name-lockbox-reaches-refusal-r2"
+      }
+    },
+    {
+      "id": "claimed-supply-absent",
+      "clause": "input contract (kernel-declared): without a claimed total there is no conservation identity to test",
+      "branch": "claimed_supply_zat absent from the input: refused.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "CLAIMED_SUPPLY_MISSING_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": {
+          "pools": {
+            "transparent": 100000000000,
+            "sprout": 200000000000,
+            "sapling": 300000000000,
+            "orchard": 400000000000
+          }
+        },
+        "fixture": "822-zcash-supply-check.reachability.json#claimed-supply-absent-reaches-refusal-r3"
+      }
+    },
+    {
+      "id": "pinned-pool-absent",
+      "clause": "zcashd getblock help text: an unmonitored pool reports no chainValueZat; the kernel cannot assume a value for a pool the caller left out",
+      "branch": "Any of the four pinned pools absent from the input is refused (the caller must paste a value or a whole-pool state, not omit a pool).",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "MISSING_POOL_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": {
+          "pools": {
+            "transparent": 100000000000,
+            "sprout": 200000000000,
+            "orchard": 400000000000
+          },
+          "claimed_supply_zat": 1000000000000
+        },
+        "fixture": "822-zcash-supply-check.reachability.json#missing-sapling-pool-reaches-refusal-r4"
+      }
+    },
+    {
+      "id": "fractional-zatoshi-value",
+      "clause": "input contract (kernel-declared): zatoshi are whole units (1 ZEC = 1e8 zatoshi); the zcashd RPC reports integer chainValueZat",
+      "branch": "A fractional value in any pool or the claimed supply is a units error and is refused.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "NON_INTEGER_ZATOSHI_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": {
+          "pools": {
+            "transparent": 100000000000,
+            "sprout": 200000000000,
+            "sapling": 123.5,
+            "orchard": 400000000000
+          },
+          "claimed_supply_zat": 1000000000000
+        },
+        "fixture": "822-zcash-supply-check.reachability.json#fractional-zatoshi-reaches-refusal-r5"
+      }
+    },
+    {
+      "id": "value-above-declared-safe-arithmetic-bound",
+      "clause": "kernel-declared arithmetic-safety bound (2^50 per pool, 2^52 claimed supply): not a protocol constant; keeps the four-pool sum and the conservation delta inside the exactly-representable integer range below 2^53",
+      "branch": "A value above the declared bound is refused rather than summed inexactly.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "VALUE_ABOVE_SAFE_ARITHMETIC_BOUND_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": {
+          "pools": {
+            "transparent": 1125899906842625,
+            "sprout": 200000000000,
+            "sapling": 300000000000,
+            "orchard": 400000000000
+          },
+          "claimed_supply_zat": 1000000000000
+        },
+        "fixture": "822-zcash-supply-check.reachability.json#pool-above-safe-bound-reaches-refusal-r6"
+      }
+    },
+    {
+      "id": "pasted-values-authenticity",
+      "clause": "Chain Value Pool Balances section defines pool balances over a blockchain; this node receives only pasted numbers",
+      "branch": "Whether the pasted numbers are the true balances of any chain at any height is unknowable to this kernel; the node states this in every payload (evidence.chain_verified is false) and never implies the chain was verified.",
+      "disposition": "unrepresented_known",
+      "error_direction": "undirected",
+      "error_direction_note": "No runtime path exists and none is proposed: chain access would violate the estate's zero-network constraint. The node's honesty line (it checks arithmetic, not the chain) is stated in the shard description, the page copy, and evidence.chain_verified=false on every payload including conserved."
+    },
+    {
+      "id": "claimed-supply-itself-uncorroborated",
+      "clause": "input contract: the claimed supply is a caller assertion",
+      "branch": "The claimed_supply_zat the conservation identity tests against is the caller's own figure; the kernel does not corroborate it against issuance history.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "claimed_supply_zat, the total supply figure the conservation identity tests against",
+        "source": "the caller-pasted value (policy_parameters.claimed_supply_zat), typically the zcashd chainSupply.chainValueZat figure",
+        "owner": "the caller, who asserts the total and owns its correctness; the kernel tests the pool sum against whatever total is pasted and never corroborates it against issuance history"
+      }
+    },
+    {
+      "id": "same-chain-same-height-consistency",
+      "clause": "Chain Value Pool Balances definitions are per blockchain and per block height",
+      "branch": "The four pool balances and the claimed supply must all refer to the same chain and the same block height for the conservation identity to be meaningful.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "the four pool balances and the claimed supply all referring to the same chain and the same block height",
+        "source": "the caller-pasted values (policy_parameters.pools, policy_parameters.claimed_supply_zat)",
+        "owner": "the caller, who pastes a consistent snapshot; the kernel deliberately takes no height field and cannot cross-check it, which the page copy states"
+      }
+    }
+  ]
+}
