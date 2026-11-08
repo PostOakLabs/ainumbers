@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:c0a0926f4c6beaa26ecb1ea641e337abd73fa96c2c5ee58a2126b2de8e7c0020
+// kernel_digest_at_authoring: sha256:dab6040704081c505af95dc176902c11f171b0199cd4b8b53dcaa11e4e429936
 //
 // Property-test floor for art-809-check-reserves-cover-outstanding-private.
 // Class K (integer decision kernel, BigInt arithmetic, no floats; exact-shape refusals).

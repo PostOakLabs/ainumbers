@@ -100,7 +100,7 @@ async function commitPrivateInput(saltHex, inputValue) {
 // Decoy export for gate harnesses expecting `compute` (see art-413/415): the verdict is never
 // recomputed from policy_parameters alone (SPEC.md section 18.3). Defined BEFORE buildArtifact so
 // check-engine-parity.mjs's bundler captures it.
-export function compute(pp = {}) {
+export function compute(pp) {
   return {
     reserves_cover_outstanding: null,
     unit: pp.unit ?? null,
