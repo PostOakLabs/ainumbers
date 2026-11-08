@@ -7,7 +7,8 @@ import { executionHash } from './_hash.mjs';
 // against the pinned code lists. The kernel never echoes a leaf value: output is
 // {path, rule_id, section} violations only. Field rules, cardinalities, max lengths and
 // code lists are ported from the pinned IVMS 101.2023 text (research/clause-snapshots/ivms101/,
-// sha256 64bb38bd..., CC BY-ND 4.0) — facts cited by section, no text reproduced.
+// CC BY-ND 4.0) — facts cited by section, no text reproduced; the four section-level excerpt
+// digests are registered in the clause-snapshot registry (node shard cited_clause_digest).
 //
 // DETERMINISM: compute() is a pure function of pp — no clock, no randomness. Constraint
 // C2 (DateInPast) is evaluated against the pinned constant EVAL_DATE below (the edition
