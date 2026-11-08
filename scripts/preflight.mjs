@@ -1617,6 +1617,24 @@ const GATES = [
   ['WebMCP name length, NEW manifests (MANIFEST-NAME-LEN-PR-GATE-1)', 'node scripts/check-webmcp-meta-budgets.mjs --new-strict --base origin/main'],
   ['WebMCP meta neardupes ceiling (WEBMCP-META-LINT-CEILING-1)', 'node scripts/check-webmcp-meta-neardupes.mjs --ceiling'],
   ['WebMCP meta neardupes ceiling controls (RED breach / GREEN real tree / RED deleted baseline, SO #40b pairing)', 'node scripts/check-webmcp-meta-neardupes.test.mjs'],
+  // Interpolated-markup ratchet over tools/*.html inline scripts: HTML-sink
+  // statements (innerHTML/outerHTML/srcdoc assignment, insertAdjacentHTML,
+  // document.write, setHTMLUnsafe, parseFromString, createContextualFragment)
+  // whose payload interpolates a value that is not provably numeric or wrapped
+  // in a page escaper this gate has VERIFIED to escape & < > ", plus
+  // attribute-context holes (on*, style, href/src/srcdoc/action/formaction,
+  // unquoted) where escaping cannot make the value safe, plus a separate
+  // indirect bucket for non-literal payloads. Statement-level extraction
+  // (multi-line templates are the common shape), baseline keyed by file +
+  // statement hash so one-removed-plus-one-added still fails, counts only go
+  // down. Ships ADVISORY for its first cycle — this entry wires --advisory
+  // (counts, exit 0) so the estate's NEW-site rate is read before the ratchet
+  // bites; the blocking flip is dropping that one flag here. The paired
+  // controls entry is the RED/GREEN fixture proof even while advisory: it
+  // drives the blocking default on tamper fixtures, so the flip changes
+  // policy, not machinery.
+  ['Interpolated-markup ratchet (advisory first cycle)', 'node scripts/check-innerhtml-ratchet.mjs --advisory'],
+  ['Interpolated-markup ratchet controls (RED/GREEN fixture proof)', 'node scripts/check-innerhtml-ratchet.selftest.mjs'],
   // ZK-PAGES-SVG-PILOT-1 (2026-09-27): SCENE-KIT v1 lives in
   // scripts/lib/scene-kit.mjs; generated pages import it and hand-authored
   // explainers carry an inline copy, which is exactly the shape that drifts.

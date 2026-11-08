@@ -25,11 +25,13 @@ status: stable
 - [Servicing Compliance Clock](./733-servicing-compliance-clock.md) — `servicing_compliance_clock`
 - [CBR Data Return Validator](./784-cbr-data-return-validator.md) — `validate_cbr_data_return`
 - [Corridor Cost Averages](./787-corridor-cost-averages.md) — `compute_corridor_cost_averages`
+- [Stablecoin Refund Dispute Check](./795-stablecoin-refund-dispute.md) — `check_stablecoin_refunds`
 - [Event Contract Terms Lint](./806-event-contract-terms-lint.md) — `lint_event_contract_terms`
 - [Ethereum Epoch Accounting Recompute](./813-eth-staking-accounting.md) — `recompute_eth_epoch_accounting`
 - [Ethereum Base Fee and Blob Base Fee Recompute](./815-eth-fee-market.md) — `recompute_eth_fee_market`
 - [Zcash Supply Check](./822-zcash-supply-check.md) — `audit_zcash_pool_supply`
 - [ZIP-317 Transfer Fee](./824-zip317-transfer-fee.md) — `recompute_zip317_transfer_fee`
+- [Agent Cred Class Matrix](./827-agent-cred-class-matrix.md) — `compute_agent_cred_matrix`
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md) — `validate_ap2_mandate_chain`
 - [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md) — `simulate_spend_policy`
 - [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md) — `model_x402_settlement`
@@ -679,9 +681,11 @@ status: stable
 - [RFC 4180 CSV Parser](./art-788-csv-rfc4180-parser.md) — `parse_csv_table`
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md) — `predict_settlement_fail`
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md) — `check_ssi_conformance`
+- [ERC-3643 Transfer Decision Recompute](./art-807-erc3643-transfer-decision.md) — `recompute_erc3643_transfer_decision`
 - [Allocation/Affirmation Conformance Checker](./art-81-allocation-affirmation-conformance.md) — `check_allocation_affirmation`
 - [Quadratic Funding Round Recompute](./art-814-qf-pairwise-recompute.md) — `recompute_quadratic_funding_round`
 - [Privacy Coin Regulatory Classifier (MiCA and AMLR)](./art-818-zcash-reg-classifier.md) — `classify_privacy_coin_regulatory_treatment`
+- [Ucp Request Constraints](./art-819-ucp-request-constraints.md) — `eval_ucp_request_constraints`
 - [Securities-Settlement Message Linter (ISO 20022 sese/semt)](./art-82-securities-settlement-message-linter.md) — `lint_securities_settlement_message`
 - [Buy-In Exposure Modeler](./art-83-buy-in-exposure-modeler.md) — `model_buy_in_exposure`
 - [Settlement Efficiency KPI Engine](./art-84-settlement-efficiency-kpi.md) — `compute_settlement_efficiency_kpi`
