@@ -1196,6 +1196,8 @@ const GATES = [
     'node scripts/lib/affected-gates.test.mjs'],
   ['Pre-push expect-red fixture proof (env + file routes, EXPECTRED-ENVPREFIX-GAP-1)',
     'node .githooks/pre-push.test.mjs'],
+  ['Pre-commit hygiene hook fixture proof (staged scoping, red blocks with gate and fix, green passes)',
+    'node .githooks/pre-commit.test.mjs'],
   // PREPUSH-NARROW-1: red/green controls for the hook's full-suite trigger
   // (which diff paths owe the FULL leg; docs-only scripts/ edits no longer do).
   ['Pre-push full-suite trigger controls (RED/GREEN path classes, PREPUSH-NARROW-1)',
@@ -1615,6 +1617,24 @@ const GATES = [
   ['WebMCP name length, NEW manifests (MANIFEST-NAME-LEN-PR-GATE-1)', 'node scripts/check-webmcp-meta-budgets.mjs --new-strict --base origin/main'],
   ['WebMCP meta neardupes ceiling (WEBMCP-META-LINT-CEILING-1)', 'node scripts/check-webmcp-meta-neardupes.mjs --ceiling'],
   ['WebMCP meta neardupes ceiling controls (RED breach / GREEN real tree / RED deleted baseline, SO #40b pairing)', 'node scripts/check-webmcp-meta-neardupes.test.mjs'],
+  // Interpolated-markup ratchet over tools/*.html inline scripts: HTML-sink
+  // statements (innerHTML/outerHTML/srcdoc assignment, insertAdjacentHTML,
+  // document.write, setHTMLUnsafe, parseFromString, createContextualFragment)
+  // whose payload interpolates a value that is not provably numeric or wrapped
+  // in a page escaper this gate has VERIFIED to escape & < > ", plus
+  // attribute-context holes (on*, style, href/src/srcdoc/action/formaction,
+  // unquoted) where escaping cannot make the value safe, plus a separate
+  // indirect bucket for non-literal payloads. Statement-level extraction
+  // (multi-line templates are the common shape), baseline keyed by file +
+  // statement hash so one-removed-plus-one-added still fails, counts only go
+  // down. Ships ADVISORY for its first cycle — this entry wires --advisory
+  // (counts, exit 0) so the estate's NEW-site rate is read before the ratchet
+  // bites; the blocking flip is dropping that one flag here. The paired
+  // controls entry is the RED/GREEN fixture proof even while advisory: it
+  // drives the blocking default on tamper fixtures, so the flip changes
+  // policy, not machinery.
+  ['Interpolated-markup ratchet (advisory first cycle)', 'node scripts/check-innerhtml-ratchet.mjs --advisory'],
+  ['Interpolated-markup ratchet controls (RED/GREEN fixture proof)', 'node scripts/check-innerhtml-ratchet.selftest.mjs'],
   // ZK-PAGES-SVG-PILOT-1 (2026-09-27): SCENE-KIT v1 lives in
   // scripts/lib/scene-kit.mjs; generated pages import it and hand-authored
   // explainers carry an inline copy, which is exactly the shape that drifts.
@@ -2215,6 +2235,8 @@ const GATES = [
   // scripts/compute-proof-baseline.json (advisory on a PR, repaired by main's regen).
   ['§18 compute-proof baseline fresh (derived)', 'node scripts/check-compute-proof-coverage.mjs --check-baseline'],
   ['§18 coverage split controls (RED/GREEN-on-PR/HARD-on-main)', 'node scripts/check-compute-proof-coverage.test.mjs'],
+  // PREPUSH-DERIVED-ADVISORY-1: the context oracle's local arm (detached HEAD ahead of origin/main = PR proof; main/behind/undeterminable stay HARD).
+  ['Derived-gate context controls, detached HEAD (RED/GREEN, PREPUSH-DERIVED-ADVISORY-1)', 'node scripts/derived-context-detached.test.mjs'],
   ['§18 digest-freshness ratchet (S18-DIGEST-GATE-1)', 'node scripts/check-s18-digest-freshness.mjs'],
   ['§18 digest-freshness fixture proof', 'node scripts/check-s18-digest-freshness.test.mjs'],
   ['§18 freshness PR derived-root e2e (S18-FIXTURE-PR-DERIVED-ROOT-1)', 'node scripts/check-s18-freshness-fixture-derived-root.test.mjs'],
@@ -2896,6 +2918,10 @@ function psChangedGateChecks(files) {
   if (files.some((f) => f === '.githooks/pre-push' || f === '.githooks/pre-push.test.mjs')
       && existsSync(resolve(REPO, '.githooks/pre-push.test.mjs'))) {
     checks.push(['Pre-push hook fixture test (changed hook)', 'node .githooks/pre-push.test.mjs']);
+  }
+  if (files.some((f) => f === '.githooks/pre-commit' || f === '.githooks/pre-commit.test.mjs' || f === 'scripts/precommit-hygiene.mjs' || f === 'scripts/_changed-files-lib.js')
+      && existsSync(resolve(REPO, '.githooks/pre-commit.test.mjs'))) {
+    checks.push(['Pre-commit hook fixture test (changed hook)', 'node .githooks/pre-commit.test.mjs']);
   }
   for (const f of files) {
     const m = f.match(/^scripts\/([a-z0-9][a-z0-9._-]*\.mjs)$/);

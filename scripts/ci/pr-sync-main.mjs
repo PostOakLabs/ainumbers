@@ -73,7 +73,21 @@ export const SKIP_LABEL = 'no-bot-sync';
 export const SYNC_SUBJECT_PREFIX = 'chore(bot-sync):';
 export const MAX_ATTEMPTS_PER_HEAD = 2;
 export const DEFAULT_MAX_PRS = 10;
-export const DEFAULT_MIN_HEAD_AGE_MIN = 10;
+export const DEFAULT_MIN_HEAD_AGE_MIN = 15;
+// Head-merge ownership: a merge into a PR head restarts its full CI, so the
+// bot stands down when CI is already running on that head (rollup PENDING, only
+// believed for CHECKS_PENDING_MAX_MIN after the head commit so a stuck rollup
+// cannot park a PR forever) and, for a clean BEHIND PR, when it is armed (the
+// merge queue rebuilds on the current main anyway).
+export const ARMED_LABEL = 'automerge';
+export const CHECKS_PENDING_MAX_MIN = 45;
+// A merge of main into a PR whose head is already red only spends CI (the same
+// gates fail on the new head). Such a PR is left alone unless it is
+// conflicting, main touched a file the PR also touches since their merge base,
+// or it carries the opt-in label below. No per-gate path map exists, so "the
+// files the failing gate reads" is approximated by the files the PR changes.
+export const SYNC_ANYWAY_LABEL = 'sync-anyway';
+export const RED_STATES = new Set(['FAILURE', 'ERROR']);
 // push:main runs wait for derived-artifacts-regen on their own sha (a run
 // takes 3-4 min); see regenGate().
 export const REGEN_WAIT_MIN = 15;
@@ -184,12 +198,13 @@ export function parseMergeTree(stdout) {
  * The decision for one PR. Pure: everything it needs is in `input`.
  * @param {object} input
  * @param {object} input.pr  {number, isDraft, isCrossRepository, baseRefName,
- *                            headRefName, labels:string[], inMergeQueue, headCommittedAt}
+ *                            headRefName, labels:string[], inMergeQueue, headCommittedAt, checksState}
  * @param {boolean} input.behind      head does not contain main
  * @param {string[]|null} input.conflicts  predicted conflicted paths ([] = clean)
  * @param {Set<string>} input.mainOwned
  * @param {Set<string>} [input.sentinelOk]  sentinel-owned pages whose PR diff is sentinel-only
  * @param {number} [input.attempts]   failed bot-sync attempts already on this head
+ * @param {string[]|null} [input.sharedFiles]  files changed by both main and the PR since their merge base (null/undefined = unknown, allows a sync)
  * @param {boolean} [input.notified]  a real-conflict comment already exists for this head
  * @param {number} [input.now]        epoch ms
  * @param {number} [input.minHeadAgeMs]
@@ -265,6 +280,12 @@ export function decide(input) {
   if (attempts >= MAX_ATTEMPTS_PER_HEAD) return skip(`attempts:${attempts}`);
   const committed = pr.headCommittedAt ? Date.parse(pr.headCommittedAt) : NaN;
   if (Number.isFinite(committed) && now - committed < minAge) return skip('fresh-head');
+  if (pr.checksState === 'PENDING' && Number.isFinite(committed) && now - committed < CHECKS_PENDING_MAX_MIN * 60_000) return skip('checks-running');
+  if (conflicts.length === 0 && (pr.labels || []).includes(ARMED_LABEL)) return skip('armed-queue-rebuilds');
+  // Red head: a clean merge cannot fix it. Conflicting PRs, shared-file
+  // overlap with main, unknown overlap and the opt-in label all keep syncing.
+  if (conflicts.length === 0 && RED_STATES.has(pr.checksState) && !(pr.labels || []).includes(SYNC_ANYWAY_LABEL)
+      && Array.isArray(input.sharedFiles) && input.sharedFiles.length === 0) return skip('red-head-no-shared-files');
 
   if (conflicts.length === 0) return { action: 'merge-clean', reason: 'behind', paths: [] };
   const sentinelOk = input.sentinelOk || new Set();
@@ -332,7 +353,7 @@ const PR_QUERY = `query($owner:String!,$name:String!,$cursor:String){repository(
     nodes{number title isDraft isCrossRepository baseRefName headRefName headRefOid
       mergeable mergeStateStatus mergeQueueEntry{state}
       labels(first:50){nodes{name}}
-      commits(last:1){nodes{commit{committedDate}}}}}}}`;
+      commits(last:1){nodes{commit{committedDate statusCheckRollup{state}}}}}}}}`;
 
 function listOpenPrs(repo) {
   const [owner, name] = repo.split('/');
@@ -349,6 +370,7 @@ function listOpenPrs(repo) {
         mergeable: n.mergeable, mergeStateStatus: n.mergeStateStatus, inMergeQueue: !!n.mergeQueueEntry,
         labels: n.labels.nodes.map((l) => l.name),
         headCommittedAt: n.commits.nodes[0]?.commit?.committedDate || null,
+        checksState: n.commits.nodes[0]?.commit?.statusCheckRollup?.state || null,
       });
     }
     if (!page.pageInfo.hasNextPage) break;
@@ -385,6 +407,27 @@ function predict(headSha, mainSha) {
   const reservations = conflicts.includes(RESERVATIONS_LEGACY)
     ? reservationPlanAt(headSha, mainSha, (id) => readJsonAt(mainSha, shardPath(id))) : undefined;
   return { behind, conflicts, sentinelOk, reservations };
+}
+
+/** Files changed by both main and the PR since their merge base; null when git cannot say. */
+function sharedFilesWithMain(headSha, mainSha) {
+  const base = gitOk(['merge-base', headSha, mainSha]);
+  if (!base.ok) return null;
+  const b = base.out.trim();
+  const names = (to) => gitOk(['diff', '--name-only', '--no-renames', '--no-ext-diff', b, to]);
+  const m = names(mainSha), h = names(headSha);
+  if (!m.ok || !h.ok) return null;
+  const lines = (out) => out.split(String.fromCharCode(10)).map((l) => l.trim()).filter(Boolean);
+  const mine = new Set(lines(h.out));
+  return lines(m.out).filter((f) => mine.has(f));
+}
+/** predict() plus the red-head overlap probe, run only for a red, clean-BEHIND PR. */
+function predictFor(pr, mainSha) {
+  const pred = pr.isCrossRepository ? { behind: false, conflicts: [] } : predict(pr.headRefOid, mainSha);
+  if (pred.behind && pred.conflicts && pred.conflicts.length === 0 && RED_STATES.has(pr.checksState)) {
+    pred.sharedFiles = sharedFilesWithMain(pr.headRefOid, mainSha);
+  }
+  return pred;
 }
 
 // A JSON blob at <rev>:<path>: the parsed value, null when the path is
@@ -606,7 +649,7 @@ async function main() {
 
   const rows = [];
   for (const pr of prs) {
-    const pred = pr.isCrossRepository ? { behind: false, conflicts: [] } : predict(pr.headRefOid, mainSha);
+    const pred = predictFor(pr, mainSha);
     let attempts = 0, notified = false;
     // Comment markers are read only for PRs that would act (one API call each).
     const first = decide({ pr, ...pred, mainOwned: owned, minHeadAgeMs: o.minHeadAgeMin * 60_000 });
@@ -643,7 +686,7 @@ async function main() {
         const fresh = listOpenPrs(o.repo).find((p) => p.number === pr.number);
         if (fresh && fresh.headRefOid !== pr.headRefOid) {
           fetchShas([fresh.headRefOid]);
-          const d2 = decide({ pr: fresh, ...predict(fresh.headRefOid, mainSha), mainOwned: owned, minHeadAgeMs: o.minHeadAgeMin * 60_000 });
+          const d2 = decide({ pr: fresh, ...predictFor(fresh, mainSha), mainOwned: owned, minHeadAgeMs: o.minHeadAgeMin * 60_000 });
           if (SYNC_ACTIONS.has(d2.action)) res = syncOne(fresh, mainSha, new Set(d2.paths));
           else { r.result = `left alone after race: ${d2.action} (${d2.reason})`; continue; }
         }
