@@ -57,6 +57,15 @@ test('manifest diff picks server-card and WebMCP freshness, not the fixture-proo
   assert.ok(!labels(r).some((l) => l.startsWith('Server card conformance fixture proof')));
 });
 
+test('manifest-only diff picks the WebMCP direct-execute gate (real preflight labels), not its controls', () => {
+  const g = [
+    ['WebMCP direct-execute (fixture-0 through every direct-mode execute body + the page run path)', 'node scripts/check-webmcp-direct-execute.mjs'],
+    ['WebMCP direct-execute gate controls (leg-1/leg-2 RED + GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-webmcp-direct-execute.mjs --self-test'],
+  ];
+  const r = affectedSelection(g, ['manifests/art-151-agent-obo-mandate-validator.manifest.json']);
+  assert.deepEqual(r.picked.map(([, cmd]) => cmd), ['node scripts/check-webmcp-direct-execute.mjs']);
+});
+
 test('page diff picks copy hallmarks', () => {
   const r = affectedSelection(GATES, ['guides/x-hub.html']);
   assert.ok(r.classes.includes('page'));
