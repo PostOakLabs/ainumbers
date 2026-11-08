@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (716 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (717 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7960,6 +7960,16 @@ window.CHAINBUILDER_CATALOG = [
       "cry-04-merkle-batch-verifier",
       "ptg-01-ap2-prompt-template-generator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-826-authenticator-assurance-level",
+    "display_name": "Authenticator Assurance Level Evaluator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-826-authenticator-assurance-level.html",
+    "description": "Rates whether a DECLARED authenticator set and session policy reach a DECLARED target level of a caller-supplied, versioned authentication a",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
