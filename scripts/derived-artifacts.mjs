@@ -1807,7 +1807,7 @@ export { derivedResolve, derivedRoot } from './_derived-resolve-lib.mjs';
  * when we cannot prove we are on a PR. The downgrade is the privilege; it has to
  * be affirmatively earned, never inherited from a failed lookup.
  */
-export function isMainContext() {
+export function isMainContext({ cwd = REPO } = {}) {
   // ⚠ STRUCTURED AS A WHITELIST OF PR PROOFS, NOT A BLACKLIST OF MAIN ONES.
   // An earlier draft asked "is GITHUB_REF_NAME === 'main'?" and returned false
   // otherwise — which made an EMPTY/absent ref name read as "PR", i.e. it failed
@@ -1848,12 +1848,35 @@ export function isMainContext() {
 
   // Local pre-push: a feature branch is the PR proof. It must RESOLVE, and be
   // neither `main` nor a detached HEAD, before the downgrade applies.
+  //
+  // PREPUSH-DERIVED-ADVISORY-1: a DETACHED HEAD (scratch worktrees that merge main
+  // and push `HEAD:refs/heads/<branch>`) used to fail closed here, so a new-node PR
+  // pushed from one saw the main-only derived gates (kernel index, infra registry,
+  // node footers, a11y mid-flight enrol) HARD while the same tree is advisory in PR
+  // CI. A detached HEAD earns the SAME downgrade only on affirmative proof it is not
+  // main: origin/main resolves AND HEAD is NOT an ancestor of it (HEAD carries
+  // commits main lacks, which main itself never does). HEAD == origin/main, behind
+  // it, an unresolvable origin/main, or any git error all stay HARD (fail closed).
+  // No env var participates; a branch literally named `main` stays HARD.
+  return localHeadIsMain({ cwd });
+}
+
+/** Local-context probe. `cwd` is injectable ONLY so the self-test can aim it at a
+ *  fixture repo; production callers take the default (this checkout). */
+export function localHeadIsMain({ cwd = REPO } = {}) {
+  const git = (args) => execSync(`git ${args}`, { cwd, env: gitEnv(), stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
   try {
-    const branch = execSync('git rev-parse --abbrev-ref HEAD', {
-      cwd: REPO, env: gitEnv(), stdio: ['ignore', 'pipe', 'ignore'],
-    }).toString().trim();
-    if (!branch || branch === 'HEAD' || branch === 'main') return true; // fail closed
-    return false;
+    const branch = git('rev-parse --abbrev-ref HEAD');
+    if (!branch || branch === 'main') return true; // fail closed
+    if (branch !== 'HEAD') return false;           // named feature branch = PR proof
+    // Detached HEAD: needs the ancestry proof described above.
+    git('rev-parse --verify --quiet refs/remotes/origin/main');
+    try {
+      git('merge-base --is-ancestor HEAD refs/remotes/origin/main');
+      return true;  // exit 0: HEAD is main or behind it, no PR proof
+    } catch (e) {
+      return e && e.status === 1 ? false : true; // exit 1 = not an ancestor = PR proof; anything else fails closed
+    }
   } catch {
     return true; // undeterminable → fail closed, gates block
   }
