@@ -81,6 +81,10 @@ export const CITY_COL_INDEX = {
 export const DATA_VINTAGE_LABEL = "BLS CES 2024 · ChildCare Aware of America 2024";
 
 function num(v, fallback = 0) {
+  // R4 (absent equals explicit null): Number(null) is 0, which would make an
+  // explicit null a different input than an absent one — null takes the
+  // fallback exactly like absent.
+  if (v === null || v === undefined) return fallback;
   const n = typeof v === "string" && v.trim() === "" ? NaN : Number(v);
   return Number.isFinite(n) ? n : fallback;
 }
