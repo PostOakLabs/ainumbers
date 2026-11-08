@@ -27,6 +27,7 @@ status: stable
 - [Servicing Compliance Clock](./733-servicing-compliance-clock.md)
 - [CBR Data Return Validator](./784-cbr-data-return-validator.md)
 - [Corridor Cost Averages](./787-corridor-cost-averages.md)
+- [Curator Vault Cap Auditor](./792-curator-vault-cap-auditor.md)
 - [Stablecoin Refund Dispute Check](./795-stablecoin-refund-dispute.md)
 - [Event Contract Terms Lint](./806-event-contract-terms-lint.md)
 - [Ethereum Epoch Accounting Recompute](./813-eth-staking-accounting.md)
