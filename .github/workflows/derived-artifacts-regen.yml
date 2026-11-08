@@ -97,6 +97,11 @@ jobs:
   regen:
     name: Regenerate shared derived artifacts
     runs-on: ubuntu-latest
+    # Workflow default stays contents:read; issues:write is for the reader-gate
+    # tracking issue only (github.token). The push credential is the App token.
+    permissions:
+      contents: read
+      issues: write
     steps:
       # MINTS A CREDENTIAL. Scoped to this one repo, contents:write only, and
       # it expires with the job. Same App + same action pin as
@@ -267,6 +272,50 @@ jobs:
       #     loud instead of silent.
       - name: Prove the regen pass was a fixpoint (every covered freshness gate)
         run: node scripts/derived-artifacts.mjs --verify
+
+      # MONOLITH READERS (added 2026-11-05). The
+      # §15 suite, the copy leg and the fixpoint step above never run the gates
+      # that READ the regenerated monolith (chain execute, domain, step status,
+      # edge/L2 contracts, showcase, kernel coverage, parity, proof badge,
+      # recompute equality, trust signals...). A chain that only breaks there
+      # landed on main and reddened it; that incident is why this step exists.
+      #
+      # LOUD, NOT REFUSING (the refusing mode stays opt-in, never the
+      # workflow default). Same trade-off as the
+      # fixpoint step's CONTENT RED branch: Scripts/Land/HTML Verify and the
+      # deploy run only on a SUCCESSFUL regen, and a regen that stays red
+      # silently dequeues every meta-touching merge-group entry, so refusing
+      # freezes every covered artifact on top of an already-red main. A red here
+      # emits ::error [REGEN-RED-READER], a job summary and a tracking issue
+      # (surface `regen-reader`), and the commit below still runs.
+      - name: Monolith readers on the regenerated tree
+        id: readers
+        env:
+          REGEN_READER_MODE: loud
+        run: node scripts/regen-reader-leg.mjs
+
+      # One open issue while red, closed on the next fully green regen. Push
+      # events only (a dispatch/self-test run must never open or close it).
+      # issues:write is scoped to this job and used by github.token, never by
+      # the App token that carries contents:write.
+      - name: Track the reader-gate red (one issue, idempotent)
+        if: github.event_name == 'push' && !cancelled() && steps.readers.outcome != 'skipped'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          READERS_RED: ${{ steps.readers.outputs.red }}
+          STEPS_OUTCOME: ${{ steps.readers.outcome }}
+          FIRST_LINE: ${{ steps.readers.outputs.first_line }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          STATE=green
+          if [ "$READERS_RED" = "true" ] || [ "$STEPS_OUTCOME" = "failure" ]; then STATE=red; fi
+          node scripts/scheduled-red-issue.mjs \
+            --surface regen-reader \
+            --state "$STATE" \
+            --event push \
+            --run-id "$GITHUB_RUN_ID" \
+            --run-url "$RUN_URL" \
+            --failure-line "${FIRST_LINE:-(reader step failed before reporting; read the run)}"
       # ── SELF-TEST HARNESS (workflow_dispatch only; can never commit) ──────
       # A checker is verified by MUTATING its input, never by reading it, and a
       # gate that has only ever been observed green has not really been observed
