@@ -682,6 +682,7 @@ import * as art807    from './art-807-erc3643-transfer-decision.kernel.mjs';
 import * as art81     from './art-81-allocation-affirmation-conformance.kernel.mjs';
 import * as art814    from './art-814-qf-pairwise-recompute.kernel.mjs';
 import * as art818    from './art-818-zcash-reg-classifier.kernel.mjs';
+import * as art819    from './art-819-ucp-request-constraints.kernel.mjs';
 import * as art82     from './art-82-securities-settlement-message-linter.kernel.mjs';
 import * as art83     from './art-83-buy-in-exposure-modeler.kernel.mjs';
 import * as art84     from './art-84-settlement-efficiency-kpi.kernel.mjs';
@@ -1398,6 +1399,7 @@ export const KERNELS = {
   'art-81-allocation-affirmation-conformance':                  art81,
   'art-814-qf-pairwise-recompute':                              art814,
   'art-818-zcash-reg-classifier':                               art818,
+  'art-819-ucp-request-constraints':                            art819,
   'art-82-securities-settlement-message-linter':                art82,
   'art-83-buy-in-exposure-modeler':                             art83,
   'art-84-settlement-efficiency-kpi':                           art84,
