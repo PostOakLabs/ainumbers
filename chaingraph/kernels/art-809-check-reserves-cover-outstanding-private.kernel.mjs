@@ -4,8 +4,8 @@
  * ocg-private-input@1. The reserve amounts (16 fixed slots, each tagged with a GENIUS Act
  * section 4(a)(1)(A)(i)-(viii) category code) and the outstanding amount are the PRIVATE witness:
  * never present in policy_parameters, output_payload, or the execution_hash preimage. Two
- * independent sha256-salted@1 commitments sit at policy_parameters.reserves_commitment and
- * policy_parameters.outstanding_commitment, so the outstanding figure can be opened to an
+ * independent sha256-salted@1 commitments (reserves_commitment, outstanding_commitment) sit in
+ * policy_parameters, so the outstanding figure can be opened to an
  * auditor on its own without opening the reserves.
  *
  * Rule implemented (each line is design-file R1..R3, PRIVATE-PREDICATE-DESIGN-2026-11 section 2.1):
@@ -36,7 +36,7 @@ const TOOL_VERSION = '1.0.0';
 export const meta = {
   tool_id:      TOOL_ID,
   tool_version: TOOL_VERSION,
-  mcp_name:     'check_reserves_cover_outstanding_private',
+  mcp_name:     'check_reserves_cover_private',
   mandate_type: 'compliance_control',
   gpu:          false,
   // section 25 profile marker: buildArtifact's first argument is the PRIVATE WITNESS
@@ -100,11 +100,10 @@ async function commitPrivateInput(saltHex, inputValue) {
 // Decoy export for gate harnesses expecting `compute` (see art-413/415): the verdict is never
 // recomputed from policy_parameters alone (SPEC.md section 18.3). Defined BEFORE buildArtifact so
 // check-engine-parity.mjs's bundler captures it.
-export function compute(pp) {
-  const p = pp || {};
+export function compute(pp = {}) {
   return {
     reserves_cover_outstanding: null,
-    unit: p.unit ?? null,
+    unit: pp.unit ?? null,
     note: 'Private-input node: verdict is not recomputable from policy_parameters alone (SPEC.md §18.3). Call buildArtifact with the private witness, or verify the existing artifact via validate_private_inputs.',
   };
 }
