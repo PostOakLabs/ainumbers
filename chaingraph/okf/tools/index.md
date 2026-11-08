@@ -687,6 +687,7 @@ status: stable
 - [Privacy Coin Regulatory Classifier (MiCA and AMLR)](./art-818-zcash-reg-classifier.md) — `classify_privacy_coin_regulatory_treatment`
 - [Ucp Request Constraints](./art-819-ucp-request-constraints.md) — `eval_ucp_request_constraints`
 - [Securities-Settlement Message Linter (ISO 20022 sese/semt)](./art-82-securities-settlement-message-linter.md) — `lint_securities_settlement_message`
+- [Authenticator Assurance Level Evaluator](./art-826-authenticator-assurance-level.md) — `compute_authn_assurance_level`
 - [Buy-In Exposure Modeler](./art-83-buy-in-exposure-modeler.md) — `model_buy_in_exposure`
 - [Settlement Efficiency KPI Engine](./art-84-settlement-efficiency-kpi.md) — `compute_settlement_efficiency_kpi`
 - [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md) — `run_pqc_timeline_fit`
