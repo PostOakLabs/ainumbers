@@ -217,6 +217,8 @@ const NOT_A_GATE = new Map([
   ["automerge-label.yml",
     "pull_request: [labeled] automation that PERFORMS the merge (SO #37's label path); " +
     "it is not a required status check and blocks nothing."],
+  ["auto-arm.yml",
+    "arms labelled PRs; no merge gate."],
   ["deploy-docs.yml",
     "push main only — deploys the docs subdomain post-merge."],
   ["deploy-drift-check.yml",
@@ -371,6 +373,25 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── Interpolated-markup ratchet (2026-11-07) ───────────────────────────────
+  ["check-innerhtml-ratchet.mjs",
+    "Advisory-first interpolated-markup ratchet over tools/*.html: preflight wires " +
+    "--advisory (counts, exit 0) for its first cycle, so a blocking CI step would " +
+    "re-run a gate that cannot fail yet. The flip (drop --advisory in preflight) and " +
+    "the CI routing decision land together, with the NEW-site rate the advisory cycle " +
+    "measures; until then this entry declares that plan. scripts/-only estate scan of " +
+    "tracked files — no network, no CI-only input — and the only PRs that can change " +
+    "its verdict shape are tools/*.html edits and scripts/ edits, both of which " +
+    "scripts-verify.yml's path-scoped full preflight already runs."],
+  ["check-innerhtml-ratchet.selftest.mjs", SELF_TEST],
+  // ── ZK-TRUST-STAGES-GATE-1 / PR-2888-SELFTEST-PAIR-1 (2026-11-05) ───────────
+  ["check-zk-trust-page.mjs",
+    "Advisory-on-PR COVERED freshness gate (derived-artifacts.mjs id 'zk-trust-page': its regen is " +
+    "--fix, its gate is this check). CI enforces it HARD through `derived-artifacts.mjs --verify`, not " +
+    "as a standalone step: scripts-verify.yml's merge-group-shadow and merge_group runs under " +
+    "DERIVED_ROOT (it is a DERIVED_ROOT_GATES member), land-verify.yml, and derived-artifacts-regen.yml " +
+    "on main. A direct blocking-workflow wire would only duplicate that call site."],
+  ["check-zk-trust-page.selftest.mjs", SELF_TEST],
   // ── SIGSTORE-BUNDLE-V03-EXPORT-7 (2026-10-26) ───────────────────────────────
   ["receipt-bundle-attest-subjects.mjs",
     "Network-free receipt-bundle attest-subjects lister, run pre-push in preflight; its " +
@@ -388,6 +409,8 @@ const PREFLIGHT_ONLY = new Map([
     "the gate or the page through a full preflight."],
   // ── ENGINE-BUNDLE-ESM-LINT-1 (2026-10-15) ───────────────────────────────────
   ["check-engine-parity.bundle.test.mjs", SELF_TEST],
+  // ── PREPUSH-HYGIENE-ALWAYS-1 (2026-11-06) ──────────────────────────────────
+  ["affected-gates.test.mjs", SELF_TEST],
   // ── CHAIN-PAGES-CANON-ORDER-FIX-1 (2026-10-24) ──────────────────────────────
   ["check-chain-pages-canon-order.selftest.mjs", SELF_TEST],
   // ── WEBMCP-META-LINT-CEILING-1 (2026-10-01) ─────────────────────────────────
@@ -562,6 +585,7 @@ const PREFLIGHT_ONLY = new Map([
     "local git, so a named workflow step would re-run byte-for-byte the same check. Its paired " +
     "mutation control is check-trust-signals.test.mjs (its own GATES entry)."],
   ["check-trust-signals.test.mjs", SELF_TEST],
+  ["derived-context-detached.test.mjs", SELF_TEST],
   // ── EVREG-1 (2026-09-22) ────────────────────────────────────────────────────
   ["check-evidence-register.mjs",
     "Claim-level evidence register gate (EVREG-1): verifies the generated register " +
@@ -1039,9 +1063,11 @@ const PREFLIGHT_ONLY = new Map([
 
   // ── paired self-tests / mutation controls (66) ──────────────────────────────
   ["pre-push.test.mjs", SELF_TEST],
+  ["pre-commit.test.mjs", SELF_TEST],
   ["check-binary-bytes.test.mjs", SELF_TEST],
   ["jsdoc-checkjs-gate.test.mjs", SELF_TEST],
   ["gen-kernel-identity.test.mjs", SELF_TEST],
+  ["renumber-node.mjs", SELF_TEST],
   ["check-guest-builtin-safety.test.mjs", SELF_TEST],
   ["quantization-parity.test.mjs", SELF_TEST],
   ["seed-replay.test.mjs", SELF_TEST],

@@ -91,8 +91,49 @@ env:
   GATE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
 
 jobs:
+  group-alive:
+    name: group-alive
+    # Group-alive guard (merge_group only). When the queue invalidates a group
+    # (an entry ahead failed or was removed) it deletes the temporary
+    # gh-readonly-queue ref, and every job of the doomed run would otherwise
+    # fail at Checkout. This probe runs before any checkout and reports
+    # alive=false ONLY when the API answers 404 for that ref three times in a
+    # row; any success, or any other error (rate limit, network), counts as
+    # alive so a real run always proceeds and a real failure can never be
+    # skipped. The queue rebuilds the group on a fresh ref, so nothing is lost.
+    # Every other event leaves the output empty, which downstream reads as alive.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      alive: ${{ steps.probe.outputs.alive }}
+    steps:
+      - name: Probe the queue ref
+        id: probe
+        if: github.event_name == 'merge_group'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          QUEUE_REF: ${{ github.ref }}
+        run: |
+          set -u
+          alive=true
+          for attempt in 1 2 3; do
+            if gh api "repos/${REPO}/git/ref/${QUEUE_REF#refs/}" >/dev/null 2>"${RUNNER_TEMP}/probe.err"; then alive=true; break; fi
+            if grep -q 'HTTP 404' "${RUNNER_TEMP}/probe.err"; then alive=false; sleep 5; else alive=true; break; fi
+          done
+          echo "alive=${alive}" >> "$GITHUB_OUTPUT"
+          if [ "$alive" = "false" ]; then
+            echo "::notice title=queue group invalidated::queue group invalidated; nothing to verify"
+          fi
+
   relevant:
     name: relevant
+    # Skipped only when group-alive explicitly reported alive=false; a failed or
+    # cancelled probe still lets this job run. Downstream jobs then skip, and the
+    # always-report job treats a skip as a pass.
+    needs: group-alive
+    if: ${{ !cancelled() && needs.group-alive.outputs.alive != 'false' }}
     # Always-report shape: see scripts-verify.yml's identical job for the
     # full rationale. workflow_run / workflow_dispatch events report hit=true
     # unconditionally (there is no path filter left to scope them; the
