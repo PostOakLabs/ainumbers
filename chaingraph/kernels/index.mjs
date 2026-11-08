@@ -685,6 +685,7 @@ import * as art814    from './art-814-qf-pairwise-recompute.kernel.mjs';
 import * as art818    from './art-818-zcash-reg-classifier.kernel.mjs';
 import * as art819    from './art-819-ucp-request-constraints.kernel.mjs';
 import * as art82     from './art-82-securities-settlement-message-linter.kernel.mjs';
+import * as art826    from './art-826-authenticator-assurance-level.kernel.mjs';
 import * as art83     from './art-83-buy-in-exposure-modeler.kernel.mjs';
 import * as art84     from './art-84-settlement-efficiency-kpi.kernel.mjs';
 import * as art85     from './art-85-pqc-timeline-fit-diagnostic.kernel.mjs';
@@ -1403,6 +1404,7 @@ export const KERNELS = {
   'art-818-zcash-reg-classifier':                               art818,
   'art-819-ucp-request-constraints':                            art819,
   'art-82-securities-settlement-message-linter':                art82,
+  'art-826-authenticator-assurance-level':                      art826,
   'art-83-buy-in-exposure-modeler':                             art83,
   'art-84-settlement-efficiency-kpi':                           art84,
   'art-85-pqc-timeline-fit-diagnostic':                         art85,
