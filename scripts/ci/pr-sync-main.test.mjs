@@ -33,6 +33,12 @@
  *      syncs when that regen committed nothing (the run on the regen bot's
  *      own commit); hands off when the regen committed; a timeout or a regen
  *      that never registers still syncs, so the job cannot strand itself.
+ *   9. the red-head skip exceptions: every failing step on the head's latest
+ *      required run a main-owned freshness step (MAIN_OWNED_FRESHNESS_STEPS,
+ *      exact names) or the head's run started before main's latest recovery
+ *      from a Scripts Verify red episode, and the skip lifts; a PR-owned
+ *      failing step, one unlisted step among listed ones, a run newer than
+ *      the recovery, or missing CI facts keep the skip.
  * Run: node scripts/ci/pr-sync-main.test.mjs   (exit 0 = all green)
  */
 
@@ -43,7 +49,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   decide, mainOwnedPaths, sentinelOwnedPaths, isSentinelOnlyDiff, parseMergeTree, syncOne,
-  waitForRegen, regenGate, planReservations, shardBytes, RESERVATIONS_LEGACY, SKIP_LABEL, MAX_ATTEMPTS_PER_HEAD,
+  waitForRegen, regenGate, planReservations, shardBytes, RESERVATIONS_LEGACY, SKIP_LABEL, MAX_ATTEMPTS_PER_HEAD, SYNC_ANYWAY_LABEL,
+  MAIN_OWNED_FRESHNESS_STEPS,
 } from './pr-sync-main.mjs';
 import { gitEnv } from '../_git-env-lib.mjs';
 
@@ -58,6 +65,12 @@ function t(name, fn) {
 
 const NOW = Date.parse('2026-11-03T12:00:00Z');
 const OLD = '2026-11-03T10:00:00Z';
+const RECOVERED = Date.parse('2026-11-03T11:00:00Z');
+// A main-owned freshness step (listed) and a PR-owned one (never listed):
+// the exact workflow step names the I/O half would report.
+const FRESH_STEP = 'Derived-freshness, index-sync, sitemap (HARD on merge_group)';
+const FRESH_STEP_2 = 'chaingraph.json shard freshness (CGSHARD-1 CS-1)';
+const PR_STEP = 'Node page accessibility tree (HARD on pull_request — per-PR derivables promotion)';
 const pr = (over = {}) => ({
   number: 1, isDraft: false, isCrossRepository: false, baseRefName: 'main', headRefName: 'feat-x',
   labels: [], inMergeQueue: false, headCommittedAt: OLD, ...over,
@@ -127,6 +140,63 @@ t('CI pending on a recent head → skip checks-running; pending past the window 
 t('armed + BEHIND clean → skip (queue rebuilds); armed + derived-DIRTY still acts (queue cannot take a conflict)', () => {
   assert.equal(run({ pr: { labels: ['automerge'] } }).reason, 'armed-queue-rebuilds');
   assert.equal(run({ pr: { labels: ['automerge'] }, conflicts: ['mcp/catalog.json'] }).action, 'merge-derived');
+});
+t('red head, clean BEHIND, main touched nothing the PR touches → skip red-head-no-shared-files', () => {
+  for (const checksState of ['FAILURE', 'ERROR']) {
+    assert.equal(run({ pr: { checksState }, sharedFiles: [] }).reason, 'red-head-no-shared-files');
+  }
+});
+t('red + CONFLICTING (derived-dirty or real) → still syncs / reports as before', () => {
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, conflicts: ['mcp/catalog.json'], sharedFiles: [] }).action, 'merge-derived');
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, conflicts: ['scripts/x.mjs'], sharedFiles: [] }).action, 'conflict-real');
+});
+t('red + main touched a file the PR also touches → syncs', () => {
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: ['scripts/x.mjs'] }).action, 'merge-clean');
+});
+t(`red + ${SYNC_ANYWAY_LABEL} label → syncs`, () => {
+  assert.equal(run({ pr: { checksState: 'FAILURE', labels: [SYNC_ANYWAY_LABEL] }, sharedFiles: [] }).action, 'merge-clean');
+});
+t('red + overlap unknown (null/undefined) → syncs, never skips blind', () => {
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: null }).action, 'merge-clean');
+  assert.equal(run({ pr: { checksState: 'FAILURE' } }).action, 'merge-clean');
+});
+t('green / pending-past-window / no rollup → unchanged behaviour even with no shared files', () => {
+  for (const checksState of ['SUCCESS', 'PENDING', null]) {
+    assert.equal(run({ pr: { checksState }, sharedFiles: [] }).action, 'merge-clean');
+  }
+});
+t('red + only a main-owned freshness step failing → syncs (a merge of main repairs it)', () => {
+  for (const step of MAIN_OWNED_FRESHNESS_STEPS) {
+    assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [step] }).action, 'merge-clean');
+  }
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [FRESH_STEP, FRESH_STEP_2] }).action, 'merge-clean');
+});
+t('red + freshness steps with no recovery data → still syncs on the freshness exception alone', () => {
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [FRESH_STEP], mainRecoveredAt: null, headRunStartedAt: null }).action, 'merge-clean');
+});
+t('red + a PR-owned failing step → still skip red-head-no-shared-files', () => {
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [PR_STEP] }).reason, 'red-head-no-shared-files');
+});
+t('red + mixed failing steps (one unlisted) → still skip (exact names only, no prefix match)', () => {
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [FRESH_STEP, PR_STEP] }).reason, 'red-head-no-shared-files');
+});
+t('red + no failing steps read (runs green elsewhere) → still skip', () => {
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [] }).reason, 'red-head-no-shared-files');
+});
+t('red + head run started after (or exactly at) main recovery → still skip (the red is not stale)', () => {
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [PR_STEP], mainRecoveredAt: RECOVERED, headRunStartedAt: RECOVERED + 1 }).reason, 'red-head-no-shared-files');
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [PR_STEP], mainRecoveredAt: RECOVERED, headRunStartedAt: RECOVERED }).reason, 'red-head-no-shared-files');
+});
+t('red + missing CI facts (null/undefined) → still skip, never acts blind', () => {
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: null }).reason, 'red-head-no-shared-files');
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: undefined, mainRecoveredAt: null, headRunStartedAt: null }).reason, 'red-head-no-shared-files');
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: null, mainRecoveredAt: RECOVERED }).reason, 'red-head-no-shared-files');
+});
+t('red + head run started before main recovery → syncs (stale red, main has moved on)', () => {
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [PR_STEP], mainRecoveredAt: RECOVERED, headRunStartedAt: RECOVERED - 1 }).action, 'merge-clean');
+});
+t('red draft is never synced', () => {
+  assert.equal(run({ pr: { isDraft: true, checksState: 'FAILURE' }, sharedFiles: ['a'] }).reason, 'draft');
 });
 t('guard order: a draft fork is reported as fork (the cheapest, unconditional skip first)', () => {
   assert.equal(run({ pr: { isDraft: true, isCrossRepository: true } }).reason, 'fork');
