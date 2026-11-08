@@ -43,7 +43,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   decide, mainOwnedPaths, sentinelOwnedPaths, isSentinelOnlyDiff, parseMergeTree, syncOne,
-  waitForRegen, regenGate, planReservations, shardBytes, RESERVATIONS_LEGACY, SKIP_LABEL, MAX_ATTEMPTS_PER_HEAD,
+  waitForRegen, regenGate, planReservations, shardBytes, RESERVATIONS_LEGACY, SKIP_LABEL, MAX_ATTEMPTS_PER_HEAD, SYNC_ANYWAY_LABEL,
 } from './pr-sync-main.mjs';
 import { gitEnv } from '../_git-env-lib.mjs';
 
@@ -127,6 +127,33 @@ t('CI pending on a recent head → skip checks-running; pending past the window 
 t('armed + BEHIND clean → skip (queue rebuilds); armed + derived-DIRTY still acts (queue cannot take a conflict)', () => {
   assert.equal(run({ pr: { labels: ['automerge'] } }).reason, 'armed-queue-rebuilds');
   assert.equal(run({ pr: { labels: ['automerge'] }, conflicts: ['mcp/catalog.json'] }).action, 'merge-derived');
+});
+t('red head, clean BEHIND, main touched nothing the PR touches → skip red-head-no-shared-files', () => {
+  for (const checksState of ['FAILURE', 'ERROR']) {
+    assert.equal(run({ pr: { checksState }, sharedFiles: [] }).reason, 'red-head-no-shared-files');
+  }
+});
+t('red + CONFLICTING (derived-dirty or real) → still syncs / reports as before', () => {
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, conflicts: ['mcp/catalog.json'], sharedFiles: [] }).action, 'merge-derived');
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, conflicts: ['scripts/x.mjs'], sharedFiles: [] }).action, 'conflict-real');
+});
+t('red + main touched a file the PR also touches → syncs', () => {
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: ['scripts/x.mjs'] }).action, 'merge-clean');
+});
+t(`red + ${SYNC_ANYWAY_LABEL} label → syncs`, () => {
+  assert.equal(run({ pr: { checksState: 'FAILURE', labels: [SYNC_ANYWAY_LABEL] }, sharedFiles: [] }).action, 'merge-clean');
+});
+t('red + overlap unknown (null/undefined) → syncs, never skips blind', () => {
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: null }).action, 'merge-clean');
+  assert.equal(run({ pr: { checksState: 'FAILURE' } }).action, 'merge-clean');
+});
+t('green / pending-past-window / no rollup → unchanged behaviour even with no shared files', () => {
+  for (const checksState of ['SUCCESS', 'PENDING', null]) {
+    assert.equal(run({ pr: { checksState }, sharedFiles: [] }).action, 'merge-clean');
+  }
+});
+t('red draft is never synced', () => {
+  assert.equal(run({ pr: { isDraft: true, checksState: 'FAILURE' }, sharedFiles: ['a'] }).reason, 'draft');
 });
 t('guard order: a draft fork is reported as fork (the cheapest, unconditional skip first)', () => {
   assert.equal(run({ pr: { isDraft: true, isCrossRepository: true } }).reason, 'fork');
