@@ -30,6 +30,8 @@
  *
  * Same checks apply to tool numbers (tools/<n>-*.html) and node manifests
  * (manifests/art-<n>-*.manifest.json), keyed to the same art-<n> number.
+ * Node shards and manifests match BOTH spellings, art-<n>-slug and the bare
+ * <n>-slug, keyed to the same art-<n> id (ID-COLLISION-BARE-PREFIX-1).
  *
  * Zero-dep, node: builtins only (site repo is ZERO-DEP, no npm/Ajv ever).
  *
@@ -62,8 +64,12 @@ const argv = process.argv.slice(2)
 const MERGE_GROUP = argv.includes('--merge-group')
 const IN_MERGE_GROUP = isMergeGroupRun({ flag: MERGE_GROUP, eventName: process.env.GITHUB_EVENT_NAME || '', refName: process.env.GITHUB_REF_NAME || '' })
 
-const NODE_RE = /^chaingraph\/graph\/nodes\/art-(\d+)-[^/]+\.json$/
-const MANIFEST_RE = /^manifests\/art-(\d+)-[^/]+\.manifest\.json$/
+// Both spellings, art-<n>-slug and bare <n>-slug, match; capture 1 stays the
+// bare number so every id stays keyed art-<n> exactly as before
+// (ID-COLLISION-BARE-PREFIX-1; bare spellings: legacy 503..515 plus the
+// 2026-10/11 bare landings the art-only match never saw).
+const NODE_RE = /^chaingraph\/graph\/nodes\/(?:art-)?(\d+)-[^/]+\.json$/
+const MANIFEST_RE = /^manifests\/(?:art-)?(\d+)-[^/]+\.manifest\.json$/
 const TOOL_RE = /^tools\/(\d+)-[^/]+\.html$/
 
 function git(args, opts = {}) {
@@ -424,6 +430,47 @@ export function selfTest() {
     checkId({ id: 'art-790', kind: 'node', path: 'chaingraph/graph/nodes/art-790-foo.json', mainPaths,
       ...split, openPrs: null, prNumber: 1762 }),
     'b')
+
+  // BARE-NUMBER SPELLING (ID-COLLISION-BARE-PREFIX-1): a bare shard
+  // (nodes/790-foo.json, no art- prefix) must clear the same legs an art-
+  // shard clears, keyed to the same art-<n> id. The driver replays runDiff's
+  // per-changed-path step (regex -> id -> checkNewPath); `unseen` is the hole
+  // this row closes: under the old art-only regex the path never matched, so
+  // the id was silently never checked.
+  const bareChanged = (path, { res = reservations, open = null, main = mainPaths } = {}) => {
+    const m = NODE_RE.exec(path) || MANIFEST_RE.exec(path)
+    if (!m) return { unseen: true, refusals: [], backfill: false }
+    return { unseen: false, ...checkNewPath({ id: `art-${m[1]}`, path, mainPaths: main, reservations: res, openPrs: open, prNumber: 1762 }) }
+  }
+  // (i) bare node shard added with no reservation -> REFUSAL(b), not silence.
+  const bi = bareChanged('chaingraph/graph/nodes/790-foo.json')
+  results.push({ name: 'RED(b) bare-number node shard, no reservation (was silently unchecked)',
+    ok: bi.unseen === false && bi.refusals.some(r => r.includes('REFUSAL(b)')),
+    quote: bi.unseen ? '(never checked - bare path unseen by the art-only regex: silence, not a refusal)'
+      : bi.refusals.find(r => r.includes('REFUSAL(b)')) || '(no refusal - UNEXPECTED GREEN)' })
+  // (ii) bare shard whose id another open PR already claims -> REFUSAL(c).
+  const bii = bareChanged('chaingraph/graph/nodes/791-foo.json', {
+    res: { ...reservations, 'art-791': { row: 'BARE-PREFIX-ROW-1', pr: 1762, reserved: '2026-11-07T00:00:00Z' } },
+    open: [{ number: 2769, title: '791 bare-claim: kernel + node + page' }] })
+  results.push({ name: 'RED(c) bare-number shard whose id another open PR claims',
+    ok: bii.unseen === false && bii.refusals.some(r => r.includes('REFUSAL(c)')),
+    quote: bii.unseen ? '(never checked - bare path unseen by the art-only regex: silence, not a refusal)'
+      : bii.refusals.find(r => r.includes('REFUSAL(c)')) || '(no refusal - UNEXPECTED GREEN)' })
+  // (iii) bare shard with a matching reservation for THIS PR -> checked and OK.
+  const biii = bareChanged('chaingraph/graph/nodes/792-foo.json', {
+    res: { ...reservations, 'art-792': { row: 'BARE-PREFIX-ROW-1', pr: 1762, reserved: '2026-11-07T00:00:00Z' } },
+    open: [] })
+  results.push({ name: 'GREEN bare-number shard with this PR\'s own reservation',
+    ok: biii.unseen === false && biii.refusals.length === 0,
+    quote: biii.unseen ? '(never checked - bare path unseen by the art-only regex: silence, not green)'
+      : biii.refusals[0] || 'GREEN: bare shard checked, own reservation, no refusal' })
+  // (iv) bare manifest backfill for an id whose (bare) node shard is on main -> OK backfill.
+  const bareMain = new Map([...mainPaths, ['art-793', ['chaingraph/graph/nodes/793-legacy-bare-node.json']]])
+  const biv = bareChanged('manifests/793-legacy-bare-node.manifest.json', { main: bareMain })
+  results.push({ name: 'GREEN bare-number manifest backfill (bare node of the same id on main)',
+    ok: biv.unseen === false && biv.backfill === true && biv.refusals.length === 0,
+    quote: biv.unseen ? '(never checked - bare path unseen by the art-only regex: silence, not green)'
+      : biv.refusals[0] || 'GREEN: backfill of existing id art-793, no refusal' })
 
   // The lock itself is a git property, so prove it with git: a throwaway repo,
   // two branches off one base, `git merge-tree --write-tree` (exit 1 = conflict).
