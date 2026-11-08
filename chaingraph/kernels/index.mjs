@@ -22,6 +22,12 @@ import * as t732      from './732-borrower-escrow-auditor.kernel.mjs';
 import * as t733      from './733-servicing-compliance-clock.kernel.mjs';
 import * as t784      from './784-cbr-data-return-validator.kernel.mjs';
 import * as t787      from './787-corridor-cost-averages.kernel.mjs';
+import * as t806      from './806-event-contract-terms-lint.kernel.mjs';
+import * as t813      from './813-eth-staking-accounting.kernel.mjs';
+import * as t815      from './815-eth-fee-market.kernel.mjs';
+import * as t822      from './822-zcash-supply-check.kernel.mjs';
+import * as t824      from './824-zip317-transfer-fee.kernel.mjs';
+import * as t827      from './827-agent-cred-class-matrix.kernel.mjs';
 import * as art01     from './art-01-ap2-mandate-chain-validator.kernel.mjs';
 import * as art02     from './art-02-agent-spend-policy-simulator.kernel.mjs';
 import * as art03     from './art-03-x402-settlement-modeler.kernel.mjs';
@@ -659,6 +665,7 @@ import * as art760    from './art-760-espp-break-even-optimal-sell.kernel.mjs';
 import * as art763    from './art-763-ai-displacement-risk-screener.kernel.mjs';
 import * as art764    from './art-764-solo-401k-vs-sep-ira.kernel.mjs';
 import * as art77     from './art-77-t1-settlement-readiness-diagnostic.kernel.mjs';
+import * as art770    from './art-770-total-cost-of-homeownership.kernel.mjs';
 import * as art771    from './art-771-automation-payback.kernel.mjs';
 import * as art774    from './art-774-beacon-seeded-fair-sampling-v2.kernel.mjs';
 import * as art776    from './art-776-paypal-dispute-deadline-evidence.kernel.mjs';
@@ -671,7 +678,10 @@ import * as art782    from './art-782-modified-premium.kernel.mjs';
 import * as art788    from './art-788-csv-rfc4180-parser.kernel.mjs';
 import * as art79     from './art-79-settlement-fail-predictor.kernel.mjs';
 import * as art80     from './art-80-ssi-conformance-checker.kernel.mjs';
+import * as art807    from './art-807-erc3643-transfer-decision.kernel.mjs';
 import * as art81     from './art-81-allocation-affirmation-conformance.kernel.mjs';
+import * as art814    from './art-814-qf-pairwise-recompute.kernel.mjs';
+import * as art818    from './art-818-zcash-reg-classifier.kernel.mjs';
 import * as art82     from './art-82-securities-settlement-message-linter.kernel.mjs';
 import * as art83     from './art-83-buy-in-exposure-modeler.kernel.mjs';
 import * as art84     from './art-84-settlement-efficiency-kpi.kernel.mjs';
@@ -728,6 +738,12 @@ export const KERNELS = {
   '733-servicing-compliance-clock':                             t733,
   '784-cbr-data-return-validator':                              t784,
   '787-corridor-cost-averages':                                 t787,
+  '806-event-contract-terms-lint':                              t806,
+  '813-eth-staking-accounting':                                 t813,
+  '815-eth-fee-market':                                         t815,
+  '822-zcash-supply-check':                                     t822,
+  '824-zip317-transfer-fee':                                    t824,
+  '827-agent-cred-class-matrix':                                t827,
   'art-01-ap2-mandate-chain-validator':                         art01,
   'art-02-agent-spend-policy-simulator':                        art02,
   'art-03-x402-settlement-modeler':                             art03,
@@ -1365,6 +1381,7 @@ export const KERNELS = {
   'art-763-ai-displacement-risk-screener':                      art763,
   'art-764-solo-401k-vs-sep-ira':                               art764,
   'art-77-t1-settlement-readiness-diagnostic':                  art77,
+  'art-770-total-cost-of-homeownership':                        art770,
   'art-771-automation-payback':                                 art771,
   'art-774-beacon-seeded-fair-sampling-v2':                     art774,
   'art-776-paypal-dispute-deadline-evidence':                   art776,
@@ -1377,7 +1394,10 @@ export const KERNELS = {
   'art-788-csv-rfc4180-parser':                                 art788,
   'art-79-settlement-fail-predictor':                           art79,
   'art-80-ssi-conformance-checker':                             art80,
+  'art-807-erc3643-transfer-decision':                          art807,
   'art-81-allocation-affirmation-conformance':                  art81,
+  'art-814-qf-pairwise-recompute':                              art814,
+  'art-818-zcash-reg-classifier':                               art818,
   'art-82-securities-settlement-message-linter':                art82,
   'art-83-buy-in-exposure-modeler':                             art83,
   'art-84-settlement-efficiency-kpi':                           art84,

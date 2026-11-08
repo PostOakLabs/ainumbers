@@ -103,6 +103,15 @@ name: PR Autofix
 # commit is attempted — the autofix may narrow a PR's red, never widen its
 # diff.
 #
+# KERNEL WRITERS (2026-11-06): a PR touching chaingraph/kernels/<id>.kernel.mjs also
+# gets, via scripts/ci/pr-autofix-kernel.mjs, the identity stamp in its own node shard
+# (gen-kernel-identity --write --shard=<id>), a manifest input-schema backfill
+# (gen-input-schemas --write --only <id>), and, for a touched non-derived root page,
+# the footer chrome writer. Each writer has its own path allowlist and a write outside
+# it is reverted and fails the job; shared derived artifacts are never allowlisted.
+# The page kernel-digest meta is deliberately NOT written: re-stamping it would bless
+# a stale inline compute copy, which is what that sentinel exists to catch.
+#
 # NOT_A_GATE in check-workflow-gate-parity.mjs: this workflow gates no merge —
 # its pushing run ends green with an "autofix pushed" notice, not a required
 # check verdict. The required set is unchanged (rulesets are outside this
@@ -124,6 +133,12 @@ on:
     # regen would do the same, but zizmor flags workflow_run as a high
     # dangerous-trigger and this job holds a push token.
     branches: [ main ]
+  schedule:
+    # Drain the PRs a push run deferred at its max-prs cap (10 per run) while
+    # main sits still. Runs only job `sync-main` (the autofix job needs a
+    # pull_request event); the script's "main unchanged" and bounded-retry
+    # logic apply as on push. Offset from the hour to dodge the cron rush.
+    - cron: '7,27,47 * * * *'
   workflow_dispatch:
     inputs:
       apply:
@@ -203,6 +218,10 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Kernel writer allowlist tests
+        if: steps.guard.outputs.skip != 'true'
+        run: node --test scripts/ci/pr-autofix-kernel.test.mjs
+
       - name: Resolve base and classify the PR's touched set
         if: steps.guard.outputs.skip != 'true'
         id: touched
@@ -216,12 +235,13 @@ jobs:
           mapfile -d '' -t FILES < <(git diff -z --name-only origin/main...HEAD)
           printf 'PR touches %d file(s) vs merge-base(origin/main, HEAD)\n' "${#FILES[@]}"
 
-          NODES=(); MANIFESTS=(); PAGES=(); ROOTHTML=()
+          NODES=(); MANIFESTS=(); PAGES=(); ROOTHTML=(); KERNELS=()
           for f in "${FILES[@]}"; do
             case "$f" in
               chaingraph/graph/nodes/*.json) NODES+=("$f") ;;
               manifests/*.manifest.json) MANIFESTS+=("$f") ;;
               chaingraph/*.html|tools/*.html) PAGES+=("$f") ;;
+              chaingraph/kernels/*.kernel.mjs) KERNELS+=("$f") ;;
             esac
           done
           # NEW root *.html only: added in this PR, no directory component.
@@ -241,6 +261,16 @@ jobs:
           for f in "${NODES[@]}"; do printf '%s\0' "$f" >> "${RUNNER_TEMP}/nodes.z"; done
           for f in "${MANIFESTS[@]}"; do printf '%s\0' "$f" >> "${RUNNER_TEMP}/manifests.z"; done
           for f in "${PAGES[@]}"; do printf '%s\0' "$f" >> "${RUNNER_TEMP}/pages.z"; done
+          # The full touched set, NUL-delimited, for the kernel writers' allowlists.
+          : > "${RUNNER_TEMP}/touched.z"
+          for f in "${FILES[@]}"; do printf '%s\0' "$f" >> "${RUNNER_TEMP}/touched.z"; done
+          ROOTPAGES=()
+          for f in "${FILES[@]}"; do
+            case "$f" in
+              */*) : ;;
+              *.html) ROOTPAGES+=("$f") ;;
+            esac
+          done
           printf 'nodes=%d manifests=%d pages=%d new_root_html=%d\n' "${#NODES[@]}" "${#MANIFESTS[@]}" "${#PAGES[@]}" "${#ROOTHTML[@]}"
 
           {
@@ -248,6 +278,7 @@ jobs:
             echo "has_manifests=$([[ ${#MANIFESTS[@]} -gt 0 ]] && echo true || echo false)"
             echo "has_pages=$([[ ${#PAGES[@]} -gt 0 ]] && echo true || echo false)"
             echo "has_root_html=$([[ ${#ROOTHTML[@]} -gt 0 ]] && echo true || echo false)"
+            echo "has_kernel_writers=$([[ ${#KERNELS[@]} -gt 0 || ${#ROOTPAGES[@]} -gt 0 ]] && echo true || echo false)"
           } >> "$GITHUB_OUTPUT"
 
       - name: New root page — the curated rootPages list is prose, not autofixable
@@ -367,6 +398,18 @@ jobs:
             fi
           done
 
+      # Kernel-PR writers: the node shard's kernel identity stamp, the manifest input
+      # schema, and the root-page footer chrome. Each writer sits behind its own path
+      # allowlist inside scripts/ci/pr-autofix-kernel.mjs (header lists the triggers and
+      # allowlists); a write outside a writer's allowlist is reverted and, for the stamp
+      # and schema writers, fails the job. No shared derived artifact is ever allowlisted:
+      # those have one writer, derived-artifacts-regen.yml on main.
+      - name: Kernel writers (identity stamp, input schema, root chrome) behind per-writer allowlists
+        if: steps.guard.outputs.skip != 'true' && steps.touched.outputs.has_kernel_writers == 'true'
+        run: |
+          set -euo pipefail
+          node scripts/ci/pr-autofix-kernel.mjs --touched "${RUNNER_TEMP}/touched.z"
+
       - name: Containment — the writers changed nothing outside this PR's touched set
         if: steps.guard.outputs.skip != 'true'
         run: |
@@ -404,6 +447,9 @@ jobs:
           : > "${RUNNER_TEMP}/allowed.txt"
           for f in "${FILES[@]}"; do printf '%s\n' "$f" >> "${RUNNER_TEMP}/allowed.txt"; done
           printf '%s\n' scripts/a11y-baseline.json scripts/manifest-examples-baseline.json >> "${RUNNER_TEMP}/allowed.txt"
+          # The kernel writers' per-writer allowlists (their own node shard and
+          # manifest, touched non-derived root pages); nothing shared is in it.
+          node scripts/ci/pr-autofix-kernel.mjs --extras "${RUNNER_TEMP}/touched.z" >> "${RUNNER_TEMP}/allowed.txt"
           sort -u -o "${RUNNER_TEMP}/allowed.txt" "${RUNNER_TEMP}/allowed.txt"
 
           printf '%s\n' "${CHANGED[@]}" | sort -u > "${RUNNER_TEMP}/changed.txt"
@@ -509,6 +555,19 @@ jobs:
           : > "${RUNNER_TEMP}/allowed.txt"
           for f in "${FILES[@]}"; do printf '%s\n' "$f" >> "${RUNNER_TEMP}/allowed.txt"; done
           printf '%s\n' scripts/a11y-baseline.json scripts/manifest-examples-baseline.json >> "${RUNNER_TEMP}/allowed.txt"
+          # Kernel writers' per-writer allowlists, recomputed here in trusted shell: a
+          # touched kernel's own node shard and manifest. Root pages and every shared
+          # derived artifact are never added here (those have one writer, the main
+          # regen). Ids are filename stems and must match the estate id alphabet.
+          for f in "${FILES[@]}"; do
+            case "$f" in
+              chaingraph/kernels/*.kernel.mjs)
+                kid="${f#chaingraph/kernels/}"; kid="${kid%.kernel.mjs}"
+                if [[ "$kid" =~ ^[a-z0-9][a-z0-9._-]*$ ]]; then
+                  printf '%s\n' "chaingraph/graph/nodes/${kid}.json" "manifests/${kid}.manifest.json" >> "${RUNNER_TEMP}/allowed.txt"
+                fi ;;
+            esac
+          done
           sort -u -o "${RUNNER_TEMP}/allowed.txt" "${RUNNER_TEMP}/allowed.txt"
           : > "${RUNNER_TEMP}/patched.txt"
           mapfile -d '' -t NUMSTAT < <("${G[@]}" apply --numstat -z "$PATCH")
@@ -554,7 +613,7 @@ jobs:
           # (measured 2026-08-16: 11 zero-job failure runs across every branch).
           git commit \
             -m "chore(autofix): apply PR derivables (#${PR_NUMBER})" \
-            -m "Automated by .github/workflows/pr-autofix.yml: the per-PR derivables (manifest examples, ask-agent + a11y writer stamps) are deterministic from this PR's own files and ride the PR branch."
+            -m "Automated by .github/workflows/pr-autofix.yml: the per-PR derivables (manifest examples, ask-agent + a11y writer stamps, kernel identity stamp, manifest input schema, root chrome) are deterministic from this PR's own files and ride the PR branch."
 
           # App-authored push: a GITHUB_TOKEN-authored push would not retrigger
           # the PR's checks (the whole reason this row exists); the App's does.
@@ -639,7 +698,7 @@ jobs:
         run: |
           set -euo pipefail
           ARGS=(--markdown)
-          if [ "$EVENT_NAME" = "push" ]; then
+          if [ "$EVENT_NAME" = "push" ] || [ "$EVENT_NAME" = "schedule" ]; then
             ARGS+=(--apply --event-sha "$EVENT_SHA")
           elif [ "$INPUT_APPLY" = "true" ]; then
             ARGS+=(--apply)

@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:5474f7090f70ee2ec83b77349b3e6a1aa511bfb76c6e43c9b8972f5556b752c7
+// kernel_digest_at_authoring: sha256:3a611321fca01c490b5bf91489ba7bf44e4a97c1b74ae28e82cf1e047fc247d9
 //
 // FV-PROPFLOOR-SHARD-B9-1 — property-test floor for art-247-prevalidation-readiness-scorer.
 // Class B (bounded categorical), float:no — IBAN mod-97/BIC/LEI/UETR/address structural checks and a

@@ -297,6 +297,16 @@ if [ "$need_full" -eq 1 ]; then
       node scripts/preflight.mjs --push-safety --changed origin/main "$@"
       status=$?
     fi
+    # PREPUSH-HYGIENE-ALWAYS-1: the push-safety leg does not contain the whole-repo
+    # hygiene set (git-env scrub, internal-lang leak, copy hallmarks, JS syntax, PII
+    # banner, tool-number uniqueness; about 10 s), so run it here: a gate-machinery
+    # diff is exactly where a new git spawn site or a leaked id slips through. The
+    # --quick/--affected branch below already includes it; the full suite is a superset.
+    if [ "$status" -eq 0 ]; then
+      echo "pre-push: running scripts/preflight.mjs --hygiene (PREPUSH-HYGIENE-ALWAYS-1) ..."
+      node scripts/preflight.mjs --hygiene --keep-going --quiet "$@"
+      status=$?
+    fi
     [ "$status" -ne 0 ] && echo "pre-push: PUSH-SAFETY leg RED — push will be blocked below; fix the gate and re-push." 1>&2
   fi
 else
@@ -304,6 +314,16 @@ else
   node scripts/preflight.mjs --quick "$@"
   status=$?
   [ "$status" -ne 0 ] && echo "pre-push: QUICK preflight RED — push will be blocked below; fix the gate and re-push." 1>&2
+  # AFFECTED-GATES-PREPUSH-1 (2026-11-05): then the full-suite gates for this
+  # diff's path classes (kernel / node / manifest / page / mcp surface), so a
+  # builder sees the reds CI would show before the push, not after. Measured
+  # 73-80 s on real PR branches. Skipped when --quick is already red.
+  if [ "$status" -eq 0 ]; then
+    echo "pre-push: running scripts/preflight.mjs --affected (AFFECTED-GATES-PREPUSH-1) ..."
+    node scripts/preflight.mjs --affected --changed origin/main --keep-going --quiet "$@"
+    status=$?
+    [ "$status" -ne 0 ] && echo "pre-push: AFFECTED preflight RED — a gate CI runs on this diff is red; fix it and re-push (ratchet ceilings are fixed in the code, never by raising the pin)." 1>&2
+  fi
 fi
 
 # Disclosure — DISCLOSURE, not permission: runs regardless of outcome, so a
