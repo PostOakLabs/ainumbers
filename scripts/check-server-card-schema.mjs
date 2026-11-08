@@ -18,6 +18,14 @@
  *      MCPCARD-SCHEMA-1 also fixed the same dead href in
  *      gen-wellknown-catalogs.mjs).
  *
+ * MCPCARD-COUNT-ADVISORY-ON-PR-1 (2026-11-04): check 2 is a DERIVED count. verify-counts --fix rewrites
+ * tool_count on main (derived-artifacts.mjs declares the card, SO #35/#47), and MAIN-ONLY-PATHS-GATE-1
+ * bars a PR from editing the card. So a new-node PR was red by construction: mcp.live moves, the card
+ * cannot. The count finding now follows the shared isMainContext() policy. It is advisory on a PR
+ * (::warning, exit 0 if nothing else is wrong), HARD on main and on merge_group with DERIVED_ROOT,
+ * where the card is read from the assembled derived tree when present. Checks 1, 3 and 4 stay
+ * blocking everywhere.
+ *
  * --self-test (SO #40b / GATE-SELFTEST-META-1): proves the checker can go RED.
  * Mutates copies of the real card in a temp dir (never writes repo files) and
  * asserts each tamper class is caught, then re-verifies the untampered card.
@@ -28,7 +36,7 @@
  * existed at authoring time (mcp-server-card/v1.json 404s; SEP-1649 is draft).
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
@@ -124,7 +132,12 @@ async function selfTest() {
     writeFileSync(schemaPath, schemaBytes);
     const twinPath = join(tmp, 'twin.json');
     writeFileSync(twinPath, schemaBytes);
-    const base = { cardPath: join(tmp, 'card.json'), schemaPath, twinPath, expectedCount: await mcpLiveCount() };
+    // MCPCARD-SELFTEST-ADVISORY-ON-PR-1 (2026-11-05): tamper cases compare against the real card's own
+    // tool_count, so the 1185 case mismatches in EVERY context and the twin-drift case is red for the
+    // drift alone (it used to be red for the count on a new-node PR, masking itself). The live count
+    // (mcp.live) is checked only by the green baseline below, under the same isMainContext() policy as
+    // the main gate (#2898).
+    const base = { cardPath: join(tmp, 'card.json'), schemaPath, twinPath, expectedCount: realCard.tool_count };
 
     const tampered = (mutate) => {
       const c = JSON.parse(JSON.stringify(realCard));
@@ -148,7 +161,17 @@ async function selfTest() {
     // Green baseline: the REAL card + REAL twin must validate clean.
     writeFileSync(base.cardPath, JSON.stringify(realCard, null, 2));
     writeFileSync(twinPath, schemaBytes);
-    const realGreen = runGate(base);
+    // Green baseline against the LIVE count. On a PR (new node carried, mcp.live = N+1 while the
+    // main-only card still says N) a tool_count finding is advisory, exactly as in the main gate;
+    // on main and merge_group it stays hard. Before this row the baseline was hard everywhere and
+    // failed every new-node PR (run 41889746218: "SELFTEST-FAIL untampered real card validates clean").
+    const realAll = runGate({ ...base, expectedCount: await mcpLiveCount() });
+    const { isMainContext: isMainCtx } = await import('./derived-artifacts.mjs');
+    const baselineCountAdvisory = !isMainCtx();
+    const realGreen = baselineCountAdvisory ? realAll.filter((f) => !f.startsWith('tool_count:')) : realAll;
+    for (const f of realAll.filter((f) => baselineCountAdvisory && f.startsWith('tool_count:'))) {
+      console.log(`::warning::self-test baseline ${f} (advisory on a PR, MCPCARD-SELFTEST-ADVISORY-ON-PR-1)`);
+    }
 
     let pass = 0;
     for (const [name, findings] of cases) {
@@ -168,9 +191,20 @@ async function selfTest() {
 if (process.argv.includes('--self-test')) process.exit(await selfTest());
 
 const expected = await mcpLiveCount();
-const findings = runGate({ expectedCount: expected });
+// merge_group with the assembled derived tree: read the regenerated card from DERIVED_ROOT when present.
+const derivedRoot = process.env.DERIVED_ROOT && process.env.DERIVED_ROOT.trim();
+const derivedCard = derivedRoot ? resolve(ROOT, derivedRoot, CARD_REL) : null;
+const cardPath = derivedCard && existsSync(derivedCard) ? derivedCard : join(ROOT, CARD_REL);
+const all = runGate({ cardPath, expectedCount: expected });
+const { isMainContext } = await import('./derived-artifacts.mjs');
+const countAdvisory = !isMainContext();
+const isCount = (f) => f.startsWith('tool_count:');
+const findings = countAdvisory ? all.filter((f) => !isCount(f)) : all;
+for (const f of all.filter((f) => countAdvisory && isCount(f))) {
+  console.log(`::warning::${CARD_REL} ${f} (advisory on a PR; main's derived-artifacts regen rewrites tool_count, MCPCARD-COUNT-ADVISORY-ON-PR-1)`);
+}
 if (findings.length === 0) {
-  console.log(`OK server card conforms (tool_count=${expected} == mcp.live; twin byte-identical; openapi_url=apex root)`);
+  console.log(`OK server card conforms (tool_count=${expected} == mcp.live${countAdvisory && all.some(isCount) ? ' advisory-only on this PR' : ''}; twin byte-identical; openapi_url=apex root)`);
   process.exit(0);
 }
 for (const f of findings) console.error(`RED ${CARD_REL}: ${f}`);

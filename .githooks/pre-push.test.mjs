@@ -89,7 +89,10 @@ const MOCK_PREFLIGHT = `#!/usr/bin/env node
 // fence: "Zero gate semantics").
 import { writeFileSync, appendFileSync } from 'node:fs';
 const args = process.argv.slice(2);
-writeFileSync(process.env.MOCK_ARGV_DUMP, JSON.stringify(args));
+// AFFECTED-GATES-PREPUSH-1: the hook's second (--affected) leg is recorded in its own dump, so
+// MOCK_ARGV_DUMP keeps meaning "the quick/full/push-safety leg" for every assertion below.
+if (args[0] === '--affected' || args[0] === '--hygiene') { if (process.env.MOCK_AFFECTED_DUMP) writeFileSync(process.env.MOCK_AFFECTED_DUMP, JSON.stringify(args)); }
+else writeFileSync(process.env.MOCK_ARGV_DUMP, JSON.stringify(args));
 if (process.env.MOCK_ARGV_LOG) appendFileSync(process.env.MOCK_ARGV_LOG, JSON.stringify(args) + '\\n');
 if (process.env.MOCK_ENV_LOG) appendFileSync(process.env.MOCK_ENV_LOG, 'PR=' + (process.env.PR_ID_COLLISION_PR || '') + '\\n');
 console.log('mock preflight received: ' + args.join(' '));
@@ -130,6 +133,7 @@ function runHook(dir, envOverrides, input = '') {
     env: {
       ...process.env,
       MOCK_ARGV_DUMP: argvDump,
+      MOCK_AFFECTED_DUMP: join(dir, 'affected-dump.json'),
       MOCK_ARGV_LOG: join(dir, 'argv-log.jsonl'),
       MOCK_ENV_LOG: join(dir, 'env-log.txt'),
       PR_ID_COLLISION_PR: '',
@@ -145,11 +149,35 @@ function runHook(dir, envOverrides, input = '') {
   });
   let argv = null;
   if (existsSync(argvDump)) { try { argv = JSON.parse(readFileSync(argvDump, 'utf8')); } catch { /* leave null */ } }
+  let affected = null;
+  const affDump = join(dir, 'affected-dump.json');
+  if (existsSync(affDump)) { try { affected = JSON.parse(readFileSync(affDump, 'utf8')); } catch { /* leave null */ } }
   let metricsLines = [];
   if (existsSync(metricsFile)) {
     metricsLines = readFileSync(metricsFile, 'utf8').split('\n').filter((l) => l.trim().length);
   }
-  return { status: res.status, stdout: res.stdout || '', stderr: res.stderr || '', argv, metricsFile, metricsLines };
+  return { status: res.status, stdout: res.stdout || '', stderr: res.stderr || '', argv, affected, metricsFile, metricsLines };
+}
+
+// ── 0. AFFECTED-GATES-PREPUSH-1: --affected runs after a GREEN quick leg, never after a red one ──
+{
+  const dir = makeSandbox();
+  writeFileSync(join(dir, 'metrics.jsonl'), '');
+  const g = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0' });
+  assert(JSON.stringify(g.affected) === JSON.stringify(['--affected', '--changed', 'origin/main', '--keep-going', '--quiet']),
+    `GREEN quick: the --affected leg runs with --changed origin/main --keep-going --quiet (got ${JSON.stringify(g.affected)})`);
+  cleanup(dir);
+  const dir2 = makeSandbox();
+  writeFileSync(join(dir2, 'metrics.jsonl'), '');
+  const rr = runHook(dir2, { MOCK_PREFLIGHT_EXIT: '1' });
+  assert(rr.status !== 0 && rr.affected === null, `RED quick: the push is blocked and --affected never starts (got status ${rr.status}, affected ${JSON.stringify(rr.affected)})`);
+  cleanup(dir2);
+  const dir3 = makeSandbox();
+  writeFileSync(join(dir3, 'metrics.jsonl'), '');
+  const er = runHook(dir3, { MOCK_PREFLIGHT_EXIT: '0', AINUM_EXPECT_RED: 'gate-x' });
+  assert(JSON.stringify(er.affected) === JSON.stringify(['--affected', '--changed', 'origin/main', '--keep-going', '--quiet', '--expect-red', 'gate-x']),
+    `--expect-red declarations reach the --affected leg too (got ${JSON.stringify(er.affected)})`);
+  cleanup(dir3);
 }
 
 // ── 1. DEFAULT PATH UNCHANGED ────────────────────────────────────────────
@@ -342,16 +370,18 @@ function loggedArgvs(dir) {
   const dir = makeTriggerSandbox('scripts/NOTES.md');
   const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0' });
   const calls = loggedArgvs(dir);
-  assert(r.status === 0 && calls.length === 1 && calls[0][0] === '--quick',
-    `docs-only scripts/ diff (GREEN, not owed): quick leg only (got ${JSON.stringify(calls)})`);
+  assert(r.status === 0 && calls.length === 2 && calls[0][0] === '--quick' && calls[1][0] === '--affected',
+    `docs-only scripts/ diff (GREEN, not owed): quick leg, then the --affected leg (AFFECTED-GATES-PREPUSH-1), no full suite (got ${JSON.stringify(calls)})`);
   cleanup(dir);
 }
 {
   const dir = makeTriggerSandbox('scripts/new-gate.mjs');
   const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0' });
   const calls = loggedArgvs(dir);
-  assert(r.status === 0 && calls.length === 1 && calls[0][0] === '--push-safety' && calls[0][1] === '--changed' && calls[0][2] === 'origin/main',
-    `scripts/*.mjs diff (PREPUSH-SAFETY-LEG-1): PUSH-SAFETY leg only (quick skipped as a subset), full suite left to CI (got ${JSON.stringify(calls)})`);
+  assert(r.status === 0 && calls.length === 2 && calls[0][0] === '--push-safety' && calls[0][1] === '--changed' && calls[0][2] === 'origin/main',
+    `scripts/*.mjs diff (PREPUSH-SAFETY-LEG-1): PUSH-SAFETY leg (quick skipped as a subset), full suite left to CI (got ${JSON.stringify(calls)})`);
+  assert(calls[1] && calls[1][0] === '--hygiene',
+    `PREPUSH-HYGIENE-ALWAYS-1: the push-safety branch then runs the always-on --hygiene leg (got ${JSON.stringify(calls[1])})`);
   assert(existsSync(join(dir, '.git', 'preflight-push-safety.log')), 'push-safety leg output is teed to .git/preflight-push-safety.log');
   cleanup(dir);
 }
