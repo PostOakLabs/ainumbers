@@ -574,6 +574,7 @@ const PREFLIGHT_ONLY = new Map([
     "local git, so a named workflow step would re-run byte-for-byte the same check. Its paired " +
     "mutation control is check-trust-signals.test.mjs (its own GATES entry)."],
   ["check-trust-signals.test.mjs", SELF_TEST],
+  ["derived-context-detached.test.mjs", SELF_TEST],
   // ── EVREG-1 (2026-09-22) ────────────────────────────────────────────────────
   ["check-evidence-register.mjs",
     "Claim-level evidence register gate (EVREG-1): verifies the generated register " +
