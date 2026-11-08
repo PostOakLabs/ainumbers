@@ -2,6 +2,7 @@
 // (FV-PBT-FLOOR-BUILD-SPEC.md). Authored against the APEXPORT-92 porting payload
 // (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES PASS-PENDING-XV
 // 2026-10-14, Builder-verifies-at-land 22/22 per Tim 2026-10-18T21:20Z).
+// kernel_digest_at_authoring: sha256:34fec9aa61a1ef951be7b7545962394abe2b5ad177e114c6ea7cccbbee66a632
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.
 // float_sensitive: PARTIAL — the kernel deliberately keeps the Apex page's float

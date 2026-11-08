@@ -275,6 +275,10 @@ export function compute(pp) {
     tab2: t2,
     tab3: t3,
     compliance_flags,
+    // Flag-mirror doctrine (AUTHORING-STANDARD, closed mirror list): a
+    // payload-internal member truthy exactly when the conditional flags
+    // (DIV_ZERO_GUARD) are present, so payload-only readers can route on it.
+    warnings: compliance_flags,
   };
   return { output_payload, compliance_flags };
 }
@@ -299,5 +303,3 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
 }
-
-export default { compute };
