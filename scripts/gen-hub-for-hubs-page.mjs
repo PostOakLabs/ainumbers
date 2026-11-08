@@ -204,6 +204,7 @@ const CLUSTERS = [
       'chaingraph/guide-agreement-templates.html',
       'guides/credential-workbench-hub.html',
       'guides/intoto-attestations-hub.html',
+      'guides/recompute-layer-for-ai-assisted-work.html',
     ],
   },
   {
