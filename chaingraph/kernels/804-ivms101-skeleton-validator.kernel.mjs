@@ -185,6 +185,11 @@ function finish(violations, rules, edition) {
       rules_checked: rules,
       violation_count: violations.length,
       violations,
+      // FLAG-MIRROR (AUTHORING-STANDARD section 2.2): "errors" is the closed-list mirror of
+      // the conditional compliance_flags (VALID vs INVALID varies by input) - an array of
+      // "rule_id@path" strings, truthy exactly when violations exist, so a chain gate can
+      // route on the refusal without reading the flag channel.
+      errors: violations.map((v) => v.rule_id + '@' + v.path),
     },
     compliance_flags: flags,
   };

@@ -294,7 +294,7 @@ function finish(v,edition){
   const flags = valid?['IVMS101_SKELETON_VALID']:['IVMS101_SKELETON_INVALID'];
   if (v.some(x=>x.rule_id==='PII-REFUSAL')) flags.push('IVMS101_PII_REFUSED');
   if (v.some(x=>x.rule_id==='EDITION')) flags.push('IVMS101_EDITION_REJECTED');
-  return {valid, edition:PINNED_EDITION, edition_declared:edition===''?null:edition, rules_checked:RULES, violation_count:v.length, violations:v, flags};
+  return {valid, edition:PINNED_EDITION, edition_declared:edition===''?null:edition, rules_checked:RULES, violation_count:v.length, violations:v, errors:v.map(x=>x.rule_id+'@'+x.path), flags};
 }
 function walk(obj, schema, base, out){
   for (const key of Object.keys(schema)) {
@@ -463,7 +463,7 @@ async function run() {
     ? '<div class="verdict ok">VALID: the skeleton conforms to the pinned IVMS 101.2023 structure, code lists and constraints.</div>'
     : '<div class="verdict bad">INVALID: ' + r.violation_count + ' violation(s). Paths and rule ids only; leaf values are never echoed' + (r.flags.includes('IVMS101_PII_REFUSED') ? ', and at least one leaf held free text that this tool refuses to process' : '') + '.</div>';
   outEl.innerHTML = verdict + (r.violations.length ? '<table><thead><tr><th>Path</th><th>Rule</th><th>Section</th></tr></thead><tbody>' + rows + '</tbody></table>' : '');
-  const hash = await computeHash(pp, {valid:r.valid, edition:r.edition, edition_declared:r.edition_declared, rules_checked:r.rules_checked, violation_count:r.violation_count, violations:r.violations});
+  const hash = await computeHash(pp, {valid:r.valid, edition:r.edition, edition_declared:r.edition_declared, rules_checked:r.rules_checked, violation_count:r.violation_count, violations:r.violations, errors:r.errors});
   hashEl.textContent = 'sha256 execution hash (JCS canonical): ' + hash;
 }
 const MANIFEST = {"tool_id":"804-ivms101-skeleton-validator","mcp_name":"validate_ivms101_skeleton"};
