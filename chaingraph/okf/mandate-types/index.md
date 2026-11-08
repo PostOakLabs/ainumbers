@@ -16,7 +16,7 @@ status: stable
 - [collateral_mandate](./collateral_mandate.md) (9)
 - [compensation_assessment](./compensation_assessment.md) (1)
 - [compensation_benefits](./compensation_benefits.md) (1)
-- [compliance_control](./compliance_control.md) (113)
+- [compliance_control](./compliance_control.md) (114)
 - [compliance_mandate](./compliance_mandate.md) (345)
 - [consumer_finance](./consumer_finance.md) (6)
 - [credit_assessment](./credit_assessment.md) (3)
