@@ -22,7 +22,7 @@ Rates whether a DECLARED authenticator set and session policy reach a DECLARED t
 - authenticator_count (integer, optional)
 - session_declared (boolean, optional)
 - criteria_evaluated (integer, optional)
-- achieved_level (string, optional)
+- achieved_level (string,null, optional)
 - meets_target (boolean, optional)
 - unmet_criteria (array, optional)
 - undecidable_count (integer, optional)
