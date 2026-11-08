@@ -198,6 +198,7 @@ const CLUSTERS = [
       'guides/webmcp-field-notes.html',
       'guides/division-swarm-demo.html',
       'guides/regression-replayer.html',
+      'guides/published-test-vectors.html',
       'guides/authzen-pdp-provable-decisions.html',
       'guides/accept-api-court-checkable-agreements.html',
       'guides/agreement-standards-directory.html',
