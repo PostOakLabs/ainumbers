@@ -373,6 +373,17 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── Interpolated-markup ratchet (2026-11-07) ───────────────────────────────
+  ["check-innerhtml-ratchet.mjs",
+    "Advisory-first interpolated-markup ratchet over tools/*.html: preflight wires " +
+    "--advisory (counts, exit 0) for its first cycle, so a blocking CI step would " +
+    "re-run a gate that cannot fail yet. The flip (drop --advisory in preflight) and " +
+    "the CI routing decision land together, with the NEW-site rate the advisory cycle " +
+    "measures; until then this entry declares that plan. scripts/-only estate scan of " +
+    "tracked files — no network, no CI-only input — and the only PRs that can change " +
+    "its verdict shape are tools/*.html edits and scripts/ edits, both of which " +
+    "scripts-verify.yml's path-scoped full preflight already runs."],
+  ["check-innerhtml-ratchet.selftest.mjs", SELF_TEST],
   // ── ZK-TRUST-STAGES-GATE-1 / PR-2888-SELFTEST-PAIR-1 (2026-11-05) ───────────
   ["check-zk-trust-page.mjs",
     "Advisory-on-PR COVERED freshness gate (derived-artifacts.mjs id 'zk-trust-page': its regen is " +
