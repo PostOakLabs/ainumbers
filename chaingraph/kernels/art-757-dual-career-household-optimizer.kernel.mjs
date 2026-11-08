@@ -155,8 +155,13 @@ function tab2(pp) {
   const matchLost = directLost * (matchPct / 100);
   const annualGap = (months / 12) * annualReduction;
   let oppCost = 0;
+  const growthFactor = 1 + growthRate / 100;
   for (let yr = 1; yr <= SABBATICAL_HORIZON_YEARS; yr++) {
-    oppCost += annualGap * Math.pow(1 + growthRate / 100, yr);
+    // Determinism gate: Math.pow is engine-libm approximated; the exponent is
+    // the loop counter, so compound by repeated multiplication instead.
+    let growth = 1;
+    for (let k = 0; k < yr; k++) growth *= growthFactor;
+    oppCost += annualGap * growth;
   }
   oppCost = oppCost - directLost;
   const totalTrueCost = directLost + matchLost + oppCost;
