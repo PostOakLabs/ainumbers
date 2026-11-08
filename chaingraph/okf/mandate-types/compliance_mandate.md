@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-343"]
+tags: ["compliance_mandate", "count-345"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,12 +10,13 @@ status: stable
 
 # compliance_mandate
 
-343 tool(s) in this mandate-type group:
+345 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
 - [Tokenized Security Lifecycle Validator](../tools/512-tokenized-security-lifecycle-validator.md)
 - [CBR Data Return Validator](../tools/784-cbr-data-return-validator.md)
+- [Agent Cred Class Matrix](../tools/827-agent-cred-class-matrix.md)
 - [Agent Identity & Authorization Attestation Checker](../tools/art-04-agent-identity-attestation-checker.md)
 - [EN 16931 / Factur-X E-Invoicing Batch Validator](../tools/art-08-en16931-einvoice-batch-validator.md)
 - [VoP Batch Match-Rate Analyser](../tools/art-11-vop-batch-match-rate-analyser.md)
@@ -351,6 +352,7 @@ status: stable
 - [Solana PDA Bump and ATA Audit](../tools/art-780-solana-pda-ata-audit.md)
 - [Modified Premium Calculator](../tools/art-782-modified-premium.md)
 - [RFC 4180 CSV Parser](../tools/art-788-csv-rfc4180-parser.md)
+- [ERC-3643 Transfer Decision Recompute](../tools/art-807-erc3643-transfer-decision.md)
 - [Privacy Coin Regulatory Classifier (MiCA and AMLR)](../tools/art-818-zcash-reg-classifier.md)
 - [ZK Compliance Proof Generator](../tools/cry-01-zk-compliance-proof-generator.md)
 - [ISO 20022 Structured-Address Migration Batch Verifier](../tools/rca-03-iso20022-address-migration-verifier.md)
