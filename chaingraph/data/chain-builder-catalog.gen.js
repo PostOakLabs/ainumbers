@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (713 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (717 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -204,6 +204,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "795-stablecoin-refund-dispute",
+    "display_name": "Stablecoin Refund Dispute Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/795-stablecoin-refund-dispute.html",
+    "description": "Recomputes the expected refund and dispute outcome of stablecoin payments held under an escrowed refund protocol (lock period, refund reques",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "806-event-contract-terms-lint",
     "display_name": "Event Contract Terms Lint",
     "mandate_type": "compliance_control",
@@ -250,6 +260,21 @@ window.CHAINBUILDER_CATALOG = [
     "url": "https://ainumbers.co/chaingraph/824-zip317-transfer-fee.html",
     "description": "Recomputes the conventional transfer fee for a Zcash transaction from a DECLARED shape the caller pastes -- counts and byte totals only, nev",
     "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "827-agent-cred-class-matrix",
+    "display_name": "Agent Cred Class Matrix",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/827-agent-cred-class-matrix.html",
+    "description": "Maps five agent payment credential classes (shared payment token, network agentic token, API-key card proxy, x402 EIP-3009 permit, wallet de",
+    "consumes": [
+      "art-133-agent-payment-rail-trust-crosswalk",
+      "art-385-agent-token-scope-checker",
+      "art-699-x402-permit2-evidence-recomputer",
+      "art-703-mandate-authorization-gate"
+    ],
     "feeds": [],
     "status": "live"
   },
@@ -7913,6 +7938,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-819-ucp-request-constraints",
+    "display_name": "Ucp Request Constraints",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/mcp.html",
+    "description": "Deterministic, verify-only preflight of a caller-pasted Universal Commerce Protocol (UCP) request against a caller-pasted set of ucp.request",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-82-securities-settlement-message-linter",
     "display_name": "Securities-Settlement Message Linter (ISO 20022 sese/semt)",
     "mandate_type": "compliance_mandate",
@@ -7925,6 +7960,16 @@ window.CHAINBUILDER_CATALOG = [
       "cry-04-merkle-batch-verifier",
       "ptg-01-ap2-prompt-template-generator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-826-authenticator-assurance-level",
+    "display_name": "Authenticator Assurance Level Evaluator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-826-authenticator-assurance-level.html",
+    "description": "Rates whether a DECLARED authenticator set and session policy reach a DECLARED target level of a caller-supplied, versioned authentication a",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
