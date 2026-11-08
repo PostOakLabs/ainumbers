@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (710 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (713 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -229,6 +229,26 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/815-eth-fee-market.html",
     "description": "Recomputes the next Ethereum block's base fee per gas (EIP-1559) and its base fee per blob gas (EIP-4844, with the EIP-7918 reserve-price ru",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "822-zcash-supply-check",
+    "display_name": "Zcash Supply Check",
+    "mandate_type": "cryptographic_mandate",
+    "url": "https://ainumbers.co/chaingraph/822-zcash-supply-check.html",
+    "description": "Checks the arithmetic of user-pasted Zcash chain value pool balances (transparent, Sprout, Sapling, Orchard, in integer zatoshi) against a c",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "824-zip317-transfer-fee",
+    "display_name": "ZIP-317 Transfer Fee",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/824-zip317-transfer-fee.html",
+    "description": "Recomputes the conventional transfer fee for a Zcash transaction from a DECLARED shape the caller pastes -- counts and byte totals only, nev",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -7845,6 +7865,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-79-settlement-fail-predictor",
       "art-84-settlement-efficiency-kpi"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-807-erc3643-transfer-decision",
+    "display_name": "ERC-3643 Transfer Decision Recompute",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-807-erc3643-transfer-decision.html",
+    "description": "Recomputes whether one proposed ERC-3643 (T-REX) transfer or mint would go through, from caller-declared state only: identity registry entri",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
