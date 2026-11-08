@@ -60,12 +60,13 @@ export function buildNav(breadcrumbCurrent) {
  * Path-parameterized so the same template serves both depths:
  *   root = prefix to reach the repo root  (node pages: '../'          root pages: '')
  *   cg   = prefix to reach chaingraph/ dir (node pages: ''            root pages: 'chaingraph/')
- * The DATA & ARTIFACTS column folds in the full machine-artifact surface
- * (openapi.json, .well-known/mcp.json, mcp/server.json, mcp/catalog.json, sitemap.xml,
- * robots.txt, SPEC.md) so the agent-facing links live in one column, not a separate row.
- * The INFRASTRUCTURE column (FOOTER-INFRA-COLUMN-1, Tim 2026-09-27) leads with the
- * infrastructure map and the verify/ledger/MCP entry points, then the project links;
- * Security and Terms & Reliance are linked from the pages that need them, not here.
+ * Four columns (the grid CSS is fixed at four on every page): Platform, Hubs
+ * (the hub families: Web3 and the trading-side hubs, plus the full directory),
+ * Developers (MCP, the machine-readable data, verify and ledger) and About.
+ * The machine files (.well-known/mcp.json, mcp/server.json, mcp/catalog.json,
+ * sitemap.xml, robots.txt) are no longer footer links; llms.txt, mcp.html and
+ * sitemap.html still reach them. Security and Terms & Reliance are linked from the
+ * pages that need them, not here.
  * Copyright line: license/promise trio only (no year, no company name).
  *
  * WRITERS: node pages (top-level chaingraph/*.html) get this footer from the main-side
@@ -110,66 +111,53 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
         <a href="${cg}rfp-evidence-desk.html">RFP Evidence Desk</a>
         <a href="${cg}openchain-graph-spec.html">Spec v${SPEC_VERSION}</a>
         <a href="${cg}openchain-graph-explainer.html">OCG Explainer</a>
-        <a href="${cg}ain-bridge-explainer.html">AIN Bridge Explainer</a>
-        <a href="${cg}aiact-article12-record-keeping-mapping.html">AI Act Art 12 Mapping</a>
         <a href="${cg}ocg-sandbox.html">Sandbox</a>
         <a href="${cg}ocg-chain-builder.html">Chain Builder</a>
         <a href="${cg}ocg-legacy-vs-ocg.html">For Stakeholders</a>
         <a href="${cg}ocg-integration-guide.html">Integration Guide</a>
         <a href="${cg}ocg-guide-export.html">Export Profiles</a>
-        <a href="${cg}ocg-industries.html">Industry Concepts</a>
-        <a href="${root}helm.html">Helm (Phase 1)</a>
+        <a href="${root}helm.html">Helm</a>
         <a href="${root}convert.html">Conversion Suite</a>
-        <a href="${root}guides/agreement-standards-directory.html">Agreement Standards</a>
       </div>
       <div class="footer-col">
-        <div class="footer-col-label">Guides</div>
+        <div class="footer-col-label">Hubs</div>
         <a href="${root}hub-for-hubs.html">Hubs and Guides</a>
-        <a href="${cg}agent-staircase-explainer.html">Agent Staircase</a>
-        <a href="${cg}guide-prov-dm.html">W3C PROV-DM</a>
-        <a href="${cg}guide-buildtype.html">buildType / SLSA</a>
-        <a href="${cg}guide-intoto.html">in-toto / DSSE</a>
-        <a href="${cg}guide-ed25519.html">Ed25519 Signing</a>
-        <a href="${cg}guide-otel.html">OpenTelemetry</a>
-        <a href="${cg}guide-iso20022.html">ISO 20022 Profile</a>
-        <a href="${cg}guide-okf.html">Open Knowledge Format</a>
-        <a href="${root}guides/formal-verification-evidence.html">Formal-Verification Evidence</a>
-        <a href="${root}guides/webmcp-field-notes.html">WebMCP Field Notes</a>
+        <a href="${root}guides/web3-hub.html">Web3 Hub</a>
+        <a href="${root}guides/solana-hub.html">Solana</a>
+        <a href="${root}guides/ethereum-hub.html">Ethereum</a>
+        <a href="${root}guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
+        <a href="${root}guides/token-standards-hub.html">Token Standards</a>
+        <a href="${root}guides/tradetech-hub.html">TradeTech</a>
+        <a href="${root}guides/capital-markets-settlement-hub.html">Capital Markets Settlement</a>
+        <a href="${root}guides/broker-dealer-ops-hub.html">Broker-Dealer Ops</a>
+        <a href="${root}guides/treasury-liquidity-hub.html">Treasury and Strategy</a>
+        <a href="${root}guides/wealthtech-hub.html">WealthTech</a>
       </div>
       <div class="footer-col">
-        <div class="footer-col-label">Data &amp; Artifacts</div>
-        <a href="${cg}chaingraph.json" target="_blank">chaingraph.json</a>
-        <a href="${cg}okf/index.md" target="_blank">OKF bundle</a>
-        <a href="${root}data/ap2-templates.json" target="_blank">ap2-templates.json</a>
-        <a href="${root}openapi.json" target="_blank">openapi.json</a>
-        <a href="${root}llms.txt" target="_blank">llms.txt</a>
-        <a href="${root}.well-known/mcp.json" target="_blank">.well-known/mcp.json</a>
-        <a href="${root}mcp/server.json" target="_blank">mcp/server.json</a>
-        <a href="${root}mcp/catalog.json" target="_blank">mcp/catalog.json</a>
-        <a href="${cg}standard/SPEC.md" target="_blank">OCG SPEC.md</a>
-        <a href="${root}sitemap.xml" target="_blank">sitemap.xml</a>
-        <a href="${root}robots.txt" target="_blank">robots.txt</a>
-        <a href="${root}sitemap.html">Sitemap</a>
-        <a href="${cg}clause-edge-report.html">Clause Edge Report</a>
-        <a href="${root}euc-register.html">EUC Register</a>
-      </div>
-      <div class="footer-col">
-        <div class="footer-col-label">Infrastructure</div>
-        <a href="${root}infrastructure.html">Infrastructure Map</a>
-        <a href="${cg}verify.html">Artifact Verifier</a>
-        <a href="${root}ledger/index.html">Receipt Ledger</a>
-        <a href="${root}mcp-playground.html">MCP Playground</a>
+        <div class="footer-col-label">Developers</div>
         <a href="${root}mcp.html">MCP Docs</a>
+        <a href="${root}mcp-playground.html">MCP Playground</a>
         <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
         <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="${root}openapi.json" target="_blank">openapi.json</a>
+        <a href="${cg}chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="${cg}okf/index.md" target="_blank">OKF bundle</a>
+        <a href="${cg}standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="${root}llms.txt" target="_blank">llms.txt</a>
+        <a href="${cg}verify.html">Artifact Verifier</a>
+        <a href="${root}ledger/index.html">Receipt Ledger</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">About</div>
+        <a href="${root}infrastructure.html">Infrastructure Map</a>
         <a href="${root}tools.html">All Tools</a>
         <a href="${root}about.html">About</a>
         <a href="${root}methods.html">Methods</a>
         <a href="${root}fv-explainer.html">FV Process Explainer</a>
-        <a href="${root}bazantic-walkthrough.html">Bazantic A/B Walkthrough</a>
         <a href="${root}errata.html">FV Errata</a>
         <a href="${root}suggest.html">Suggest</a>
         <a href="${root}contact.html">Contact</a>
+        <a href="${root}sitemap.html">Sitemap</a>
         <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
       </div>
     </div>
@@ -842,6 +830,11 @@ export const ASK_AGENT_VERB_TABLE = {
   'Flags': 'Flag', 'Measures': 'Measure', 'Audits': 'Audit',
 };
 
+/** Abbreviations whose trailing period does not end a sentence (lower-case, with the period). */
+const ASK_AGENT_ABBREVIATIONS = new Set([
+  'u.s.', 'u.k.', 'e.u.', 'art.', 'no.', 'e.g.', 'i.e.', 'vs.', 'inc.', 'ltd.',
+]);
+
 /**
  * First sentence of a description + fixed verb-fronting. Deterministic:
  * sentence split on the first ". " (or the terminal "."), first word mapped
@@ -851,7 +844,15 @@ export const ASK_AGENT_VERB_TABLE = {
 export function askAgentImperative(description) {
   const d = String(description || '').trim();
   if (!d) return '';
-  const cut = d.indexOf('. ');
+  // ASKAGENT-TEMPLATE-FIX-1: a ". " that ends a known abbreviation is not a sentence end.
+  let cut = -1;
+  for (let from = 0; ; ) {
+    const at = d.indexOf('. ', from);
+    if (at === -1) break;
+    const word = d.slice(d.lastIndexOf(' ', at) + 1, at + 1);
+    if (!ASK_AGENT_ABBREVIATIONS.has(word.toLowerCase())) { cut = at; break; }
+    from = at + 2;
+  }
   const sentence = cut === -1 ? d : d.slice(0, cut + 1);
   const sp = sentence.indexOf(' ');
   const first = sp === -1 ? sentence : sentence.slice(0, sp);
@@ -1086,6 +1087,7 @@ export function buildAskAgentBlock({ manifestPath, toolName, description, sample
     verify,
     `Return the ledger link ${ASK_AGENT_LEDGER_URL} so a human can re-verify without contacting us.`,
     `PII rule: ${ASK_AGENT_PII_SENTENCE}`,
+    'Over MCP, the run happens on the AINumbers worker. No AINumbers server stores your inputs.',
     `Open the tool with the sample prefilled: ${deepLink}`,
   ].join('\n');
   const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

@@ -47,15 +47,32 @@
 //
 // Usage:
 //   node scripts/append-absence-lineage-record.mjs
+//   node scripts/append-absence-lineage-record.mjs --verify-regen-binding
 //
-// Exit codes: 0 appended, reconciled, or already present · 1 the absence tree
-// cannot be built or the records file has diverged from the published log.
+// `--verify-regen-binding` (LINEAGE-BINDING-REGEN-REPAIRABLE-1) is READ-ONLY:
+// it never appends, reconciles or writes. It verifies the two conditions under
+// which an in-flight PR's lineage binding drift is honestly regen-repairable by
+// main's single-writer derived-artifacts-regen (which appends AND publishes
+// after merge, publish being the step this script deliberately does not do):
+//   (i)  the records file carries the published log as a BYTE-IDENTICAL prefix
+//        through the one canonicalizer, with records length >= log size (a
+//        records file AHEAD of the log — appended, publish pending — is fine);
+//   (ii) the LAST absence record in the records file equals the tree_root and
+//        key_count recomputed from the current F2 key set (what main's regen
+//        appends at the next log index).
+// Prints BINDING-OK / BINDING-FAIL <reason> and exits 0/1; consumed by
+// check-regen-repairable.mjs's post-regen binding override.
+//
+// Exit codes: 0 appended, reconciled, already present, or --verify-regen-binding
+// held · 1 the absence tree cannot be built, the records file has diverged from
+// the published log, or --verify-regen-binding found the binding not
+// regen-repairable.
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseSignedNote } from '../chaingraph/kernels/c2sp-tlog-verify.mjs';
-import { buildAbsenceTree, absenceLineageRecord, loadKeySet } from './gen-registry-absence-tree.mjs';
+import { buildAbsenceTree, absenceLineageRecord, loadKeySet, ABSENCE_ANCHOR_TYPE } from './gen-registry-absence-tree.mjs';
 import { readEntryBundles, canonicalEntryBytes } from './gen-registry-lineage.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -154,9 +171,72 @@ export async function appendAbsenceLineageRecord(opts = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// READ-ONLY regen-repairability of the lineage binding (LINEAGE-BINDING-REGEN-
+// REPAIRABLE-1). Verifies, without writing ANYTHING: (i) the published log is
+// a byte-identical prefix of the records file with records length >= log size,
+// through the same canonicalizer the reconciliation above uses; (ii) the LAST
+// absence record in the records file equals the {tree_root, key_count}
+// recomputed from the current key set. Returns { ok, reason?, detail?,
+// recordsLength?, logSize?, lastIndex?, treeRoot?, keyCount? }.
+// ---------------------------------------------------------------------------
+export async function verifyRegenBinding(opts = {}) {
+  const recordsPath = opts.recordsPath || RECORDS_PATH;
+  const registryDir = opts.registryDir || LINEAGE_DIR;
+  const parsed = JSON.parse(readFileSync(recordsPath, 'utf8'));
+  if (!Array.isArray(parsed.records)) throw new Error(`${recordsPath}: expected a top-level "records" array`);
+
+  const checkpointPath = join(registryDir, 'checkpoint');
+  if (!existsSync(checkpointPath)) {
+    return { ok: false, reason: 'PREFIX-DIVERGENCE', detail: `no lineage checkpoint published at ${checkpointPath} — nothing to prefix against` };
+  }
+  const size = parseSignedNote(readFileSync(checkpointPath, 'utf8')).size;
+  const entries = readEntryBundles(registryDir, size);
+  if (parsed.records.length < size) {
+    return {
+      ok: false,
+      reason: 'PREFIX-DIVERGENCE',
+      detail: `records file (${parsed.records.length} entries) is SHORTER than the published log (size ${size}) — the log is ahead of its input list, which reconciliation must cure before the binding can be called regen-repairable`,
+    };
+  }
+  for (let i = 0; i < size; i++) {
+    if (!bytesEqual(canonicalEntryBytes(parsed.records[i]), entries[i])) {
+      return { ok: false, reason: 'PREFIX-DIVERGENCE', detail: `records[${i}] does not byte-match published log entry ${i}` };
+    }
+  }
+
+  const tree = await buildAbsenceTree(loadKeySet());
+  const record = absenceLineageRecord(tree);
+  let lastIndex = -1;
+  for (let i = parsed.records.length - 1; i >= 0; i--) {
+    if (parsed.records[i] && parsed.records[i].anchor_type === ABSENCE_ANCHOR_TYPE) { lastIndex = i; break; }
+  }
+  if (lastIndex === -1) {
+    return { ok: false, reason: 'LAST-RECORD', detail: 'the records file contains no absence-tree record at all' };
+  }
+  const last = parsed.records[lastIndex];
+  if (last.tree_root !== record.tree_root || last.key_count !== record.key_count) {
+    return {
+      ok: false,
+      reason: 'LAST-RECORD',
+      detail: `records[${lastIndex}] (tree_root ${last.tree_root}, key_count ${last.key_count}) != recomputed (tree_root ${record.tree_root}, key_count ${record.key_count}) — the append's dedupe did not land the current root last, so main's regen publish alone would not repair this binding`,
+    };
+  }
+  return { ok: true, recordsLength: parsed.records.length, logSize: size, lastIndex, treeRoot: record.tree_root, keyCount: record.key_count };
+}
+
+// ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
 async function main() {
+  if (process.argv.includes('--verify-regen-binding')) {
+    const result = await verifyRegenBinding({ log: console.log });
+    if (result.ok) {
+      console.log(`append-absence-lineage-record: BINDING-OK records=${result.recordsLength} log=${result.logSize} lastIndex=${result.lastIndex} ${result.treeRoot} key_count ${result.keyCount} — published log is a byte-identical prefix of the records file and the last absence record is the recomputed root; main's regen appends AND publishes after merge, so this PR-side drift is regen-repairable (LINEAGE-BINDING-REGEN-REPAIRABLE-1).`);
+      return;
+    }
+    console.error(`append-absence-lineage-record: BINDING-FAIL ${result.reason} — ${result.detail}`);
+    process.exit(1);
+  }
   const result = await appendAbsenceLineageRecord({ log: console.log });
   if (result.appended) {
     console.log('  publish it: node scripts/gen-registry-lineage.mjs   (Sigsum-anchors the new lineage head — one add-leaf)');

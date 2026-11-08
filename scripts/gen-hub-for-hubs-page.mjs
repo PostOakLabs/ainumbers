@@ -152,6 +152,8 @@ const CLUSTERS = [
     blurb: 'Tokenized assets and the chains they settle on, from Canton and shared ledgers to the payments-first L1s.',
     paths: [
       'guides/web3-hub.html',
+      'guides/solana-hub.html',
+      'guides/ethereum-hub.html',
       'guides/dlt-tokenization-hub.html',
       'guides/canton-tmf-hub.html',
       'guides/token-standards-hub.html',
@@ -182,6 +184,7 @@ const CLUSTERS = [
     paths: [
       'guides/agentic-commerce-mcp-hub.html',
       'guides/paypal-agent-shop-walkthrough.html',
+      'guides/paypal-hub.html',
       'guides/agent-observability-hub.html',
       'guides/agent-payment-dispute-evidence-hub.html',
       'chaingraph/agentcore-x402-hub.html',

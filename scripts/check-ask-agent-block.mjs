@@ -44,10 +44,21 @@
  *        re-run in-process expecting problems (RED), the page is restored and
  *        the gate is re-run expecting clean (GREEN). Never exits non-zero.)
  *
+ * ASK-AGENT-GATE-SHARD-SCOPE-1 (SPEC.md section 15 gate suite): the gate and the
+ * writer also cover LIVE-PENDING nodes: a node shard on disk under
+ * chaingraph/graph/nodes/ whose tool_id is not yet in the built registry
+ * (enrolment into chaingraph.meta.json order.nodes and the assemble are
+ * main-side, ENROL-MAIN-SIDE-1). Without this a node-adding PR passes, merges,
+ * the main-side regen enrols it, and main reds on a page with no block.
+ * Severity follows the shared derived-artifact split (isMainContext(): hard on
+ * merge_group with a DERIVED_ROOT assembly and on push:main, fail closed on any
+ * other CI event; advisory on pull_request and on a local run): a live-pending
+ * finding prints as "ADVISORY live-pending: ..." and does not fail.
+ *
  * Exit: 0 clean; 1 on any drift, duplication, or coverage regression; 2 on a
  *       --only usage error.
  */
-import { readFileSync, writeFileSync, existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -55,6 +66,9 @@ import { gunzipSync } from 'node:zlib';
 import {
   ASK_AGENT_END, askAgentImperative, buildAskAgentBlock, encodeAskAgentFragment,
 } from '../chaingraph/_page-chrome.mjs';
+import { chromeInsertionIndex } from './page-chrome-anchor.mjs';
+import { verifyPageMapping } from './gen-webmcp-registrations.mjs';
+import { isMainContext } from './derived-artifacts.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -196,6 +210,98 @@ async function writerScopeProof() {
   rmSync(root, { recursive: true, force: true });
 }
 
+/** ASK-AGENT-GATE-SHARD-SCOPE-1 proofs, hermetic fixture tree only (never the
+ *  live tree). The fixture is a live-pending node: its shard is on disk under
+ *  chaingraph/graph/nodes/, absent from the built chaingraph.json, and its page
+ *  carries no block.
+ *  RED      merge_group/main context: gate has a problem (exit 1).
+ *  ADVISORY pull_request/local context: same finding is an advisory, no problem (exit 0).
+ *  GREEN    after the writer repaints the page: clean in the hard context (exit 0). */
+async function pendingScopeProof() {
+  const root = mkdtempSync(join(tmpdir(), 'ask-agent-pending-'));
+  const id = 'scope-art-pending';
+  const description = 'Validates the pending fixture. Twice.';
+  mkdirSync(join(root, 'chaingraph', 'kernels'), { recursive: true });
+  mkdirSync(join(root, 'chaingraph', 'graph', 'nodes'), { recursive: true });
+  mkdirSync(join(root, 'manifests'), { recursive: true });
+  writeFileSync(join(root, 'chaingraph', 'chaingraph.json'), JSON.stringify({ nodes: [] }, null, 2), 'utf8');
+  writeFileSync(join(root, 'chaingraph', 'graph', 'nodes', `${id}.json`), JSON.stringify({
+    tool_id: id, status: 'live', mcp_name: 'scope_tool_pending', url: `https://ainumbers.co/chaingraph/${id}.html`,
+  }, null, 2), 'utf8');
+  writeFileSync(join(root, 'manifests', `${id}.manifest.json`), JSON.stringify({
+    mcp_tool_definition: { name: 'scope_tool_pending', description },
+    example: { policy_parameters: { k: id } },
+  }, null, 2), 'utf8');
+  writeFileSync(join(root, 'chaingraph', 'kernels', `${id}.kernel.mjs`),
+    `export async function buildArtifact(sample){ if (!sample || sample.k !== ${JSON.stringify(id)}) throw new Error('bad sample'); return { execution_hash: 'k'.repeat(64) }; }
+`, 'utf8');
+  const pageAbs = join(root, 'chaingraph', `${id}.html`);
+  writeFileSync(pageAbs, '<!doctype html><html><body><h1>pending</h1><footer>site footer</footer></body></html>', 'utf8');
+  const exitOf = (r) => (r.problems.length ? 1 : 0);
+  const red = await collect(root, false, { main: true });
+  assert(red.live.some((n) => n.tool_id === id && n.livePending), 'shard-on-disk node is adjudicated as live-pending');
+  assert(exitOf(red) === 1 && /no ask-agent block/.test(red.problems[0]), 'RED: live-pending block-less page must fail in a hard (merge_group/main) context');
+  console.log(`PENDING-SCOPE RED: shard on disk, absent from built registry, page without a block, merge_group/main context: exit ${exitOf(red)} (${red.problems[0].slice(0, 70)}...).`);
+  const adv = await collect(root, false, { main: false });
+  assert(exitOf(adv) === 0 && adv.advisories.length === 1, 'ADVISORY: same fixture on pull_request/local must be advisory, exit 0');
+  console.log(`PENDING-SCOPE ADVISORY: same fixture, pull_request/local context: exit ${exitOf(adv)}, ADVISORY live-pending: ${adv.advisories[0].slice(0, 60)}...`);
+  const w = await writePass(root, null);
+  assert(!w.error && w.written === 1, '--write must repaint the live-pending page, wrote ' + w.written);
+  const green = await collect(root, false, { main: true });
+  assert(exitOf(green) === 0 && green.advisories.length === 0, 'GREEN: clean after --write in the hard context: ' + (green.problems[0] || ''));
+  console.log(`PENDING-SCOPE GREEN: same fixture after --write (wrote ${w.written} page): merge_group/main context exit ${exitOf(green)}.`);
+  rmSync(root, { recursive: true, force: true });
+}
+
+/** WRITER-CANON-ALIGN-1 proofs, hermetic (pure strings + the shared table,
+ *  never touches the live tree):
+ *  1. CONVERGENCE: with both chrome writers' insertions going through the ONE
+ *     shared canonical-position table, either invocation order (a11y then
+ *     ask-agent, or ask-agent then a11y) lands on byte-identical pages, in the
+ *     canonical ASK-above-A11Y-above-footer order.
+ *  2. ART-561 SHAPE (the row's eligibility guard, GREEN-only): a canonical
+ *     relocation of the chrome regions around a mapping-eligible page must NOT
+ *     flip webmcp mapping eligibility. The eligibility consult is
+ *     verifyPageMapping (scripts/gen-webmcp-registrations.mjs) — its element
+ *     consult is the id-attribute scan over the whole page source, which is
+ *     position-insensitive BY DESIGN; the art-561 red state is reproduced at
+ *     the gate level in the row record (post-#2250 bytes red
+ *     gen-webmcp-registrations --check, pristine main bytes green — the page
+ *     carried a generated region while mapping-incomplete). This test pins the
+ *     invariant so a future position-SENSITIVE consult cannot land silently:
+ *     the verdict object must be deep-equal across the relocation. */
+function canonAlignProof() {
+  const ask = '<!-- ASK-AGENT:BEGIN generator=x manifest=y -->ASK-BLOCK<!-- ASK-AGENT:END -->';
+  const a11y = '<!-- A11Y-TREE:BEGIN generator=z --><script>/* ocg */</script><!-- A11Y-TREE:END -->';
+  const insert = (src, block, aboveA11y) => {
+    const at = chromeInsertionIndex(src, { aboveA11yRegion: aboveA11y });
+    if (!at) throw new Error('no anchor');
+    return src.slice(0, at.index).replace(/\s+$/, '') + '\n\n' + block + '\n\n' + src.slice(at.index);
+  };
+  // 1. convergence over both invocation orders, abutting and content-separated.
+  const page0 = '<!doctype html><html><body><h1>p</h1><footer>site footer</footer></body></html>';
+  const aThenAsk = insert(insert(page0, a11y, false), ask, true);
+  const askThenA = insert(insert(page0, ask, true), a11y, false);
+  assert(aThenAsk === askThenA, 'both writer invocation orders converge on identical bytes');
+  assert(aThenAsk.indexOf(ask) < aThenAsk.indexOf(a11y) && aThenAsk.indexOf(a11y) < aThenAsk.indexOf('<footer>'), 'canonical order ASK above A11Y above footer');
+  const withContent = insert(insert(page0.replace('<footer>', '<div>notes</div><footer>'), ask, true), a11y, false);
+  assert(withContent.indexOf(ask) < withContent.indexOf(a11y), 'content-separated tail still converges ASK above A11Y');
+  // 2. art-561 shape: eligibility verdict invariant under chrome relocation.
+  const manifest = {
+    mcp_tool_definition: { name: 'scope_tool_a', inputSchema: { properties: { mode: { type: 'string' } } } },
+    execution: { function_name: 'runCheck' },
+  };
+  const eligibleBody = '<input id="mode"><script>function runCheck(pp){ return pp; }\nfunction runTool(){ _lastResult = runCheck(collect()); }</script>';
+  const canonical = insert(insert(page0.replace('<h1>p</h1>', '<h1>p</h1>' + eligibleBody), ask, true), a11y, false);
+  const relocated = insert(insert(page0.replace('<h1>p</h1>', '<h1>p</h1>' + eligibleBody), a11y, false), ask, true);
+  const vCanon = verifyPageMapping(manifest, canonical, 'fixture.html', null);
+  const vReloc = verifyPageMapping(manifest, relocated, 'fixture.html', null);
+  assert(!vCanon.error, 'canonical page is mapping-eligible: ' + vCanon.error);
+  assert(JSON.stringify(vCanon) === JSON.stringify(vReloc), 'chrome relocation must NOT flip mapping eligibility (art-561 shape): ' + JSON.stringify(vReloc));
+  assert(vReloc.resGlobal === '_lastResult' && vReloc.wrapper === 'runTool', 'relocated page keeps wrapper + result-global verdict');
+  console.log('CANON-ALIGN OK: both invocation orders converge byte-identically (ASK above A11Y above footer); art-561 shape — mapping eligibility verdict invariant under chrome relocation (GREEN-only: the consult, verifyPageMapping, is position-insensitive by design).');
+}
+
 function loadJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
@@ -203,6 +309,24 @@ function loadJson(path) {
 function liveNodes(repoRoot = REPO) {
   const cg = loadJson(resolve(repoRoot, 'chaingraph', 'chaingraph.json'));
   return (cg.nodes || []).filter((n) => n.status === 'live' && n.tool_id);
+}
+
+/** LIVE-PENDING nodes: shards on disk (chaingraph/graph/nodes/*.json, the same
+ *  directory assemble-chaingraph.mjs reportUnassembledShards() scans) that are
+ *  `live` and whose tool_id is absent from the built registry. Tagged
+ *  `livePending` so collect() can route their findings by severity. */
+function pendingNodes(repoRoot = REPO, built = null) {
+  const dir = resolve(repoRoot, 'chaingraph', 'graph', 'nodes');
+  if (!existsSync(dir)) return [];
+  const known = new Set((built || loadJson(resolve(repoRoot, 'chaingraph', 'chaingraph.json')).nodes || []).map((n) => n.tool_id));
+  const out = [];
+  for (const f of readdirSync(dir).filter((x) => x.endsWith('.json')).sort()) {
+    let shard;
+    try { shard = loadJson(join(dir, f)); } catch { continue; }
+    if (!shard || !shard.tool_id || shard.status !== 'live' || known.has(shard.tool_id)) continue;
+    out.push({ ...shard, livePending: true });
+  }
+  return out;
 }
 
 /** The adjudicated per-page inputs; { exclude } + reason when the block cannot
@@ -227,9 +351,13 @@ async function adjudicateNode(node, repoRoot) {
   // private-input manifests for raw witnesses), else fixture 0 policy_parameters
   let sample = null;
   const ex = manifest.example ?? manifest.mcp_tool_definition?.example;
+  // ASKAGENT-TEMPLATE-FIX-1: a declared example whose policy_parameters is an empty
+  // object is treated as absent, so fixture 0 supplies the sample instead of "{}".
+  // Deprecated nodes (e.g. art-99) carry no block: they are not live, so never reach here.
   if (ex && typeof ex === 'object' && !Array.isArray(ex)) {
     sample = ex.policy_parameters && typeof ex.policy_parameters === 'object'
       ? ex.policy_parameters : ex;
+    if (!Array.isArray(sample) && Object.keys(sample).length === 0) sample = null;
   }
   if (!sample) {
     const fixturePath = join(repoRoot, 'chaingraph', 'kernels', 'fixtures', `${id}.fixtures.json`);
@@ -313,26 +441,36 @@ function verifyFragment(expected, sample) {
  *  hermetic fixture tree. `writeMode` forces the WRITE-pass posture (skip the
  *  region checks — a missing block is what the pass is for); defaults to the
  *  global WRITE so the CHECK pass semantics are untouched. */
-async function collect(repoRoot = REPO, writeMode = WRITE) {
-  const live = liveNodes(repoRoot);
+async function collect(repoRoot = REPO, writeMode = WRITE, { main } = {}) {
+  const live = liveNodes(repoRoot).concat(pendingNodes(repoRoot));
+  // Live-pending findings are hard only in a main context (merge_group / main);
+  // otherwise advisory. `main` is injectable for the self-test.
+  const hard = main === undefined ? isMainContext() : main;
   const problems = [];
+  const advisories = [];
+  const sinkFor = (n) => (n.livePending && !hard ? advisories : problems);
+  const nodeOf = new Map(live.map((n) => [n.tool_id, n]));
   const excluded = [];
   const adjudicated = [];
   for (const node of live) {
     const d = await adjudicateNode(node, repoRoot);
     if (d.exclude) { excluded.push(d); continue; }
-    if (d.sampleError) { problems.push(`${d.pageRel}: ${d.sampleError}`); continue; }
+    const sink = sinkFor(node);
+    const tag = node.livePending ? 'live-pending ' : '';
+    if (d.sampleError) { sink.push(`${tag}${d.pageRel}: ${d.sampleError}`); continue; }
     if (d.mcpName && d.mcpName !== d.toolName) {
-      problems.push(`${d.pageRel}: block tool name '${d.toolName}' != node mcp_name '${d.mcpName}'`);
+      sink.push(`${tag}${d.pageRel}: block tool name '${d.toolName}' != node mcp_name '${d.mcpName}'`);
       continue;
     }
     const fragErr = verifyFragment(d.expected, d.sample);
-    if (fragErr) problems.push(`${d.pageRel}: ${fragErr}`);
+    if (fragErr) sink.push(`${tag}${d.pageRel}: ${fragErr}`);
     adjudicated.push(d);
   }
   if (!writeMode) {
     for (const d of adjudicated) {
       const regions = regionsOf(d.pageSrc);
+      const sink = sinkFor(nodeOf.get(d.id));
+      const problems = sink; // findings for this page route by severity
       if (regions.length === 0) { problems.push(`${d.pageRel}: no ask-agent block (coverage regression) — run node scripts/check-ask-agent-block.mjs --write`); continue; }
       if (regions.length > 1) { problems.push(`${d.pageRel}: ${regions.length} ask-agent blocks, exactly one required`); continue; }
       const actual = d.pageSrc.slice(regions[0].start, regions[0].end);
@@ -341,7 +479,7 @@ async function collect(repoRoot = REPO, writeMode = WRITE) {
       }
     }
   }
-  return { live, problems, excluded, adjudicated };
+  return { live, problems, advisories, excluded, adjudicated };
 }
 
 function printExcluded(excluded) {
@@ -384,48 +522,15 @@ async function writePass(repoRoot, onlyId = null) {
       base = base.slice(0, r.start) + base.slice(r.end);
     }
     let next;
-    // Visible block: insert BEFORE the first <footer> that is NOT inside a
-    // <script> span (reader-facing content belongs above the footer). Some
-    // pages build their whole body inside a template literal in a script
-    // that itself contains '<footer>' (measured: art-139/140/142/143) —
-    // injecting there breaks page parsing. Fallback: before the LAST
-    // </body> (never a first-match replace — several pages embed the
-    // literal '</body>' inside script strings, measured: art-373 etc.).
-    const scriptSpans = [];
-    {
-      const re = /<script\b[^>]*>[\s\S]*?<\/script>/gi;
-      let m;
-      while ((m = re.exec(base)) !== null) scriptSpans.push([m.index, m.index + m[0].length]);
-    }
-    const inScript = (i) => scriptSpans.some(([a, b]) => i >= a && i < b);
-    let close = -1;
-    let f = base.indexOf('<footer>');
-    while (f !== -1) {
-      if (!inScript(f)) { close = f; break; }
-      f = base.indexOf('<footer>', f + 1);
-    }
-    if (close === -1) close = base.lastIndexOf('</body>');
-    if (close === -1) { problems.push(`${d.pageRel}: no non-script <footer> or </body> to insert before`); continue; }
-    // Canonical region order: the ASK-AGENT block precedes the A11Y-TREE
-    // runtime region. Both writers anchor on the first non-script <footer>;
-    // without this, back-to-back whole-tree write passes relocate the block
-    // on every run (each strips only its own region, trims trailing
-    // whitespace, and re-inserts before the footer — ask-agent then a11y
-    // leaves A11Y-then-ASK, the reverse invocation order leaves ASK-then-A11Y),
-    // so the emitted bytes depended on writer order (MAIN-REGEN-SCRIPTS-
-    // VERIFY-HEAL-1). Inserting BEFORE an A11Y-TREE region that directly
-    // abuts the anchor makes both invocation orders converge on the same bytes.
-    let anchor = close;
-    const A11Y_BEGIN = '<!-- A11Y-TREE:BEGIN ';
-    const A11Y_END = '<!-- A11Y-TREE:END -->';
-    const tail = base.slice(0, close);
-    const aAt = tail.lastIndexOf(A11Y_BEGIN);
-    if (aAt !== -1) {
-      const aEnd = tail.indexOf(A11Y_END, aAt);
-      if (aEnd !== -1 && /^\s*$/.test(tail.slice(aEnd + A11Y_END.length))) anchor = aAt;
-    }
-    const head = base.slice(0, anchor).replace(/\s+$/, '');
-    next = head + '\n\n' + d.expected + '\n\n' + base.slice(anchor);
+    // WRITER-CANON-ALIGN-1: the insertion point comes from the ONE shared
+    // canonical-position table (scripts/page-chrome-anchor.mjs) — visible
+    // block above the footer, above an abutting A11Y-TREE region, fallback
+    // last </body>, script spans blinded. The private inline copy this file
+    // carried before is gone; the two chrome writers can no longer drift.
+    const anchorAt = chromeInsertionIndex(base, { aboveA11yRegion: true });
+    if (!anchorAt) { problems.push(`${d.pageRel}: no non-script <footer> or </body> to insert before`); continue; }
+    const head = base.slice(0, anchorAt.index).replace(/\s+$/, '');
+    next = head + '\n\n' + d.expected + '\n\n' + base.slice(anchorAt.index);
     if (next !== d.pageSrc) { writeFileSync(d.pageAbs, next, 'utf8'); written++; }
     else exact++;
   }
@@ -446,7 +551,8 @@ async function run() {
     printExcluded(r.excluded);
     return;
   }
-  const { live, problems, excluded, adjudicated } = await collect();
+  const { live, problems, advisories, excluded, adjudicated } = await collect();
+  advisories.forEach((a) => console.log(`ADVISORY live-pending: ${a.replace(/^live-pending /, '')} (shard on disk, not yet enrolled; hard on merge_group/main; cure: node scripts/check-ask-agent-block.mjs --write)`));
   if (problems.length) {
     console.error(`✗ ask-agent block freshness FAILED (${problems.length}):`);
     problems.forEach((p) => console.error('    ' + p));
@@ -490,7 +596,9 @@ if (RED_GREEN) {
   assert(!gpuBlock.includes('with the parameter `claimed_hash`'), 'gpu block never promises a server-side hash');
   await redGreen();
   await writerScopeProof();
-  console.log('SELF-TEST PASS (verb table, fragment round-trip, block shape, gpu sentence, sample execution, mutation red-green, writer --only scoping red-then-green).');
+  await pendingScopeProof();
+  canonAlignProof();
+  console.log('SELF-TEST PASS (verb table, fragment round-trip, block shape, gpu sentence, sample execution, mutation red-green, writer --only scoping red-then-green, live-pending shard scope RED/GREEN/ADVISORY, canon-align + art-561 eligibility shape).');
 } else {
   await run();
 }

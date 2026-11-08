@@ -1,5 +1,5 @@
 // art-715-token2022-transfer-fee-reconciler property-test floor (SOLANA-B1-TRANSFER-FEE-NODE-1).
-// kernel_digest_at_authoring: sha256:020915c5c02c1d2cb9bcb284db4b533d4828472f3b005e2ad70d94c473ab4578
+// kernel_digest_at_authoring: sha256:c414a3768622106b76dff42ac67c64552af24be5aae08474f240c16e0f676cdc
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3. Shape:
