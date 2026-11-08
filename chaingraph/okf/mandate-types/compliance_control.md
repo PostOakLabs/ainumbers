@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-112"]
+tags: ["compliance_control", "count-113"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-112 tool(s) in this mandate-type group:
+113 tool(s) in this mandate-type group:
 
 - [Corridor Cost Averages](../tools/787-corridor-cost-averages.md)
 - [Stablecoin Refund Dispute Check](../tools/795-stablecoin-refund-dispute.md)
@@ -124,3 +124,4 @@ status: stable
 - [Beacon-Seeded Fair-Sampling Deriver V2](../tools/art-774-beacon-seeded-fair-sampling-v2.md)
 - [Quadratic Funding Round Recompute](../tools/art-814-qf-pairwise-recompute.md)
 - [Ucp Request Constraints](../tools/art-819-ucp-request-constraints.md)
+- [Authenticator Assurance Level Evaluator](../tools/art-826-authenticator-assurance-level.md)
