@@ -86,8 +86,50 @@ export const CHECKS_PENDING_MAX_MIN = 45;
 // conflicting, main touched a file the PR also touches since their merge base,
 // or it carries the opt-in label below. No per-gate path map exists, so "the
 // files the failing gate reads" is approximated by the files the PR changes.
+// Two red classes ARE repaired by a merge of current main, so they sync too
+// (MAIN_OWNED_FRESHNESS_STEPS below): every failing step on the head's latest
+// required run is a main-owned freshness step, or the head's run started
+// before main's latest recovery from a red episode completed (a stale red).
 export const SYNC_ANYWAY_LABEL = 'sync-anyway';
 export const RED_STATES = new Set(['FAILURE', 'ERROR']);
+// The red-head skip below yields to two main-repairable red classes:
+//   (a) every failing step on the head's latest Scripts Verify / Land Verify
+//       run is one of the exact workflow step names here — the steps under
+//       which the freshness gates of scripts/derived-artifacts.mjs COVERED
+//       run on a PR head, plus the ask-agent block freshness step. A merge of
+//       current main re-derives those artifacts and greens the steps. Exact
+//       strings only: one unlisted failing step keeps the skip.
+//   (b) the head's latest required run started BEFORE main's latest recovery
+//       from a Scripts Verify red episode completed (mainRecoveryAt below),
+//       so the red judged a main that has since been repaired — a stale red.
+// Both need CI facts fetched in the I/O half; missing data keeps the skip
+// (fail-closed to the old behaviour). The COVERED-check-to-step mapping:
+//   'Derived-freshness, index-sync, sitemap (HARD on merge_group)'
+//     = derived-artifacts.mjs --verify, i.e. every COVERED freshness gate on
+//     the committed tree: trust-signals (gen-trust-signals --check),
+//     webmcp.json freshness (gen-webmcp-registrations --manifest --check),
+//     receipt-bundles freshness (gen-receipt-bundles --check), gen-index
+//     (gen-chain-index --check), sitemap, catalog index-sync and the rest.
+//   'chaingraph.json shard freshness (CGSHARD-1 CS-1)' = the COVERED
+//     chaingraph-assemble gate's own step.
+//   'Count-drift gate (...)' = the COVERED counts gate's own step.
+//   'Manifest examples drift (...)' = the COVERED manifest-examples gate's
+//     own Scripts Verify step.
+export const MAIN_OWNED_FRESHNESS_STEPS = Object.freeze(new Set([
+  'Derived-freshness, index-sync, sitemap (HARD on merge_group)',
+  'chaingraph.json shard freshness (CGSHARD-1 CS-1)',
+  'Count-drift gate (advisory on PR, HARD on merge_group via DERIVED_ROOT, blocking on main)',
+  'Manifest examples drift (HARD on pull_request — per-PR derivables promotion)',
+  'Ask-agent block freshness (HARD on pull_request — per-PR derivables promotion)',
+]));
+// (a) every failing step on the head's latest required run is a main-owned
+// freshness step. An empty or unreadable failingSteps keeps this false.
+const redHeadFreshnessOnly = (input) => Array.isArray(input.failingSteps) && input.failingSteps.length > 0
+  && input.failingSteps.every((s) => MAIN_OWNED_FRESHNESS_STEPS.has(s));
+// (b) the head's red is stale: its required run started before main's latest
+// recovery from a red episode completed. Either field null keeps this false.
+const redHeadStale = (input) => input.mainRecoveredAt != null && input.headRunStartedAt != null
+  && input.headRunStartedAt < input.mainRecoveredAt;
 // push:main runs wait for derived-artifacts-regen on their own sha (a run
 // takes 3-4 min); see regenGate().
 export const REGEN_WAIT_MIN = 15;
@@ -205,6 +247,9 @@ export function parseMergeTree(stdout) {
  * @param {Set<string>} [input.sentinelOk]  sentinel-owned pages whose PR diff is sentinel-only
  * @param {number} [input.attempts]   failed bot-sync attempts already on this head
  * @param {string[]|null} [input.sharedFiles]  files changed by both main and the PR since their merge base (null/undefined = unknown, allows a sync)
+ * @param {string[]|null} [input.failingSteps]  failing step names on the head's latest required Scripts Verify / Land Verify runs (null/undefined = unreadable, keeps the red-head skip)
+ * @param {number|null} [input.headRunStartedAt]  epoch ms: start of the head's latest required run
+ * @param {number|null} [input.mainRecoveredAt]  epoch ms: completion of main's latest Scripts Verify recovery from a red episode
  * @param {boolean} [input.notified]  a real-conflict comment already exists for this head
  * @param {number} [input.now]        epoch ms
  * @param {number} [input.minHeadAgeMs]
@@ -284,8 +329,14 @@ export function decide(input) {
   if (conflicts.length === 0 && (pr.labels || []).includes(ARMED_LABEL)) return skip('armed-queue-rebuilds');
   // Red head: a clean merge cannot fix it. Conflicting PRs, shared-file
   // overlap with main, unknown overlap and the opt-in label all keep syncing.
+  // The skip yields to the two main-repairable red classes documented on
+  // MAIN_OWNED_FRESHNESS_STEPS: every failing step is a main-owned freshness
+  // step (redHeadFreshnessOnly), or the head's run predates main's latest
+  // recovery from a red episode (redHeadStale). A merge of current main is
+  // the cure for both. Missing CI facts keep the skip, never act blind.
   if (conflicts.length === 0 && RED_STATES.has(pr.checksState) && !(pr.labels || []).includes(SYNC_ANYWAY_LABEL)
-      && Array.isArray(input.sharedFiles) && input.sharedFiles.length === 0) return skip('red-head-no-shared-files');
+      && Array.isArray(input.sharedFiles) && input.sharedFiles.length === 0
+      && !(redHeadFreshnessOnly(input) || redHeadStale(input))) return skip('red-head-no-shared-files');
 
   if (conflicts.length === 0) return { action: 'merge-clean', reason: 'behind', paths: [] };
   const sentinelOk = input.sentinelOk || new Set();
@@ -421,11 +472,14 @@ function sharedFilesWithMain(headSha, mainSha) {
   const mine = new Set(lines(h.out));
   return lines(m.out).filter((f) => mine.has(f));
 }
-/** predict() plus the red-head overlap probe, run only for a red, clean-BEHIND PR. */
-function predictFor(pr, mainSha) {
+/** predict() plus the red-head overlap probe and the CI facts the red-head
+ * skip exceptions read, run only for a red, clean-BEHIND PR. */
+function predictFor(pr, mainSha, repo = REPO) {
   const pred = pr.isCrossRepository ? { behind: false, conflicts: [] } : predict(pr.headRefOid, mainSha);
   if (pred.behind && pred.conflicts && pred.conflicts.length === 0 && RED_STATES.has(pr.checksState)) {
     pred.sharedFiles = sharedFilesWithMain(pr.headRefOid, mainSha);
+    Object.assign(pred, headRunFacts(repo, pr.headRefOid));
+    pred.mainRecoveredAt = mainRecoveredAt(repo);
   }
   return pred;
 }
@@ -558,6 +612,75 @@ function regenRuns(repo, sha) {
   return { total, pending };
 }
 
+// The two required PR runs whose step verdicts decide() reads for the
+// red-head skip exceptions (workflow file paths, the form regenRuns uses).
+const REQUIRED_RUN_WORKFLOWS = ['scripts-verify.yml', 'land-verify.yml'];
+
+/**
+ * CI facts for one head sha, for the red-head skip exceptions: the failing
+ * step names on each required workflow's latest completed run, and the start
+ * time of the newest of those runs. Any unreadable piece (API error, no run,
+ * still in progress, cancelled) returns {} — decide() then keeps the
+ * red-head skip. Fail-closed: these fields only ever widen the sync for red
+ * classes a merge of main repairs, never for a red it cannot.
+ */
+function headRunFacts(repo, headSha) {
+  const failingSteps = [];
+  let headRunStartedAt = null;
+  for (const wf of REQUIRED_RUN_WORKFLOWS) {
+    let run;
+    try {
+      run = JSON.parse(gh(['api', `repos/${repo}/actions/workflows/${wf}/runs?head_sha=${headSha}&per_page=10`,
+        '--jq', '{conclusion: .workflow_runs[0].conclusion, started: .workflow_runs[0].run_started_at, id: .workflow_runs[0].id}'],
+        undefined, process.env.ACTIONS_READ_TOKEN));
+    } catch { return {}; }
+    if (!run || typeof run.conclusion !== 'string' || !Number.isFinite(Date.parse(run.started || null))) return {};
+    if (run.conclusion === 'failure') {
+      let steps;
+      try {
+        steps = JSON.parse(gh(['api', `repos/${repo}/actions/runs/${run.id}/jobs?per_page=100&filter=latest`,
+          '--jq', '[.jobs[] | .steps[]? | select(.conclusion == "failure") | .name]'],
+          undefined, process.env.ACTIONS_READ_TOKEN));
+      } catch { return {}; }
+      if (!Array.isArray(steps) || steps.some((s) => typeof s !== 'string')) return {};
+      failingSteps.push(...steps);
+    } else if (run.conclusion !== 'success' && run.conclusion !== 'skipped') {
+      return {};
+    }
+    headRunStartedAt = Math.max(headRunStartedAt, Date.parse(run.started));
+  }
+  return { failingSteps, headRunStartedAt };
+}
+
+/**
+ * Main's latest recovery from a Scripts Verify red episode: the completion
+ * time (updated_at) of the newest successful main run that has a failed run
+ * older than it in the recent window. Null when there is no such recovery —
+ * no failure in the window, or main's newest run is red, so main has not
+ * recovered. Null keeps the red-head skip (fail-closed). One read per
+ * process; the value cannot change under a run.
+ */
+let _mainRecoveryCache;
+function mainRecoveredAt(repo) {
+  if (_mainRecoveryCache === undefined) {
+    _mainRecoveryCache = null;
+    try {
+      const runs = JSON.parse(gh(['api', `repos/${repo}/actions/workflows/scripts-verify.yml/runs?branch=main&per_page=20`,
+        '--jq', '[.workflow_runs[] | {conclusion, started: .run_started_at, updated: .updated_at}]'],
+        undefined, process.env.ACTIONS_READ_TOKEN));
+      const completed = Array.isArray(runs)
+        ? runs.filter((r) => typeof r.conclusion === 'string'
+          && Number.isFinite(Date.parse(r.started || null)) && Number.isFinite(Date.parse(r.updated || null)))
+        : [];
+      if (completed.length && completed[0].conclusion === 'success'
+          && completed.slice(1).some((r) => r.conclusion === 'failure')) {
+        _mainRecoveryCache = Date.parse(completed[0].updated);
+      }
+    } catch { /* keep null: unreadable -> keep the skip */ }
+  }
+  return _mainRecoveryCache;
+}
+
 function sleepSync(ms) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
 
 // Poll derived-artifacts-regen's runs on one sha until they have all
@@ -649,7 +772,7 @@ async function main() {
 
   const rows = [];
   for (const pr of prs) {
-    const pred = predictFor(pr, mainSha);
+    const pred = predictFor(pr, mainSha, o.repo);
     let attempts = 0, notified = false;
     // Comment markers are read only for PRs that would act (one API call each).
     const first = decide({ pr, ...pred, mainOwned: owned, minHeadAgeMs: o.minHeadAgeMin * 60_000 });
@@ -686,7 +809,7 @@ async function main() {
         const fresh = listOpenPrs(o.repo).find((p) => p.number === pr.number);
         if (fresh && fresh.headRefOid !== pr.headRefOid) {
           fetchShas([fresh.headRefOid]);
-          const d2 = decide({ pr: fresh, ...predictFor(fresh, mainSha), mainOwned: owned, minHeadAgeMs: o.minHeadAgeMin * 60_000 });
+          const d2 = decide({ pr: fresh, ...predictFor(fresh, mainSha, o.repo), mainOwned: owned, minHeadAgeMs: o.minHeadAgeMin * 60_000 });
           if (SYNC_ACTIONS.has(d2.action)) res = syncOne(fresh, mainSha, new Set(d2.paths));
           else { r.result = `left alone after race: ${d2.action} (${d2.reason})`; continue; }
         }
