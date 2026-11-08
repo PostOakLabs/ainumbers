@@ -25,6 +25,7 @@ status: stable
 - [Servicing Compliance Clock](./733-servicing-compliance-clock.md) — `servicing_compliance_clock`
 - [CBR Data Return Validator](./784-cbr-data-return-validator.md) — `validate_cbr_data_return`
 - [Corridor Cost Averages](./787-corridor-cost-averages.md) — `compute_corridor_cost_averages`
+- [Stablecoin Refund Dispute Check](./795-stablecoin-refund-dispute.md) — `check_stablecoin_refunds`
 - [Event Contract Terms Lint](./806-event-contract-terms-lint.md) — `lint_event_contract_terms`
 - [Ethereum Epoch Accounting Recompute](./813-eth-staking-accounting.md) — `recompute_eth_epoch_accounting`
 - [Ethereum Base Fee and Blob Base Fee Recompute](./815-eth-fee-market.md) — `recompute_eth_fee_market`
