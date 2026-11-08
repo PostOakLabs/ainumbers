@@ -1,0 +1,137 @@
+{
+  "tool_id": "829-safe-tx-hash-recompute",
+  "inventory_version": "1.0.0",
+  "authored_at": "2026-11-07",
+  "error_direction": "undirected",
+  "error_direction_rationale": "The outputs are exact 32-byte Keccak-256 digests recomputed byte-for-byte from the pasted fields: there is no threshold, cap or estimate whose approximation could lean either way, so no direction is declared. The residual risk is not approximation but authenticity and completeness, which no error direction covers: whether the pasted fields are the real pending transaction, and whether the destination contract is what the signer believes, are both outside the kernel and stated in the scope note instead of being smoothed over.",
+  "derived_from": [
+    {
+      "digest": "sha256:2917e07848a3c2ffca602974cb0752b08a998d3605478b61c4217d1d53f587c5",
+      "clause_path": "contracts/GnosisSafe.sol lines 33-44 (VERSION, DOMAIN_SEPARATOR_TYPEHASH, SAFE_TX_TYPEHASH)"
+    },
+    {
+      "digest": "sha256:14bb1d1101ad183d8ec33d9d0d28013a1e64e8f6ba81fa0f76b1c9f24b2b5822",
+      "clause_path": "contracts/GnosisSafe.sol lines 365-394 (encodeTransactionData)"
+    },
+    {
+      "digest": "sha256:564a681d9c7d6b67ccc064b20d961d77f9b72190830f59519b31d68e7ef67cdd",
+      "clause_path": "contracts/Safe.sol lines 52-62 (VERSION, DOMAIN_SEPARATOR_TYPEHASH, SAFE_TX_TYPEHASH)"
+    }
+  ],
+  "branches": [
+    {
+      "id": "eip712-domain-carries-chain-id",
+      "clause": "Safe v1.3.0 GnosisSafe.sol L36/L38 (EIP712Domain(uint256 chainId,address verifyingContract); DOMAIN_SEPARATOR_TYPEHASH), identical in v1.5.0 Safe.sol L55/L57",
+      "branch": "The signing domain is the chain id and the Safe address, in that order, under the pinned domain typehash.",
+      "disposition": "represented",
+      "evidence": "domain_hash",
+      "note": "domain_hash = keccak256(DOMAIN_SEPARATOR_TYPEHASH || uint256 chainId || address safe); domain_typehash is echoed on every payload and the constant is recomputed from the type string inside compute() as a self-check."
+    },
+    {
+      "id": "safetx-struct-ten-fields-in-pinned-order",
+      "clause": "Safe v1.3.0 GnosisSafe.sol L41-43 (SafeTx(...) type string and SAFE_TX_TYPEHASH), identical in v1.5.0 Safe.sol L60-62",
+      "branch": "The SafeTx struct hash covers to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver and nonce, in that field order.",
+      "disposition": "represented",
+      "evidence": "message_hash",
+      "note": "message_hash = keccak256(SAFE_TX_TYPEHASH || the ten ABI-encoded fields); safe_tx_typehash is echoed and self-checked the same way."
+    },
+    {
+      "id": "call-data-enters-struct-as-keccak256-of-bytes",
+      "clause": "Safe v1.3.0 GnosisSafe.sol L365-394 encodeTransactionData body",
+      "branch": "The data field enters the struct hash as keccak256(data), not as the raw bytes.",
+      "disposition": "represented",
+      "evidence": "data_keccak256",
+      "note": "the digest of the call data is reported separately so a signer can compare it on its own; data_length_bytes carries the byte length."
+    },
+    {
+      "id": "final-digest-is-0x1901-domain-separator-struct-hash",
+      "clause": "Safe v1.3.0 GnosisSafe.sol L393 (0x1901 prefix in encodeTransactionData); v1.5.0 builds the same 0x19 0x01 prefix in assembly",
+      "branch": "The final transaction hash is keccak256(0x19 0x01 || domainSeparator || structHash).",
+      "disposition": "represented",
+      "evidence": "safe_tx_hash",
+      "note": "this is the value a Trezor or MetaMask display; Ledger devices show the domain hash and message hash form, which are reported alongside."
+    },
+    {
+      "id": "same-typehash-constants-across-supported-versions",
+      "clause": "Safe v1.3.0 GnosisSafe.sol L38/L43 and Safe v1.5.0 Safe.sol L57/L62 (identical constants); v1.4.1 carries the same pair per the primary-source pin",
+      "branch": "1.3.0, 1.4.1 and 1.5.0 all sign under the same two typehash constants and the same domain shape.",
+      "disposition": "represented",
+      "evidence": "safe_version",
+      "note": "the version is echoed on success; one layout serves all three supported versions, and the constants are recomputed from the type strings inside compute() rather than trusted as literals."
+    },
+    {
+      "id": "safe-version-not-in-supported-set",
+      "clause": "Node version rule from the pinned contrast: v1.3.0 GnosisSafe.sol L36/L38 domain carries chainId; the v1.2.0 snapshot (primary-source pin section 2) has EIP712Domain(address verifyingContract) with no chainId",
+      "branch": "A VERSION string outside 1.3.0, 1.4.1 and 1.5.0 has a different (or unknown) signing domain and is never recomputed.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "refusal_code",
+        "reachability_vector": {
+          "version": "1.2.0",
+          "chainId": "1",
+          "safe": "0x91a3230d6ba2a0e5f5b2e6d1a1e2c3b4a596877a",
+          "to": "0x111111125421ca6dc452d289314280a0f8842a65",
+          "value": "0",
+          "data": "0x",
+          "operation": 0,
+          "safeTxGas": "0",
+          "baseGas": "0",
+          "gasPrice": "0",
+          "gasToken": "0x0000000000000000000000000000000000000000",
+          "refundReceiver": "0x0000000000000000000000000000000000000000",
+          "nonce": "1"
+        },
+        "fixture": "829-safe-tx-hash-recompute.fixtures.json#refused-pre-1.3.0-version"
+      },
+      "note": "verdict REFUSED with refusal_code UNSUPPORTED_SAFE_VERSION; recomputing a pre-1.3.0 hash under the 1.3.0 domain would produce a plausible-looking wrong hash, so nothing is computed."
+    },
+    {
+      "id": "malformed-field-value",
+      "clause": "Node input contract (every field caller-supplied and echoed, never defaulted), grounded in encodeTransactionData L365-394: the encoding is defined only over well-formed uint256 / address / bytes values",
+      "branch": "Any field that is not a well-formed value of its type (address, uint256, hex bytes, operation 0 or 1, data within the size limit) is named and refused, never zero-filled or coerced.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "refusal_code",
+        "reachability_vector": {
+          "version": "1.3.0",
+          "chainId": "1",
+          "safe": "0x91a3230d6ba2a0e5f5b2e6d1a1e2c3b4a596877a",
+          "to": "0x111111125421ca6dc452d289314280a0f8842a65",
+          "value": "0",
+          "data": "0x",
+          "operation": 0,
+          "safeTxGas": "0",
+          "baseGas": "0",
+          "gasPrice": "0",
+          "gasToken": "0x0000000000000000000000000000000000000000",
+          "refundReceiver": "0x0000000000000000000000000000000000000000",
+          "nonce": "not-a-uint256"
+        },
+        "fixture": "829-safe-tx-hash-recompute.fixtures.json#malformed-nonce-indeterminate"
+      },
+      "note": "verdict INDETERMINATE with refusal_code MALFORMED_INPUT and every offending field named in reasons; partial normalization (for example a bare-hex address) is not silently applied to refused inputs."
+    },
+    {
+      "id": "pasted-fields-are-the-real-pending-transaction",
+      "clause": "Zero-network design rule (node scope): every field is caller-supplied and echoed, never resolved",
+      "branch": "Whether the pasted fields match the transaction actually pending in the Safe interface is governed entirely by the copy step the signer performs.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "all twelve input fields (version, chainId, safe, to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce) exactly as pasted",
+        "source": "whatever the signer copies the fields from: the Safe web UI, a Transaction Service export, or a proposal document",
+        "owner": "the human signer performing the copy"
+      },
+      "note": "The kernel recomputes hashes over what it is given and cannot detect a mismatch, which is the exact failure mode of a compromised UI display, so the scope note tells the signer to compare the recomputed hashes against the signing device rather than against the screen they copied from."
+    },
+    {
+      "id": "destination-contract-safety",
+      "clause": "Node scope note: it does not simulate execution and cannot tell you the destination contract is safe",
+      "branch": "Whether the destination contract (or a delegatecall target) is benign is not decided by any input to this kernel.",
+      "disposition": "unrepresented_known",
+      "error_direction": "undirected",
+      "note": "No runtime path exists or is proposed: the kernel hashes and decodes, it never executes. A decoded, unflagged call is examined, not cleared; an unknown selector is reported as not decoded. The exec-only measure that would bound this (bytecode identity, simulation) belongs to other nodes, and no error direction can approximate it away."
+    }
+  ]
+}
