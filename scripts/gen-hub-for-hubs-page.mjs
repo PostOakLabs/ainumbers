@@ -234,6 +234,7 @@ const CLUSTERS = [
     blurb: 'What each receipt, benchmark, and evidence pack actually proves, for the reviewer on the other side of it.',
     paths: [
       'guides/audit-trail-crosswalk-hub.html',
+      'guides/audit-assurance-hub.html',
       'guides/audit-ai-evidence-review.html',
       'guides/benchmark-series-methodology.html',
       'guides/benchmark-series-ccp-margin-monitor-issue-2026-q4.html',
