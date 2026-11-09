@@ -2,10 +2,10 @@
   "schema_version": "mcp-catalog-v1",
   "server_id": "ainumbers-fintech-suite",
   "name": "AINumbers Fintech Intelligence Suite",
-  "description": "1244 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
+  "description": "1246 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
   "base_url": "https://ainumbers.co",
-  "generated": "2026-11-08",
-  "tool_count": 1243,
+  "generated": "2026-11-09",
+  "tool_count": 1245,
   "tools": [
     {
       "name": "calculate_a2a_fee_route",
@@ -52926,6 +52926,54 @@
       }
     },
     {
+      "name": "compute_diff_evidence_bundles",
+      "description": "Evidence-bundle diff: classify two parsed JSON bundles (artifact, chain, evidence bundle or records array) and report values-only what moved: hash fields, versions, normalized accountability sets, verdict with regression flag. as_of supplies the override clock. Unrecognized inputs are refused by throw.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "bundle_a",
+          "bundle_b"
+        ],
+        "properties": {
+          "bundle_a": {
+            "description": "Baseline: a parsed OCG artifact (execution_hash), a chain (steps), an evidence bundle (subject_hash, no execution_hash) or a records array. Required.",
+            "type": [
+              "object",
+              "array"
+            ]
+          },
+          "bundle_b": {
+            "description": "Comparison bundle, same accepted shapes as bundle_a. Required.",
+            "type": [
+              "object",
+              "array"
+            ]
+          },
+          "as_of": {
+            "description": "ISO 8601 clock reading for override freshness; required when an override record is present.",
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-750-diff-evidence-bundles",
+        "category": "chaingraph",
+        "tags": [
+          "evidence",
+          "bundle-diff",
+          "audit",
+          "verification",
+          "human-accountability",
+          "mcp:compute_diff_evidence_bundles"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-750-diff-evidence-bundles.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
       "name": "calc_equity_exit_waterfall",
       "description": "Model equity exit proceeds after liquidation preference waterfalls for startup employees and founders (NVCA model term sheet conventions; IRC \u00a71001 for the gain computation): the preference stack, non-participating conversion or capped participation, the common pool, your gross and net proceeds, taxable gain and the break-even exit. Deterministic, client-side, zero PII.",
       "inputSchema": {
@@ -53009,6 +53057,93 @@
           "mcp:calc_equity_exit_waterfall"
         ],
         "url": "https://ainumbers.co/chaingraph/art-754-equity-exit-waterfall.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "analyze_sales_ote_commission",
+      "description": "Gross W-2 model for a sales OTE offer: base plus variable by quota attainment, with an optional accelerator tier and recoverable draw. Reports the base commission rate, at-target variable and total, a flat-rate after-tax figure, the split with a risk label, a six-level attainment ladder and draw payback months with a clawback flag. No tax liability, no FLSA regular rate, no overtime. Refuses ote <= base and base <= 0 by name. The Apex || zero-coercion is reproduced and reported per field.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "as_of",
+          "base_salary",
+          "ote",
+          "quota",
+          "attainment_pct",
+          "federal_tax_rate_pct",
+          "has_accelerator",
+          "accelerator_threshold_pct",
+          "accelerator_multiplier",
+          "has_draw",
+          "draw_monthly"
+        ],
+        "properties": {
+          "as_of": {
+            "type": "string",
+            "description": "Calendar date as YYYY-MM-DD, a real date. The node reads no clock; this is the only date the kernel sees. Invalid dates are refused REFUSED_BAD_AS_OF."
+          },
+          "base_salary": {
+            "type": "number",
+            "description": "Annual base salary USD, strictly positive and below ote, else refused BASE_NOT_POSITIVE or OTE_NOT_ABOVE_BASE. Explicit 0 coerces to default 0."
+          },
+          "ote": {
+            "type": "number",
+            "description": "On-Target Earnings USD: total target W-2. Must strictly exceed base_salary; equal is refused OTE_NOT_ABOVE_BASE."
+          },
+          "quota": {
+            "type": "number",
+            "description": "Annual quota in USD. Scales only the displayed base commission rate (ote - base)/quota; it cancels in the accelerated branch. Coerced to 1 when 0."
+          },
+          "attainment_pct": {
+            "type": "number",
+            "description": "Quota attainment percent (100 = 100%). At-target column always uses 100%; this selects the highlighted ladder row. Coerced to 100 when 0."
+          },
+          "federal_tax_rate_pct": {
+            "type": "number",
+            "description": "Flat federal rate percent on gross W-2. NOT a tax computation: no standard deduction, bracket stacking, state tax or FICA. Coerced to 32 when 0."
+          },
+          "has_accelerator": {
+            "type": "boolean",
+            "description": "True to apply the accelerator tier. The accelerator fields are still read unconditionally but never affect any output when false."
+          },
+          "accelerator_threshold_pct": {
+            "type": "number",
+            "description": "Attainment percent above which the multiplier applies; STRICTLY inactive at the threshold. Coerced to 100 when 0."
+          },
+          "accelerator_multiplier": {
+            "type": "number",
+            "description": "Multiplier on the base commission rate above the threshold, e.g. 1.5 = 150%. Applied only when has_accelerator is true. Coerced to 1.5 when 0."
+          },
+          "has_draw": {
+            "type": "boolean",
+            "description": "True to model a recoverable draw against future commissions. When false the draw block is absent and draw_monthly is read but unused."
+          },
+          "draw_monthly": {
+            "type": "number",
+            "description": "Monthly draw advance in USD, applied only when has_draw is true and > 0. Annual draw is draw_monthly * 12. Coerced to 0 when 0, disabling the block."
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-756-sales-ote-commission-analyzer",
+        "category": "chaingraph",
+        "tags": [
+          "sales_comp_record",
+          "compensation",
+          "ote",
+          "commission",
+          "quota",
+          "accelerator",
+          "draw-clawback",
+          "explicit-as-of",
+          "not-tax-advice",
+          "mcp:analyze_sales_ote_commission"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-756-sales-ote-commission-analyzer.html",
         "ap2_export": true,
         "execution_type": "browser-reference",
         "version": "1.0.0",
