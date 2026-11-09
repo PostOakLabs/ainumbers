@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (718 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (720 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7661,11 +7661,31 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-750-diff-evidence-bundles",
+    "display_name": "Diff Evidence Bundles",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-750-diff-evidence-bundles.html",
+    "description": "Evidence-bundle diff: takes two parsed JSON bundles (bundle_a = baseline, bundle_b = comparison) plus an optional as_of timestamp and report",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-754-equity-exit-waterfall",
     "display_name": "Equity Exit Waterfall Modeler",
     "mandate_type": "consumer_finance",
     "url": "https://ainumbers.co/chaingraph/art-754-equity-exit-waterfall.html",
     "description": "Equity exit proceeds after a liquidation-preference waterfall, ported from ApexLogics Apex #141 (AL-148). From the exit valuation, the aggre",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-756-sales-ote-commission-analyzer",
+    "display_name": "Sales OTE & Commission Analyzer",
+    "mandate_type": "sales_comp_record",
+    "url": "https://ainumbers.co/chaingraph/art-756-sales-ote-commission-analyzer.html",
+    "description": "Gross W-2 model for a sales OTE offer ported from ApexLogics Apex #89 (AL-96): base salary plus variable pay as a function of quota attainme",
     "consumes": [],
     "feeds": [],
     "status": "live"

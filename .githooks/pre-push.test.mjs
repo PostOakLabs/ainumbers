@@ -47,8 +47,8 @@
  * Exit 0 = every assertion passed. Exit 1 = a fixture assertion failed.
  */
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, chmodSync, appendFileSync, copyFileSync } from 'node:fs';
-import { join, dirname, resolve } from 'node:path';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, chmodSync, appendFileSync, copyFileSync, readdirSync } from 'node:fs';
+import { join, dirname, resolve, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isolatedChildEnv } from '../scripts/_git-env-lib.mjs';
 
@@ -87,12 +87,30 @@ const MOCK_PREFLIGHT = `#!/usr/bin/env node
 // Mock stand-in for scripts/preflight.mjs — this test proves the HOOK's
 // forwarding/disclosure logic, never the real gate suite (out of this row's
 // fence: "Zero gate semantics").
-import { writeFileSync, appendFileSync } from 'node:fs';
+import { writeFileSync, appendFileSync, existsSync, readFileSync } from 'node:fs';
 const args = process.argv.slice(2);
 // AFFECTED-GATES-PREPUSH-1: the hook's second (--affected) leg is recorded in its own dump, so
 // MOCK_ARGV_DUMP keeps meaning "the quick/full/push-safety leg" for every assertion below.
 if (args[0] === '--affected' || args[0] === '--hygiene') { if (process.env.MOCK_AFFECTED_DUMP) writeFileSync(process.env.MOCK_AFFECTED_DUMP, JSON.stringify(args)); }
 else writeFileSync(process.env.MOCK_ARGV_DUMP, JSON.stringify(args));
+// PREPUSH-MERGE-RESULT-1: the affected leg also dumps WHICH tree it judged —
+// cwd plus the fixture files only the merge result can carry — so a fixture
+// can prove the gate saw the merge result and not the branch tip alone.
+if (process.env.MOCK_CWD_DUMP) writeFileSync(process.env.MOCK_CWD_DUMP, JSON.stringify({
+  cwd: process.cwd(),
+  registry: existsSync('data/registry.txt') ? readFileSync('data/registry.txt', 'utf8').trim() : null,
+  widget: existsSync('tools/widget.html'),
+}));
+// PREPUSH-MERGE-RESULT-1 fixture gate REGISTRY-STAMP-CROSSCHECK: the branch's
+// widget pins a registry value that MAIN replaced after the branch was cut —
+// only a tree carrying BOTH sides (the merge result) can see the defect, which
+// is exactly the "green on its own tree, stale against main" shape this row
+// removes. Cross-checks only fire on the --affected leg.
+if (args[0] === '--affected' && existsSync('tools/widget.html') && existsSync('data/registry.txt')
+    && readFileSync('data/registry.txt', 'utf8').includes('STALE-MAIN')) {
+  console.log('✗ REGISTRY-STAMP-CROSSCHECK: widget.html pins a registry value that MAIN MOVED');
+  process.exit(1);
+}
 if (process.env.MOCK_ARGV_LOG) appendFileSync(process.env.MOCK_ARGV_LOG, JSON.stringify(args) + '\\n');
 if (process.env.MOCK_ENV_LOG) appendFileSync(process.env.MOCK_ENV_LOG, 'PR=' + (process.env.PR_ID_COLLISION_PR || '') + '\\n');
 console.log('mock preflight received: ' + args.join(' '));
@@ -134,6 +152,7 @@ function runHook(dir, envOverrides, input = '') {
       ...process.env,
       MOCK_ARGV_DUMP: argvDump,
       MOCK_AFFECTED_DUMP: join(dir, 'affected-dump.json'),
+      MOCK_CWD_DUMP: join(dir, 'judged-tree.json'),
       MOCK_ARGV_LOG: join(dir, 'argv-log.jsonl'),
       MOCK_ENV_LOG: join(dir, 'env-log.txt'),
       PR_ID_COLLISION_PR: '',
@@ -143,6 +162,7 @@ function runHook(dir, envOverrides, input = '') {
       AINUM_EXPECT_RED: '',
       AINUM_EXPECT_RED_ROW: '',
       PREFLIGHT_FULL: '', // PREFLIGHT-QUICK-1: a leaked outer value must not force the full leg
+      AINUM_PREPUSH_MERGE_WT_ROOT: '', // PREPUSH-MERGE-RESULT-1: only a scenario that OWNS the merge-worktree root sets it
       ...envOverrides,
     },
     encoding: 'utf8',
@@ -152,11 +172,14 @@ function runHook(dir, envOverrides, input = '') {
   let affected = null;
   const affDump = join(dir, 'affected-dump.json');
   if (existsSync(affDump)) { try { affected = JSON.parse(readFileSync(affDump, 'utf8')); } catch { /* leave null */ } }
+  let judged = null;
+  const cwdDump = join(dir, 'judged-tree.json');
+  if (existsSync(cwdDump)) { try { judged = JSON.parse(readFileSync(cwdDump, 'utf8')); } catch { /* leave null */ } }
   let metricsLines = [];
   if (existsSync(metricsFile)) {
     metricsLines = readFileSync(metricsFile, 'utf8').split('\n').filter((l) => l.trim().length);
   }
-  return { status: res.status, stdout: res.stdout || '', stderr: res.stderr || '', argv, affected, metricsFile, metricsLines };
+  return { status: res.status, stdout: res.stdout || '', stderr: res.stderr || '', argv, affected, judged, metricsFile, metricsLines };
 }
 
 // ── 0. AFFECTED-GATES-PREPUSH-1: --affected runs after a GREEN quick leg, never after a red one ──
@@ -354,7 +377,10 @@ function makeTriggerSandbox(changedPath) {
   const g = (...a) => spawnSync('git', a, { cwd: dir, env: isolatedChildEnv(), encoding: 'utf8' });
   g('config', 'user.email', 't@example.invalid'); g('config', 'user.name', 't');
   writeFileSync(join(dir, 'seed.txt'), 'x');
-  g('add', 'seed.txt'); g('commit', '-q', '-m', 'seed');
+  // The mock gate must be COMMITTED: the merge-result worktree is a checkout
+  // of committed content only (production's real preflight.mjs is committed —
+  // this fixture must mirror that, or the merge-result leg runs gateless).
+  g('add', 'scripts/preflight.mjs'); g('commit', '-q', '-m', 'seed');
   g('update-ref', 'refs/remotes/origin/main', 'HEAD');
   mkdirSync(join(dir, dirname(changedPath)), { recursive: true });
   writeFileSync(join(dir, changedPath), 'y');
@@ -365,6 +391,56 @@ function makeTriggerSandbox(changedPath) {
 function loggedArgvs(dir) {
   const f = join(dir, 'argv-log.jsonl');
   return existsSync(f) ? readFileSync(f, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
+}
+
+// ── PREPUSH-MERGE-RESULT-1 fixture repo ─────────────────────────────────
+// A real two-branch history in the temp sandbox: a base commit, then main
+// MOVES (replaces the registry value) while the pushed branch adds a widget
+// that pins it. The two sides touch disjoint paths unless opts.conflict —
+// a clean merge carries BOTH sides; a conflict reproduces the fail-open case.
+function makeMergeSandbox(opts = {}) {
+  const dir = makeSandbox();
+  const g = (...a) => spawnSync('git', a, { cwd: dir, env: isolatedChildEnv(), encoding: 'utf8' });
+  g('config', 'user.email', 't@example.invalid');
+  g('config', 'user.name', 't');
+  writeFileSync(join(dir, 'seed.txt'), 'seed\n');
+  // The mock gate must be COMMITTED (see makeTriggerSandbox): the merge-result
+  // worktree checks out committed content only.
+  g('add', 'seed.txt', 'scripts/preflight.mjs');
+  g('commit', '-q', '-m', 'base');
+  const orig = (spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: dir, env: isolatedChildEnv(), encoding: 'utf8' }).stdout || '').trim();
+  // main-side move (origin/main is rebased onto it after; HEAD stays behind)
+  g('checkout', '-q', '-b', 'mainline');
+  mkdirSync(join(dir, 'data'), { recursive: true });
+  writeFileSync(join(dir, 'data', 'registry.txt'), (opts.registryValue || 'FRESH-STAMP') + '\n');
+  g('add', 'data/registry.txt');
+  if (opts.conflict) { writeFileSync(join(dir, 'seed.txt'), 'main-side\n'); g('add', 'seed.txt'); }
+  g('commit', '-q', '-m', 'main: registry stamp move');
+  g('update-ref', 'refs/remotes/origin/main', 'HEAD');
+  g('checkout', '-q', orig);
+  // the pushed branch: a widget pinning the registry value main just replaced
+  mkdirSync(join(dir, 'tools'), { recursive: true });
+  writeFileSync(join(dir, 'tools', 'widget.html'), '<p>widget pins the registry value</p>\n');
+  g('add', 'tools/widget.html');
+  if (opts.conflict) { writeFileSync(join(dir, 'seed.txt'), 'branch-side\n'); g('add', 'seed.txt'); }
+  g('commit', '-q', '-m', 'branch: widget');
+  // the merge-result worktree root (AINUM_PREPUSH_MERGE_WT_ROOT override target)
+  const mergeWtRoot = join(dir, 'merge-wt');
+  mkdirSync(mergeWtRoot, { recursive: true });
+  writeFileSync(join(dir, 'metrics.jsonl'), '');
+  return { dir, mergeWtRoot };
+}
+
+// Absolute git.exe for the unsupported-git shim, resolved like resolveBash does.
+function resolveRealGit() {
+  if (process.platform === 'win32') {
+    for (const root of [process.env.ProgramFiles, process.env['ProgramFiles(x86)'], 'C:\\Program Files']) {
+      if (!root) continue;
+      const p = join(root, 'Git', 'cmd', 'git.exe');
+      if (existsSync(p)) return p.replace(/\\/g, '/');
+    }
+  }
+  return 'git';
 }
 {
   const dir = makeTriggerSandbox('scripts/NOTES.md');
@@ -441,6 +517,81 @@ function prFor(ghJson, branchInStdin, ghExit = 0) {
   assert(wrong.status === 0 && wrong.seen.includes('PR=\n'), `RED: wrong headRefName ⇒ NOT exported (got ${JSON.stringify(wrong.seen)})`);
   const err = prFor('', 'feat-x', 1);
   assert(err.status === 0 && err.seen.includes('PR=\n'), `RED: gh failure ⇒ NOT exported and the push still proceeds (got ${JSON.stringify(err.seen)})`);
+}
+
+// ── 14. PREPUSH-MERGE-RESULT-1, RED (load-bearing): the branch tree is green
+//      but MAIN MOVED with a commit that makes the branch stale — only the
+//      MERGE RESULT can see that, and the hook must BLOCK. Before this row the
+//      affected leg judged the branch tip alone and this exact push sailed
+//      through to CI (the RED-before run of this file proves that).
+{
+  const { dir, mergeWtRoot } = makeMergeSandbox({ registryValue: 'STALE-MAIN' });
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0', AINUM_PREPUSH_MERGE_WT_ROOT: mergeWtRoot });
+  assert(r.status !== 0, 'MERGE-RESULT RED: branch green on its own tree + MAIN MOVED ⇒ the hook BLOCKS the push');
+  assert(/MAIN MOVED/.test(r.stdout + r.stderr),
+    'MERGE-RESULT RED: the block message says MAIN MOVED (the fix is re-grounding on fresh origin/main, not editing the branch)');
+  assert(JSON.stringify(r.affected) === JSON.stringify(['--affected', '--changed', 'origin/main', '--keep-going', '--quiet']),
+    `MERGE-RESULT RED: the affected leg ran with the unchanged AFFECTED-GATES-PREPUSH-1 argv (got ${JSON.stringify(r.affected)})`);
+  assert(r.judged !== null && r.judged.registry === 'STALE-MAIN' && r.judged.widget === true,
+    `MERGE-RESULT RED: the gate judged a tree carrying BOTH sides (registry=${r.judged && r.judged.registry}, widget=${r.judged && r.judged.widget}) — the merge result, not the branch tip`);
+  assert(r.judged !== null && r.judged.cwd !== dir && /prepush-merge-/.test(r.judged.cwd),
+    'MERGE-RESULT RED: the affected leg ran inside the temporary merge-result worktree, never the pusher\'s working tree');
+  assert(existsSync(mergeWtRoot) && readdirSync(mergeWtRoot).length === 0,
+    'MERGE-RESULT RED: the temporary merge-result worktree is REMOVED after the blocked push (trap cleanup)');
+  cleanup(dir);
+}
+
+// ── 15. PREPUSH-MERGE-RESULT-1, GREEN: main moved COMPATIBLY — the affected
+//      leg still runs on the merge result (that is what it judges now), passes,
+//      and the push proceeds with the worktree cleaned up on the green path too.
+{
+  const { dir, mergeWtRoot } = makeMergeSandbox({ registryValue: 'FRESH-STAMP' });
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0', AINUM_PREPUSH_MERGE_WT_ROOT: mergeWtRoot });
+  assert(r.status === 0, 'MERGE-RESULT GREEN: compatible main ⇒ the push proceeds');
+  assert(r.judged !== null && r.judged.registry === 'FRESH-STAMP' && r.judged.widget === true && r.judged.cwd !== dir,
+    'MERGE-RESULT GREEN: the affected leg judged the merge-result worktree (both sides present), not the branch tip');
+  assert(!/MAIN MOVED/.test(r.stdout + r.stderr), 'MERGE-RESULT GREEN: no MAIN-MOVED block message on a green merge-result leg');
+  assert(existsSync(mergeWtRoot) && readdirSync(mergeWtRoot).length === 0,
+    'MERGE-RESULT GREEN: the temporary worktree is removed on the green exit path too');
+  cleanup(dir);
+}
+
+// ── 16. PREPUSH-MERGE-RESULT-1, CONFLICT: merge-tree reports a conflict ⇒ ONE
+//      WARN line and FAIL OPEN to the unchanged branch-tree affected check —
+//      CI judges, exactly as before this row existed.
+{
+  const { dir, mergeWtRoot } = makeMergeSandbox({ conflict: true, registryValue: 'FRESH-STAMP' });
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0', AINUM_PREPUSH_MERGE_WT_ROOT: mergeWtRoot });
+  const warns = (r.stdout + r.stderr).split('\n').filter((l) => l.includes('WARN')).length;
+  assert(r.status === 0, 'CONFLICT: the push FAILS OPEN (exit 0) — a conflicted merge never blocks a push this hook cannot judge');
+  assert(warns === 1, `CONFLICT: exactly ONE WARN line is printed (got ${warns})`);
+  assert(r.judged !== null && r.judged.cwd === dir && r.judged.registry === null,
+    'CONFLICT: the affected leg fell back to the UNCHANGED branch-tree check (no merge worktree materialised)');
+  assert(existsSync(mergeWtRoot) && readdirSync(mergeWtRoot).length === 0,
+    'CONFLICT: no merge-result worktree was left behind');
+  cleanup(dir);
+}
+
+// ── 17. PREPUSH-MERGE-RESULT-1, UNSUPPORTED GIT: merge-tree exits non-zero
+//      (here: a PATH shim that answers rc=2, the "git too old" shape) ⇒ ONE
+//      WARN line and FAIL OPEN to the branch-tree check, same as a conflict.
+{
+  const { dir, mergeWtRoot } = makeMergeSandbox({ registryValue: 'STALE-MAIN' });
+  const shimDir = join(dir, 'shim');
+  mkdirSync(shimDir, { recursive: true });
+  const shim = `#!/bin/sh
+if [ "$1" = "merge-tree" ]; then echo "git: 'merge-tree --write-tree' is unsupported" >&2; exit 2; fi
+exec "${resolveRealGit()}" "$@"
+`;
+  writeFileSync(join(shimDir, 'git'), shim);
+  chmodSync(join(shimDir, 'git'), 0o755);
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0', AINUM_PREPUSH_MERGE_WT_ROOT: mergeWtRoot, PATH: shimDir + delimiter + process.env.PATH });
+  const warns = (r.stdout + r.stderr).split('\n').filter((l) => l.includes('WARN')).length;
+  assert(r.status === 0, 'UNSUPPORTED GIT: the push FAILS OPEN (exit 0) — an old git never blocks a push');
+  assert(warns === 1, `UNSUPPORTED GIT: exactly ONE WARN line is printed (got ${warns})`);
+  assert(r.judged !== null && r.judged.cwd === dir && r.judged.registry === null,
+    'UNSUPPORTED GIT: the affected leg ran the unchanged branch-tree check');
+  cleanup(dir);
 }
 
 console.log(`\n${failures === 0 ? '✅' : '❌'} ${failures} failure(s).`);
