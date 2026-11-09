@@ -318,11 +318,98 @@ else
   # diff's path classes (kernel / node / manifest / page / mcp surface), so a
   # builder sees the reds CI would show before the push, not after. Measured
   # 73-80 s on real PR branches. Skipped when --quick is already red.
+  #
+  # PREPUSH-MERGE-RESULT-1 (2026-11-07, AVOID-CURES-1 gap 2): the affected leg
+  # used to judge the BRANCH TREE alone, and a branch that is green on its own
+  # tree can still be stale against origin/main — main landed a freshness
+  # stamp / digest / registry update the branch never saw, and only the MERGE
+  # RESULT shows that interaction (CI runs the PR merge ref, not the branch
+  # tip; those cures were the rot this block removes). So before the leg runs,
+  # compute the merge result of HEAD and origin/main WITHOUT touching the
+  # working tree (`git merge-tree --write-tree`, git >= 2.38; this host ships
+  # 2.54). Clean merge ⇒ materialise it in a TEMPORARY worktree under the
+  # workspace .wt/ root (never outside it, never a shared temp path), run the
+  # SAME affected leg there instead of the branch tree, and remove the
+  # worktree on every exit path (trap). A red gate there is one CI WOULD hit:
+  # the block message says MAIN MOVED — the fix is re-grounding on fresh
+  # origin/main, not editing the branch (preflight --quiet still names the
+  # failed gate(s) in its own output above this line). ANY failure to compute
+  # or materialise — merge-tree missing/too old, conflicts, probe commit or
+  # worktree add failing — prints ONE WARN line and FAILS OPEN to the
+  # unchanged branch-tree check; CI judges, exactly as before this block
+  # existed. Nothing here creates a branch or a persistent ref: the probe
+  # commit is detached and unreferenced, and the temp worktree is unregistered
+  # before the hook returns. AINUM_PREPUSH_MERGE_WT_ROOT is a TEST-ONLY
+  # override for .githooks/pre-push.test.mjs, like AINUM_GUARDRAIL_METRICS_PATH.
   if [ "$status" -eq 0 ]; then
-    echo "pre-push: running scripts/preflight.mjs --affected (AFFECTED-GATES-PREPUSH-1) ..."
-    node scripts/preflight.mjs --affected --changed origin/main --keep-going --quiet "$@"
-    status=$?
-    [ "$status" -ne 0 ] && echo "pre-push: AFFECTED preflight RED — a gate CI runs on this diff is red; fix it and re-push (ratchet ceilings are fixed in the code, never by raising the pin)." 1>&2
+    _mr_ran=0
+    _mr_skip_reason=""
+    _mr_main=$(git rev-parse --verify --quiet origin/main 2>/dev/null) || _mr_main=""
+    _mr_head=$(git rev-parse --verify --quiet HEAD 2>/dev/null) || _mr_head=""
+    if [ -z "$_mr_main" ] || [ -z "$_mr_head" ]; then
+      _mr_skip_reason="origin/main or HEAD unresolved"
+    else
+      _mr_out=$(git merge-tree --write-tree "$_mr_main" "$_mr_head" 2>/dev/null)
+      _mr_rc=$?
+      if [ "$_mr_rc" -eq 0 ]; then
+        _mr_tree=$(printf '%s\n' "$_mr_out" | sed -n '1p')
+      elif [ "$_mr_rc" -eq 1 ]; then
+        _mr_skip_reason="merge conflicts with origin/main"
+      else
+        _mr_skip_reason="git merge-tree --write-tree unavailable (rc=$_mr_rc; git >= 2.38 required)"
+      fi
+    fi
+    if [ -n "$_mr_tree" ]; then
+      _mr_wt_base="${AINUM_PREPUSH_MERGE_WT_ROOT:-}"
+      if [ -z "$_mr_wt_base" ]; then
+        _mr_tl=$(git rev-parse --show-toplevel 2>/dev/null)
+        case "$_mr_tl" in
+          *.wt/*|*.wt) _mr_wt_base="${_mr_tl%/*}" ;;                    # a .wt/<row> worktree: its own .wt root
+          *) _mr_wt_base="$(dirname "$_mr_tl" 2>/dev/null)/.wt" ;;      # a normal checkout: the sibling .wt/
+        esac
+      fi
+      _mr_dir=""
+      _mr_parent=""
+      if [ -n "$_mr_wt_base" ] && mkdir -p "$_mr_wt_base" 2>/dev/null; then
+        _mr_parent=$(mktemp -d "$_mr_wt_base/prepush-merge-XXXXXX" 2>/dev/null) || _mr_parent=""
+      fi
+      if [ -n "$_mr_parent" ]; then
+        _mr_dir="$_mr_parent/wt"
+        _mr_cleanup() {
+          [ -n "$_mr_dir" ] && git worktree remove --force "$_mr_dir" >/dev/null 2>&1
+          [ -n "$_mr_parent" ] && rm -rf "$_mr_parent" 2>/dev/null
+          git worktree prune >/dev/null 2>&1
+          return 0
+        }
+        trap _mr_cleanup EXIT
+        _mr_commit=$(git -c user.name=pre-push-merge-probe -c user.email=pre-push-merge-probe@invalid commit-tree "$_mr_tree" -p "$_mr_main" -m "pre-push: merge-result probe of HEAD+origin/main (PREPUSH-MERGE-RESULT-1)" 2>/dev/null) || _mr_commit=""
+        if [ -n "$_mr_commit" ] && git worktree add --quiet --detach "$_mr_dir" "$_mr_commit" >/dev/null 2>&1; then
+          echo "pre-push: origin/main and this branch both changed since their base — running the affected gates on the MERGE RESULT of HEAD and origin/main (PREPUSH-MERGE-RESULT-1; temp worktree $_mr_dir) ..."
+          ( cd "$_mr_dir" && node scripts/preflight.mjs --affected --changed origin/main --keep-going --quiet "$@" )
+          _mr_status=$?
+          _mr_ran=1
+          [ "$_mr_status" -ne 0 ] && echo "pre-push: MERGE-RESULT affected preflight RED — a gate is red on the merge result of HEAD and origin/main that is green on the branch tree alone: MAIN MOVED. Re-ground on fresh origin/main and re-push; the failed gate(s) are named above." 1>&2
+        else
+          echo "pre-push: WARN (PREPUSH-MERGE-RESULT-1): could not materialise the merge-result probe (commit-tree or worktree add failed) — failing open to the branch-tree affected check; CI judges." 1>&2
+        fi
+        trap - EXIT
+        _mr_cleanup
+      else
+        echo "pre-push: WARN (PREPUSH-MERGE-RESULT-1): no writable temp-worktree root ($_mr_wt_base) — failing open to the branch-tree affected check; CI judges." 1>&2
+      fi
+    fi
+    if [ "$_mr_ran" -eq 1 ]; then
+      # The merge result contains every commit of the branch, so when the leg
+      # ran there its verdict REPLACES the branch-tree run: green ⇒ nothing
+      # more to prove; red ⇒ block with the MAIN-MOVED diagnosis above.
+      [ "$_mr_status" -ne 0 ] && status=$_mr_status
+    else
+      [ -n "$_mr_skip_reason" ] && echo "pre-push: WARN (PREPUSH-MERGE-RESULT-1): $_mr_skip_reason — failing open to the branch-tree affected check; CI judges." 1>&2
+      echo "pre-push: running scripts/preflight.mjs --affected (AFFECTED-GATES-PREPUSH-1) ..."
+      node scripts/preflight.mjs --affected --changed origin/main --keep-going --quiet "$@"
+      status=$?
+      [ "$status" -ne 0 ] && echo "pre-push: AFFECTED preflight RED — a gate CI runs on this diff is red; fix it and re-push (ratchet ceilings are fixed in the code, never by raising the pin)." 1>&2
+    fi
   fi
 fi
 
