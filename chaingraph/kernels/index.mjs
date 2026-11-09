@@ -666,6 +666,7 @@ import * as art758    from './art-758-hdhp-ppo-break-even.kernel.mjs';
 import * as art759    from './art-759-iso-amt-exposure-modeler.kernel.mjs';
 import * as art76     from './art-76-climate-scenario-applicator.kernel.mjs';
 import * as art760    from './art-760-espp-break-even-optimal-sell.kernel.mjs';
+import * as art761    from './art-761-caregiver-income-impact.kernel.mjs';
 import * as art763    from './art-763-ai-displacement-risk-screener.kernel.mjs';
 import * as art764    from './art-764-solo-401k-vs-sep-ira.kernel.mjs';
 import * as art77     from './art-77-t1-settlement-readiness-diagnostic.kernel.mjs';
@@ -1392,6 +1393,7 @@ export const KERNELS = {
   'art-759-iso-amt-exposure-modeler':                           art759,
   'art-76-climate-scenario-applicator':                         art76,
   'art-760-espp-break-even-optimal-sell':                       art760,
+  'art-761-caregiver-income-impact':                            art761,
   'art-763-ai-displacement-risk-screener':                      art763,
   'art-764-solo-401k-vs-sep-ira':                               art764,
   'art-77-t1-settlement-readiness-diagnostic':                  art77,
