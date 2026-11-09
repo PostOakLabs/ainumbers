@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (720 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (721 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7990,6 +7990,16 @@ window.CHAINBUILDER_CATALOG = [
       "cry-04-merkle-batch-verifier",
       "ptg-01-ap2-prompt-template-generator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-820-negotiate-ucp-capabilities",
+    "display_name": "UCP Capability Negotiation",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-820-negotiate-ucp-capabilities.html",
+    "description": "Intersects the UCP capability sets two pasted profiles advertise: keeps the capabilities named by both sides at their highest mutually suppo",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
