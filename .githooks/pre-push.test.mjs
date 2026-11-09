@@ -48,7 +48,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, chmodSync, appendFileSync, copyFileSync, readdirSync } from 'node:fs';
-import { join, dirname, resolve } from 'node:path';
+import { join, dirname, resolve, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isolatedChildEnv } from '../scripts/_git-env-lib.mjs';
 
@@ -585,7 +585,7 @@ exec "${resolveRealGit()}" "$@"
 `;
   writeFileSync(join(shimDir, 'git'), shim);
   chmodSync(join(shimDir, 'git'), 0o755);
-  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0', AINUM_PREPUSH_MERGE_WT_ROOT: mergeWtRoot, PATH: shimDir + ';' + process.env.PATH });
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0', AINUM_PREPUSH_MERGE_WT_ROOT: mergeWtRoot, PATH: shimDir + delimiter + process.env.PATH });
   const warns = (r.stdout + r.stderr).split('\n').filter((l) => l.includes('WARN')).length;
   assert(r.status === 0, 'UNSUPPORTED GIT: the push FAILS OPEN (exit 0) — an old git never blocks a push');
   assert(warns === 1, `UNSUPPORTED GIT: exactly ONE WARN line is printed (got ${warns})`);
