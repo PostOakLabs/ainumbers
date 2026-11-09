@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (721 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (723 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7908,6 +7908,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-793-government-stablecoin-acceptance",
+    "display_name": "Government Stablecoin Acceptance Audit",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-793-government-stablecoin-acceptance.html",
+    "description": "Assesses a government acceptor's aggregate stablecoin receipt ledger against its written acceptance policy, which tokens are eligible, how f",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-80-ssi-conformance-checker",
     "display_name": "SSI Conformance Checker",
     "mandate_type": "compliance_mandate",
@@ -7945,6 +7955,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-82-securities-settlement-message-linter",
       "cry-04-merkle-batch-verifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-811-check-dti-within-policy-private",
+    "display_name": "Private-Input Debt-to-Income Within Policy Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-811-check-dti-within-policy-private.html",
+    "description": "Pilot private-input predicate. Checks that privately held monthly debt obligations, 16 fixed slots, are at most a chosen share of a privatel",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
