@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (723 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (725 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7736,6 +7736,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-761-caregiver-income-impact",
+    "display_name": "Caregiver Income Impact & Lost Earnings Estimator",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-761-caregiver-income-impact.html",
+    "description": "Financial cost of unpaid caregiving: direct income loss during the care period, the retirement savings gap from missed 401(k) contributions ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-763-ai-displacement-risk-screener",
     "display_name": "AI Displacement Risk Screener",
     "mandate_type": "analytics_mandate",
@@ -7938,6 +7948,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-807-erc3643-transfer-decision.html",
     "description": "Recomputes whether one proposed ERC-3643 (T-REX) transfer or mint would go through, from caller-declared state only: identity registry entri",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-809-check-reserves-cover-outstanding-private",
+    "display_name": "Private-Input Reserves Cover Outstanding Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-809-check-reserves-cover-outstanding-private.html",
+    "description": "Pilot private-input predicate: 16 committed reserve slots, tagged by the eight GENIUS Act 4(a)(1)(A) categories, must cover the committed pa",
     "consumes": [],
     "feeds": [],
     "status": "live"
