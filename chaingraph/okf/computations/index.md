@@ -688,6 +688,7 @@ status: stable
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md)
 - [ERC-3643 Transfer Decision Recompute](./art-807-erc3643-transfer-decision.md)
 - [Allocation/Affirmation Conformance Checker](./art-81-allocation-affirmation-conformance.md)
+- [Private-Input Debt-to-Income Within Policy Check](./art-811-check-dti-within-policy-private.md)
 - [Quadratic Funding Round Recompute](./art-814-qf-pairwise-recompute.md)
 - [Privacy Coin Regulatory Classifier (MiCA and AMLR)](./art-818-zcash-reg-classifier.md)
 - [Ucp Request Constraints](./art-819-ucp-request-constraints.md)
