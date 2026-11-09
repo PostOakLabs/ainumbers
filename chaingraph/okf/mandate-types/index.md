@@ -41,6 +41,7 @@ status: stable
 - [risk_control](./risk_control.md) (5)
 - [risk_parameter](./risk_parameter.md) (8)
 - [routing_policy](./routing_policy.md) (2)
+- [sales_comp_record](./sales_comp_record.md) (1)
 - [scheme_rule](./scheme_rule.md) (3)
 - [settlement_finality_mandate](./settlement_finality_mandate.md) (1)
 - [settlement_mandate](./settlement_mandate.md) (12)
