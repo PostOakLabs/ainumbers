@@ -683,6 +683,7 @@ status: stable
 - [Modified Premium Calculator](./art-782-modified-premium.md) — `compute_modified_premium`
 - [RFC 4180 CSV Parser](./art-788-csv-rfc4180-parser.md) — `parse_csv_table`
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md) — `predict_settlement_fail`
+- [Government Stablecoin Acceptance Audit](./art-793-government-stablecoin-acceptance.md) — `assess_gov_stablecoin_accept`
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md) — `check_ssi_conformance`
 - [ERC-3643 Transfer Decision Recompute](./art-807-erc3643-transfer-decision.md) — `recompute_erc3643_transfer_decision`
 - [Allocation/Affirmation Conformance Checker](./art-81-allocation-affirmation-conformance.md) — `check_allocation_affirmation`

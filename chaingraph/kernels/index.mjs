@@ -681,6 +681,7 @@ import * as art780    from './art-780-solana-pda-ata-audit.kernel.mjs';
 import * as art782    from './art-782-modified-premium.kernel.mjs';
 import * as art788    from './art-788-csv-rfc4180-parser.kernel.mjs';
 import * as art79     from './art-79-settlement-fail-predictor.kernel.mjs';
+import * as art793    from './art-793-government-stablecoin-acceptance.kernel.mjs';
 import * as art80     from './art-80-ssi-conformance-checker.kernel.mjs';
 import * as art807    from './art-807-erc3643-transfer-decision.kernel.mjs';
 import * as art81     from './art-81-allocation-affirmation-conformance.kernel.mjs';
@@ -1405,6 +1406,7 @@ export const KERNELS = {
   'art-782-modified-premium':                                   art782,
   'art-788-csv-rfc4180-parser':                                 art788,
   'art-79-settlement-fail-predictor':                           art79,
+  'art-793-government-stablecoin-acceptance':                   art793,
   'art-80-ssi-conformance-checker':                             art80,
   'art-807-erc3643-transfer-decision':                          art807,
   'art-81-allocation-affirmation-conformance':                  art81,
