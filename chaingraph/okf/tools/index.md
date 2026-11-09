@@ -683,9 +683,11 @@ status: stable
 - [Modified Premium Calculator](./art-782-modified-premium.md) — `compute_modified_premium`
 - [RFC 4180 CSV Parser](./art-788-csv-rfc4180-parser.md) — `parse_csv_table`
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md) — `predict_settlement_fail`
+- [Government Stablecoin Acceptance Audit](./art-793-government-stablecoin-acceptance.md) — `assess_gov_stablecoin_accept`
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md) — `check_ssi_conformance`
 - [ERC-3643 Transfer Decision Recompute](./art-807-erc3643-transfer-decision.md) — `recompute_erc3643_transfer_decision`
 - [Allocation/Affirmation Conformance Checker](./art-81-allocation-affirmation-conformance.md) — `check_allocation_affirmation`
+- [Private-Input Debt-to-Income Within Policy Check](./art-811-check-dti-within-policy-private.md) — `check_dti_within_policy_private`
 - [Quadratic Funding Round Recompute](./art-814-qf-pairwise-recompute.md) — `recompute_quadratic_funding_round`
 - [Privacy Coin Regulatory Classifier (MiCA and AMLR)](./art-818-zcash-reg-classifier.md) — `classify_privacy_coin_regulatory_treatment`
 - [Ucp Request Constraints](./art-819-ucp-request-constraints.md) — `eval_ucp_request_constraints`
