@@ -688,6 +688,7 @@ status: stable
 - [Government Stablecoin Acceptance Audit](./art-793-government-stablecoin-acceptance.md)
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md)
 - [ERC-3643 Transfer Decision Recompute](./art-807-erc3643-transfer-decision.md)
+- [Private-Input Reserves Cover Outstanding Check](./art-809-check-reserves-cover-outstanding-private.md)
 - [Allocation/Affirmation Conformance Checker](./art-81-allocation-affirmation-conformance.md)
 - [Private-Input Debt-to-Income Within Policy Check](./art-811-check-dti-within-policy-private.md)
 - [Quadratic Funding Round Recompute](./art-814-qf-pairwise-recompute.md)

@@ -684,6 +684,7 @@ import * as art79     from './art-79-settlement-fail-predictor.kernel.mjs';
 import * as art793    from './art-793-government-stablecoin-acceptance.kernel.mjs';
 import * as art80     from './art-80-ssi-conformance-checker.kernel.mjs';
 import * as art807    from './art-807-erc3643-transfer-decision.kernel.mjs';
+import * as art809    from './art-809-check-reserves-cover-outstanding-private.kernel.mjs';
 import * as art81     from './art-81-allocation-affirmation-conformance.kernel.mjs';
 import * as art811    from './art-811-check-dti-within-policy-private.kernel.mjs';
 import * as art814    from './art-814-qf-pairwise-recompute.kernel.mjs';
@@ -1409,6 +1410,7 @@ export const KERNELS = {
   'art-793-government-stablecoin-acceptance':                   art793,
   'art-80-ssi-conformance-checker':                             art80,
   'art-807-erc3643-transfer-decision':                          art807,
+  'art-809-check-reserves-cover-outstanding-private':           art809,
   'art-81-allocation-affirmation-conformance':                  art81,
   'art-811-check-dti-within-policy-private':                    art811,
   'art-814-qf-pairwise-recompute':                              art814,
