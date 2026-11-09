@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (718 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (719 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7658,6 +7658,16 @@ window.CHAINBUILDER_CATALOG = [
     "feeds": [
       "cry-04-merkle-batch-verifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-750-diff-evidence-bundles",
+    "display_name": "Diff Evidence Bundles",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-750-diff-evidence-bundles.html",
+    "description": "Evidence-bundle diff: takes two parsed JSON bundles (bundle_a = baseline, bundle_b = comparison) plus an optional as_of timestamp and report",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

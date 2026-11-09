@@ -659,6 +659,7 @@ import * as art735    from './art-735-solana-dvp-prefund-verifier.kernel.mjs';
 import * as art74     from './art-74-taxonomy-kpi-gar-aggregator.kernel.mjs';
 import * as art749    from './art-749-solana-paychan-voucher-verifier.kernel.mjs';
 import * as art75     from './art-75-eugb-factsheet-validator.kernel.mjs';
+import * as art750    from './art-750-diff-evidence-bundles.kernel.mjs';
 import * as art754    from './art-754-equity-exit-waterfall.kernel.mjs';
 import * as art758    from './art-758-hdhp-ppo-break-even.kernel.mjs';
 import * as art759    from './art-759-iso-amt-exposure-modeler.kernel.mjs';
@@ -1379,6 +1380,7 @@ export const KERNELS = {
   'art-74-taxonomy-kpi-gar-aggregator':                         art74,
   'art-749-solana-paychan-voucher-verifier':                    art749,
   'art-75-eugb-factsheet-validator':                            art75,
+  'art-750-diff-evidence-bundles':                              art750,
   'art-754-equity-exit-waterfall':                              art754,
   'art-758-hdhp-ppo-break-even':                                art758,
   'art-759-iso-amt-exposure-modeler':                           art759,

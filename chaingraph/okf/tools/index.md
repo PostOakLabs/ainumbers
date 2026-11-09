@@ -661,6 +661,7 @@ status: stable
 - [Taxonomy KPI & Green Asset Ratio Aggregator](./art-74-taxonomy-kpi-gar-aggregator.md) — `aggregate_taxonomy_kpi_gar`
 - [Solana Paychan Voucher Verifier](./art-749-solana-paychan-voucher-verifier.md) — `verify_solana_paychan_voucher`
 - [EU Green Bond Factsheet & Allocation Validator](./art-75-eugb-factsheet-validator.md) — `validate_eugb_factsheet`
+- [Diff Evidence Bundles](./art-750-diff-evidence-bundles.md) — `compute_diff_evidence_bundles`
 - [Equity Exit Waterfall Modeler](./art-754-equity-exit-waterfall.md) — `calc_equity_exit_waterfall`
 - [HDHP vs. PPO Break-Even](./art-758-hdhp-ppo-break-even.md) — `estimate_hdhp_ppo_breakeven`
 - [ISO AMT Exposure Modeler](./art-759-iso-amt-exposure-modeler.md) — `estimate_iso_amt_exposure`
