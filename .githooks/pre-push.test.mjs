@@ -440,6 +440,13 @@ function resolveRealGit() {
       if (existsSync(p)) return p.replace(/\\/g, '/');
     }
   }
+  // POSIX: an ABSOLUTE git from the ORIGINAL PATH. The shim sits first on PATH, so a bare
+  // `git` here makes `exec git "$@"` resolve to the shim itself and loop forever (CI hang).
+  for (const d of (process.env.PATH || '').split(delimiter)) {
+    if (!d) continue;
+    const p = join(d, 'git');
+    if (existsSync(p)) return p;
+  }
   return 'git';
 }
 {
