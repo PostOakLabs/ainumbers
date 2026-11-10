@@ -29,6 +29,7 @@ status: stable
 - [Corridor Cost Averages](./787-corridor-cost-averages.md)
 - [Curator Vault Cap Auditor](./792-curator-vault-cap-auditor.md)
 - [Stablecoin Refund Dispute Check](./795-stablecoin-refund-dispute.md)
+- [Stablecoin Cash Equivalent Test (FASB Proposed 2026-08)](./797-stablecoin-cash-equivalent-test.md)
 - [Event Contract Terms Lint](./806-event-contract-terms-lint.md)
 - [Liquid-Staking Share Rate Reconciler](./808-lst-share-rate-reconciler.md)
 - [Ethereum Validator Queue and Sweep Wait](./812-eth-staking-queue.md)
