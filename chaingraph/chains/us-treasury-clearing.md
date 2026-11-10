@@ -1,13 +1,13 @@
 # US Treasury Clearing Chain
 
-Model clearing access economics → estimate FICC margin netting benefit → calculate repo haircut and collateral eligibility → estimate cross-margining benefit → mobilize margin call collateral and verify tokenized collateral eligibility. End-to-end US Treasury clearing and SEC Rule 17ad-22 journey.
+Model clearing access economics → estimate FICC margin netting benefit → calculate repo haircut and collateral eligibility → estimate cross-margining benefit → mobilize margin call collateral and verify tokenized collateral eligibility. End-to-end US Treasury clearing and SEC Rule 17ad-22 journey. Tokenized collateral eligibility now has a production basis: DTCC's July 15, 2026 live production trades and the October 28, 2026 launch of the DTCC Tokenization Service put DTC-tokenized securities into live use; as of November 2026 the service's cash leg settles by wire or ACH over fiat rails.
 
 - Page: https://ainumbers.co/chaingraph/chains/us-treasury-clearing.html
 - Markdown twin: https://ainumbers.co/chaingraph/chains/us-treasury-clearing.md
 
 ## Workflow chain: US Treasury Clearing Chain
 
-Model clearing access economics → estimate FICC margin netting benefit → calculate repo haircut and collateral eligibility → estimate cross-margining benefit → mobilize margin call collateral and verify tokenized collateral eligibility. End-to-end US Treasury clearing and SEC Rule 17ad-22 journey.
+Model clearing access economics → estimate FICC margin netting benefit → calculate repo haircut and collateral eligibility → estimate cross-margining benefit → mobilize margin call collateral and verify tokenized collateral eligibility. End-to-end US Treasury clearing and SEC Rule 17ad-22 journey. Tokenized collateral eligibility now has a production basis: DTCC's July 15, 2026 live production trades and the October 28, 2026 launch of the DTCC Tokenization Service put DTC-tokenized securities into live use; as of November 2026 the service's cash leg settles by wire or ACH over fiat rails.
 
 Domain: Treasury Clearing
 
