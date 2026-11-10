@@ -296,7 +296,7 @@ function computeLint(pp) {
   const flags = [];
   const prof = PROFILES[pp.profile];
   if (!prof || !roles || !holders.length) {
-    return { verdict: 'REFUSED', reason: 'profile must be fiattoken, usdp or generic; roles map and at least one holder are required', findings: [] };
+    return { manual_review_required: true, verdict: 'REFUSED', reason: 'profile must be fiattoken, usdp or generic; roles map and at least one holder are required', findings: [] };
   }
   const refused = [];
   for (const h of holders) {
@@ -308,7 +308,7 @@ function computeLint(pp) {
     if (hit) refused.push({ field: 'roles.' + rn, kind: hit });
   }
   if (refused.length) {
-    return { verdict: 'REFUSED', reason: 'a holder or role value looks like an address, public key or private key. This tool accepts role labels only.', refused: refused };
+    return { manual_review_required: true, verdict: 'REFUSED', reason: 'a holder or role value looks like an address, public key or private key. This tool accepts role labels only.', refused: refused };
   }
   const holderByLabel = {};
   for (const h of holders) holderByLabel[String(h.label)] = h;
@@ -397,8 +397,8 @@ function computeLint(pp) {
   const verdict = failCount > 0 ? 'FAIL' : warnCount > 0 ? 'PASS_WITH_FINDINGS' : 'PASS';
   if (failCount > 0) flags.push('FAIL_ADMIN_ROLE_FINDINGS');
   if (warnCount > 0) flags.push('WARN_ADMIN_ROLE_FINDINGS');
-  flags.push('VERDICT_' + verdict);
-  return { verdict: verdict, profile: pp.profile, separation: separation, concentration: concentration, issuance: issuance, capabilities: capabilities, findings: findings, fail_count: failCount, warn_count: warnCount, _flags: flags };
+  if (verdict !== 'PASS') flags.push('VERDICT_' + verdict);
+  return { manual_review_required: verdict !== 'PASS', verdict: verdict, profile: pp.profile, separation: separation, concentration: concentration, issuance: issuance, capabilities: capabilities, findings: findings, fail_count: failCount, warn_count: warnCount, _flags: flags };
 }
 
 let _result = null;

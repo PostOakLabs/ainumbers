@@ -83,6 +83,7 @@ export function compute(pp) {
     compliance_flags.push('MALFORMED_INPUT_REFUSED');
     return {
       output_payload: {
+        manual_review_required: true,
         verdict: 'REFUSED',
         reason: !PROFILES[profileName]
           ? 'profile must be one of fiattoken, usdp, generic'
@@ -109,6 +110,7 @@ export function compute(pp) {
     compliance_flags.push('MALFORMED_INPUT_REFUSED');
     return {
       output_payload: {
+        manual_review_required: true,
         verdict: 'REFUSED',
         reason: 'holder or role values look like an address, public key or private key — this tool accepts role labels only',
         refused,
@@ -231,9 +233,13 @@ export function compute(pp) {
 
   if (failCount > 0) compliance_flags.push('FAIL_ADMIN_ROLE_FINDINGS');
   if (warnCount > 0) compliance_flags.push('WARN_ADMIN_ROLE_FINDINGS');
-  compliance_flags.push('VERDICT_' + verdict);
+  // The verdict flag is raised only when the lint found something to carry (FAIL or
+  // PASS_WITH_FINDINGS); a clean PASS carries no flag. manual_review_required mirrors
+  // the flag set into the payload (AUTHORING-STANDARD section 2).
+  if (verdict !== 'PASS') compliance_flags.push('VERDICT_' + verdict);
 
   const output_payload = {
+    manual_review_required: verdict !== 'PASS',
     verdict,
     profile: profileName,
     separation,
