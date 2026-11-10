@@ -348,19 +348,19 @@ jobs:
           # node's page. Two skips, both by design:
           #   • a page without a manifest is hand-authored (no generated block
           #     exists to write);
-          #   • a BRAND-NEW node is not a live id in the COMMITTED monolith yet
-          #     (the writer keys on chaingraph.json, which only the main-side
-          #     assembler folds — measured 2026-10-08: `--only <new-id>` exits
-          #     1 "not a live node id in chaingraph.json"). Its block was
-          #     authored in-PR by the builder; the whole-tree CHECK pass (now
-          #     HARD on pull_request in scripts-verify.yml) is what judges it.
+          #   • a node that is neither live in the COMMITTED monolith nor a live
+          #     shard on disk (a BRAND-NEW node whose shard is on the PR head IS
+          #     written: the writer also covers
+          #     live-pending shards (shard on disk, not yet enrolled), so `--only <new-id>` works. This
+          #     step used to skip every brand-new node, leaving its block to the
+          #     builder, and the whole-tree CHECK pass reddened the PR instead).
           for f in "${PAGE_FILES[@]}"; do
             id="$(basename "$f" .html)"
             if [ ! -f "manifests/$id.manifest.json" ]; then
               echo "  skip ask-agent write for $f — no manifests/$id.manifest.json (hand-authored page, no generated block)"
               continue
             fi
-            if ! NODE_ID="$id" node -e "const cg=require('./chaingraph/chaingraph.json'); process.exit((cg.nodes||[]).some((n) => n.tool_id === process.env.NODE_ID && n.status === 'live') ? 0 : 1)"; then
+            if ! NODE_ID="$id" node -e "const fs=require('fs'); const id=process.env.NODE_ID; const cg=require('./chaingraph/chaingraph.json'); const inMono=(cg.nodes||[]).some((n) => n.tool_id === id && n.status === 'live'); let shardLive=false; try { shardLive = JSON.parse(fs.readFileSync('chaingraph/graph/nodes/' + id + '.json','utf8')).status === 'live'; } catch (e) {} process.exit(inMono || shardLive ? 0 : 1)"; then
               echo "  skip ask-agent write for $id — not a live node in the committed monolith (brand-new node; the builder authored its block in-PR)"
               continue
             fi
