@@ -29,6 +29,7 @@ status: stable
 - [Stablecoin Refund Dispute Check](./795-stablecoin-refund-dispute.md) — `check_stablecoin_refunds`
 - [Event Contract Terms Lint](./806-event-contract-terms-lint.md) — `lint_event_contract_terms`
 - [Liquid-Staking Share Rate Reconciler](./808-lst-share-rate-reconciler.md) — `reconcile_lst_share_rate`
+- [Ethereum Validator Queue and Sweep Wait](./812-eth-staking-queue.md) — `project_eth_validator_queue_wait`
 - [Ethereum Epoch Accounting Recompute](./813-eth-staking-accounting.md) — `recompute_eth_epoch_accounting`
 - [Ethereum Base Fee and Blob Base Fee Recompute](./815-eth-fee-market.md) — `recompute_eth_fee_market`
 - [Zcash Supply Check](./822-zcash-supply-check.md) — `audit_zcash_pool_supply`
