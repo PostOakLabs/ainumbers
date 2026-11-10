@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (726 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (729 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -244,6 +244,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "812-eth-staking-queue",
+    "display_name": "Ethereum Validator Queue and Sweep Wait",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/812-eth-staking-queue.html",
+    "description": "Computes when one validator's exit, consolidation, activation and withdrawal sweep land, from the Electra consensus specification's balance-",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "813-eth-staking-accounting",
     "display_name": "Ethereum Epoch Accounting Recompute",
     "mandate_type": "compliance_control",
@@ -295,6 +305,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-699-x402-permit2-evidence-recomputer",
       "art-703-mandate-authorization-gate"
     ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "829-safe-tx-hash-recompute",
+    "display_name": "Safe Transaction Hash Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/829-safe-tx-hash-recompute.html",
+    "description": "Recomputes the hash and decodes known calls. It does not simulate execution and cannot tell you the destination contract is safe. From paste",
+    "consumes": [],
     "feeds": [],
     "status": "live"
   },
@@ -7771,6 +7791,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compensation_assessment",
     "url": "https://ainumbers.co/chaingraph/art-764-solo-401k-vs-sep-ira.html",
     "description": "Self-employed retirement-contribution comparator ported from ApexLogics Apex #112 (AL-119). For a tax year, net self-employment profit, age ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-765-dependent-care-fsa-cdctc-optimizer",
+    "display_name": "Dependent Care FSA vs. CDCTC Optimizer",
+    "mandate_type": "dependent_care_fsa_cdctc_record",
+    "url": "https://ainumbers.co/chaingraph/art-765-dependent-care-fsa-cdctc-optimizer.html",
+    "description": "Compare a Dependent Care FSA (IRC section 129 exclusion) against the Child and Dependent Care Tax Credit (IRC section 21) plus the optimal c",
     "consumes": [],
     "feeds": [],
     "status": "live"
