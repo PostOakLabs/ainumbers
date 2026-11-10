@@ -43,7 +43,7 @@ const EDGE_CASES_NOT_EVALUATED = [
 function refuse(code) {
   // `issues` mirrors compliance_flags in output_payload (ART806-MIRROR-ISSUES-1).
   const issues = [code];
-  return { output_payload: { refused: true, refusal_code: code, issues }, compliance_flags: ['INPUT_REFUSED'] };
+  return { output_payload: { refused: true, refusal_code: code, issues }, compliance_flags: issues.length > 0 ? ['INPUT_REFUSED'] : [] };
 }
 
 /** A declared value, or null when absent. */
