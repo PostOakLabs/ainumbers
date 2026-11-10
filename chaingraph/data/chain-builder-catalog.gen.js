@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (728 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (730 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -274,6 +274,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "817-eth-l2-stage-classifier",
+    "display_name": "Ethereum L2 Stage Criteria Classifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/817-eth-l2-stage-classifier.html",
+    "description": "Classifies the properties a caller declares for one Ethereum layer-2 against the L2BEAT stages framework text, and reports for each criterio",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "822-zcash-supply-check",
     "display_name": "Zcash Supply Check",
     "mandate_type": "cryptographic_mandate",
@@ -305,6 +315,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-699-x402-permit2-evidence-recomputer",
       "art-703-mandate-authorization-gate"
     ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "829-safe-tx-hash-recompute",
+    "display_name": "Safe Transaction Hash Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/829-safe-tx-hash-recompute.html",
+    "description": "Recomputes the hash and decodes known calls. It does not simulate execution and cannot tell you the destination contract is safe. From paste",
+    "consumes": [],
     "feeds": [],
     "status": "live"
   },
