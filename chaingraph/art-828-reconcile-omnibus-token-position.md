@@ -64,4 +64,4 @@ Reconciles a declared tokenized-securities omnibus token position against the su
 
 ## Verify
 
-Run the sample policy_parameters through MCP tool `reconcile_omnibus_token_position` at https://mcp.ainumbers.co/mcp (or the page form) and check the returned receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+Run the sample policy_parameters through MCP tool `reconcile_omnibus_position` at https://mcp.ainumbers.co/mcp (or the page form) and check the returned receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
