@@ -36,6 +36,7 @@ status: stable
 - [Ethereum L2 Stage Criteria Classifier](./817-eth-l2-stage-classifier.md) — `classify_l2_stage_criteria`
 - [Zcash Supply Check](./822-zcash-supply-check.md) — `audit_zcash_pool_supply`
 - [ZIP-317 Transfer Fee](./824-zip317-transfer-fee.md) — `recompute_zip317_transfer_fee`
+- [Reconcile UCP Checkout Totals](./825-reconcile-ucp-checkout-totals.md) — `reconcile_ucp_checkout_totals`
 - [Agent Cred Class Matrix](./827-agent-cred-class-matrix.md) — `compute_agent_cred_matrix`
 - [Safe Transaction Hash Recompute](./829-safe-tx-hash-recompute.md) — `recompute_safe_tx_hash`
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md) — `validate_ap2_mandate_chain`

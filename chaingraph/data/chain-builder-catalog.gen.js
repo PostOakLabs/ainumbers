@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (731 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (732 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -309,6 +309,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/824-zip317-transfer-fee.html",
     "description": "Recomputes the conventional transfer fee for a Zcash transaction from a DECLARED shape the caller pastes -- counts and byte totals only, nev",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "825-reconcile-ucp-checkout-totals",
+    "display_name": "Reconcile UCP Checkout Totals",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/825-reconcile-ucp-checkout-totals.html",
+    "description": "Reconciles a pasted Universal Commerce Protocol (UCP 2026-08-25) cart, checkout or order totals block in integer minor units. Recomputes pri",
     "consumes": [],
     "feeds": [],
     "status": "live"
