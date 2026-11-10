@@ -34,6 +34,7 @@ status: stable
 - [Ethereum Validator Queue and Sweep Wait](./812-eth-staking-queue.md)
 - [Ethereum Epoch Accounting Recompute](./813-eth-staking-accounting.md)
 - [Ethereum Base Fee and Blob Base Fee Recompute](./815-eth-fee-market.md)
+- [Ethereum L2 Stage Criteria Classifier](./817-eth-l2-stage-classifier.md)
 - [Zcash Supply Check](./822-zcash-supply-check.md)
 - [ZIP-317 Transfer Fee](./824-zip317-transfer-fee.md)
 - [Agent Cred Class Matrix](./827-agent-cred-class-matrix.md)
