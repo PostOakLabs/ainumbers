@@ -1,13 +1,13 @@
 # Canton Repo Collateral Mobility Chain
 
-Compute repo haircut with Canton 24/7 valuation, verify collateral and cash-leg finality.
+Compute repo haircut with Canton 24/7 valuation, verify collateral and cash-leg finality. Per DTCC's October 28, 2026 launch announcement, the DTCC Tokenization Service is live, minting tokenized entitlements to DTC-custodied securities on the Canton Network and DTCC's private Besu network; as of November 2026 its cash leg settles by wire or ACH over fiat rails while the tokenized asset leg moves on chain.
 
 - Page: https://ainumbers.co/chaingraph/chains/canton-repo-mobility.html
 - Markdown twin: https://ainumbers.co/chaingraph/chains/canton-repo-mobility.md
 
 ## Workflow chain: Canton Repo Collateral Mobility Chain
 
-Compute repo haircut with Canton 24/7 valuation, verify collateral and cash-leg finality.
+Compute repo haircut with Canton 24/7 valuation, verify collateral and cash-leg finality. Per DTCC's October 28, 2026 launch announcement, the DTCC Tokenization Service is live, minting tokenized entitlements to DTC-custodied securities on the Canton Network and DTCC's private Besu network; as of November 2026 its cash leg settles by wire or ACH over fiat rails while the tokenized asset leg moves on chain.
 
 Domain: Digital-Asset Rails
 
