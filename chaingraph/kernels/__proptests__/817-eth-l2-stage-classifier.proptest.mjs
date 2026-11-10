@@ -1,5 +1,5 @@
 // 817-eth-l2-stage-classifier — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:745613ba971a82796741cf117a41c497d5b114a5059b6a293a3e1432ff895949
+// kernel_digest_at_authoring: sha256:eca370b7187bde0cbb1d36a7817952e7b4ad2ac4e69048edb7ceb9c5f88e5881
 // spec: board/claimed/ETH-L2-EXIT-STAGE-NODE-1.md
 // human_sign_off: PENDING
 //
