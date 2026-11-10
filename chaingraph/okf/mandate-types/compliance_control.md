@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-119"]
+tags: ["compliance_control", "count-121"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,16 +10,18 @@ status: stable
 
 # compliance_control
 
-119 tool(s) in this mandate-type group:
+121 tool(s) in this mandate-type group:
 
 - [Corridor Cost Averages](../tools/787-corridor-cost-averages.md)
 - [Curator Vault Cap Auditor](../tools/792-curator-vault-cap-auditor.md)
 - [Stablecoin Refund Dispute Check](../tools/795-stablecoin-refund-dispute.md)
 - [Event Contract Terms Lint](../tools/806-event-contract-terms-lint.md)
 - [Liquid-Staking Share Rate Reconciler](../tools/808-lst-share-rate-reconciler.md)
+- [Ethereum Validator Queue and Sweep Wait](../tools/812-eth-staking-queue.md)
 - [Ethereum Epoch Accounting Recompute](../tools/813-eth-staking-accounting.md)
 - [Ethereum Base Fee and Blob Base Fee Recompute](../tools/815-eth-fee-market.md)
 - [ZIP-317 Transfer Fee](../tools/824-zip317-transfer-fee.md)
+- [Safe Transaction Hash Recompute](../tools/829-safe-tx-hash-recompute.md)
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
 - [Mastercard Agentic Token Scope Builder](../tools/art-24-mastercard-agentic-token-builder.md)
