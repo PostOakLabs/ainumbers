@@ -33,6 +33,7 @@ import * as t815      from './815-eth-fee-market.kernel.mjs';
 import * as t817      from './817-eth-l2-stage-classifier.kernel.mjs';
 import * as t822      from './822-zcash-supply-check.kernel.mjs';
 import * as t824      from './824-zip317-transfer-fee.kernel.mjs';
+import * as t825      from './825-reconcile-ucp-checkout-totals.kernel.mjs';
 import * as t827      from './827-agent-cred-class-matrix.kernel.mjs';
 import * as t829      from './829-safe-tx-hash-recompute.kernel.mjs';
 import * as art01     from './art-01-ap2-mandate-chain-validator.kernel.mjs';
@@ -766,6 +767,7 @@ export const KERNELS = {
   '817-eth-l2-stage-classifier':                                t817,
   '822-zcash-supply-check':                                     t822,
   '824-zip317-transfer-fee':                                    t824,
+  '825-reconcile-ucp-checkout-totals':                          t825,
   '827-agent-cred-class-matrix':                                t827,
   '829-safe-tx-hash-recompute':                                 t829,
   'art-01-ap2-mandate-chain-validator':                         art01,
