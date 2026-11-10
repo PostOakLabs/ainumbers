@@ -48,7 +48,7 @@ name: Automerge Label
 # arms any that are mergeStateStatus CLEAN with nothing pending.
 on:
   pull_request:
-    types: [labeled, dequeued]
+    types: [labeled, dequeued, synchronize]
   schedule:
     - cron: '17 * * * *'
   workflow_dispatch:
@@ -60,7 +60,7 @@ permissions:
 jobs:
   enable-automerge:
     name: Enable auto-merge on labeled PR
-    if: (github.event.action == 'labeled' && github.event.label.name == 'automerge') || (github.event.action == 'dequeued' && github.event.reason == 'CI_TIMEOUT' && contains(github.event.pull_request.labels.*.name, 'automerge'))
+    if: ((github.event.action == 'labeled' && github.event.label.name == 'automerge') || (github.event.action == 'dequeued' && contains(github.event.pull_request.labels.*.name, 'automerge'))) && !contains(github.event.pull_request.labels.*.name, 'mq-ejected')
     runs-on: ubuntu-latest
     steps:
       # The merge-group-shadow gate below runs the repo's own decision helper,
@@ -248,7 +248,7 @@ jobs:
       # re-queue. Removals for any other reason are not counted and never
       # reach this job (job `if`).
       - name: Cap CI_TIMEOUT re-queues
-        if: github.event.action == 'dequeued'
+        if: github.event.action == 'dequeued' && github.event.reason == 'CI_TIMEOUT'
         id: timeout-cap
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -280,6 +280,83 @@ jobs:
           fi
           echo "proceed=true" >> "$GITHUB_OUTPUT"
 
+      # Re-queue once when a merge_group run dies because its
+      # gh-readonly-queue ref vanished before checkout (2026-11-05): dequeued runs for any
+      # reason other than CI_TIMEOUT. The job `if` lets every dequeue in (a
+      # `merged` dequeue included), so this step decides from the PR timeline's
+      # LAST removal reason (GraphQL spelling, measured on the live repo
+      # 2026-11-05: merged, failed_checks, merge_conflict) and never re-queues a
+      # merged or manual removal. Only failed_checks / merge_conflict go on to
+      # the log check: the newest failed merge_group run for this PR is classified
+      # by scripts/mq-eject-classify.mjs.
+      #   checkout-fatal -> `fatal: ... gh-readonly-queue/... is not a commit`
+      #     (the group was rebuilt before checkout; the PR did not fail). Re-queue
+      #     once through the step below, capped 1 per PR per hour, counted from
+      #     this step's own marker comments.
+      #   derived-gate -> a DERIVED_ROOT_GATES member failed (a real
+      #     stale-after-merge result). Never re-queued: one `[MQ-EJECT] #<n> <gate>
+      #     run <id>` warning + job summary line for the coordinator.
+      # If the log cannot be fetched the step does nothing (no re-queue).
+      - name: Classify merge_group ejection
+        if: github.event.action == 'dequeued' && github.event.reason != 'CI_TIMEOUT' && steps.guard.outputs.proceed == 'true'
+        id: mq-eject
+        env:
+          WEBHOOK_REASON: ${{ github.event.reason }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          echo "proceed=false" >> "$GITHUB_OUTPUT"
+          NODE_ID=$(gh pr view "$PR" -R "$REPO" --json id -q .id)
+          REASON=$(gh api graphql -f query='
+            query($id: ID!) {
+              node(id: $id) {
+                ... on PullRequest {
+                  timelineItems(itemTypes: [REMOVED_FROM_MERGE_QUEUE_EVENT], last: 1) {
+                    nodes { ... on RemovedFromMergeQueueEvent { reason } }
+                  }
+                }
+              }
+            }' -f id="$NODE_ID" | jq -r '.data.node.timelineItems.nodes[0].reason // "none"')
+          echo "last removal reason: $REASON (webhook reason: $WEBHOOK_REASON)"
+          case "$REASON" in failed_checks|merge_conflict) ;; *) echo "reason $REASON is never re-queued"; exit 0 ;; esac
+          RUN=$(gh api "repos/$REPO/actions/runs?event=merge_group&status=failure&per_page=50" | jq -r --arg p "gh-readonly-queue/main/pr-$PR-" '[.workflow_runs[] | select(.head_branch | startswith($p))][0].id // empty')
+          if [ -z "$RUN" ]; then echo "::notice title=No merge_group run::no failed merge_group run found for #$PR"; exit 0; fi
+          VERDICT=$(gh run view "$RUN" -R "$REPO" --log-failed 2>/dev/null | node scripts/mq-eject-classify.mjs || echo '{"kind":"other","gates":[]}')
+          KIND=$(echo "$VERDICT" | jq -r .kind)
+          echo "run $RUN classified: $VERDICT"
+          # Eject hold: any failed-check ejection that is not the checkout-fatal
+          # class is held at this head: `mq-ejected` label + ONE comment (updated in
+          # place on a repeat) naming the failing workflow, step, run and head sha.
+          # rearm-recovered and merge-lane skip the PR until a new head clears it.
+          if [ "$KIND" != "checkout-fatal" ] && [ "$REASON" = "failed_checks" ]; then
+            HEAD_SHA=$(gh pr view "$PR" -R "$REPO" --json headRefOid -q .headRefOid)
+            WF_NAME=$(gh run view "$RUN" -R "$REPO" --json workflowName -q .workflowName)
+            FAIL_STEP=$(gh api "repos/$REPO/actions/runs/$RUN/jobs?per_page=100" | jq -r '[.jobs[] | select(.conclusion == "failure") | .name as $j | ((.steps // [])[] | select(.conclusion == "failure") | "\($j) / \(.name)")][0] // "unknown"')
+            BODY=$(node scripts/mq-eject-hold.mjs comment "$WF_NAME" "$FAIL_STEP" "$RUN" "$HEAD_SHA")
+            gh label create mq-ejected -R "$REPO" --color B60205 --description "Ejected from the merge queue for a failed check; held until a new head commit" 2>/dev/null || true
+            gh pr edit "$PR" -R "$REPO" --add-label mq-ejected
+            CID=$(gh api "repos/$REPO/issues/$PR/comments?per_page=100" --paginate | jq -r '[.[] | select(.body | startswith("merge-queue: ejected"))][-1].id // empty')
+            if [ -n "$CID" ]; then
+              gh api -X PATCH "repos/$REPO/issues/comments/$CID" -f body="$BODY" > /dev/null
+            else
+              gh pr comment "$PR" -R "$REPO" --body "$BODY"
+            fi
+          fi
+          if [ "$KIND" = "derived-gate" ]; then
+            GATES=$(echo "$VERDICT" | jq -r '.gates | join(", ")')
+            echo "::warning title=MQ-EJECT::[MQ-EJECT] #$PR $GATES run $RUN"
+            echo "[MQ-EJECT] #$PR $GATES run $RUN" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          [ "$KIND" = "checkout-fatal" ] || exit 0
+          SINCE=$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ)
+          RECENT=$(gh pr view "$PR" -R "$REPO" --json comments | jq --arg s "$SINCE" '[.comments[] | select(.createdAt >= $s and (.body | startswith("merge-queue: checkout-fatal re-queue")))] | length')
+          if [ "$RECENT" -ge 1 ]; then echo "already re-queued for checkout-fatal within the hour; not again"; exit 0; fi
+          gh pr comment "$PR" -R "$REPO" --body "merge-queue: checkout-fatal re-queue (run $RUN: queue ref gone at checkout, group rebuilt). One re-queue per PR per hour."
+          echo "proceed=true" >> "$GITHUB_OUTPUT"
+
       # `gh pr merge --auto` silently no-ops on a PR that is ALREADY green
       # at label time, given the active merge_queue rule (main-ci-anchor,
       # 20721322) — measured 2026-08-17 on PR #1348, run 32029898577: the
@@ -292,7 +369,7 @@ jobs:
       # state via GraphQL and falls back to enqueuePullRequest directly
       # when native auto-merge left the PR untouched.
       - name: Enable auto-merge / enqueue
-        if: steps.guard.outputs.proceed == 'true' && steps.shadow.outputs.verdict == 'proceed' && steps.zizmor.outputs.proceed != 'false' && steps.timeout-cap.outputs.proceed != 'false'
+        if: steps.guard.outputs.proceed == 'true' && steps.shadow.outputs.verdict == 'proceed' && steps.zizmor.outputs.proceed != 'false' && steps.timeout-cap.outputs.proceed != 'false' && (github.event.action != 'dequeued' || github.event.reason == 'CI_TIMEOUT' || steps.mq-eject.outputs.proceed == 'true')
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR: ${{ github.event.pull_request.number }}
@@ -352,6 +429,25 @@ jobs:
 
           gh pr comment "$PR" -R "$REPO" --body "auto-merge enabled by automerge-label.yml; GitHub merges this PR itself once every required check passes. No further \`gh pr merge\` needed."
 
+  # Eject hold: a new head commit clears the hold. Removing the label by
+  # hand (with a `[MQ-EJECT-OVERRIDE] #n <reason>` channel line) is the only
+  # other way to re-arm at the same head.
+  clear-mq-eject:
+    name: Clear mq-ejected hold on new head
+    if: github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'mq-ejected')
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Remove mq-ejected label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh pr edit "$PR" -R "$REPO" --remove-label mq-ejected
+
   # Recovery re-arm. Scheduled/manual only.
   rearm-recovered:
     name: Re-arm labelled PRs that recovered to green
@@ -384,7 +480,9 @@ jobs:
           set -euo pipefail
           FAILS=0
           for PR in $(gh pr list -R "$REPO" --label automerge --state open --draft=false --json number -q '.[].number'); do
-            VIEW=$(gh pr view "$PR" -R "$REPO" --json id,mergeStateStatus,autoMergeRequest,headRepositoryOwner)
+            VIEW=$(gh pr view "$PR" -R "$REPO" --json id,mergeStateStatus,autoMergeRequest,headRepositoryOwner,labels)
+            # Eject hold: ejected for a failed check and the head has not changed.
+            if echo "$VIEW" | jq -e '[.labels[].name] | index("mq-ejected")' > /dev/null; then echo "#$PR mq-ejected hold; not re-arming"; continue; fi
             STATE=$(echo "$VIEW" | jq -r .mergeStateStatus)
             ARMED=$(echo "$VIEW" | jq -r '.autoMergeRequest')
             NODE_ID=$(echo "$VIEW" | jq -r .id)

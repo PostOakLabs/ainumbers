@@ -30,6 +30,8 @@
  *
  * Same checks apply to tool numbers (tools/<n>-*.html) and node manifests
  * (manifests/art-<n>-*.manifest.json), keyed to the same art-<n> number.
+ * Node shards and manifests match BOTH spellings, art-<n>-slug and the bare
+ * <n>-slug, keyed to the same art-<n> id (ID-COLLISION-BARE-PREFIX-1).
  *
  * Zero-dep, node: builtins only (site repo is ZERO-DEP, no npm/Ajv ever).
  *
@@ -60,9 +62,14 @@ const SHARD_FILE_RE = /^(art-\d+)\.json$/
 
 const argv = process.argv.slice(2)
 const MERGE_GROUP = argv.includes('--merge-group')
+const IN_MERGE_GROUP = isMergeGroupRun({ flag: MERGE_GROUP, eventName: process.env.GITHUB_EVENT_NAME || '', refName: process.env.GITHUB_REF_NAME || '' })
 
-const NODE_RE = /^chaingraph\/graph\/nodes\/art-(\d+)-[^/]+\.json$/
-const MANIFEST_RE = /^manifests\/art-(\d+)-[^/]+\.manifest\.json$/
+// Both spellings, art-<n>-slug and bare <n>-slug, match; capture 1 stays the
+// bare number so every id stays keyed art-<n> exactly as before
+// (ID-COLLISION-BARE-PREFIX-1; bare spellings: legacy 503..515 plus the
+// 2026-10/11 bare landings the art-only match never saw).
+const NODE_RE = /^chaingraph\/graph\/nodes\/(?:art-)?(\d+)-[^/]+\.json$/
+const MANIFEST_RE = /^manifests\/(?:art-)?(\d+)-[^/]+\.manifest\.json$/
 const TOOL_RE = /^tools\/(\d+)-[^/]+\.html$/
 
 function git(args, opts = {}) {
@@ -88,9 +95,38 @@ function mainIdPaths() {
   return byId
 }
 
-/** Changed paths vs origin/main (three-dot merge-base, same scoping as check-node-complete). */
-function changedPaths() {
-  const out = git(['diff', '--name-only', 'origin/main...HEAD'])
+/**
+ * Is this run a merge-queue group build? The queue's checkout is a commit
+ * ON TOP OF the entries ahead of this PR, so origin/main...HEAD would also
+ * contain their files (a stacked group is the normal case at
+ * max_entries_to_build > 1). Pure: driven by --self-test.
+ */
+export function isMergeGroupRun({ flag = false, eventName = '', refName = '' } = {}) {
+  return Boolean(flag) || eventName === 'merge_group' || /^gh-readonly-queue\//.test(refName)
+}
+
+/**
+ * Pure core: the git range holding ONLY this PR's own changes. pull_request
+ * keeps the three-dot range vs origin/main. In a merge group the HEAD commit
+ * is this entry's own commit and its first parent is the previous entry (or
+ * main), so HEAD^1..HEAD is this PR alone. Fails closed (error, no range)
+ * when the PR number or the parent cannot be determined.
+ */
+export function ownChangeRange({ mergeGroup, prNumber, hasParent }) {
+  if (!mergeGroup) return { range: ['origin/main...HEAD'] }
+  if (prNumber == null || Number.isNaN(prNumber)) return { error: 'merge_group run but this PR number is undeterminable from PR_ID_COLLISION_PR / GITHUB_REF_NAME' }
+  if (!hasParent) return { error: 'merge_group run but HEAD has no first parent to scope this entry own changes' }
+  return { range: ['HEAD^1', 'HEAD'] }
+}
+
+/** Changed paths of this PR alone (see ownChangeRange). null = undeterminable, caller refuses closed. */
+function changedPaths(cwd = REPO, mergeGroup = IN_MERGE_GROUP, prNumber = null) {
+  const gitIn = (args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: gitEnv() })
+  let hasParent = false
+  try { gitIn(['rev-parse', '--verify', '-q', 'HEAD^1']); hasParent = true } catch { /* no parent */ }
+  const r = ownChangeRange({ mergeGroup, prNumber, hasParent })
+  if (r.error) { console.error(`check-id-collision: ${r.error} - refusing closed.`); return null }
+  const out = gitIn(['diff', '--name-only', ...r.range])
   return out.split('\n').map(s => s.trim()).filter(Boolean)
 }
 
@@ -326,6 +362,30 @@ export function selfTest() {
     ok: mint.backfill === false && mint.refusals.some(r => r.includes('REFUSAL(b)')),
     quote: mint.refusals.find(r => r.includes('REFUSAL(b)')) || '(no refusal — UNEXPECTED GREEN)' })
 
+  // STACKED MERGE GROUP: the group tree carries earlier entries' files; only
+  // this entry's own commit (HEAD^1..HEAD) is checked.
+  const stack = stackedGroupFixture()
+  results.push({ name: 'GREEN stacked merge_group: id reserved to an earlier entry (art-770, pr=2524) is not this PR change',
+    ok: stack.ownPaths !== null && stack.ownPaths.length === 1 && stack.ownPaths[0] === 'scripts/sync.mjs',
+    quote: `own paths: ${JSON.stringify(stack.ownPaths)}` })
+  expectGreen('GREEN stacked merge_group: no node file in own range, no refusal', (stack.ownPaths || ['<null>']).filter(p => NODE_RE.test(p) || p === '<null>'))
+  results.push({ name: 'CONTROL pull_request three-dot range still sees the whole tree (earlier entry file included)',
+    ok: stack.wholeIncludesEarlier === true, quote: `whole range has earlier entry file: ${stack.wholeIncludesEarlier}` })
+  expectRed('RED merge_group: the current PR OWN minted id reserved to another PR still refuses',
+    checkId({ id: 'art-770', kind: 'node', path: 'chaingraph/graph/nodes/art-770-foo.json', mainPaths, reservations: { ...reservations, 'art-770': { row: 'OTHER-1', pr: 2524, reserved: '2026-11-07T00:00:00Z' } }, openPrs: null, prNumber: 2948 }),
+    'b')
+  const noPr = ownChangeRange({ mergeGroup: true, prNumber: null, hasParent: true })
+  const noParent = ownChangeRange({ mergeGroup: true, prNumber: 2948, hasParent: false })
+  results.push({ name: 'RED merge_group undeterminable (no PR number / no parent) fails closed',
+    ok: Boolean(noPr.error) && Boolean(noParent.error) && !noPr.range && !noParent.range,
+    quote: noPr.error || '(no error - UNEXPECTED GREEN)' })
+  results.push({ name: 'GREEN pull_request range unchanged (origin/main...HEAD)',
+    ok: ownChangeRange({ mergeGroup: false, prNumber: null, hasParent: false }).range?.join(' ') === 'origin/main...HEAD',
+    quote: 'origin/main...HEAD' })
+  results.push({ name: 'GREEN merge_group detection (flag, event, queue ref); a pull_request ref is not mis-detected',
+    ok: isMergeGroupRun({ eventName: 'merge_group' }) && isMergeGroupRun({ refName: 'gh-readonly-queue/main/pr-2948-abc' }) && isMergeGroupRun({ flag: true }) && !isMergeGroupRun({ eventName: 'pull_request', refName: '2948/merge' }),
+    quote: 'detection ok' })
+
   // pr=null reservations (a row reserves before its PR exists).
   const nullRes = { ...reservations, 'art-780': { row: 'SOLANA-PDA-ATA-AUDIT-1', pr: null, reserved: '2026-10-29T02:00:00Z' } }
   // GREEN: the PR added the pr=null line itself (absent from main's registry) — the #2727 shape.
@@ -371,6 +431,47 @@ export function selfTest() {
       ...split, openPrs: null, prNumber: 1762 }),
     'b')
 
+  // BARE-NUMBER SPELLING (ID-COLLISION-BARE-PREFIX-1): a bare shard
+  // (nodes/790-foo.json, no art- prefix) must clear the same legs an art-
+  // shard clears, keyed to the same art-<n> id. The driver replays runDiff's
+  // per-changed-path step (regex -> id -> checkNewPath); `unseen` is the hole
+  // this row closes: under the old art-only regex the path never matched, so
+  // the id was silently never checked.
+  const bareChanged = (path, { res = reservations, open = null, main = mainPaths } = {}) => {
+    const m = NODE_RE.exec(path) || MANIFEST_RE.exec(path)
+    if (!m) return { unseen: true, refusals: [], backfill: false }
+    return { unseen: false, ...checkNewPath({ id: `art-${m[1]}`, path, mainPaths: main, reservations: res, openPrs: open, prNumber: 1762 }) }
+  }
+  // (i) bare node shard added with no reservation -> REFUSAL(b), not silence.
+  const bi = bareChanged('chaingraph/graph/nodes/790-foo.json')
+  results.push({ name: 'RED(b) bare-number node shard, no reservation (was silently unchecked)',
+    ok: bi.unseen === false && bi.refusals.some(r => r.includes('REFUSAL(b)')),
+    quote: bi.unseen ? '(never checked - bare path unseen by the art-only regex: silence, not a refusal)'
+      : bi.refusals.find(r => r.includes('REFUSAL(b)')) || '(no refusal - UNEXPECTED GREEN)' })
+  // (ii) bare shard whose id another open PR already claims -> REFUSAL(c).
+  const bii = bareChanged('chaingraph/graph/nodes/791-foo.json', {
+    res: { ...reservations, 'art-791': { row: 'BARE-PREFIX-ROW-1', pr: 1762, reserved: '2026-11-07T00:00:00Z' } },
+    open: [{ number: 2769, title: '791 bare-claim: kernel + node + page' }] })
+  results.push({ name: 'RED(c) bare-number shard whose id another open PR claims',
+    ok: bii.unseen === false && bii.refusals.some(r => r.includes('REFUSAL(c)')),
+    quote: bii.unseen ? '(never checked - bare path unseen by the art-only regex: silence, not a refusal)'
+      : bii.refusals.find(r => r.includes('REFUSAL(c)')) || '(no refusal - UNEXPECTED GREEN)' })
+  // (iii) bare shard with a matching reservation for THIS PR -> checked and OK.
+  const biii = bareChanged('chaingraph/graph/nodes/792-foo.json', {
+    res: { ...reservations, 'art-792': { row: 'BARE-PREFIX-ROW-1', pr: 1762, reserved: '2026-11-07T00:00:00Z' } },
+    open: [] })
+  results.push({ name: 'GREEN bare-number shard with this PR\'s own reservation',
+    ok: biii.unseen === false && biii.refusals.length === 0,
+    quote: biii.unseen ? '(never checked - bare path unseen by the art-only regex: silence, not green)'
+      : biii.refusals[0] || 'GREEN: bare shard checked, own reservation, no refusal' })
+  // (iv) bare manifest backfill for an id whose (bare) node shard is on main -> OK backfill.
+  const bareMain = new Map([...mainPaths, ['art-793', ['chaingraph/graph/nodes/793-legacy-bare-node.json']]])
+  const biv = bareChanged('manifests/793-legacy-bare-node.manifest.json', { main: bareMain })
+  results.push({ name: 'GREEN bare-number manifest backfill (bare node of the same id on main)',
+    ok: biv.unseen === false && biv.backfill === true && biv.refusals.length === 0,
+    quote: biv.unseen ? '(never checked - bare path unseen by the art-only regex: silence, not green)'
+      : biv.refusals[0] || 'GREEN: backfill of existing id art-793, no refusal' })
+
   // The lock itself is a git property, so prove it with git: a throwaway repo,
   // two branches off one base, `git merge-tree --write-tree` (exit 1 = conflict).
   const lock = mergeTreeFixtures()
@@ -393,6 +494,29 @@ export function selfTest() {
   }
   console.error(`check-id-collision --self-test: ${results.length - failed}/${results.length} fixtures as expected`)
   return failed === 0
+}
+
+/**
+ * Throwaway repo: base, then an earlier queue entry (adds a node file), then
+ * this entry (adds a script). Returns the own-range paths and whether the
+ * pull_request-style whole range would also include the earlier entry's file.
+ */
+function stackedGroupFixture() {
+  const dir = mkdtempSync(join(tmpdir(), 'idcoll-stack-'))
+  const sg = (args) => execFileSync('git', ['-c', 'user.name=selftest', '-c', 'user.email=selftest@invalid', '-c', 'commit.gpgsign=false', ...args],
+    { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: gitEnv() })
+  try {
+    sg(['init', '-q', '-b', 'main'])
+    writeFileSync(join(dir, 'base.txt'), 'base\n'); sg(['add', '.']); sg(['commit', '-q', '-m', 'base'])
+    sg(['update-ref', 'refs/remotes/origin/main', 'HEAD'])
+    mkdirSync(join(dir, 'chaingraph/graph/nodes'), { recursive: true })
+    writeFileSync(join(dir, 'chaingraph/graph/nodes/art-770-earlier.json'), '{}\n'); sg(['add', '.']); sg(['commit', '-q', '-m', 'earlier entry (#2524)'])
+    mkdirSync(join(dir, 'scripts'), { recursive: true })
+    writeFileSync(join(dir, 'scripts/sync.mjs'), '//\n'); sg(['add', '.']); sg(['commit', '-q', '-m', 'this entry (#2948)'])
+    const ownPaths = changedPaths(dir, true, 2948)
+    const whole = sg(['diff', '--name-only', 'origin/main...HEAD']).split('\n')
+    return { ownPaths, wholeIncludesEarlier: whole.includes('chaingraph/graph/nodes/art-770-earlier.json') }
+  } finally { rmSync(dir, { recursive: true, force: true }) }
 }
 
 /**
@@ -489,7 +613,9 @@ function runDiff() {
     }
   }
   const headRef = process.env.GITHUB_HEAD_REF || null
-  const changed = changedPaths().filter(p => NODE_RE.test(p) || MANIFEST_RE.test(p) || TOOL_RE.test(p))
+  const own = changedPaths(REPO, IN_MERGE_GROUP, prNumber)
+  if (own === null) process.exit(1)
+  const changed = own.filter(p => NODE_RE.test(p) || MANIFEST_RE.test(p) || TOOL_RE.test(p))
 
   // Exact-token open-PR scan, one gh call, only when there is something to check.
   const needIds = new Set()

@@ -142,6 +142,26 @@ export const SURFACES = new Map([
       'dequeued PR — the CI_FAILURE never-requeue policy is deliberate; re-arm by hand from\n' +
       'the run URL below once main is green.',
   }],
+  // REGEN-PRECOMMIT-DERIVED-READERS-1 (2026-11-05). The regen's own
+  // "Monolith readers on the regenerated tree" step (scripts/regen-reader-leg.mjs)
+  // runs the gates that read the regenerated monolith before "Commit and push".
+  // In loud mode a red there does NOT fail the run (a refused regen freezes
+  // every covered artifact, the deploy and meta-PR merges), so the deadman above
+  // never fires; this surface is the alarm for that non-failing red.
+  ['regen-reader', {
+    name: 'Derived Artifacts Regen reader gates (main)',
+    workflow: '.github/workflows/derived-artifacts-regen.yml',
+    context:
+      'WHY THIS EXISTS. The regen committed a tree that a monolith-reading gate rejects, and\n' +
+      'it committed it on purpose: refusing would stop main\'s Scripts/Land/HTML Verify and the\n' +
+      'deploy (they run only after a successful regen) and freeze every other covered artifact.\n' +
+      'So the run is green and the red lives here instead. Measured trigger: a chain landing on\n' +
+      'main whose execute path no PR-side gate had run (MAIN-CHAIN-EXECUTE-HEAL-1).\n' +
+      '\n' +
+      'WHAT TO DO: the first failure line names the gate and the finding. Heal at the source\n' +
+      '(the chain, manifest or generator that produced it), let the next regen land, and this\n' +
+      'issue closes itself on the first run where every reader gate is green.',
+  }],
 ]);
 
 // Only scheduled/report surfaces may open an issue. pull_request and
