@@ -1,5 +1,5 @@
 // 797-stablecoin-cash-equivalent-test — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:e7f2ce59bcbd553af54c29655ba46c377740b4374e19e1e5696246af4d0f4023
+// kernel_digest_at_authoring: sha256:643f5a36069f70daa86c7d7bbee6a65e227f4de5813fe2974819c3e8899de17d
 // spec: holder-side cash-equivalent classification for a declared stablecoin holding under the
 //       FASB proposed Update of 2026-08-18 (Topic 230); criteria pinned from the exposure draft's
 //       illustrative Example 2 (paragraph cites in the node shard metadata and on the node page —

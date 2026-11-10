@@ -37,7 +37,7 @@ import { executionHash } from './_hash.mjs';
 // It never says how an entity must account — presenting a qualifying asset as a cash
 // equivalent is an accounting policy election, not something this node decides. It is not
 // an accounting opinion. Issuer-side reserve adequacy and disclosure evidence is the job of
-// other estate nodes (art-06, art-275, art-582); this node consumes no issuer evidence.
+// other estate nodes (art-06, art-275, art-582); this node takes no issuer-evidence input.
 
 const TOOL_ID = '797-stablecoin-cash-equivalent-test';
 const TOOL_VERSION = '1.0.0';
