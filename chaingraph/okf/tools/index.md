@@ -35,6 +35,7 @@ status: stable
 - [Zcash Supply Check](./822-zcash-supply-check.md) — `audit_zcash_pool_supply`
 - [ZIP-317 Transfer Fee](./824-zip317-transfer-fee.md) — `recompute_zip317_transfer_fee`
 - [Agent Cred Class Matrix](./827-agent-cred-class-matrix.md) — `compute_agent_cred_matrix`
+- [Safe Transaction Hash Recompute](./829-safe-tx-hash-recompute.md) — `recompute_safe_tx_hash`
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md) — `validate_ap2_mandate_chain`
 - [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md) — `simulate_spend_policy`
 - [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md) — `model_x402_settlement`
