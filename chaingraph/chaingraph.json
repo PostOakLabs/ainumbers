@@ -1294,7 +1294,7 @@
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
-  "compute_images": [{"system":"sha256-source","image_id":"sha256:5c179330342a136524f4808a6f201ab22ba0f39015250bc42ef835c7cd944a1e","valid_from":"2026-11-08"}],
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:5c179330342a136524f4808a6f201ab22ba0f39015250bc42ef835c7cd944a1e","valid_from":"2026-11-08"},{"system":"risc0","image_id":"sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6","valid_from":"2026-09-12"}],
   "export_capability": [
     "json"
   ],
@@ -1309,8 +1309,56 @@
       "id": "Morpho liquidity curation caps (pinned edition 2026-10-30)"
     }
   ],
-  "compute_proof_ready": "deferred",
-  "deferred_reason": "New gpu:false node, 792-curator-vault-cap-auditor, scaffolded 2026-10-31 (KERNEL-SCAFFOLD-1). No GPU prove has been run and none is proposed by this scaffold — deferred per the section 18 steady-state rule (RIDER-KERNEL.md). Run GPU-CYCLE-PREFLIGHT-1's static pre-screen once compute() is real, then measure user_cycles with runq-cpu exec before booking."
+  "compute_proof_ready": "ready",
+  "cycle_preflight": "FAST - 5,878,483 user_cycles max across all 7 fixture vectors, measured exec-only 2026-11-09; 0.20x the 30,000,000 line.",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "EB/4YG+Yv0XLwunQoiD1qf/JzhR6zM9F71YvURApXo0Pi2MbIJlRqINUDarZwdIU2bsOqB9FEJGKHSeiEV61Si03Z/sR2vWahErNH9j8m2RJ44Th0LT8BsO/ZVXX6ppxKkWOVcHwzGYg3wIEsQmW+nJWinqMhInd8e7kD+xifoEAWSoY/mq5bBi6bNSf5qr8k6dzVc6NhQKG/urWi0ikwQlNHuA7EOjDnGq3eOUTtAQmfL5wj91dn18+xKY3IRH0CDtCpzq34XQtH8FwVfFr3s/XrxEm5kT+oyvjxh+3sd4Y/DWk4m7SvgZlUpEPnv4D5Nj4Dvbw84WDp3PDj/4ErQ==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:5c179330342a136524f4808a6f201ab22ba0f39015250bc42ef835c7cd944a1e",
+      "output": {
+        "cap_breaches": [],
+        "concentration": {
+          "herfindahl_bp2": 29000000,
+          "largest_market": {
+            "market_label": "synthetic-market-C",
+            "share_bp": 4000
+          }
+        },
+        "conservation": {
+          "conserved": true,
+          "delta_minor": 0,
+          "idle_plus_allocations_minor": 100000000,
+          "reported_total_assets_minor": 100000000
+        },
+        "coverage": {
+          "available_is_floor": false,
+          "available_minor": 90000000,
+          "covered": true,
+          "horizon_hours": 24,
+          "pending_minor": 5000000,
+          "shortfall_minor": 0
+        },
+        "declared_context": {
+          "basis_points": true,
+          "rounding_rule": "no division: relative comparisons are exact integer cross-multiplications (value * 10000 vs bp * total_assets_minor); reported shares are floored to integer basis points",
+          "unit": "minor"
+        },
+        "mandate_breaches": [],
+        "primary_text": "Morpho docs, Liquidity curation concepts page, pinned edition 2026-10-30 (sha256 in research/CURATOR-VAULT-CAP-PIN-2026-10-30.md)",
+        "profile": "morpho_vault_v2",
+        "scope_note": "Values-only audit of a declared curator allocation snapshot against per-market caps (absolute + relative) and a caller-declared mandate. No on-chain reads, no pricing: share pricing is the art-610 (ERC-4626 share math) domain and async redemption state is the art-611 (ERC-7540 request accounting) domain — this node reads declaredminor-unit values only. Asset classes are a fixed declared enum. No curator or platform is named by this node.",
+        "verdict": "WITHIN_MANDATE",
+        "warnings": [
+          "CURATOR_VAULT_CAPS_WITHIN_MANDATE"
+        ]
+      }
+    }
+  }
 },
     {
   "tool_id": "795-stablecoin-refund-dispute",
@@ -1450,6 +1498,106 @@
         "profile_venue_label": "Kalshi (KalshiEX LLC, DCM)",
         "refused": false,
         "verdict": "FAIL"
+      }
+    }
+  }
+},
+    {
+  "tool_id": "808-lst-share-rate-reconciler",
+  "tool_version": "1.0.0",
+  "display_name": "Liquid-Staking Share Rate Reconciler",
+  "mcp_name": "reconcile_lst_share_rate",
+  "mandate_type": "compliance_control",
+  "wave": 142,
+  "gpu": false,
+  "url": "https://ainumbers.co/chaingraph/808-lst-share-rate-reconciler.html",
+  "description": "Recomputes the share rate of a rebasing liquid-staking token from caller-declared protocol state: internal ether (the rate numerator), internal shares (the rate denominator) and external shares. Share-to-ether and ether-to-share conversions use the internal figures and round down; wrap and unwrap amounts are reported as share conversions with a round-trip loss and its exact bound (zero up to the ceiling of internal ether over internal shares). Between consecutive declared snapshots it reports the holder balance change, including negative rebases, and the dilution from a declared count of shares minted as fees. Total shares, external ether and total pooled ether are reported as disclosure only and never enter a conversion; an optional declared total is cross-checked and any residual is reported, not refused. Operands above the 128-bit bounds, zero rate terms and zero wrap or unwrap amounts are refused. All arithmetic is exact integer math with no floating point. This node never reads any chain: it cannot know whether the declared values match a deployed token, whether a snapshot came from a real oracle report, or how external shares were minted. Fee rates, withdrawal finalization and mintable-external capacity are not modeled.",
+  "input_schema_ref": "chaingraph/808-lst-share-rate-reconciler.html#manifest",
+  "consumes": [],
+  "feeds": [],
+  "status": "live",
+  "conformance_fixtures": true,
+  "compute_capability": "server",
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:f6044ca84c60dfa9079d6d27691a8f235605ba96458294298aaa0f4e6dc9a8ad","valid_from":"2026-11-03"},{"system":"risc0","image_id":"sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6","valid_from":"2026-06-28"}],
+  "export_capability": ["json"],
+  "standards_basis": "implements_standard",
+  "cited_clause_digest": [
+    {
+      "digest": "sha256:31205b267f71b7e3a782ae5735833706d3f664da69098577d474aa097f7921a6",
+      "source_url": "https://raw.githubusercontent.com/lidofinance/lido-dao/2bd532298d85cdf520169fdc0c5fb0cc9baf03c3/contracts/0.4.24/StETH.sol",
+      "retrieved_at": "2026-10-23",
+      "clause_path": "StETH.sol lines 312-348 (getSharesByPooledEth and getPooledEthByShares round down; getPooledEthBySharesRoundUp is the single round-up; UINT128_MAX bound)"
+    },
+    {
+      "digest": "sha256:804f23a975b09c2338af7df8c9ce606c05f6d6f0d5b5e7cd532b43f7633c418d",
+      "source_url": "https://raw.githubusercontent.com/lidofinance/lido-dao/2bd532298d85cdf520169fdc0c5fb0cc9baf03c3/contracts/0.4.24/Lido.sol",
+      "retrieved_at": "2026-10-23",
+      "clause_path": "Lido.sol lines 1269-1307 (internal ether, external ether, total pooled ether, share-rate numerator and denominator overrides)"
+    },
+    {
+      "digest": "sha256:6dc68c32f9dac429eb89ab782db683e7e93c9ae4711ae8fb1409eff40e2ca274",
+      "source_url": "https://raw.githubusercontent.com/lidofinance/lido-dao/2bd532298d85cdf520169fdc0c5fb0cc9baf03c3/contracts/0.6.12/WstETH.sol",
+      "retrieved_at": "2026-10-23",
+      "clause_path": "WstETH.sol lines 50-75 (wrap and unwrap as share conversions, zero-amount guards)"
+    }
+  ],
+  "compute_proof_ready": "ready",
+  "cycle_preflight": "FAST - 6,183,712 user_cycles max across all 15 fixture vectors, measured exec-only 2026-11-03 (ART808-FIXTURE-REPROVE-1); 0.21x the 30,000,000 line.",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "Cu7M9stSYus4FFisyL/OUs2ylvjJ13ygD3yxYj50+RsAHf1E/rIWGqhEalrqrZw01JdNtplkLi9k+hvagRHjWRAGL5IrFTma9EhYoQ49SAWUa5Uh+/+Og69MZd8E1fGTCClfZ5UAw6WclFEaZSJtkjpZBhgduRAKScp60As4qnoOQVFO88Z/hr90GFFtuvLUhuoXSHvuxReanVGn+9wHxS0XnQfX/axVcEvSM2JQgiE85ziyfNYg3bJZYNa/XbPgGyrs7dKBh4FhaT+prpu+BvpMfmyzpYWvULktiY8H6mctNZoLbuXS+WQV2P3l5d/6Y3NF++hRLEcf2kkW3DtFDg==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:f6044ca84c60dfa9079d6d27691a8f235605ba96458294298aaa0f4e6dc9a8ad",
+      "output": {
+        "fee_accrual_between_snapshots": [],
+        "issues": [],
+        "network_label": null,
+        "note": "Recomputes share-rate conversions for a rebasing liquid-staking token from caller-declared state: internal ether (the rate numerator), internal shares (the rate denominator) and external shares. Conversions use internal ether and internal shares, rounded down; total shares, external ether and total pooled ether are reported as disclosure only. This kernel does NOT read any chain: it cannot know whether the declared values match any deployed token, whether a declared snapshot came from a real oracle report, or how external shares were minted. Fee rates, withdrawal finalization and mintable-external capacity are not modeled; fees enter only as a declared count of shares minted as fees. Findings are properties of the declared numbers under the stated arithmetic, not an audit of any deployment.",
+        "reasons": [],
+        "snapshots": [
+          {
+            "balance": "100000000000000000000",
+            "balance_remainder": "0",
+            "cost_to_deposit_round_up": "100000000000000000000",
+            "cross_check": {
+              "residual_ether": null,
+              "residual_shares": null
+            },
+            "disclosed_totals": {
+              "external_ether": "0",
+              "label": "disclosure only; conversions use internal_ether and internal_shares",
+              "total_pooled_ether": "1000000000000000000000",
+              "total_shares": "990000000000000000000"
+            },
+            "external_shares": "0",
+            "fee": null,
+            "holder_shares": "99000000000000000000",
+            "internal_ether": "1000000000000000000000",
+            "internal_shares": "990000000000000000000",
+            "report_timestamp": null,
+            "rounding_direction": "down",
+            "snapshot_id": "A"
+          }
+        ],
+        "unwraps": [],
+        "wraps": [
+          {
+            "ether_in": "50000000000000000000",
+            "floors_to_zero": false,
+            "loss_within_bound": true,
+            "remainder": "0",
+            "round_trip_ether_back": "50000000000000000000",
+            "round_trip_loss": "0",
+            "round_trip_loss_bound": "2",
+            "rounding_direction": "down",
+            "shares_out": "49500000000000000000",
+            "snapshot_id": "A"
+          }
+        ]
       }
     }
   }
@@ -1823,7 +1971,7 @@
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
-  "compute_images": [{"system":"sha256-source","image_id":"sha256:958f0ba4ec1952e6069a73353e103148c7b697d61cc12de33d2522c3705cdf59","valid_from":"2026-11-08"}],
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:958f0ba4ec1952e6069a73353e103148c7b697d61cc12de33d2522c3705cdf59","valid_from":"2026-11-08"},{"system":"risc0","image_id":"sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6","valid_from":"2026-09-12"}],
   "export_capability": [
     "json"
   ],
@@ -1974,8 +2122,206 @@
       "id": "x402 facilitator fixed"
     }
   ],
-  "compute_proof_ready": "deferred",
-  "deferred_reason": "gpu:false pure-vocabulary decision kernel; no GPU prove has been run and none is proposed. Deferred per the section 18 steady-state rule (RIDER-KERNEL.md); measure user_cycles with runq-cpu exec before booking."
+  "compute_proof_ready": "ready",
+  "cycle_preflight": "FAST - 8,088,433 user_cycles max across all 2 fixture vectors, measured exec-only 2026-11-09; 0.27x the 30,000,000 line.",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "KObpQnKAqRd14H9rCRwA3Jj9Tws5tVAA/L2AGmWuiHIwHxM5+zlP532w1axpyn6rVTzICoaIuBuOGC459IuTby/z2FvVEEQjhiLvxA8A7UCyM4IgW3BH5IOHgiWT+sqEFO7yBpe46qY0O5A2dlB8E1SW6KDQzhYjwvHO8KtnAgAPSqr55p4tlcdi/RJUsMh2hMu1CsDhsaTDLxqGb2UaQyNCn8f5UG5JGLCDTzaz6RifPtbV+9VH5CjHqnf8xARLBXd90NcenSjpf6HnCZc0aopJ/9PLlX3XPv4nZVuIJ6gpHpAUymbUi6UJyRuj2yOQVtzaS4eWjo3LiDsZV5+YJg==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:958f0ba4ec1952e6069a73353e103148c7b697d61cc12de33d2522c3705cdf59",
+      "output": {
+        "manual_review_required": [
+          {
+            "detail": "api_key_card_proxy.expiry: declared unpinned in the cited sources",
+            "flag": "LOCAL_FACT_UNPINNED"
+          },
+          {
+            "detail": "wallet_session_key.replay_protection: declared unpinned in the cited sources",
+            "flag": "LOCAL_FACT_UNPINNED"
+          }
+        ],
+        "matrix": [
+          {
+            "cells": {
+              "expiry": {
+                "kind": "chained",
+                "source": "acp-checkout-shared-payment-token-linter"
+              },
+              "learn": {
+                "facts": {
+                  "credential_persisted_or_logged": false,
+                  "learns_action": true,
+                  "learns_identity": false,
+                  "opaque_credential": false,
+                  "publicly_visible": false
+                },
+                "kind": "local_fact"
+              },
+              "replay_protection": {
+                "kind": "chained",
+                "source": "acp-checkout-shared-payment-token-linter"
+              },
+              "revocability": {
+                "kind": "local_fact",
+                "mechanism": "declared_not_revocable",
+                "time_bound": true
+              },
+              "scope": {
+                "kind": "chained",
+                "source": "acp-checkout-shared-payment-token-linter"
+              }
+            },
+            "credential_class": "shared_payment_token"
+          },
+          {
+            "cells": {
+              "expiry": {
+                "kind": "chained",
+                "source": "mastercard-agentic-token-builder"
+              },
+              "learn": {
+                "facts": {
+                  "credential_persisted_or_logged": false,
+                  "learns_action": true,
+                  "learns_identity": false,
+                  "opaque_credential": false,
+                  "publicly_visible": false
+                },
+                "kind": "local_fact"
+              },
+              "replay_protection": {
+                "kind": "chained",
+                "source": "mastercard-agentic-token-builder"
+              },
+              "revocability": {
+                "kind": "local_fact",
+                "mechanism": "authoritative_party_revoke_call",
+                "time_bound": true
+              },
+              "scope": {
+                "kind": "chained",
+                "source": "visa-vic-agent-token-scope-builder"
+              }
+            },
+            "credential_class": "network_agent_token"
+          },
+          {
+            "cells": {
+              "expiry": {
+                "kind": "local_fact",
+                "value": "unpinned_in_cited_sources"
+              },
+              "learn": {
+                "facts": {
+                  "credential_persisted_or_logged": false,
+                  "learns_action": true,
+                  "learns_identity": false,
+                  "opaque_credential": false,
+                  "publicly_visible": true
+                },
+                "kind": "local_fact"
+              },
+              "replay_protection": {
+                "kind": "local_fact",
+                "value": "fail_closed_single_forward"
+              },
+              "revocability": {
+                "kind": "local_fact",
+                "mechanism": "authoritative_party_revoke_call",
+                "time_bound": false
+              },
+              "scope": {
+                "kind": "local_fact",
+                "value": "container_scoped_token_use"
+              }
+            },
+            "credential_class": "api_key_card_proxy"
+          },
+          {
+            "cells": {
+              "expiry": {
+                "kind": "chained",
+                "source": "art-703-mandate-authorization-gate"
+              },
+              "learn": {
+                "facts": {
+                  "credential_persisted_or_logged": false,
+                  "learns_action": true,
+                  "learns_identity": true,
+                  "opaque_credential": false,
+                  "publicly_visible": true
+                },
+                "kind": "local_fact"
+              },
+              "replay_protection": {
+                "kind": "chained",
+                "source": "art-699-x402-permit2-evidence-recomputer"
+              },
+              "revocability": {
+                "kind": "local_fact",
+                "mechanism": "authoritative_party_revoke_call",
+                "time_bound": true
+              },
+              "scope": {
+                "kind": "chained",
+                "source": "art-385-agent-token-scope-checker"
+              }
+            },
+            "credential_class": "x402_permit"
+          },
+          {
+            "cells": {
+              "expiry": {
+                "kind": "local_fact",
+                "value": "expiry_rule_unix_timestamp"
+              },
+              "learn": {
+                "facts": {
+                  "credential_persisted_or_logged": false,
+                  "learns_action": true,
+                  "learns_identity": false,
+                  "opaque_credential": true,
+                  "publicly_visible": false
+                },
+                "kind": "local_fact"
+              },
+              "replay_protection": {
+                "kind": "local_fact",
+                "value": "unpinned_in_cited_sources"
+              },
+              "revocability": {
+                "kind": "local_fact",
+                "mechanism": "authoritative_party_revoke_call",
+                "time_bound": true
+              },
+              "scope": {
+                "kind": "local_fact",
+                "value": "counterparty_and_chain_scoped_grant"
+              }
+            },
+            "credential_class": "wallet_session_key"
+          }
+        ],
+        "rail_acceptance_summary": {
+          "accepted_rails": [
+            "visa_tap"
+          ],
+          "any_accepted": true,
+          "consumed_from": "art-133-agent-payment-rail-trust-crosswalk",
+          "gap_counts": {
+            "mastercard_agent_pay": 1,
+            "visa_tap": 0,
+            "web_bot_auth": 0
+          },
+          "present": true
+        }
+      }
+    }
+  }
 },
     {
   "tool_id": "art-01-ap2-mandate-chain-validator",
@@ -9633,7 +9979,7 @@
       "wave": 19,
       "gpu": false,
       "url": "https://ainumbers.co/chaingraph/art-91-ownership-50pct-aggregator.html",
-      "description": "Walks a synthetic ownership graph; computes direct + indirect + aggregate listed stakes per node; applies OFAC, EU, and BIS Affiliates Rule (in force 29 Sep 2025) 50%-thresholds to determine constructively-blocked entities. Ownership percentage is the only relation the inputs carry: there is no control edge and no control flag, so control without ownership is excluded from scope. OFAC FAQs 398 and 400 treat an entity that a blocked person controls without owning 50 percent or more as not itself blocked while still counselling caution, and that branch is not evaluated here. The EU criterion is ownership or control, and the eu_50 threshold expresses its ownership prong only; the EU control prong is excluded on the same ground. Pure graph math, synthetic entities only.",
+      "description": "Walks a synthetic ownership graph; computes direct + indirect + aggregate listed stakes per node; applies OFAC, EU, and BIS Affiliates Rule (suspended until 10 Jan 2027) 50%-thresholds to determine constructively-blocked entities. Ownership percentage is the only relation the inputs carry: there is no control edge and no control flag, so control without ownership is excluded from scope. OFAC FAQs 398 and 400 treat an entity that a blocked person controls without owning 50 percent or more as not itself blocked while still counselling caution, and that branch is not evaluated here. The EU criterion is ownership or control, and the eu_50 threshold expresses its ownership prong only; the EU control prong is excluded on the same ground. Pure graph math, synthetic entities only.",
       "input_schema_ref": "chaingraph/art-91-ownership-50pct-aggregator.html#manifest",
       "consumes": [
         "art-90-sanctions-screening-fit-diagnostic"
@@ -56005,12 +56351,70 @@
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
-  "compute_images": [{"system":"sha256-source","image_id":"sha256:693b7edea3f0a7a3d0123d9918e30abee3503aa91c3cf880d882c89fb78aab16","valid_from":"2026-10-20"}],
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:693b7edea3f0a7a3d0123d9918e30abee3503aa91c3cf880d882c89fb78aab16","valid_from":"2026-10-20"},{"system":"risc0","image_id":"sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6","valid_from":"2026-09-12"}],
   "export_capability": ["json"],
   "standards_basis": "not_applicable",
   "cited_clause_digest": [],
-  "compute_proof_ready": "deferred",
-  "deferred_reason": "New gpu:false node, art-750-diff-evidence-bundles, built 2026-10-20 (BUNDLE-DIFF-KERNEL-1). Pure structural comparison over string fields and set membership: no digest or signature verification inside compute(), no transcendentals, no iteration count from policy_parameters, so the GPU-CYCLE-PREFLIGHT-1 static pre-screen reads FAST-expected. No GPU prove is proposed by this row; deferred per the section 18 steady-state rule (RIDER-KERNEL.md)."
+  "compute_proof_ready": "ready",
+  "cycle_preflight": "FAST - 7,888,842 user_cycles max across all 10 fixture vectors, measured exec-only 2026-11-09; 0.26x the 30,000,000 line.",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "DnYkQ+ljM3Pcb9+FpOlQVQef8xxU4iMJIY1wfKHKOjojD5F1aEECIZC2xY9btfxo5G8lSS6D4/s6SubMYopdMRX9OWjL/1h5toEVEypDpzMEnJ8XQn4uiiP//08yxmFrA0xeZtaLz7prIf+CuCYeMqzlljbwAJvFtZBQhbKdKSckHttkt+FS2zgZtBb5J/A9AWyBve64XIngRK5ZwdHQ3y/Bc3n1D8e4XrhAE6lnLwcFOt9pyD1YU8ChKyx1lkE6KKFgvhMFwvmjxvvUHrg7x6vpGanqs8rEF3z9Q4BTrxkjrEVmAJMdnY8QH6lg6ZOt8glIq5MWy91U8oLRqng2UQ==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:693b7edea3f0a7a3d0123d9918e30abee3503aa91c3cf880d882c89fb78aab16",
+      "output": {
+        "bundles_identical": true,
+        "changed_section_count": 0,
+        "hashes": {
+          "count_a": 1,
+          "count_b": 1,
+          "rows": [],
+          "status": "unchanged"
+        },
+        "human_accountability": {
+          "counts_a": {
+            "approvals": 0,
+            "overrides": 0,
+            "rejections": 0
+          },
+          "counts_b": {
+            "approvals": 0,
+            "overrides": 0,
+            "rejections": 0
+          },
+          "rows": [],
+          "shape_a": "none",
+          "shape_b": "none",
+          "status": "absent",
+          "subject_hash_a": null,
+          "subject_hash_b": null,
+          "thresholds_count_a": 0,
+          "thresholds_count_b": 0
+        },
+        "input_class_a": "artifact",
+        "input_class_b": "artifact",
+        "inputs_differ_in_class": false,
+        "verdict": {
+          "regressed": false,
+          "source_a": "output_payload.verdict",
+          "source_b": "output_payload.verdict",
+          "status": "unchanged",
+          "value_a": "PASS",
+          "value_b": "PASS"
+        },
+        "versions": {
+          "count_a": 2,
+          "count_b": 2,
+          "rows": [],
+          "status": "unchanged"
+        }
+      }
+    }
+  }
 },
     {
   "tool_id": "art-754-equity-exit-waterfall",
@@ -56422,6 +56826,100 @@
         "qualify_date": "2026-01-02",
         "refusal_reason": null,
         "shares_exercised": 500
+      }
+    }
+  }
+},
+    {
+  "tool_id": "art-761-caregiver-income-impact",
+  "tool_version": "1.0.0",
+  "display_name": "Caregiver Income Impact & Lost Earnings Estimator",
+  "mcp_name": "caregiver_income_impact",
+  "mandate_type": "compliance_mandate",
+  "wave": 133,
+  "gpu": false,
+  "url": "https://ainumbers.co/chaingraph/art-761-caregiver-income-impact.html",
+  "description": "Financial cost of unpaid caregiving: direct income loss during the care period, the retirement savings gap from missed 401(k) contributions plus their lost compounding, the cumulative cost of a post-care career setback, and a flagged Social Security reduction estimate, in integer USD cents. The SSA contribution and benefit base and the SSA average annual benefit are selected from a pinned vintage table by an explicit as_of date (the node reads no clock). Ported from ApexLogics display_number #117 (117-caregiver-income-impact, al_id AL-124, CC BY 4.0); DIFFERS-D1..D5 in the porting payload, three modelling constants UNGROUNDED.",
+  "input_schema_ref": "chaingraph/art-761-caregiver-income-impact.html#manifest",
+  "consumes": [],
+  "feeds": [],
+  "status": "live",
+  "conformance_fixtures": true,
+  "compute_capability": "server",
+  "compute_images": [
+    {
+      "system": "sha256-source",
+      "image_id": "sha256:bae9e36268ac108df324d80f876981fd05436acf6bb21bab46ca1884f18ce145",
+      "valid_from": "2026-10-20"
+    },
+    {
+      "system": "risc0",
+      "image_id": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+      "valid_from": "2026-09-12"
+    }
+  ],
+  "export_capability": [
+    "json"
+  ],
+  "standards_basis": "not_applicable",
+  "cited_clause_digest": [],
+  "compute_proof_ready": "ready",
+  "cycle_preflight": "FAST - 5,970,476 user_cycles max across all 64 fixture vectors, measured exec-only 2026-11-09; 0.20x the 30,000,000 line.",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "JzWRY1GNsO9gPyWv4oAWXyx0NBCBxXRNCXvM6V+Wvg0eZX12OhlMulQTB59v5kyPp3ODO3xv6h5afwzRgiyMmQ4rllPBdwE6oLrf6+AzwKq+t+lIhg9Xqk54Tfd0DcJ5Fu7VmSgz7RqnGdYnwq01O5j482qbAf+t2Dem9kg6xiYMKlYfqSXa2iq2B9cKiYJhpMeD8jriyRVE2M7V2mZdpgNAmv7N/ZslTej+YbpP26GXdR3WZ+tU7+M4QsORQYs6F+GJgxZg8YDzx6lqepaQ1qBCFAVk5hkf2vWRccgrzIkuTdxsZWbz+mQK2vl4pOVAAcKvUp8lt2gnPuotQvGc3w==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:bae9e36268ac108df324d80f876981fd05436acf6bb21bab46ca1884f18ce145",
+      "output": {
+        "annual_401k_lost_cents": 270000,
+        "annual_income_loss_cents": 4500000,
+        "annual_ss_reduction_cents": 86634,
+        "as_of": "2026-10-13",
+        "care_years": 5,
+        "career_setback_cost_cents": 21867633,
+        "career_setback_pct": 10,
+        "caveats": [
+          "ART761_SETBACK_ABOVE_FIVE_PCT",
+          "ART761_SS_ESTIMATE_MODELED"
+        ],
+        "contribution_401k_pct": 6,
+        "current_age": 42,
+        "direct_income_loss_cents": 22500000,
+        "domain_errors": [],
+        "income_reduction_pct": 50,
+        "investment_return_pct": 7,
+        "marginal_tax_rate_pct": 22,
+        "marginal_tax_rate_used": false,
+        "refusal_reason": null,
+        "refusals": [],
+        "retirement_age": 67,
+        "retirement_savings_gap_cents": 6008457,
+        "salary_usd": 90000,
+        "scope_note": "Not a benefit projection and not tax advice. The Social Security term is a flagged linearisation (ART761_SS_ESTIMATE_MODELED), not the SSA AIME formula - use art-282-social-security-claiming-optimizer or pf-139-social-security-bridge for a real benefit estimate. The career-setback compounding rate, the caregiving-year divisor, the 15 percent cap and the 20-year draw are modelling constants carried from the source, each UNGROUNDED. marginal_tax_rate_pct is accepted and echoed but enters no formula (source DIFFERS-D4: the Apex page reads it and never uses it). No inflation, no FMLA/state leave value, no unpaid-care opportunity cost beyond the direct wage loss, no employer-benefit valuation.",
+        "setback_compounding_rate_bp": 200,
+        "ss_average_annual_benefit_usd": 24864,
+        "ss_average_benefit_source": "pinned_official_2026",
+        "ss_lifetime_reduction_cents": 1732683,
+        "ss_reduction_fraction_micro": 243902,
+        "ss_wage_base_usd": 184500,
+        "strategies": [
+          "Max IRA/401(k) during and after the caregiving period - even small contributions compound over the years left to retirement",
+          "Consider spousal IRA contributions where applicable (allows retirement savings with little or no own income)",
+          "Negotiate phased re-entry or remote arrangements to limit the career setback",
+          "A written caregiver agreement with family for shared caregiving can provide modest taxable income and keep the Social Security record alive",
+          "Review employer EAP, FMLA and caregiver benefits BEFORE reducing hours",
+          "Invest in a credential or certification during or after caregiving to offset the 10% setback (see the AINumbers workforce ROI node)"
+        ],
+        "total_impact_cents": 50376090,
+        "total_impact_with_ss_cents": 52108773,
+        "vintage_year": 2026,
+        "years_after_care": 20,
+        "years_from_midcare": 22.5,
+        "years_to_retirement": 25
       }
     }
   }
@@ -57861,6 +58359,38 @@
   "deferred_reason": "New gpu:false node built 2026-11-03 (ETH-ERC3643-DECISION-NODE-1). BigInt comparisons and additions over declared state; every loop is bounded by fixed hard caps (64 registry entries, 16 topics, 16 issuers per topic, 32 claims per identity, 16 modules), never by a policy_parameters iteration count; no hashing inside the kernel (the artifact execution_hash is computed by the shared _hash.mjs outside it), no transcendentals, no signature verification. Expected FAST on a GPU static pre-screen; not measured. Standards-implementing, so a SIDEBYSIDE row must pass before any prove. Excluded from section-18 proving until then (SPEC.md section 18)."
 },
     {
+  "tool_id": "art-809-check-reserves-cover-outstanding-private",
+  "tool_version": "1.0.0",
+  "display_name": "Private-Input Reserves Cover Outstanding Check",
+  "mcp_name": "check_reserves_cover_private",
+  "mandate_type": "compliance_control",
+  "wave": 142,
+  "gpu": false,
+  "url": "https://ainumbers.co/chaingraph/art-809-check-reserves-cover-outstanding-private.html",
+  "description": "Pilot private-input predicate: 16 committed reserve slots, tagged by the eight GENIUS Act 4(a)(1)(A) categories, must cover the committed payment stablecoins outstanding. OCG section 25: inputs are sha256-salted@1 commitments, the receipt holds only the yes/no verdict. Integer only, no haircut, witness is 16 slots of 20 digits. Not proof reserves exist, are unencumbered, approved, or free of 4(a)(2) rehypothecation, nor the Act monthly report. Proof deferred; result is a preview, not a receipt.",
+  "input_schema_ref": "chaingraph/art-809-check-reserves-cover-outstanding-private.html#manifest",
+  "consumes": [],
+  "feeds": [],
+  "status": "live",
+  "conformance_fixtures": true,
+  "compute_capability": "server",
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:dab6040704081c505af95dc176902c11f171b0199cd4b8b53dcaa11e4e429936","valid_from":"2026-11-08"}],
+  "export_capability": ["json"],
+  "standards_basis": "implements_standard",
+  "cited_clause_digest": [
+    {
+      "digest": "sha256:0a3010f0dccfdcf637f74dd14f751c7f803c221ec6f6735951530c7efc177acb",
+      "source_url": "https://www.govinfo.gov/content/pkg/PLAW-119publ27/html/PLAW-119publ27.htm",
+      "retrieved_at": "2026-09-10",
+      "clause_path": "GENIUS Act (Pub. L. 119-27) Sec. 4(a)(1)(A) -- reserves at least 1 to 1 against outstanding payment stablecoins; permitted reserve categories (i) to (viii)",
+      "scheme": "publiclaw",
+      "id": "GENIUS Act, Pub. L. 119-27 (S.1582), Sec. 4(a)(1)(A)"
+    }
+  ],
+  "compute_proof_ready": "deferred",
+  "deferred_reason": "New gpu:false private-input node, art-809-check-reserves-cover-outstanding-private, authored 2026-11-03. Exec-only measure on the section 25 private-input guest (PRIVATE-PREDICATE-DESIGN-1, prototype of this kernel): MAX 9,106,901 user_cycles over 58 segments, FAST class under the 30M ceiling; proving is the separate PRIVATE-PREDICATE-PROVE-1 row, which needs its SIDEBYSIDE row first (SO #39). Deferred per the section 18 steady-state rule (RIDER-KERNEL.md)."
+},
+    {
   "tool_id": "art-811-check-dti-within-policy-private",
   "tool_version": "1.0.0",
   "display_name": "Private-Input Debt-to-Income Within Policy Check",
@@ -58082,7 +58612,7 @@
   "status": "live",
   "conformance_fixtures": true,
   "compute_capability": "server",
-  "compute_images": [{"system":"sha256-source","image_id":"sha256:4a5187312e049580210fd22d0251703f75812c440d72262fa7286ad1afe624d0","valid_from":"2026-11-08"}],
+  "compute_images": [{"system":"sha256-source","image_id":"sha256:4a5187312e049580210fd22d0251703f75812c440d72262fa7286ad1afe624d0","valid_from":"2026-11-08"},{"system":"risc0","image_id":"sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6","valid_from":"2026-09-12"}],
   "export_capability": ["json"],
   "standards_basis": "implements_standard",
   "cited_clause_digest": [
@@ -58111,8 +58641,35 @@
       "id": "UCP v2026-08-25 Constraint Expression schema"
     }
   ],
-  "compute_proof_ready": "deferred",
-  "deferred_reason": "New gpu:false node, art-819-ucp-request-constraints, scaffolded 2026-11-03 (KERNEL-SCAFFOLD-1). No GPU prove has been run and none is proposed by this scaffold — deferred per the section 18 steady-state rule (RIDER-KERNEL.md). Run GPU-CYCLE-PREFLIGHT-1's static pre-screen once compute() is real, then measure user_cycles with runq-cpu exec before booking."
+  "compute_proof_ready": "ready",
+  "cycle_preflight": "FAST - 10,208,718 user_cycles max across all 45 fixture vectors, measured exec-only 2026-11-09; 0.34x the 30,000,000 line.",
+  "compute_proof": {
+    "type": "ZkVmReceipt",
+    "system": "risc0",
+    "receiptFormat": "groth16-bn254",
+    "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
+    "seal": "J0eXK4b7mrk5rJp5ehU16H7yS4nk7HQ7FeGIcZiHrVYvM806e2J2h/jG/zrVIcVY/DRyZqLYbsYulUgHjrwZsyVYkQL/A5DM8Ln//ZMsTSjAbVEIZVtXRtimhjAvuua2AvDhvjH05kqciZXE2WbOqhbm7QQpPTV4nCl09QFEuWgEPczgpY3/8R4USprJUP+0NpWFndvqZ/nFaqbpd4UZVh78iBCTxv16oCXwkuc088X43o3Qep5p0zuk4Q5vaI5WI7bJrTv1yx2sMKWEQskb/JMNqxpwJUZ65XpNPDLRQd8WJH7B/TXK8Kb0LSNsrLCT3/i0TtG9+9Glh+b0HoQbwA==",
+    "journal": {
+      "chaingraph_version": "0.4.0",
+      "kernel_digest": "sha256:4a5187312e049580210fd22d0251703f75812c440d72262fa7286ad1afe624d0",
+      "output": {
+        "contradictions": [],
+        "evaluated_count": 1,
+        "indeterminate": [],
+        "notes": [
+          "skipped values are unavailable for preflight, not a pass and not a failure (spec, Platform guidelines)"
+        ],
+        "refusal": null,
+        "scope_note": "Verify-only preflight. Both documents are caller-pasted; no profile, key or merchant endpoint is fetched. SATISFIED covers only the constraint values this node could evaluate and says nothing about the resolved request schema or Business runtime rules. Path support is a subset of RFC 9535 (root, child member, index, wildcard, equality filters joined by &&); anything else is INDETERMINATE with UNSUPPORTED_PATH. Instances that are not objects satisfy required and properties vacuously, as in JSON Schema.",
+        "skipped_count": 0,
+        "spec_basis": "UCP 2026-08-25 overview, Request Constraints (tag v2026-08-25, commit 87dd4b1fcff9105d68173120897237fa784c74ef)",
+        "truncated": false,
+        "verdict": "SATISFIED",
+        "violations": [],
+        "warnings": []
+      }
+    }
+  }
 },
     {
   "tool_id": "art-820-negotiate-ucp-capabilities",

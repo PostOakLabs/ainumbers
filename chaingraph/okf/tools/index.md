@@ -28,6 +28,7 @@ status: stable
 - [Curator Vault Cap Auditor](./792-curator-vault-cap-auditor.md) — `audit_curator_vault_caps`
 - [Stablecoin Refund Dispute Check](./795-stablecoin-refund-dispute.md) — `check_stablecoin_refunds`
 - [Event Contract Terms Lint](./806-event-contract-terms-lint.md) — `lint_event_contract_terms`
+- [Liquid-Staking Share Rate Reconciler](./808-lst-share-rate-reconciler.md) — `reconcile_lst_share_rate`
 - [Ethereum Epoch Accounting Recompute](./813-eth-staking-accounting.md) — `recompute_eth_epoch_accounting`
 - [Ethereum Base Fee and Blob Base Fee Recompute](./815-eth-fee-market.md) — `recompute_eth_fee_market`
 - [Zcash Supply Check](./822-zcash-supply-check.md) — `audit_zcash_pool_supply`
@@ -668,6 +669,7 @@ status: stable
 - [ISO AMT Exposure Modeler](./art-759-iso-amt-exposure-modeler.md) — `estimate_iso_amt_exposure`
 - [Climate Scenario Applicator (NGFS / Fit-for-55)](./art-76-climate-scenario-applicator.md) — `apply_climate_scenario`
 - [ESPP Break-Even & Optimal Sell](./art-760-espp-break-even-optimal-sell.md) — `analyze_espp_disposition`
+- [Caregiver Income Impact & Lost Earnings Estimator](./art-761-caregiver-income-impact.md) — `caregiver_income_impact`
 - [AI Displacement Risk Screener](./art-763-ai-displacement-risk-screener.md) — `ai_displacement_risk_screener`
 - [Solo 401(k) vs. SEP-IRA Optimizer](./art-764-solo-401k-vs-sep-ira.md) — `compare_solo401k_sep_simple`
 - [T+1 Settlement Readiness Diagnostic](./art-77-t1-settlement-readiness-diagnostic.md) — `run_t1_readiness_diagnostic`
@@ -686,6 +688,7 @@ status: stable
 - [Government Stablecoin Acceptance Audit](./art-793-government-stablecoin-acceptance.md) — `assess_gov_stablecoin_accept`
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md) — `check_ssi_conformance`
 - [ERC-3643 Transfer Decision Recompute](./art-807-erc3643-transfer-decision.md) — `recompute_erc3643_transfer_decision`
+- [Private-Input Reserves Cover Outstanding Check](./art-809-check-reserves-cover-outstanding-private.md) — `check_reserves_cover_private`
 - [Allocation/Affirmation Conformance Checker](./art-81-allocation-affirmation-conformance.md) — `check_allocation_affirmation`
 - [Private-Input Debt-to-Income Within Policy Check](./art-811-check-dti-within-policy-private.md) — `check_dti_within_policy_private`
 - [Quadratic Funding Round Recompute](./art-814-qf-pairwise-recompute.md) — `recompute_quadratic_funding_round`
