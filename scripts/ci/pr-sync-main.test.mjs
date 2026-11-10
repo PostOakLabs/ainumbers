@@ -174,18 +174,31 @@ t('red + only a main-owned freshness step failing → syncs (a merge of main rep
 t('red + freshness steps with no recovery data → still syncs on the freshness exception alone', () => {
   assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [FRESH_STEP], mainRecoveredAt: null, headRunStartedAt: null }).action, 'merge-clean');
 });
-t('red + a PR-owned failing step → still skip red-head-no-shared-files', () => {
-  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [PR_STEP] }).reason, 'red-head-no-shared-files');
+t('red + a PR-owned failing step → still skip required-failed-on-head', () => {
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [PR_STEP] }).reason, 'required-failed-on-head');
+});
+t('red + PR-owned failing step + main touched a shared file → skip required-failed-on-head (D1: until the head changes)', () => {
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: ['scripts/x.mjs'], failingSteps: [PR_STEP] }).reason, 'required-failed-on-head');
+  assert.equal(run({ pr: { checksState: 'ERROR' }, sharedFiles: null, failingSteps: [PR_STEP] }).reason, 'required-failed-on-head');
+});
+t(`red + PR-owned failing step + ${SYNC_ANYWAY_LABEL} label → syncs`, () => {
+  assert.equal(run({ pr: { checksState: 'FAILURE', labels: [SYNC_ANYWAY_LABEL] }, sharedFiles: ['a'], failingSteps: [PR_STEP] }).action, 'merge-clean');
+});
+t('red + PR-owned failing step + CONFLICTING → still syncs / reports (D1 does not touch conflicted PRs)', () => {
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, conflicts: ['mcp/catalog.json'], sharedFiles: [], failingSteps: [PR_STEP] }).action, 'merge-derived');
+});
+t('green + failing steps array left over (stale facts) → unchanged, still syncs', () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS' }, sharedFiles: [], failingSteps: [PR_STEP] }).action, 'merge-clean');
 });
 t('red + mixed failing steps (one unlisted) → still skip (exact names only, no prefix match)', () => {
-  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [FRESH_STEP, PR_STEP] }).reason, 'red-head-no-shared-files');
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [FRESH_STEP, PR_STEP] }).reason, 'required-failed-on-head');
 });
 t('red + no failing steps read (runs green elsewhere) → still skip', () => {
   assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [] }).reason, 'red-head-no-shared-files');
 });
 t('red + head run started after (or exactly at) main recovery → still skip (the red is not stale)', () => {
-  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [PR_STEP], mainRecoveredAt: RECOVERED, headRunStartedAt: RECOVERED + 1 }).reason, 'red-head-no-shared-files');
-  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [PR_STEP], mainRecoveredAt: RECOVERED, headRunStartedAt: RECOVERED }).reason, 'red-head-no-shared-files');
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [PR_STEP], mainRecoveredAt: RECOVERED, headRunStartedAt: RECOVERED + 1 }).reason, 'required-failed-on-head');
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [PR_STEP], mainRecoveredAt: RECOVERED, headRunStartedAt: RECOVERED }).reason, 'required-failed-on-head');
 });
 t('red + missing CI facts (null/undefined) → still skip, never acts blind', () => {
   assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: null }).reason, 'red-head-no-shared-files');
