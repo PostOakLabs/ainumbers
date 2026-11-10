@@ -68,13 +68,44 @@ import {
 } from '../chaingraph/_page-chrome.mjs';
 import { chromeInsertionIndex } from './page-chrome-anchor.mjs';
 import { verifyPageMapping } from './gen-webmcp-registrations.mjs';
-import { isMainContext } from './derived-artifacts.mjs';
+import { derivedResolve, derivedRoot, isMainContext } from './derived-artifacts.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
 
 const WRITE = process.argv.includes('--write');
 const RED_GREEN = process.argv.includes('--red-green');
+
+// QUEUE-ASSEMBLED-NEWNODE-GATES-1 (2026-11-09): on merge_group the queue assembles the
+// post-merge derived tree ephemerally into $DERIVED_ROOT BEFORE this gate runs
+// (scripts-verify.yml "Ephemeral derived tree" step). This gate used to read the
+// CHECKOUT's chaingraph.json in every context, and the checkout registry does not
+// contain a new node until main's post-merge regen enrols it; so a new-node PR was
+// only ever a live-pending node here, advisory in the queue (the step passed no
+// DERIVED_ROOT, so isMainContext() was false), merged, and main went red on the
+// same page after the regen (runs 42542899593 / 42539545126 art-756 no block,
+// 42617856331 art-793 and 42508010729 art-795 block drifted). With a derived root
+// mounted the gate now overlay-reads the registry, the node pages and the manifests
+// through derivedResolve (scratch first, checkout fallback: the check-a11y-tree.mjs
+// convention), so a node in the assembled registry is an ordinary LIVE node and its
+// findings are hard. Pages and manifests are overlaid because the block's expected
+// bytes are a projection of them: the assembly (e.g. the WebMCP registration pass)
+// can rewrite a page, and the expected block reads that page's `WEBMCP:GEN-BEGIN`
+// marker. DERIVED_ROOT unset or empty (pull_request, push:main, local) resolves
+// byte-for-byte the previous checkout paths; --write, --red-green and --self-test
+// are repair/proof modes against the COMMITTED tree and never overlay (a repair
+// must never write into an ephemeral scratch tree).
+const OVERLAY = Boolean(derivedRoot()) && !WRITE && !RED_GREEN && !process.argv.includes('--self-test');
+/** Path under `repoRoot`; overlay-aware only for the live tree (the fixture trees
+ *  the self-test builds are hermetic and never see the scratch mount). */
+function pathIn(repoRoot, ...parts) {
+  if (SCRATCH_OVERRIDE) { // --self-test only: a fixture scratch tree stands in for $DERIVED_ROOT
+    const p = resolve(SCRATCH_OVERRIDE, ...parts);
+    return existsSync(p) ? p : resolve(repoRoot, ...parts);
+  }
+  return OVERLAY && repoRoot === REPO ? derivedResolve(...parts) : resolve(repoRoot, ...parts);
+}
+let SCRATCH_OVERRIDE = null;
 // WRITER-SCOPE-1: --only <node id> scopes the WRITE pass to exactly the named
 // node's page. The CHECK pass (no --write) is ALWAYS whole-tree — the gate
 // semantics do not change — so --only without --write is a usage error (exit 2).
@@ -253,6 +284,86 @@ async function pendingScopeProof() {
   rmSync(root, { recursive: true, force: true });
 }
 
+/** QUEUE-ASSEMBLED-NEWNODE-GATES-1 proofs, hermetic fixture trees only (never the live
+ *  tree). Shape of the measured reds: a NEW node whose shard and page are in the checkout
+ *  but whose registry entry exists only in the assembled (scratch) tree, as in the queue
+ *  before the main-side regen enrols it.
+ *  OLD (no scratch)  : the node is live-pending, advisory off main: exit 0 (previous behaviour).
+ *  RED  (scratch)    : the node is in the assembled registry, so it is an ordinary live node
+ *                      and a page with NO block fails (exit 1), in every severity context.
+ *  RED  (scratch)    : a page whose block no longer matches the assembled page bytes (the
+ *                      scratch page carries the WebMCP region the checkout page lacks) fails
+ *                      as DRIFTED; the same page with no scratch tree stays clean.
+ *  GREEN (scratch)   : the correct block on the assembled page is clean (exit 0). */
+async function assembledScopeProof() {
+  const root = mkdtempSync(join(tmpdir(), 'ask-agent-assembled-'));
+  const scratch = mkdtempSync(join(tmpdir(), 'ask-agent-assembled-scratch-'));
+  const id = 'scope-art-assembled';
+  const description = 'Validates the assembled fixture. Twice.';
+  const node = { tool_id: id, status: 'live', mcp_name: 'scope_tool_assembled', url: `https://ainumbers.co/chaingraph/${id}.html` };
+  for (const d of [join(root, 'chaingraph', 'kernels'), join(root, 'chaingraph', 'graph', 'nodes'), join(root, 'manifests'), join(scratch, 'chaingraph')]) mkdirSync(d, { recursive: true });
+  // checkout: registry WITHOUT the node (main-side enrolment pending), shard on disk
+  writeFileSync(join(root, 'chaingraph', 'chaingraph.json'), JSON.stringify({ nodes: [] }, null, 2), 'utf8');
+  writeFileSync(join(root, 'chaingraph', 'graph', 'nodes', `${id}.json`), JSON.stringify(node, null, 2), 'utf8');
+  // scratch: the assembled registry WITH the node
+  writeFileSync(join(scratch, 'chaingraph', 'chaingraph.json'), JSON.stringify({ nodes: [node] }, null, 2), 'utf8');
+  writeFileSync(join(root, 'manifests', `${id}.manifest.json`), JSON.stringify({
+    mcp_tool_definition: { name: node.mcp_name, description },
+    example: { policy_parameters: { k: id } },
+  }, null, 2), 'utf8');
+  writeFileSync(join(root, 'chaingraph', 'kernels', `${id}.kernel.mjs`),
+    `export async function buildArtifact(sample){ if (!sample || sample.k !== ${JSON.stringify(id)}) throw new Error('bad sample'); return { execution_hash: 'k'.repeat(64) }; }
+`, 'utf8');
+  const pageAbs = join(root, 'chaingraph', `${id}.html`);
+  const exitOf = (r) => (r.problems.length ? 1 : 0);
+  const run = async (scratchRoot, main) => {
+    SCRATCH_OVERRIDE = scratchRoot;
+    try { return await collect(root, false, { main }); } finally { SCRATCH_OVERRIDE = null; }
+  };
+  const blockFor = (webmcpRegistered) => buildAskAgentBlock({
+    manifestPath: `manifests/${id}.manifest.json`, toolName: node.mcp_name,
+    description, sample: { k: id }, pageUrl: node.url, webmcpRegistered,
+  });
+  // 1. a page with no block
+  writeFileSync(pageAbs, '<!doctype html><html><body><h1>assembled</h1><footer>site footer</footer></body></html>', 'utf8');
+  const old = await run(null, false);
+  assert(exitOf(old) === 0 && old.advisories.length === 1, 'OLD: no scratch tree, pull_request/local context: live-pending advisory, exit 0');
+  console.log(`ASSEMBLED-SCOPE OLD: no scratch tree (pull_request/local): exit ${exitOf(old)}, ADVISORY live-pending (previous behaviour kept).`);
+  for (const main of [true, false]) {
+    const red = await run(scratch, main);
+    assert(exitOf(red) === 1 && /no ask-agent block/.test(red.problems[0]), `RED: assembled registry holds the node, block-less page must fail (main=${main})`);
+    assert(red.advisories.length === 0 && !/live-pending/.test(red.problems[0]), 'RED: the node is an ordinary live node, not live-pending');
+  }
+  console.log('ASSEMBLED-SCOPE RED (no block): node only in the assembled registry, block-less page: exit 1, ordinary live-node finding (not advisory).');
+  // 2. a block built for the checkout page, while the assembled page carries the WebMCP region
+  const checkoutPage = `<!doctype html><html><body><h1>assembled</h1><footer>site footer</footer>
+
+${blockFor(false)}
+
+</body></html>`;
+  writeFileSync(pageAbs, checkoutPage, 'utf8');
+  mkdirSync(join(scratch, 'chaingraph'), { recursive: true });
+  const scratchPage = join(scratch, 'chaingraph', `${id}.html`);
+  writeFileSync(scratchPage, checkoutPage.replace('<h1>assembled</h1>', '<h1>assembled</h1><!-- WEBMCP:GEN-BEGIN x --><!-- WEBMCP:GEN-END -->'), 'utf8');
+  const drift = await run(scratch, true);
+  assert(exitOf(drift) === 1 && /drifted/.test(drift.problems[0]), 'RED: block built for the checkout page must read DRIFTED against the assembled page bytes: ' + (drift.problems[0] || 'no problem'));
+  const noScratch = await run(null, true);
+  assert(exitOf(noScratch) === 0, 'the same checkout page with no scratch tree stays clean (the drift is visible ONLY through the overlay): ' + (noScratch.problems[0] || ''));
+  console.log(`ASSEMBLED-SCOPE RED (drift): assembled page carries the WebMCP region the checkout page lacks, block stale against it: exit ${exitOf(drift)} (${drift.problems[0].slice(0, 60)}...).`);
+  // 3. GREEN: the block the writer would emit for the assembled page
+  writeFileSync(pageAbs, `<!doctype html><html><body><h1>assembled</h1><!-- WEBMCP:GEN-BEGIN x --><!-- WEBMCP:GEN-END --><footer>site footer</footer>
+
+${blockFor(true)}
+
+</body></html>`, 'utf8');
+  rmSync(scratchPage, { force: true });
+  const green = await run(scratch, true);
+  assert(exitOf(green) === 0 && green.adjudicated.length === 1, 'GREEN: correct block on the assembled page is clean: ' + (green.problems[0] || ''));
+  console.log(`ASSEMBLED-SCOPE GREEN: correct block, assembled registry: exit ${exitOf(green)}, 1 page adjudicated.`);
+  rmSync(root, { recursive: true, force: true });
+  rmSync(scratch, { recursive: true, force: true });
+}
+
 /** WRITER-CANON-ALIGN-1 proofs, hermetic (pure strings + the shared table,
  *  never touches the live tree):
  *  1. CONVERGENCE: with both chrome writers' insertions going through the ONE
@@ -307,7 +418,7 @@ function loadJson(path) {
 }
 
 function liveNodes(repoRoot = REPO) {
-  const cg = loadJson(resolve(repoRoot, 'chaingraph', 'chaingraph.json'));
+  const cg = loadJson(pathIn(repoRoot, 'chaingraph', 'chaingraph.json'));
   return (cg.nodes || []).filter((n) => n.status === 'live' && n.tool_id);
 }
 
@@ -318,7 +429,7 @@ function liveNodes(repoRoot = REPO) {
 function pendingNodes(repoRoot = REPO, built = null) {
   const dir = resolve(repoRoot, 'chaingraph', 'graph', 'nodes');
   if (!existsSync(dir)) return [];
-  const known = new Set((built || loadJson(resolve(repoRoot, 'chaingraph', 'chaingraph.json')).nodes || []).map((n) => n.tool_id));
+  const known = new Set((built || loadJson(pathIn(repoRoot, 'chaingraph', 'chaingraph.json')).nodes || []).map((n) => n.tool_id));
   const out = [];
   for (const f of readdirSync(dir).filter((x) => x.endsWith('.json')).sort()) {
     let shard;
@@ -335,10 +446,10 @@ function pendingNodes(repoRoot = REPO, built = null) {
 async function adjudicateNode(node, repoRoot) {
   const id = node.tool_id;
   const pageRel = `chaingraph/${id}.html`;
-  const pageAbs = resolve(repoRoot, pageRel);
+  const pageAbs = pathIn(repoRoot, 'chaingraph', `${id}.html`);
   if (!existsSync(pageAbs)) return { id, exclude: `${pageRel} absent (no in-repo page)` };
   const manifestRel = `manifests/${id}.manifest.json`;
-  const manifestAbs = resolve(repoRoot, manifestRel);
+  const manifestAbs = pathIn(repoRoot, 'manifests', `${id}.manifest.json`);
   if (!existsSync(manifestAbs)) return { id, exclude: `${manifestRel} absent` };
   let manifest;
   try { manifest = loadJson(manifestAbs); } catch (e) { return { id, exclude: `${manifestRel} unparseable: ${e.message}` }; }
@@ -597,8 +708,9 @@ if (RED_GREEN) {
   await redGreen();
   await writerScopeProof();
   await pendingScopeProof();
+  await assembledScopeProof();
   canonAlignProof();
-  console.log('SELF-TEST PASS (verb table, fragment round-trip, block shape, gpu sentence, sample execution, mutation red-green, writer --only scoping red-then-green, live-pending shard scope RED/GREEN/ADVISORY, canon-align + art-561 eligibility shape).');
+  console.log('SELF-TEST PASS (verb table, fragment round-trip, block shape, gpu sentence, sample execution, mutation red-green, writer --only scoping red-then-green, live-pending shard scope RED/GREEN/ADVISORY, assembled-registry scope OLD/RED/DRIFT/GREEN, canon-align + art-561 eligibility shape).');
 } else {
   await run();
 }
