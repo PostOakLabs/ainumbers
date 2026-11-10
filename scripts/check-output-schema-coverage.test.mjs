@@ -8,7 +8,9 @@
  * read green. Wired into scripts/preflight.mjs as its own GATES entry alongside the
  * gate itself (pairing form (a) in check-gate-selftest-pairing.mjs's header).
  */
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { coverageGap, deriveSchema, validateSubset } from './check-output-schema-coverage.mjs';
@@ -113,6 +115,37 @@ check('derive null-enum: {null,string-enum} -> observed null appended to the voc
 const nullErrs = [];
 nullFixtures.vectors.forEach((v, i) => validateSubset(nullDerived, v.output_payload, `n${i}`, nullErrs));
 check('derive null-enum: derived schema validates its own null-carrying fixtures (SO #34c GREEN)', nullErrs.length === 0);
+
+// QUEUE-ASSEMBLED-NEWNODE-GATES-1: the gate judges the ASSEMBLED registry when DERIVED_ROOT is mounted.
+// The measured red (run 42517511673): a new node is absent from the checkout registry until the
+// main-side regen enrols it, so the queue never saw its output_schema gap. The gate is run as a
+// subprocess against a fixture scratch tree whose registry holds a node (with a manifest lacking
+// output_schema) that the checkout registry has never heard of.
+{
+  const gateScript = fileURLToPath(new URL('./check-output-schema-coverage.mjs', import.meta.url));
+  const scratch = mkdtempSync(join(tmpdir(), 'osc-assembled-'));
+  mkdirSync(join(scratch, 'chaingraph'), { recursive: true });
+  mkdirSync(join(scratch, 'manifests'), { recursive: true });
+  writeFileSync(join(scratch, 'chaingraph', 'chaingraph.json'), JSON.stringify({ nodes: [
+    { status: 'live', mcp_name: 'assembled_newnode_tool', tool_id: 'assembled-newnode' },
+  ] }));
+  const manifestAt = join(scratch, 'manifests', 'assembled-newnode.manifest.json');
+  writeFileSync(manifestAt, JSON.stringify({ tool_id: 'assembled-newnode' }));
+  const runGate = (env) => {
+    const e = { ...process.env, ...env };
+    if (!env.DERIVED_ROOT) delete e.DERIVED_ROOT;
+    return spawnSync(process.execPath, [gateScript], { env: e, encoding: 'utf8' });
+  };
+  const red = runGate({ DERIVED_ROOT: scratch });
+  check('assembled registry: a new node with no output_schema, DERIVED_ROOT mounted -> exit 1 (RED proof)', red.status === 1);
+  check('assembled registry: the finding names the new node', /assembled-newnode/.test(red.stderr + red.stdout));
+  const old = runGate({});
+  check('assembled registry: same checkout, DERIVED_ROOT unset -> the node is invisible (previous behaviour kept)', !/assembled-newnode/.test(old.stderr + old.stdout));
+  writeFileSync(manifestAt, JSON.stringify({ tool_id: 'assembled-newnode', output_schema: { type: 'object' } }));
+  const green = runGate({ DERIVED_ROOT: scratch });
+  check('assembled registry: the same node WITH an output_schema in the assembled manifest -> exit 0 (GREEN proof)', green.status === 0);
+  rmSync(scratch, { recursive: true, force: true });
+}
 
 if (failures) {
   console.error(`\n✗ output-schema coverage self-test: ${failures} control(s) failed`);

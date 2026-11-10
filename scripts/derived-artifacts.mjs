@@ -1784,6 +1784,17 @@ export const DERIVED_ROOT_GATES = new Set([
   // reads the page through the overlay too: `--out` puts the freshly healed
   // page in DERIVED_ROOT (PR-2888-DERIVED-PAGE-READ-1).
   'node scripts/check-zk-trust-page.mjs',                    // trust-page stage counts (reads the monolith)
+  // QUEUE-ASSEMBLED-NEWNODE-GATES-1 (2026-11-09): the two gates below read the CHECKOUT registry,
+  // which does not contain a new node until main's post-merge regen enrols it, so a new-node PR
+  // passed the queue and main went red on the same node: ask-agent "no block" art-756 (runs
+  // 42542899593, 42539545126), ask-agent "block drifted" art-793 (42617856331) and art-795
+  // (42508010729), output-schema coverage (42517511673). Both now overlay-read the registry, the
+  // node pages and the manifests through derivedResolve (the check-a11y-tree.mjs convention), so
+  // the merge_group verdict is on the assembled tree that will be main. Spelled exactly as
+  // preflight.mjs's GATES list runs them (the --self-test / .test.mjs siblings are hermetic
+  // fixture proofs that never overlay, so they stay out of the set).
+  'node scripts/check-ask-agent-block.mjs',                  // ask-agent block freshness (registry, pages, manifests overlay)
+  'node scripts/check-output-schema-coverage.mjs',           // output-schema coverage (registry, manifests overlay)
 ]);
 
 // S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1 (2026-10-31): derivedRoot/derivedResolve moved VERBATIM
