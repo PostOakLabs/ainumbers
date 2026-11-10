@@ -164,7 +164,7 @@ test('LEDGER-ECHO: --harvest recovers pointers into the ledger with no session r
 
 test('registry covers exactly the surfaces the rows name (three scheduled + the regen listener)', () => {
   assert.deepEqual([...SURFACES.keys()].sort(),
-    ['derived-regen', 'fullsuite-weekly', 'mutation-nightly', 'prepush-attestation']);
+    ['derived-regen', 'fullsuite-weekly', 'mutation-nightly', 'prepush-attestation', 'regen-reader']);
   for (const [key, s] of SURFACES) {
     assert.ok(existsSync(resolve(HERE, '..', s.workflow)), `${key}: ${s.workflow} must exist`);
   }

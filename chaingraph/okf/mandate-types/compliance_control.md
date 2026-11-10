@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-105"]
+tags: ["compliance_control", "count-120"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,9 +10,17 @@ status: stable
 
 # compliance_control
 
-105 tool(s) in this mandate-type group:
+120 tool(s) in this mandate-type group:
 
 - [Corridor Cost Averages](../tools/787-corridor-cost-averages.md)
+- [Curator Vault Cap Auditor](../tools/792-curator-vault-cap-auditor.md)
+- [Stablecoin Refund Dispute Check](../tools/795-stablecoin-refund-dispute.md)
+- [Event Contract Terms Lint](../tools/806-event-contract-terms-lint.md)
+- [Liquid-Staking Share Rate Reconciler](../tools/808-lst-share-rate-reconciler.md)
+- [Ethereum Validator Queue and Sweep Wait](../tools/812-eth-staking-queue.md)
+- [Ethereum Epoch Accounting Recompute](../tools/813-eth-staking-accounting.md)
+- [Ethereum Base Fee and Blob Base Fee Recompute](../tools/815-eth-fee-market.md)
+- [ZIP-317 Transfer Fee](../tools/824-zip317-transfer-fee.md)
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
 - [Mastercard Agentic Token Scope Builder](../tools/art-24-mastercard-agentic-token-builder.md)
@@ -115,5 +123,12 @@ status: stable
 - [V4 Hook Permission Reconciler](../tools/art-708-v4-hook-permission-reconciler.md)
 - [V4 Hook Fee Conformance](../tools/art-709-v4-hook-fee-conformance.md)
 - [TSV Stoppage Concurrency](../tools/art-710-tsv-stoppage-concurrency.md)
+- [Diff Evidence Bundles](../tools/art-750-diff-evidence-bundles.md)
 - [HDHP vs. PPO Break-Even](../tools/art-758-hdhp-ppo-break-even.md)
 - [Beacon-Seeded Fair-Sampling Deriver V2](../tools/art-774-beacon-seeded-fair-sampling-v2.md)
+- [Government Stablecoin Acceptance Audit](../tools/art-793-government-stablecoin-acceptance.md)
+- [Private-Input Reserves Cover Outstanding Check](../tools/art-809-check-reserves-cover-outstanding-private.md)
+- [Private-Input Debt-to-Income Within Policy Check](../tools/art-811-check-dti-within-policy-private.md)
+- [Quadratic Funding Round Recompute](../tools/art-814-qf-pairwise-recompute.md)
+- [Ucp Request Constraints](../tools/art-819-ucp-request-constraints.md)
+- [Authenticator Assurance Level Evaluator](../tools/art-826-authenticator-assurance-level.md)

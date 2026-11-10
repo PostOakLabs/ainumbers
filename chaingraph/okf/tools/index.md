@@ -25,6 +25,16 @@ status: stable
 - [Servicing Compliance Clock](./733-servicing-compliance-clock.md) — `servicing_compliance_clock`
 - [CBR Data Return Validator](./784-cbr-data-return-validator.md) — `validate_cbr_data_return`
 - [Corridor Cost Averages](./787-corridor-cost-averages.md) — `compute_corridor_cost_averages`
+- [Curator Vault Cap Auditor](./792-curator-vault-cap-auditor.md) — `audit_curator_vault_caps`
+- [Stablecoin Refund Dispute Check](./795-stablecoin-refund-dispute.md) — `check_stablecoin_refunds`
+- [Event Contract Terms Lint](./806-event-contract-terms-lint.md) — `lint_event_contract_terms`
+- [Liquid-Staking Share Rate Reconciler](./808-lst-share-rate-reconciler.md) — `reconcile_lst_share_rate`
+- [Ethereum Validator Queue and Sweep Wait](./812-eth-staking-queue.md) — `project_eth_validator_queue_wait`
+- [Ethereum Epoch Accounting Recompute](./813-eth-staking-accounting.md) — `recompute_eth_epoch_accounting`
+- [Ethereum Base Fee and Blob Base Fee Recompute](./815-eth-fee-market.md) — `recompute_eth_fee_market`
+- [Zcash Supply Check](./822-zcash-supply-check.md) — `audit_zcash_pool_supply`
+- [ZIP-317 Transfer Fee](./824-zip317-transfer-fee.md) — `recompute_zip317_transfer_fee`
+- [Agent Cred Class Matrix](./827-agent-cred-class-matrix.md) — `compute_agent_cred_matrix`
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md) — `validate_ap2_mandate_chain`
 - [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md) — `simulate_spend_policy`
 - [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md) — `model_x402_settlement`
@@ -653,14 +663,19 @@ status: stable
 - [Taxonomy KPI & Green Asset Ratio Aggregator](./art-74-taxonomy-kpi-gar-aggregator.md) — `aggregate_taxonomy_kpi_gar`
 - [Solana Paychan Voucher Verifier](./art-749-solana-paychan-voucher-verifier.md) — `verify_solana_paychan_voucher`
 - [EU Green Bond Factsheet & Allocation Validator](./art-75-eugb-factsheet-validator.md) — `validate_eugb_factsheet`
+- [Diff Evidence Bundles](./art-750-diff-evidence-bundles.md) — `compute_diff_evidence_bundles`
 - [Equity Exit Waterfall Modeler](./art-754-equity-exit-waterfall.md) — `calc_equity_exit_waterfall`
+- [Sales OTE & Commission Analyzer](./art-756-sales-ote-commission-analyzer.md) — `analyze_sales_ote_commission`
 - [HDHP vs. PPO Break-Even](./art-758-hdhp-ppo-break-even.md) — `estimate_hdhp_ppo_breakeven`
 - [ISO AMT Exposure Modeler](./art-759-iso-amt-exposure-modeler.md) — `estimate_iso_amt_exposure`
 - [Climate Scenario Applicator (NGFS / Fit-for-55)](./art-76-climate-scenario-applicator.md) — `apply_climate_scenario`
 - [ESPP Break-Even & Optimal Sell](./art-760-espp-break-even-optimal-sell.md) — `analyze_espp_disposition`
+- [Caregiver Income Impact & Lost Earnings Estimator](./art-761-caregiver-income-impact.md) — `caregiver_income_impact`
 - [AI Displacement Risk Screener](./art-763-ai-displacement-risk-screener.md) — `ai_displacement_risk_screener`
 - [Solo 401(k) vs. SEP-IRA Optimizer](./art-764-solo-401k-vs-sep-ira.md) — `compare_solo401k_sep_simple`
+- [Dependent Care FSA vs. CDCTC Optimizer](./art-765-dependent-care-fsa-cdctc-optimizer.md) — `estimate_dc_fsa_cdctc_split`
 - [T+1 Settlement Readiness Diagnostic](./art-77-t1-settlement-readiness-diagnostic.md) — `run_t1_readiness_diagnostic`
+- [Total Cost of Homeownership](./art-770-total-cost-of-homeownership.md) — `total_cost_of_homeownership`
 - [Automation Payback](./art-771-automation-payback.md) — `compute_automation_payback`
 - [Beacon-Seeded Fair-Sampling Deriver V2](./art-774-beacon-seeded-fair-sampling-v2.md) — `derive_beacon_fair_sample_v2`
 - [PayPal Dispute Deadline & Evidence](./art-776-paypal-dispute-deadline-evidence.md) — `compute_paypal_response`
@@ -672,9 +687,18 @@ status: stable
 - [Modified Premium Calculator](./art-782-modified-premium.md) — `compute_modified_premium`
 - [RFC 4180 CSV Parser](./art-788-csv-rfc4180-parser.md) — `parse_csv_table`
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md) — `predict_settlement_fail`
+- [Government Stablecoin Acceptance Audit](./art-793-government-stablecoin-acceptance.md) — `assess_gov_stablecoin_accept`
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md) — `check_ssi_conformance`
+- [ERC-3643 Transfer Decision Recompute](./art-807-erc3643-transfer-decision.md) — `recompute_erc3643_transfer_decision`
+- [Private-Input Reserves Cover Outstanding Check](./art-809-check-reserves-cover-outstanding-private.md) — `check_reserves_cover_private`
 - [Allocation/Affirmation Conformance Checker](./art-81-allocation-affirmation-conformance.md) — `check_allocation_affirmation`
+- [Private-Input Debt-to-Income Within Policy Check](./art-811-check-dti-within-policy-private.md) — `check_dti_within_policy_private`
+- [Quadratic Funding Round Recompute](./art-814-qf-pairwise-recompute.md) — `recompute_quadratic_funding_round`
+- [Privacy Coin Regulatory Classifier (MiCA and AMLR)](./art-818-zcash-reg-classifier.md) — `classify_privacy_coin_regulatory_treatment`
+- [Ucp Request Constraints](./art-819-ucp-request-constraints.md) — `eval_ucp_request_constraints`
 - [Securities-Settlement Message Linter (ISO 20022 sese/semt)](./art-82-securities-settlement-message-linter.md) — `lint_securities_settlement_message`
+- [UCP Capability Negotiation](./art-820-negotiate-ucp-capabilities.md) — `negotiate_ucp_capabilities`
+- [Authenticator Assurance Level Evaluator](./art-826-authenticator-assurance-level.md) — `compute_authn_assurance_level`
 - [Buy-In Exposure Modeler](./art-83-buy-in-exposure-modeler.md) — `model_buy_in_exposure`
 - [Settlement Efficiency KPI Engine](./art-84-settlement-efficiency-kpi.md) — `compute_settlement_efficiency_kpi`
 - [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md) — `run_pqc_timeline_fit`
