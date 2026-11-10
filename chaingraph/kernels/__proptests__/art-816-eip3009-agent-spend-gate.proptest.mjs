@@ -38,7 +38,7 @@ const NONCE_B = '0x' + 'cd'.repeat(32);
 const nonceOf = (b) => '0x' + b.repeat(32);
 // sequence of distinct, correctly shaped 32-byte nonces ('0e…' , '1e…', …)
 const nonceSeq = (i) => '0x' + ((i < 16 ? '0' : '') + i.toString(16)).repeat(32);
-const NOW = 1700000100;
+const BASE_NOW = 1700000100;
 
 function auth(over = {}) {
   return Object.assign({
@@ -73,7 +73,7 @@ function pp(authorization, domainIn, policyIn, ledger, now) {
 }
 // the all-clear baseline: every declared rule evaluates and none fails
 function happy(extraLedger, overAuth, overPolicy) {
-  return pp(auth(overAuth || {}), domain(), policy(overPolicy || {}), extraLedger || [], NOW);
+  return pp(auth(overAuth || {}), domain(), policy(overPolicy || {}), extraLedger || [], BASE_NOW);
 }
 
 const rng = mulberry32(816);
@@ -99,7 +99,7 @@ function checkP1HeadroomAndUnitFlips() {
       sum += ev;
       ledger.push(entry({
         nonce: nonceSeq(i + 1), value: String(ev),
-        signed_at: NOW - 2000, status: 'settled', // inside the 3600 window, outside the 1800 duplicate window
+        signed_at: BASE_NOW - 2000, status: 'settled', // inside the 3600 window, outside the 1800 duplicate window
       }));
     }
     const { output_payload } = compute(happy(ledger, { value: String(v) }, { per_tx_cap: String(c) }));
@@ -150,19 +150,19 @@ async function checkP2LedgerOrderIndependence() {
       ledger.push(entry({
         nonce: nonceSeq(i + 20),
         value: String(randInt(1, 400)),
-        signed_at: NOW - randInt(50, 3500),
+        signed_at: BASE_NOW - randInt(50, 3500),
         validBefore: String(1700003600 + randInt(0, 3600)),
         status: rng() < 0.5 ? 'settled' : (rng() < 0.5 ? 'signed' : 'canceled'),
       }));
     }
-    const base = pp(auth(), domain(), policy(), ledger, NOW);
+    const base = pp(auth(), domain(), policy(), ledger, BASE_NOW);
     const baseOut = compute(base).output_payload;
     const perms = [fisherYates(ledger), fisherYates(ledger), fisherYates(ledger), ledger.slice().reverse()];
     checked++;
     const problems = [];
     // every permutation yields a byte-identical output_payload (observations are canonically sorted)
     for (let pi = 0; pi < perms.length; pi++) {
-      const out = compute(pp(auth(), domain(), policy(), perms[pi], NOW)).output_payload;
+      const out = compute(pp(auth(), domain(), policy(), perms[pi], BASE_NOW)).output_payload;
       if (!deepEqual(out, baseOut)) problems.push('permutation ' + pi + ' changed output_payload');
     }
     // execution_hash over the canonically sorted ledger is permutation invariant
@@ -191,7 +191,7 @@ function checkP3CanceledExclusion() {
     const problems = [];
     checked++;
     // baseline: a settled same-economics entry inside the duplicate window -> OVER_LIMIT
-    const dupEntry = entry({ value: String(v), signed_at: NOW - 10 });
+    const dupEntry = entry({ value: String(v), signed_at: BASE_NOW - 10 });
     const overRun = compute(happy([dupEntry], { value: String(v) })).output_payload;
     if (overRun.decision !== 'OVER_LIMIT' || !overRun.primary_reason || overRun.primary_reason.code !== 'DUPLICATE_INTENT') {
       problems.push('baseline ' + overRun.decision + '/' + String(overRun.primary_reason && overRun.primary_reason.code));
@@ -208,7 +208,7 @@ function checkP3CanceledExclusion() {
     if (overRun.headroom.window_caps[0].used !== String(v)) problems.push('baseline window sum ' + String(overRun.headroom.window_caps[0].used));
     if (canceled.headroom.window_caps[0].used !== '0') problems.push('canceled window sum ' + String(canceled.headroom.window_caps[0].used));
     // rule 5 matches ANY status, including canceled, when the nonce is the authorization's
-    const replay = compute(happy([Object.assign({}, entry({ nonce: NONCE_A, value: String(v), signed_at: NOW - 100, validBefore: '1700003600', status: 'canceled' }))], { value: String(v) })).output_payload;
+    const replay = compute(happy([Object.assign({}, entry({ nonce: NONCE_A, value: String(v), signed_at: BASE_NOW - 100, validBefore: '1700003600', status: 'canceled' }))], { value: String(v) })).output_payload;
     if (replay.decision !== 'DENY') problems.push('canceled replay decision ' + replay.decision);
     const r5 = replay.reasons.find((r) => r.code === 'NONCE_REUSED');
     if (!r5 || r5.sub_code !== 'NONCE_REUSED_IDENTICAL') problems.push('canceled replay sub_code ' + String(r5 && r5.sub_code));
@@ -227,7 +227,7 @@ function checkP4ShapeDeterminismRefusals() {
   for (let i = 0; i < 16; i++) {
     const ledger = [];
     for (let j = 0; j < randInt(0, 6); j++) {
-      ledger.push(entry({ nonce: nonceSeq(j + 40), value: String(randInt(1, 900)), signed_at: NOW - randInt(5, 4000), status: j % 3 === 0 ? 'signed' : 'settled' }));
+      ledger.push(entry({ nonce: nonceSeq(j + 40), value: String(randInt(1, 900)), signed_at: BASE_NOW - randInt(5, 4000), status: j % 3 === 0 ? 'signed' : 'settled' }));
     }
     inputs.push(happy(ledger, { value: String(randInt(1, 1500)) }));
   }
@@ -241,12 +241,12 @@ function checkP4ShapeDeterminismRefusals() {
   }
   // structural refusals: wrong shapes are INPUT_REFUSED, decision INDETERMINATE, primary null
   const badInputs = [
-    pp(undefined, domain(), policy(), [], NOW),                                    // authorization missing
-    pp('nope', domain(), policy(), [], NOW),                                       // authorization not an object
-    pp(auth(), domain(), policy(), 'not-an-array', NOW),                           // ledger not an array
-    pp(auth(), domain(), policy([Object.assign({})]), [{}, entry()], NOW),         // hmm keep simple below
-    pp(auth(), domain(), policy(), [entry({ status: 'returned' })], NOW),          // bad ledger status
-    pp(auth(), domain(), policy({ per_tx_cap: 'abc' }), [], NOW),                  // bad cap format
+    pp(undefined, domain(), policy(), [], BASE_NOW),                                    // authorization missing
+    pp('nope', domain(), policy(), [], BASE_NOW),                                       // authorization not an object
+    pp(auth(), domain(), policy(), 'not-an-array', BASE_NOW),                           // ledger not an array
+    pp(auth(), domain(), policy([Object.assign({})]), [{}, entry()], BASE_NOW),         // hmm keep simple below
+    pp(auth(), domain(), policy(), [entry({ status: 'returned' })], BASE_NOW),          // bad ledger status
+    pp(auth(), domain(), policy({ per_tx_cap: 'abc' }), [], BASE_NOW),                  // bad cap format
     pp(auth(), domain(), policy(), [], 1.5),                                       // non-integer clock
     Object.assign({}, happy([], {}, {}), { surprise: true }),                      // unknown top-level field
   ];
@@ -279,7 +279,7 @@ function checkP5Precedence() {
     const cause = denyCauses[k % denyCauses.length];
     const v = randInt(1001, 9000); // strictly over the 1000 per-tx cap
     const overAuth = Object.assign({ value: String(v) }, cause.authOver || {});
-    const run = compute(pp(auth(overAuth), domain(cause.domainOver || {}), policy(), [], NOW));
+    const run = compute(pp(auth(overAuth), domain(cause.domainOver || {}), policy(), [], BASE_NOW));
     checked++;
     const problems = [];
     if (run.output_payload.decision !== 'DENY') problems.push('decision ' + run.output_payload.decision);
