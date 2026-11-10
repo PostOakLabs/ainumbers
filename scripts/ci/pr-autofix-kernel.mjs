@@ -110,9 +110,9 @@ function readNul(file) {
 }
 
 /** Run a node script, echo its output, and return { status, output } for classification. */
-function runNode(args) {
+function runNode(args, extraEnv = {}) {
   console.log(`> node ${args.join(' ')}`);
-  const r = spawnSync(process.execPath, args, { cwd: REPO, encoding: 'utf8' });
+  const r = spawnSync(process.execPath, args, { cwd: REPO, encoding: 'utf8', env: { ...process.env, ...extraEnv } });
   if (r.stdout) process.stdout.write(r.stdout);
   if (r.stderr) process.stderr.write(r.stderr);
   return { status: r.status, output: `${r.stdout || ''}${r.stderr || ''}` };
@@ -134,13 +134,21 @@ export function classifyIdentity({ status, output }) {
 /**
  * Run the identity writer for one id. Returns 'ok' | 'skip' | 'fail'. Missing shard (node not
  * yet in the monolith or assembler-owned) is a skip. `run` and `hasShard` are injectable.
+ *
+ * `touchedIds` is the kernel ids of the WHOLE PR (the touched set this script was handed). It is
+ * passed to the writer as KERNELID_TOUCHED_IDS. Without it the writer derives "touched" from
+ * `git diff HEAD^1 HEAD`, which is only right on the merge ref; this job checks out the PR head
+ * commit, where HEAD^1 is the previous branch commit (or, after a main merge, the old tip), so a
+ * brand-new kernel that the last commit did not touch (and that index.mjs does not register yet)
+ * read as "not in scope" and was never stamped (2026-11-10, #2894).
  */
-export function identityStep(id, run, hasShard) {
+export function identityStep(id, run, hasShard, touchedIds) {
   if (!hasShard(id)) {
     console.log(`::notice title=kernel-identity skipped for ${id}::no node shard (the assembler path owns it)`);
     return 'skip';
   }
-  const res = classifyIdentity(run(['chaingraph/kernels/gen-kernel-identity.mjs', '--write', `--shard=${id}`]));
+  const args = ['chaingraph/kernels/gen-kernel-identity.mjs', '--write', `--shard=${id}`];
+  const res = classifyIdentity(Array.isArray(touchedIds) ? run(args, { KERNELID_TOUCHED_IDS: touchedIds.join(',') }) : run(args));
   if (res === 'skip') console.log(`::notice title=kernel-identity skipped for ${id}::shard is not live/enrolled yet, nothing to stamp`);
   else if (res === 'fail') console.error(`::error title=gen-kernel-identity failed for ${id}::the writer exited non-zero`);
   return res;
@@ -178,7 +186,7 @@ async function main() {
   }
 
   for (const id of ids) {
-    if (identityStep(id, runNode, (i) => existsSync(resolve(REPO, `chaingraph/graph/nodes/${i}.json`))) === 'fail') failed = true;
+    if (identityStep(id, runNode, (i) => existsSync(resolve(REPO, `chaingraph/graph/nodes/${i}.json`)), ids) === 'fail') failed = true;
     fence('kernel-identity', true);
 
     // Best effort: a non-zero exit means the id is outside the backfill plan or the
