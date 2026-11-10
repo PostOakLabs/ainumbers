@@ -7,7 +7,7 @@
 <title>Stablecoin Cash Equivalent Test (FASB Proposed 2026-08) · ART-797 · OpenChainGraph · AINumbers.co</title>
 <meta name="description" content="Applies the FASB proposed Update of 2026-08-18 (ASC Topic 230 exposure draft, comments due 2026-11-19) to the declared redemption and reserve terms of one stablecoin holding, criterion by criterion, with the proposed disclosure checklist. Declared terms only; not an accounting opinion.">
 <meta name="ain:category" content="run">
-<meta name="kernel-digest" content="sha256:ee032e45e811b5272ea2ff35bb5b2494084d34df6cbb58bc6aec3e920305167a">
+<meta name="kernel-digest" content="sha256:e7f2ce59bcbd553af54c29655ba46c377740b4374e19e1e5696246af4d0f4023">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/797-stablecoin-cash-equivalent-test.html">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -315,11 +315,11 @@ function compute(pp) {
   // -- shape validation: refuse anything not the declared shape -------------------
   if (!isPlainObject(pp)) {
     flags.push('refused_input_shape');
-    return { output_payload: { refused: true, refusal_reason: 'input_not_an_object' }, compliance_flags: flags };
+    return { output_payload: { refused: true, refusal_reason: 'input_not_an_object', warnings: flags.slice() }, compliance_flags: flags };
   }
   if (!isPlainObject(pp.holding)) {
     flags.push('refused_input_shape');
-    return { output_payload: { refused: true, refusal_reason: 'holding_object_missing' }, compliance_flags: flags };
+    return { output_payload: { refused: true, refusal_reason: 'holding_object_missing', warnings: flags.slice() }, compliance_flags: flags };
   }
   if (PROFILES.indexOf(pp.profile) === -1) {
     flags.push('refused_profile_not_pinned');
@@ -328,6 +328,7 @@ function compute(pp) {
         refused: true,
         refusal_reason: 'profile_not_pinned_for_this_node',
         pinned_profiles: PROFILES.slice(),
+        warnings: flags.slice(),
       },
       compliance_flags: flags,
     };
@@ -352,6 +353,7 @@ function compute(pp) {
         refused: true,
         refusal_reason: 'declared_terms_shape_invalid',
         refused_terms: flags.map(function (f) { return f.replace('refused_invalid_required_term:', '').replace('refused_invalid_optional_term:', ''); }),
+        warnings: flags.slice(),
       },
       compliance_flags: flags,
     };
@@ -456,8 +458,17 @@ function compute(pp) {
     { disclosure: 'components_disclosure_transition_prospective', applies: 'all_entities_first_applying', status: 'proposed', scope_note: 'significant-components disclosure applied prospectively as of the end of the annual reporting period of first application' },
   ];
 
+  // Caveat flags (flag-mirror doctrine): a clean MEETS_PROPOSED_EXAMPLES classification raises
+  // no flag; DOES_NOT_MEET / NOT_DETERMINABLE and a contradictory declaration each raise one.
+  // The flags are mirrored into output_payload.warnings so a chain gate can route on them.
+  if (classification !== CLASS_MEETS) flags.push('classification_' + classification.toLowerCase());
+  if (viaIntermediaryOnly === true && direct === true) {
+    flags.push('declared_terms_contradictory_direct_right_with_intermediary_only_access');
+  }
+
   const output_payload = {
     refused: false,
+    warnings: flags.slice(),
     profile: pp.profile,
     profile_status: 'proposed',
     status_note: 'exposure_draft_not_authoritative_comment_period_open_through_2026_11_19',
@@ -504,11 +515,6 @@ function compute(pp) {
     },
   };
   output_payload.policy_mandate_export.declared_terms = output_payload.holding_declared;
-
-  flags.push('classification_' + classification.toLowerCase());
-  if (viaIntermediaryOnly === true && direct === true) {
-    flags.push('declared_terms_contradictory_direct_right_with_intermediary_only_access');
-  }
 
   return { output_payload: output_payload, compliance_flags: flags };
 }
