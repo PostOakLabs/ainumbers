@@ -401,6 +401,120 @@ test('CLASS C — cross-entry sharing is NOT a within-entry duplicate (legitimat
     `expected one informational cross-entry share for shared.html, got ${JSON.stringify(info)}`);
 });
 
+// ── CROSS-INSTANCE SCAN MUTEX (REGEN-CHECK-CONCURRENCY-HEAL-1) ────────────────
+// The CLI serializes concurrent live scans on a mkdir-lock in the repo's
+// COMMON git dir (two builders' suites push the same repo from different
+// worktrees and collide exactly there). These fixtures drive that mutex
+// directly against throwaway tmpdir lock dirs — no repo, no generators, no
+// scratch worktrees — with injectable clocks/probes so the shapes run in
+// milliseconds: free acquire, live-owner wait (never stolen young), dead-owner
+// steal, ownerless-young wait, and a release that never deletes a successor's
+// lock. The production kill shape these guard against is the harness
+// exit-137 mid-scan: its owner.json names a pid that no longer exists, and a
+// waiter that could not detect that would wait forever — the exact
+// "several at cpu=0s, all parents alive" freeze this row heals.
+import { spawn, spawnSync } from 'node:child_process';
+import { withScanLock, readLockOwner, isPidAlive } from './check-derived-regen-live.mjs';
+
+function lockFixture() {
+  const dir = mkdtempSync(join(tmpdir(), 'derived-regen-lock-'));
+  roots.push(dir);
+  return join(dir, 'scan.lock');
+}
+
+/**
+ * A pid proven dead: run `node -e ""` to completion with spawnSync, which
+ * reaps the child before returning. An async spawn cannot prove death from a
+ * synchronous loop: the Atomics.wait poll blocks the event loop, so libuv
+ * never waitpid()s the exited child and POSIX keeps it in the process table
+ * as a zombie — which still answers signal 0, so isPidAlive reports the dead
+ * owner alive forever and this subtest held the lock for the full 600 s
+ * stealMs on the Linux CI runner (win32 has no zombies, which is why the
+ * fixture only red there). The reuse guard turns a recycled pid into a fast
+ * loud failure instead of a planted live owner.
+ */
+function deadPidSync() {
+  const r = spawnSync(process.execPath, ['-e', ''], { stdio: 'ignore' });
+  if (r.error || !Number.isFinite(r.pid)) throw new Error(`dead-pid fixture failed to spawn a reaped child: ${r.error?.message ?? String(r.pid)}`);
+  if (isPidAlive(r.pid)) throw new Error(`dead-pid fixture pid ${r.pid} answers signal 0 after a reaped exit (recycled?)`);
+  return r.pid;
+}
+
+test('MUTEX GREEN - a free lock acquires, runs the body and releases', () => {
+  const lockDir = lockFixture();
+  const out = withScanLock(lockDir, () => 'ran', { pollMs: 20 });
+  assert(out === 'ran', `the body must run under the lock, got ${JSON.stringify(out)}`);
+  assert(!existsSync(lockDir), `the lock dir must be removed on release, still exists: ${lockDir}`);
+});
+
+test('MUTEX - a live owner is waited for and stolen only past the age bound, never young', () => {
+  const lockDir = lockFixture();
+  mkdirSync(lockDir);
+  writeFileSync(join(lockDir, 'owner.json'), JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
+  const beats = [];
+  const startedAt = Date.now();
+  const out = withScanLock(lockDir, () => 'ran', {
+    pollMs: 25, stealMs: 300, heartbeatMs: 100, isAlive: () => true,
+    progress: (line) => beats.push(line),
+  });
+  const waitedMs = Date.now() - startedAt;
+  assert(out === 'ran', `the body must run once the bound expires, got ${JSON.stringify(out)}`);
+  assert(waitedMs >= 250, `a live young owner must be WAITED for (bound 300 ms), stolen after only ${waitedMs} ms`);
+  assert(beats.some((l) => l.includes('waits its turn')), `a waiting heartbeat must be emitted, got ${JSON.stringify(beats)}`);
+  assert(beats.some((l) => l.includes('steal')), `the age-bound steal must be announced, got ${JSON.stringify(beats)}`);
+  assert(!existsSync(lockDir), 'the acquired lock must be released after the body');
+});
+
+test('MUTEX RED - a dead owner is stolen immediately instead of waited on forever', () => {
+  const lockDir = lockFixture();
+  const dead = deadPidSync();
+  mkdirSync(lockDir);
+  writeFileSync(join(lockDir, 'owner.json'), JSON.stringify({ pid: dead, startedAt: new Date().toISOString() }));
+  const beats = [];
+  const startedAt = Date.now();
+  const out = withScanLock(lockDir, () => 'ran', {
+    pollMs: 25, stealMs: 10 * 60_000, isAlive: isPidAlive, progress: (line) => beats.push(line),
+  });
+  const waitedMs = Date.now() - startedAt;
+  assert(out === 'ran', `the body must run after the steal, got ${JSON.stringify(out)}`);
+  assert(waitedMs < 5_000, `a dead owner must be stolen at once (real stealMs bound in force), took ${waitedMs} ms`);
+  assert(beats.some((l) => l.includes('owner is gone')), `the steal line must name the dead owner, got ${JSON.stringify(beats)}`);
+  assert(!existsSync(lockDir), 'the lock must be released after the body');
+});
+
+test('MUTEX - an ownerless young lock is never stolen on sight, only on age', () => {
+  const lockDir = lockFixture();
+  mkdirSync(lockDir); // no owner.json — an acquirer between mkdir and its record write
+  const beats = [];
+  const startedAt = Date.now();
+  const out = withScanLock(lockDir, () => 'ran', {
+    pollMs: 25, orphanStealMs: 300, isAlive: () => true, progress: (line) => beats.push(line),
+  });
+  const waitedMs = Date.now() - startedAt;
+  assert(out === 'ran', `the body must run, got ${JSON.stringify(out)}`);
+  assert(waitedMs >= 250, `an ownerless young lock must wait its bound, stolen after only ${waitedMs} ms`);
+  assert(!existsSync(lockDir), 'the lock must be released after the body');
+});
+
+test('MUTEX - release never deletes a successor\u2019s lock', () => {
+  const lockDir = lockFixture();
+  const successor = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 8000)'], { stdio: 'ignore' });
+  try {
+    const out = withScanLock(lockDir, () => {
+      // Simulate the mid-body steal-and-replace: a successor acquires the
+      // lock while our body runs (its owner.json names a live pid — the
+      // successor process spawned above).
+      writeFileSync(join(lockDir, 'owner.json'), JSON.stringify({ pid: successor.pid, startedAt: new Date().toISOString() }));
+      return 'ran';
+    }, { pollMs: 20 });
+    assert(out === 'ran', `the body must run, got ${JSON.stringify(out)}`);
+    assert(existsSync(lockDir), `a successor\u2019s lock must survive our release, gone: ${lockDir}`);
+    assert(readLockOwner(lockDir)?.pid === successor.pid, 'the surviving lock must still name the successor');
+  } finally {
+    try { rmSync(lockDir, { recursive: true, force: true }); } catch { /* fixture cleanup */ }
+  }
+});
+
 // ── --changed entry scoping: DERIVED-SET-SELFTEST-HOOK-SCOPE-1 ────────────────
 // The selection runs against synthetic repos whose always-run triggers use the
 // REAL production path names (scripts/derived-artifacts.mjs, this gate's own

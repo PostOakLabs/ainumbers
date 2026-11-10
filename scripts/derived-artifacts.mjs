@@ -1528,6 +1528,17 @@ export const EXCLUDED = [
        + 'artifact here for main to own. Listed so the coverage gate reads it as a decision, not a gap.',
   },
   {
+    what: 'scripts/renumber-node.mjs (manual node-rename tool)',
+    script: 'scripts/renumber-node.mjs',
+    share: 'n/a — a manual tool, not a derived-artifact generator',
+    why: 'NOT A DERIVED GENERATOR. It is a human-invoked rename helper: it moves and rewrites one '
+       + 'unenrolled node\'s own source files (shard, page, kernel, proptest, fixtures, reservation) and '
+       + 'restamps them through gen-kernel-identity. It never writes a shared derived artifact '
+       + '(chaingraph.json, meta, index.mjs, catalogs) and refuses an enrolled node, so there is nothing '
+       + 'for main\'s regen to own and no regen command that could converge. Listed so the fan-out gate '
+       + 'reads a decision rather than a gap.',
+  },
+  {
     what: 'scripts/check-derived-declare-parity.mjs (DERIVED-DECLARE-PARITY-1)',
     script: 'scripts/check-derived-declare-parity.mjs',
     share: 'n/a — a gate, not a generator',
@@ -1742,6 +1753,10 @@ export const DERIVED_ROOT_GATES = new Set([
   'python scripts/verify_repo.py',                           // deploy gate sitemap leg (SITEMAP-DEPLOY-SPLIT-1; overlay read only)
   'node scripts/check-nav-reachability.mjs',                 // nav islands (reads the monolith for dynamic roots)
   'node scripts/check-nav-reachability.mjs --baseline-check',// nav-island baseline freshness
+  // CHAIN-ADD-PR-SIDE-EXECUTE-1 (2026-11-05): the chain-execute gate reads the monolith through
+  // derivedResolve, so the queue judges the assembled speculative tree (a chain-add PR's new
+  // chain) instead of the committed monolith that main's later regen would then red (#2736).
+  'node scripts/check-webmcp-chain-execute.mjs',             // chain-execute (reads the monolith's chains)
   // REGEN-VALIDATORS-IN-QUEUE-1 (mechanism A): the two post-regen copy
   // validators (derived-artifacts-regen.yml "Validate the regenerated
   // reader-facing copy") are DERIVED_ROOT-aware — under the merge_group
@@ -1769,6 +1784,17 @@ export const DERIVED_ROOT_GATES = new Set([
   // reads the page through the overlay too: `--out` puts the freshly healed
   // page in DERIVED_ROOT (PR-2888-DERIVED-PAGE-READ-1).
   'node scripts/check-zk-trust-page.mjs',                    // trust-page stage counts (reads the monolith)
+  // QUEUE-ASSEMBLED-NEWNODE-GATES-1 (2026-11-09): the two gates below read the CHECKOUT registry,
+  // which does not contain a new node until main's post-merge regen enrols it, so a new-node PR
+  // passed the queue and main went red on the same node: ask-agent "no block" art-756 (runs
+  // 42542899593, 42539545126), ask-agent "block drifted" art-793 (42617856331) and art-795
+  // (42508010729), output-schema coverage (42517511673). Both now overlay-read the registry, the
+  // node pages and the manifests through derivedResolve (the check-a11y-tree.mjs convention), so
+  // the merge_group verdict is on the assembled tree that will be main. Spelled exactly as
+  // preflight.mjs's GATES list runs them (the --self-test / .test.mjs siblings are hermetic
+  // fixture proofs that never overlay, so they stay out of the set).
+  'node scripts/check-ask-agent-block.mjs',                  // ask-agent block freshness (registry, pages, manifests overlay)
+  'node scripts/check-output-schema-coverage.mjs',           // output-schema coverage (registry, manifests overlay)
 ]);
 
 // S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1 (2026-10-31): derivedRoot/derivedResolve moved VERBATIM
@@ -1792,7 +1818,7 @@ export { derivedResolve, derivedRoot } from './_derived-resolve-lib.mjs';
  * when we cannot prove we are on a PR. The downgrade is the privilege; it has to
  * be affirmatively earned, never inherited from a failed lookup.
  */
-export function isMainContext() {
+export function isMainContext({ cwd = REPO } = {}) {
   // ⚠ STRUCTURED AS A WHITELIST OF PR PROOFS, NOT A BLACKLIST OF MAIN ONES.
   // An earlier draft asked "is GITHUB_REF_NAME === 'main'?" and returned false
   // otherwise — which made an EMPTY/absent ref name read as "PR", i.e. it failed
@@ -1833,12 +1859,35 @@ export function isMainContext() {
 
   // Local pre-push: a feature branch is the PR proof. It must RESOLVE, and be
   // neither `main` nor a detached HEAD, before the downgrade applies.
+  //
+  // PREPUSH-DERIVED-ADVISORY-1: a DETACHED HEAD (scratch worktrees that merge main
+  // and push `HEAD:refs/heads/<branch>`) used to fail closed here, so a new-node PR
+  // pushed from one saw the main-only derived gates (kernel index, infra registry,
+  // node footers, a11y mid-flight enrol) HARD while the same tree is advisory in PR
+  // CI. A detached HEAD earns the SAME downgrade only on affirmative proof it is not
+  // main: origin/main resolves AND HEAD is NOT an ancestor of it (HEAD carries
+  // commits main lacks, which main itself never does). HEAD == origin/main, behind
+  // it, an unresolvable origin/main, or any git error all stay HARD (fail closed).
+  // No env var participates; a branch literally named `main` stays HARD.
+  return localHeadIsMain({ cwd });
+}
+
+/** Local-context probe. `cwd` is injectable ONLY so the self-test can aim it at a
+ *  fixture repo; production callers take the default (this checkout). */
+export function localHeadIsMain({ cwd = REPO } = {}) {
+  const git = (args) => execSync(`git ${args}`, { cwd, env: gitEnv(), stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
   try {
-    const branch = execSync('git rev-parse --abbrev-ref HEAD', {
-      cwd: REPO, env: gitEnv(), stdio: ['ignore', 'pipe', 'ignore'],
-    }).toString().trim();
-    if (!branch || branch === 'HEAD' || branch === 'main') return true; // fail closed
-    return false;
+    const branch = git('rev-parse --abbrev-ref HEAD');
+    if (!branch || branch === 'main') return true; // fail closed
+    if (branch !== 'HEAD') return false;           // named feature branch = PR proof
+    // Detached HEAD: needs the ancestry proof described above.
+    git('rev-parse --verify --quiet refs/remotes/origin/main');
+    try {
+      git('merge-base --is-ancestor HEAD refs/remotes/origin/main');
+      return true;  // exit 0: HEAD is main or behind it, no PR proof
+    } catch (e) {
+      return e && e.status === 1 ? false : true; // exit 1 = not an ancestor = PR proof; anything else fails closed
+    }
   } catch {
     return true; // undeterminable → fail closed, gates block
   }

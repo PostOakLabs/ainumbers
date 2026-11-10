@@ -94,10 +94,11 @@ export const PER_PR_DERIVABLES = new Set([
 //   ASSEMBLE/LAND rows: the main-side assembler refuses (writes nothing) on node removals/renames
 //   or any graph/chains/ change — derived-artifacts.mjs id 'chaingraph-assemble' — so those PRs
 //   commit the monolith themselves.
-//   New-node enrollment: check-a11y-tree.mjs's mid-flight condition (a shard on disk not in
-//   chaingraph.meta.json order.nodes) reds the queue and tells the PR to commit the regenerated
-//   monolith (#2384; QUEUE-EJECT-NEWNODE-ASSEMBLE-1 owns that gate). Refusing it here would
-//   deadlock every new-node PR between two gates, so an added node shard carries it too.
+//   New-node enrollment: ENROL-MAIN-SIDE-1 made the enrol main-side (check-a11y-tree.mjs's
+//   mid-flight condition is advisory on a PR; the queue's ephemeral `assemble --enroll` and main's
+//   regen land it), so a PR no longer NEEDS to carry the monolith. Carrying it stays ALLOWED
+//   (harmless: assemble reproduces it byte-for-byte), so existing in-flight lineage PRs and the
+//   #2384 cure shape do not turn red.
 //   Lineage publish+anchor rows: gen-registry-lineage.mjs is EXCLUDED from the regen (Sigsum
 //   budget), so the PR that publishes registry/lineage/ carries its absence tree + binding record
 //   (derived-artifacts.mjs id 'registry-absence-tree').
