@@ -668,6 +668,7 @@ status: stable
 - [Solana Paychan Voucher Verifier](./art-749-solana-paychan-voucher-verifier.md) — `verify_solana_paychan_voucher`
 - [EU Green Bond Factsheet & Allocation Validator](./art-75-eugb-factsheet-validator.md) — `validate_eugb_factsheet`
 - [Diff Evidence Bundles](./art-750-diff-evidence-bundles.md) — `compute_diff_evidence_bundles`
+- [SHA-256 and HMAC-SHA256 Digest Demonstrator](./art-751-sha256-hmac-digest-demonstrator.md) — `compute_sha256_hmac_digest`
 - [Equity Exit Waterfall Modeler](./art-754-equity-exit-waterfall.md) — `calc_equity_exit_waterfall`
 - [Sales OTE & Commission Analyzer](./art-756-sales-ote-commission-analyzer.md) — `analyze_sales_ote_commission`
 - [HDHP vs. PPO Break-Even](./art-758-hdhp-ppo-break-even.md) — `estimate_hdhp_ppo_breakeven`
