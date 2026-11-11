@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (735 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (736 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7736,6 +7736,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/mcp.html",
     "description": "Digests a caller-supplied UTF-8 string or hex byte string with SHA-256, or computes HMAC-SHA256 over it under a caller-supplied hex key, and",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-752-freelance-quarterly-estimated-tax",
+    "display_name": "Freelance Quarterly Estimated Tax Calculator",
+    "mandate_type": "consumer_finance",
+    "url": "https://ainumbers.co/chaingraph/art-752-freelance-quarterly-estimated-tax.html",
+    "description": "Quarterly IRS estimated-tax calculator for self-employed income, ported from ApexLogics Apex #116 (AL-123). From gross freelance income, bus",
     "consumes": [],
     "feeds": [],
     "status": "live"

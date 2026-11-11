@@ -671,6 +671,7 @@ status: stable
 - [EU Green Bond Factsheet & Allocation Validator](./art-75-eugb-factsheet-validator.md)
 - [Diff Evidence Bundles](./art-750-diff-evidence-bundles.md)
 - [SHA-256 and HMAC-SHA256 Digest Demonstrator](./art-751-sha256-hmac-digest-demonstrator.md)
+- [Freelance Quarterly Estimated Tax Calculator](./art-752-freelance-quarterly-estimated-tax.md)
 - [Equity Exit Waterfall Modeler](./art-754-equity-exit-waterfall.md)
 - [Sales OTE & Commission Analyzer](./art-756-sales-ote-commission-analyzer.md)
 - [HDHP vs. PPO Break-Even](./art-758-hdhp-ppo-break-even.md)

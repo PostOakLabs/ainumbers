@@ -669,6 +669,7 @@ status: stable
 - [EU Green Bond Factsheet & Allocation Validator](./art-75-eugb-factsheet-validator.md) — `validate_eugb_factsheet`
 - [Diff Evidence Bundles](./art-750-diff-evidence-bundles.md) — `compute_diff_evidence_bundles`
 - [SHA-256 and HMAC-SHA256 Digest Demonstrator](./art-751-sha256-hmac-digest-demonstrator.md) — `compute_sha256_hmac_digest`
+- [Freelance Quarterly Estimated Tax Calculator](./art-752-freelance-quarterly-estimated-tax.md) — `estimate_quarterly_tax`
 - [Equity Exit Waterfall Modeler](./art-754-equity-exit-waterfall.md) — `calc_equity_exit_waterfall`
 - [Sales OTE & Commission Analyzer](./art-756-sales-ote-commission-analyzer.md) — `analyze_sales_ote_commission`
 - [HDHP vs. PPO Break-Even](./art-758-hdhp-ppo-break-even.md) — `estimate_hdhp_ppo_breakeven`
