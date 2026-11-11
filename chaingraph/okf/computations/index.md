@@ -695,6 +695,7 @@ status: stable
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md)
 - [Government Stablecoin Acceptance Audit](./art-793-government-stablecoin-acceptance.md)
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md)
+- [Open-Source Agent-Governance Audit-Chain Verifier](./art-805-agt-audit-chain-verifier.md)
 - [ERC-3643 Transfer Decision Recompute](./art-807-erc3643-transfer-decision.md)
 - [Private-Input Reserves Cover Outstanding Check](./art-809-check-reserves-cover-outstanding-private.md)
 - [Allocation/Affirmation Conformance Checker](./art-81-allocation-affirmation-conformance.md)
