@@ -706,6 +706,7 @@ status: stable
 - [Securities-Settlement Message Linter (ISO 20022 sese/semt)](./art-82-securities-settlement-message-linter.md)
 - [UCP Capability Negotiation](./art-820-negotiate-ucp-capabilities.md)
 - [Authenticator Assurance Level Evaluator](./art-826-authenticator-assurance-level.md)
+- [Omnibus Token Position Reconciliation](./art-828-reconcile-omnibus-token-position.md)
 - [Buy-In Exposure Modeler](./art-83-buy-in-exposure-modeler.md)
 - [Settlement Efficiency KPI Engine](./art-84-settlement-efficiency-kpi.md)
 - [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md)
