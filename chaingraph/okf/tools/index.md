@@ -668,6 +668,7 @@ status: stable
 - [Solana Paychan Voucher Verifier](./art-749-solana-paychan-voucher-verifier.md) — `verify_solana_paychan_voucher`
 - [EU Green Bond Factsheet & Allocation Validator](./art-75-eugb-factsheet-validator.md) — `validate_eugb_factsheet`
 - [Diff Evidence Bundles](./art-750-diff-evidence-bundles.md) — `compute_diff_evidence_bundles`
+- [SHA-256 and HMAC-SHA256 Digest Demonstrator](./art-751-sha256-hmac-digest-demonstrator.md) — `compute_sha256_hmac_digest`
 - [Equity Exit Waterfall Modeler](./art-754-equity-exit-waterfall.md) — `calc_equity_exit_waterfall`
 - [Sales OTE & Commission Analyzer](./art-756-sales-ote-commission-analyzer.md) — `analyze_sales_ote_commission`
 - [HDHP vs. PPO Break-Even](./art-758-hdhp-ppo-break-even.md) — `estimate_hdhp_ppo_breakeven`
@@ -704,6 +705,7 @@ status: stable
 - [Securities-Settlement Message Linter (ISO 20022 sese/semt)](./art-82-securities-settlement-message-linter.md) — `lint_securities_settlement_message`
 - [UCP Capability Negotiation](./art-820-negotiate-ucp-capabilities.md) — `negotiate_ucp_capabilities`
 - [Authenticator Assurance Level Evaluator](./art-826-authenticator-assurance-level.md) — `compute_authn_assurance_level`
+- [Omnibus Token Position Reconciliation](./art-828-reconcile-omnibus-token-position.md) — `reconcile_omnibus_position`
 - [Buy-In Exposure Modeler](./art-83-buy-in-exposure-modeler.md) — `model_buy_in_exposure`
 - [Settlement Efficiency KPI Engine](./art-84-settlement-efficiency-kpi.md) — `compute_settlement_efficiency_kpi`
 - [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md) — `run_pqc_timeline_fit`

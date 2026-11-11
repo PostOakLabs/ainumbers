@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (733 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (735 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7731,6 +7731,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-751-sha256-hmac-digest-demonstrator",
+    "display_name": "SHA-256 and HMAC-SHA256 Digest Demonstrator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/mcp.html",
+    "description": "Digests a caller-supplied UTF-8 string or hex byte string with SHA-256, or computes HMAC-SHA256 over it under a caller-supplied hex key, and",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-754-equity-exit-waterfall",
     "display_name": "Equity Exit Waterfall Modeler",
     "mandate_type": "consumer_finance",
@@ -8128,6 +8138,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-826-authenticator-assurance-level.html",
     "description": "Rates whether a DECLARED authenticator set and session policy reach a DECLARED target level of a caller-supplied, versioned authentication a",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-828-reconcile-omnibus-token-position",
+    "display_name": "Omnibus Token Position Reconciliation",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-828-reconcile-omnibus-token-position.html",
+    "description": "Reconciles a tokenized-securities omnibus token position against caller-declared state: it sums the balances of every declared wallet, compu",
     "consumes": [],
     "feeds": [],
     "status": "live"
