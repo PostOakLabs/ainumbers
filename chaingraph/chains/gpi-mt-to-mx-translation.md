@@ -1,13 +1,13 @@
 # GPI MT-to-MX Translation
 
-Linear two-step chain for SWIFT GPI MT103 to pacs.008 migration fidelity. Step 1 simulates the GPI tracker lifecycle for the payment status transition and Universal Confirmation SLA (ACSP to ACCC within 24h). Step 2 scores MT103-to-pacs.008 field mapping fidelity (ordering customer, beneficiary, agent BICs, remittance info, charge bearer code mapping OUR=DEBT/SHA=SHAR/BEN=CRED). Both steps always run. Use to diagnose translation quality before CBPR+ November 2026 go-live.
+Linear two-step chain for SWIFT GPI MT103 to pacs.008 migration fidelity. Step 1 simulates the GPI tracker lifecycle for the payment status transition and Universal Confirmation SLA (ACSP to ACCC within 24h). Step 2 scores MT103-to-pacs.008 field mapping fidelity (ordering customer, beneficiary, agent BICs, remittance info, charge bearer code mapping OUR=DEBT/SHA=SHAR/BEN=CRED). Both steps always run. Use to diagnose translation quality before CBPR+ go-live (structured-address date deferred by Swift on 27 Aug 2026, new date not published).
 
 - Page: https://ainumbers.co/chaingraph/chains/gpi-mt-to-mx-translation.html
 - Markdown twin: https://ainumbers.co/chaingraph/chains/gpi-mt-to-mx-translation.md
 
 ## Workflow chain: GPI MT-to-MX Translation
 
-Linear two-step chain for SWIFT GPI MT103 to pacs.008 migration fidelity. Step 1 simulates the GPI tracker lifecycle for the payment status transition and Universal Confirmation SLA (ACSP to ACCC within 24h). Step 2 scores MT103-to-pacs.008 field mapping fidelity (ordering customer, beneficiary, agent BICs, remittance info, charge bearer code mapping OUR=DEBT/SHA=SHAR/BEN=CRED). Both steps always run. Use to diagnose translation quality before CBPR+ November 2026 go-live.
+Linear two-step chain for SWIFT GPI MT103 to pacs.008 migration fidelity. Step 1 simulates the GPI tracker lifecycle for the payment status transition and Universal Confirmation SLA (ACSP to ACCC within 24h). Step 2 scores MT103-to-pacs.008 field mapping fidelity (ordering customer, beneficiary, agent BICs, remittance info, charge bearer code mapping OUR=DEBT/SHA=SHAR/BEN=CRED). Both steps always run. Use to diagnose translation quality before CBPR+ go-live (structured-address date deferred by Swift on 27 Aug 2026, new date not published).
 
 Domain: Cross-Border & Instant Payments
 

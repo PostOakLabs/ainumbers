@@ -49,7 +49,9 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import { sourceDigest } from './_buildid.mjs';
+import { gitEnv } from '../../scripts/_git-env-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const KDIR = HERE;
@@ -89,6 +91,45 @@ const shardOnlyId = shardFlag && shardFlag.includes('=') ? shardFlag.slice('--sh
 const idxSrc = readFileSync(resolve(KDIR, 'index.mjs'), 'utf8');
 const kBlock = idxSrc.slice(idxSrc.indexOf('KERNELS = {'));
 const registeredIds = new Set([...kBlock.matchAll(/['"]([a-z0-9][a-z0-9._-]+)['"]\s*:/gi)].map((m) => m[1]));
+
+// RENUMBER-RESTAMP-1: the set of kernel tool_ids THIS change touches (vs the merge-base with
+// origin/main, plus uncommitted and untracked kernel files). Why: a renumber (#2860, art-811 -> 813)
+// changed only id strings inside the kernel, which moves the sha256-source digest, but the node was
+// neither registered in index.mjs (derived, main-side) nor enrolled in the monolith on the PR, so both
+// checks skipped it and the stale shard stamp only went red on main. A touched kernel is therefore
+// ALWAYS in scope for the identity check, registered or not. On main the diff vs the merge-base is
+// empty and the full-scan checks cover everything. Seams: KERNELID_TOUCHED_IDS (comma list, replaces
+// the git probe; used by the renumber tool and the self-test), KERNELID_BASE_REF (default origin/main).
+function detectTouchedKernelIds() {
+  if (process.env.KERNELID_TOUCHED_IDS !== undefined) {
+    return new Set(process.env.KERNELID_TOUCHED_IDS.split(',').map((x) => x.trim()).filter(Boolean));
+  }
+  const ids = new Set();
+  const git = (args) => execFileSync('git', args, { cwd: HERE, encoding: 'utf8', env: gitEnv(), stdio: ['ignore', 'pipe', 'ignore'] });
+  const take = (out) => { for (const f of out.split(/\r?\n/)) { const m = /^([^/]+)\.kernel\.mjs$/.exec(f.trim()); if (m) ids.add(m[1]); } };
+  // CI contract: on pull_request the checkout is refs/pull/N/merge, so HEAD^1 is the base and
+  // `diff HEAD^1 HEAD` is exactly the PR's own delta (needs depth >= 2; scripts-verify uses fetch-depth 0).
+  // If the touched set cannot be determined in a PR or merge_group run, FAIL CLOSED: an empty set would
+  // silently disable the sweep. On push-to-main nothing is detectable by design (HEAD is the base), the
+  // full-scan checks cover it. Locally an undeterminable set only warns, loudly.
+  const ev = process.env.GITHUB_EVENT_NAME || '';
+  const ciGated = ev === 'pull_request' || ev === 'merge_group';
+  try {
+    if (ev === 'pull_request') {
+      take(git(['diff', '--name-only', '--relative', '--diff-filter=ACMR', 'HEAD^1', 'HEAD', '--', '.']));
+    } else {
+      const base = git(['merge-base', 'HEAD', process.env.KERNELID_BASE_REF || 'origin/main']).trim();
+      take(git(['diff', '--name-only', '--relative', '--diff-filter=ACMR', base, '--', '.']));
+      take(git(['ls-files', '--others', '--exclude-standard', '--', '.']));
+    }
+  } catch {
+    const msg = 'TOUCHED-KERNEL SET UNDETERMINABLE (git error: ' + (ev === 'pull_request' ? 'HEAD^1..HEAD, checkout depth < 2?' : 'merge-base with ' + (process.env.KERNELID_BASE_REF || 'origin/main') + ' unresolved, not fetched?') + '); the touched-kernel sweep cannot run.';
+    if (ciGated && mode === 'check') { console.error('✗ §17 ' + msg + ' Failing CLOSED. Fix the checkout (fetch-depth: 0 or >= 2).'); process.exit(1); }
+    if (mode === 'check') console.error('⚠ §17 ' + msg + ' Only the full-scan checks apply; run git fetch origin main to enable the sweep.');
+  }
+  return ids;
+}
+const touchedIds = detectTouchedKernelIds();
 
 // Upsert (or leave, reporting) a sha256-source compute_images entry inside a single node's raw JSON text
 // (either a chaingraph.json node block slice, or a whole shard file's text). Shared by the monolith WRITE
@@ -177,7 +218,7 @@ async function runShardMode(mode, onlyId, registered) {
     let n;
     try { n = JSON.parse(raw); } catch { console.error(`✗ shard ${id}.json does not parse as JSON`); process.exit(3); }
     const kernelPath = resolve(KDIR, n.tool_id + '.kernel.mjs');
-    if (n.status === 'live' && n.gpu === false && registered.has(n.tool_id) && existsSync(kernelPath)) {
+    if (n.status === 'live' && n.gpu === false && (registered.has(n.tool_id) || touchedIds.has(n.tool_id)) && existsSync(kernelPath)) {
       inScope.push({ id, shardPath, raw, n, kernelPath });
     } else {
       skipped.push(id);
@@ -323,6 +364,23 @@ if (mode === 'check') {
           + (shard ? ` — shard ${n.tool_id}.json exists but does NOT carry the recomputed digest (identity never stamped)`
                    : ` — shard ${n.tool_id}.json is MISSING or unreadable (identity never stamped)`));
       }
+    }
+  }
+  // RENUMBER-RESTAMP-1 touched-kernel sweep: PENDING-ASSEMBLY is ONLY for a stamped shard with a stale
+  // monolith. A kernel this change touched whose own shard stamp != the recomputed digest is RED here,
+  // even when the node is absent from the monolith (new/renumbered, not yet enrolled).
+  const normT = (d) => (typeof d === 'string' && d.startsWith('sha256:')) ? d : 'sha256:' + d;
+  for (const id of touchedIds) {
+    const kp = resolve(KDIR, id + '.kernel.mjs');
+    const sp = resolve(NODES_DIR, id + '.json');
+    if (!existsSync(kp) || !existsSync(sp)) continue;
+    let sh; try { sh = JSON.parse(readFileSync(sp, 'utf8')); } catch { problems.push(`${id}: touched kernel's shard does not parse`); continue; }
+    if (sh.status !== 'live' || sh.gpu !== false) continue;
+    const wantT = await sourceDigest(readFileSync(kp, 'utf8'));
+    const stamp = (sh.compute_images ?? []).find((i) => i.system === 'sha256-source');
+    if (!stamp || normT(stamp.image_id) !== wantT) {
+      const msg = `${id}: TOUCHED-KERNEL STALE STAMP — this change edits the kernel but shard ${id}.json sha256-source ${stamp ? stamp.image_id : '(missing)'} != recomputed ${wantT} (fix: node chaingraph/kernels/gen-kernel-identity.mjs --write --shard=${id}; renames: node scripts/renumber-node.mjs)`;
+      if (!problems.includes(msg) && !problems.some((p) => p.startsWith(id + ':'))) problems.push(msg);
     }
   }
   if (pending.length) {

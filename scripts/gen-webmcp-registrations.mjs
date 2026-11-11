@@ -3469,7 +3469,7 @@ export function findRenderFunctionName(pageSrc, fn, resGlobal) {
  * The static direct-mode probe: per-page eligibility verdict.
  *   { eligible: true,  code: 'eligible', detail: { manifest, page, resGlobal, render, name } }
  *   { eligible: false, code, reason }   — code names the failing condition
- *     (opt-out | digest-sentinel | result-global | fn-shape | dom-read | render |
+ *     (opt-out | digest-sentinel | result-global | fn-shape | dom-read | render | fn-exec |
  *      fixture | kernel-parity | manifest | page), reason is the exclusion-list
  *     line (`direct-probe: …` / `direct-opt-out: …`).
  * `opts.optOuts` overrides DIRECT_MODE_OPT_OUT (selftest seam).
@@ -3577,10 +3577,66 @@ export async function directAdjudication(toolId, manifestIndex, mcpNameByTool, r
   if (producedHex !== goldenHex) {
     return { toolId, eligible: false, code: 'kernel-parity', reason: `direct-probe: hash-mismatch (kernel produced ${producedHex.slice(0, 16)}…, fixture golden ${goldenHex.slice(0, 16)}…)` };
   }
+
+  // (e) the declared function EXECUTES: called with fixture 0's policy_parameters
+  // in the execute harness's sandbox it must return an object that hashes via
+  // executionHash. Parameter count alone passed sync helpers that trigger a
+  // download and return nothing.
+  const execErr = await probeFunctionExecutes(pageSrc, fn, fx.policy_parameters);
+  if (execErr) {
+    return { toolId, eligible: false, code: 'fn-exec', reason: `direct-probe: execution.function_name '${fn}' ${execErr}` };
+  }
   return {
     toolId, eligible: true, code: 'eligible', reason: null,
     detail: { manifest: loaded.file, page: pageRel, resGlobal, render: renderFn, name: manifest.mcp_tool_definition.name },
   };
+}
+
+const FN_EXEC_TIMEOUT_MS = 10_000;
+
+/**
+ * Probe (e) of directAdjudication: load the page in the wrapper gate's
+ * minimal-DOM sandbox (no harness stubs beyond it), call `fn(policy_parameters)`
+ * and require a settled object whose outcome hashes through executionHash.
+ * Returns null when the call is sound, else the reason clause.
+ * The wrapper gate imports this module, so it is loaded lazily to avoid a cycle.
+ */
+export async function probeFunctionExecutes(pageSrc, fn, policyParameters, timeoutMs = FN_EXEC_TIMEOUT_MS) {
+  const { makeExecuteSandbox, extractInlineScripts } = await import('./check-webmcp-wrapper-execute.mjs');
+  const vm = await import('node:vm');
+  const { scripts, seedElements } = extractInlineScripts(pageSrc);
+  const { sandbox } = makeExecuteSandbox(seedElements);
+  const context = vm.createContext(sandbox);
+  for (let i = 0; i < scripts.length; i++) {
+    try { new vm.Script(scripts[i], { filename: `probe#script-${i}` }).runInContext(context); } catch (e) {
+      return `could not be executed: inline script ${i} threw at load (${e.message})`;
+    }
+  }
+  let target;
+  try { target = new vm.Script(fn).runInContext(context); } catch { target = undefined; }
+  if (typeof target !== 'function') return 'is not callable after the page scripts load';
+  let timer;
+  let returned;
+  try {
+    returned = await Promise.race([
+      Promise.resolve().then(() => target(JSON.parse(JSON.stringify(policyParameters)))),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`did not settle within ${timeoutMs}ms`)), timeoutMs); }),
+    ]);
+  } catch (e) {
+    return `threw on fixture 0 policy_parameters (${e.message})`;
+  } finally {
+    clearTimeout(timer);
+  }
+  if (returned === null || typeof returned !== 'object' || Array.isArray(returned)) {
+    return `returned ${returned === null ? 'null' : Array.isArray(returned) ? 'an array' : typeof returned} on fixture 0, not an object that hashes via executionHash (a sync helper that downloads or returns nothing is not a direct target)`;
+  }
+  if (typeof returned.error === 'string') return `returned a structured error on fixture 0 (${returned.error})`;
+  try {
+    await executionHash(policyParameters, readOutcome(returned));
+  } catch (e) {
+    return `result does not hash via executionHash (${e.message})`;
+  }
+  return null;
 }
 
 // ── MR-R4-NULL-NORMALIZE-WEBMCP-1: the shared null-member normalizer ─────────

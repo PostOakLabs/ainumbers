@@ -58,13 +58,32 @@ export function findBrokenUrls(catalog, existsFn, baseUrl) {
   return broken;
 }
 
-function main() {
-  const catalogPath = resolve(REPO, 'mcp/catalog.json');
+// MAINONLY-REMOVAL-ADVISORY-ON-PR-1 (2026-11-05): mcp/catalog.json is a
+// whole-file main-only artifact (MAIN-ONLY-PATHS-GATE-1; regen_catalog.py runs
+// only in main's derived-artifacts regen). A PR that deletes or renames a page
+// cannot rewrite the catalog, so a dead url was red by construction on that PR,
+// a deadlock the PR could not cure. Dead urls now follow the shared
+// isMainContext() policy, the MCPCARD-COUNT-ADVISORY-ON-PR-1 (#2898) pattern:
+// ::warning on a PR, HARD on main and on merge_group with DERIVED_ROOT, where
+// the catalog is read from the assembled derived tree when present. The
+// XSRF-4 generator class is still caught HARD where the catalog is generated.
+// Pure; the .test.mjs pins both contexts.
+export function disposition(broken, mainContext) {
+  return mainContext ? { blocking: broken, advisory: [] } : { blocking: [], advisory: broken };
+}
+
+async function main() {
+  const { isMainContext, derivedResolve } = await import('./derived-artifacts.mjs');
+  const catalogPath = derivedResolve('mcp/catalog.json');
   const catalog = JSON.parse(readFileSync(catalogPath, 'utf8'));
-  const broken = findBrokenUrls(catalog, (relPath) => existsSync(resolve(REPO, relPath)));
+  const found = findBrokenUrls(catalog, (relPath) => existsSync(resolve(REPO, relPath)));
+  const { blocking: broken, advisory } = disposition(found, isMainContext());
+  for (const b of advisory) {
+    console.log('::warning::mcp/catalog.json dead url ' + b.name + ' -> ' + b.url + ' (' + b.reason + '); advisory on a PR, main\'s derived-artifacts regen rewrites the catalog (MAINONLY-REMOVAL-ADVISORY-ON-PR-1)');
+  }
 
   if (broken.length === 0) {
-    console.log('check-catalog-urls: ' + (catalog.tools || []).length + ' entries scanned, 0 dead url(s).');
+    console.log('check-catalog-urls: ' + (catalog.tools || []).length + ' entries scanned, 0 dead url(s)' + (advisory.length ? ' blocking (' + advisory.length + ' advisory on this PR)' : '') + '.');
     process.exit(0);
   }
 
