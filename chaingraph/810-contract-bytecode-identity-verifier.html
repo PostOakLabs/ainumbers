@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="kernel-digest" content="sha256:9bc94068a33ab9fdd9c3323a0e898bb099328f10fb4ca970424388670379e009">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>Contract Bytecode Identity Verifier · OpenChainGraph · AINumbers.co</title>
 <meta name="description" content="Recompute the runtime and creation code hashes, size limits, compiler metadata fields and CREATE or CREATE2 address of a smart contract from declared bytes. Not proved: the proof is slow and waits on a host hashing function.">
@@ -258,6 +259,22 @@ var MANIFEST = {
   title: 'Contract Bytecode Identity Verifier',
   spec_version: '0.8.0',
   chaingraph_version: '0.4.0',
+  output_schema: {
+    type: 'object',
+    properties: {
+      address_recomputed: { type: ['object', 'null'] },
+      creation_code_hash: { type: ['string', 'null'] },
+      limit_checks: { type: ['object', 'null'] },
+      metadata: { type: ['object', 'null'] },
+      overall: { type: 'string', enum: ['fail', 'pass', 'refused'] },
+      refusal_reasons: { type: 'array', items: { type: 'string' } },
+      runtime_code_hash: { type: ['string', 'null'] },
+      verified_source_match: { type: ['object', 'null'] },
+      warnings: { type: 'array', items: { type: 'string' } },
+    },
+    required: ['address_recomputed', 'creation_code_hash', 'limit_checks', 'metadata', 'overall', 'refusal_reasons', 'runtime_code_hash', 'verified_source_match', 'warnings'],
+    additionalProperties: false,
+  },
   mcp_tool_definition: {
     name: 'verify_contract_bytecode_identity',
     description: 'Recomputes the runtime and creation code hashes, the two code size limits, the appended compiler metadata fields and the CREATE or CREATE2 address of a contract from declared bytes, and compares the address and the runtime hash with the declared values. Reads no chain. Not proved.',
@@ -1517,13 +1534,15 @@ function parseNonce(v) {
 const FATAL = ['EIP170_RUNTIME_TOO_LARGE', 'EIP3860_INITCODE_TOO_LARGE', 'ADDRESS_MISMATCH', 'VERIFIED_SOURCE_MISMATCH', 'INPUT_REFUSED'];
 
 function refused(reasons) {
+  const flags = reasons.length > 0 ? ['INPUT_REFUSED'] : [];
   return {
     output_payload: {
       overall: 'refused', refusal_reasons: reasons,
+      warnings: flags,
       creation_code_hash: null, runtime_code_hash: null, limit_checks: null, metadata: null,
       address_recomputed: null, verified_source_match: null,
     },
-    compliance_flags: reasons.length > 0 ? ['INPUT_REFUSED'] : [],
+    compliance_flags: flags,
   };
 }
 
@@ -1630,6 +1649,7 @@ function compute(pp) {
       },
       address_recomputed: { scheme, address: recomputed, declared_address: declaredAddress ? toHex(declaredAddress) : null, status: addressStatus },
       verified_source_match: { runtime_code_hash: runtimeHash, declared_hash: declaredSrc ? toHex(declaredSrc) : null, status: sourceStatus },
+      warnings: flags,
     },
     compliance_flags: flags,
   };

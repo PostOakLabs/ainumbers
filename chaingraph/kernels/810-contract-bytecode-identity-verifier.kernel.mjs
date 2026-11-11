@@ -1234,13 +1234,15 @@ export const meta = {
 const FATAL = ['EIP170_RUNTIME_TOO_LARGE', 'EIP3860_INITCODE_TOO_LARGE', 'ADDRESS_MISMATCH', 'VERIFIED_SOURCE_MISMATCH', 'INPUT_REFUSED'];
 
 function refused(reasons) {
+  const flags = reasons.length > 0 ? ['INPUT_REFUSED'] : [];
   return {
     output_payload: {
       overall: 'refused', refusal_reasons: reasons,
+      warnings: flags,
       creation_code_hash: null, runtime_code_hash: null, limit_checks: null, metadata: null,
       address_recomputed: null, verified_source_match: null,
     },
-    compliance_flags: reasons.length > 0 ? ['INPUT_REFUSED'] : [],
+    compliance_flags: flags,
   };
 }
 
@@ -1347,6 +1349,7 @@ export function compute(pp) {
       },
       address_recomputed: { scheme, address: recomputed, declared_address: declaredAddress ? toHex(declaredAddress) : null, status: addressStatus },
       verified_source_match: { runtime_code_hash: runtimeHash, declared_hash: declaredSrc ? toHex(declaredSrc) : null, status: sourceStatus },
+      warnings: flags,
     },
     compliance_flags: flags,
   };
