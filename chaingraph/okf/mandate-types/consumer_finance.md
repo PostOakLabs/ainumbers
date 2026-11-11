@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "consumer_finance"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"consumer_finance\"."
-tags: ["consumer_finance", "count-3"]
+tags: ["consumer_finance", "count-6"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,8 +10,11 @@ status: stable
 
 # consumer_finance
 
-3 tool(s) in this mandate-type group:
+6 tool(s) in this mandate-type group:
 
 - [Borrower Escrow Auditor](../tools/732-borrower-escrow-auditor.md)
 - [Servicing Compliance Clock](../tools/733-servicing-compliance-clock.md)
 - [Force-Placed Insurance Notice Checker](../tools/art-734-force-placed-insurance-checker.md)
+- [Equity Exit Waterfall Modeler](../tools/art-754-equity-exit-waterfall.md)
+- [ISO AMT Exposure Modeler](../tools/art-759-iso-amt-exposure-modeler.md)
+- [Total Cost of Homeownership](../tools/art-770-total-cost-of-homeownership.md)

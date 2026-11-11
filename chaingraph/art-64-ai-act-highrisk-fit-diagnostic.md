@@ -1,6 +1,6 @@
 # EU AI Act High-Risk Fit & Classification Diagnostic
 
-12-question A-F diagnostic that screens in-force obligations first (Art 5 prohibited practices, Art 4 AI literacy, GPAI) then classifies financial AI system high-risk status (Annex III: credit scoring, insurance pricing, financial-standing) and grades Article 9-15 readiness plus the provider/deployer split. Routes to the right ai-governance chain with a do-now vs prepare-ahead checklist and applicable date (2 Dec 2027 per Digital Omnibus, verify).
+12-question A-F diagnostic that screens in-force obligations first (Art 5 prohibited practices, Art 4 AI literacy, GPAI) then classifies financial AI system high-risk status (Annex III: credit scoring, insurance pricing, financial-standing) and grades Article 9-15 readiness plus the provider/deployer split. Routes to the right ai-governance chain with a do-now vs prepare-ahead checklist and applicable date (Annex III 2 Dec 2027; Art 6(1) 2 Aug 2028 per Regulation (EU) 2026/1744, adopted 8 July 2026).
 
 - Page: https://ainumbers.co/chaingraph/art-64-ai-act-highrisk-fit-diagnostic.html
 - Markdown twin: https://ainumbers.co/chaingraph/art-64-ai-act-highrisk-fit-diagnostic.md
@@ -12,7 +12,6 @@
 - ai_literacy_programme (any, optional): type not evidenced by kernel source
 - annex_iii_match (any, optional): type not evidenced by kernel source
 - data_governance (any, optional): type not evidenced by kernel source
-- eu_nexus (any, optional): type not evidenced by kernel source
 - foundation_model_dependency (any, optional): type not evidenced by kernel source
 - fria_status (any, optional): type not evidenced by kernel source
 - logging_oversight (any, optional): type not evidenced by kernel source
@@ -20,7 +19,6 @@
 - post_market_monitoring (any, optional): type not evidenced by kernel source
 - prohibited_practice_exposure (any, optional): type not evidenced by kernel source
 - risk_mgmt_system (any, optional): type not evidenced by kernel source
-- system_name (any, optional): type not evidenced by kernel source
 - technical_documentation (any, optional): type not evidenced by kernel source
 - use_case (any, optional): type not evidenced by kernel source
 

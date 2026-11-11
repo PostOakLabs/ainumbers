@@ -50,7 +50,7 @@
  * Exit 0 = all assertions passed. Exit 1 = a fixture assertion failed.
  */
 import { readFileSync } from 'node:fs';
-import { renderChangelog, collectLeaks, listTags, parseMerges, autoClassify, AUTO_FALLBACK_SECTION, PUBLIC_TOKEN_ALLOWLIST } from './gen-changelog.mjs';
+import { renderChangelog, collectLeaks, listTags, parseMerges, autoClassify, listMainFirstParent, filterBranchInternal, AUTO_FALLBACK_SECTION, PUBLIC_TOKEN_ALLOWLIST } from './gen-changelog.mjs';
 
 let failed = 0;
 let ran = 0;
@@ -228,6 +228,68 @@ const SEED = {
   const manual = parseMerges('cccccccccccccccccccccccccccccccccccccccc\tddddddd\t2026-08-15\tMerge feature-x (some integration note)');
   check(manual.skippedSynthetic === 0 && manual.merges[0].key === 'c-cccccccccc',
     'a manual non-queue merge still mints its c-hash key (classified by its seed line or auto)');
+}
+// ── 8c. BRANCH-INTERNAL-MERGE EXCLUSION + SEED IGNORE (CHANGELOG-WALK-BRANCH-MERGES-1) ──
+// The walk at HEAD differs by checkout: a PR branch (and the merge queue's
+// synthetic test-merge built on it) first-parent-traverses the branch's OWN
+// integration merges, which a main checkout never sees — so the rendered
+// bytes depended on the environment and --check failed in CI on bytes that
+// were green locally. The fix anchors exclusion to main's first-parent path:
+// a merge NOT on it is branch-internal, excluded in every environment.
+// Pure fixtures only — listMainFirstParent's runner is injected and
+// filterBranchInternal is called directly, no git spawned.
+{
+  const MAIN = [
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', // main-side PR merge (must still render)
+    'cccccccccccccccccccccccccccccccccccccccc', // main-side non-PR merge
+  ];
+  const BR_MERGES = [
+    { key: 'c-dddd000000', hash: 'dddd000000ffffffffffffffffffffffffffffffff', short: 'dddd000000'.slice(0, 9), date: '2026-10-21', pr: null, subject: 'Merge origin/main into feature-branch (branch-internal sync)' },
+    { key: 'pr-200', hash: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', short: 'bbbbbbbbb', date: '2026-10-20', pr: 200, subject: 'Merge pull request #200 from PostOakLabs/x' },
+    { key: 'c-cccccccccc', hash: 'cccccccccccccccccccccccccccccccccccccccc', short: 'ccccccccc', date: '2026-10-19', pr: null, subject: 'Merge release-prep into main (manual)' },
+  ];
+  const { merges: kept, excluded } = filterBranchInternal(BR_MERGES, new Set(MAIN));
+  check(kept.length === 2 && kept.every((m) => m.key !== 'c-dddd000000'),
+    '(a) a branch-internal merge (not on main first-parent) is excluded from the render set');
+  check(excluded.length === 1 && excluded[0].key === 'c-dddd000000',
+    '(a) the excluded set names exactly the branch-internal merge');
+  check(kept.some((m) => m.pr === 200) && kept.some((m) => m.key === 'c-cccccccccc'),
+    '(b) main-side merges (PR-shaped and manual) still render');
+  // Tolerant pass-through: no main ref in the checkout → NO exclusion.
+  const passthrough = filterBranchInternal(BR_MERGES, null);
+  check(passthrough.merges.length === 3 && passthrough.excluded.length === 0,
+    'a no-main-ref checkout degrades to NO exclusion (tag-less tolerance discipline)');
+  // Injected-runner control: ref probing prefers origin/main, falls back to
+  // main, and degrades to hashes:null only when BOTH refs are unavailable.
+  const viaOrigin = listMainFirstParent((args) => {
+    if (!/origin\/main$/.test(args)) throw new Error('fatal: unknown ref');
+    return 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n';
+  });
+  check(viaOrigin.ref === 'origin/main' && viaOrigin.hashes.size === 1,
+    'listMainFirstParent probes origin/main first');
+  const viaLocal = listMainFirstParent((args) => {
+    if (!/\smain$/.test(args)) throw new Error('fatal: unknown ref');
+    return 'cccccccccccccccccccccccccccccccccccccccc\n';
+  });
+  check(viaLocal.ref === 'main' && viaLocal.hashes.size === 1,
+    'listMainFirstParent falls back to the local main ref');
+  const noRef = listMainFirstParent(() => { throw new Error('fatal: not a git repository (simulated no-refs checkout)'); });
+  check(noRef.ref === null && noRef.hashes === null && typeof noRef.error === 'string',
+    'a no-refs checkout degrades gracefully to hashes:null with a named error');
+  // (c) SEED IGNORE: a seeded-ignored merge never renders, even where visible.
+  const ig = JSON.parse(JSON.stringify(SEED));
+  ig.entries['c-deadbeef12'] = { ignore: 'branch-internal sync merge, never a landing' };
+  const outIg = renderChangelog(MERGES, [], ig);
+  check(!outIg.includes('deadbee') && !outIg.includes('Clean public title two'),
+    '(c) a seeded-ignored merge never renders even where the walk sees it');
+  check(outIg.includes('Clean public title one') && outIg.includes('Clean public title three'),
+    '(c) seed ignore removes only the ignored entry');
+  // An ignored entry needs no section and cannot trip the section validation.
+  const ig2 = JSON.parse(JSON.stringify(SEED));
+  ig2.entries['c-deadbeef12'] = { ignore: 'reason only, no section key' };
+  let threw = null;
+  try { renderChangelog(MERGES, [], ig2); } catch (e) { threw = e; }
+  check(threw === null, 'an ignored seed entry validates without a section key');
 }
 // ── 9. SEED-AUTOFILL: prefix → section map + AUTO-TITLE SANITIZATION ────────
 // The estate's own prefix vocabulary, measured over the full commit-subject

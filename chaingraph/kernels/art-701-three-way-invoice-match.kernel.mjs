@@ -104,7 +104,7 @@ function roundHalfAwayDiv(num, den) {
 function normalizeInvoiceNumber(s) {
   if (typeof s !== 'string') return '';
   let t = '';
-  for (const ch of s.toLowerCase()) {
+  const __s = s.toLowerCase(); for (let __i = 0; __i < __s.length; __i++) { const ch = __s[__i];
     if ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9')) t += ch;
   }
   let i = 0;

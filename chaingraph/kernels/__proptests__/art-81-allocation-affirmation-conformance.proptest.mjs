@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:bfd9eea1801c12c0b1358e111e33f08fcc221f3e847edd481053c5e90f81cd12
+// kernel_digest_at_authoring: sha256:9fc6a79e641f9ef6d5828a5d7dab51f388fea19179dfc01ec116853d112c07a4
 //
 // FV-PROPFLOOR-SHARD-B17-1 — property-test floor for art-81-allocation-affirmation-conformance.
 // Class B (bounded-numeric/categorical), FLOAT:NO per the WU row — the only arithmetic is
