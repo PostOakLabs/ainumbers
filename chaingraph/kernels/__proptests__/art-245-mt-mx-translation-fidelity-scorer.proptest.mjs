@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:df068aac811711ab2100e95147d96ce76694c32836ca079e405fbd586fbe351a
+// kernel_digest_at_authoring: sha256:73f7c3c049de7635ae66cf29bf86a1bef0c8cc9a4e52ce6c1ae66c27e4c90f4d
 //
 // FV-PROPFLOOR-SHARD-B28-1 — property-test floor for art-245-mt-mx-translation-fidelity-scorer.
 // Class B (bounded-numeric), NOT float-sensitive per the WU row's classification (fidelity_score

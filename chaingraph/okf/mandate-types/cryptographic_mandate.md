@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "cryptographic_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"cryptographic_mandate\"."
-tags: ["cryptographic_mandate", "count-13"]
+tags: ["cryptographic_mandate", "count-14"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,8 +10,9 @@ status: stable
 
 # cryptographic_mandate
 
-13 tool(s) in this mandate-type group:
+14 tool(s) in this mandate-type group:
 
+- [Zcash Supply Check](../tools/822-zcash-supply-check.md)
 - [Trade Document Provenance & Consistency Verifier](../tools/art-55-trade-document-provenance-verifier.md)
 - [Conversion Receipt Builder](../tools/art-191-conversion-receipt-builder.md)
 - [Conversion Receipt Verifier](../tools/art-192-conversion-receipt-verifier.md)

@@ -116,3 +116,13 @@ Generated from the shared credits registry (`data/credits-registry.json`, source
   - `chaingraph/standard/vendor/rfc8785-testdata/outhex/unicode.txt`
   - `chaingraph/standard/vendor/rfc8785-testdata/outhex/values.txt`
   - `chaingraph/standard/vendor/rfc8785-testdata/outhex/weird.txt`
+
+## erdtman/canonicalize (RFC 8785 JCS canonicalizer)
+
+- **Version:** pin 31fb117afde3ef305b2e1d99bde539bf6300bc62
+- **License:** Apache-2.0
+- **Upstream:** https://github.com/erdtman/canonicalize
+- **Upstream ships a NOTICE file:** no (checked upstream root — no NOTICE file)
+- **Note:** Fifth independent JCS implementation under test in chaingraph/standard/jcs-rfc8785-vectors.test.mjs. Vendored unmodified (lib/canonicalize.js + LICENSE, no NOTICE at the pin) at pinned commit 31fb117afde3ef305b2e1d99bde539bf6300bc62 by LANDSCAPE-JCS-DIFF-ORACLE-1; per-file sha256 in PROVENANCE.md in the same directory. Entry backfilled by MAIN-CREDITS-VENDOR-HEAL-1 after the coverage gate was in the skipping set on PR 2802's own run.
+- **Path(s) in this repo:**
+  - `chaingraph/standard/vendor/canonicalize/`

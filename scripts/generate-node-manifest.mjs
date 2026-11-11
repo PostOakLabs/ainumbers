@@ -50,6 +50,7 @@ import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ANNOTATIONS, annotationVerdict } from './gen-manifest-examples.mjs';
+import { loadHubCategories } from './_hub-categories.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -57,7 +58,6 @@ const CHAINGRAPH_JSON = resolve(REPO, 'chaingraph', 'chaingraph.json');
 const VECTORS_DIR = resolve(REPO, 'chaingraph', 'conformance', 'vectors');
 const MANIFESTS_DIR = resolve(REPO, 'manifests');
 const SCHEMA_PATH = resolve(REPO, 'chaingraph', 'schemas', 'manifest.schema.json');
-const HUB_CATEGORIES_JSON = resolve(REPO, 'chaingraph', 'hub-categories.json');
 
 // ---- category derivation from hub-categories.json cluster assignment
 // (NODECAT-SCOPE-1: 494/526 nodes already carry a cluster there, built for
@@ -73,7 +73,7 @@ function slugify(title) {
     .replace(/^-+|-+$/g, '');
 }
 function loadToolIdToCategorySlug() {
-  const clusters = JSON.parse(readFileSync(HUB_CATEGORIES_JSON, 'utf8'));
+  const clusters = loadHubCategories(REPO);
   const map = new Map();
   for (const [title, { art_ids }] of Object.entries(clusters)) {
     const slug = slugify(title);

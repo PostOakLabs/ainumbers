@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:63e488bc42ce3ecf75573b02a8fae9dd4044c91928f1f019e53895bf08f6bf86
+// kernel_digest_at_authoring: sha256:dab26511e0747afa95ae4ba156a6704e1c9e807a52ddfe74d48140b96822ccf7
 //
 // FV-PROPFLOOR-SHARD-B27-1 — property-test floor for art-241-cbpr-structured-address-linter.
 // Class B (bounded-numeric shape, string-structure lint logic). float:no — readiness_pct is an

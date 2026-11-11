@@ -152,12 +152,17 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { classifyKernelSource, tierReport, tierOfMutant, scanBalanced, scoreOf } from '../chaingraph/kernels/mutation-tier-split.mjs';
 import { checkSandboxComplete, deriveSandboxFiles } from './lib-sandbox-deps.mjs';
+import { mergeMutationSiblings } from './lib-per-kernel-config.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..');
 
-function loadConfig(repoRoot = REPO) {
-  return JSON.parse(readFileSync(path.join(repoRoot, 'chaingraph', 'kernels', 'mutation-tiers.config.json'), 'utf8'));
+// PER-KERNEL-CONFIG-SHARD-1: the config keeps thresholds/defaults; per-kernel entries live in
+// chaingraph/kernels/<id>.mutation.json siblings, merged here so every consumer sees one object.
+export function loadConfig(repoRoot = REPO) {
+  const kernelsDir = path.join(repoRoot, 'chaingraph', 'kernels');
+  const base = JSON.parse(readFileSync(path.join(kernelsDir, 'mutation-tiers.config.json'), 'utf8'));
+  return mergeMutationSiblings(base, kernelsDir);
 }
 
 // ── CLI parsing ───────────────────────────────────────────────────────────
