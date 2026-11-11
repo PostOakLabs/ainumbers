@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-126"]
+tags: ["compliance_control", "count-127"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-126 tool(s) in this mandate-type group:
+127 tool(s) in this mandate-type group:
 
 - [Corridor Cost Averages](../tools/787-corridor-cost-averages.md)
 - [Curator Vault Cap Auditor](../tools/792-curator-vault-cap-auditor.md)
@@ -128,6 +128,7 @@ status: stable
 - [V4 Hook Fee Conformance](../tools/art-709-v4-hook-fee-conformance.md)
 - [TSV Stoppage Concurrency](../tools/art-710-tsv-stoppage-concurrency.md)
 - [Diff Evidence Bundles](../tools/art-750-diff-evidence-bundles.md)
+- [SHA-256 and HMAC-SHA256 Digest Demonstrator](../tools/art-751-sha256-hmac-digest-demonstrator.md)
 - [HDHP vs. PPO Break-Even](../tools/art-758-hdhp-ppo-break-even.md)
 - [Beacon-Seeded Fair-Sampling Deriver V2](../tools/art-774-beacon-seeded-fair-sampling-v2.md)
 - [Government Stablecoin Acceptance Audit](../tools/art-793-government-stablecoin-acceptance.md)
