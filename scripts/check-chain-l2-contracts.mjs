@@ -149,6 +149,75 @@ export function resolveSchemaPointer(schemaObj, pointer) {
   return cur;
 }
 
+/* ───────────── CHAIN-FV-L2G-CHECKER-PRECEDENCE-1 — sidecar vs manifest output_schema ─────────── */
+
+// ⛔⛔ WHY THIS SECTION EXISTS. MANIFEST-SCHEMA-BACKFILL-1 (merged 2026-09-02) published bare
+// {type}-stub output_schema blocks for ~60 gate producers that already carried a fixture-derived
+// witness sidecar under repo/chaingraph/graph/output-schemas/. Under the old manifest-wins
+// precedence those bare blocks SHADOWED the sidecars and L2-G fell from 70 pass / 0 fail /
+// 4 indeterminate of 74 to 3 / 2 / 69 (CHAIN-FV-L2-CLOSEOUT-1 stamp), including 2 NEW
+// gate-pointer-unresolved FAILS (art-228 /action_taken, art-233 /atp_passes). Tim's ruling
+// 2026-10-23 ("Sidecar wins"): when a producer has BOTH, the WITNESS SIDECAR decides the gate
+// pointer; a manifest block still decides when no sidecar exists. The RESCOPE-3 semantic is
+// untouched — a derived domain is a witness, may decide a pass, never a derived fail.
+//
+// SCOPE GUARD (same ruling): when the manifest block carries field detail the sidecar LACKS — a
+// property, enum or type the sidecar omits — the checker reports the DISAGREEMENT as a finding
+// instead of silently preferring either side. `manifestSidecarDisagreements` below is that guard's
+// pure core: it walks the manifest block's property tree (nested, same as resolveSchemaPointer)
+// and returns one descriptor per omitted detail, path-shaped (a.b.c) so the finding's witness
+// names exactly what must be reconciled. Detail the SIDECAR carries that the manifest lacks is
+// fine — a fixture corpus may see more than a backfill stub describes — so the walk is
+// one-directional, manifest→sidecar. An omitted SUBTREE is one descriptor at its top property,
+// never one per leaf inside it.
+export function manifestSidecarDisagreements(manifestOut, sidecarOut) {
+  const out = [];
+  if (!manifestOut || typeof manifestOut !== 'object' || !manifestOut.properties) return out;
+  if (!sidecarOut || typeof sidecarOut !== 'object' || !sidecarOut.properties) return out;
+  const walk = (manProps, sideProps, prefix) => {
+    for (const name of Object.keys(manProps)) {
+      const mp = manProps[name];
+      const field = prefix ? `${prefix}.${name}` : name;
+      const sp = sideProps && Object.prototype.hasOwnProperty.call(sideProps, name) ? sideProps[name] : undefined;
+      if (!sp || typeof sp !== 'object') { out.push({ field, kind: 'property' }); continue; }
+      // An enum the sidecar omits: the manifest declares const/enum membership the sidecar has no
+      // answer for — not enum, not const, and not the numeric point-witness set either.
+      const manEnum = mp.const !== undefined ? [mp.const] : mp.enum;
+      const sideHasEnum = (Array.isArray(sp.enum) && sp.enum.length > 0) || sp.const !== undefined
+        || Array.isArray(sp['x-observed-values']);
+      if (manEnum !== undefined && !sideHasEnum) out.push({ field, kind: 'enum' });
+      if (mp.type !== undefined && sp.type === undefined) out.push({ field, kind: 'type' });
+      if (mp.properties) walk(mp.properties, sp.properties, field);
+    }
+  };
+  walk(manifestOut.properties, sidecarOut.properties, '');
+  return out;
+}
+
+/**
+ * The precedence decision itself, pure so the selftest drives it without a filesystem:
+ *   sidecar present, manifest block absent             → sidecar decides (derived WITNESS)
+ *   both present, no manifest-extra field detail        → sidecar decides (derived WITNESS)
+ *   both present, manifest detail the sidecar lacks     → { schema:null, isDerived:null,
+ *                                                         disagreement:[…] } — the caller reports
+ *                                                         a finding and prefers NEITHER side
+ *                                                         (scope guard above).
+ *   manifest block alone                                → manifest decides (DECLARED/CITED grade).
+ *   neither                                             → nothing published at all.
+ */
+export function chooseOutputContract(manifestOut, sidecarOut) {
+  const m = manifestOut && typeof manifestOut === 'object' ? manifestOut : null;
+  const s = sidecarOut && typeof sidecarOut === 'object' ? sidecarOut : null;
+  if (s && !m) return { schema: s, isDerived: true, disagreement: [] };
+  if (m && !s) return { schema: m, isDerived: false, disagreement: [] };
+  if (m && s) {
+    const disagreement = manifestSidecarDisagreements(m, s);
+    if (disagreement.length) return { schema: null, isDerived: null, disagreement };
+    return { schema: s, isDerived: true, disagreement: [] };
+  }
+  return { schema: null, isDerived: false, disagreement: [] };
+}
+
 /* ────────────────────────── constraint extraction (with x-source) ───────────────────────────── */
 
 // A "declared constraint" is a numeric/enum/multipleOf bound on a manifest property that carries an
@@ -432,13 +501,29 @@ export function checkGateRule(gate, rule, producerId, chainToolIds, ctx) {
   const undecided = [];
   const checksRun = [];
 
-  const outSchema = ctx.outSchema(producerId);
+  // ⛔⛔ CHAIN-FV-L2G-CHECKER-PRECEDENCE-1 scope guard. When the producer publishes BOTH a witness
+  // sidecar and a manifest output_schema whose block carries field detail the sidecar omits, the
+  // checker reports the disagreement as a finding and prefers NEITHER side — no silent decision
+  // from either source. Producers with one source are decided by that source (see
+  // chooseOutputContract); this branch fires only where the two PUBLISHED contracts disagree.
+  const disagreement = ctx.outContractDisagreement ? ctx.outContractDisagreement(producerId) : null;
+  const disagreed = !!(disagreement && disagreement.length);
+  if (disagreed) {
+    findings.push({
+      code: 'manifest-sidecar-domain-disagreement',
+      detail: `${producerId} publishes BOTH a fixture-derived witness sidecar and a manifest output_schema whose block carries field detail the sidecar omits (${disagreement.map((d) => `${d.field}(${d.kind})`).join(', ')}) — reconcile the two published contracts; neither source is preferred`,
+      witness: disagreement.map((d) => `${d.field}:${d.kind}`).join(', '),
+    });
+    undecided.push('manifest-sidecar-domain-disagreement');
+  }
+
+  const outSchema = disagreed ? null : ctx.outSchema(producerId);
   // ⛔⛔ CHAIN-FV-L2G-GENERATOR-1 — resolve the FULL gate pointer (not just its top segment) against the
   // RAW output_schema object, so a nested gate input like `/ratios/total_capital_pass` resolves against
   // a real nested sub-schema instead of stopping dead at the top-level `type: "object"`. `outSchema`
   // (the L1-abstracted top-fields-only form) is kept only for the "did the producer publish anything at
   // all" tests below — unchanged in every branch that doesn't need per-field resolution.
-  const rawOutSchema = ctx.outSchemaRaw ? ctx.outSchemaRaw(producerId) : null;
+  const rawOutSchema = disagreed ? null : (ctx.outSchemaRaw ? ctx.outSchemaRaw(producerId) : null);
   const resolvedProp = resolveSchemaPointer(rawOutSchema, gate.input);
   const resolves = !!resolvedProp;
   if (!resolves) {
@@ -533,7 +618,14 @@ export function gateAuthoringInstruction(gate, rule, producerId, ctx) {
     };
   }
   const observed = (ctx.fixtureObservedValues ? ctx.fixtureObservedValues(producerId, gate.input) : []) || [];
+  // CHAIN-FV-L2G-CHECKER-PRECEDENCE-1: when the blocker is the two published contracts DISAGREEING
+  // (manifest block carries field detail the sidecar omits), say so up front — authoring an enum
+  // against either source does not decide this gate while the disagreement stands.
+  const disagreement = ctx.outContractDisagreement ? ctx.outContractDisagreement(producerId) : [];
   return {
+    ...(disagreement && disagreement.length ? {
+      reconcile_first: `${producerId} publishes both a witness sidecar and a manifest output_schema block that carries field detail the sidecar omits (${disagreement.map((d) => `${d.field}(${d.kind})`).join(', ')}) — reconcile the two published contracts first; authoring a domain into either one does not decide this gate while they disagree`,
+    } : {}),
     producer: producerId,
     field: top,
     pointer: gate.input,
@@ -958,7 +1050,10 @@ function loadEstate(root) {
   // sidecar DIRECTLY — never through chaingraph.json (RESCOPE-2 was BLOCKED because writing the schema
   // into the node shard propagated into chaingraph.json where additionalProperties:false rejects it).
   // A sidecar constraint is a WITNESS (x-source.kind === 'derived'): it may DECIDE an L2G-pass, never a
-  // dead-branch L2G-fail (enforced in checkGateRule). Manifests still win when present.
+  // dead-branch L2G-fail (enforced in checkGateRule). ⛔ CHAIN-FV-L2G-CHECKER-PRECEDENCE-1 (2026-10-23):
+  // the sidecar now also decides when a manifest output_schema block exists alongside it — a bare
+  // backfilled block no longer shadows the witness; the block decides only when no sidecar exists, and
+  // a block carrying field detail the sidecar omits raises a finding preferring neither side.
   const outSchemaDir = resolve(root, 'chaingraph/graph/output-schemas');
   const has = (d) => (existsSync(d) ? new Set(readdirSync(d)) : new Set());
   const manFiles = has(manDir), fixFiles = has(fixDir), sidecarFiles = has(outSchemaDir);
@@ -979,29 +1074,40 @@ function loadEstate(root) {
     cacheSidecar.set(id, s);
     return s;
   }
-  // The published output-contract for a producer: manifest.output_schema when it exists, else the
-  // derived sidecar's output_schema. This is the single accessor outSchema/outConstraint agree on.
-  function outputSchemaObj(id) {
+  // The published output-contract for a producer under CHAIN-FV-L2G-CHECKER-PRECEDENCE-1 (Tim,
+  // 2026-10-23): a witness SIDECAR outranks a manifest output_schema block — a bare backfilled
+  // block no longer shadows the fixture-derived domain — and the block still decides when no
+  // sidecar exists. When BOTH exist and the block carries field detail the sidecar omits,
+  // chooseOutputContract returns the disagreement and NEITHER schema decides; the gate path
+  // reports it as a finding (see checkGateRule). This is the single accessor
+  // outSchema/outConstraint/outSchemaIsDerived agree on.
+  function outputContractOf(id) {
     const m = manifestOf(id);
-    if (m && m.output_schema) return m.output_schema;
     const s = sidecarOf(id);
-    return (s && s.output_schema) || null;
+    return chooseOutputContract(m && m.output_schema ? m.output_schema : null, s && s.output_schema ? s.output_schema : null);
   }
-  // TRUE when a producer's output-contract is the fixture-derived sidecar, not a manifest — i.e. it is
-  // a WITNESS, not a declaration. The gate-pointer-unresolved FINDING (a declared contradiction) may
-  // fire ONLY over a manifest schema; over a derived sidecar, an absent field is unwitnessed, never a
-  // convicted fail (RESCOPE-3 semantic; SO #34 — absence in a finite sample is not proof).
+  function outputSchemaObj(id) {
+    return outputContractOf(id).schema;
+  }
+  // The disagreement descriptors for a producer whose two published sources disagree ([] when they
+  // do not, or when fewer than two sources exist). Pure accessor over the same two files.
+  function outContractDisagreement(id) {
+    return outputContractOf(id).disagreement;
+  }
+  // TRUE when a producer's DECIDING output-contract is the fixture-derived sidecar (a WITNESS, not a
+  // declaration) — under PRECEDENCE-1 that includes both-sources producers the sidecar wins for. The
+  // gate-pointer-unresolved FINDING (a declared contradiction) may fire ONLY over a manifest schema;
+  // over a derived sidecar, an absent field is unwitnessed, never a convicted fail (RESCOPE-3
+  // semantic; SO #34 — absence in a finite sample is not proof).
   function outSchemaIsDerived(id) {
-    const m = manifestOf(id);
-    if (m && m.output_schema) return false;
-    return sidecarFiles.has(`${id}.json`);
+    return outputContractOf(id).isDerived === true;
   }
   // Where a batch row must AUTHOR to decide an undecided gate for this producer — the real site, so the
   // worklist points a session at a file that exists (RESCOPE-2's author_in pointed at manifests that
-  // are not there for 63 of 65 producers).
+  // are not there for 63 of 65 producers). CHAIN-FV-L2G-CHECKER-PRECEDENCE-1: sidecar-first — the
+  // sidecar is the deciding surface whenever one exists; the manifest is the site only when it alone
+  // publishes an output contract.
   function authorSite(id) {
-    const m = manifestOf(id);
-    if (m && m.output_schema) return `manifests/${id}.manifest.json → output_schema.properties`;
     if (sidecarFiles.has(`${id}.json`)) return `chaingraph/graph/output-schemas/${id}.json → output_schema.properties`;
     return `manifests/${id}.manifest.json → output_schema.properties`;
   }
@@ -1094,7 +1200,7 @@ function loadEstate(root) {
     ctx: {
       outSchema, inSchema, outConstraint, inConstraint, consumerRequired,
       pointerResolvesInFixturesOnly, fixtureObservedValues, verifySource, authorSite, outSchemaIsDerived,
-      outSchemaRaw: outputSchemaObj,
+      outSchemaRaw: outputSchemaObj, outContractDisagreement,
     },
   };
 }
@@ -1155,6 +1261,15 @@ export function buildReport(root = ROOT, l1Report) {
   }
   authoring.sort((a, b) => (a.producer.localeCompare(b.producer) || a.field.localeCompare(b.field)));
   for (const a of authoring) a.chains.sort();
+
+  // CHAIN-FV-L2G-CHECKER-PRECEDENCE-1 scope guard roll-up: the producers whose two PUBLISHED
+  // output contracts disagree (a manifest block carrying field detail the sidecar omits), derived
+  // from the findings the guard raised — never a restated list (SO #34).
+  const disagreementProducers = [...new Set(
+    results.flatMap((r) => r.edges.flatMap((e) => e.findings
+      .filter((f) => f.code === 'manifest-sidecar-domain-disagreement')
+      .map(() => e.from))),
+  )].sort();
 
   // Batch sizing, DERIVED — ⛔ never a hardcoded batch count (SO #34: recompute, don't restate).
   // §7.1's cost driver is kernels, capped at ≤20 per session; the unit here is the producer whose
@@ -1228,6 +1343,12 @@ export function buildReport(root = ROOT, l1Report) {
       ),
       items: authoring,
     },
+    l2g_precedence: {
+      rule: 'a fixture-derived witness sidecar (chaingraph/graph/output-schemas/) decides the gate pointer when the producer also publishes a manifest output_schema block; the block decides only when no sidecar exists (CHAIN-FV-L2G-CHECKER-PRECEDENCE-1, Tim 2026-10-23 — closes the MANIFEST-SCHEMA-BACKFILL-1 shadow)',
+      scope_guard: 'when the manifest block carries field detail the sidecar omits (a property, enum or type), the checker raises manifest-sidecar-domain-disagreement and prefers NEITHER side — the two published contracts must be reconciled',
+      disagreement_producer_count: disagreementProducers.length,
+      disagreement_producers: disagreementProducers,
+    },
     indeterminate_reason_counts: Object.fromEntries(Object.entries(indeterminateReasons).sort((a, b) => b[1] - a[1])),
     fail_code_counts: Object.fromEntries(Object.entries(failCodes).sort((a, b) => b[1] - a[1])),
     chains: results.map((r) => ({
@@ -1298,6 +1419,8 @@ if (isMain) {
     console.log(`      ${rep.l2g_authoring.open_gate_edges} open gate rules over ${rep.l2g_authoring.distinct_producers} distinct producer manifests`);
     console.log(`      ⇒ ${rep.l2g_authoring.batches_required} batches at the §7.1 cap of ${rep.l2g_authoring.kernels_per_batch_cap} kernels/session`);
     for (const [d, n] of Object.entries(rep.l2g_authoring.producers_by_domain).slice(0, 8)) console.log(`      ${d}: ${n} producers`);
+    console.log('  L2-G precedence (CHAIN-FV-L2G-CHECKER-PRECEDENCE-1):');
+    console.log(`      witness sidecar outranks a bare manifest output_schema block; ${rep.l2g_precedence.disagreement_producer_count} producer(s) report manifest-sidecar-domain-disagreement (neither side preferred)`);
   }
 
   if (reportPath) {

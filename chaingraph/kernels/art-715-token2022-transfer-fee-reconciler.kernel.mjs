@@ -36,7 +36,7 @@ const U128_MAX = (1n << 128n) - 1n;
 function parseU64(s) {
   if (typeof s !== 'string' || !/^[0-9]+$/.test(s)) return null;
   let v = 0n;
-  for (const ch of s) { v = v * 10n + BigInt(ch.charCodeAt(0) - 48); if (v > U64_MAX) return null; }
+  for (let __i = 0; __i < s.length; __i++) { const ch = s[__i]; v = v * 10n + BigInt(ch.charCodeAt(0) - 48); if (v > U64_MAX) return null; }
   return v;
 }
 function parseU16(s) {

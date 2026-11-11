@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // pin-clause-snapshot.mjs — SPEC.md §30.1/§30.2 (CLAUSE-DIGEST-GATE-1).
 //
-// The SOLE writer of chaingraph/standard/clause-snapshot-registry.json. Reads a LOCAL clause-level
+// The SOLE writer of the clause-snapshot registry (one file per digest under
+// chaingraph/standard/clause-snapshots/; legacy clause-snapshot-registry.json is read-only). Reads a LOCAL clause-level
 // snapshot excerpt file (typically saved under workspace-root research/clause-snapshots/ — never
 // this repo, since the excerpt may be copyrighted primary text), computes its sha256, and appends a
 // METADATA-ONLY entry to the registry: digest + locator. The retrieved text itself is NEVER written
@@ -24,7 +25,8 @@
 // Prints the resulting digest (paste it into a node's cited_clause_digest[] entry). Idempotent: a
 // digest already registered is reported, not duplicated.
 
-import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, statSync } from 'node:fs';
+import { loadRegistryUnion, addShard } from './clause-snapshot-store.mjs';
 import { createHash } from 'node:crypto';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -82,18 +84,14 @@ export function buildRegistryEntry(excerptBuf, meta) {
 }
 
 export function loadRegistry(path) {
-  if (!existsSync(path)) return [];
-  return JSON.parse(readFileSync(path, 'utf8'));
+  return loadRegistryUnion(path);
 }
 
+// CLAUSE-SNAPSHOT-SHARD-1: writes ONE new file chaingraph/standard/clause-snapshots/<hex>.json;
+// the legacy array file is never rewritten.
 export function appendToRegistry(path, entry) {
-  const registry = loadRegistry(path);
-  const existing = registry.find((r) => r.digest === entry.digest);
-  if (existing) return { registry, entry: existing, added: false };
-  registry.push(entry);
-  registry.sort((a, b) => a.digest.localeCompare(b.digest));
-  writeFileSync(path, JSON.stringify(registry, null, 2) + '\n');
-  return { registry, entry, added: true };
+  const { entry: stored, added } = addShard(path, entry);
+  return { registry: loadRegistryUnion(path), entry: stored, added };
 }
 
 function main() {
