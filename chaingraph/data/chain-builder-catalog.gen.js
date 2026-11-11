@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (732 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (733 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -8010,6 +8010,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-79-settlement-fail-predictor",
       "art-84-settlement-efficiency-kpi"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-805-agt-audit-chain-verifier",
+    "display_name": "Open-Source Agent-Governance Audit-Chain Verifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-805-agt-audit-chain-verifier.html",
+    "description": "Recomputes the hash chain of an exported agent-governance audit log offline, from the exported entries alone, and reports exactly where it b",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
