@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-131"]
+tags: ["compliance_control", "count-132"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-131 tool(s) in this mandate-type group:
+132 tool(s) in this mandate-type group:
 
 - [Corridor Cost Averages](../tools/787-corridor-cost-averages.md)
 - [Curator Vault Cap Auditor](../tools/792-curator-vault-cap-auditor.md)
@@ -143,3 +143,4 @@ status: stable
 - [Ucp Request Constraints](../tools/art-819-ucp-request-constraints.md)
 - [Authenticator Assurance Level Evaluator](../tools/art-826-authenticator-assurance-level.md)
 - [Omnibus Token Position Reconciliation](../tools/art-828-reconcile-omnibus-token-position.md)
+- [Receipt Export Envelopes](../tools/art-831-receipt-export-envelopes.md)
