@@ -27,6 +27,7 @@ import * as t795      from './795-stablecoin-refund-dispute.kernel.mjs';
 import * as t797      from './797-stablecoin-cash-equivalent-test.kernel.mjs';
 import * as t806      from './806-event-contract-terms-lint.kernel.mjs';
 import * as t808      from './808-lst-share-rate-reconciler.kernel.mjs';
+import * as t810      from './810-contract-bytecode-identity-verifier.kernel.mjs';
 import * as t812      from './812-eth-staking-queue.kernel.mjs';
 import * as t813      from './813-eth-staking-accounting.kernel.mjs';
 import * as t815      from './815-eth-fee-market.kernel.mjs';
@@ -766,6 +767,7 @@ export const KERNELS = {
   '797-stablecoin-cash-equivalent-test':                        t797,
   '806-event-contract-terms-lint':                              t806,
   '808-lst-share-rate-reconciler':                              t808,
+  '810-contract-bytecode-identity-verifier':                    t810,
   '812-eth-staking-queue':                                      t812,
   '813-eth-staking-accounting':                                 t813,
   '815-eth-fee-market':                                         t815,
