@@ -32,6 +32,7 @@ status: stable
 - [Stablecoin Cash Equivalent Test (FASB Proposed 2026-08)](./797-stablecoin-cash-equivalent-test.md)
 - [Event Contract Terms Lint](./806-event-contract-terms-lint.md)
 - [Liquid-Staking Share Rate Reconciler](./808-lst-share-rate-reconciler.md)
+- [Contract Bytecode Identity Verifier](./810-contract-bytecode-identity-verifier.md)
 - [Ethereum Validator Queue and Sweep Wait](./812-eth-staking-queue.md)
 - [Ethereum Epoch Accounting Recompute](./813-eth-staking-accounting.md)
 - [Ethereum Base Fee and Blob Base Fee Recompute](./815-eth-fee-market.md)
