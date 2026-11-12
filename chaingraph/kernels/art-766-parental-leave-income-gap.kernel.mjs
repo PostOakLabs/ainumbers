@@ -153,8 +153,7 @@ function refused(field, text) {
   throw err;
 }
 
-function num(pp, name, { integer = false } = {}) {
-  const v = pp[name];
+function num(v, name, { integer = false } = {}) {
   const d = DOMAINS[name];
   if (typeof v !== 'number' || !Number.isFinite(v)) refused(name.toUpperCase(), `${name} must be a finite number`);
   if (integer && !Number.isInteger(v)) refused(name.toUpperCase(), `${name} must be an integer`);
@@ -190,20 +189,20 @@ export const meta = {
 function computeFlat(pp) {
   if (!pp || typeof pp !== 'object') refused('INPUT', 'pp must be an object');
 
-  const baseSalary = num(pp, 'base_salary');
-  const taxRatePct = num(pp, 'tax_rate_pct');
-  const monthlyExpenses = num(pp, 'monthly_expenses');
-  const partnerIncome = num(pp, 'partner_income');
-  const savings = num(pp, 'savings');
-  const employerPaidWeeks = num(pp, 'employer_paid_weeks');
-  const employerPartialWeeks = num(pp, 'employer_partial_weeks');
-  const employerPartialPct = num(pp, 'employer_partial_pct');
+  const baseSalary = num(pp['base_salary'], 'base_salary');
+  const taxRatePct = num(pp['tax_rate_pct'], 'tax_rate_pct');
+  const monthlyExpenses = num(pp['monthly_expenses'], 'monthly_expenses');
+  const partnerIncome = num(pp['partner_income'], 'partner_income');
+  const savings = num(pp['savings'], 'savings');
+  const employerPaidWeeks = num(pp['employer_paid_weeks'], 'employer_paid_weeks');
+  const employerPartialWeeks = num(pp['employer_partial_weeks'], 'employer_partial_weeks');
+  const employerPartialPct = num(pp['employer_partial_pct'], 'employer_partial_pct');
   const stateProgram = pp.state_program;
   if (!STATE_PROGRAMS.includes(stateProgram)) refused('STATE_PROGRAM', `state_program=${JSON.stringify(stateProgram)} not in [${STATE_PROGRAMS.join(', ')}]`);
-  const statePflWeeks = num(pp, 'state_pfl_weeks');
-  const customPflRatePct = num(pp, 'custom_pfl_rate_pct');
-  const totalLeaveWeeks = num(pp, 'total_leave_weeks', { integer: true });
-  const babyExpense = num(pp, 'baby_expense');
+  const statePflWeeks = num(pp['state_pfl_weeks'], 'state_pfl_weeks');
+  const customPflRatePct = num(pp['custom_pfl_rate_pct'], 'custom_pfl_rate_pct');
+  const totalLeaveWeeks = num(pp['total_leave_weeks'], 'total_leave_weeks', { integer: true });
+  const babyExpense = num(pp['baby_expense'], 'baby_expense');
 
   const taxRate = taxRatePct / 100; // L331
   const employerPartialRate = employerPartialPct / 100; // L337
