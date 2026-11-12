@@ -6,7 +6,11 @@
 // only the trees are fixtures. Each case states the verdict it must reach; a case reaching the other
 // verdict fails the test, so the gate is proven able to say both RED and GREEN.
 
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, join } from 'node:path';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync, readdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { evaluateFreeze, parseAuthorizations, nodeNumber, isProven } from './check-proven-digest-freeze.mjs';
 import { computeStaleness } from './check-s18-digest-freshness.mjs';
@@ -109,6 +113,58 @@ const deferred = { tool_id: ID, status: 'live', gpu: false, compute_proof_ready:
 results.push(await run('deferred node edit passes', {
   base: deferred, head: deferred, baseSrc: KERNEL_V1, headSrc: KERNEL_V2,
 }, false));
+
+// Merge-commit citation controls. The merge queue squashes and drops merge-commit messages, so a
+// REPROVE-AUTHORIZED line living only in a merge commit must be refused on the PR too. These run the
+// gate's real CLI inside a temp git repo that carries a copy of the real scripts/ and kernel helpers.
+const tmp = mkdtempSync(join(tmpdir(), 'freeze-merges-'));
+const sh = (args, cwd = tmp) => {
+  const r = spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.invalid', '-c', 'commit.gpgsign=false', ...args], { cwd, encoding: 'utf8', env: gitEnv() });
+  if (r.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${r.stderr}`);
+  return r.stdout.trim();
+};
+const put = (rel, text) => { mkdirSync(dirname(join(tmp, rel)), { recursive: true }); writeFileSync(join(tmp, rel), text); };
+const shardRel = `chaingraph/graph/nodes/${ID}.json`;
+const kernelRel = `chaingraph/kernels/${ID}.kernel.mjs`;
+
+async function mergeCase(name, { mergeMsg, sideMsg }, expectRefused) {
+  rmSync(tmp, { recursive: true, force: true });
+  mkdirSync(tmp, { recursive: true });
+  sh(['init', '-q', '-b', 'main']);
+  cpSync(join(HERE), join(tmp, 'scripts'), { recursive: true });
+  for (const f of readdirSync(join(HERE, '..', 'chaingraph', 'kernels'))) {
+    if (f.startsWith('_') && f.endsWith('.mjs')) cpSync(join(HERE, '..', 'chaingraph', 'kernels', f), join(tmp, 'chaingraph', 'kernels', f));
+  }
+  put(shardRel, JSON.stringify(base));
+  put(kernelRel, KERNEL_V1);
+  put(AUDIT, 'fixture audit\n');
+  sh(['add', '-A']);
+  sh(['commit', '-q', '-m', 'base']);
+  const baseSha = sh(['rev-parse', 'HEAD']);
+  sh(['checkout', '-q', '-b', 'side']);
+  put('side.txt', 'side\n');
+  sh(['add', 'side.txt']);
+  sh(['commit', '-q', '-m', sideMsg]);
+  sh(['checkout', '-q', '-b', 'feature', baseSha]);
+  put(shardRel, JSON.stringify(await shard(KERNEL_V2)));
+  put(kernelRel, KERNEL_V2);
+  sh(['add', shardRel, kernelRel]);
+  sh(['commit', '-q', '-m', 'Fix rounding']);
+  sh(['merge', '-q', '--no-ff', 'side', '-m', mergeMsg]);
+  const r = spawnSync(process.execPath, [join(tmp, 'scripts', 'check-proven-digest-freeze.mjs'), '--base', baseSha], { cwd: tmp, encoding: 'utf8', env: { ...gitEnv(), PR_BODY: '' } });
+  const got = r.status !== 0;
+  const ok = got === expectRefused;
+  console.log(`${ok ? '✓' : '✗'} ${name}: ${got ? 'RED' : 'GREEN'} (expected ${expectRefused ? 'RED' : 'GREEN'})${ok ? '' : '\n' + r.stdout + r.stderr}`);
+  return ok;
+}
+
+const CITE = `REPROVE-AUTHORIZED: art-9001 ${AUDIT}#F-3`;
+try {
+  results.push(await mergeCase('citation only in a merge commit fails', { mergeMsg: `Merge side\n\n${CITE}\n`, sideMsg: 'side work' }, true));
+  results.push(await mergeCase('citation in a non-merge commit passes', { mergeMsg: 'Merge side', sideMsg: `side work\n\n${CITE}\n` }, false));
+} finally {
+  rmSync(tmp, { recursive: true, force: true });
+}
 
 // Helper controls.
 const helperOk = [

@@ -26,7 +26,9 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { copySandboxDeps, shortCircuitFixtureOracle, neutralizationTargets, decomposeMoneyMath, decomposedGateDecision, kernelTimeoutSecondsFromEnv, kernelTimeoutSecondsForKernel, runProcessBounded, findDetmathMarkerRange, surfaceSplitPatch, resolveSurfaceSplit, survivorLocations, assertSurvivorsComplete, buildJsonResult } from './run-mutation-tier.mjs';
+import { copySandboxDeps, shortCircuitFixtureOracle, neutralizationTargets, decomposeMoneyMath, decomposedGateDecision, kernelTimeoutSecondsFromEnv, kernelTimeoutSecondsForKernel, runProcessBounded, findDetmathMarkerRange, surfaceSplitPatch, resolveSurfaceSplit, survivorLocations, assertSurvivorsComplete, buildJsonResult, artifactConstRanges, tierOfMutantWithArtifact, tierReportWithArtifact, loadConfig } from './run-mutation-tier.mjs';
+import { mergeMutationSiblings, loadOriginalAuthorshipAllowlist } from './lib-per-kernel-config.mjs';
+import { classifyKernelSource, tierReport } from '../chaingraph/kernels/mutation-tier-split.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -364,8 +366,7 @@ const RATCHET_GREEN_1_TIMEOUT_KERNELS = [
 ];
 
 test('R15 the MUTATION-RATCHET-GREEN-1 batch: every entry in the REAL config is an integer bound 600 < v <= 1500 and resolves per kernel', () => {
-  const configPath = join(import.meta.dirname, '..', 'chaingraph', 'kernels', 'mutation-tiers.config.json');
-  const realConfig = JSON.parse(readFileSync(configPath, 'utf8'));
+  const realConfig = loadConfig(); // merges the per-kernel <id>.mutation.json siblings (PER-KERNEL-CONFIG-SHARD-1)
   const bounds = realConfig.kernelTimeoutSeconds || {};
   for (const id of RATCHET_GREEN_1_TIMEOUT_KERNELS) {
     const v = bounds[id];
@@ -506,9 +507,8 @@ test('R21 ART699 vendored kind: a stale sha256 or an out-of-source range fails L
 });
 
 test('R22 the real art-699 entry: config range+sha256 match the tracked kernel, and the tracked file carries no Stryker directive', () => {
-  const configPath = join(import.meta.dirname, '..', 'chaingraph', 'kernels', 'mutation-tiers.config.json');
   const kernelPath = join(import.meta.dirname, '..', 'chaingraph', 'kernels', 'art-699-x402-permit2-evidence-recomputer.kernel.mjs');
-  const config = JSON.parse(readFileSync(configPath, 'utf8'));
+  const config = loadConfig();
   const entry = config.mutateSurfaceSplits['art-699-x402-permit2-evidence-recomputer'];
   assert(entry && entry.kind === 'vendored', 'art-699 must carry a vendored mutateSurfaceSplits entry');
   const src = readFileSync(kernelPath, 'utf8');
@@ -660,6 +660,180 @@ test('R27 RED case: a Survived mutant missing from the survivors array fails LOU
     assert(threw.message.includes(dropped.id) && /MUTATION-SURVIVORS-JSON-1/.test(threw.message),
       `the failure must name the missing mutant id and the row:\n${threw.message}`);
   }
+});
+
+// ── artifact-only const tier (MUTATION-ARTIFACT-CONST-TIER-1, SO #41) ──────
+// A DECLARED metric-definition change: mutants inside a top-level const whose
+// every reference provably sits in artifact-building code (buildArtifact/meta,
+// never anything reachable from compute()) leave the money-math tier and
+// report in a THIRD tier, `artifact` — counted, never scored against any
+// floor. The classifier is PROOF-ONLY: every case it cannot decide keeps the
+// pre-change money-math classification (under-claiming is the safe
+// direction — the artifact tier can never hide a compute()-reachable mutant).
+
+console.log('\nrun-mutation-tier controls — artifact-only const tier (MUTATION-ARTIFACT-CONST-TIER-1)');
+
+// Fixture kernel, canonical shape, one line per array entry so line numbers
+// are countable below. Covers every decision the classifier makes:
+//   line 3  META_BADGE      — referenced only from meta (artifact root)
+//   line 5  ARTIFACT_ONLY   — referenced only from buildArtifact (artifact root)
+//   line 9  DEEP_ARTIFACT   — referenced only from ARTIFACT_CHAIN's initializer (fixpoint)
+//   line 10 ARTIFACT_CHAIN  — referenced only from buildArtifact
+//   line 11 COMPUTE_TABLE   — read by compute() → stays money-math
+//   line 12 HELPER_DATA     — referenced from a top-level helper's body → stays money-math
+//   line 14 EXPORTED_ARTIFACT — `export const`, referenced only from buildArtifact → DENIED (cross-file reachability is undecidable; art-376's `export const __test__` is the measured case)
+//   line 16 LOCAL_DEAD      — declared inside compute(), zero references → DENIED (a local, not a top-level const)
+const ART_KERNEL_LINES = [
+  "const TOOL_ID = 'fixture-id';",                                                                       // 1
+  "const TOOL_VERSION = '1.0.0';",                                                                       // 2
+  "const META_BADGE = { shape: 'round' };",                                                              // 3
+  "export const meta = { tool_id: TOOL_ID, tool_version: TOOL_VERSION, badge: META_BADGE };",            // 4
+  "const ARTIFACT_ONLY = {",                                                                             // 5
+  "  label: 'envelope-label',",                                                                          // 6
+  "  digest: 'sha256:abcdef',",                                                                          // 7
+  "};",                                                                                                  // 8
+  "const DEEP_ARTIFACT = { scale: 2 };",                                                                 // 9
+  "const ARTIFACT_CHAIN = { nested: DEEP_ARTIFACT };",                                                   // 10
+  "const COMPUTE_TABLE = [1, 2, 3];",                                                                    // 11
+  "const HELPER_DATA = { pad: 7 };",                                                                     // 12
+  "function padOut(x) { return x + HELPER_DATA.pad; }",                                                  // 13
+  "export const EXPORTED_ARTIFACT = { ev: 1 };",                                                         // 14
+  "export function compute(pp) {",                                                                       // 15
+  "  const LOCAL_DEAD = { z: 9 };",                                                                      // 16
+  "  return COMPUTE_TABLE[pp.i] + padOut(1);",                                                           // 17
+  "}",                                                                                                    // 18
+  "export function buildArtifact(x) {",                                                                  // 19
+  "  return { envelope: ARTIFACT_ONLY, chained: ARTIFACT_CHAIN, exported: EXPORTED_ARTIFACT };",         // 20
+  "}",                                                                                                    // 21
+];
+const ART_KERNEL = ART_KERNEL_LINES.join('\n') + '\n';
+const ART_KERNEL_REL = 'chaingraph/kernels/fixture-art.kernel.mjs';
+const { peripheralRanges: ART_PERIPHERAL } = classifyKernelSource(ART_KERNEL);
+const ART_MUTANT = (id, line, status) => ({ id, status, mutatorName: 'ObjectLiteral', location: { start: { line, column: 1 }, end: { line, column: 2 } } });
+// Stryker-report fixture: mutants at every decision line above. Artifact
+// lines (3, 6, 7, 9) carry only non-executed statuses (NoCoverage/Survived) —
+// artifact code is never run by the floors, the same shape the step-1
+// re-measure confirmed on art-348's live report.
+const ART_REPORT = { files: { [ART_KERNEL_REL]: { mutants: [
+  ART_MUTANT('a1', 3, 'NoCoverage'),   // META_BADGE decl → artifact
+  ART_MUTANT('a2', 6, 'Survived'),     // inside ARTIFACT_ONLY → artifact
+  ART_MUTANT('a3', 7, 'NoCoverage'),   // inside ARTIFACT_ONLY → artifact
+  ART_MUTANT('a4', 9, 'Survived'),     // DEEP_ARTIFACT decl → artifact
+  ART_MUTANT('m1', 11, 'Killed'),      // COMPUTE_TABLE → money-math
+  ART_MUTANT('m2', 14, 'NoCoverage'),  // EXPORTED_ARTIFACT → money-math (export denial)
+  ART_MUTANT('m3', 16, 'NoCoverage'),  // LOCAL_DEAD inside compute() → money-math
+  ART_MUTANT('m4', 17, 'Killed'),      // compute body → money-math
+  ART_MUTANT('m5', 13, 'Killed'),      // padOut helper body → money-math
+  ART_MUTANT('p1', 4, 'NoCoverage'),   // meta body → peripheral
+  ART_MUTANT('p2', 20, 'NoCoverage'),  // buildArtifact body → peripheral
+] } } };
+
+test('R28 artifactConstRanges grants EXACTLY the provably artifact-only consts — and denies every undecidable shape (proof-only, never a guess)', () => {
+  const { artifactConsts, artifactRanges } = artifactConstRanges(ART_KERNEL, ART_PERIPHERAL);
+  const granted = artifactConsts.map((c) => `${c.name}:${c.range[0]}-${c.range[1]}`).sort();
+  const expected = ['ARTIFACT_CHAIN:10-10', 'ARTIFACT_ONLY:5-8', 'DEEP_ARTIFACT:9-9', 'META_BADGE:3-3'];
+  assert(JSON.stringify(granted) === JSON.stringify(expected),
+    `granted set must be exactly ${expected.join(', ')} (meta-fed, buildArtifact-fed, and the fixpoint chain), got ${granted.join(', ')}`);
+  assert(artifactRanges.length === 4, `artifactRanges must carry the four granted ranges, got ${artifactRanges.length}`);
+  for (const denied of ['COMPUTE_TABLE', 'HELPER_DATA', 'EXPORTED_ARTIFACT', 'LOCAL_DEAD']) {
+    assert(!artifactConsts.some((c) => c.name === denied),
+      `${denied} must NEVER be granted artifact (compute-read / helper-read / exported / function-local) — granting it would hide real money-math`);
+  }
+});
+
+test('R29 RED/GREEN: the artifact tier takes ONLY the proven consts' + "' mutants; money-math keeps its kills and every other count is unchanged", () => {
+  const { artifactRanges } = artifactConstRanges(ART_KERNEL, ART_PERIPHERAL);
+  const before = tierReport(ART_REPORT, ART_KERNEL_REL, ART_PERIPHERAL);            // the pre-change classification
+  const after = tierReportWithArtifact(ART_REPORT, ART_KERNEL_REL, ART_PERIPHERAL, artifactRanges);
+  // GREEN shape: the four artifact lines moved; nothing else did.
+  assert(after.artifact.total === 4 && after.artifact.killed === 0,
+    `artifact bucket must hold exactly the 4 proven-const mutants (0 killed — never executed), got total ${after.artifact.total} killed ${after.artifact.killed}`);
+  assert(after.moneyMath.total === before.moneyMath.total - 4 && after.moneyMath.killed === before.moneyMath.killed,
+    `money-math must shrink by exactly the artifact count with kills unchanged: before ${before.moneyMath.killed}/${before.moneyMath.total}, after ${after.moneyMath.killed}/${after.moneyMath.total}`);
+  assert(after.moneyMath.score === 60 && before.moneyMath.score === 33.3,
+    `money-math score rises from 33.3% (3/9, artifact mutants in the denominator) to 60% (3/5) — got before ${before.moneyMath.score} after ${after.moneyMath.score}`);
+  assert(JSON.stringify(after.peripheral) === JSON.stringify(before.peripheral),
+    'peripheral must be byte-identical (artifact never steals from peripheral)');
+  // A const read by compute() stays money-math — the row's explicit case:
+  assert(tierOfMutantWithArtifact(ART_MUTANT('m1x', 11, 'Killed'), ART_KERNEL_REL, ART_KERNEL_REL, ART_PERIPHERAL, artifactRanges) === 'moneyMath',
+    'COMPUTE_TABLE (read by compute()) must stay money-math');
+  assert(tierOfMutantWithArtifact(ART_MUTANT('a1x', 6, 'Survived'), ART_KERNEL_REL, ART_KERNEL_REL, ART_PERIPHERAL, artifactRanges) === 'artifact',
+    'a mutant inside ARTIFACT_ONLY must classify artifact');
+});
+
+test('R30 survivorLocations labels artifact-tier survivors artifact and the completeness self-check still passes (every survivor present)', () => {
+  const { artifactRanges } = artifactConstRanges(ART_KERNEL, ART_PERIPHERAL);
+  const survivors = survivorLocations(ART_REPORT, ART_KERNEL_REL, ART_PERIPHERAL, artifactRanges);
+  const byId = Object.fromEntries(survivors.map((s) => [s.id, s]));
+  assert(byId.a1 && byId.a1.tier === 'artifact' && byId.a2 && byId.a2.tier === 'artifact' && byId.a4 && byId.a4.tier === 'artifact',
+    `artifact survivors (a1/a2/a4) must carry tier 'artifact', got ${survivors.filter((s) => s.tier === 'artifact').map((s) => s.id).join(',')}`);
+  assert(byId.m2 && byId.m2.tier === 'moneyMath' && byId.m3 && byId.m3.tier === 'moneyMath',
+    'denied-const survivors (m2 EXPORTED_ARTIFACT, m3 LOCAL_DEAD) stay moneyMath');
+  assert(byId.p1 && byId.p1.tier === 'peripheral', 'peripheral survivor keeps its tier');
+  assertSurvivorsComplete(ART_REPORT, survivors, ART_KERNEL_REL, ART_PERIPHERAL); // must not throw
+});
+
+test('R31 with no artifact ranges the classification is EXACTLY the pre-change tierReport plus an empty artifact bucket (default behavior unchanged)', () => {
+  const before = tierReport(ART_REPORT, ART_KERNEL_REL, ART_PERIPHERAL);
+  const after = tierReportWithArtifact(ART_REPORT, ART_KERNEL_REL, ART_PERIPHERAL);
+  assert(JSON.stringify(after.moneyMath) === JSON.stringify(before.moneyMath)
+    && JSON.stringify(after.peripheral) === JSON.stringify(before.peripheral)
+    && JSON.stringify(after.other) === JSON.stringify(before.other),
+    'an empty artifactRanges default must reclassify nothing');
+  assert(after.artifact.total === 0 && after.artifact.score === null, 'the empty artifact bucket reports zero');
+});
+
+// ── per-kernel sibling config (PER-KERNEL-CONFIG-SHARD-1) ────────────────
+// Per-kernel entries live in chaingraph/kernels/<id>.mutation.json and
+// <stem>.authorship.json. loadConfig() reads from the REAL checkout (repoRoot), not the
+// Stryker sandbox, so the siblings never need to be copied into a sandbox.
+
+console.log('\nrun-mutation-tier controls — per-kernel sibling config (PER-KERNEL-CONFIG-SHARD-1)');
+
+function siblingScratch(files, base = {}) {
+  const dir = mkdtempSync(join(tmpdir(), 'rmt-pkc-'));
+  cleanup.push(dir);
+  for (const [name, body] of Object.entries(files)) writeFileSync(join(dir, name), JSON.stringify(body));
+  return { dir, base };
+}
+
+test('R32 mergeMutationSiblings merges every sibling key into its map and leaves the base untouched', () => {
+  const { dir } = siblingScratch({
+    'k-a.mutation.json': { kernelTimeoutSeconds: 1234, hookSkip: 'why' },
+    'k-b.mutation.json': { namedLead: 'lead', excluded: 'shape' },
+  });
+  const base = { moneyMathBreakFloor: 60, kernelTimeoutSeconds: { 'k-z': 9 }, hookSkipKernels: { _comment: 'c' } };
+  const m = mergeMutationSiblings(base, dir);
+  assert(m.kernelTimeoutSeconds['k-a'] === 1234 && m.kernelTimeoutSeconds['k-z'] === 9, 'sibling timeout merged alongside the base entry');
+  assert(m.hookSkipKernels['k-a'] === 'why' && m.hookSkipKernels._comment === 'c', 'hookSkip merged, _comment kept');
+  assert(m.namedLeads['k-b'] === 'lead' && m.excludedKernels['k-b'] === 'shape', 'namedLead/excluded merged into maps absent from the base');
+  assert(m.moneyMathBreakFloor === 60 && !('k-a' in base.kernelTimeoutSeconds), 'shared keys carried, base not mutated');
+});
+
+test('R33 an id present in BOTH the legacy map and a sibling, or an unknown sibling key, is a loud refusal', () => {
+  const { dir } = siblingScratch({ 'k-a.mutation.json': { kernelTimeoutSeconds: 5 } });
+  let threw = null;
+  try { mergeMutationSiblings({ kernelTimeoutSeconds: { 'k-a': 7 } }, dir); } catch (e) { threw = e; }
+  assert(threw && /already present/.test(threw.message), `duplicate must be refused, got ${threw && threw.message}`);
+  const bad = siblingScratch({ 'k-b.mutation.json': { kernelTimeoutSecond: 5 } });
+  threw = null;
+  try { mergeMutationSiblings({}, bad.dir); } catch (e) { threw = e; }
+  assert(threw && /unknown key/.test(threw.message), `unknown key must be refused, got ${threw && threw.message}`);
+});
+
+test('R34 loadOriginalAuthorshipAllowlist keys a sibling as chaingraph/kernels/<stem>.mjs and refuses a duplicate legacy key', () => {
+  const root = mkdtempSync(join(tmpdir(), 'rmt-pkc-auth-'));
+  cleanup.push(root);
+  mkdirSync(join(root, 'scripts'), { recursive: true });
+  mkdirSync(join(root, 'chaingraph', 'kernels'), { recursive: true });
+  writeFileSync(join(root, 'scripts', 'original-authorship-bundle-allowlist.json'), JSON.stringify({ _README: { reason: 'r' } }));
+  writeFileSync(join(root, 'chaingraph', 'kernels', '_x.bundle.authorship.json'), JSON.stringify({ reason: 'original' }));
+  const a = loadOriginalAuthorshipAllowlist(root);
+  assert(a['chaingraph/kernels/_x.bundle.mjs'] && a['chaingraph/kernels/_x.bundle.mjs'].reason === 'original', `sibling must key to the bundle path, got ${Object.keys(a)}`);
+  writeFileSync(join(root, 'scripts', 'original-authorship-bundle-allowlist.json'), JSON.stringify({ 'chaingraph/kernels/_x.bundle.mjs': { reason: 'dup' } }));
+  let threw = null;
+  try { loadOriginalAuthorshipAllowlist(root); } catch (e) { threw = e; }
+  assert(threw && /already present/.test(threw.message), 'a duplicate legacy+sibling entry must be refused');
 });
 
 console.log(`\nrun-mutation-tier controls: ${passed} passed, ${failed} failed`);

@@ -1,0 +1,1151 @@
+<!-- AINumbers.co · CC BY 4.0 · Post Oak Labs -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Counterparty Limit and Concentration Screen · AINumbers.co</title>
+<meta name="description" content="For one counterparty book in millions of USD, check each counterparty against its approved aggregate limit and check the book against caller-declared single-name and sector concentration policy values.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/720-counterparty-limit-and-concentration-screen.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Counterparty Limit and Concentration Screen","url":"https://ainumbers.co/tools/720-counterparty-limit-and-concentration-screen.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<!-- manifest.json
+{
+  "ap2_export": true,
+  "audience": [
+    "risk",
+    "compliance",
+    "finance"
+  ],
+  "author": "PostOakLabs",
+  "category": "credit-risk",
+  "description": "For one counterparty book in millions of USD, check each counterparty against its approved aggregate limit and check the book against caller-declared single-name and sector concentration policy values. Concentration follows art-445 and the limit check follows art-446, with the same typed name used in both panels and the limit type fixed to aggregate for every row. HHI is shown on the 0 to 10000 scale. Runs entirely in the browser, zero network, zero storage, deterministic.",
+  "execution": {
+    "entry": "tools/720-counterparty-limit-and-concentration-screen.html",
+    "function_name": "runScreen",
+    "timeout_ms": 5000,
+    "type": "browser-javascript"
+  },
+  "input_schema": {
+    "properties": {
+      "counterparties": {
+        "description": "One row per counterparty: name, sector, exposure in millions of USD, approved limit in millions of USD, warning threshold percent",
+        "type": "array"
+      },
+      "sector_limit_pct": {
+        "description": "Caller-declared sector policy limit percent, default 25",
+        "type": "number"
+      },
+      "single_name_limit_pct": {
+        "description": "Caller-declared single-name policy limit percent, default 10",
+        "type": "number"
+      },
+      "top_n": {
+        "description": "Number of top names shown, default 5",
+        "type": "number"
+      }
+    },
+    "required": [
+      "counterparties"
+    ],
+    "type": "object"
+  },
+  "license": "CC-BY-4.0",
+  "mcp_tool_definition": {
+    "description": "Screens one counterparty book: per-counterparty aggregate limit status per art-446 and single-name and sector concentration per art-445, on a shared exposure list in millions of USD with caller-declared policy values.",
+    "inputSchema": {
+      "properties": {
+        "counterparties": {
+          "description": "Rows of name, sector, exposure in millions of USD, approved limit in millions of USD, warning threshold percent",
+          "type": "array"
+        },
+        "sector_limit_pct": {
+          "description": "Caller-declared sector policy limit percent",
+          "type": "number"
+        },
+        "single_name_limit_pct": {
+          "description": "Caller-declared single-name policy limit percent",
+          "type": "number"
+        },
+        "top_n": {
+          "description": "Number of top names shown",
+          "type": "number"
+        }
+      },
+      "required": [
+        "counterparties"
+      ],
+      "type": "object"
+    },
+    "name": "screen_counterparty_limits"
+  },
+  "output_schema": {
+    "properties": {
+      "limits": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "portfolio_total": {
+        "type": "number"
+      },
+      "sector_hhi": {
+        "type": "number"
+      },
+      "sector_totals": {
+        "type": "array"
+      },
+      "single_name_hhi": {
+        "type": "number"
+      },
+      "top_n_exposures": {
+        "type": "array"
+      }
+    },
+    "type": "object"
+  },
+  "tags": [
+    "counterparty",
+    "credit limit",
+    "concentration",
+    "HHI",
+    "sector",
+    "aggregate limit"
+  ],
+  "title": "Counterparty Limit and Concentration Screen",
+  "tool_id": "720-counterparty-limit-and-concentration-screen",
+  "version": "1.0.0"
+}
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+/* lang toggle removed — CONTRACT §1.1 (2026-06-09) */
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-trail{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-trail a{color:var(--body)}.nav-trail a:hover{color:var(--purple)}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-bc-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:.4rem}
+.nav-pill{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);border:1px solid var(--border);padding:.18rem .55rem;border-radius:3px;background:transparent;text-decoration:none;cursor:pointer;transition:all .2s}
+.nav-pill:hover{border-color:var(--teal);color:var(--teal)}.nav-sep{color:var(--border-2)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--purple)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero h1 em{font-style:italic;color:var(--purple-lt)}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+
+.last-reviewed::before{content:'⏱'}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--purple);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-purple{color:var(--purple);border-color:rgba(155,114,245,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+/* WEIGHTS PANEL */
+.weights-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem}
+.wp-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.wp-title{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.weights-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.75rem}
+@media(max-width:700px){.weights-grid{grid-template-columns:repeat(2,1fr)}}
+.weight-cell{display:flex;flex-direction:column;gap:.25rem}
+.weight-label{font-family:'JetBrains Mono',monospace;font-size:.46rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.weight-input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.35rem .5rem;border-radius:3px;outline:none;width:100%;transition:border-color .2s;-webkit-appearance:none}
+.weight-input:focus{border-color:var(--purple)}
+/* PROVIDER TABLE */
+.provider-table-wrap{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.5rem}
+.prov-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.prov-table th{font-family:'JetBrains Mono',monospace;font-size:.42rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .6rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;background:var(--bg-3);white-space:nowrap}
+.prov-table td{padding:.4rem .6rem;border-bottom:1px solid var(--border);vertical-align:middle}
+.prov-table tr:last-child td{border-bottom:none}
+.prov-table input{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.25rem .4rem;border-radius:3px;width:100%;outline:none;min-width:30px}
+.prov-table input:focus{border-color:var(--purple)}
+.del-btn{background:transparent;border:none;color:var(--muted);font-size:.85rem;padding:.15rem .35rem;transition:color .2s}
+.del-btn:hover{color:var(--red)}
+.add-row-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.3rem .75rem;border-radius:3px;transition:all .2s}
+.add-row-btn:hover{border-color:var(--purple);color:var(--purple)}
+.run-btn{background:var(--purple);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--purple-lt)}
+/* OUTPUT */
+.output-section{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--purple)}
+.out-body{padding:1.25rem}
+.result-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.result-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.result-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.result-table tr:last-child td{border-bottom:none}
+.result-table tr:hover td{background:var(--bg-3)}
+.result-table tr.winner-row td{background:rgba(155,114,245,.05)}
+.score-bar-wrap{display:flex;align-items:center;gap:.5rem}
+.score-bar-outer{flex:1;height:12px;background:var(--bg-3);border-radius:3px;overflow:hidden;max-width:100px}
+.score-bar-inner{height:100%;border-radius:3px}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.72rem;color:var(--body);line-height:1.8;white-space:pre-wrap}
+.copy-btn{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:1px solid var(--border);color:var(--muted);padding:.25rem .65rem;border-radius:3px;transition:all .2s}
+.copy-btn:hover{border-color:var(--purple);color:var(--purple)}
+/* ── Footer ─────────────────────────────────────────── */
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+/* Phase16-footer-css */
+/* ── NAV CTA ── */
+
+
+/* Phase17-nav-cta */
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+/* 5D-nav-bc-v1 */
+.hero-meta{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem;border:1px solid}
+.badge-privacy{color:var(--muted);border-color:var(--border)}
+.badge-privacy::before{content:'·';color:var(--green)}
+.badge-muted{color:var(--muted);border-color:var(--border)}
+.badge-warn{color:var(--warn);border-color:rgba(245,158,11,.3)}
+/* MCP section */
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+</style>
+<style>#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal,#14B8A6);color:var(--bright,#D4E8F8)}#ap2ExportBtn.ready:hover{background:var(--bg-4,#162340)}</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><span>T-720</span></div>
+</div></nav>
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Credit Risk · T720</div>
+  <h1 class="tool-title">Counterparty Limit and Concentration Screen</h1>
+  <p class="hero-desc">Enter one counterparty book and see, side by side, which counterparties breach their own approved limits and whether the book as a whole breaches single-name or sector concentration policy.</p>
+  <div class="hero-meta hero-badges">
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+<div class="tool-body"><div class="container">
+<div class="scope-note" style="background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8"><span style="font-weight:600">Scope and reliance:</span> <span data-i18n="pii.banner">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span> Embedded rates, thresholds, and regulatory citations are static reference values that may age; verify against current primary sources and your own data before relying on any output for commercial, legal, or compliance decisions. Deterministic logic · no inference · zero PII · runs offline · CC BY 4.0.</div>
+  <p>Enter one counterparty book. Each row carries one name, one sector, one exposure in millions of USD, one approved limit in millions of USD, and one warning threshold. The name typed in a row is used as both the concentration name and the limit-check name, so the two panels agree on identity. The limit type is aggregate for every row: the page accepts no per-row limit type, so mixed limit types cannot be summed into one portfolio total. Amounts are in millions of USD in both panels.</p>
+  <p>Sample book readings: Meridian Bank sits within its own limit while Banks breaches sector policy; Atlas Manufacturing breaches its own limit while its share and its sector stay within policy.</p>
+
+  <h2>Counterparty rows</h2>
+  <table class="prov-table" id="rowTable">
+    <thead><tr><th>Name</th><th>Sector</th><th>Exposure ($m)</th><th>Approved limit ($m)</th><th>Warning threshold (%)</th></tr></thead>
+    <tbody id="rowBody"></tbody>
+  </table>
+  <div style="display:flex;gap:1rem;margin:1rem 0">
+    <button class="add-row-btn" onclick="addRow()">+ Add row</button>
+    <button class="add-row-btn" onclick="loadSample()">Load sample book</button>
+  </div>
+
+  <h2>Policy values</h2>
+  <p>These are caller-declared policy values, editable here. They are the limits this page checks against. Regulatory large-exposure limits are art-425's question, and this page uses caller-declared policy values instead.</p>
+  <div class="weights-grid">
+    <div><label for="singleLimit">Single-name limit (%)</label><input class="weight-input" id="singleLimit" type="number" value="10" min="0" max="100" step="0.1"></div>
+    <div><label for="sectorLimit">Sector limit (%)</label><input class="weight-input" id="sectorLimit" type="number" value="25" min="0" max="100" step="0.1"></div>
+    <div><label for="topN">Top names shown</label><input class="weight-input" id="topN" type="number" value="5" min="1" max="50" step="1"></div>
+  </div>
+
+  <div style="display:flex;gap:1rem;margin:2rem 0">
+    <button class="run-btn" onclick="runScreen()">Run screen</button>
+  </div>
+
+  <div class="output-section" id="outputSection"></div>
+  <p class="disclaimer">A calculation check, not investment advice. The concentration panel follows art-445 and the limit panel follows art-446, using the figures typed above and the policy values shown.</p>
+
+</div></div>
+<section style="border-top:1px solid var(--border);margin-top:2.5rem;padding-bottom:1.5rem" id="mfstSec">
+  <div class="container">
+    <div style="padding-top:1.5rem">
+      <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+      <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+    </div>
+  </div>
+</section>
+<div class="container" style="margin-top:1.5rem;padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)"><button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the screen first to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">{} Export Policy Mandate</button> <button id="mdExportBtn" onclick="exportMarkdown()" disabled title="Run the screen first to generate a Markdown transcript" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s">Export Markdown</button></div>
+</div>
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+      <a href="../privacy.html">Privacy</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div></footer>
+<script>
+var MANIFEST = {
+  "ap2_export": true,
+  "audience": [
+    "risk",
+    "compliance",
+    "finance"
+  ],
+  "author": "PostOakLabs",
+  "category": "credit-risk",
+  "description": "For one counterparty book in millions of USD, check each counterparty against its approved aggregate limit and check the book against caller-declared single-name and sector concentration policy values. Concentration follows art-445 and the limit check follows art-446, with the same typed name used in both panels and the limit type fixed to aggregate for every row. HHI is shown on the 0 to 10000 scale. Runs entirely in the browser, zero network, zero storage, deterministic.",
+  "execution": {
+    "entry": "tools/720-counterparty-limit-and-concentration-screen.html",
+    "function_name": "runScreen",
+    "timeout_ms": 5000,
+    "type": "browser-javascript"
+  },
+  "input_schema": {
+    "properties": {
+      "counterparties": {
+        "description": "One row per counterparty: name, sector, exposure in millions of USD, approved limit in millions of USD, warning threshold percent",
+        "type": "array"
+      },
+      "sector_limit_pct": {
+        "description": "Caller-declared sector policy limit percent, default 25",
+        "type": "number"
+      },
+      "single_name_limit_pct": {
+        "description": "Caller-declared single-name policy limit percent, default 10",
+        "type": "number"
+      },
+      "top_n": {
+        "description": "Number of top names shown, default 5",
+        "type": "number"
+      }
+    },
+    "required": [
+      "counterparties"
+    ],
+    "type": "object"
+  },
+  "license": "CC-BY-4.0",
+  "mcp_tool_definition": {
+    "description": "Screens one counterparty book: per-counterparty aggregate limit status per art-446 and single-name and sector concentration per art-445, on a shared exposure list in millions of USD with caller-declared policy values.",
+    "inputSchema": {
+      "properties": {
+        "counterparties": {
+          "description": "Rows of name, sector, exposure in millions of USD, approved limit in millions of USD, warning threshold percent",
+          "type": "array"
+        },
+        "sector_limit_pct": {
+          "description": "Caller-declared sector policy limit percent",
+          "type": "number"
+        },
+        "single_name_limit_pct": {
+          "description": "Caller-declared single-name policy limit percent",
+          "type": "number"
+        },
+        "top_n": {
+          "description": "Number of top names shown",
+          "type": "number"
+        }
+      },
+      "required": [
+        "counterparties"
+      ],
+      "type": "object"
+    },
+    "name": "screen_counterparty_limits"
+  },
+  "output_schema": {
+    "properties": {
+      "limits": {
+        "items": {
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "portfolio_total": {
+        "type": "number"
+      },
+      "sector_hhi": {
+        "type": "number"
+      },
+      "sector_totals": {
+        "type": "array"
+      },
+      "single_name_hhi": {
+        "type": "number"
+      },
+      "top_n_exposures": {
+        "type": "array"
+      }
+    },
+    "type": "object"
+  },
+  "tags": [
+    "counterparty",
+    "credit limit",
+    "concentration",
+    "HHI",
+    "sector",
+    "aggregate limit"
+  ],
+  "title": "Counterparty Limit and Concentration Screen",
+  "tool_id": "720-counterparty-limit-and-concentration-screen",
+  "version": "1.0.0"
+};
+function g(v){var n=Number(v);return Number.isFinite(n)?n:0;}
+function r2(v){return Number.isFinite(v)?Math.round(v*100)/100:0;}
+function r2n(v){return (v===null||!Number.isFinite(v))?null:Math.round(v*100)/100;}
+function clampPct(v,def){var n=Number(v);n=Number.isFinite(n)?n:def;return Math.min(100,Math.max(0,n));}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+var rows=[];
+function addRow(name,sector,exp,lim,warn){rows.push({name:name||'',sector:sector||'',exp:exp==null?'':exp,lim:lim==null?'':lim,warn:warn==null?90:warn});renderRows();}
+function loadSample(){rows=[{name:'Meridian Bank',sector:'Banks',exp:200,lim:300,warn:90},{name:'Northgate Bank',sector:'Banks',exp:180,lim:250,warn:90},{name:'Beacon Bank',sector:'Banks',exp:160,lim:220,warn:90},{name:'Atlas Manufacturing',sector:'Manufacturing',exp:70,lim:60,warn:90},{name:'Keystone Manufacturing',sector:'Manufacturing',exp:90,lim:200,warn:90},{name:'Foundry Manufacturing',sector:'Manufacturing',exp:80,lim:200,warn:90},{name:'Harbor Retail',sector:'Retail',exp:120,lim:200,warn:90},{name:'Summit Retail',sector:'Retail',exp:110,lim:200,warn:90},{name:'Prairie Energy',sector:'Energy',exp:100,lim:200,warn:90},{name:'Tide Energy',sector:'Energy',exp:90,lim:200,warn:90},{name:'Cirrus Technology',sector:'Technology',exp:150,lim:300,warn:90},{name:'Vector Technology',sector:'Technology',exp:130,lim:300,warn:90}];renderRows();}
+function renderRows(){
+  var tb=document.getElementById('rowBody');if(!tb)return;var h='';
+  for(var i=0;i<rows.length;i++){
+    h+='<tr><td><input class="weight-input" data-r="'+i+'" data-f="name" value="'+esc(rows[i].name)+'"></td><td><input class="weight-input" data-r="'+i+'" data-f="sector" value="'+esc(rows[i].sector)+'"></td><td><input class="weight-input" type="number" step="any" data-r="'+i+'" data-f="exp" value="'+rows[i].exp+'"></td><td><input class="weight-input" type="number" step="any" data-r="'+i+'" data-f="lim" value="'+rows[i].lim+'"></td><td><input class="weight-input" type="number" step="any" data-r="'+i+'" data-f="warn" value="'+rows[i].warn+'"></td></tr>';
+  }
+  tb.innerHTML=h;
+  var ins=tb.querySelectorAll('input');for(var j=0;j<ins.length;j++){ins[j].addEventListener('input',function(ev){var el=ev.target;var r=Number(el.getAttribute('data-r'));var f=el.getAttribute('data-f');rows[r][f]=el.value;});}
+}
+function compute445(exposures,topN,singleLimit,sectorLimit){
+  var list=exposures.map(function(e){return {name:String(e.name||'').trim(),sector:String(e.sector||'').trim()||'unclassified',amount:g(e.amount)};}).filter(function(e){return e.name;});
+  var total=r2(list.reduce(function(s,e){return s+e.amount;},0));
+  var pctOf=function(a){return total>0?r2((a/total)*100):0;};
+  var withPct=list.map(function(e){return {name:e.name,sector:e.sector,amount:e.amount,pct_of_portfolio:pctOf(e.amount)};});
+  var sorted=withPct.slice().sort(function(a,b){return b.amount-a.amount;});
+  var top=sorted.slice(0,Math.max(0,Math.trunc(topN||5)));
+  var sm=new Map();for(var i=0;i<list.length;i++){sm.set(list[i].sector,(sm.get(list[i].sector)||0)+list[i].amount);}
+  var sectors=[];sm.forEach(function(amount,sector){sectors.push({sector:sector,amount:r2(amount),pct_of_portfolio:pctOf(amount)});});sectors.sort(function(a,b){return b.amount-a.amount;});
+  var hhi=function(shares){return r2(shares.reduce(function(s,x){return s+x*x;},0)*10000);};
+  var sHhi=total>0?hhi(list.map(function(e){return e.amount/total;})):0;
+  var secHhi=total>0?hhi(sectors.map(function(s){return s.amount/total;})):0;
+  var sBreaches=sorted.filter(function(e){return e.pct_of_portfolio>singleLimit;}).map(function(e){return {name:e.name,pct_of_portfolio:e.pct_of_portfolio};});
+  var secBreaches=sectors.filter(function(s){return s.pct_of_portfolio>sectorLimit;}).map(function(s){return {sector:s.sector,pct_of_portfolio:s.pct_of_portfolio};});
+  var flags=['CONC_CALCULATED'];if(total===0)flags.push('CONC_EMPTY_PORTFOLIO');if(sBreaches.length>0)flags.push('CONC_SINGLE_NAME_LIMIT_BREACH');if(secBreaches.length>0)flags.push('CONC_SECTOR_LIMIT_BREACH');
+  return {portfolio_total:total,top_n_exposures:top,sector_totals:sectors,single_name_hhi:sHhi,sector_hhi:secHhi,single_name_breaches:sBreaches,sector_breaches:secBreaches,worst_single_name:sorted.length?sorted[0].name:null,worst_sector:sectors.length?sectors[0].sector:null,flags:flags};
+}
+function compute446(list){
+  return list.map(function(cp){
+    var lim=Math.max(0,g(cp.approved_limit_musd));var cur=Math.max(0,g(cp.current_exposure_musd));var warn=clampPct(cp.warning_threshold_pct,90);
+    var util=lim>0?r2n((cur/lim)*100):null;var head=r2n(lim-cur);
+    var breached=cur>lim;var warned=!breached&&util!==null&&util>=warn;var status=breached?'BREACH':(warned?'WARNING':'WITHIN_LIMIT');
+    return {counterparty_name:cp.counterparty_name,limit_type:'aggregate',approved_limit_musd:r2n(lim),current_exposure_musd:r2n(cur),warning_threshold_pct:r2n(warn),utilization_pct:util,headroom_musd:head,status:status};
+  });
+}
+function runScreen(){
+  var singleLimit=g(document.getElementById('singleLimit').value)||10;var sectorLimit=g(document.getElementById('sectorLimit').value)||25;var topN=g(document.getElementById('topN').value)||5;
+  var exposures=rows.map(function(r){return {name:r.name,sector:r.sector,amount:r.exp};});
+  var c445=compute445(exposures,topN,singleLimit,sectorLimit);
+  var c446=compute446(rows.map(function(r){return {counterparty_name:r.name,approved_limit_musd:r.lim,current_exposure_musd:r.exp,warning_threshold_pct:r.warn};}));
+  var h='<h3>Portfolio total: $'+c445.portfolio_total.toFixed(2)+'m</h3>';
+  h+='<p>Single-name HHI: '+c445.single_name_hhi.toFixed(2)+' &nbsp; Sector HHI: '+c445.sector_hhi.toFixed(2)+' &nbsp; HHI scale: 0 to 10000, sum of squared portfolio shares times 10000.</p>';
+  if(c445.flags.indexOf('CONC_EMPTY_PORTFOLIO')>=0)h+='<p>Empty portfolio: total 0, lists empty.</p>';
+  h+='<h3>Top names</h3><table class="result-table"><thead><tr><th>Name</th><th>Sector</th><th>Exposure ($m)</th><th>Share (%)</th></tr></thead><tbody>';
+  for(var i=0;i<c445.top_n_exposures.length;i++){var t=c445.top_n_exposures[i];h+='<tr><td>'+esc(t.name)+'</td><td>'+esc(t.sector)+'</td><td>'+t.amount.toFixed(2)+'</td><td>'+t.pct_of_portfolio.toFixed(2)+'</td></tr>';}
+  h+='</tbody></table>';
+  h+='<h3>Sector totals</h3><table class="result-table"><thead><tr><th>Sector</th><th>Exposure ($m)</th><th>Share (%)</th></tr></thead><tbody>';
+  for(var j=0;j<c445.sector_totals.length;j++){var s=c445.sector_totals[j];h+='<tr><td>'+esc(s.sector)+'</td><td>'+s.amount.toFixed(2)+'</td><td>'+s.pct_of_portfolio.toFixed(2)+'</td></tr>';}
+  h+='</tbody></table>';
+  h+='<h3>Limit check, aggregate limit type for every row</h3><table class="result-table"><thead><tr><th>Name</th><th>Exposure ($m)</th><th>Approved limit ($m)</th><th>Utilization (%)</th><th>Headroom ($m)</th><th>Status</th></tr></thead><tbody>';
+  for(var k=0;k<c446.length;k++){var c=c446[k];h+='<tr><td>'+esc(c.counterparty_name)+'</td><td>'+(c.current_exposure_musd==null?'':c.current_exposure_musd.toFixed(2))+'</td><td>'+(c.approved_limit_musd==null?'':c.approved_limit_musd.toFixed(2))+'</td><td>'+(c.utilization_pct==null?'null':c.utilization_pct.toFixed(2))+'</td><td>'+(c.headroom_musd==null?'':c.headroom_musd.toFixed(2))+'</td><td>'+c.status+'</td></tr>';}
+  h+='</tbody></table>';
+  if(c445.single_name_breaches.length>0)h+='<p>Single-name policy breaches: '+c445.single_name_breaches.map(function(b){return esc(b.name)+' '+b.pct_of_portfolio.toFixed(2)+'%';}).join(', ')+'</p>';
+  if(c445.sector_breaches.length>0)h+='<p>Sector policy breaches: '+c445.sector_breaches.map(function(b){return esc(b.sector)+' '+b.pct_of_portfolio.toFixed(2)+'%';}).join(', ')+'</p>';
+  document.getElementById('outputSection').innerHTML=h;
+  window._lastResult={inputs:{rows:rows,single_name_limit_pct:singleLimit,sector_limit_pct:sectorLimit,top_n:topN},concentration:c445,limits:c446};
+  var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}
+  var mb=document.getElementById('mdExportBtn');if(mb){mb.disabled=false;mb.classList.add('ready');}
+}
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+window.AP2Schema.validate=function(m){
+  var RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  var RE_VER=/^\d+\.\d+/;
+  function f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')f('mandate must be an object');
+  if(!RE_UUID4.test(m.mandate_id||''))f('mandate_id must be UUIDv4');
+  if(typeof m.issued_at!=='string'||!m.issued_at)f('missing issued_at');
+  if(m.issued_by!=='ainumbers.co')f('issued_by must be ainumbers.co');
+  if(typeof m.tool_id!=='string'||!m.tool_id)f('missing tool_id');
+  if(typeof m.tool_version!=='string'||!RE_VER.test(m.tool_version))f('missing tool_version');
+  var types=['payment_policy','aml_rule','kyc_requirement','routing_policy','compliance_control','risk_parameter','credit_assessment','fx_policy','scheme_rule','disclosure_template','fee_schedule_mandate','velocity_rule_mandate','incident_classification_mandate','routing_policy_mandate','agent_guardrail_mandate'];
+  if(types.indexOf(m.mandate_type)<0)f('mandate_type outside section 3.1 set');
+  if(!Array.isArray(m.jurisdiction))f('jurisdiction must be array');
+  if(!Array.isArray(m.regulatory_frameworks))f('regulatory_frameworks must be array');
+  if(!m.payload||typeof m.payload!=='object')f('missing payload');
+  if(typeof m.summary!=='string'||!m.summary)f('missing summary');
+  if(!Array.isArray(m.agent_instructions))f('agent_instructions must be array');
+  if(typeof m.valid_from!=='string'||!m.valid_from)f('missing valid_from');
+  if(typeof m.valid_until!=='string'||!m.valid_until)f('missing valid_until');
+  if(typeof m.last_reviewed!=='string'||!m.last_reviewed)f('missing last_reviewed');
+  if(!m.source_tool_inputs||typeof m.source_tool_inputs!=='object')f('missing source_tool_inputs');
+  if(!Array.isArray(m.regulatory_citations))f('regulatory_citations must be array');
+  var am=m.audit_metadata;if(!am||am.client_side_executed!==true||am.zero_pii_verified!==true||am.deterministic_run!==true)f('audit_metadata flags must be true');
+  return true;
+};
+window.exportAP2=function(){
+  if(!window._lastResult){alert('Run the screen first to generate results.');return;}
+  var ts=new Date().toISOString();var tid=MANIFEST.tool_id;
+  var mandate={mandate_id:crypto.randomUUID(),issued_at:ts,issued_by:'ainumbers.co',tool_id:tid,tool_version:MANIFEST.version,mandate_type:'risk_parameter',jurisdiction:['ZZ'],regulatory_frameworks:[],payload:window._lastResult,summary:'Counterparty limit and concentration screen for one caller-supplied book in millions of USD, with caller-declared single-name and sector policy values.',agent_instructions:['Review the breach lists against the caller-declared policy values shown on the page.','Apply the limit statuses per your own internal governance.'],valid_from:ts.slice(0,10),valid_until:ts.slice(0,10),last_reviewed:ts.slice(0,10),source_tool_inputs:window._lastResult.inputs,regulatory_citations:[],audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+  window.AP2Schema.validate(mandate);
+  var json=JSON.stringify(mandate,null,2);var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));a.download=tid+'-policy-mandate.json';a.click();URL.revokeObjectURL(a.href);
+};
+window.exportMarkdown=function(){
+  if(!window._lastResult){alert('Run the screen first to generate results.');return;}
+  var r=window._lastResult;var lines=['# Counterparty limit and concentration screen','', 'Portfolio total: $'+r.concentration.portfolio_total.toFixed(2)+'m','Single-name HHI: '+r.concentration.single_name_hhi.toFixed(2),'Sector HHI: '+r.concentration.sector_hhi.toFixed(2),'','## Limit check',''];
+  for(var i=0;i<r.limits.length;i++){var c=r.limits[i];lines.push('- '+c.counterparty_name+': '+c.status+', utilization '+(c.utilization_pct==null?'null':c.utilization_pct.toFixed(2))+'%, headroom $'+(c.headroom_musd==null?'':c.headroom_musd.toFixed(2))+'m');}
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/markdown'}));a.download=MANIFEST.tool_id+'-results.md';a.click();URL.revokeObjectURL(a.href);
+};
+window.toggleMfst=function(){var b=document.getElementById('mfstBody');var c=document.getElementById('mfstCode');if(!b||!c)return;if(b.style.display==='block'){b.style.display='none';}else{c.textContent=JSON.stringify(MANIFEST,null,2);b.style.display='block';}};
+loadSample();
+
+</script>
+<script>window.AIN_BRIDGE_CFG={runFn:'runScreen',intake:false,intakeTarget:null,intakeAnchor:null,share:true};</script>
+<script>
+(function(){
+'use strict';
+/* Declared ONCE and read by both AINBridge.version and AINBridge.capabilities.version,
+   so the two can never disagree. scripts/sync-ain-bridge.mjs reads this literal to
+   decide the version it stamps onto a page's header comment and bridge_version
+   metadata — the master snippet is the only place a bridge version is authored. */
+var BRIDGE_VERSION='1.3';
+var CFG=window.AIN_BRIDGE_CFG||{};
+var L={
+ en:{pf:'Inputs prefilled from link — review, then Run',ran:'Inputs prefilled from link and executed',fields:'fields',it:'Import Policy Mandate (.policy.json)',drop:'Drop a .policy.json here, or',choose:'Choose file',paste:'Paste JSON',apply:'Apply',ok:'Policy Mandate imported from',bad:'Not a valid AINumbers Policy Mandate JSON'},
+ es:{pf:'Campos precargados desde el enlace — revise y ejecute',ran:'Campos precargados desde el enlace y ejecutados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Suelte un .policy.json aquí, o',choose:'Elegir archivo',paste:'Pegar JSON',apply:'Aplicar',ok:'Policy Mandate importado desde',bad:'JSON de Policy Mandate no válido'},
+ fr:{pf:'Champs préremplis depuis le lien — vérifiez puis exécutez',ran:'Champs préremplis depuis le lien et exécutés',fields:'champs',it:'Importer un Policy Mandate (.policy.json)',drop:'Déposez un .policy.json ici, ou',choose:'Choisir un fichier',paste:'Coller le JSON',apply:'Appliquer',ok:'Policy Mandate importé depuis',bad:'JSON Policy Mandate non valide'},
+ ar:{pf:'تم ملء الحقول مسبقًا من الرابط — راجع ثم شغّل',ran:'تم ملء الحقول من الرابط وتنفيذها',fields:'حقول',it:'استيراد Policy Mandate (.policy.json)',drop:'أسقط ملف ‎.policy.json هنا، أو',choose:'اختر ملفًا',paste:'لصق JSON',apply:'تطبيق',ok:'تم استيراد Policy Mandate من',bad:'JSON غير صالح لـ Policy Mandate'},
+ pt:{pf:'Campos pré-preenchidos a partir do link — revise e execute',ran:'Campos pré-preenchidos a partir do link e executados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Solte um .policy.json aqui, ou',choose:'Escolher arquivo',paste:'Colar JSON',apply:'Aplicar',ok:'Policy Mandate importado de',bad:'JSON de Policy Mandate inválido'},
+ zh:{pf:'已从链接预填输入 — 请检查后运行',ran:'已从链接预填并自动执行',fields:'个字段',it:'导入 Policy Mandate (.policy.json)',drop:'将 .policy.json 拖放到此处，或',choose:'选择文件',paste:'粘贴 JSON',apply:'应用',ok:'已导入 Policy Mandate，来源：',bad:'无效的 AINumbers Policy Mandate JSON'}
+};
+function t(k){return (L.en&&L.en[k])||k;}
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    var v=fields[id];
+    if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}
+    else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function anchorEl(){return (CFG.intakeAnchor&&document.querySelector(CFG.intakeAnchor))||document.querySelector('.pii-notice')||document.querySelector('.panel')||document.body.firstElementChild;}
+function notice(msg,kind){
+  var d=document.getElementById('ainBridgeNotice');
+  if(!d){d=document.createElement('div');d.id='ainBridgeNotice';
+    var a=document.getElementById('ainIntakeZone')||anchorEl();
+    if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}
+  d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));
+  d.textContent=msg;
+}
+function looksLikeMandate(o){return !!(o&&typeof o==='object'&&o.mandate_id&&o.tool_id&&('payload' in o));}
+function intakeApply(text){
+  var o;try{o=JSON.parse(text);}catch(e){notice('⚠ '+t('bad'),'warn');return 0;}
+  if(!looksLikeMandate(o)){notice('⚠ '+t('bad'),'warn');return 0;}
+  var n=0;
+  if(CFG.intakeTarget){var ta=document.getElementById(CFG.intakeTarget);
+    if(ta){ta.value=JSON.stringify(o,null,2);try{ta.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}n++;}}
+  if(o.payload&&typeof o.payload==='object')n+=applyFields(o.payload);
+  if(o.source_tool_inputs&&typeof o.source_tool_inputs==='object')n+=applyFields(o.source_tool_inputs);
+  notice((n>0?'📥 ':'⚠ ')+t('ok')+' '+(o.tool_id||'?')+' · '+n+' '+t('fields'),n>0?'ok':'warn');
+  return n;
+}
+function buildIntakeUI(){
+  if(!CFG.intake)return;
+  var a=anchorEl();if(!a||!a.parentNode)return;
+  var z=document.createElement('div');z.id='ainIntakeZone';
+  z.setAttribute('style','border:1px dashed #263855;border-radius:6px;padding:.7rem .9rem;margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.66rem;color:#6888A8;letter-spacing:.04em');
+  var lbl=document.createElement('div');lbl.textContent='📥 '+t('it');lbl.setAttribute('style','color:#A8C4DE;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.1em;font-size:.6rem');
+  var row=document.createElement('div');row.setAttribute('style','display:flex;gap:.6rem;align-items:center;flex-wrap:wrap');
+  var txt=document.createElement('span');txt.textContent=t('drop');
+  function mkBtn(label){var b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');return b;}
+  var bFile=mkBtn(t('choose')),bPaste=mkBtn(t('paste'));
+  var fi=document.createElement('input');fi.type='file';fi.accept='.json,application/json';fi.style.display='none';
+  fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];if(!f)return;var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);fi.value='';});
+  bFile.addEventListener('click',function(){fi.click();});
+  var pasteRow=document.createElement('div');pasteRow.style.display='none';pasteRow.setAttribute('style','display:none;margin-top:.6rem');
+  var ta=document.createElement('textarea');ta.rows=5;ta.spellcheck=false;ta.setAttribute('style','width:100%;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.64rem;padding:.5rem');
+  var bApply=mkBtn(t('apply'));bApply.style.marginTop='.4rem';
+  bApply.addEventListener('click',function(){if(ta.value.trim()){intakeApply(ta.value);ta.value='';pasteRow.style.display='none';}});
+  pasteRow.appendChild(ta);pasteRow.appendChild(bApply);
+  bPaste.addEventListener('click',function(){pasteRow.style.display=(pasteRow.style.display==='none')?'block':'none';if(pasteRow.style.display==='block')ta.focus();});
+  z.addEventListener('dragover',function(e){e.preventDefault();z.style.borderColor='#14B8A6';});
+  z.addEventListener('dragleave',function(){z.style.borderColor='#263855';});
+  z.addEventListener('drop',function(e){e.preventDefault();z.style.borderColor='#263855';var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f){var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);}});
+  row.appendChild(txt);row.appendChild(bFile);row.appendChild(bPaste);row.appendChild(fi);
+  z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);
+  a.parentNode.insertBefore(z,a);
+}
+/* ── SHARE LINK (BRIDGE-SHARE-FLAG-1, 2026-09-29) — off by default ───────────
+   Behind CFG.share===true. The button rebuilds this page's address with #in=
+   from the tool's current inputs: fragment only, clipboard only. Everything
+   after # never reaches a server, ours included; the button never calls
+   history.replaceState or pushState, never stores anything, and never makes a
+   network call. The collected field set is exactly what applyFields can write
+   back (same tag gate, keyed by id), minus file, password and hidden inputs,
+   so a shared link can only ever carry values this page's own prefill path
+   accepts. makeLink carries the encoding, so share and prefill can never
+   diverge on the wire shape. */
+function writableFields(){
+  var out={};var els=document.querySelectorAll('input[id],select[id],textarea[id]');
+  for(var i=0;i<els.length;i++){var el=els[i];
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')continue;
+    if(el.type==='file'||el.type==='password'||el.type==='hidden')continue;
+    out[el.id]=(el.type==='checkbox'||el.type==='radio')?!!el.checked:String(el.value);
+  }
+  return out;
+}
+/* Select-and-copy fallback for browsers without navigator.clipboard or when a
+   permission prompt is denied: off-screen textarea, select, execCommand. */
+function legacyCopy(text){
+  var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
+  ta.setAttribute('style','position:fixed;left:-9999px;top:0');
+  document.body.appendChild(ta);ta.focus();ta.select();
+  try{ta.setSelectionRange(0,text.length);}catch(e){}
+  var ok=false;try{ok=document.execCommand('copy');}catch(e){ok=false;}
+  document.body.removeChild(ta);return ok;
+}
+function copyShareLink(){
+  if(!window.AINBridge||typeof window.AINBridge.makeLink!=='function')return;
+  var link=window.AINBridge.makeLink(writableFields(),false);
+  if(link.length>HANDOFF_MAX_CHARS){notice('⚠ Too large to share ('+link.length+' chars).','warn');return;}
+  var report=function(ok){
+    if(ok){notice('🔗 Link copied. It reopens this tool with the same inputs. Share synthetic values only.','ok');return;}
+    notice('⚠ Copy failed. Select the link below and copy it.','warn');
+    var z=document.getElementById('ainShareZone');
+    if(!z)return;
+    var old=z.querySelector('input[data-ain-share-fallback]');
+    if(old)old.parentNode.removeChild(old);
+    var f=document.createElement('input');
+    f.type='text';f.setAttribute('readonly','');f.setAttribute('data-ain-share-fallback','');
+    f.setAttribute('style','display:inline-block;vertical-align:middle;box-sizing:border-box;max-width:100%;width:36rem;margin-left:.6rem;margin-top:.4rem;padding:.3rem .5rem;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.62rem');
+    f.value=link;
+    z.appendChild(f);
+    f.focus();f.select();
+    try{f.setSelectionRange(0,link.length);}catch(e){}
+  };
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(link).then(function(){report(true);},function(){report(legacyCopy(link));});}
+  else report(legacyCopy(link));
+}
+function buildShareUI(){
+  if(CFG.share!==true)return;
+  var a=anchorEl();if(!a||!a.parentNode)return;
+  var z=document.createElement('div');z.id='ainShareZone';
+  z.setAttribute('style','margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace');
+  var b=document.createElement('button');b.type='button';b.id='ainShareBtn';b.textContent='🔗 Copy share link';
+  b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');
+  b.addEventListener('click',copyShareLink);
+  z.appendChild(b);
+  a.parentNode.insertBefore(z,a);
+}
+/* ONE INTAKE PATH (BRIDGE-MCP-APPS-ALIGN-1, goal 1). The `#in=` deep link and the
+   host's ui/notifications/tool-input notification carry the SAME shape — a bare
+   id→value map, or {"fields":{...}} — so both feed this routine. The MCP leg gets
+   no second parser: a divergence between the two would be invisible on the page
+   and visible only to whichever host happened to send the other shape. */
+function intakeFieldObject(obj){
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  return applyFields(fields);
+}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var n=intakeFieldObject(obj);
+  if(n>0){
+    if(/[#&]run=1/.test(h)&&runTool())notice('⚡ '+t('ran')+' ('+n+' '+t('fields')+')','ok');
+    else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');
+  }
+  /* BRIDGE-SHARE-FLAG-1: a link that parsed but matches no field here must say
+     so — silence reads as "this tool accepted the link" to whoever shared it. */
+  else notice('⚠ This link had no fields matching this tool.','warn');
+}
+var HANDOFF_MAX_CHARS=2000000;
+/* ── AIN LEDGER LIVE CHANNEL v1: MESSAGE SCHEMA (B3/B4/B5) ────────────────────
+   This comment block is IDENTICAL in ledger/index.html and in
+   scripts/ain-bridge-v1.snippet.html. Change one, change both.
+
+   Transport: BroadcastChannel, name 'ain-ledger-v1'. Same-origin by
+   construction: a message only ever reaches a tab on the SAME origin, so the
+   channel carries nothing across an origin boundary. The ledger serves at BOTH
+   ainumbers.co/ledger/ (path form) and ledger.ainumbers.co (subdomain form);
+   only the path form shares an origin with a tool page, so the subdomain form
+   keeps today's fragment-only intake unchanged.
+
+   Envelope: JSON-RPC 2.0 in the MCP Apps ui/ dialect, the same envelope the AIN
+   Bridge postMessage leg carries. Both legs are notifications, so neither
+   carries an id and neither expects a JSON-RPC response object.
+
+   page to ledger:
+     {"jsonrpc":"2.0","method":"ui/notifications/receipt",
+      "params":{"v":1,"receipt":<OCG artifact>}}
+
+   ledger to page:
+     {"jsonrpc":"2.0","method":"ui/notifications/receipt-ack",
+      "params":{"v":1,"execution_hash":"<hash>",
+                "status":"added"|"duplicate"|"rejected"}}
+
+   Identity: a receipt's ledger identity is its execution_hash, the keyPath of
+   the artifact store. The ack deliberately does NOT use the name record_hash:
+   on this page record_hash already means the SPEC.md 22.8.4 escalation-record
+   hash, a different value over a different object.
+
+   params.receipt is validated exactly the way a #a=v1 fragment is, by the same
+   extractArtifact + isArtifact pair, and anything else acks 'rejected'. The
+   channel carries a receipt only, never a mandate body and never any other
+   payload: the same rule the fragment leg already follows.
+   ─────────────────────────────────────────────────────────────────────────── */
+var AIN_LEDGER_CHANNEL='ain-ledger-v1';
+var AIN_LEDGER_ACK_MS=2000;
+/* B3 origin guard. BroadcastChannel is same-origin, so a receipt can only reach a
+   ledger tab served from THIS origin, which is the path form ainumbers.co/ledger/.
+   Returns the ledger URL this page may live-update, or null when this origin has
+   no path-form ledger (ledger.ainumbers.co included: a different origin, whose
+   intake stays fragment-only). Pure: reads the origin it is handed, no globals. */
+function ainLedgerTarget(origin){
+  if(typeof origin!=='string'||!origin)return null;
+  var u;try{u=new URL(origin);}catch(e){return null;}
+  if(u.protocol!=='https:'&&u.protocol!=='http:')return null;
+  var h=u.hostname.toLowerCase();
+  if(h!=='ainumbers.co'&&h!=='localhost'&&h!=='127.0.0.1')return null;
+  return u.origin+'/ledger/';
+}
+function ainLedgerReceipt(receipt){
+  return {jsonrpc:'2.0',method:'ui/notifications/receipt',params:{v:1,receipt:receipt}};
+}
+function ainIsLedgerAck(msg){
+  if(!msg||typeof msg!=='object')return false;
+  if(msg.jsonrpc!=='2.0'||msg.method!=='ui/notifications/receipt-ack')return false;
+  var p=msg.params;
+  if(!p||typeof p!=='object'||p.v!==1)return false;
+  if(typeof p.execution_hash!=='string'&&p.execution_hash!==null)return false;
+  return p.status==='added'||p.status==='duplicate'||p.status==='rejected';
+}
+/* B3 send + B5 ack. Resolves with the ack params when a ledger tab answers inside
+   AIN_LEDGER_ACK_MS, else with null, so a page with no ledger tab open behaves
+   exactly as it did before this leg existed. */
+function ainLedgerSend(receipt,origin){
+  var target=ainLedgerTarget(origin||(typeof location!=='undefined'?location.origin:''));
+  if(!target||typeof BroadcastChannel!=='function')return Promise.resolve(null);
+  var ch;try{ch=new BroadcastChannel(AIN_LEDGER_CHANNEL);}catch(e){return Promise.resolve(null);}
+  return new Promise(function(resolve){
+    var done=false,timer=null;
+    function finish(v){if(done)return;done=true;if(timer)clearTimeout(timer);try{ch.close();}catch(e){}resolve(v);}
+    ch.onmessage=function(ev){if(ainIsLedgerAck(ev&&ev.data))finish(ev.data.params);};
+    try{ch.postMessage(ainLedgerReceipt(receipt));}catch(e){finish(null);return;}
+    timer=setTimeout(function(){finish(null);},AIN_LEDGER_ACK_MS);
+  });
+}
+function apSendToVerify(){
+  var m;try{m=window.AINBridge.getMandate();}catch(e){m=null;}
+  if(!m){notice('⚠ No Policy Mandate to send — run the tool first.','warn');return Promise.resolve(null);}
+  var json;try{json=JSON.stringify(m);}catch(e){notice('⚠ Could not serialize the mandate: '+e.message,'warn');return Promise.resolve(null);}
+  if(json.length>HANDOFF_MAX_CHARS){notice('⚠ Too large to hand off ('+json.length+' chars).','warn');return Promise.resolve(null);}
+  /* B3/B5: hand the receipt to an open ledger tab on this origin. Fired BEFORE
+     window.open so the user gesture is not spent waiting on the ack. With no
+     ledger tab open the promise resolves null and nothing on this page changes. */
+  var ledgerAck=ainLedgerSend(m).then(function(ack){
+    if(ack&&ack.status==='added')notice('🧾 Recorded in the open Ledger tab.','ok');
+    else if(ack&&ack.status==='duplicate')notice('🧾 Already recorded in the open Ledger tab.','ok');
+    return ack;
+  });
+  /* An MCP Apps host that answered ui/initialize is told, in its own transcript,
+     that a receipt now exists (BRIDGE-MCP-APPS-ALIGN-1, goal 1). Identifiers only
+     — mcpReceiptText never carries the mandate body. The same-origin verifier
+     handoff below is unchanged and happens either way. */
+  if(MCP.ready)mcpPost(mcpMessageRequest(mcpNextId(),mcpReceiptText(m)));
+  var target=new URL('../chaingraph/verify.html',window.location.href).href;
+  var win=window.open(target,'_blank');
+  if(!win){notice('⚠ The verifier window was blocked. Allow pop-ups for this site.','warn');return ledgerAck;}
+  var sent=false,timer=null;
+  function onReady(ev){
+    if(ev.origin!==window.location.origin)return;
+    if(ev.source!==win)return;
+    var d=ev.data;
+    if(!d||typeof d!=='object'||d.type!=='ain-handoff-ready/v1')return;
+    if(sent)return;sent=true;
+    window.removeEventListener('message',onReady);
+    if(timer)clearTimeout(timer);
+    win.postMessage({type:'ain-handoff/v1',kind:'policy-mandate',mandate:json},window.location.origin);
+    notice('➡ Sent to the Artifact Verifier in the new tab.','ok');
+  }
+  window.addEventListener('message',onReady);
+  notice('Opening the Artifact Verifier…','ok');
+  timer=setTimeout(function(){
+    if(sent)return;
+    window.removeEventListener('message',onReady);
+    notice('⚠ The verifier did not answer. Export the mandate and paste it in.','warn');
+  },10000);
+  return ledgerAck;
+}
+window.apSendToVerify=apSendToVerify;
+/* ══ MCP-APPS-JSONRPC v1 START ══════════════════════════════════════════════
+   BRIDGE-MCP-APPS-ALIGN-1. Primary text: MCP Apps specification 2026-01-26
+   (modelcontextprotocol/ext-apps, specification/2026-01-26/apps.mdx). Message
+   shapes quoted from it, direction as the spec labels them:
+
+     ui/initialize                    View→Host REQUEST
+         params {protocolVersion, clientInfo, appCapabilities}
+         result {protocolVersion, hostCapabilities, hostInfo, hostContext}
+     ui/notifications/initialized     View→Host notification, after that result
+     ui/message                       View→Host request
+         params {role:'user', content:{type:'text', text}}
+     ui/open-link                     View→Host request   params {url}
+     ui/request-display-mode          View→Host request   params {mode}
+     ui/update-model-context          View→Host request   params {content?, structuredContent?}
+     ui/notifications/size-changed    View→Host notification  params {width, height}
+     tools/call                       View→Host, proxied by the host to the server
+
+     ui/notifications/tool-input          Host→View  params {arguments}  at most once
+     ui/notifications/tool-input-partial  Host→View  params {arguments}  0..n, before tool-input
+     ui/notifications/tool-result         Host→View  params CallToolResult {content, structuredContent, _meta}
+     ui/notifications/tool-cancelled      Host→View  params {reason}
+     ui/notifications/host-context-changed Host→View params {hostContext}
+     ui/resource-teardown                 Host→View  REQUEST (carries an id), result {}
+
+   ui/notifications/sandbox-proxy-ready and ui/notifications/sandbox-resource-ready
+   are RESERVED for a web host's sandbox proxy (spec, "Reserved Messages (Sandbox
+   Proxy)"): a View neither sends nor receives them, so they are absent from both
+   lists by decision, not by oversight.
+
+   NOTHING IN THIS REGION MAY REFERENCE AN IDENTIFIER DECLARED OUTSIDE IT. The
+   routines are pure: scripts/ain-bridge-jsonrpc.test.mjs cuts the region out of
+   this file and evaluates it on its own, and scripts/check-bridge-jsonrpc.mjs
+   reads the two allowlists out of it and holds them to the spec list above.
+   ────────────────────────────────────────────────────────────────────────── */
+var MCP_PROTOCOL_VERSION='2026-01-26';
+/* Host→View: the methods this View ACCEPTS. Anything else with an id is answered
+   -32601 (JSON-RPC 2.0 "Method not found"); anything else without one is dropped,
+   because a notification has no reply channel to carry an error on. */
+var MCP_HOST_METHODS=[
+  'ui/notifications/tool-input',
+  'ui/notifications/tool-input-partial',
+  'ui/notifications/tool-result',
+  'ui/notifications/tool-cancelled',
+  'ui/notifications/host-context-changed',
+  'ui/resource-teardown'
+];
+/* View→Host: the methods this View may EMIT. A send outside this list is a bug in
+   the bridge, not a host problem, so mcpEnvelopeOut refuses it locally. */
+var MCP_VIEW_METHODS=[
+  'ui/initialize',
+  'ui/notifications/initialized',
+  'ui/message',
+  'ui/open-link',
+  'ui/request-display-mode',
+  'ui/update-model-context',
+  'ui/notifications/size-changed',
+  'tools/call'
+];
+/* ain-handoff/v1 alias table (goal 3) — kept for ONE snippet version so pages
+   rolled at different times interoperate; a later row deletes it. One line each,
+   naming the MCP method the legacy type corresponds to, or null where the legacy
+   leg has no MCP twin at all (getMandate is a composer pull; the spec has no
+   Host→View "give me your state" request, so it stays ain-handoff-only). */
+var MCP_LEGACY_ALIAS={
+  'ain:prefill':'ui/notifications/tool-input',
+  'ain:run':'ui/notifications/tool-input',
+  'ain:getMandate':null
+};
+function mcpNewState(){return {hostOrigin:null,ready:false,initId:null,nextId:2,hostCapabilities:null,hostInfo:null,hostContext:null};}
+/* 'request' | 'notification' | 'response' | null. null = not a JSON-RPC 2.0
+   envelope we can act on (this includes every ain-handoff/v1 message, which the
+   legacy listener owns). */
+function mcpEnvelopeKind(d){
+  if(!d||typeof d!=='object'||d.jsonrpc!=='2.0')return null;
+  if(typeof d.method==='string')return (d.id===undefined||d.id===null)?'notification':'request';
+  if(d.id!==undefined&&('result' in d||'error' in d))return 'response';
+  return null;
+}
+function mcpError(id,code,message){return {jsonrpc:'2.0',id:id,error:{code:code,message:message}};}
+function mcpOk(id,result){return {jsonrpc:'2.0',id:id,result:result};}
+/* Pure. The outbound envelope, or null when the method is not one this View is
+   allowed to emit. */
+function mcpEnvelopeOut(method,params,id){
+  if(MCP_VIEW_METHODS.indexOf(method)===-1)return null;
+  var env={jsonrpc:'2.0',method:method};
+  if(id!==undefined&&id!==null)env.id=id;
+  if(params!==undefined)env.params=params;
+  return env;
+}
+/* appCapabilities per the spec's McpUiAppCapabilities: `tools` is omitted because
+   the page exposes no MCP-style tools TO the host (its WebMCP registrations are a
+   different surface), and the B7 capabilities object rides in `experimental`,
+   whose structure the spec leaves open. */
+function mcpAppCapabilities(caps){
+  return {experimental:{ainBridge:caps||null},availableDisplayModes:['inline','fullscreen']};
+}
+function mcpInitRequest(id,caps,version){
+  return mcpEnvelopeOut('ui/initialize',{
+    protocolVersion:MCP_PROTOCOL_VERSION,
+    clientInfo:{name:'ainumbers-ain-bridge',version:String(version||'')},
+    appCapabilities:mcpAppCapabilities(caps)
+  },id);
+}
+function mcpInitializedNotification(){return mcpEnvelopeOut('ui/notifications/initialized',{});}
+/* Origin pinning. Before the handshake the host origin is unknown, so any origin
+   may carry the ui/initialize RESPONSE; from the moment that response lands, the
+   origin it came from is the only one this View will read or write. */
+function mcpOriginOk(state,origin){
+  if(state.hostOrigin===null)return true;
+  return origin===state.hostOrigin;
+}
+/* Pure. Consume the ui/initialize response: pin the origin, keep the host's own
+   three fields. Returns the ui/notifications/initialized envelope to send, or
+   null when this is not our pending handshake (or the host answered with an
+   error, in which case the View stays unpinned and un-ready). */
+function mcpAcceptInitResponse(state,d,origin){
+  if(state.ready)return null;
+  if(state.initId===null||d.id!==state.initId)return null;
+  if(d.error)return null;
+  var r=d.result||{};
+  state.hostOrigin=origin;
+  state.ready=true;
+  state.hostCapabilities=r.hostCapabilities||null;
+  state.hostInfo=r.hostInfo||null;
+  state.hostContext=r.hostContext||null;
+  return mcpInitializedNotification();
+}
+/* Pure. One line of text naming the receipt a Send to Verify just produced —
+   identifiers only, never the mandate body: ui/message content goes into the
+   host's chat transcript, and the payload can carry the user's own inputs. */
+function mcpReceiptText(mandate){
+  var m=mandate||{};
+  var bits=['AINumbers Policy Mandate ready to verify'];
+  if(m.mandate_id)bits.push('mandate '+m.mandate_id);
+  if(m.tool_id)bits.push('tool '+m.tool_id);
+  if(m.execution_hash)bits.push('execution_hash '+m.execution_hash);
+  return bits.join(' · ');
+}
+function mcpMessageRequest(id,text){
+  return mcpEnvelopeOut('ui/message',{role:'user',content:{type:'text',text:String(text)}},id);
+}
+/**
+ * Pure. Handle one Host→View envelope.
+ * deps: {applyArguments(args,complete), renderResult(callToolResult),
+ *        cancelled(reason), hostContextChanged(hostContext)} — every one
+ * optional; a missing dep means that leg is a no-op, never a throw.
+ * Returns {responses:[envelope...], handled:<method|null>, ignored:<reason|null>}.
+ */
+function mcpHandleHostMessage(state,d,origin,deps){
+  var out={responses:[],handled:null,ignored:null};
+  var kind=mcpEnvelopeKind(d);
+  if(kind===null||kind==='response'){out.ignored='not-a-host-message';return out;}
+  if(!mcpOriginOk(state,origin)){out.ignored='origin-not-pinned-host';return out;}
+  var method=d.method,params=d.params||{},fn;
+  if(MCP_HOST_METHODS.indexOf(method)===-1){
+    if(kind==='request')out.responses.push(mcpError(d.id,-32601,'Method not found: '+method));
+    out.ignored='method-not-allowlisted';
+    return out;
+  }
+  if(method==='ui/notifications/tool-input'||method==='ui/notifications/tool-input-partial'){
+    fn=deps&&deps.applyArguments;
+    if(fn)fn(params.arguments,method==='ui/notifications/tool-input');
+  }else if(method==='ui/notifications/tool-result'){
+    fn=deps&&deps.renderResult;
+    if(fn)fn(params);
+  }else if(method==='ui/notifications/tool-cancelled'){
+    fn=deps&&deps.cancelled;
+    if(fn)fn(params.reason);
+  }else if(method==='ui/notifications/host-context-changed'){
+    state.hostContext=params.hostContext||params||null;
+    fn=deps&&deps.hostContextChanged;
+    if(fn)fn(state.hostContext);
+  }else if(method==='ui/resource-teardown'){
+    /* Responded to WITHOUT work: the page holds no host-owned resource and no
+       unsaved state of the host's, so there is nothing to flush and nothing that
+       could make the host wait (the spec has it wait for this response). */
+    if(kind==='request')out.responses.push(mcpOk(d.id,{}));
+  }
+  out.handled=method;
+  return out;
+}
+/* ══ MCP-APPS-JSONRPC v1 END ═══════════════════════════════════════════════ */
+/* DOM wiring for the region above. Everything that touches window lives HERE, so
+   the region stays evaluable on its own. */
+var MCP=mcpNewState();
+/* Every post after the handshake goes through this: no host origin, no send. The
+   targetOrigin is the pinned origin, never a wildcard. */
+function mcpPost(env){
+  if(!MCP.hostOrigin)return false;
+  if(!env)return false;
+  try{window.parent.postMessage(env,MCP.hostOrigin);}catch(e){return false;}
+  return true;
+}
+/* The ONE pre-handshake send. The host's origin is unknowable until it answers
+   ui/initialize (a sandboxed View is not told who framed it), so this single
+   message is addressed with a wildcard and carries nothing but our capability
+   declaration — no page data. Every later send is mcpPost, pinned. */
+function mcpPostInit(env){
+  if(!env)return false;
+  try{window.parent.postMessage(env,MCP.hostOrigin||'*');}catch(e){return false;} /* PRE-HANDSHAKE-ORIGIN-OK: MCP.hostOrigin is null until ui/initialize answers */
+  return true;
+}
+function mcpSend(method,params,id){return mcpPost(mcpEnvelopeOut(method,params,id));}
+function mcpNextId(){return MCP.nextId++;}
+function mcpApplyArguments(args,complete){
+  var n=intakeFieldObject(args||{});
+  if(n>0)notice((complete?'🔗 ':'… ')+t('pf')+' ('+n+' '+t('fields')+')','ok');
+  return n;
+}
+/* The existing result hook, reused: a CallToolResult whose structuredContent is a
+   Policy Mandate goes through intakeApply — the same routine the 📥 import zone
+   and a dropped .policy.json use. Anything else is reported, not parsed. */
+function mcpRenderResult(res){
+  var r=res||{};
+  var sc=r.structuredContent;
+  if(looksLikeMandate(sc)){try{return intakeApply(JSON.stringify(sc));}catch(e){}}
+  if(sc&&typeof sc==='object'&&looksLikeMandate(sc.mandate)){try{return intakeApply(JSON.stringify(sc.mandate));}catch(e){}}
+  if(r.isError)notice('⚠ The host reported a tool error.','warn');
+  else notice('✓ Tool result received from the host.','ok');
+  return 0;
+}
+function mcpOnMessage(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  var d=e.data;
+  var kind=mcpEnvelopeKind(d);
+  if(kind===null)return; /* ain-handoff/v1 and everything else: onComposerMessage owns it */
+  if(kind==='response'){
+    var initialized=mcpAcceptInitResponse(MCP,d,e.origin);
+    if(initialized)mcpPost(initialized);
+    return;
+  }
+  var r=mcpHandleHostMessage(MCP,d,e.origin,{
+    applyArguments:mcpApplyArguments,
+    renderResult:mcpRenderResult,
+    cancelled:function(reason){notice('⚠ The host cancelled the tool call'+(reason?': '+reason:'.'),'warn');},
+    hostContextChanged:null
+  });
+  for(var i=0;i<r.responses.length;i++){
+    /* A -32601 or a teardown result before the handshake has nowhere pinned to
+       go; mcpPost refuses it rather than broadcasting. */
+    mcpPost(r.responses[i]);
+  }
+}
+function mcpBoot(){
+  if(window.parent===window)return false;
+  MCP.initId=1;
+  return mcpPostInit(mcpInitRequest(MCP.initId,window.AINBridge&&window.AINBridge.capabilities,BRIDGE_VERSION));
+}
+/* sessionRoot — COMPOSER-PLAN-AND-ROOT-WEBMCP-1. ONE ROUTINE LAW: the core below
+   is byte-identical to SESSION_ROOT_SOURCE in scripts/gen-webmcp-registrations.mjs
+   (emitted onto every chain composer page) and a port of the worker's
+   build_session_receipt (worker.mjs buildSessionReceiptCore). Asserted by
+   scripts/session-root-parity.test.mjs. Never re-derive the Merkle rule. */
+async function ainSessionRoot(executionHashes) {
+  if (!Array.isArray(executionHashes) || executionHashes.length === 0) throw new Error('execution_hashes must be a non-empty array.');
+  var normalize = function (h) { return String(h).replace(/^sha256:/, '').toLowerCase(); };
+  var level = executionHashes.map(normalize).map(function (h) { return 'sha256:' + h; });
+  var hashPair = async function (a, b) {
+    var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(normalize(a) + normalize(b)));
+    return 'sha256:' + Array.from(new Uint8Array(buf)).map(function (x) { return x.toString(16).padStart(2, '0'); }).join('');
+  };
+  while (level.length > 1) {
+    var next = [];
+    for (var i = 0; i < level.length; i += 2) {
+      var right = level[i + 1] !== undefined ? level[i + 1] : level[i]; // duplicate last leaf when odd
+      next.push(await hashPair(level[i], right));
+    }
+    level = next;
+  }
+  return level[0];
+}
+window.AINBridge={
+  version:BRIDGE_VERSION,
+  /* capabilities — B7 (BRIDGE-SNIPPET-SYNC-GEN-1). A feature-detect surface so an
+     agent can read what this page's bridge supports instead of probing it by
+     calling functions and watching them throw. Every flag is DERIVED from the
+     routine actually present in this closure, never hand-maintained: an older
+     page carrying an older copy of this block reports the truth about itself. */
+  capabilities:{
+    version:BRIDGE_VERSION,
+    prefill:typeof applyFields==='function',
+    mandate:typeof intakeApply==='function',
+    handoff:typeof onComposerMessage==='function',
+    sendToVerify:typeof apSendToVerify==='function',
+    sessionRoot:typeof ainSessionRoot==='function',
+    liveLedger:typeof ainLedgerSend==='function',
+    mcpApps:typeof mcpHandleHostMessage==='function',
+    /* BRIDGE-SHARE-FLAG-1: derived from the page's own config, not the routine's
+       presence — every rolled page carries copyShareLink, but only a page whose
+       CFG.share is true supports it. */
+    share:CFG.share===true
+  },
+  apply:applyFields,
+  run:runTool,
+  intake:intakeApply,
+  sendToVerify:apSendToVerify,
+  sessionRoot:ainSessionRoot,
+  ledgerSend:ainLedgerSend,
+  ledgerTarget:ainLedgerTarget,
+  /* MCP Apps View legs, so a page never hand-rolls a JSON-RPC envelope: every
+     send goes through the allowlist (mcpEnvelopeOut) and the pinned origin
+     (mcpPost). Reads of the host's own three fields are copies of state. */
+  mcp:{
+    ready:function(){return MCP.ready;},
+    host:function(){return {origin:MCP.hostOrigin,info:MCP.hostInfo,capabilities:MCP.hostCapabilities,context:MCP.hostContext};},
+    send:mcpSend,
+    message:function(text){return mcpPost(mcpMessageRequest(mcpNextId(),text));},
+    openLink:function(url){return mcpPost(mcpEnvelopeOut('ui/open-link',{url:String(url)},mcpNextId()));}
+  },
+  getMandate:function(){if(window._lastMandate)return window._lastMandate;if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return window._currentMandate||null;},
+  makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}
+};
+/* Named (was an inline anonymous listener) so capabilities.handoff can be derived
+   from the routine's presence rather than asserted. Function declarations hoist,
+   so the typeof test above is true at the moment AINBridge is assigned. */
+/* Reply target for the ain-handoff/v1 legs. Once a host has answered
+   ui/initialize, the pinned origin is the only address used — the wildcard
+   below can only be reached before any handshake, on an opaque-origin page
+   (file://), where a same-origin composer has no other addressable form. */
+function legacyTarget(e){
+  if(MCP.hostOrigin)return MCP.hostOrigin;
+  return (e.origin&&e.origin!=='null')?e.origin:'*'; /* PRE-HANDSHAKE-ORIGIN-OK: MCP.hostOrigin is null, opaque-origin composer */
+}
+function onComposerMessage(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
+  var ro=legacyTarget(e);
+  var d=e.data||{};
+  /* MCP_LEGACY_ALIAS (goal 3) names the ui/ method each of these three legacy
+     types corresponds to; the behaviour below is unchanged, so a page rolled to
+     v1.3 and a composer still speaking ain-handoff/v1 keep working together for
+     this one snippet version. A later row deletes the alias and this listener. */
+  if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
+  else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
+  else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}
+}
+window.addEventListener('message',onComposerMessage);
+window.addEventListener('message',mcpOnMessage);
+function boot(){buildIntakeUI();buildShareUI();initPrefill();mcpBoot();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+
+</body>
+</html>

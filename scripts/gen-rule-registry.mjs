@@ -50,6 +50,7 @@
  *   [--snapshot-root <dir>]  [--base-ref <ref>]
  */
 import { readFileSync, writeFileSync, readdirSync, existsSync, statSync, mkdirSync } from 'node:fs';
+import { loadRegistryUnion } from '../chaingraph/standard/clause-snapshot-store.mjs';
 import { createHash } from 'node:crypto';
 import { resolve, dirname, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -117,9 +118,8 @@ export function makeReadSnapshot(snapshotRoot) {
 }
 
 export function loadClauseRegistryDigests(path = CLAUSE_REGISTRY_PATH) {
-  if (!existsSync(path)) return new Set();
-  const arr = JSON.parse(readFileSync(path, 'utf8'));
-  return new Set(arr.map((r) => r.digest));
+  // CLAUSE-SNAPSHOT-SHARD-1: union of clause-snapshots/<hex>.json and the legacy array file.
+  return new Set(loadRegistryUnion(path).map((r) => r.digest));
 }
 
 // ── structural validation of one entry file ─────────────────────────────────────────────────────

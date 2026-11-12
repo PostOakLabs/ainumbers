@@ -57,10 +57,11 @@ function generatorSrc({ readsGraph, hasCheck }) {
   ].join('\n');
 }
 
-function ssotSrc(covered, excluded) {
+function ssotSrc(covered, excluded, rootGates) {
   return [
     'export const COVERED = ' + JSON.stringify(covered, null, 2) + ';',
     'export const EXCLUDED = ' + JSON.stringify(excluded, null, 2) + ';',
+    'export const DERIVED_ROOT_GATES = new Set(' + JSON.stringify(rootGates ?? []) + ');',
     '',
   ].join('\n');
 }
@@ -75,7 +76,7 @@ function preflightSrc(commands) {
   ].join('\n');
 }
 
-function buildRepo({ generators, covered, excluded, gateCommands }) {
+function buildRepo({ generators, covered, excluded, gateCommands, rootGates, readerAllowlist }) {
   const root = mkdtempSync(join(tmpdir(), 'fanout-fixture-'));
   mkdirSync(join(root, 'scripts'), { recursive: true });
   for (const [rel, opts] of Object.entries(generators)) {
@@ -83,13 +84,18 @@ function buildRepo({ generators, covered, excluded, gateCommands }) {
     writeFileSync(join(root, rel), generatorSrc(opts));
   }
   writeFileSync(join(root, 'scripts', 'preflight.mjs'), preflightSrc(gateCommands));
-  writeFileSync(join(root, 'scripts', 'derived-artifacts.mjs'), ssotSrc(covered, excluded));
+  writeFileSync(join(root, 'scripts', 'derived-artifacts.mjs'), ssotSrc(covered, excluded, rootGates));
+  if (readerAllowlist) {
+    writeFileSync(join(root, 'scripts', 'derived-reader-allowlist.json'), JSON.stringify(readerAllowlist));
+  }
   return root;
 }
 
-function runGate(root) {
+// `--allowlist-max` is the fixture-only override of the pinned ceiling (the real
+// run never passes it); each case states the ceiling it is proving.
+function runGate(root, allowlistMax = 0) {
   try {
-    const out = execFileSync(process.execPath, [GATE, '--repo', root], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    const out = execFileSync(process.execPath, [GATE, '--repo', root, '--allowlist-max', String(allowlistMax)], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
     return { code: 0, out };
   } catch (e) {
     return { code: e.status ?? 1, out: (e.stdout || '') + (e.stderr || '') };
@@ -144,7 +150,11 @@ cases.push({
     gateCommands: [`node ${GEN}`],
     covered: [],
     excluded: [],
+    // Out of the GENERATOR lint, but it IS a reader of the monolith: the reader
+    // lint below needs it decided, so it carries a reasoned allowlist entry.
+    readerAllowlist: { [`node ${GEN}`]: 'fixture reason: reads the committed monolith, PR-side stale' },
   },
+  max: 1,
 });
 
 // 5. no graph read ⇒ out of scope, green
@@ -204,10 +214,70 @@ cases.push({
   },
 });
 
+// ── DERIVED-READER-COVERAGE-1: the reader lint (text-based; see the gate header) ──
+// A fixture GATE that reads chaingraph.json but publishes no --check mode, so it
+// is out of the generator lint and only the reader lint can judge it.
+const RDR = 'scripts/check-fixture-reader.mjs';
+const RDR_CMD = `node ${RDR}`;
+const rdrRepo = (extra = {}) => ({
+  generators: { [RDR]: { readsGraph: true, hasCheck: false } },
+  gateCommands: [RDR_CMD],
+  covered: [],
+  excluded: [],
+  ...extra,
+});
+const REASON = 'fixture reason: reads the committed monolith, PR-side stale';
+
+// 10. RED  — reads chaingraph.json, in no membership list (the check-webmcp-chain-execute shape).
+cases.push({ name: 'reader of chaingraph.json in NO list (the MAIN-CHAIN-EXECUTE-HEAL-1 shape)', expect: 1, repo: rdrRepo() });
+// 11. GREEN — the same reader in DERIVED_ROOT_GATES.
+cases.push({ name: 'the same reader in DERIVED_ROOT_GATES', expect: 0, repo: rdrRepo({ rootGates: [RDR_CMD] }) });
+// 12. GREEN — the same reader as a COVERED entry's own freshness gate.
+cases.push({
+  name: 'the same reader as a COVERED entry\'s own gate',
+  expect: 0,
+  repo: rdrRepo({ covered: [{ id: 'fx', regen: 'node scripts/other-writer.mjs', gate: RDR_CMD, artifacts: ['x'] }] }),
+});
+// 13. GREEN — allowlisted with a reason, inside the ceiling.
+cases.push({ name: 'the same reader allowlisted with a reason', expect: 0, max: 1, repo: rdrRepo({ readerAllowlist: { [RDR_CMD]: REASON } }) });
+// 14. RED  — shrink-only: a NEW entry past the ceiling fails.
+cases.push({
+  name: 'a NEW allowlist entry past the ceiling (shrink-only)',
+  expect: 1,
+  max: 1,
+  // Two REAL uncovered readers, both allowlisted, ceiling 1: only the ceiling can fail it.
+  repo: rdrRepo({
+    generators: { [RDR]: { readsGraph: true, hasCheck: false }, 'scripts/check-fixture-reader-2.mjs': { readsGraph: true, hasCheck: false } },
+    gateCommands: [RDR_CMD, 'node scripts/check-fixture-reader-2.mjs'],
+    readerAllowlist: { [RDR_CMD]: REASON, 'node scripts/check-fixture-reader-2.mjs': REASON },
+  }),
+});
+// 15. RED  — an allowlist entry that is no longer an uncovered reader is stale.
+cases.push({
+  name: 'a STALE allowlist entry (the reader is now in DERIVED_ROOT_GATES)',
+  expect: 1,
+  max: 1,
+  repo: rdrRepo({ rootGates: [RDR_CMD], readerAllowlist: { [RDR_CMD]: REASON } }),
+});
+// 16. RED  — an allowlist entry with no real reason.
+cases.push({ name: 'an allowlist entry with no reason', expect: 1, max: 1, repo: rdrRepo({ readerAllowlist: { [RDR_CMD]: '' } }) });
+// 17. GREEN — a self-test invocation runs on its own fixtures, not the tree.
+cases.push({
+  name: 'a --self-test invocation of a reader is out of scope',
+  expect: 0,
+  repo: rdrRepo({ gateCommands: [`${RDR_CMD} --self-test`] }),
+});
+// 18. GREEN — a script that reads nothing derived is out of scope.
+cases.push({
+  name: 'a gate that reads no derived bytes',
+  expect: 0,
+  repo: rdrRepo({ generators: { [RDR]: { readsGraph: false, hasCheck: false } } }),
+});
+
 let failures = 0;
 for (const c of cases) {
   const root = buildRepo(c.repo);
-  const { code, out } = runGate(root);
+  const { code, out } = runGate(root, c.max ?? 0);
   const ok = code === c.expect;
   if (!ok) failures++;
   console.log(`  ${ok ? '✓' : '✗'} ${c.name} — expected exit ${c.expect}, got ${code}`);

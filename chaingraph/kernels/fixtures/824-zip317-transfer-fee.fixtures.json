@@ -1,0 +1,396 @@
+{
+  "tool_id": "824-zip317-transfer-fee",
+  "note": "Golden conformance vectors. Every expectation is hand-derived by integer arithmetic from the pinned fee-rule text (research/clause-snapshots/zcash-2026-11/zip-0317-fee-calculation.revision0.excerpt.txt, digest sha256:c41f471deb0f14566002700b575d26c8f25beefedb59d216a15494b13ae2a712): conventional_fee = 5000 * max(2, logical_actions), logical_actions = max(ceil(tx_in_total_size/150), ceil(tx_out_total_size/34)) + 2*n_joinsplit + max(n_spends_sapling, n_outputs_sapling) + n_actions_orchard. The pinned rule text ships NO worked examples (recorded in research/ZCASH-PIN-2026-11.md, items with no primary source #3), so there is no published worked example to cite; expectations are hand-derived from the formula and parameter table, not read off the kernel. Full output_payload recorded as the golden master for the fixture oracle.",
+  "vectors": [
+    {
+      "name": "two-orchard-actions-at-floor",
+      "note": "Two actions, no other pools: logical_actions 2 equals the grace window exactly, so the floor does not bind. Fee 5000 * 2 = 10000 zatoshi.",
+      "independent_oracle": {
+        "source": "Pinned fee-rule excerpt (research/clause-snapshots/zcash-2026-11/zip-0317-fee-calculation.revision0.excerpt.txt), formula and parameter table",
+        "source_digest": "sha256:c41f471deb0f14566002700b575d26c8f25beefedb59d216a15494b13ae2a712",
+        "derivation": "Hand-derived: transparent = max(ceil(0/150), ceil(0/34)) = 0; sprout = 2*0 = 0; sapling = max(0,0) = 0; orchard = 2. logical_actions = 2. conventional_fee = 5000 * max(2,2) = 10000 zatoshi. grace_applied false (logical_actions is not below 2).",
+        "expect": {
+          "verdict": "completed",
+          "conventional_fee_zatoshi": 10000,
+          "logical_actions": 2,
+          "contributions": {
+            "transparent": 0,
+            "sprout": 0,
+            "sapling": 0,
+            "orchard": 2
+          },
+          "grace_applied": false,
+          "manual_review_required": false,
+          "compliance_flags": []
+        }
+      },
+      "policy_parameters": {
+        "n_actions_orchard": 2
+      },
+      "output_payload": {
+        "verdict": "completed",
+        "conventional_fee_zatoshi": 10000,
+        "logical_actions": 2,
+        "contributions": {
+          "transparent": 0,
+          "sprout": 0,
+          "sapling": 0,
+          "orchard": 2
+        },
+        "applied": {
+          "marginal_fee_zatoshi": 5000,
+          "grace_actions": 2,
+          "grace_applied": false,
+          "revision": 0
+        },
+        "evidence": {
+          "record_type": "zip317_conventional_fee",
+          "tool_id": "824-zip317-transfer-fee",
+          "tool_version": "1.0.0",
+          "method": "declared_transaction_shape_recompute",
+          "fee_source": "published_conventional_formula",
+          "acceptance_not_stated": true,
+          "pii_carried": false,
+          "refused": false
+        },
+        "manual_review_required": false
+      },
+      "golden_hash": "e2d091e2983647e63ba6fc62dd037348ded67e727d25d4947c278e48885109e0"
+    },
+    {
+      "name": "transparent-one-input-two-outputs",
+      "note": "Transparent-only shape at the unit boundaries: one 150-byte input class, two 34-byte output classes. The larger ceil term (2 outputs) governs. Fee 10000 zatoshi.",
+      "independent_oracle": {
+        "source": "Pinned fee-rule excerpt (research/clause-snapshots/zcash-2026-11/zip-0317-fee-calculation.revision0.excerpt.txt), transparent contribution and parameter table",
+        "source_digest": "sha256:c41f471deb0f14566002700b575d26c8f25beefedb59d216a15494b13ae2a712",
+        "derivation": "Hand-derived: transparent = max(ceil(150/150), ceil(68/34)) = max(1, 2) = 2; other pools 0. logical_actions = 2. conventional_fee = 5000 * max(2,2) = 10000 zatoshi.",
+        "expect": {
+          "verdict": "completed",
+          "conventional_fee_zatoshi": 10000,
+          "logical_actions": 2,
+          "contributions": {
+            "transparent": 2,
+            "sprout": 0,
+            "sapling": 0,
+            "orchard": 0
+          },
+          "grace_applied": false,
+          "manual_review_required": false,
+          "compliance_flags": []
+        }
+      },
+      "policy_parameters": {
+        "tx_in_total_size": 150,
+        "tx_out_total_size": 68
+      },
+      "output_payload": {
+        "verdict": "completed",
+        "conventional_fee_zatoshi": 10000,
+        "logical_actions": 2,
+        "contributions": {
+          "transparent": 2,
+          "sprout": 0,
+          "sapling": 0,
+          "orchard": 0
+        },
+        "applied": {
+          "marginal_fee_zatoshi": 5000,
+          "grace_actions": 2,
+          "grace_applied": false,
+          "revision": 0
+        },
+        "evidence": {
+          "record_type": "zip317_conventional_fee",
+          "tool_id": "824-zip317-transfer-fee",
+          "tool_version": "1.0.0",
+          "method": "declared_transaction_shape_recompute",
+          "fee_source": "published_conventional_formula",
+          "acceptance_not_stated": true,
+          "pii_carried": false,
+          "refused": false
+        },
+        "manual_review_required": false
+      },
+      "golden_hash": "829cad427188175f313d8e730a6b9026c629ce67ada378fbb1565cd3dcc5d42b"
+    },
+    {
+      "name": "sapling-three-spends-one-output",
+      "note": "Sapling contributes max(spends, outputs) = max(3, 1) = 3; the fee scales above the grace floor. Fee 15000 zatoshi.",
+      "independent_oracle": {
+        "source": "Pinned fee-rule excerpt (research/clause-snapshots/zcash-2026-11/zip-0317-fee-calculation.revision0.excerpt.txt), Sapling contribution",
+        "source_digest": "sha256:c41f471deb0f14566002700b575d26c8f25beefedb59d216a15494b13ae2a712",
+        "derivation": "Hand-derived: sapling = max(3, 1) = 3; other pools 0. logical_actions = 3. conventional_fee = 5000 * max(2,3) = 15000 zatoshi.",
+        "expect": {
+          "verdict": "completed",
+          "conventional_fee_zatoshi": 15000,
+          "logical_actions": 3,
+          "contributions": {
+            "transparent": 0,
+            "sprout": 0,
+            "sapling": 3,
+            "orchard": 0
+          },
+          "grace_applied": false,
+          "manual_review_required": false,
+          "compliance_flags": []
+        }
+      },
+      "policy_parameters": {
+        "n_spends_sapling": 3,
+        "n_outputs_sapling": 1
+      },
+      "output_payload": {
+        "verdict": "completed",
+        "conventional_fee_zatoshi": 15000,
+        "logical_actions": 3,
+        "contributions": {
+          "transparent": 0,
+          "sprout": 0,
+          "sapling": 3,
+          "orchard": 0
+        },
+        "applied": {
+          "marginal_fee_zatoshi": 5000,
+          "grace_actions": 2,
+          "grace_applied": false,
+          "revision": 0
+        },
+        "evidence": {
+          "record_type": "zip317_conventional_fee",
+          "tool_id": "824-zip317-transfer-fee",
+          "tool_version": "1.0.0",
+          "method": "declared_transaction_shape_recompute",
+          "fee_source": "published_conventional_formula",
+          "acceptance_not_stated": true,
+          "pii_carried": false,
+          "refused": false
+        },
+        "manual_review_required": false
+      },
+      "golden_hash": "c4cc9417660d70d64a4c0045f90db483c70c5d2b3233623083b117339baa18c3"
+    },
+    {
+      "name": "mixed-pools-all-four",
+      "note": "All four active pools populated: transparent max(ceil(300/150), ceil(34/34)) = 2, sprout 2*1 = 2, sapling max(1,2) = 2, orchard 1. Sum 7. Fee 35000 zatoshi.",
+      "independent_oracle": {
+        "source": "Pinned fee-rule excerpt (research/clause-snapshots/zcash-2026-11/zip-0317-fee-calculation.revision0.excerpt.txt), all Revision-0 contributions",
+        "source_digest": "sha256:c41f471deb0f14566002700b575d26c8f25beefedb59d216a15494b13ae2a712",
+        "derivation": "Hand-derived: transparent = max(ceil(300/150), ceil(34/34)) = max(2,1) = 2; sprout = 2*1 = 2; sapling = max(1,2) = 2; orchard = 1. logical_actions = 2+2+2+1 = 7. conventional_fee = 5000 * max(2,7) = 35000 zatoshi.",
+        "expect": {
+          "verdict": "completed",
+          "conventional_fee_zatoshi": 35000,
+          "logical_actions": 7,
+          "contributions": {
+            "transparent": 2,
+            "sprout": 2,
+            "sapling": 2,
+            "orchard": 1
+          },
+          "grace_applied": false,
+          "manual_review_required": false,
+          "compliance_flags": []
+        }
+      },
+      "policy_parameters": {
+        "tx_in_total_size": 300,
+        "tx_out_total_size": 34,
+        "n_joinsplit": 1,
+        "n_spends_sapling": 1,
+        "n_outputs_sapling": 2,
+        "n_actions_orchard": 1
+      },
+      "output_payload": {
+        "verdict": "completed",
+        "conventional_fee_zatoshi": 35000,
+        "logical_actions": 7,
+        "contributions": {
+          "transparent": 2,
+          "sprout": 2,
+          "sapling": 2,
+          "orchard": 1
+        },
+        "applied": {
+          "marginal_fee_zatoshi": 5000,
+          "grace_actions": 2,
+          "grace_applied": false,
+          "revision": 0
+        },
+        "evidence": {
+          "record_type": "zip317_conventional_fee",
+          "tool_id": "824-zip317-transfer-fee",
+          "tool_version": "1.0.0",
+          "method": "declared_transaction_shape_recompute",
+          "fee_source": "published_conventional_formula",
+          "acceptance_not_stated": true,
+          "pii_carried": false,
+          "refused": false
+        },
+        "manual_review_required": false
+      },
+      "golden_hash": "bc65d5a7287a702013d3c9ce41c98d7f9f6596449a99c29c7b1eaf635b2a8632"
+    },
+    {
+      "name": "empty-shape-grace-floor-binds",
+      "note": "Empty declared shape: logical_actions 0, the two-action grace floor binds. Fee 5000 * 2 = 10000 zatoshi, grace_applied true.",
+      "independent_oracle": {
+        "source": "Pinned fee-rule excerpt (research/clause-snapshots/zcash-2026-11/zip-0317-fee-calculation.revision0.excerpt.txt), formula with the grace window",
+        "source_digest": "sha256:c41f471deb0f14566002700b575d26c8f25beefedb59d216a15494b13ae2a712",
+        "derivation": "Hand-derived: all pools 0, logical_actions = 0. conventional_fee = 5000 * max(2,0) = 10000 zatoshi. The grace window binds because logical_actions is below 2.",
+        "expect": {
+          "verdict": "completed",
+          "conventional_fee_zatoshi": 10000,
+          "logical_actions": 0,
+          "contributions": {
+            "transparent": 0,
+            "sprout": 0,
+            "sapling": 0,
+            "orchard": 0
+          },
+          "grace_applied": true,
+          "manual_review_required": false,
+          "compliance_flags": []
+        }
+      },
+      "policy_parameters": {},
+      "output_payload": {
+        "verdict": "completed",
+        "conventional_fee_zatoshi": 10000,
+        "logical_actions": 0,
+        "contributions": {
+          "transparent": 0,
+          "sprout": 0,
+          "sapling": 0,
+          "orchard": 0
+        },
+        "applied": {
+          "marginal_fee_zatoshi": 5000,
+          "grace_actions": 2,
+          "grace_applied": true,
+          "revision": 0
+        },
+        "evidence": {
+          "record_type": "zip317_conventional_fee",
+          "tool_id": "824-zip317-transfer-fee",
+          "tool_version": "1.0.0",
+          "method": "declared_transaction_shape_recompute",
+          "fee_source": "published_conventional_formula",
+          "acceptance_not_stated": true,
+          "pii_carried": false,
+          "refused": false
+        },
+        "manual_review_required": false
+      },
+      "golden_hash": "ecd5e48340dfc1cab00886b64c66498cd964b6ab9a7f48f18727f7f6439dc198"
+    },
+    {
+      "name": "sprout-two-joinsplits",
+      "note": "Sprout doubles each JoinSplit: 2 * 2 = 4 logical actions. Fee 20000 zatoshi.",
+      "independent_oracle": {
+        "source": "Pinned fee-rule excerpt (research/clause-snapshots/zcash-2026-11/zip-0317-fee-calculation.revision0.excerpt.txt), Sprout contribution",
+        "source_digest": "sha256:c41f471deb0f14566002700b575d26c8f25beefedb59d216a15494b13ae2a712",
+        "derivation": "Hand-derived: sprout = 2 * 2 = 4; other pools 0. logical_actions = 4. conventional_fee = 5000 * max(2,4) = 20000 zatoshi.",
+        "expect": {
+          "verdict": "completed",
+          "conventional_fee_zatoshi": 20000,
+          "logical_actions": 4,
+          "contributions": {
+            "transparent": 0,
+            "sprout": 4,
+            "sapling": 0,
+            "orchard": 0
+          },
+          "grace_applied": false,
+          "manual_review_required": false,
+          "compliance_flags": []
+        }
+      },
+      "policy_parameters": {
+        "n_joinsplit": 2
+      },
+      "output_payload": {
+        "verdict": "completed",
+        "conventional_fee_zatoshi": 20000,
+        "logical_actions": 4,
+        "contributions": {
+          "transparent": 0,
+          "sprout": 4,
+          "sapling": 0,
+          "orchard": 0
+        },
+        "applied": {
+          "marginal_fee_zatoshi": 5000,
+          "grace_actions": 2,
+          "grace_applied": false,
+          "revision": 0
+        },
+        "evidence": {
+          "record_type": "zip317_conventional_fee",
+          "tool_id": "824-zip317-transfer-fee",
+          "tool_version": "1.0.0",
+          "method": "declared_transaction_shape_recompute",
+          "fee_source": "published_conventional_formula",
+          "acceptance_not_stated": true,
+          "pii_carried": false,
+          "refused": false
+        },
+        "manual_review_required": false
+      },
+      "golden_hash": "10536960c49184c67f440a679cc91bd02bb843a1001401d54edc2680d068162b"
+    },
+    {
+      "name": "transparent-size-roundup-boundary",
+      "note": "Ceiling boundary: a 151-byte input total exceeds one 150-byte unit by one byte and rounds up to 2. Fee 10000 zatoshi.",
+      "independent_oracle": {
+        "source": "Pinned fee-rule excerpt (research/clause-snapshots/zcash-2026-11/zip-0317-fee-calculation.revision0.excerpt.txt), transparent ceiling division",
+        "source_digest": "sha256:c41f471deb0f14566002700b575d26c8f25beefedb59d216a15494b13ae2a712",
+        "derivation": "Hand-derived: transparent = max(ceil(151/150), ceil(0/34)) = max(2, 0) = 2; other pools 0. logical_actions = 2. conventional_fee = 5000 * max(2,2) = 10000 zatoshi.",
+        "expect": {
+          "verdict": "completed",
+          "conventional_fee_zatoshi": 10000,
+          "logical_actions": 2,
+          "contributions": {
+            "transparent": 2,
+            "sprout": 0,
+            "sapling": 0,
+            "orchard": 0
+          },
+          "grace_applied": false,
+          "manual_review_required": false,
+          "compliance_flags": []
+        }
+      },
+      "policy_parameters": {
+        "tx_in_total_size": 151
+      },
+      "output_payload": {
+        "verdict": "completed",
+        "conventional_fee_zatoshi": 10000,
+        "logical_actions": 2,
+        "contributions": {
+          "transparent": 2,
+          "sprout": 0,
+          "sapling": 0,
+          "orchard": 0
+        },
+        "applied": {
+          "marginal_fee_zatoshi": 5000,
+          "grace_actions": 2,
+          "grace_applied": false,
+          "revision": 0
+        },
+        "evidence": {
+          "record_type": "zip317_conventional_fee",
+          "tool_id": "824-zip317-transfer-fee",
+          "tool_version": "1.0.0",
+          "method": "declared_transaction_shape_recompute",
+          "fee_source": "published_conventional_formula",
+          "acceptance_not_stated": true,
+          "pii_carried": false,
+          "refused": false
+        },
+        "manual_review_required": false
+      },
+      "golden_hash": "45b78f3fcefceb89d028244adb7d433bbd86ddf9043d583eb1ff1a6c52b21e2e"
+    }
+  ]
+}
