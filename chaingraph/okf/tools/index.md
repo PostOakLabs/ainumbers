@@ -686,6 +686,7 @@ status: stable
 - [Total Cost of Homeownership](./art-770-total-cost-of-homeownership.md) — `total_cost_of_homeownership`
 - [Automation Payback](./art-771-automation-payback.md) — `compute_automation_payback`
 - [Money Primitives Demonstrator](./art-772-money-primitives-demonstrator.md) — `money_primitives_demo`
+- [Daycount Year Fraction](./art-773-daycount-year-fraction.md) — `compute_daycount_year_fraction`
 - [Beacon-Seeded Fair-Sampling Deriver V2](./art-774-beacon-seeded-fair-sampling-v2.md) — `derive_beacon_fair_sample_v2`
 - [PayPal Dispute Deadline & Evidence](./art-776-paypal-dispute-deadline-evidence.md) — `compute_paypal_response`
 - [PSP Dispute Reason Crosswalk](./art-777-psp-dispute-reason-crosswalk.md) — `crosswalk_psp_dispute_reasons`
