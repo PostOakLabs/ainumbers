@@ -20,6 +20,7 @@
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
+import { loadOriginalAuthorshipAllowlist } from './lib-per-kernel-config.mjs';
 
 const ROOT = path.resolve(fileURLToPath(import.meta.url), '..', '..');
 
@@ -55,10 +56,9 @@ covered = registry.vendored
   .flatMap(v => (v.paths && v.paths[repoId]) || [])
   .map(p => p.replace(/\\/g, '/'));
 
-const ORIGINAL_ALLOWLIST_PATH = path.join(ROOT, 'scripts', 'original-authorship-bundle-allowlist.json');
-originalAllowlist = existsSync(ORIGINAL_ALLOWLIST_PATH)
-  ? JSON.parse(readFileSync(ORIGINAL_ALLOWLIST_PATH, 'utf8'))
-  : {};
+// PER-KERNEL-CONFIG-SHARD-1: per-bundle entries live in chaingraph/kernels/<stem>.authorship.json
+// siblings; the loader merges them over scripts/original-authorship-bundle-allowlist.json.
+originalAllowlist = loadOriginalAuthorshipAllowlist(ROOT);
 
 allowlistErrors = [];
 for (const [rel, entry] of Object.entries(originalAllowlist)) {

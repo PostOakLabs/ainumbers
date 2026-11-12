@@ -186,7 +186,7 @@ performs zero network operations. Bundles are evidence **carriers**, not evidenc
 
 ## §5 Fixtures (INFORMATIVE)
 
-The reference verifier repository (`PostOakLabs/zkprof-web`) carries five fixtures:
+The reference verifier repository (`PostOakLabs/zkprof-harness`) carries five fixtures under `crates/zkprof-verify/fixtures/bundles/`:
 `real-art-04`, `real-art-01`, `real-art-106` (both halves green; art-04 is the §18.7
 discriminating-journal receipt — unsorted nested journal keys, so JCS and insertion-order serializations
 diverge and only JCS verifies), plus one RED control per half: a mutated seal (proof half fails, logged half

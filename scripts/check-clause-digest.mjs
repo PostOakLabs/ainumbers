@@ -45,6 +45,7 @@
  * Usage: node scripts/check-clause-digest.mjs [--diff-scope <REF>]
  */
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { loadRegistryUnion } from '../chaingraph/standard/clause-snapshot-store.mjs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -124,9 +125,8 @@ export function touchedNodeFiles(repo = REPO, baseRef = resolveBaseRef(repo)) {
 }
 
 export function loadRegistryDigests(registryPath) {
-  if (!existsSync(registryPath)) return new Set();
-  const arr = JSON.parse(readFileSync(registryPath, 'utf8'));
-  return new Set(arr.map((r) => r.digest));
+  // CLAUSE-SNAPSHOT-SHARD-1: union of clause-snapshots/<hex>.json and the legacy array file.
+  return new Set(loadRegistryUnion(registryPath).map((r) => r.digest));
 }
 
 const ENTRY_REQUIRED = ['digest', 'source_url', 'retrieved_at', 'clause_path'];

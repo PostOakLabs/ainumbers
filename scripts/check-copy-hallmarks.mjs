@@ -251,6 +251,32 @@ export function absolutesHits(text) {
   }
   return hits;
 }
+// ANCHOR_WORDING (ANCHOR-WORDING-GATE-1, 2026-11-03, Tim ruling ETH-ZK-WAVE-1):
+// banned claims about anchoring, applied ONLY to pages whose visible text
+// mentions anchoring (a page that never says "anchor" cannot over-claim about
+// it, and "immutable"/"trustless" have legitimate uses elsewhere on the site).
+// "tamper-proof" is already counted by ABSOLUTES everywhere, so it is not
+// repeated here (no double count). Same list as the anchor-suite denylist
+// (anchor-suite/scripts/check-copy.mjs, ANCHOR-COPY-GATE-1) for the terms both
+// sides share. Baseline+ratchet bucket "anchorWording": counts only go down.
+const ANCHOR_MENTION = /\banchor(?:s|ed|ing)?\b/i;
+const ANCHOR_WORDING = [
+  [/\bimmutable\b/gi, 'immutable'],
+  [/\bqualified\s+(?:electronic\s+)?time[\s-]?stamps?\b/gi, 'qualified timestamp'],
+  [/\btrustless(?:ly)?\b/gi, 'trustless'],
+  [/\bwe\s+anchor\s+(?:it|this|them|your\s+\w+)\s+for\s+you\b/gi, 'we anchor it for you'],
+  [/\bBase[\s-]only\b/gi, 'Base-only framing'],
+  [/\bCoinbase[\s-]first\b/gi, 'Coinbase-first framing'],
+];
+export function anchorWordingHits(text) {
+  if (!ANCHOR_MENTION.test(text)) return [];
+  const hits = [];
+  for (const [re, label] of ANCHOR_WORDING) {
+    const m = text.match(re) || [];
+    if (m.length) hits.push(`${label} ×${m.length}`);
+  }
+  return hits;
+}
 // PANEL: the "SCOPE box" / "what this does not do" negation-wall shape
 // (SCOPE-PANEL-COPY-AUDIT-1, 2026-08-18, Tim's ruling on agentcore-x402-hub.html's
 // SCOPE box: "very distracting, it sounds like slop ... readers care about a
@@ -616,7 +642,7 @@ export function chaingraphDescriptionsFinding(cg) {
   let cgEmdash = 0;
   for (const n of cg.nodes || []) cgEmdash += ((decodeDashEntities(n.description || '')).match(EMDASH) || []).length;
   for (const c of cg.chains || []) cgEmdash += ((decodeDashEntities(c.description || '')).match(EMDASH) || []).length;
-  return cgEmdash ? { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, overuse: {}, insider: [], aiVocab: [], absolutes: [], notX: 0, panel: [], fragHead: [], pairHead: [] } : null;
+  return cgEmdash ? { emdash: cgEmdash, jargon: [], twotoneHP: 0, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, overuse: {}, insider: [], aiVocab: [], absolutes: [], anchorWording: [], notX: 0, panel: [], fragHead: [], pairHead: [] } : null;
 }
 
 // REGEN-VALIDATORS-IN-QUEUE-1 step 2 (mechanism A): when an ephemeral derived
@@ -703,6 +729,7 @@ export function hallmarkFindings(raw) {
   const insider = insiderHits(text);
   const aiVocab = aiVocabHits(text);
   const absolutes = absolutesHits(text);
+  const anchorWording = anchorWordingHits(text);
   const notX = notXCount(text);
   const panel = panelHits(prose);
   const fragHead = fragHeadHits(prose);
@@ -764,13 +791,13 @@ export function hallmarkFindings(raw) {
     if (n) overuse[label] = n;
   }
 
-  return { emdash, jargon, twotoneHP, triad, loadbearing, cosignVocab, hallmarks, emojiProse, bold, doubleEscaped, overuse, insider, aiVocab, absolutes, notX, panel, fragHead, pairHead };
+  return { emdash, jargon, twotoneHP, triad, loadbearing, cosignVocab, hallmarks, emojiProse, bold, doubleEscaped, overuse, insider, aiVocab, absolutes, anchorWording, notX, panel, fragHead, pairHead };
 }
 
 /** True iff any bucket carries a hit — the CLI gate's own "record this file"
  * condition, exported with the scan so callers agree on what counts as debt. */
 export function hasHallmarkDebt(f) {
-  return Boolean(f.emdash || f.jargon.length || f.twotoneHP || f.triad || f.loadbearing || f.cosignVocab.length || f.hallmarks.length || f.emojiProse || f.bold || f.doubleEscaped || Object.keys(f.overuse).length || f.insider.length || f.aiVocab.length || f.absolutes.length || f.notX || f.panel.length || f.fragHead.length || f.pairHead.length);
+  return Boolean(f.emdash || f.jargon.length || f.twotoneHP || f.triad || f.loadbearing || f.cosignVocab.length || f.hallmarks.length || f.emojiProse || f.bold || f.doubleEscaped || Object.keys(f.overuse).length || f.insider.length || f.aiVocab.length || f.absolutes.length || f.anchorWording.length || f.notX || f.panel.length || f.fragHead.length || f.pairHead.length);
 }
 
 // Gate body runs only when this file is executed directly (node scripts/check-
@@ -875,7 +902,7 @@ if (!CHANGED || isTouched('mcp/showcase-prompts.json', CHANGED)) {
       }
     }
     if (spEmdash || spTwotone || spAi.length || spAbs.length) {
-      findings['mcp/showcase-prompts.json#title-one-line'] = { emdash: spEmdash, jargon: [], twotoneHP: spTwotone, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, doubleEscaped: 0, overuse: {}, insider: [], aiVocab: spAi, absolutes: spAbs, notX: 0, panel: [], fragHead: [], pairHead: [] };
+      findings['mcp/showcase-prompts.json#title-one-line'] = { emdash: spEmdash, jargon: [], twotoneHP: spTwotone, triad: 0, loadbearing: 0, cosignVocab: [], emojiProse: 0, hallmarks: [], bold: 0, doubleEscaped: 0, overuse: {}, insider: [], aiVocab: spAi, absolutes: spAbs, anchorWording: [], notX: 0, panel: [], fragHead: [], pairHead: [] };
     }
   }
 }
@@ -900,11 +927,12 @@ if (UPDATE) {
     const overDebt = {};
     for (const [k, v] of Object.entries(f.overuse || {})) if (v > OVERUSE_CAP) overDebt[k] = v;
     const notXDebt = f.notX > DEFAULT_NOTX_CAP ? f.notX : 0;
-    const debt = f.emdash + f.jargon.length + f.bold + Object.keys(overDebt).length + f.insider.length + f.aiVocab.length + f.absolutes.length + (notXDebt ? 1 : 0) + f.panel.length + f.fragHead.length + f.pairHead.length;
+    const debt = f.emdash + f.jargon.length + f.bold + Object.keys(overDebt).length + f.insider.length + f.aiVocab.length + f.absolutes.length + f.anchorWording.length + (notXDebt ? 1 : 0) + f.panel.length + f.fragHead.length + f.pairHead.length;
     if (debt) {
       baseline[rel] = { emdash: f.emdash, jargon: f.jargon.length, bold: f.bold, insider: f.insider.length, aiVocab: f.aiVocab.length, absolutes: f.absolutes.length };
       if (Object.keys(overDebt).length) baseline[rel].overuse = overDebt;
       if (notXDebt) baseline[rel].notX = notXDebt;
+      if (f.anchorWording.length) baseline[rel].anchorWording = f.anchorWording.length;
       if (f.panel.length) baseline[rel].panel = f.panel.length;
       if (f.fragHead.length) baseline[rel].fragHead = f.fragHead.length;
       if (f.pairHead.length) baseline[rel].pairHead = f.pairHead.length;
@@ -955,6 +983,9 @@ for (const [rel, f] of Object.entries(findings)) {
   else if (f.aiVocab.length < bAiVocab) improvements.push(`${rel}: AI-vocabulary ${bAiVocab} -> ${f.aiVocab.length}`);
   if (f.absolutes.length > bAbsolutes) failures.push(`${rel}: absolute/certainty-claim hit(s): ${f.absolutes.join('; ')} (baseline ${bAbsolutes}) — CONTRACT §1.4: rewrite as a falsifiable, scoped claim (e.g. hash-anchored/tamper-evident, ZK-proven, hash-committed and recomputable) instead of an unqualified guarantee`);
   else if (f.absolutes.length < bAbsolutes) improvements.push(`${rel}: absolutes ${bAbsolutes} -> ${f.absolutes.length}`);
+  const bAnchorWording = b.anchorWording || 0;
+  if (f.anchorWording.length > bAnchorWording) failures.push(`${rel}: banned anchoring wording: ${f.anchorWording.join('; ')} (baseline ${bAnchorWording}) — say what is anchored, where, and what the verifier checks; no immutability, trustlessness, qualified-timestamp, done-for-you or single-chain framing (ANCHOR-WORDING-GATE-1)`);
+  else if (f.anchorWording.length < bAnchorWording) improvements.push(`${rel}: anchorWording ${bAnchorWording} -> ${f.anchorWording.length}`);
   // PANEL (scope-box negation-wall shape): BLOCKING for new/changed pages — a
   // file absent from the baseline gets zero tolerance, same shape as jargon/
   // insider/aiVocab above. The baseline is legacy-estate shielding ONLY,

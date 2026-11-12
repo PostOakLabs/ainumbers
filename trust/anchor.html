@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- CSP: canonical CSP_STANDARD profile, verbatim from scripts/check-csp-consistency.mjs (the checker is the authority). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+
+<title>Threat Model: Anchor Relay | AINumbers.co</title>
+<meta name="description" content="Threat model for the anchor relay at anchor.ainumbers.co: what a timestamp request carries, which third-party authorities receive it, and the limits on abuse.">
+<meta name="ain:category" content="learn">
+<meta name="robots" content="index, follow">
+<meta name="author" content="AINumbers.co">
+<link rel="canonical" href="https://ainumbers.co/trust/anchor.html">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Threat Model: Anchor Relay | AINumbers.co">
+<meta property="og:description" content="A hash-only timestamping relay: assets, adversaries, controls and what cannot be tested.">
+<meta property="og:url" content="https://ainumbers.co/trust/anchor.html">
+<meta property="og:site_name" content="AINumbers.co">
+
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+
+<style>
+:root { color-scheme: dark; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #080E1A; color: #E6EDF7; font-family: 'Sora', system-ui, -apple-system, 'Segoe UI', sans-serif; line-height: 1.65; font-size: 16px; }
+main { max-width: 52rem; margin: 0 auto; padding: 3rem 1.25rem 4rem; }
+h1 { font-family: 'DM Serif Display', Georgia, serif; font-size: 2.1rem; color: #F4F8FF; margin-bottom: .35rem; }
+.effective { color: #8CA3C7; font-size: .92rem; margin-bottom: 2rem; }
+h2 { font-size: 1.15rem; color: #14B8A6; margin: 2.2rem 0 .6rem; }
+p, li, td, th { color: #C9D6EC; }
+ul { padding-left: 1.2rem; margin: .5rem 0; }
+li { margin: .35rem 0; }
+strong { color: #F4F8FF; }
+code { font-family: 'JetBrains Mono', 'Cascadia Mono', monospace; font-size: .9em; color: #7DD3C8; background: #0D1526; padding: .08em .35em; border-radius: 4px; overflow-wrap: anywhere; }
+a { color: #14B8A6; text-decoration-underline-offset: 3px; }
+a:hover { color: #5EEAD4; }
+.tw { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; margin: .6rem 0; font-size: .92rem; }
+th, td { border: 1px solid #1B2946; padding: .45rem .6rem; text-align: left; vertical-align: top; }
+th { background: #0D1526; color: #F4F8FF; }
+footer { border-top: 1px solid #1B2946; padding: 1.4rem 1.25rem 2.4rem; text-align: center; font-size: .9rem; }
+footer a { margin: 0 .8rem; }
+.skip { position: absolute; left: -999px; }
+.skip:focus { left: 1rem; top: 1rem; background: #14B8A6; color: #080E1A; padding: .4rem .8rem; border-radius: 6px; z-index: 1; }
+</style>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<main id="content">
+
+<h1>Threat model: anchor relay</h1>
+<p class="effective">Scope: <code>anchor.ainumbers.co</code>, a Cloudflare Worker (<code>src/worker.mjs</code>, <code>wrangler.jsonc</code> in the Anchor Suite repository) that relays timestamp requests to public authorities and exposes a small MCP tool set. Written from that source on <time datetime="2026-11-05">5 November 2026</time>. <a href="index.html">All threat models</a>.</p>
+
+<h2>Assets</h2>
+<ul>
+  <li>Timestamp proofs. A returned proof must be the authority's real reply, unmodified.</li>
+  <li>The hash a visitor submits. It is a digest, not the artifact, but it can still identify a document to anyone who already has the document.</li>
+  <li>Upstream goodwill. The relay spends the free quota of third-party authorities. Abuse would get the relay blocked.</li>
+</ul>
+
+<h2>Trust boundaries</h2>
+<ul>
+  <li>Browser or agent to the Worker, over TLS. No authentication (<code>authentication: none</code> in the discovery document).</li>
+  <li>Worker to third-party timestamp authorities: FreeTSA, DigiCert, Sectigo, Sigstore, GitHub, four OpenTimestamps calendars and the Sigsum log. These operators receive the request and see the relay's address, not the visitor's.</li>
+  <li>Static pages (<code>public/</code>) are served by the platform without invoking the Worker. Only <code>/relay/*</code> and <code>/mcp</code> run code.</li>
+</ul>
+
+<h2>Adversaries</h2>
+<ul>
+  <li>A1. A client that floods the relay to exhaust upstream quotas.</li>
+  <li>A2. A client that sends large or malformed bodies, or uses the relay as a general proxy.</li>
+  <li>A3. A hostile origin that calls the relay from a victim's browser.</li>
+  <li>A4. A hostile or faulty authority that returns a bad proof.</li>
+</ul>
+
+<h2>In scope and out of scope</h2>
+<p>In scope: relay abuse, request size, who may call from a browser, what the relay stores about a request, and the page headers on the anchor site.</p>
+<p>Out of scope: the trustworthiness of each timestamp authority; the legal weight of a timestamp; availability of upstream services.</p>
+
+<h2>Controls</h2>
+<div class="tw"><table>
+<thead><tr><th>Threat</th><th>Control</th><th>Where it lives</th></tr></thead>
+<tbody>
+<tr><td>A1: flood</td><td>4 requests per minute per IP, enforced by a rate-limit binding; over-limit callers get 429 with <code>Retry-After</code></td><td><code>wrangler.jsonc</code> (<code>RELAY_LIMITER</code>), relay and tool handlers in <code>src/worker.mjs</code></td></tr>
+<tr><td>A2: oversized body</td><td>2048-byte cap on relay bodies, 413 above it; empty bodies refused</td><td><code>MAX_BODY_BYTES</code> in <code>src/worker.mjs</code></td></tr>
+<tr><td>A2: generic proxy</td><td>Only <code>POST</code> with <code>Content-Type: application/timestamp-query</code> is accepted, and only on fixed relay paths for named authorities (unknown paths are refused); other methods and content types get 405 or 415</td><td>relay handler in <code>src/worker.mjs</code></td></tr>
+<tr><td>A2: batch size</td><td>Batch anchoring accepts 2 to 1024 hashes</td><td><code>toolAnchorBatch</code> in <code>src/worker.mjs</code></td></tr>
+<tr><td>A3: browser origin</td><td>Relay CORS is set to <code>https://anchor.ainumbers.co</code>; MCP browser origin allowlist holds only the ledger origin</td><td><code>ALLOWED_RELAY_ORIGIN</code>, <code>MCP_ORIGIN_ALLOWLIST</code> in <code>src/worker.mjs</code></td></tr>
+<tr><td>A4: bad proof</td><td>Relay replies are passed back as the authority sent them, with <code>no-store</code>; a separate tool checks a binding</td><td><code>verify_anchor_binding</code> tool and relay handler in <code>src/worker.mjs</code>. This page does not claim the check is offline or complete</td></tr>
+<tr><td>Stored request data</td><td>The Worker source contains no logging calls and no storage bindings; the rate limiter keeps only a counter keyed on IP</td><td><code>src/worker.mjs</code> (no <code>console.*</code> calls), <code>wrangler.jsonc</code>, comment "stores nothing else"</td></tr>
+<tr><td>Anchor site pages</td><td>Strict header set: <code>default-src 'none'</code>, trusted types required, <code>frame-ancestors 'none'</code>, HSTS, no referrer, camera, microphone, geolocation and payment disabled</td><td><code>public/_headers</code></td></tr>
+</tbody></table></div>
+
+<h2>UNTESTABLE claims</h2>
+<ul>
+  <li>"Stores nothing." The source has no write path, and that is what this page relies on. Cloudflare's own request logging for the Worker is not controlled from the code and is not tested here; see <a href="data-handling.html">data handling</a>.</li>
+  <li>What each authority retains. Third parties receive the hash and log it under their own terms. We cannot test or limit that.</li>
+  <li>That the headers are served. The header file is in the repository. We did not find a gate in the site repository that fetches the live anchor site and compares headers.</li>
+  <li>The 4-per-minute limit on the live service. It is configured in code, not probed.</li>
+</ul>
+
+<h2>Residual risk</h2>
+<ul>
+  <li>A hash submitted for anchoring is disclosed to the chosen authorities, and some of them publish what they stamp (a Bitcoin-anchored calendar and a public transparency log are permanent). Submit a digest only if you are content for that digest to be public forever.</li>
+  <li>A client behind shared infrastructure shares the per-IP limit, and an attacker with many addresses can still consume upstream quota.</li>
+  <li>The relay is a single point of failure for in-browser anchoring; verification of an existing proof does not need it.</li>
+</ul>
+
+</main>
+<footer>
+  <a href="index.html">Threat models</a>
+  <a href="data-handling.html">Data handling</a>
+  <a href="../ledger/index.html">Ledger</a>
+  <a href="../privacy.html">Privacy</a>
+</footer>
+</body>
+</html>

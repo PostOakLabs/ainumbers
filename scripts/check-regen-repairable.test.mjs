@@ -283,10 +283,41 @@ check('local run (no env at all) is relaxed — a local pre-push run is PR-bound
 // which prints BINDING-OK records=… log=… when they agree), so the real
 // verify passes; one mutated byte in the records copy must flip it to
 // PREFIX-DIVERGENCE. No signing path, no writes to repo files.
+//
+// PR-2342-BINDING-TEST-RELAX-1: an edited-kernel PR that rotates its
+// registry/kernel/ record moves the key set, so the LAST absence record no
+// longer matches the recomputed tree until main's regen publishes lineage
+// (PRs cannot: check-main-only-paths refuses the lineage files). The real-repo
+// assertions therefore honour isRelaxedBindingContext() for LAST-RECORD only:
+// advisory in pull_request / merge_group / local, a failure in push /
+// workflow_run / schedule / CI-unknown. PREFIX-DIVERGENCE fails everywhere.
+function bindingVerdict(res, relaxed) {
+  if (res.ok === true) return { pass: true, advisory: false };
+  if (res.reason === 'LAST-RECORD' && relaxed) return { pass: true, advisory: true };
+  return { pass: false, advisory: false };
+}
+function checkBinding(name, res, relaxed, extra = true) {
+  const v = bindingVerdict(res, relaxed);
+  if (v.advisory) console.log(`  ADVISORY (relaxed context): LAST-RECORD — key-set move pending main-regen lineage publish (${name}: ${res.detail || ''})`);
+  check(name, v.pass && (v.advisory || extra), res.ok ? '' : `${res.reason} — ${res.detail || ''}`);
+}
+
+console.log('bindingVerdict (synthetic, no repo reads)');
+{
+  const lastRecord = { ok: false, reason: 'LAST-RECORD', detail: 'synthetic' };
+  const prefix = { ok: false, reason: 'PREFIX-DIVERGENCE', detail: 'synthetic' };
+  check('LAST-RECORD is advisory when relaxed', bindingVerdict(lastRecord, true).pass === true && bindingVerdict(lastRecord, true).advisory === true);
+  check('LAST-RECORD fails when strict', bindingVerdict(lastRecord, false).pass === false);
+  check('PREFIX-DIVERGENCE fails when relaxed', bindingVerdict(prefix, true).pass === false);
+  check('PREFIX-DIVERGENCE fails when strict', bindingVerdict(prefix, false).pass === false);
+  check('ok passes in both contexts with no advisory', bindingVerdict({ ok: true }, true).advisory === false && bindingVerdict({ ok: true }, false).pass === true);
+}
+
 console.log('verifyRegenBinding (real records file + published log, read-only)');
 {
+  const relaxed = isRelaxedBindingContext(process.env);
   const res = await verifyRegenBinding({ log: () => {} });
-  check('real main-state binding verifies OK', res.ok === true && res.recordsLength >= res.logSize);
+  checkBinding('real main-state binding verifies OK', res, relaxed, res.recordsLength >= res.logSize);
   const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
@@ -307,7 +338,7 @@ console.log('verifyRegenBinding (real records file + published log, read-only)')
     ahead.records.push(JSON.parse(JSON.stringify(ahead.records[ahead.records.length - 1])));
     writeFileSync(recordsPath, JSON.stringify(ahead, null, 2) + '\n');
     const okAhead = await verifyRegenBinding({ recordsPath, log: () => {} });
-    check('records length > log size with intact prefix still verifies OK', okAhead.ok === true);
+    checkBinding('records length > log size with intact prefix still verifies OK', okAhead, relaxed);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
