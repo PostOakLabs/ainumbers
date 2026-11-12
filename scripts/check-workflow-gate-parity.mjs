@@ -851,7 +851,10 @@ const PREFLIGHT_ONLY = new Map([
     "output_schema is re-validated against its node's fixture output_payloads. Hard in preflight; " +
     "its CI route is scripts-verify.yml's full preflight (the workflow literally runs " +
     "`node scripts/preflight.mjs`), so a named workflow step would only duplicate the same suite. " +
-    "Reads only tracked repo files — no CI-only input."],
+    "Reads tracked repo files only, but on merge_group it overlay-reads the registry and the manifests " +
+    "from the assembled derived tree (QUEUE-ASSEMBLED-NEWNODE-GATES-1, 2026-11-09: it is a " +
+    "DERIVED_ROOT_GATES member, so preflight hands it DERIVED_ROOT in the queue and the verdict is " +
+    "on the tree that will be main); every other context reads the checkout, byte-for-byte as before."],
   ["check-output-schema-coverage.test.mjs", SELF_TEST],
 
   // ── MCP-INPUTSCHEMA-DESC-TRIM-1 (2026-09-18) ───────────────────────────────
@@ -881,6 +884,13 @@ const PREFLIGHT_ONLY = new Map([
   // preflight ran it blocking in every context — so there is no divergence to
   // declare; the named step surfaces the stamp class under its own name). The
   // --write half runs in pr-autofix.yml (NOT_A_GATE above).
+  // QUEUE-ASSEMBLED-NEWNODE-GATES-1 (2026-11-09): the named step now also carries
+  // `DERIVED_ROOT: ${{ github.event_name == 'merge_group' && steps.derived.outputs.root || '' }}`
+  // (the accessibility step's shape) and the command is a DERIVED_ROOT_GATES member, so on
+  // merge_group the gate overlay-reads the registry, pages and manifests from the assembled
+  // tree and a new node's findings are HARD there; pull_request and push:main read the
+  // checkout unchanged. The only declared behaviour change is merge_group's: a new node
+  // that was live-pending (advisory) is now an ordinary live node.
 
   // ── TOOLPAGE-A11Y-1 (2026-09-09) ─────────────────────────────────────────
   // PR-AUTOFIX-DERIVABLES-1 removed the PREFLIGHT_ONLY entry for
