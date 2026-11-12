@@ -1768,6 +1768,11 @@ const GATES = [
   ['MCP inputSchema description length (MCP-INPUTSCHEMA-DESC-TRIM-1)', 'node scripts/check-inputschema-desc-length.mjs'],
   ['MCP inputSchema description length controls (synthetic RED/GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-inputschema-desc-length.test.mjs'],
   ['Node-manifest generator dry-run (MFSTGEN-1)', 'node scripts/generate-node-manifest.mjs --all --check'],
+  // MANIFEST-OUTPUTSCHEMA-ALL-FIXTURES-1: the generator's output_schema derivation
+  // self-test (RED proof: the single-sample schema rejects a null refusal fixture —
+  // the #2964/#2974 merge-queue ejection class; GREEN: the all-fixture schema
+  // validates every payload it derived from).
+  ['Node-manifest generator output_schema self-test (RED/GREEN fixtures, GATE-SELFTEST-META-1 pair)', 'node scripts/generate-node-manifest.test.mjs'],
   // MANIFEST-SCHEMA-BACKFILL-1: derived input schemas carry
   // x_schema_provenance derived-from-kernel-reads <date>; any hand-edit to a
   // provenance-marked block drifts from a fresh derivation of the kernel's
