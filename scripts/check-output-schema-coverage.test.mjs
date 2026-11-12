@@ -8,7 +8,9 @@
  * read green. Wired into scripts/preflight.mjs as its own GATES entry alongside the
  * gate itself (pairing form (a) in check-gate-selftest-pairing.mjs's header).
  */
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { coverageGap, deriveSchema, validateSubset } from './check-output-schema-coverage.mjs';
@@ -93,6 +95,57 @@ check('derive: SWORN-member citations required', derived.required.includes('cita
 const selfErrs = [];
 fixtures.vectors.forEach((v, i) => validateSubset(derived, v.output_payload, `p${i}`, selfErrs));
 check('derive: derived schema validates its own fixtures (GREEN)', selfErrs.length === 0);
+
+// ── null-enum self-consistency controls ([7F-V471] sanctioned, SO #34c): an observed null is not a
+// boolean member — it never counts toward BOTH, and no emitted enum may drop it — so a {null,bool}
+// pair must NOT hallucinate enum [false,true], a {both,bools,null} set emits [false,true,null], and a
+// {null,string-vocabulary} set appends the null. RED against the pre-patch deriver by construction. ──
+const nullFixtures = { vectors: [
+  { output_payload: { maybe_flag: false, both_flag: true, venue2: 'kalshi' } },
+  { output_payload: { maybe_flag: null, both_flag: false, venue2: 'polymarket' } },
+  { output_payload: { both_flag: null, venue2: null } },
+] };
+const nullDerived = deriveSchema(nullFixtures);
+check('derive null-enum: {null,one boolean} -> NO enum (null never masquerades as the second member)',
+  !nullDerived.properties.maybe_flag.enum);
+check('derive null-enum: both booleans + observed null -> enum [false,true,null]',
+  JSON.stringify(nullDerived.properties.both_flag.enum) === JSON.stringify([false, true, null]));
+check('derive null-enum: {null,string-enum} -> observed null appended to the vocabulary',
+  JSON.stringify(nullDerived.properties.venue2.enum) === JSON.stringify(['kalshi', 'polymarket', null]));
+const nullErrs = [];
+nullFixtures.vectors.forEach((v, i) => validateSubset(nullDerived, v.output_payload, `n${i}`, nullErrs));
+check('derive null-enum: derived schema validates its own null-carrying fixtures (SO #34c GREEN)', nullErrs.length === 0);
+
+// QUEUE-ASSEMBLED-NEWNODE-GATES-1: the gate judges the ASSEMBLED registry when DERIVED_ROOT is mounted.
+// The measured red (run 42517511673): a new node is absent from the checkout registry until the
+// main-side regen enrols it, so the queue never saw its output_schema gap. The gate is run as a
+// subprocess against a fixture scratch tree whose registry holds a node (with a manifest lacking
+// output_schema) that the checkout registry has never heard of.
+{
+  const gateScript = fileURLToPath(new URL('./check-output-schema-coverage.mjs', import.meta.url));
+  const scratch = mkdtempSync(join(tmpdir(), 'osc-assembled-'));
+  mkdirSync(join(scratch, 'chaingraph'), { recursive: true });
+  mkdirSync(join(scratch, 'manifests'), { recursive: true });
+  writeFileSync(join(scratch, 'chaingraph', 'chaingraph.json'), JSON.stringify({ nodes: [
+    { status: 'live', mcp_name: 'assembled_newnode_tool', tool_id: 'assembled-newnode' },
+  ] }));
+  const manifestAt = join(scratch, 'manifests', 'assembled-newnode.manifest.json');
+  writeFileSync(manifestAt, JSON.stringify({ tool_id: 'assembled-newnode' }));
+  const runGate = (env) => {
+    const e = { ...process.env, ...env };
+    if (!env.DERIVED_ROOT) delete e.DERIVED_ROOT;
+    return spawnSync(process.execPath, [gateScript], { env: e, encoding: 'utf8' });
+  };
+  const red = runGate({ DERIVED_ROOT: scratch });
+  check('assembled registry: a new node with no output_schema, DERIVED_ROOT mounted -> exit 1 (RED proof)', red.status === 1);
+  check('assembled registry: the finding names the new node', /assembled-newnode/.test(red.stderr + red.stdout));
+  const old = runGate({});
+  check('assembled registry: same checkout, DERIVED_ROOT unset -> the node is invisible (previous behaviour kept)', !/assembled-newnode/.test(old.stderr + old.stdout));
+  writeFileSync(manifestAt, JSON.stringify({ tool_id: 'assembled-newnode', output_schema: { type: 'object' } }));
+  const green = runGate({ DERIVED_ROOT: scratch });
+  check('assembled registry: the same node WITH an output_schema in the assembled manifest -> exit 0 (GREEN proof)', green.status === 0);
+  rmSync(scratch, { recursive: true, force: true });
+}
 
 if (failures) {
   console.error(`\n✗ output-schema coverage self-test: ${failures} control(s) failed`);

@@ -140,6 +140,7 @@ const REFERENCE_CARDS = [
   ['lei-kyb-worksheet-guide.html', 'Guide', 'LEI Data-Quality Grading', 'How LEI grading fits into a KYB onboarding workflow.'],
   ['division-swarm-demo.html', 'Demo', 'Division Swarm Receipt-Chain Demo', 'A drafted Division Swarm flow whose event log points at verifiable execution receipts, with a real MCP response to swap in.'],
   ['hypermap-catalog-projection.html', 'Guide', 'HyperMap Catalog Projection', 'The AINumbers catalog as HyperMap hypermedia: one reserved key, navigable controls, and a three-hop traversal over real resources.'],
+  ['paypal-agent-shop-walkthrough.html', 'Walkthrough', 'PayPal Agent Shop Walkthrough', 'A guided tour of the live PayPal AI Hackathon entry: an agent that sells, takes Pay Later and Venmo in the sandbox, and cross-verifies every order over MCP.'],
   ['fedwire-chips-address-migration-guide.html', 'Guide', 'Fedwire / CHIPS Address Migration', 'Structured-address lint, batch sweep, and remediation diff for the 2026 migration.'],
   ['fr2052a-liquidity-report-reference.html', 'Reference', 'FR 2052a Report Reference', 'The FR 2052a appendix inventory, table structure, field list, and confidentiality position, linking to the Fed’s own index.'],
 ];

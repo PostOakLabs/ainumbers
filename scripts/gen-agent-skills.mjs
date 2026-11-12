@@ -71,6 +71,15 @@ const CHECK = process.argv.includes('--check');
 const VALIDATE = process.argv.includes('--validate');
 const SELFTEST = process.argv.includes('--selftest');
 
+// Writes report (REGEN-ESCAPE-GUARD-ALL-PREFIXES-1, mirroring gen-page-md-twins.mjs's
+// REGEN-ESCAPE-GUARD-BLIND-HEAL-1 mechanism): every write-mode run writes the run's
+// ACTUAL write list to a tempdir report consumed by `scripts/derived-artifacts.mjs
+// --paths`, so the COVERED entry's bare-tree `skills` prefix can never stage an
+// injected file. The COVERED entry carries `writesReportRequired: true`. The report
+// path lives in scripts/_gen-writes-reports.mjs so consumers can import it without
+// running this script's module-level write pass.
+import { AGENT_SKILLS_WRITES_REPORT_PATH } from './_gen-writes-reports.mjs';
+
 // ── Spec constants (agentskills.io/specification) ────────────────────────────
 
 export const NAME_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -493,23 +502,36 @@ if (CHECK) {
 }
 
 let wrote = 0;
+const written = []; // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1: actual write list, repo-relative posix
 for (const [rel, text] of files) {
   const abs = join(OUT, rel);
   mkdirSync(dirname(abs), { recursive: true });
   if (existsSync(abs) && readFileSync(abs, 'utf8') === text) continue;
   writeFileSync(abs, text);
   wrote += 1;
+  written.push(`${OUT_REL}/${rel.split('\\').join('/')}`);
 }
 // Prune anything under skills/ that no prompt owns — the tree is generator-owned
 // in full, so a removed prompt must not leave an orphan skill behind.
 let pruned = 0;
+const removed = []; // REGEN-ESCAPE-GUARD-ALL-PREFIXES-1: attested deletion list
 for (const rel of walk(OUT).keys()) {
   if (files.has(rel)) continue;
   rmSync(join(OUT, rel));
   pruned += 1;
+  removed.push(`${OUT_REL}/${rel.split('\\').join('/')}`);
 }
 for (const name of existsSync(OUT) ? readdirSync(OUT) : []) {
   const abs = join(OUT, name);
   if (statSync(abs).isDirectory() && !readdirSync(abs).length) rmdirSync(abs);
 }
+// Written on EVERY write-mode run — empty lists included (REGEN-MANIFEST-ATTEST-1
+// precedent). `removed` is the attested deletion list: the stage step's escape
+// check reds unstaged deletions, so prunes must be staged by pathspec too.
+writeFileSync(AGENT_SKILLS_WRITES_REPORT_PATH, JSON.stringify({
+  _comment: 'Actual write list of the last gen-agent-skills.mjs write run; consumed by scripts/derived-artifacts.mjs --paths (REGEN-ESCAPE-GUARD-ALL-PREFIXES-1).',
+  generated_by: 'node scripts/gen-agent-skills.mjs',
+  written: [...new Set(written)].sort(),
+  removed: [...new Set(removed)].sort(),
+}, null, 2) + '\n', 'utf8');
 console.log(`gen-agent-skills: ${prompts.length} skills + README in ${OUT_REL}/ (${wrote} file(s) written, ${pruned} pruned, source digest ${version}).`);

@@ -3,6 +3,33 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
+## §20.4 text pass: verification-only `solana-memo` anchor binding
+- **SPEC-TEXT PASS, not a record bump.** `spec_version` of record stays `0.8.13`, same separation as
+  every prior text pass. Row `ANCHOR-SOLANA-LEG-SPEC-1` Stage 1 only (Tim 2026-10-15: "Yes to Stage 1
+  only"); Stage 2, writing anchors with an operator-held key, stays deferred and is NOT this change.
+  Source: workspace-root `research/solana-dvp-hook-in-2026-10-15.md` Addendum B (verdict: conditional
+  yes, Stage 1).
+- **§20.4 adds ONE new OPTIONAL binding type**, `solana-memo`: ledger-ordering evidence that
+  `anchored_hash` was committed in a Solana Memo-program transaction at a named slot by a named signer
+  key. Members: `cluster`, `signature`, `slot`, `block_time` (OPTIONAL, validator-estimated, nullable,
+  absence means no claim), `commitment` (`finalized` only), `signer`, `anchored_hash`, plus §20.1
+  `merkle_inclusion` with unchanged batch semantics (memo commits the root, artifact hash is a leaf).
+  Attached AFTER hashing like the rest of `anchor_bindings`: zero `execution_hash` movement,
+  `chaingraph_version` stays `"0.4.0"`, absence fully conformant, and the existing type branches are
+  byte-identical (additive oneOf variant only).
+- **The trust caveat is normative (§20.4).** The type proves "this hash was committed no later than
+  slot N by the holder of key K"; it is a ledger-ordering anchor like Bitcoin OTS, NOT RFC 3161, NOT
+  eIDAS, no signed gen_time; `block_time` is validator-estimated; finality is economic, not legal; and
+  verification structurally requires a Solana RPC chosen by the verifier, so this one §20 type has no
+  verify-offline-forever property (old-transaction availability depends on the RPC). Product copy
+  labeling it a TSA or RFC 3161-aligned is non-conformant.
+- **Schema shape lands in the same change.** The `solana-memo` oneOf variant joins
+  `$defs/anchorBinding` in `openchain-graph-v0.4.schema.json` (validated by `schema-validate.mjs`).
+  The verifier, MCP surface, browser verify page and fixtures live in the anchor-suite repo, which owns
+  the verification-only leg; nothing here requires or permits an OCG implementation to hold a Solana
+  signing key. The rendered spec page carries §20.4 in the same push (H3 inside the §20 section; no
+  page/TOC structural change, so `spec-page-parity.mjs` is unaffected).
+
 ## §AGID-1 text pass: Agent-Identity Binding (`audit_signature.requesting_agent`)
 - **SPEC-TEXT PASS, not a record bump.** `spec_version` of record stays whatever `chaingraph.json`
   carries, same separation as every prior text pass. Applies the Tim-signed 2026-09-02 proposal

@@ -1,0 +1,212 @@
+{
+  "tool_id": "art-711-sco60-crypto-asset-exposure-classifier-v2",
+  "inventory_version": "1.0.0",
+  "authored_at": "2026-10-05",
+  "authored_by": "ART281-SUCCESSOR-NODE-1",
+  "cohort_role": "post-cohort adoption — the branch inventory is filed because this node is standards-implementing (SPEC §30 implements_standard) and its two-threshold ladder is exactly the shape AUTHORING-STANDARD.md §1 was written for: the corrected 1%/2% ladder replaced art-281's single mis-cited 1% limit, so every branch below was enumerated from the pinned d545 excerpt, never from the kernel.",
+  "error_direction": "undirected",
+  "error_direction_rationale": "Every threshold comparison is exact integer cross-multiplication over a declared domain whose degenerate inputs (zero or negative capital, non-centesimal capital, signed or fractional legs, an empty book, an over-cap aggregate) are TYPED REFUSALS rather than approximations, so there is no approximation to have a direction; the direction question does not arise rather than being answered.",
+  "derived_from": [
+    {
+      "digest": "sha256:21a8159406b21fa2bb8034aefab17c6d1b18c429ff7978ac92714bb8890c54e3",
+      "clause_path": "SCO60.116-119 (Group 2 exposure limit)"
+    }
+  ],
+  "branches": [
+    {
+      "id": "sco60.116-aggregate-scope",
+      "clause": "SCO60.116",
+      "branch": "The exposure limit applies to the bank's AGGREGATE exposures to Group 2 cryptoassets, not to any single position; the kernel sums the per-asset counted figures into one aggregate before any threshold comparison.",
+      "disposition": "represented",
+      "evidence": "group2_exposure_amount"
+    },
+    {
+      "id": "sco60.116-direct-holdings",
+      "clause": "SCO60.116",
+      "branch": "Direct holdings (cash and derivatives) are inside the limit's scope and are supplied as ordinary positions.",
+      "disposition": "represented",
+      "evidence": "per_asset"
+    },
+    {
+      "id": "sco60.116-indirect-holdings",
+      "clause": "SCO60.116",
+      "branch": "Indirect holdings (eg those via investment funds, ETF/ETN, or any legal arrangements designed to provide exposures to cryptoassets) are inside the limit's scope; the holding_type enum names them and every entry counts toward the same aggregate.",
+      "disposition": "represented",
+      "evidence": "per_asset"
+    },
+    {
+      "id": "sco60.116-empty-book-refused",
+      "clause": "SCO60.116",
+      "branch": "An aggregate over an EMPTY book cannot be assessed against the limit; an empty or absent positions array is a typed refusal, never a 0%-clean verdict.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "ART711_INPUT_REFUSED",
+        "payload_marker": "domain_errors",
+        "reachability_vector": {
+          "bank_tier1_capital": 1000,
+          "group2_positions": []
+        },
+        "fixture": "art-711-sco60-crypto-asset-exposure-classifier-v2.reachability.json#reach-empty-book-typed-refusal"
+      }
+    },
+    {
+      "id": "sco60.117-1pct-expectation-threshold",
+      "clause": "SCO60.117",
+      "branch": "Total exposure to Group 2 cryptoassets should not generally be higher than 1% of Tier 1 — the general-expectation threshold, whose crossing is reported without being a limit breach.",
+      "disposition": "represented",
+      "evidence": "group2_threshold_crossed"
+    },
+    {
+      "id": "sco60.117-2pct-must-limit",
+      "clause": "SCO60.117",
+      "branch": "Total exposure to Group 2 cryptoassets must not exceed 2% of Tier 1 — the must-not-exceed limit.",
+      "disposition": "represented",
+      "evidence": "group2_limit_breached"
+    },
+    {
+      "id": "sco60.117-boundary-exactly-at-is-compliant",
+      "clause": "SCO60.117",
+      "branch": "Both comparisons are strict: exactly 1% of Tier 1 is not above the expectation threshold and exactly 2% is not above the limit (v2 and v4 pin both boundaries as conformance vectors).",
+      "disposition": "represented",
+      "evidence": "group2_threshold_crossed"
+    },
+    {
+      "id": "sco60.117-degenerate-denominator-refused",
+      "clause": "SCO60.117",
+      "branch": "A percentage-of-Tier-1 threshold is undefined at zero or negative Tier 1 capital; the kernel refuses the input with a typed error instead of emitting a NaN, Infinity, or 0% verdict.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "ART711_INPUT_REFUSED",
+        "payload_marker": "domain_errors",
+        "reachability_vector": {
+          "bank_tier1_capital": 0,
+          "group2_positions": [
+            {
+              "cryptoasset": "btc",
+              "holding_type": "direct_cash",
+              "long_exposure": 8,
+              "short_exposure": 0
+            }
+          ]
+        },
+        "fixture": "art-711-sco60-crypto-asset-exposure-classifier-v2.fixtures.json#v7-zero-tier1-typed-refusal"
+      }
+    },
+    {
+      "id": "sco60.117-inexact-threshold-denominator-refused",
+      "clause": "SCO60.117",
+      "branch": "A capital figure not divisible by 100 minor units would make 1% and 2% of it fractional and the excess amount inexact; the kernel refuses rather than round, keeping every threshold comparison in exact integer arithmetic.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "ART711_INPUT_REFUSED",
+        "payload_marker": "domain_errors",
+        "reachability_vector": {
+          "bank_tier1_capital": 999,
+          "group2_positions": [
+            {
+              "cryptoasset": "btc",
+              "holding_type": "direct_cash",
+              "long_exposure": 8,
+              "short_exposure": 0
+            }
+          ]
+        },
+        "fixture": "art-711-sco60-crypto-asset-exposure-classifier-v2.fixtures.json#v7c-non-centesimal-tier1-typed-refusal"
+      }
+    },
+    {
+      "id": "sco60.118-supervisor-notification-on-1pct-crossing",
+      "clause": "SCO60.118",
+      "branch": "Any crossing of the 1% threshold must be communicated immediately to the supervisor: the SUPERVISOR_NOTIFICATION_REQUIRED flag fires in the crossed band (and carries into the breach band, which implies a crossing).",
+      "disposition": "represented",
+      "evidence": "warnings"
+    },
+    {
+      "id": "sco60.118-excess-only-2b-treatment",
+      "clause": "SCO60.118",
+      "branch": "Until compliance with the 1% threshold is restored, only the exposures IN EXCESS of the threshold take the Group 2b capital treatment (the 1250% weight); the remainder keeps its own treatment.",
+      "disposition": "represented",
+      "evidence": "group2b_excess_amount"
+    },
+    {
+      "id": "sco60.118-whole-book-2b-above-2pct",
+      "clause": "SCO60.118",
+      "branch": "If exposures exceed 2% of Tier 1, ALL Group 2 exposures take the Group 2b treatment: treatment flips to whole_book and the whole aggregate becomes the 2b amount.",
+      "disposition": "represented",
+      "evidence": "group2b_treatment"
+    },
+    {
+      "id": "sco60.118-rapid-rectification-arrangements",
+      "clause": "SCO60.118",
+      "branch": "Banks must have arrangements in place to ensure compliance with the limit and must rapidly rectify any breach that occurs.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "the bank's compliance arrangements and the remediation actions taken after a finding",
+        "source": "SCO60.118",
+        "owner": "the bank's risk-management function; this node assesses a point-in-time aggregate and owns no remediation, so a caller treating an assessment output as evidence of rectification misuses it."
+      }
+    },
+    {
+      "id": "sco60.118-restoration-monitoring",
+      "clause": "SCO60.118",
+      "branch": "'Until compliance with the 1% limit is restored' makes the excess-only treatment a state that persists over time, not a one-shot verdict.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "the passage of time and the restoration status of the book",
+        "source": "SCO60.118",
+        "owner": "the caller, who re-runs the assessment as the book and capital change; the kernel sees exactly one snapshot per call and carries no state between calls."
+      }
+    },
+    {
+      "id": "sco60.119-higher-of-absolute-legs",
+      "clause": "SCO60.119(1)",
+      "branch": "Exposures are measured per separate cryptoasset using the higher of the absolute values of the long and short exposures — never a netted figure; entries naming the same asset have their legs summed first, so the higher-of runs over the asset's totals.",
+      "disposition": "represented",
+      "evidence": "per_asset"
+    },
+    {
+      "id": "sco60.119-negative-leg-refused",
+      "clause": "SCO60.119(1)",
+      "branch": "The legs are ABSOLUTE values by definition; a signed leg would invert the higher-of measurement, so a negative or fractional leg is a typed refusal rather than a silently re-signed count.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "ART711_INPUT_REFUSED",
+        "payload_marker": "domain_errors",
+        "reachability_vector": {
+          "bank_tier1_capital": 1000,
+          "group2_positions": [
+            {
+              "cryptoasset": "btc",
+              "holding_type": "direct_cash",
+              "long_exposure": -5,
+              "short_exposure": 0
+            }
+          ]
+        },
+        "fixture": "art-711-sco60-crypto-asset-exposure-classifier-v2.reachability.json#reach-negative-leg-typed-refusal"
+      }
+    },
+    {
+      "id": "sco60.119-delta-adjustment-of-derivatives",
+      "clause": "SCO60.119(1)",
+      "branch": "Derivative exposures must be measured using a delta-equivalent methodology before the higher-of comparison.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "delta-adjusted long_exposure and short_exposure figures per position",
+        "source": "SCO60.119(1)",
+        "owner": "the caller's valuation function, which supplies legs already delta-adjusted; this node never re-prices a derivative and treats the supplied legs as final."
+      }
+    },
+    {
+      "id": "sco60.119-2-tier1-definition",
+      "clause": "SCO60.119(2)",
+      "branch": "Tier 1 capital is defined in CAP10.2; the node takes the figure as given rather than recomputing regulatory capital.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "the Tier 1 capital figure (bank_tier1_capital)",
+        "source": "SCO60.119(2), pointing at CAP10.2 for the definition",
+        "owner": "the caller's finance/regulatory-reporting function, which supplies the capital figure; this node owns only the arithmetic done with it."
+      }
+    }
+  ]
+}

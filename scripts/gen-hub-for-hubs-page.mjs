@@ -3,7 +3,8 @@
  * scripts/gen-hub-for-hubs-page.mjs — HUB-FOR-HUBS-1 (2026-09-21 humanize
  * pass, split out of INFRA-PAGE-1).
  *
- * Generates repo/hub-for-hubs.html from data/infra-registry.json: every
+ * Generates repo/hub-for-hubs.html from the registry rows (a fresh in-memory
+ * walk, byte-identical to data/infra-registry.json once main has regenerated): every
  * `ain:category="guide"` row (domain hubs and integration guides) on one
  * page, clustered by the work the reader is doing rather than dumped as one
  * alphabetical wall. infrastructure.html keeps a pointer section; this page
@@ -35,10 +36,12 @@
  */
 import { writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   REPO, readRegistry, loadOverrides, validateOverrides,
   renderCard, renderTitle, esc, jumpBar, readStartChrome,
 } from './lib/infra-map.mjs';
+import { buildRegistry } from './gen-infra-registry.mjs';
 
 const CHECK = process.argv.includes('--check');
 const OUT_REL = 'hub-for-hubs.html';
@@ -151,6 +154,10 @@ const CLUSTERS = [
     id: 'tokenization', label: 'Tokenization and DLT and stablecoins',
     blurb: 'Tokenized assets and the chains they settle on, from Canton and shared ledgers to the payments-first L1s.',
     paths: [
+      'guides/web3-hub.html',
+      'guides/solana-hub.html',
+      'guides/ethereum-hub.html',
+      'guides/zcash-hub.html',
       'guides/dlt-tokenization-hub.html',
       'guides/canton-tmf-hub.html',
       'guides/token-standards-hub.html',
@@ -180,6 +187,8 @@ const CLUSTERS = [
     blurb: 'Wire an agent or an MCP client into the suite: the protocols, worked demos, and agreements an agent can sign.',
     paths: [
       'guides/agentic-commerce-mcp-hub.html',
+      'guides/paypal-agent-shop-walkthrough.html',
+      'guides/paypal-hub.html',
       'guides/agent-observability-hub.html',
       'guides/agent-payment-dispute-evidence-hub.html',
       'chaingraph/agentcore-x402-hub.html',
@@ -193,12 +202,14 @@ const CLUSTERS = [
       'guides/webmcp-field-notes.html',
       'guides/division-swarm-demo.html',
       'guides/regression-replayer.html',
+      'guides/published-test-vectors.html',
       'guides/authzen-pdp-provable-decisions.html',
       'guides/accept-api-court-checkable-agreements.html',
       'guides/agreement-standards-directory.html',
       'chaingraph/guide-agreement-templates.html',
       'guides/credential-workbench-hub.html',
       'guides/intoto-attestations-hub.html',
+      'guides/recompute-layer-for-ai-assisted-work.html',
     ],
   },
   {
@@ -219,6 +230,7 @@ const CLUSTERS = [
       'chaingraph/guide-decision-receipt-crosswalk.html',
       'chaingraph/guide-allocation-evidence.html',
       'chaingraph/guide-kya-os-checkpoint-interop.html',
+      'chaingraph/visual-explainers-hub.html',
       'guides/evidence-profile-catalog.html',
       'guides/lei-kyb-worksheet-guide.html',
     ],
@@ -228,6 +240,7 @@ const CLUSTERS = [
     blurb: 'What each receipt, benchmark, and evidence pack actually proves, for the reviewer on the other side of it.',
     paths: [
       'guides/audit-trail-crosswalk-hub.html',
+      'guides/audit-assurance-hub.html',
       'guides/audit-ai-evidence-review.html',
       'guides/benchmark-series-methodology.html',
       'guides/benchmark-series-ccp-margin-monitor-issue-2026-q4.html',
@@ -258,13 +271,20 @@ function isShimPage(relPath) {
   }
 }
 
-/** Coverage proof: clusters partition the guide rows, exactly. */
-function validateClusters(registry) {
+/** Coverage proof: clusters partition the guide rows, exactly.
+ *  `registry` is the FRESH in-memory walk (buildRegistry), never the committed
+ *  data/infra-registry.json: that file is a main-owned derived artifact, so a PR
+ *  that adds a guide and its cluster line cannot carry the registry row, and
+ *  reading the stale file made this check throw on every such PR
+ *  (HUB-FOR-HUBS-PR-ADVISORY-1). A cluster path that is not a published page on
+ *  disk is still a hard error in every context. `clusters` and `shim` are
+ *  injectable for the fixture test only. */
+export function validateClusters(registry, clusters = CLUSTERS, shim = isShimPage) {
   const guideRows = registry.filter(r => r.category === 'guide');
   const guidePaths = new Set(guideRows.map(r => r.path));
   const seen = new Map();
   const problems = [];
-  for (const c of CLUSTERS) {
+  for (const c of clusters) {
     for (const p of c.paths) {
       if (seen.has(p)) problems.push(`${p} sits in both "${seen.get(p)}" and "${c.label}"`);
       seen.set(p, c.label);
@@ -272,7 +292,7 @@ function validateClusters(registry) {
     }
   }
   const unassigned = guideRows.filter(r => !seen.has(r.path)).map(r => r.path)
-    .filter(p => !isShimPage(p));
+    .filter(p => !shim(p));
   if (unassigned.length) {
     problems.push(`guide rows not in any cluster (a new hub page would ship unlisted): ${unassigned.join(', ')}`);
   }
@@ -374,32 +394,35 @@ ${chrome.footer}
 `;
 }
 
-const registryPath = resolve(REPO, 'data', 'infra-registry.json');
-if (!existsSync(registryPath)) {
-  console.error('gen-hub-for-hubs-page: data/infra-registry.json missing. Run `node scripts/gen-infra-registry.mjs` first.');
-  process.exit(1);
-}
-const registry = JSON.parse(readFileSync(registryPath, 'utf8'));
-const overrides = loadOverrides();
-validateOverrides(overrides, registry);
-validateClusters(registry);
-const chrome = readStartChrome();
-const out = renderPage(registry, overrides, chrome);
-const target = resolve(REPO, OUT_REL);
-const exists = existsSync(target);
-const current = exists ? readFileSync(target, 'utf8') : '';
+function main() {
+  // Fresh walk of the published pages, byte-identical to the committed
+  // data/infra-registry.json whenever main's regen is current (the registry is a
+  // pure function of the tree), so main and merge_group behave as before; only
+  // a PR's not-yet-regenerated registry stops mattering.
+  const registry = buildRegistry(REPO);
+  const overrides = loadOverrides();
+  validateOverrides(overrides, registry);
+  validateClusters(registry);
+  const chrome = readStartChrome();
+  const out = renderPage(registry, overrides, chrome);
+  const target = resolve(REPO, OUT_REL);
+  const exists = existsSync(target);
+  const current = exists ? readFileSync(target, 'utf8') : '';
 
-if (CHECK) {
-  if (!exists) {
-    console.error(`gen-hub-for-hubs-page --check: ${OUT_REL} is missing. Run \`node scripts/gen-hub-for-hubs-page.mjs\`.`);
-    process.exit(1);
+  if (CHECK) {
+    if (!exists) {
+      console.error(`gen-hub-for-hubs-page --check: ${OUT_REL} is missing. Run \`node scripts/gen-hub-for-hubs-page.mjs\`.`);
+      process.exit(1);
+    }
+    if (current !== out) {
+      console.error(`gen-hub-for-hubs-page --check: ${OUT_REL} is stale. Run \`node scripts/gen-hub-for-hubs-page.mjs\`.`);
+      process.exit(1);
+    }
+    console.log(`gen-hub-for-hubs-page --check: OK (${registry.filter(r => r.category === 'guide').length} guide rows in ${CLUSTERS.length} clusters, byte-exact).`);
+    process.exit(0);
   }
-  if (current !== out) {
-    console.error(`gen-hub-for-hubs-page --check: ${OUT_REL} is stale. Run \`node scripts/gen-hub-for-hubs-page.mjs\`.`);
-    process.exit(1);
-  }
-  console.log(`gen-hub-for-hubs-page --check: OK (${registry.filter(r => r.category === 'guide').length} guide rows in ${CLUSTERS.length} clusters, byte-exact).`);
-  process.exit(0);
+  writeFileSync(target, out, 'utf8');
+  console.log(`gen-hub-for-hubs-page: wrote ${OUT_REL} (${registry.filter(r => r.category === 'guide').length} guide rows across ${CLUSTERS.length} clusters).`);
 }
-writeFileSync(target, out, 'utf8');
-console.log(`gen-hub-for-hubs-page: wrote ${OUT_REL} (${registry.filter(r => r.category === 'guide').length} guide rows across ${CLUSTERS.length} clusters).`);
+
+if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) main();

@@ -1,0 +1,150 @@
+{
+  "tool_id": "art-713-scorp-election-break-even",
+  "version": "1.0.0",
+  "title": "S-Corp Election Break-Even Modeler",
+  "description": "S-Corp election break-even modeler: from net self-employment income, a reasonable W-2 salary share and an annual admin cost, compute the sole-proprietor SE tax, the S-Corp payroll tax, the savings net of admin cost, the five-year saving, the grid break-even income, and a QBI section 199A trade-off output weighing payroll-tax saved against the 20% deduction value lost on wages paid. 2026: SS wage base $184,500 with cap logic, SS 12.4%, Medicare 2.9% uncapped, and the 92.35% SE factor on net earnings from self-employment only, never W-2 wages (IRS Topic 554). Ported from ApexLogics display_number #111 (AL-118), CC BY 4.0.",
+  "category": "chaingraph",
+  "tags": [
+    "compliance_mandate",
+    "s-corp",
+    "self-employment-tax",
+    "break-even",
+    "reasonable-compensation",
+    "qbi-199a",
+    "payroll-tax",
+    "2026-tax-year",
+    "mcp:model_scorp_break_even"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "net_se_income"
+    ],
+    "properties": {
+      "net_se_income": {
+        "type": "number",
+        "description": "Net self-employment income in dollars for the year. Default 150000 when absent."
+      },
+      "reasonable_salary_pct": {
+        "type": "number",
+        "description": "Reasonable W-2 salary as a percent of net SE income, 0-100; the compute divides by 100. Default 50.",
+        "default": 50
+      },
+      "annual_admin_cost": {
+        "type": "number",
+        "description": "Annual S-Corp accounting and payroll admin cost in dollars. Typical band $1,500-$3,000/yr; outside values honored and flagged. Default 3000.",
+        "default": 3000
+      },
+      "owner_health_premium_annual": {
+        "type": "number",
+        "description": "Owner health premium, annual dollars. Echoed, unused by the compute (DIFFERS D2). Default 0.",
+        "default": 0
+      },
+      "filing_status": {
+        "type": "string",
+        "enum": [
+          "single",
+          "mfj"
+        ],
+        "description": "Filing status. Excluded from the tax math (DIFFERS D1); selects only the section 199A threshold caveat flag. Default single.",
+        "default": "single"
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "model_scorp_break_even",
+    "description": "Model the S-Corp election break-even: sole-prop SE tax vs S-Corp payroll tax on a reasonable W-2 salary share, net of annual admin cost, with the grid break-even income and a QBI section 199A trade-off (payroll-tax saved vs the 20% deduction value lost on wages paid). 2026: SS wage base $184,500 with cap logic, SS 12.4%, Medicare 2.9% uncapped, and the 92.35% SE factor on net earnings from self-employment only, never W-2 wages (IRS Topic 554).",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "net_se_income"
+      ],
+      "properties": {
+        "net_se_income": {
+          "type": "number",
+          "description": "Net self-employment income in dollars for the year. Default 150000 when absent."
+        },
+        "reasonable_salary_pct": {
+          "type": "number",
+          "description": "Reasonable W-2 salary as a percent of net SE income, 0-100; the compute divides by 100. Default 50.",
+          "default": 50
+        },
+        "annual_admin_cost": {
+          "type": "number",
+          "description": "Annual S-Corp accounting and payroll admin cost in dollars. Typical band $1,500-$3,000/yr; outside values honored and flagged. Default 3000.",
+          "default": 3000
+        },
+        "owner_health_premium_annual": {
+          "type": "number",
+          "description": "Owner health premium, annual dollars. Echoed, unused by the compute (DIFFERS D2). Default 0.",
+          "default": 0
+        },
+        "filing_status": {
+          "type": "string",
+          "enum": [
+            "single",
+            "mfj"
+          ],
+          "description": "Filing status. Excluded from the tax math (DIFFERS D1); selects only the section 199A threshold caveat flag. Default single.",
+          "default": "single"
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-713-scorp-election-break-even.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "output_schema": {
+    "type": "object",
+    "description": "output_payload: verdict (SCORP_WINS when net_annual_savings >= 0), net_se_income, reasonable_salary_pct, annual_admin_cost, filing_status, owner_health_premium_annual, reasonable_w2_salary, distribution, sole_prop_se_tax, scorp_payroll_tax (full-wage FICA: SS capped at $184,500, Medicare 2.9% uncapped), se_tax_savings, net_annual_savings, five_year_savings, break_even_income (first point of the 500-step grid, null when never reached), half_se_tax_deduction and scorp_employer_tax (diagnostics), qbi_199a_income, qbi_199a_deduction_tentative (20%), qbi_199a_value_at_risk (wages at the adjudicated 19.8% effective rate), net_annual_savings_qbi_adjusted, qbi_adjusted_break_even_income, caveats (flag-mirror advisories), scope_note."
+  },
+  "source": "chaingraph/kernels/art-713-scorp-election-break-even.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: net_se_income, reasonable_salary_pct, annual_admin_cost, owner_health_premium_annual, filing_status.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "net_se_income": 150000,
+    "reasonable_salary_pct": 50,
+    "annual_admin_cost": 3000,
+    "owner_health_premium_annual": 0,
+    "filing_status": "single"
+  },
+  "output_example": {
+    "verdict": "SCORP_WINS",
+    "net_se_income": 150000,
+    "reasonable_salary_pct": 50,
+    "annual_admin_cost": 3000,
+    "filing_status": "single",
+    "owner_health_premium_annual": 0,
+    "reasonable_w2_salary": 75000,
+    "distribution": 75000,
+    "sole_prop_se_tax": 21194.32,
+    "scorp_payroll_tax": 11475,
+    "se_tax_savings": 9719.32,
+    "net_annual_savings": 6719.32,
+    "five_year_savings": 33596.62,
+    "break_even_income": 46500,
+    "half_se_tax_deduction": 10597.16,
+    "scorp_employer_tax": 5737.5,
+    "qbi_199a_income": 75000,
+    "qbi_199a_deduction_tentative": 15000,
+    "qbi_199a_value_at_risk": 14850,
+    "net_annual_savings_qbi_adjusted": -8130.68,
+    "qbi_adjusted_break_even_income": null,
+    "caveats": [
+      "QBI-adjusted break-even never reached: the QBI value given up outweighs the payroll-tax saving at this salary share."
+    ],
+    "scope_note": "Deterministic 2026 model, not tax advice. The 92.35% SE factor is applied to net earnings from self-employment only, never to W-2 wages (IRS Topic 554) — the port corrects Apex #111 on this point by adjudication of record. The 0.9% Additional Medicare Tax above $200K single / $250K MFJ is NOT modeled. The QBI section 199A trade-off values wages at the adjudicated 19.8% effective rate, flags (from net income as a taxable-income proxy) the $201,775 single / $403,500 MFJ threshold and phase-out band, and cannot see SSTB status, which disallows the deduction inside the band. Break-even is the first point of a 500-step grid, within one step of the continuous break-even."
+  },
+  "example_execution_hash": "2b7b48b202c08e2c994dc0f84ea1099997f8092a28d7b2182962038013065616"
+}

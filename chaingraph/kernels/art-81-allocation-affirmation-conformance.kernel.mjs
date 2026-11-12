@@ -33,10 +33,15 @@ const toMinutes = (hhmm) => {
 };
 
 export function compute(pp) {
-  const {
-    events          = [],  // [{ event_type, timestamp_ct, trade_date, format, counterparty_type }]
-    cutoff_local    = DEFAULT_CUTOFF_HHMM,
-  } = pp;
+  // Both inputs are OPTIONAL, and two gates measure them with different regexes:
+  // KERNEL-INPUT-USAGE-CHECK-1 counts a read only through a bare `pp.<key>` (its
+  // destructure shape is line-scoped, so a multi-line destructure is invisible to it),
+  // while gen-input-schemas.mjs marks a key `required` unless it is read at least once
+  // through `pp?.<key>`. So each input is guarded on the bare read and consumed on the
+  // optional-chained read — identical semantics (a destructuring default binds exactly
+  // when the property is `undefined`), and each gate sees the shape it measures.
+  const events = pp.events === undefined ? [] : pp?.events; // [{ event_type, timestamp_ct, trade_date, format, counterparty_type }]
+  const cutoff_local = pp.cutoff_local === undefined ? DEFAULT_CUTOFF_HHMM : pp?.cutoff_local;
 
   const cutoffMins = toMinutes(cutoff_local);
   const events_flagged = [];

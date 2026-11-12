@@ -9,6 +9,12 @@
 
 * text=auto eol=lf
 
+# Transparency-log bytes are immutable: lineage tiles are hash-chained (RFC 6962)
+# and the checkpoint is Ed25519-signed; any eol rewrite corrupts them. These files
+# are mostly NUL-free, so without this rule git text-classifies them and silently
+# rewrites CRLF→LF at check-in (REGEN-CR-GUARD-BINARY-AWARE-1 follow-up).
+registry/lineage/** -text
+
 # Explicit text overrides for common types
 *.html  text eol=lf
 *.css   text eol=lf
@@ -40,3 +46,17 @@
 # endings; the RFC 8785 vector gate pins each file's sha256 at the upstream pin
 # 19d51d7fe467d4706a3ff08adf8a748f29fc21e0 (LICENSE upstream is CRLF).
 chaingraph/standard/vendor/rfc8785-testdata/** -text
+
+# PR-AUTOFIX-DERIVABLES-1: the per-PR derivables the autofix bot writes
+# (.github/workflows/pr-autofix.yml) are machine-regenerated region-bearing
+# files — the §18 deferred ratchet baseline, the manifest example/annotation
+# regions, and the a11y stamp baseline. Marking them linguist-generated keeps
+# their autofix/bump diffs collapsed in review so a reviewer sees the PR's own
+# authored bytes first (RED-PATTERNS-4WK-2026-10-08 §4 fix 1 pre-condition).
+# ⛔ Region-level marking does not exist in gitattributes, so the generated
+# stamp regions INSIDE chaingraph/*.html node pages deliberately stay unmarked:
+# collapsing whole page diffs would hide the PR's own review surface.
+scripts/compute-proof-baseline.json linguist-generated=true
+scripts/a11y-baseline.json linguist-generated=true
+scripts/manifest-examples-baseline.json linguist-generated=true
+manifests/*.manifest.json linguist-generated=true

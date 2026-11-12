@@ -15,7 +15,7 @@
  * What it proves (red-before-green, per the row's own "PROVE IT" discipline):
  *   1. DEFAULT PATH — no AINUM_EXPECT_RED set ⇒ preflight is invoked with
  *      exactly the quick-first argv of PREFLIGHT-QUICK-1 (`--quick`, nothing
- *      appended; the full `--changed origin/main` leg only runs when
+ *      appended; the full `--changed origin/main` leg (instead of quick) only runs when
  *      PREFLIGHT_FULL=1 or the diff touches the gated machinery).
  *   2. PARSING — a comma-separated declaration (with stray whitespace) becomes
  *      one `--expect-red <id>` pair per id, in order, forwarded to preflight.
@@ -47,13 +47,35 @@
  * Exit 0 = every assertion passed. Exit 1 = a fixture assertion failed.
  */
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, chmodSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, dirname } from 'node:path';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, chmodSync, appendFileSync, copyFileSync, readdirSync } from 'node:fs';
+import { join, dirname, resolve, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isolatedChildEnv } from '../scripts/_git-env-lib.mjs';
 
 const HOOK_SRC = fileURLToPath(new URL('./pre-push', import.meta.url));
+
+// PREPUSH-TEST-TEMPDIR-1: scratch lives inside the worktree (git-ignored
+// `.tmp/`), not %TEMP% — sandboxed lanes can write the worktree but cannot
+// delete under %TEMP%, so preflight could not run locally.
+const SCRATCH_ROOT = resolve(dirname(HOOK_SRC), '..', '.tmp');
+
+// Git for Windows' bash, never a WSL bash.exe that precedes it on PATH.
+function resolveBash() {
+  if (process.platform === 'win32') {
+    for (const root of [process.env.ProgramFiles, process.env['ProgramFiles(x86)'], 'C:\Program Files']) {
+      if (!root) continue;
+      const p = join(root, 'Git', 'usr', 'bin', 'bash.exe');
+      if (existsSync(p)) return p;
+    }
+  }
+  return 'bash';
+}
+const BASH = resolveBash();
+
+// Best-effort: a refused removal must never fail the test.
+function cleanup(dir) {
+  try { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); } catch { /* best-effort */ }
+}
 
 let failures = 0;
 function assert(cond, msg) {
@@ -65,16 +87,40 @@ const MOCK_PREFLIGHT = `#!/usr/bin/env node
 // Mock stand-in for scripts/preflight.mjs — this test proves the HOOK's
 // forwarding/disclosure logic, never the real gate suite (out of this row's
 // fence: "Zero gate semantics").
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, appendFileSync, existsSync, readFileSync } from 'node:fs';
 const args = process.argv.slice(2);
-writeFileSync(process.env.MOCK_ARGV_DUMP, JSON.stringify(args));
+// AFFECTED-GATES-PREPUSH-1: the hook's second (--affected) leg is recorded in its own dump, so
+// MOCK_ARGV_DUMP keeps meaning "the quick/full/push-safety leg" for every assertion below.
+if (args[0] === '--affected' || args[0] === '--hygiene') { if (process.env.MOCK_AFFECTED_DUMP) writeFileSync(process.env.MOCK_AFFECTED_DUMP, JSON.stringify(args)); }
+else writeFileSync(process.env.MOCK_ARGV_DUMP, JSON.stringify(args));
+// PREPUSH-MERGE-RESULT-1: the affected leg also dumps WHICH tree it judged —
+// cwd plus the fixture files only the merge result can carry — so a fixture
+// can prove the gate saw the merge result and not the branch tip alone.
+if (process.env.MOCK_CWD_DUMP) writeFileSync(process.env.MOCK_CWD_DUMP, JSON.stringify({
+  cwd: process.cwd(),
+  registry: existsSync('data/registry.txt') ? readFileSync('data/registry.txt', 'utf8').trim() : null,
+  widget: existsSync('tools/widget.html'),
+}));
+// PREPUSH-MERGE-RESULT-1 fixture gate REGISTRY-STAMP-CROSSCHECK: the branch's
+// widget pins a registry value that MAIN replaced after the branch was cut —
+// only a tree carrying BOTH sides (the merge result) can see the defect, which
+// is exactly the "green on its own tree, stale against main" shape this row
+// removes. Cross-checks only fire on the --affected leg.
+if (args[0] === '--affected' && existsSync('tools/widget.html') && existsSync('data/registry.txt')
+    && readFileSync('data/registry.txt', 'utf8').includes('STALE-MAIN')) {
+  console.log('✗ REGISTRY-STAMP-CROSSCHECK: widget.html pins a registry value that MAIN MOVED');
+  process.exit(1);
+}
+if (process.env.MOCK_ARGV_LOG) appendFileSync(process.env.MOCK_ARGV_LOG, JSON.stringify(args) + '\\n');
+if (process.env.MOCK_ENV_LOG) appendFileSync(process.env.MOCK_ENV_LOG, 'PR=' + (process.env.PR_ID_COLLISION_PR || '') + '\\n');
 console.log('mock preflight received: ' + args.join(' '));
 process.exit(process.env.MOCK_PREFLIGHT_EXIT ? Number(process.env.MOCK_PREFLIGHT_EXIT) : 0);
 `;
 
 // Fresh, short-lived, session-private sandbox per SO #55 — never a shared temp path.
 function makeSandbox() {
-  const dir = mkdtempSync(join(tmpdir(), 'ain-eR-'));
+  mkdirSync(SCRATCH_ROOT, { recursive: true });
+  const dir = mkdtempSync(join(SCRATCH_ROOT, 'ain-eR-'));
   mkdirSync(join(dir, '.githooks'), { recursive: true });
   mkdirSync(join(dir, 'scripts'), { recursive: true });
   const hookDst = join(dir, '.githooks', 'pre-push');
@@ -96,32 +142,65 @@ function makeSandbox() {
 // Runs the sandboxed hook exactly as `git push` would invoke it: cwd at the
 // repo root, refs on stdin (empty is fine — reconcile-guard.mjs is absent so
 // that whole block is skipped), env is the ONLY declaration channel.
-function runHook(dir, envOverrides) {
+function runHook(dir, envOverrides, input = '') {
   const argvDump = join(dir, 'argv-dump.json');
   const metricsFile = join(dir, 'metrics.jsonl');
-  const res = spawnSync('bash', ['.githooks/pre-push'], {
+  const res = spawnSync(BASH, ['.githooks/pre-push'], {
     cwd: dir,
-    input: '',
+    input,
     env: {
       ...process.env,
       MOCK_ARGV_DUMP: argvDump,
+      MOCK_AFFECTED_DUMP: join(dir, 'affected-dump.json'),
+      MOCK_CWD_DUMP: join(dir, 'judged-tree.json'),
+      MOCK_ARGV_LOG: join(dir, 'argv-log.jsonl'),
+      MOCK_ENV_LOG: join(dir, 'env-log.txt'),
+      PR_ID_COLLISION_PR: '',
       AINUM_GUARDRAIL_METRICS_PATH: metricsFile,
       // Explicitly unset — a leaked value from the outer shell must never
       // leak into a scenario that expects it absent (the no-persistence check).
       AINUM_EXPECT_RED: '',
       AINUM_EXPECT_RED_ROW: '',
       PREFLIGHT_FULL: '', // PREFLIGHT-QUICK-1: a leaked outer value must not force the full leg
+      AINUM_PREPUSH_MERGE_WT_ROOT: '', // PREPUSH-MERGE-RESULT-1: only a scenario that OWNS the merge-worktree root sets it
       ...envOverrides,
     },
     encoding: 'utf8',
   });
   let argv = null;
   if (existsSync(argvDump)) { try { argv = JSON.parse(readFileSync(argvDump, 'utf8')); } catch { /* leave null */ } }
+  let affected = null;
+  const affDump = join(dir, 'affected-dump.json');
+  if (existsSync(affDump)) { try { affected = JSON.parse(readFileSync(affDump, 'utf8')); } catch { /* leave null */ } }
+  let judged = null;
+  const cwdDump = join(dir, 'judged-tree.json');
+  if (existsSync(cwdDump)) { try { judged = JSON.parse(readFileSync(cwdDump, 'utf8')); } catch { /* leave null */ } }
   let metricsLines = [];
   if (existsSync(metricsFile)) {
     metricsLines = readFileSync(metricsFile, 'utf8').split('\n').filter((l) => l.trim().length);
   }
-  return { status: res.status, stdout: res.stdout || '', stderr: res.stderr || '', argv, metricsFile, metricsLines };
+  return { status: res.status, stdout: res.stdout || '', stderr: res.stderr || '', argv, affected, judged, metricsFile, metricsLines };
+}
+
+// ── 0. AFFECTED-GATES-PREPUSH-1: --affected runs after a GREEN quick leg, never after a red one ──
+{
+  const dir = makeSandbox();
+  writeFileSync(join(dir, 'metrics.jsonl'), '');
+  const g = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0' });
+  assert(JSON.stringify(g.affected) === JSON.stringify(['--affected', '--changed', 'origin/main', '--keep-going', '--quiet']),
+    `GREEN quick: the --affected leg runs with --changed origin/main --keep-going --quiet (got ${JSON.stringify(g.affected)})`);
+  cleanup(dir);
+  const dir2 = makeSandbox();
+  writeFileSync(join(dir2, 'metrics.jsonl'), '');
+  const rr = runHook(dir2, { MOCK_PREFLIGHT_EXIT: '1' });
+  assert(rr.status !== 0 && rr.affected === null, `RED quick: the push is blocked and --affected never starts (got status ${rr.status}, affected ${JSON.stringify(rr.affected)})`);
+  cleanup(dir2);
+  const dir3 = makeSandbox();
+  writeFileSync(join(dir3, 'metrics.jsonl'), '');
+  const er = runHook(dir3, { MOCK_PREFLIGHT_EXIT: '0', AINUM_EXPECT_RED: 'gate-x' });
+  assert(JSON.stringify(er.affected) === JSON.stringify(['--affected', '--changed', 'origin/main', '--keep-going', '--quiet', '--expect-red', 'gate-x']),
+    `--expect-red declarations reach the --affected leg too (got ${JSON.stringify(er.affected)})`);
+  cleanup(dir3);
 }
 
 // ── 1. DEFAULT PATH UNCHANGED ────────────────────────────────────────────
@@ -133,7 +212,7 @@ function runHook(dir, envOverrides) {
   assert(JSON.stringify(r.argv) === JSON.stringify(['--quick']),
     `default path forwards nothing extra to preflight (got ${JSON.stringify(r.argv)})`);
   assert(r.metricsLines.length === 0, 'default path appends nothing to the metrics log');
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
 }
 
 // ── 2. PARSING — comma-separated ids, stray whitespace, order preserved ──
@@ -144,7 +223,7 @@ function runHook(dir, envOverrides) {
   const expected = ['--quick', '--expect-red', 'gate-a', '--expect-red', 'gate-b'];
   assert(JSON.stringify(r.argv) === JSON.stringify(expected),
     `comma-separated declaration becomes one --expect-red pair per id, trimmed, in order (got ${JSON.stringify(r.argv)})`);
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
 }
 
 // ── 3. GREEN CONTROL — declared id, preflight accepts, push proceeds ─────
@@ -167,7 +246,7 @@ let greenDenied;
     assert(parsed.denied === false, 'GREEN control: logged denied:false — the declaration was accepted, not blocked');
     greenDenied = parsed.denied;
   }
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
 }
 
 // ── 4. RED CONTROL — declaration present, a genuine defect still blocks ──
@@ -188,7 +267,7 @@ let greenDenied;
     assert(parsed.denied === true, 'RED control: logged denied:true — the declaration did NOT waive the block');
   }
   assert(greenDenied === false, 'sanity: GREEN and RED controls produced opposite denied values');
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
 }
 
 // ── 5. NO PERSISTENCE — a second, unflagged push against the same red mock
@@ -208,7 +287,7 @@ let greenDenied;
     'NO PERSISTENCE: the unflagged push forwards no --expect-red args (no state survived)');
   assert(plain.metricsLines.length === linesAfterFlagged,
     `NO PERSISTENCE: the unflagged push appended nothing new to the metrics log (had ${linesAfterFlagged}, now ${plain.metricsLines.length})`);
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
 }
 
 // ── 6. FILE-BASED ROUTE (EXPECTRED-ENVPREFIX-GAP-1) — reachable under the
@@ -230,7 +309,7 @@ let greenDenied;
     assert(parsed.source === 'file', `file-based route: logged source is "file" (got ${parsed.source})`);
     assert(parsed.row === 'TEST-ROW-2', `file-based route: row id read from the declaration file's second line (got ${parsed.row})`);
   }
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
 }
 
 // ── 7. FILE-BASED ROUTE, STILL BLOCKS (load-bearing) — a genuine second red
@@ -242,7 +321,7 @@ let greenDenied;
   const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '1' });
   assert(r.status !== 0, 'file-based route, STILL BLOCKS: a genuine red still fails the push even with a file declaration');
   assert(!existsSync(join(dir, '.git', 'AINUM_EXPECT_RED')), 'file-based route: declaration file deleted even when the push is still denied');
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
 }
 
 // ── 8. FILE NEVER OUTLIVES A LATER, UNFLAGGED PUSH ────────────────────────
@@ -258,7 +337,7 @@ let greenDenied;
   assert(second.status !== 0, 'NO PERSISTENCE (file route): a later push with no file and a genuine red still blocks');
   assert(JSON.stringify(second.argv) === JSON.stringify(['--quick']),
     'NO PERSISTENCE (file route): the later push forwards no --expect-red (the file did not survive)');
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
 }
 
 // ── 9. ENV TAKES PRECEDENCE OVER A STALE FILE, AND THE STALE FILE IS STILL
@@ -272,7 +351,7 @@ let greenDenied;
     `env wins when both are present (got ${JSON.stringify(r.argv)})`);
   assert(!existsSync(join(dir, '.git', 'AINUM_EXPECT_RED')),
     'a stale file is still deleted even when the env form is the one actually used');
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
 }
 
 // ── 10. PREFLIGHT_FULL=1 — the FULL suite leg runs after (and behind) quick,
@@ -285,7 +364,241 @@ let greenDenied;
   assert(r.status === 0, 'PREFLIGHT_FULL=1: hook exits 0 when both legs are green');
   assert(JSON.stringify(r.argv) === JSON.stringify(['--changed', 'origin/main', '--expect-red', 'gate-f']),
     `PREFLIGHT_FULL=1: the full leg forwards --changed origin/main plus declared ids (last invocation got ${JSON.stringify(r.argv)})`);
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  cleanup(dir);
+}
+
+// ── 11/12. PREPUSH-NARROW-1 — the full-suite trigger. A sandbox WITH an
+//      origin/main ref and the real trigger script: a docs-only scripts/ diff
+//      runs quick only (RED control for the old pathspec, which ran full); a
+//      scripts/*.mjs diff runs FULL ONLY (quick leg skipped) and tees a log.
+function makeTriggerSandbox(changedPath) {
+  const dir = makeSandbox();
+  copyFileSync(fileURLToPath(new URL('../scripts/prepush-full-trigger.mjs', import.meta.url)), join(dir, 'scripts', 'prepush-full-trigger.mjs'));
+  const g = (...a) => spawnSync('git', a, { cwd: dir, env: isolatedChildEnv(), encoding: 'utf8' });
+  g('config', 'user.email', 't@example.invalid'); g('config', 'user.name', 't');
+  writeFileSync(join(dir, 'seed.txt'), 'x');
+  // The mock gate must be COMMITTED: the merge-result worktree is a checkout
+  // of committed content only (production's real preflight.mjs is committed —
+  // this fixture must mirror that, or the merge-result leg runs gateless).
+  g('add', 'scripts/preflight.mjs'); g('commit', '-q', '-m', 'seed');
+  g('update-ref', 'refs/remotes/origin/main', 'HEAD');
+  mkdirSync(join(dir, dirname(changedPath)), { recursive: true });
+  writeFileSync(join(dir, changedPath), 'y');
+  g('add', changedPath); g('commit', '-q', '-m', 'change');
+  writeFileSync(join(dir, 'metrics.jsonl'), '');
+  return dir;
+}
+function loggedArgvs(dir) {
+  const f = join(dir, 'argv-log.jsonl');
+  return existsSync(f) ? readFileSync(f, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
+}
+
+// ── PREPUSH-MERGE-RESULT-1 fixture repo ─────────────────────────────────
+// A real two-branch history in the temp sandbox: a base commit, then main
+// MOVES (replaces the registry value) while the pushed branch adds a widget
+// that pins it. The two sides touch disjoint paths unless opts.conflict —
+// a clean merge carries BOTH sides; a conflict reproduces the fail-open case.
+function makeMergeSandbox(opts = {}) {
+  const dir = makeSandbox();
+  const g = (...a) => spawnSync('git', a, { cwd: dir, env: isolatedChildEnv(), encoding: 'utf8' });
+  g('config', 'user.email', 't@example.invalid');
+  g('config', 'user.name', 't');
+  writeFileSync(join(dir, 'seed.txt'), 'seed\n');
+  // The mock gate must be COMMITTED (see makeTriggerSandbox): the merge-result
+  // worktree checks out committed content only.
+  g('add', 'seed.txt', 'scripts/preflight.mjs');
+  g('commit', '-q', '-m', 'base');
+  const orig = (spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: dir, env: isolatedChildEnv(), encoding: 'utf8' }).stdout || '').trim();
+  // main-side move (origin/main is rebased onto it after; HEAD stays behind)
+  g('checkout', '-q', '-b', 'mainline');
+  mkdirSync(join(dir, 'data'), { recursive: true });
+  writeFileSync(join(dir, 'data', 'registry.txt'), (opts.registryValue || 'FRESH-STAMP') + '\n');
+  g('add', 'data/registry.txt');
+  if (opts.conflict) { writeFileSync(join(dir, 'seed.txt'), 'main-side\n'); g('add', 'seed.txt'); }
+  g('commit', '-q', '-m', 'main: registry stamp move');
+  g('update-ref', 'refs/remotes/origin/main', 'HEAD');
+  g('checkout', '-q', orig);
+  // the pushed branch: a widget pinning the registry value main just replaced
+  mkdirSync(join(dir, 'tools'), { recursive: true });
+  writeFileSync(join(dir, 'tools', 'widget.html'), '<p>widget pins the registry value</p>\n');
+  g('add', 'tools/widget.html');
+  if (opts.conflict) { writeFileSync(join(dir, 'seed.txt'), 'branch-side\n'); g('add', 'seed.txt'); }
+  g('commit', '-q', '-m', 'branch: widget');
+  // the merge-result worktree root (AINUM_PREPUSH_MERGE_WT_ROOT override target)
+  const mergeWtRoot = join(dir, 'merge-wt');
+  mkdirSync(mergeWtRoot, { recursive: true });
+  writeFileSync(join(dir, 'metrics.jsonl'), '');
+  return { dir, mergeWtRoot };
+}
+
+// Absolute git.exe for the unsupported-git shim, resolved like resolveBash does.
+function resolveRealGit() {
+  if (process.platform === 'win32') {
+    for (const root of [process.env.ProgramFiles, process.env['ProgramFiles(x86)'], 'C:\\Program Files']) {
+      if (!root) continue;
+      const p = join(root, 'Git', 'cmd', 'git.exe');
+      if (existsSync(p)) return p.replace(/\\/g, '/');
+    }
+  }
+  // POSIX: an ABSOLUTE git from the ORIGINAL PATH. The shim sits first on PATH, so a bare
+  // `git` here makes `exec git "$@"` resolve to the shim itself and loop forever (CI hang).
+  for (const d of (process.env.PATH || '').split(delimiter)) {
+    if (!d) continue;
+    const p = join(d, 'git');
+    if (existsSync(p)) return p;
+  }
+  return 'git';
+}
+{
+  const dir = makeTriggerSandbox('scripts/NOTES.md');
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0' });
+  const calls = loggedArgvs(dir);
+  assert(r.status === 0 && calls.length === 2 && calls[0][0] === '--quick' && calls[1][0] === '--affected',
+    `docs-only scripts/ diff (GREEN, not owed): quick leg, then the --affected leg (AFFECTED-GATES-PREPUSH-1), no full suite (got ${JSON.stringify(calls)})`);
+  cleanup(dir);
+}
+{
+  const dir = makeTriggerSandbox('scripts/new-gate.mjs');
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0' });
+  const calls = loggedArgvs(dir);
+  assert(r.status === 0 && calls.length === 2 && calls[0][0] === '--push-safety' && calls[0][1] === '--changed' && calls[0][2] === 'origin/main',
+    `scripts/*.mjs diff (PREPUSH-SAFETY-LEG-1): PUSH-SAFETY leg (quick skipped as a subset), full suite left to CI (got ${JSON.stringify(calls)})`);
+  assert(calls[1] && calls[1][0] === '--hygiene',
+    `PREPUSH-HYGIENE-ALWAYS-1: the push-safety branch then runs the always-on --hygiene leg (got ${JSON.stringify(calls[1])})`);
+  assert(existsSync(join(dir, '.git', 'preflight-push-safety.log')), 'push-safety leg output is teed to .git/preflight-push-safety.log');
+  cleanup(dir);
+}
+{
+  const dir = makeTriggerSandbox('scripts/new-gate.mjs');
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '1' });
+  assert(r.status !== 0, 'push-safety leg red (exit status survives the tee pipe) still BLOCKS the push');
+  cleanup(dir);
+}
+{
+  // PREPUSH-SAFETY-LEG-1: PREFLIGHT_FULL=1 remains the explicit escape hatch —
+  // it must still force the FULL suite even on a gate-machinery diff.
+  const dir = makeTriggerSandbox('scripts/new-gate.mjs');
+  const r = runHook(dir, { PREFLIGHT_FULL: '1', MOCK_PREFLIGHT_EXIT: '0' });
+  const calls = loggedArgvs(dir);
+  assert(r.status === 0 && calls.length === 1 && calls[0][0] === '--changed' && calls[0][1] === 'origin/main',
+    `PREFLIGHT_FULL=1 on a machinery diff: the FULL leg still runs (got ${JSON.stringify(calls)})`);
+  assert(existsSync(join(dir, '.git', 'preflight-full.log')), 'PREFLIGHT_FULL=1 output is still teed to .git/preflight-full.log');
+  cleanup(dir);
+}
+{
+  // PREPUSH-SAFETY-LEG-1: the attestation echo must name the leg, never claim
+  // "all hard CI gates passed" for a push-safety-only push. Asserted statically
+  // on the hook source: the sandbox does not carry
+  // scripts/check-prepush-attestation.mjs (out of this row's fence), so the
+  // protected-path echo block never fires live here.
+  const hookText = readFileSync(HOOK_SRC, 'utf8');
+  assert(/push-safety leg ran and passed|push-safety leg/.test(hookText.split('PREFLIGHT VERIFIED')[1] || ''),
+    'attestation echo names the push-safety leg');
+  const attestLine = hookText.split('\n').find((l) => l.includes('PREFLIGHT VERIFIED')) || '';
+  assert(!attestLine.includes('all hard CI gates passed'), 'attestation echo no longer over-claims "all hard CI gates passed"');
+  assert(hookText.includes('PREPUSH-ATTEST-CHECK-1'), 'load-bearing PREPUSH-ATTEST-CHECK-1 marker is still present');
+}
+
+// ── 13. PREPUSH-PRID-ENV-1 — PR_ID_COLLISION_PR is exported to preflight only
+//      for an OPEN PR whose headRefName is the pushed branch, and only when the
+//      diff mints a node/manifest id. A fake gh script (PREPUSH_PRID_GH_JS seam) plays the API.
+function prFor(ghJson, branchInStdin, ghExit = 0) {
+  const dir = makeTriggerSandbox('chaingraph/graph/nodes/art-900-new-thing.json');
+  copyFileSync(fileURLToPath(new URL('../scripts/prepush-pr-id-env.mjs', import.meta.url)), join(dir, 'scripts', 'prepush-pr-id-env.mjs'));
+  const fakeGh = join(dir, 'fake-gh.js');
+  writeFileSync(fakeGh, ghExit ? `process.exit(${ghExit});` : `process.stdout.write(${JSON.stringify(ghJson)});`);
+  const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: dir, env: isolatedChildEnv(), encoding: 'utf8' }).stdout.trim();
+  const stdin = `refs/heads/${branchInStdin} ${head} refs/heads/${branchInStdin} ${'0'.repeat(40)}\n`;
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0', PREPUSH_PRID_GH_JS: fakeGh }, stdin);
+  const f = join(dir, 'env-log.txt');
+  const seen = existsSync(f) ? readFileSync(f, 'utf8') : '';
+  cleanup(dir);
+  return { status: r.status, seen };
+}
+{
+  const ok = prFor('{"number":4242,"state":"OPEN","headRefName":"feat-x"}', 'feat-x');
+  assert(ok.status === 0 && ok.seen.includes('PR=4242'), `GREEN: open PR on the pushed branch ⇒ PR_ID_COLLISION_PR=4242 exported (got ${JSON.stringify(ok.seen)})`);
+  const closed = prFor('{"number":4242,"state":"CLOSED","headRefName":"feat-x"}', 'feat-x');
+  assert(closed.status === 0 && closed.seen.includes('PR=\n'), `RED: closed PR ⇒ NOT exported, push unaffected (got ${JSON.stringify(closed.seen)})`);
+  const wrong = prFor('{"number":7,"state":"OPEN","headRefName":"someone-else"}', 'feat-x');
+  assert(wrong.status === 0 && wrong.seen.includes('PR=\n'), `RED: wrong headRefName ⇒ NOT exported (got ${JSON.stringify(wrong.seen)})`);
+  const err = prFor('', 'feat-x', 1);
+  assert(err.status === 0 && err.seen.includes('PR=\n'), `RED: gh failure ⇒ NOT exported and the push still proceeds (got ${JSON.stringify(err.seen)})`);
+}
+
+// ── 14. PREPUSH-MERGE-RESULT-1, RED (load-bearing): the branch tree is green
+//      but MAIN MOVED with a commit that makes the branch stale — only the
+//      MERGE RESULT can see that, and the hook must BLOCK. Before this row the
+//      affected leg judged the branch tip alone and this exact push sailed
+//      through to CI (the RED-before run of this file proves that).
+{
+  const { dir, mergeWtRoot } = makeMergeSandbox({ registryValue: 'STALE-MAIN' });
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0', AINUM_PREPUSH_MERGE_WT_ROOT: mergeWtRoot });
+  assert(r.status !== 0, 'MERGE-RESULT RED: branch green on its own tree + MAIN MOVED ⇒ the hook BLOCKS the push');
+  assert(/MAIN MOVED/.test(r.stdout + r.stderr),
+    'MERGE-RESULT RED: the block message says MAIN MOVED (the fix is re-grounding on fresh origin/main, not editing the branch)');
+  assert(JSON.stringify(r.affected) === JSON.stringify(['--affected', '--changed', 'origin/main', '--keep-going', '--quiet']),
+    `MERGE-RESULT RED: the affected leg ran with the unchanged AFFECTED-GATES-PREPUSH-1 argv (got ${JSON.stringify(r.affected)})`);
+  assert(r.judged !== null && r.judged.registry === 'STALE-MAIN' && r.judged.widget === true,
+    `MERGE-RESULT RED: the gate judged a tree carrying BOTH sides (registry=${r.judged && r.judged.registry}, widget=${r.judged && r.judged.widget}) — the merge result, not the branch tip`);
+  assert(r.judged !== null && r.judged.cwd !== dir && /prepush-merge-/.test(r.judged.cwd),
+    'MERGE-RESULT RED: the affected leg ran inside the temporary merge-result worktree, never the pusher\'s working tree');
+  assert(existsSync(mergeWtRoot) && readdirSync(mergeWtRoot).length === 0,
+    'MERGE-RESULT RED: the temporary merge-result worktree is REMOVED after the blocked push (trap cleanup)');
+  cleanup(dir);
+}
+
+// ── 15. PREPUSH-MERGE-RESULT-1, GREEN: main moved COMPATIBLY — the affected
+//      leg still runs on the merge result (that is what it judges now), passes,
+//      and the push proceeds with the worktree cleaned up on the green path too.
+{
+  const { dir, mergeWtRoot } = makeMergeSandbox({ registryValue: 'FRESH-STAMP' });
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0', AINUM_PREPUSH_MERGE_WT_ROOT: mergeWtRoot });
+  assert(r.status === 0, 'MERGE-RESULT GREEN: compatible main ⇒ the push proceeds');
+  assert(r.judged !== null && r.judged.registry === 'FRESH-STAMP' && r.judged.widget === true && r.judged.cwd !== dir,
+    'MERGE-RESULT GREEN: the affected leg judged the merge-result worktree (both sides present), not the branch tip');
+  assert(!/MAIN MOVED/.test(r.stdout + r.stderr), 'MERGE-RESULT GREEN: no MAIN-MOVED block message on a green merge-result leg');
+  assert(existsSync(mergeWtRoot) && readdirSync(mergeWtRoot).length === 0,
+    'MERGE-RESULT GREEN: the temporary worktree is removed on the green exit path too');
+  cleanup(dir);
+}
+
+// ── 16. PREPUSH-MERGE-RESULT-1, CONFLICT: merge-tree reports a conflict ⇒ ONE
+//      WARN line and FAIL OPEN to the unchanged branch-tree affected check —
+//      CI judges, exactly as before this row existed.
+{
+  const { dir, mergeWtRoot } = makeMergeSandbox({ conflict: true, registryValue: 'FRESH-STAMP' });
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0', AINUM_PREPUSH_MERGE_WT_ROOT: mergeWtRoot });
+  const warns = (r.stdout + r.stderr).split('\n').filter((l) => l.includes('WARN')).length;
+  assert(r.status === 0, 'CONFLICT: the push FAILS OPEN (exit 0) — a conflicted merge never blocks a push this hook cannot judge');
+  assert(warns === 1, `CONFLICT: exactly ONE WARN line is printed (got ${warns})`);
+  assert(r.judged !== null && r.judged.cwd === dir && r.judged.registry === null,
+    'CONFLICT: the affected leg fell back to the UNCHANGED branch-tree check (no merge worktree materialised)');
+  assert(existsSync(mergeWtRoot) && readdirSync(mergeWtRoot).length === 0,
+    'CONFLICT: no merge-result worktree was left behind');
+  cleanup(dir);
+}
+
+// ── 17. PREPUSH-MERGE-RESULT-1, UNSUPPORTED GIT: merge-tree exits non-zero
+//      (here: a PATH shim that answers rc=2, the "git too old" shape) ⇒ ONE
+//      WARN line and FAIL OPEN to the branch-tree check, same as a conflict.
+{
+  const { dir, mergeWtRoot } = makeMergeSandbox({ registryValue: 'STALE-MAIN' });
+  const shimDir = join(dir, 'shim');
+  mkdirSync(shimDir, { recursive: true });
+  const shim = `#!/bin/sh
+if [ "$1" = "merge-tree" ]; then echo "git: 'merge-tree --write-tree' is unsupported" >&2; exit 2; fi
+exec "${resolveRealGit()}" "$@"
+`;
+  writeFileSync(join(shimDir, 'git'), shim);
+  chmodSync(join(shimDir, 'git'), 0o755);
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0', AINUM_PREPUSH_MERGE_WT_ROOT: mergeWtRoot, PATH: shimDir + delimiter + process.env.PATH });
+  const warns = (r.stdout + r.stderr).split('\n').filter((l) => l.includes('WARN')).length;
+  assert(r.status === 0, 'UNSUPPORTED GIT: the push FAILS OPEN (exit 0) — an old git never blocks a push');
+  assert(warns === 1, `UNSUPPORTED GIT: exactly ONE WARN line is printed (got ${warns})`);
+  assert(r.judged !== null && r.judged.cwd === dir && r.judged.registry === null,
+    'UNSUPPORTED GIT: the affected leg ran the unchanged branch-tree check');
+  cleanup(dir);
 }
 
 console.log(`\n${failures === 0 ? '✅' : '❌'} ${failures} failure(s).`);

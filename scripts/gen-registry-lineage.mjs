@@ -20,11 +20,19 @@
 //    it via verifyConsistency (§2.3, SO #34) — aborts, writes nothing, on
 //    failure.
 // 5. Formats + signs the checkpoint (Ed25519, log-operator key held OUTSIDE
-//    this repo — workspace-root research/registry-lineage-log-key.priv.jwk.json).
+//    this repo — env REGISTRY_LINEAGE_LOG_KEY when set [LINEAGE-PUBLISH-IN-
+//    REGEN-1 route A: the repository Actions secret of the same name], else
+//    the operator desk's workspace-root research/registry-lineage-log-key.priv.jwk.json).
 // 6. Submits the checkpoint bytes to Sigsum via `register-sigsum.mjs register`
 //    (spawned, never duplicated) and stores the returned record. ⛔ If this
-//    step fails, NOTHING is written to disk — an unanchored head is a
-//    strictly weaker claim than what this lane promises (§2.1).
+//    step FAILS, NOTHING is written to disk — an unanchored head is a
+//    strictly weaker claim than what this lane promises (§2.1). EXCEPTION
+//    (LINEAGE-SIGSUM-TOLERANCE-2380-1, [7F-V459](a)/[7F-V460]): the Sigsum
+//    submit/token keys STAY OFFLINE (desk-only files, never repo or Actions
+//    secrets), so when they are ABSENT the submission is not attempted — the
+//    run signs with the log key, writes everything, and records
+//    `sigsum: pending` instead of failing. A key pair that is PRESENT but
+//    whose submit fails remains fail-closed.
 // 7. Only once every step above has succeeded does it write tiles + entry
 //    bundles + checkpoint + Sigsum record to registry/lineage/.
 //
@@ -143,7 +151,7 @@ export async function subproof(m, D, lo, hi, haveRootHash) {
 }
 
 export async function buildConsistencyProof(oldSize, newLeafHashes) {
-  if (oldSize === 0) return []; // verifyConsistency's own trivial-accept branch
+  if (oldSize === 0) return []; // genesis: no proof exists; generate() checks the root instead
   return subproof(oldSize, newLeafHashes, 0, newLeafHashes.length, true);
 }
 
@@ -324,6 +332,57 @@ export function canonicalEntryBytes(record) {
 }
 
 // ---------------------------------------------------------------------------
+// Log-operator key SOURCE (LINEAGE-PUBLISH-IN-REGEN-1, route A per Tim's
+// 2026-10-08 ruling "Route A: key into Actions secret"): on CI the key arrives
+// as the repository Actions secret REGISTRY_LINEAGE_LOG_KEY (via env); at the
+// operator desk it stays the on-disk workspace path. The SIGNING path below is
+// byte-identical either way — only the key bytes' ORIGIN changes. Precedence is
+// deliberate: an explicit opts.logPrivateKeyPath (the test harness's scratch
+// keys) still wins over the env var, so an inherited REGISTRY_LINEAGE_LOG_KEY
+// can never make a test sign with the real operator key; env wins over the
+// default file path. An empty/whitespace env var counts as NOT SET (a workflow
+// mapping `env: X: ${{ secrets.X }}` to an unavailable secret resolves to ''),
+// which falls back to the file path and fails loudly there — fail-closed, same
+// as every other missing-input shape.
+// ⛔ The env var's VALUE is secret: the error below names the secret NAME only
+// and never echoes bytes; nothing else in this file may print it either.
+// ---------------------------------------------------------------------------
+export function loadLogPrivateKeyJwk(pathOverride) {
+  if (pathOverride) return JSON.parse(readFileSync(pathOverride, 'utf8'));
+  const envKey = process.env.REGISTRY_LINEAGE_LOG_KEY;
+  if (envKey !== undefined && envKey.trim() !== '') {
+    try {
+      return JSON.parse(envKey);
+    } catch (e) {
+      throw new Error('REGISTRY_LINEAGE_LOG_KEY (env) is set but does not parse as a JWK — refusing to sign. The secret NAME is printed here, never its value.');
+    }
+  }
+  return JSON.parse(readFileSync(LOG_PRIVATE_KEY_PATH, 'utf8'));
+}
+
+// Reads the existing record at `recordPath` and returns it ONLY when it is a
+// fully-formed Sigsum anchor — the shape gen-trust-signals' sigsumSignal
+// requires (anchor_type c2sp-tlog-proof-v1, integer inclusion_proof.leaf_index,
+// Array witness_cosignatures[]). Any pending record, malformed JSON, or
+// missing file returns null so the caller falls through to the pending flow.
+// This is a shape test only: it never verifies the anchor's hash against the
+// new checkpoint (—check is the verifier; the hold exists to keep a real
+// anchor from being DEMOTED, not to attest a new tree).
+function readFullyFormedAnchor(recordPath) {
+  if (!existsSync(recordPath)) return null;
+  let record = null;
+  try {
+    record = JSON.parse(readFileSync(recordPath, 'utf8'));
+  } catch {
+    return null;
+  }
+  if (!record || record.anchor_type !== 'c2sp-tlog-proof-v1') return null;
+  if (!Number.isInteger(record?.inclusion_proof?.leaf_index)) return null;
+  if (!Array.isArray(record?.witness_cosignatures)) return null;
+  return record;
+}
+
+// ---------------------------------------------------------------------------
 // Sigsum submission — spawns the EXISTING register-sigsum.mjs `register`
 // command (never duplicated), mirroring scripts/fv-sigsum-upgrade-flip.mjs's
 // invocation shape. Throws on any non-zero exit; the caller must not write
@@ -358,7 +417,6 @@ export async function generate(opts = {}) {
   const checkpointPath = opts.checkpointPath || join(registryDir, 'checkpoint');
   const sigsumRecordPath = opts.sigsumRecordPath || join(registryDir, 'checkpoint.sigsum-record.json');
   const records = opts.records || loadRecords();
-  const submitToSigsum = opts.submitToSigsum || submitCheckpointToSigsum;
 
   const entryByteArrays = records.map(canonicalEntryBytes);
   const leafHashes = await Promise.all(entryByteArrays.map((b) => hashLeafNode(b)));
@@ -407,7 +465,12 @@ export async function generate(opts = {}) {
 
   const oldRoot = oldSize > 0 ? await mth(readLevel0LeafHashes(registryDir, oldSize), 0, oldSize) : new Uint8Array(32);
   const proof = await buildConsistencyProof(oldSize, leafHashes);
-  const consistent = await verifyConsistency({ oldSize, newSize: size, oldRoot, newRoot, proof });
+  // RFC 9162 §2.1.4.2 defines no consistency proof from an empty tree, and the
+  // shared verifier rejects oldSize 0 (C2SP-TLOG-VERIFY-HEAL-1). At genesis the
+  // gate instead asserts the new root IS the RFC 9162 root of the new leaves.
+  const consistent = oldSize > 0
+    ? await verifyConsistency({ oldSize, newSize: size, oldRoot, newRoot, proof })
+    : bytesEqual(newRoot, await mth(leafHashes, 0, size));
   if (!consistent) {
     throw new Error(
       `CONSISTENCY GATE FAILED (§2.3, SO #34): the new tree (size ${size}, root ${bytesToHex(newRoot)}) does ` +
@@ -425,7 +488,7 @@ export async function generate(opts = {}) {
 
   // ── Checkpoint: format, sign, self-parse round-trip BEFORE anchoring ─────
   const checkpointBody = formatCheckpoint(ORIGIN, size, newRoot);
-  const logJwk = JSON.parse(readFileSync(opts.logPrivateKeyPath || LOG_PRIVATE_KEY_PATH, 'utf8'));
+  const logJwk = loadLogPrivateKeyJwk(opts.logPrivateKeyPath); // env REGISTRY_LINEAGE_LOG_KEY first, file path otherwise (LINEAGE-PUBLISH-IN-REGEN-1)
   const logPrivateKey = await subtle.importKey('jwk', logJwk, { name: 'Ed25519' }, true, ['sign']);
   const logPublicKeyBytes = hexToBytes(opts.logPublicKeyHex || LOG_PUBLIC_KEY_HEX);
   const sigLine = await signCheckpointBody(checkpointBody, logPrivateKey, logPublicKeyBytes, LOG_NAME);
@@ -442,9 +505,51 @@ export async function generate(opts = {}) {
   if (!sigOk) throw new Error('checkpoint self-parse: our own Ed25519 signature failed to verify against our own public key — refusing to publish.');
   console.log('✓ checkpoint self-parse round-trip via parseSignedNote: origin/size/root/signature all confirmed.');
 
-  // ── Sigsum anchoring — MANDATORY unless a test harness supplies a stub.
-  // Publish nothing if this fails. ────────────────────────────────────────
-  const sigsumRecord = await submitToSigsum(checkpointBytes);
+  // ── Sigsum anchoring — MANDATORY unless the Sigsum keys are absent (the
+  // keys STAY OFFLINE per [7F-V459](a)/[7F-V460]: the submit key and the
+  // domain-bound token key are desk-only, never repo or Actions secrets), or
+  // a test harness supplies a stub. Key-absent is the SIGSUM-PENDING flow,
+  // NOT a failure: the checkpoint is still signed by the log key (whose own
+  // absence still fails closed — the withheld-LOG-key proof is unchanged),
+  // tiles + checkpoint + a `sigsum: pending` record are still written, and
+  // --check accepts the pending record. A PRESENT key pair whose submit
+  // fails is unchanged fail-closed (§2.1): publish nothing on a failed
+  // submit that was actually attempted. ──────────────────────────────────
+  const submitToSigsum = opts.submitToSigsum || submitCheckpointToSigsum;
+  let sigsumRecord;
+  const sigsumSubmitKeyPath = opts.sigsumSubmitKeyPath || SIGSUM_SUBMIT_KEY_PATH;
+  const sigsumTokenKeyPath = opts.sigsumTokenKeyPath || SIGSUM_TOKEN_KEY_PATH;
+  if (opts.submitToSigsum) {
+    sigsumRecord = await opts.submitToSigsum(checkpointBytes);
+  } else if (existsSync(sigsumSubmitKeyPath) && existsSync(sigsumTokenKeyPath)) {
+    sigsumRecord = await submitToSigsum(checkpointBytes);
+  } else {
+    // HOLD THE LAST FULLY-FORMED ANCHOR (MAIN-REGEN-SIGSUM-ANCHOR-HEAL-1).
+    // The keys are ALWAYS absent on the main-side regen runner, so before this
+    // hold, every non-skipped publish overwrote a real c2sp-tlog-proof-v1
+    // anchor (inclusion_proof.leaf_index + witness_cosignatures[]) with a
+    // field-less `sigsum-pending-v1` record — and the same run's
+    // gen-trust-signals pass then threw fail-closed on exactly that shape
+    // (red since run 38491123351). The record's own note already stated the
+    // law ("Never re-stamp an already-anchored checkpoint"); this is that law
+    // enforced in code: if the on-disk record is a fully-formed anchor, keep
+    // it instead of demoting it to pending. Never synthesized data is written
+    // here — the held bytes are the previously published anchor, verbatim.
+    const held = readFullyFormedAnchor(sigsumRecordPath);
+    if (held) {
+      sigsumRecord = held;
+      console.log(`⚠ Sigsum keys absent — HOLDING the last fully-formed anchor (leaf_index=${held.inclusion_proof.leaf_index}, cosigners=${held.witness_cosignatures.length}); not demoting it to pending.`);
+    } else {
+      const anchoredHashHex = bytesToHex(await sha256(checkpointBytes));
+      sigsumRecord = {
+        anchor_type: 'sigsum-pending-v1',
+        status: 'pending',
+        anchored_hash: `sha256:${anchoredHashHex}`,
+        note: 'Sigsum submit/token keys absent (keys stay offline; LINEAGE-SIGSUM-TOLERANCE-2380-1): checkpoint signed by the log key and published with sigsum pending registration. Never re-stamp an already-anchored checkpoint — the pending record is replaced only by a real register-sigsum.mjs record on a run where the keys are present. An existing fully-formed anchor is HELD, never overwritten by this pending state.',
+      };
+      console.log(`⚠ Sigsum keys absent — publishing with sigsum: pending (checkpoint sha256:${anchoredHashHex}); registration deferred, not failed.`);
+    }
+  }
 
   // ── Only now: write everything to disk. ──────────────────────────────────
   for (const [path, bytes] of filesToWrite) {
@@ -455,8 +560,118 @@ export async function generate(opts = {}) {
   writeFileSync(sigsumRecordPath, JSON.stringify(sigsumRecord, null, 2));
 
   console.log(`\n✅ published registry/lineage: size=${size} root=${bytesToHex(newRoot)}`);
-  console.log(`   Sigsum leaf_index=${sigsumRecord.inclusion_proof.leaf_index} tree_size=${sigsumRecord.tree_head.size}`);
+  if (sigsumRecord.status === 'pending') {
+    console.log('   Sigsum: PENDING (keys absent — checkpoint published, registration deferred).');
+  } else {
+    console.log(`   Sigsum leaf_index=${sigsumRecord.inclusion_proof.leaf_index} tree_size=${sigsumRecord.tree_head.size}`);
+  }
   console.log(`   ${filesToWrite.length + 2} file(s) written under ${registryDir}`);
+}
+
+// ---------------------------------------------------------------------------
+// LINEAGE-PR-SIDE-RETIRE-1 (2026-10-22): the PR-side advisory split for the
+// lineage gates. Main's regen (derived-artifacts-regen.yml) has been the LIVE
+// writer of registry/lineage/** since 2026-10-14 (bot commits 543db5b2,
+// 6070463a, 9746b4e9, 4be6747a, 00a596ba, d876fe52, each one record + one
+// tile), so a node PR no longer carries its own append — the PR-side append
+// made every node PR serial and conflicting on files only main should write
+// (measured 2026-10-22: lineage-carrying PRs merge at a median 4.6h vs 1.2h
+// for the rest). On a pull_request whose diff touches NOTHING under the three
+// scopes below, a --check failure is ADVISORY (reported, never red) — the
+// PROVE-BASELINE-SINGLE-WRITER-1 disposition pattern copied, not reinvented:
+// warn + exit 0 in-script, keyed on isMainContext(). On main, on merge_group
+// with the assembled DERIVED_ROOT, on any other/undeterminable context, and
+// on any diff that DOES touch those files, --check stays BLOCKING exactly as
+// before (fail closed, mirroring isMainContext()'s whitelist-of-PR-proofs
+// shape). The unwired-gates.yml absence-tree leg of the split lives in the
+// workflow (a scope step + the sanctioned run-gate.mjs wrapper); this
+// in-script disposition is the preflight leg (scripts-verify.yml runs
+// preflight on pull_request). Self-test: gen-registry-lineage.test.mjs.
+// ---------------------------------------------------------------------------
+export const LINEAGE_SCOPE_PREFIXES = [
+  'registry/lineage/',
+  'registry/absence/',
+  'chaingraph/kernels/registry-lineage-records.json',
+];
+
+/** True when any touched path is a lineage-scope file (SO #34: recomputed
+ *  from the diff itself, never from a field the artifact under test carries). */
+export function diffTouchesLineageScope(files) {
+  for (const f of files ?? []) {
+    if (!f) continue;
+    if (LINEAGE_SCOPE_PREFIXES.some((p) => f === p || f.startsWith(p))) return true;
+  }
+  return false;
+}
+
+/** The PR-side disposition, pure so the self-test drives it directly.
+ *  advisory iff a PR context was affirmatively proven AND the diff is clean
+ *  of every lineage scope; everything else blocks. */
+export function lineageAdvisoryOnPr({ mainContext, touched }) {
+  if (mainContext) {
+    return { advisory: false, reason: 'main context (push:main, merge_group with DERIVED_ROOT, or undeterminable) — blocking exactly as before' };
+  }
+  if (diffTouchesLineageScope(touched)) {
+    return { advisory: false, reason: 'this diff touches a lineage file (registry/lineage/**, registry/absence/** or chaingraph/kernels/registry-lineage-records.json) — blocking exactly as before' };
+  }
+  return {
+    advisory: true,
+    reason: "pull_request context and the diff touches no lineage file; node PRs no longer carry the append — main's regen (derived-artifacts-regen.yml, live since 2026-10-14) appends after merge",
+  };
+}
+
+/** The touched-path union preflight.mjs already uses (working tree ∪ staged ∪
+ *  committed-vs-merge-base(origin/main, HEAD)). null = undeterminable → the
+ *  caller fails CLOSED (treats the diff as touching). */
+function gitTouchedPathsForScope() {
+  const out = new Set();
+  const add = (s) => { for (const f of String(s).split('\n')) { const t = f.trim(); if (t) out.add(t); } };
+  const run = (args) => execFileSync('git', args, { cwd: REPO, env: gitEnv(), stdio: ['ignore', 'pipe', 'ignore'] }).toString();
+  try {
+    add(run(['diff', '--name-only', 'HEAD']));
+    add(run(['diff', '--name-only', '--cached']));
+  } catch {
+    return null;
+  }
+  try {
+    const base = execFileSync('git', ['merge-base', 'origin/main', 'HEAD'], { cwd: REPO, env: gitEnv(), stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    add(run(['diff', '--name-only', base, 'HEAD']));
+  } catch { /* no origin/main ref — working-tree/staged diff above is what we have (preflight.mjs's own fallback shape) */ }
+  return [...out];
+}
+
+/** C3 (LINEAGE-PR-SIDE-RETIRE-1): anchor-lag WARNING — never red. A held
+ *  anchor (or a pending record's anchored_hash) that no longer equals the
+ *  sha256 of the CURRENT checkpoint went stale silently after every bot
+ *  publish; this surfaces it as ONE warning line so a desk stamp is owed.
+ *  null = anchored (silent) / nothing comparable. */
+export async function anchorLagWarning(record, checkpointText) {
+  const m = typeof record?.anchored_hash === 'string' ? record.anchored_hash.match(/^sha256:([0-9a-fA-F]{64})$/) : null;
+  if (!m) return null;
+  const current = bytesToHex(await sha256(Buffer.from(checkpointText, 'utf8')));
+  if (m[1].toLowerCase() === current) return null;
+  return `⚠ held anchor is stale; a desk stamp is owed (LINEAGE-PR-SIDE-RETIRE-1 C3): anchored_hash sha256:${m[1].toLowerCase()} != sha256(registry/lineage/checkpoint) sha256:${current}. The desk stamps once per checkpoint (register-sigsum.mjs); never re-stamp, never red.`;
+}
+
+/** --check with the LINEAGE-PR-SIDE-RETIRE-1 disposition: run check(); on
+ *  failure, advisory-exit (0, one warning line naming why) ONLY on an
+ *  affirmatively-proven PR context whose diff is clean of every lineage
+ *  scope. The check's full output always prints either way. */
+export async function checkAndDispose(opts = {}) {
+  const r = await check({ ...opts, noExit: true });
+  if (r.ok) return { exitCode: 0, advisory: false };
+  const mainContext = opts.mainContext !== undefined
+    ? opts.mainContext
+    : (await import('./derived-artifacts.mjs')).isMainContext();
+  const touched = opts.touched !== undefined ? opts.touched : gitTouchedPathsForScope();
+  const d = touched === null
+    ? { advisory: false, reason: 'touched-path set undeterminable — fail closed, blocking' }
+    : lineageAdvisoryOnPr({ mainContext, touched });
+  if (d.advisory) {
+    console.log(`⚠ ADVISORY — gen-registry-lineage --check (LINEAGE-PR-SIDE-RETIRE-1): ${d.reason}. Underlying --check failure (reported, never red): ${r.message}`);
+    return { exitCode: 0, advisory: true, reason: d.reason };
+  }
+  return { exitCode: 1, advisory: false, reason: d.reason };
 }
 
 // ---------------------------------------------------------------------------
@@ -513,7 +728,34 @@ export async function check(opts = {}) {
     );
   }
 
-  const okMsg = `checkpoint signature valid, ${entryBytes.length} entries cross-checked, root recomputed from published tile bytes matches the checkpoint (size=${parsed.size}, root=${bytesToHex(recomputedRoot)}).`;
+  // Sigsum record: `pending` is an ACCEPTED state (LINEAGE-SIGSUM-TOLERANCE-
+  // 2380-1 — the Sigsum keys stay offline, so a published checkpoint may
+  // legitimately await registration). Only a record that is present AND
+  // neither pending nor a real anchor shape reds; absence of the record file
+  // is also tolerated (older published logs predate it).
+  let sigsumSuffix = '';
+  if (existsSync(join(registryDir, 'checkpoint.sigsum-record.json'))) {
+    let sigsumRecord = null;
+    try {
+      sigsumRecord = JSON.parse(readFileSync(join(registryDir, 'checkpoint.sigsum-record.json'), 'utf8'));
+    } catch {
+      return fail('checkpoint.sigsum-record.json exists but does not parse as JSON.');
+    }
+    if (sigsumRecord.status === 'pending') {
+      sigsumSuffix = '; sigsum: pending (keys offline) — accepted';
+      console.log('✓ sigsum: pending — registration deferred (Sigsum keys offline), checkpoint + tiles still fully verified.');
+    } else if (sigsumRecord.anchor_type !== 'c2sp-tlog-proof-v1') {
+      return fail(`checkpoint.sigsum-record.json has unexpected anchor_type "${sigsumRecord.anchor_type}" (neither c2sp-tlog-proof-v1 nor sigsum-pending-v1).`);
+    }
+    // C3 (LINEAGE-PR-SIDE-RETIRE-1): anchor-lag WARNING, never red — fires for
+    // BOTH record shapes (a held fully-formed anchor, or a pending record's
+    // anchored_hash) whenever it no longer equals the CURRENT checkpoint's
+    // sha256, i.e. main's regen has published past the anchor a desk owes.
+    const lag = await anchorLagWarning(sigsumRecord, checkpointText);
+    if (lag) console.log(lag);
+  }
+
+  const okMsg = `checkpoint signature valid, ${entryBytes.length} entries cross-checked, root recomputed from published tile bytes matches the checkpoint (size=${parsed.size}, root=${bytesToHex(recomputedRoot)})${sigsumSuffix}.`;
   console.log(`✓ gen-registry-lineage --check PASSED: ${okMsg}`);
   return { ok: true, message: okMsg };
 }
@@ -524,7 +766,13 @@ export async function check(opts = {}) {
 const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
 
 async function main() {
-  if (process.argv.includes('--check')) return check();
+  if (process.argv.includes('--check')) {
+    // LINEAGE-PR-SIDE-RETIRE-1: the PR-side advisory disposition (block above)
+    // wraps the failing exit; a passing check and every blocking context are
+    // byte-identical to the pre-row behaviour (exit 0 / exit 1).
+    const r = await checkAndDispose();
+    process.exit(r.exitCode);
+  }
   return generate();
 }
 

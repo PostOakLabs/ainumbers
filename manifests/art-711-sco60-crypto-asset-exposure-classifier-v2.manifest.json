@@ -1,0 +1,118 @@
+{
+  "tool_id": "art-711-sco60-crypto-asset-exposure-classifier-v2",
+  "version": "1.0.0",
+  "title": "SCO60 Group 2 Exposure Limit V2",
+  "description": "Book-level Group 2 exposure-limit assessor for banks' cryptoasset exposures (BCBS d545 Prudential treatment of cryptoasset exposures, SCO60.116-119; the corrected successor to the single-position classifier: the 1% figure is a general-expectation threshold, the must-not-exceed limit is 2% of Tier 1). The caller supplies Tier 1 capital in integer minor units and the Group 2 book as per-cryptoasset positions carrying absolute long and short legs already delta-adjusted for derivatives. Legs are aggregated per cryptoasset and each asset is counted at the higher of its absolute long and short totals, never a netted figure; the per-asset figures sum into one aggregate that is assessed against both thresholds by strict cross-multiplied integer comparisons (exposure*100 against tier1*multiplier), so exactly 1% is not crossed and exactly 2% is not breached, and no floating-point rounding can flip a boundary. Below 1%: no finding. Above 1% and at or below 2%: the expectation threshold is crossed - supervisor notification fires and only the excess over 1% of Tier 1 takes the 1250% Group 2b weight, the remainder keeping its own treatment; this band is not a limit breach and the Pillar 3 precheck is unaffected. Above 2%: the limit is breached - the whole aggregate takes the 1250% weight, the precheck fails, and the breach gap and flags fire. The capital input must be a multiple of 100 minor units so 1% and 2% of it and the excess amount are exact integers; zero, negative, fractional or over-cap capital is a typed refusal, never a NaN or Infinity verdict. The caller owns the completeness of the book (every direct holding - cash and derivatives - and indirect holding - funds, ETF/ETN or similar - must be supplied), the delta adjustment of the legs, and the Tier 1 figure; the node classifies no individual asset and applies no infrastructure-risk add-on, which remain the earlier single-position classifier's decisions. National implementation of the standard varies by jurisdiction and no adoption status is asserted.",
+  "category": "chaingraph",
+  "tags": [
+    "compliance_mandate",
+    "basel",
+    "sco60",
+    "cryptoasset",
+    "group-2",
+    "exposure-limit",
+    "tier-1",
+    "prudential",
+    "risk-weight",
+    "mcp:classify_sco60_exposure_v2"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "bank_tier1_capital",
+      "group2_positions"
+    ],
+    "properties": {
+      "bank_tier1_capital": {
+        "type": "integer",
+        "description": "Tier 1 capital in integer minor units, a positive multiple of 100, at most 1e12. The denominator of both thresholds."
+      },
+      "group2_positions": {
+        "type": "array",
+        "description": "Per-cryptoasset positions: cryptoasset name, optional holding_type (direct_cash, direct_derivative, indirect_fund, indirect_etn), and absolute long_exposure and short_exposure integers already delta-adjusted for derivatives."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "classify_sco60_exposure_v2",
+    "description": "Book-level Group 2 cryptoasset exposure-limit assessor (BCBS d545 SCO60.116-119): the aggregate of per-asset higher-of measurements is compared with the 1% expectation threshold and the 2% hard limit of Tier 1 capital. Above 1% the supervisor notification fires and only the excess over 1% takes the 1250% Group 2b weight; above 2% the whole book takes it and the Pillar 3 precheck fails. Strict integer comparisons: exactly 1% is not crossed and exactly 2% is not breached.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "bank_tier1_capital",
+        "group2_positions"
+      ],
+      "properties": {
+        "bank_tier1_capital": {
+          "type": "integer",
+          "description": "Tier 1 capital in integer minor units, a positive multiple of 100, at most 1e12. The denominator of both thresholds."
+        },
+        "group2_positions": {
+          "type": "array",
+          "description": "Per-cryptoasset positions with absolute, delta-adjusted long_exposure and short_exposure integers; same-asset entries merge before the count."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-711-sco60-crypto-asset-exposure-classifier-v2.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "output_schema": {
+    "type": "object",
+    "description": "output_payload: group2_exposure_amount, bank_tier1_capital, group2_exposure_pct_tier1, one_pct_tier1_amount, two_pct_tier1_amount, group2_threshold_crossed, group2_limit_breached, group2b_excess_amount, group2b_treatment (none | excess_only | whole_book), risk_weight_applied_pct (1250 or null), base_risk_weight_pct (1250), pillar3_precheck_pass, per_asset[]{cryptoasset, holding_type, long_exposure, short_exposure, counted_exposure}, gaps[], warnings[], domain_errors[], refusal_reason, scope_note."
+  },
+  "source": "chaingraph/kernels/art-711-sco60-crypto-asset-exposure-classifier-v2.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: bank_tier1_capital, group2_positions.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "bank_tier1_capital": 1000,
+    "group2_positions": [
+      {
+        "cryptoasset": "btc",
+        "holding_type": "direct_cash",
+        "long_exposure": 8,
+        "short_exposure": 0
+      }
+    ]
+  },
+  "output_example": {
+    "group2_exposure_amount": 8,
+    "bank_tier1_capital": 1000,
+    "group2_exposure_pct_tier1": 0.8,
+    "one_pct_tier1_amount": 10,
+    "two_pct_tier1_amount": 20,
+    "group2_threshold_crossed": false,
+    "group2_limit_breached": false,
+    "group2b_excess_amount": 0,
+    "group2b_treatment": "none",
+    "risk_weight_applied_pct": null,
+    "base_risk_weight_pct": 1250,
+    "pillar3_precheck_pass": true,
+    "per_asset": [
+      {
+        "cryptoasset": "btc",
+        "holding_type": "direct_cash",
+        "long_exposure": 8,
+        "short_exposure": 0,
+        "counted_exposure": 8
+      }
+    ],
+    "gaps": [],
+    "warnings": [],
+    "domain_errors": [],
+    "refusal_reason": null,
+    "scope_note": "Book-level Group 2 exposure-limit assessment. Legs are aggregated per cryptoasset and each asset is counted at the higher of its absolute long and short totals, never a netted figure; legs must already be delta-adjusted for derivatives. The caller owns the completeness of the book: every direct holding (cash and derivatives) and indirect holding (funds, ETF/ETN or similar) must be supplied as a position. Tier 1 capital is caller-supplied and must be a multiple of 100 minor units so the 1% and 2% thresholds and the excess amount are exact integers. The 1250% weight shown is the treatment of the excess (or, above the 2% hard limit, of the whole aggregate); the remainder keeps its own per-asset treatment, which this node does not classify. National implementation of the underlying standard varies; no adoption status is asserted."
+  },
+  "example_execution_hash": "574b51ff6d1367664dd151ee4335baf0145be23cab39f2ef3a8cd5d0fd81c843"
+}

@@ -37,11 +37,35 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadRatchetBaselineOrExit, readBaselineForUpdate } from './ratchet-baseline.mjs';
 import { readCases } from '../chaingraph/kernels/_shape.mjs';
+// The overlay resolver LEAF (not derived-artifacts.mjs): gen-manifest-examples.mjs imports
+// this module for deriveSchema, and derived-artifacts.mjs sits in a heavy import graph; the
+// leaf imports nothing from this estate, so it cannot close a cycle (see its header).
+import { derivedResolve, derivedRoot } from './_derived-resolve-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
-const CG_PATH = resolve(REPO, 'chaingraph', 'chaingraph.json');
+
+// QUEUE-ASSEMBLED-NEWNODE-GATES-1 (2026-11-09): this gate read the CHECKOUT registry in every
+// context, and the checkout registry does not contain a new node until main's post-merge regen
+// enrols it. A new-node PR whose manifest declares no output_schema therefore passed the queue
+// (the node was invisible to coverageGap), merged, and main went red once the regen enrolled it
+// (run 42517511673). On merge_group the queue assembles the post-merge tree into $DERIVED_ROOT
+// BEFORE this gate runs (scripts-verify.yml "Ephemeral derived tree"); with that mounted the
+// registry and the manifests are overlay-read (derivedResolve: scratch first, checkout
+// fallback; the check-a11y-tree.mjs convention), so the incoming node is judged on the tree
+// that will be main. Fixtures are hand-authored, not derived, and stay on the checkout.
+// DERIVED_ROOT unset or empty (pull_request, push:main, local) resolves byte-for-byte the
+// previous checkout paths; --update-baseline and --derive are writer/inspection modes against
+// the COMMITTED tree and never overlay.
+const OVERLAY = Boolean(derivedRoot())
+  && !process.argv.includes('--update-baseline') && !process.argv.includes('--derive');
+const CG_PATH = OVERLAY ? derivedResolve('chaingraph', 'chaingraph.json') : resolve(REPO, 'chaingraph', 'chaingraph.json');
 const MAN_DIR = resolve(REPO, 'manifests');
+/** Manifest path for a tool: per-file overlay (the assembly's rewrite wins), checkout fallback. */
+function manifestPath(manDir, toolId) {
+  const rel = toolId + '.manifest.json';
+  return OVERLAY && manDir === MAN_DIR ? derivedResolve('manifests', rel) : resolve(manDir, rel);
+}
 const FIX_DIR = resolve(REPO, 'chaingraph', 'kernels', 'fixtures');
 const BASELINE_PATH = resolve(HERE, 'output-schema-baseline.json');
 
@@ -66,7 +90,7 @@ export function liveNodes(cg) {
 export function coverageGap(cg, { manDir = MAN_DIR } = {}) {
   const missing = [];
   for (const n of liveNodes(cg)) {
-    const p = resolve(manDir, n.tool_id + '.manifest.json');
+    const p = manifestPath(manDir, n.tool_id);
     if (!existsSync(p)) continue; // manifest-less live nodes are NODE-COMPLETENESS-GATE-1's debt, not this gate's
     let m;
     try { m = readJson(p); } catch { continue; } // malformed manifest → check-manifest-schema.mjs's failure, not ours
@@ -151,7 +175,10 @@ const ENUM_CAP = 6; // §3.10: enums only for ≤6-member observed value sets
 //   (1) numbers are NEVER enumerated — a numeric output lives on a continuum; ≤6 observed samples is
 //       sampling, not a domain (total_score:[20], im_call:[500000] would otherwise be pinned).
 //   (2) booleans enumerate only when BOTH members were observed; a lone observed boolean stays a bare
-//       type ( shortfall:[false] is not a domain of one).
+//       type ( shortfall:[false] is not a domain of one); an observed null is NOT a boolean member —
+//       it never counts toward BOTH, and when the enum does fire the null rides in it ([false,true,
+//       null]), exactly as a string enum appends an observed null — a derived schema must validate
+//       every payload it derived from ([7F-V471], SO #34c).
 //   (3) strings enumerate only when 2..6 DISTINCT short token-like members were observed — closed
 //       vocabularies (verdict, venue, mode, hqla_tier, codec). Values that look like hashes (0x…),
 //       base32/cids, digests, timestamps, URLs, markup or prose never enumerate (each observed value
@@ -185,12 +212,16 @@ function deriveField(vals) {
   if (types.every((t) => t === 'string' || t === 'number' || t === 'boolean' || t === 'null')) {
     const schema = { type };
     if (types.includes('boolean')) {
-      const distinct = [...new Set(vals.map((v) => JSON.stringify(v)))].map((s) => JSON.parse(s));
-      if (distinct.length === 2) schema.enum = [false, true]; // both members observed → genuine domain
+      const distinct = [...new Set(vals.filter((v) => typeof v === 'boolean'))];
+      if (distinct.length === 2) { // both boolean members observed → genuine domain; an observed null stays in it
+        schema.enum = types.includes('null') ? [false, true, null] : [false, true];
+      }
     } else if (types.includes('string')) {
       const strings = vals.filter((v) => typeof v === 'string');
       const distinct = [...new Set(strings)];
-      if (stringEnumEligible(distinct)) schema.enum = distinct.sort();
+      if (stringEnumEligible(distinct)) {
+        schema.enum = types.includes('null') ? [...distinct.sort(), null] : distinct.sort(); // observed null stays in the vocabulary
+      }
     }
     // numbers and null are never enumerated (rule 1); unions keep their bare type
     return schema;
@@ -216,7 +247,7 @@ function fixtureMismatches(cg) {
   const failures = [];
   let checked = 0;
   for (const n of liveNodes(cg)) {
-    const mp = resolve(MAN_DIR, n.tool_id + '.manifest.json');
+    const mp = manifestPath(MAN_DIR, n.tool_id);
     if (!existsSync(mp)) continue;
     let m;
     try { m = readJson(mp); } catch { continue; }

@@ -18,7 +18,7 @@ sources:
 
 > Exports a decision via MCP `lint_arc_xreserve_config` — mandate type `compliance_mandate`.
 
-**Deadline:** 2026-07-18 — GENIUS Act §4 eligible-asset backing requirements; MiCA Art. 54 reserve requirements for EU EMT issuers.
+**Deadline:** 2026-07-18 — GENIUS Act §4 eligible-asset backing requirements; MiCA Art. 54 reserve requirements for EU EMT issuers. Date basis: deadline 2026-07-18 is the GENIUS Act §13(a) implementation rulemaking date and was missed (kept as the historical rulemaking date, not corrected to a live date); the GENIUS Act federal framework effective date under §20 is 18 Jan 2027. The two dates are distinct.
 
 **Semantic profile:** `iso20022:acmt.023` (ISO 20022-aligned)
 

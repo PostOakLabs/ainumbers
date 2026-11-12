@@ -38,6 +38,13 @@ const REPO = path.resolve(__dirname, '..');
  * conditions ("falling back to full scan").
  */
 function getChangedFiles(ref, { repo = REPO } = {}) {
+  // Staged-only scope for the pre-commit hook: scripts/precommit-hygiene.mjs hands over the
+  // exact staged path list (newline-joined) so a commit is judged on what it contains, not on
+  // unstaged or untracked files lying around. Unset everywhere else, so every other caller
+  // keeps the committed + uncommitted + status union below.
+  if (typeof process.env.AINUM_CHANGED_STAGED_FILES === 'string') {
+    return new Set(process.env.AINUM_CHANGED_STAGED_FILES.split('\n').map((s) => s.trim().replace(/\\/g, '/')).filter(Boolean));
+  }
   try {
     gitSync(['rev-parse', '--verify', ref], { cwd: repo });
   } catch {

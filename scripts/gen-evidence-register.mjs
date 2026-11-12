@@ -85,6 +85,14 @@ export const SRC_REL = 'evidence/claims.src.json';
 export const REGISTER_REL = 'evidence/claims.json';
 export const SNAPSHOT_DIR_REL = 'source';
 
+// Writes report (REGEN-ESCAPE-GUARD-ALL-PREFIXES-1, mirroring gen-page-md-twins.mjs's
+// REGEN-ESCAPE-GUARD-BLIND-HEAL-1 mechanism): every write-mode run writes the run's
+// ACTUAL write list to a tempdir report consumed by `scripts/derived-artifacts.mjs
+// --paths`, so the COVERED entry's bare-tree `source` prefix can never stage an
+// injected file. The COVERED entry carries `writesReportRequired: true`. The report
+// path lives in scripts/_gen-writes-reports.mjs (shared-constants module).
+import { EVIDENCE_REGISTER_WRITES_REPORT_PATH } from './_gen-writes-reports.mjs';
+
 export const REQUIRED_FIELDS = [
   'id', 'claim', 'count_key', 'source_path', 'anchor',
   'scope', 'as_of', 'review_by', 'registered_by', 'registered_at',
@@ -339,12 +347,17 @@ export function revalidateIdsFromArgv(argv) {
   );
 }
 
+// REGEN-ESCAPE-GUARD-ALL-PREFIXES-1: the run's actual write list, collected by
+// writeIfChanged() and flushed to the tempdir report at the end of every write run.
+const writtenPaths = [];
+
 function writeIfChanged(rel, text) {
   const abs = join(REPO, rel);
   try {
     if (readFileSync(abs, 'utf8') === text) return false;
   } catch { /* missing -> write fresh */ }
   writeFileSync(abs, text);
+  writtenPaths.push(rel.split('\\').join('/'));
   return true;
 }
 
@@ -414,6 +427,13 @@ async function main() {
   console.log(`gen-evidence-register: ${built.register.claims.length} claim(s) in ${REGISTER_REL}` +
     `${registerChanged ? ' (written)' : ' (unchanged)'}, ${written} snapshot(s) written` +
     `${built.snapshotWrites.length ? `, snapshot writes: ${built.snapshotWrites.map((w) => w.rel).join(', ')}` : ''}.`);
+
+  // Written on EVERY write run — empty list included (REGEN-MANIFEST-ATTEST-1 precedent).
+  writeFileSync(EVIDENCE_REGISTER_WRITES_REPORT_PATH, JSON.stringify({
+    _comment: 'Actual write list of the last gen-evidence-register.mjs write run; consumed by scripts/derived-artifacts.mjs --paths (REGEN-ESCAPE-GUARD-ALL-PREFIXES-1).',
+    generated_by: 'node scripts/gen-evidence-register.mjs',
+    written: [...new Set(writtenPaths)].sort(),
+  }, null, 2) + '\n', 'utf8');
 }
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));

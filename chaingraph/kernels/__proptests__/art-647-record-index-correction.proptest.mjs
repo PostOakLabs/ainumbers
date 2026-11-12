@@ -1,7 +1,8 @@
 // art-647-record-index-correction — class-K property-test FLOOR.
 // kernel_digest_at_authoring: sha256:b2e5b57d770e2f357434539c6d70b7271e7f0bafbfc71e5b9e07f11e9dbb83e8
 // spec: INDEX-LINEAGE-BUILD-SPEC.md, corrections chain section
-// human_sign_off: sonnet-2026-08-17
+// human_sign_off: PENDING
+// sign_off_note: 2026-10-06 — prior value 'sonnet-2026-08-17' was a model identity, void as a human-review claim per FV-PBT-FLOOR-BUILD-SPEC §4; corrected by FV-FLOORSIGN-MISLABEL-1; manifest re-cover under FLOOR-§4 remains open.
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3). NOT a proof, NOT Dafny.
 // float_sensitive: NO -- pure attestation kernel, no arithmetic on corrected_value anywhere

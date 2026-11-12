@@ -29,10 +29,13 @@ import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { scanBudgets, ceilingBreach } from './check-webmcp-meta-budgets.mjs';
+import { gitEnv } from './_git-env-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REAL_LINT = resolve(HERE, 'check-webmcp-meta-budgets.mjs');
 const REAL_LOADER = resolve(HERE, 'ratchet-baseline.mjs');
+const REAL_CHANGED_LIB = resolve(HERE, '_changed-files-lib.js');
+const REAL_GIT_ENV_LIB = resolve(HERE, '_git-env-lib.mjs');
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -64,27 +67,66 @@ const CLEAN_MANIFEST = {
 };
 
 // Temp tree shaped like a mini repo: <tmp>/scripts/{lint,loader}, <tmp>/manifests/.
+// The new-strict legs need the diff machinery too, so the shared changed-files
+// and git-env libs ride along (the lint script imports them unconditionally).
 function makeTree(manifests) {
   const tmp = mkdtempSync(join(tmpdir(), 'wbudget-test-'));
   mkdirSync(join(tmp, 'scripts'));
   mkdirSync(join(tmp, 'manifests'));
   writeFileSync(join(tmp, 'scripts', 'check-webmcp-meta-budgets.mjs'), readFileSync(REAL_LINT, 'utf8'));
   writeFileSync(join(tmp, 'scripts', 'ratchet-baseline.mjs'), readFileSync(REAL_LOADER, 'utf8'));
+  writeFileSync(join(tmp, 'scripts', '_changed-files-lib.js'), readFileSync(REAL_CHANGED_LIB, 'utf8'));
+  writeFileSync(join(tmp, 'scripts', '_git-env-lib.mjs'), readFileSync(REAL_GIT_ENV_LIB, 'utf8'));
   for (const [name, doc] of Object.entries(manifests)) {
     writeFileSync(join(tmp, 'manifests', name), JSON.stringify(doc, null, 2) + '\n');
   }
   return tmp;
 }
 
-function runCli(dir, args) {
+function runCli(dir, args, env = {}) {
   try {
     const out = execFileSync(process.execPath, [join(dir, 'scripts', 'check-webmcp-meta-budgets.mjs'), ...args], {
       encoding: 'utf8', cwd: dir, stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, ...env },
     });
     return { status: 0, out };
   } catch (e) {
     return { status: e.status, out: (e.stdout || '') + (e.stderr || '') };
   }
+}
+
+// Minimal real git repo for the --new-strict legs (MANIFEST-NAME-LEN-PR-GATE-1):
+// one base commit carrying a GRANDFATHERED over-30 manifest, branch `base` on
+// it, so added-vs-base is exercised against a genuine diff. The lint script is
+// pointed at this repo with WEBMCP_META_BUDGETS_REPO.
+function makeGitRepo(grandfathered) {
+  const dir = makeTree({ 'grandfathered.manifest.json': grandfathered });
+  const git = (args) => execFileSync('git', args, { encoding: 'utf8', cwd: dir, env: gitEnv() });
+  git(['init', '-q']);
+  git(['config', 'user.email', 'test@example.invalid']);
+  git(['config', 'user.name', 'wbudget-test']);
+  git(['add', '-A']);
+  git(['commit', '-q', '-m', 'base']);
+  git(['branch', 'base']);
+  return dir;
+}
+
+// --new-strict keys on the COMMITTED diff vs the base (same shape as the PR
+// gates' `--diff-filter=A <base>...HEAD`), so legs that add a manifest commit
+// it before running the CLI.
+function commitAdded(dir) {
+  execFileSync('git', ['add', '-A'], { cwd: dir, env: gitEnv() });
+  execFileSync('git', ['commit', '-q', '-m', 'add'], { cwd: dir, env: gitEnv() });
+}
+
+function makeManifest(name) {
+  return {
+    mcp_tool_definition: {
+      name,
+      description: 'Synthetic manifest for the new-manifest strict legs.',
+      inputSchema: { type: 'object', properties: {} },
+    },
+  };
 }
 
 // ── legs ───────────────────────────────────────────────────────────────────────
@@ -161,6 +203,55 @@ test('RED (e2e): --strict unchanged — a bad manifest under the ceiling still e
     const r = runCli(dir, ['--strict']);
     assert(r.status === 1, `strict must exit 1 on violations, got ${r.status}\n${r.out}`);
     assert(r.out.includes('FAIL (--strict, violations above)'), `strict failure line missing:\n${r.out}`);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ── --new-strict legs (MANIFEST-NAME-LEN-PR-GATE-1, SO #40b RED before GREEN) ──
+// RED  (e2e)   an ADDED 31-char-name manifest exits 1 naming file, name, length.
+// GREEN(e2e)   an ADDED 30-char-name manifest (exactly at the budget) exits 0.
+// GREEN(e2e)   the pre-existing (grandfathered) over-30 manifest, unchanged on
+//              the base, stays green — new-strict never touches old manifests.
+// RED  (e2e)   an undeterminable base ref fails CLOSED (exit 1), never green.
+const GRANDFATHERED = makeManifest('g'.repeat(32)); // 32 chars: over budget, but on the base
+test('RED (e2e): --new-strict exits 1 on an ADDED 31-char name, naming file/name/length', () => {
+  const dir = makeGitRepo(GRANDFATHERED);
+  try {
+    writeFileSync(join(dir, 'manifests', 'new31.manifest.json'), JSON.stringify(makeManifest('n'.repeat(31)), null, 2) + '\n');
+    commitAdded(dir);
+    const r = runCli(dir, ['--new-strict', '--base', 'base'], { WEBMCP_META_BUDGETS_REPO: dir });
+    assert(r.status === 1, `added 31-char name must exit 1, got ${r.status}\n${r.out}`);
+    assert(r.out.includes('manifests/new31.manifest.json'), `must name the file:\n${r.out}`);
+    assert(r.out.includes('31 chars > 30'), `must quote name and length:\n${r.out}`);
+    assert(r.out.includes('FAIL (--new-strict)'), `must carry the new-strict FAIL verdict:\n${r.out}`);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('GREEN (e2e): --new-strict exits 0 on an ADDED exactly-30-char name', () => {
+  const dir = makeGitRepo(GRANDFATHERED);
+  try {
+    writeFileSync(join(dir, 'manifests', 'new30.manifest.json'), JSON.stringify(makeManifest('n'.repeat(30)), null, 2) + '\n');
+    commitAdded(dir);
+    const r = runCli(dir, ['--new-strict', '--base', 'base'], { WEBMCP_META_BUDGETS_REPO: dir });
+    assert(r.status === 0, `added 30-char name must exit 0, got ${r.status}\n${r.out}`);
+    assert(r.out.includes('1 manifest(s) added'), `must report the added manifest:\n${r.out}`);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('GREEN (e2e): --new-strict leaves a grandfathered over-30 manifest green', () => {
+  const dir = makeGitRepo(GRANDFATHERED);
+  try {
+    const r = runCli(dir, ['--new-strict', '--base', 'base'], { WEBMCP_META_BUDGETS_REPO: dir });
+    assert(r.status === 0, `grandfathered-only tree must exit 0, got ${r.status}\n${r.out}`);
+    assert(r.out.includes('0 manifests added'), `must report nothing added:\n${r.out}`);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('RED (e2e): --new-strict fails CLOSED on an undeterminable base ref', () => {
+  const dir = makeGitRepo(GRANDFATHERED);
+  try {
+    const r = runCli(dir, ['--new-strict', '--base', 'no-such-ref'], { WEBMCP_META_BUDGETS_REPO: dir });
+    assert(r.status === 1, `undeterminable diff must exit 1, got ${r.status}\n${r.out}`);
+    assert(r.out.includes('UNDETERMINABLE'), `must name UNDETERMINABLE:\n${r.out}`);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

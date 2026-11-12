@@ -1,0 +1,422 @@
+{
+  "tool_id": "art-735-solana-dvp-prefund-verifier",
+  "inventory_version": "1.0.0",
+  "authored_at": "2026-10-20",
+  "error_direction": "conservative_toward_finding",
+  "error_direction_rationale": "Every README-listed pre-funding check is an exact equality or order comparison over the pasted values: any mismatch of a listed field is reported, and no tolerance, rounding or heuristic can hide one. The direction is conditional on the caller-supplied inputs (cluster time, expected terms, extension list), which are declared out_of_scope_by_input below with their owners; the kernel cannot detect an expected-terms block copied from the forged record itself, and says so in output_payload.expected_terms_note.",
+  "derived_from": [
+    {
+      "digest": "sha256:2c44c496b083b7d3f399f49fac32825cef4af12a0ee8bcaba68e36cad0c86ad9",
+      "clause_path": "lib.rs lines 10-15: declare_id dvp34bdbcEm4f4FCUjGV4mDAkDshaQR4LkK8fdcsyZq"
+    },
+    {
+      "digest": "sha256:c11d0b4395e229521eaf8b1d25d49b3e5ad0333e17fe72d790c755692fa25896",
+      "clause_path": "swap_dvp.rs lines 28-82: struct SwapDvp field list and LEN = 458"
+    },
+    {
+      "digest": "sha256:29bf23a76e9aa8b4dd02d74508583d40304334221f2bd699282d651913a34724",
+      "clause_path": "README lines 68-105: Instructions table and Notes (verify stored terms line 33; expiry line 24; earliest/expiry cap line 26; cluster time line 27; permissionless create line 31)"
+    },
+    {
+      "digest": "sha256:854e2664ff9838ca5610f8328c4163e8f72ae61ef7994df037e36698c60e63f9",
+      "clause_path": "token_utils.rs lines 275-350: blocked Token-2022 extensions -> BlockedMintExtension; residual trusted-authority risks"
+    },
+    {
+      "digest": "sha256:bd2a1b480dee40ec18035c64fc30bd6c3470044274f21d9faf354490fabefaea",
+      "clause_path": "token_utils.rs lines 352-366: MAX_HOOK_REMAINING_ACCOUNTS = 32"
+    },
+    {
+      "digest": "sha256:7f60f099e00709f4bacb2b2477c75ee9f1bee4b62e095162ca081071e0e3a0e4",
+      "clause_path": "Cantina report fe870bb4: scope mapping UNVERIFIED (repository listed is not the dvp repo name)"
+    }
+  ],
+  "branches": [
+    {
+      "id": "readme-notes-33-owner-check",
+      "clause": "README Notes line 33 + declare_id pin",
+      "branch": "Verification must confirm the account is owned by the DvP program (dvp34bdbcEm4f4FCUjGV4mDAkDshaQR4LkK8fdcsyZq).",
+      "disposition": "represented",
+      "represented_by": "output_payload.owner_matches (and failed_checks entry 'owner')",
+      "evidence": "owner_matches"
+    },
+    {
+      "id": "readme-notes-33-length-check",
+      "clause": "README Notes line 33 + struct LEN pin",
+      "branch": "Verification must confirm the account is exactly SwapDvp::LEN (458) bytes, else an attacker can serialize look-alike terms into a wallet-owned account.",
+      "disposition": "represented",
+      "represented_by": "output_payload.length_matches (and failed_checks entry 'length')",
+      "evidence": "length_matches"
+    },
+    {
+      "id": "readme-notes-33-terms-check",
+      "clause": "README Notes line 33",
+      "branch": "Funders must check amount_a/amount_b/expiry/earliest/user_a/user_b/settlement_authority and both settlement destinations against the agreed deal, because a forged create with attacker destinations would redirect settlement proceeds.",
+      "disposition": "represented",
+      "represented_by": "output_payload.terms_match and output_payload.terms_mismatches (and failed_checks entry 'terms')",
+      "evidence": "terms_mismatches"
+    },
+    {
+      "id": "readme-notes-26-earliest-leq-expiry",
+      "clause": "README Notes line 26",
+      "branch": "earliest_settlement_timestamp must be <= expiry (it inherits the one-year cap).",
+      "disposition": "represented",
+      "represented_by": "output_payload.earliest_within_expiry (null when earliest is unset = no lower bound); failed_checks entry 'earliest_after_expiry' when false",
+      "evidence": "earliest_within_expiry"
+    },
+    {
+      "id": "readme-notes-26-expiry-one-year-cap",
+      "clause": "README Notes line 26",
+      "branch": "CreateDvp rejects an expiry_timestamp more than one year past creation.",
+      "disposition": "represented",
+      "represented_by": "output_payload.expiry_within_one_year (fixed 365-day year = 31,536,000s, declared in output_payload.warnings); failed_checks entry 'expiry_over_one_year' when false",
+      "evidence": "expiry_within_one_year"
+    },
+    {
+      "id": "readme-notes-24-expiry-in-future",
+      "clause": "README Notes line 24",
+      "branch": "Only Settle rejects after expiry_timestamp; a funder must not fund a record whose settlement window is already closed at the cluster time.",
+      "disposition": "represented",
+      "represented_by": "output_payload.expiry_in_future; failed_checks entry 'expiry_not_in_future' when false",
+      "evidence": "expiry_in_future"
+    },
+    {
+      "id": "blocked-ext-deny-list",
+      "clause": "token_utils.rs lines 275-350 (blocked-ext pin lines 65-71)",
+      "branch": "TransferFeeConfig, InterestBearingConfig, ScaledUiAmountConfig, NonTransferable each fail validate_mint_extensions with BlockedMintExtension.",
+      "disposition": "represented",
+      "represented_by": "output_payload.no_blocked_extensions and output_payload.blocked_extensions_found (failed_checks entry 'blocked_extension')",
+      "evidence": "blocked_extensions_found"
+    },
+    {
+      "id": "hook-cap-per-leg",
+      "clause": "token_utils.rs lines 352-366 + README Notes line 35",
+      "branch": "Hook extras are capped at 32 accounts per leg (MAX_HOOK_REMAINING_ACCOUNTS); a mutable hook can update the ExtraAccountMetaList after funding to require more than the cap.",
+      "disposition": "represented",
+      "represented_by": "output_payload.hook_extras_within_cap (failed_checks entry 'hook_extras_over_cap'); the mutable-hook trusted-authority risk is a trust flag, not a rejection",
+      "evidence": "hook_extras_within_cap"
+    },
+    {
+      "id": "notes-34-trusted-authority-residual",
+      "clause": "token_utils.rs blocked-ext pin lines 27-35 + README Notes lines 34-35",
+      "branch": "PermanentDelegate, Pausable, MintCloseAuthority, DefaultAccountState/freeze authority, a TransferHook EAML update and MintCloseAuthority recreation are trusted-authority risks the program accepts as-is and surfaces in UIs.",
+      "disposition": "represented",
+      "represented_by": "output_payload.trust_flags (TRUST_* flags, mirrored into warnings); never a rejection",
+      "evidence": "trust_flags"
+    },
+    {
+      "id": "notes-31-not-proof-of-agreement",
+      "clause": "README Notes line 31",
+      "branch": "CreateDvp is permissionless; a record is not proof of agreement. The output is a recompute, not legal finality.",
+      "disposition": "represented",
+      "represented_by": "output_payload.disclaimer and output_payload.expected_terms_note (constant members, emitted on every run including PASS)",
+      "evidence": "disclaimer"
+    },
+    {
+      "id": "cantina-scope-unverified",
+      "clause": "Cantina DvP report scope pin",
+      "branch": "The Cantina audit's repository field names a different repo; the scope mapping to this program commit is UNVERIFIED.",
+      "disposition": "represented",
+      "represented_by": "output_payload.audit_scope_note (constant member; the audit is never cited as coverage)",
+      "evidence": "audit_scope_note"
+    },
+    {
+      "id": "input-cluster-time-now",
+      "clause": "README Notes line 27",
+      "branch": "All time gates use cluster time (Clock::unix_timestamp), not wall-clock; the kernel never reads the system clock.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "now — the cluster unix timestamp in seconds (Clock::unix_timestamp, validator-vote median) at which the expiry/earliest gates are evaluated",
+        "source": "README Notes line 27 (cluster time, not wall-clock); supplied by the integrating client from its Solana RPC provider",
+        "owner": "the integrating client fetching cluster time; a stale or wall-clock value shifts every expiry/earliest verdict, and a missing or non-numeric now is refused (NOW_REQUIRED), never defaulted from the system clock"
+      }
+    },
+    {
+      "id": "input-expected-terms",
+      "clause": "README Notes line 33 (verify against the agreed deal)",
+      "branch": "The agreed deal itself (amounts, expiry, earliest, parties, authority, destinations) exists off-chain in the funder's records.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "expected — the funder-supplied agreed deal (amount_a, amount_b, expiry_timestamp, earliest_settlement_timestamp, user_a, user_b, settlement_authority, destination_a, destination_b)",
+        "source": "the funder's off-chain record of the agreed deal (README Notes line 33: verify the stored record against the agreed terms)",
+        "owner": "the funder; supplying the forged record's own values as expected makes the check circular — output_payload.expected_terms_note says so on every run, and a missing expected block is refused (EXPECTED_TERMS_REQUIRED)"
+      }
+    },
+    {
+      "id": "input-extension-list-and-counts",
+      "clause": "token_utils blocked-ext pin + README Notes line 35",
+      "branch": "Which extensions a mint carries, whether it is frozen-by-default / has a freeze authority, and how many hook extras each leg needs are on-chain facts the caller pastes.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "mint_a/b_extensions, mint_a/b_frozen_by_default, mint_a/b_freeze_authority_set, leg_a/b_extras_count — the mints' extension sets, freeze posture and per-leg hook trailing-account counts",
+        "source": "the mint accounts and the hook's ExtraAccountMetaList, read off-chain (the program itself resolves hook extras off-chain too, README Notes line 35)",
+        "owner": "the integrating client; unrecognised extension names are refused (EXTENSION_LIST_MALFORMED) and out-of-u8 extras counts are refused (HOOK_EXTRAS_INVALID)"
+      }
+    },
+    {
+      "id": "malformed-owner-field",
+      "clause": "declared domain (owner_program_id input contract)",
+      "branch": "A pasted owner_program_id that is empty or not a plausible program-id string cannot be compared to the pin.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": {
+          "owner_program_id": "",
+          "byte_length": "458",
+          "user_a": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+          "user_b": "Gf8cMJ3yRMLpponGJtdfkzX67BhTReLh4m1uPjYz6Ugk",
+          "mint_a": "3p9W2vGhTdMQp7sKdDXhcHmgRcxpaB3ZuXYxU8k2FhQN",
+          "mint_b": "8kQFfPJ1FwDkZUsxBernCLzexFAZpQvH4fpRS8TwEGXi",
+          "token_program_a": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "token_program_b": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "settlement_authority": "BfIwS1B8f7RC1ZY8NbZLBuJSQP9fM2tzL8t8XnJ9c8kX",
+          "destination_a": "Ck8x2E9S8DcVJ3cJnd6oFfEqBMDdhzWY9zKLzye4LYBw",
+          "destination_b": "Dq8pgDk1ZdLcPdMxyvRQ2NLhEu9XvPia8Gn2LtzY9dKo",
+          "mint_a_authority": "Eq2vH9GeNcqLQobYm5YoFbLpaKMPTZhMKAqcBf41LxNh",
+          "mint_b_authority": "Fq9kxRfM4PqNZeSVh3pLRLn9vbcEKmZAxnZqdZ4SPrBG",
+          "amount_a": "1500000000",
+          "amount_b": "250000000",
+          "expiry_timestamp": "1770086400",
+          "earliest_settlement_timestamp": null,
+          "creation_timestamp": "1769900000",
+          "nonce": "7284759301947385401",
+          "mint_a_extensions": [],
+          "mint_b_extensions": [],
+          "mint_a_frozen_by_default": false,
+          "mint_b_frozen_by_default": false,
+          "mint_a_freeze_authority_set": false,
+          "mint_b_freeze_authority_set": false,
+          "leg_a_extras_count": "0",
+          "leg_b_extras_count": "0",
+          "now": "1770000000",
+          "expected": {
+            "amount_a": "1500000000",
+            "amount_b": "250000000",
+            "expiry_timestamp": "1770086400",
+            "earliest_settlement_timestamp": null,
+            "user_a": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+            "user_b": "Gf8cMJ3yRMLpponGJtdfkzX67BhTReLh4m1uPjYz6Ugk",
+            "settlement_authority": "BfIwS1B8f7RC1ZY8NbZLBuJSQP9fM2tzL8t8XnJ9c8kX",
+            "destination_a": "Ck8x2E9S8DcVJ3cJnd6oFfEqBMDdhzWY9zKLzye4LYBw",
+            "destination_b": "Dq8pgDk1ZdLcPdMxyvRQ2NLhEu9XvPia8Gn2LtzY9dKo"
+          }
+        },
+        "fixture": "art-735-solana-dvp-prefund-verifier.reachability.json#empty-owner-refuses"
+      }
+    },
+    {
+      "id": "malformed-amount-or-length",
+      "clause": "declared domain (u64 amounts, byte length input contract)",
+      "branch": "A non-numeric or out-of-range amount or byte length cannot be compared.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": {
+          "owner_program_id": "dvp34bdbcEm4f4FCUjGV4mDAkDshaQR4LkK8fdcsyZq",
+          "byte_length": "458",
+          "user_a": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+          "user_b": "Gf8cMJ3yRMLpponGJtdfkzX67BhTReLh4m1uPjYz6Ugk",
+          "mint_a": "3p9W2vGhTdMQp7sKdDXhcHmgRcxpaB3ZuXYxU8k2FhQN",
+          "mint_b": "8kQFfPJ1FwDkZUsxBernCLzexFAZpQvH4fpRS8TwEGXi",
+          "token_program_a": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "token_program_b": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "settlement_authority": "BfIwS1B8f7RC1ZY8NbZLBuJSQP9fM2tzL8t8XnJ9c8kX",
+          "destination_a": "Ck8x2E9S8DcVJ3cJnd6oFfEqBMDdhzWY9zKLzye4LYBw",
+          "destination_b": "Dq8pgDk1ZdLcPdMxyvRQ2NLhEu9XvPia8Gn2LtzY9dKo",
+          "mint_a_authority": "Eq2vH9GeNcqLQobYm5YoFbLpaKMPTZhMKAqcBf41LxNh",
+          "mint_b_authority": "Fq9kxRfM4PqNZeSVh3pLRLn9vbcEKmZAxnZqdZ4SPrBG",
+          "amount_a": "1.5e9",
+          "amount_b": "250000000",
+          "expiry_timestamp": "1770086400",
+          "earliest_settlement_timestamp": null,
+          "creation_timestamp": "1769900000",
+          "nonce": "7284759301947385401",
+          "mint_a_extensions": [],
+          "mint_b_extensions": [],
+          "mint_a_frozen_by_default": false,
+          "mint_b_frozen_by_default": false,
+          "mint_a_freeze_authority_set": false,
+          "mint_b_freeze_authority_set": false,
+          "leg_a_extras_count": "0",
+          "leg_b_extras_count": "0",
+          "now": "1770000000",
+          "expected": {
+            "amount_a": "1500000000",
+            "amount_b": "250000000",
+            "expiry_timestamp": "1770086400",
+            "earliest_settlement_timestamp": null,
+            "user_a": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+            "user_b": "Gf8cMJ3yRMLpponGJtdfkzX67BhTReLh4m1uPjYz6Ugk",
+            "settlement_authority": "BfIwS1B8f7RC1ZY8NbZLBuJSQP9fM2tzL8t8XnJ9c8kX",
+            "destination_a": "Ck8x2E9S8DcVJ3cJnd6oFfEqBMDdhzWY9zKLzye4LYBw",
+            "destination_b": "Dq8pgDk1ZdLcPdMxyvRQ2NLhEu9XvPia8Gn2LtzY9dKo"
+          }
+        },
+        "fixture": "art-735-solana-dvp-prefund-verifier.reachability.json#non-numeric-amount-refuses"
+      }
+    },
+    {
+      "id": "missing-cluster-time",
+      "clause": "README Notes line 27 (cluster time, not wall-clock)",
+      "branch": "Without a caller-supplied cluster time the expiry checks would be nondeterministic; the kernel refuses rather than reading the system clock.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": {
+          "owner_program_id": "dvp34bdbcEm4f4FCUjGV4mDAkDshaQR4LkK8fdcsyZq",
+          "byte_length": "458",
+          "user_a": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+          "user_b": "Gf8cMJ3yRMLpponGJtdfkzX67BhTReLh4m1uPjYz6Ugk",
+          "mint_a": "3p9W2vGhTdMQp7sKdDXhcHmgRcxpaB3ZuXYxU8k2FhQN",
+          "mint_b": "8kQFfPJ1FwDkZUsxBernCLzexFAZpQvH4fpRS8TwEGXi",
+          "token_program_a": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "token_program_b": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "settlement_authority": "BfIwS1B8f7RC1ZY8NbZLBuJSQP9fM2tzL8t8XnJ9c8kX",
+          "destination_a": "Ck8x2E9S8DcVJ3cJnd6oFfEqBMDdhzWY9zKLzye4LYBw",
+          "destination_b": "Dq8pgDk1ZdLcPdMxyvRQ2NLhEu9XvPia8Gn2LtzY9dKo",
+          "mint_a_authority": "Eq2vH9GeNcqLQobYm5YoFbLpaKMPTZhMKAqcBf41LxNh",
+          "mint_b_authority": "Fq9kxRfM4PqNZeSVh3pLRLn9vbcEKmZAxnZqdZ4SPrBG",
+          "amount_a": "1500000000",
+          "amount_b": "250000000",
+          "expiry_timestamp": "1770086400",
+          "earliest_settlement_timestamp": null,
+          "creation_timestamp": "1769900000",
+          "nonce": "7284759301947385401",
+          "mint_a_extensions": [],
+          "mint_b_extensions": [],
+          "mint_a_frozen_by_default": false,
+          "mint_b_frozen_by_default": false,
+          "mint_a_freeze_authority_set": false,
+          "mint_b_freeze_authority_set": false,
+          "leg_a_extras_count": "0",
+          "leg_b_extras_count": "0",
+          "expected": {
+            "amount_a": "1500000000",
+            "amount_b": "250000000",
+            "expiry_timestamp": "1770086400",
+            "earliest_settlement_timestamp": null,
+            "user_a": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+            "user_b": "Gf8cMJ3yRMLpponGJtdfkzX67BhTReLh4m1uPjYz6Ugk",
+            "settlement_authority": "BfIwS1B8f7RC1ZY8NbZLBuJSQP9fM2tzL8t8XnJ9c8kX",
+            "destination_a": "Ck8x2E9S8DcVJ3cJnd6oFfEqBMDdhzWY9zKLzye4LYBw",
+            "destination_b": "Dq8pgDk1ZdLcPdMxyvRQ2NLhEu9XvPia8Gn2LtzY9dKo"
+          }
+        },
+        "fixture": "art-735-solana-dvp-prefund-verifier.reachability.json#missing-cluster-time-refuses"
+      }
+    },
+    {
+      "id": "missing-expected-terms",
+      "clause": "README Notes line 33 (verify against the agreed deal)",
+      "branch": "Without an expected-terms block there is nothing to verify the record against.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": {
+          "owner_program_id": "dvp34bdbcEm4f4FCUjGV4mDAkDshaQR4LkK8fdcsyZq",
+          "byte_length": "458",
+          "user_a": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+          "user_b": "Gf8cMJ3yRMLpponGJtdfkzX67BhTReLh4m1uPjYz6Ugk",
+          "mint_a": "3p9W2vGhTdMQp7sKdDXhcHmgRcxpaB3ZuXYxU8k2FhQN",
+          "mint_b": "8kQFfPJ1FwDkZUsxBernCLzexFAZpQvH4fpRS8TwEGXi",
+          "token_program_a": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "token_program_b": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "settlement_authority": "BfIwS1B8f7RC1ZY8NbZLBuJSQP9fM2tzL8t8XnJ9c8kX",
+          "destination_a": "Ck8x2E9S8DcVJ3cJnd6oFfEqBMDdhzWY9zKLzye4LYBw",
+          "destination_b": "Dq8pgDk1ZdLcPdMxyvRQ2NLhEu9XvPia8Gn2LtzY9dKo",
+          "mint_a_authority": "Eq2vH9GeNcqLQobYm5YoFbLpaKMPTZhMKAqcBf41LxNh",
+          "mint_b_authority": "Fq9kxRfM4PqNZeSVh3pLRLn9vbcEKmZAxnZqdZ4SPrBG",
+          "amount_a": "1500000000",
+          "amount_b": "250000000",
+          "expiry_timestamp": "1770086400",
+          "earliest_settlement_timestamp": null,
+          "creation_timestamp": "1769900000",
+          "nonce": "7284759301947385401",
+          "mint_a_extensions": [],
+          "mint_b_extensions": [],
+          "mint_a_frozen_by_default": false,
+          "mint_b_frozen_by_default": false,
+          "mint_a_freeze_authority_set": false,
+          "mint_b_freeze_authority_set": false,
+          "leg_a_extras_count": "0",
+          "leg_b_extras_count": "0",
+          "now": "1770000000"
+        },
+        "fixture": "art-735-solana-dvp-prefund-verifier.reachability.json#missing-expected-terms-refuses"
+      }
+    },
+    {
+      "id": "unrecognised-extension-name",
+      "clause": "input contract (Token-2022 extension names)",
+      "branch": "An extension name outside the known Token-2022 set cannot be classified blocked vs trusted.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": {
+          "owner_program_id": "dvp34bdbcEm4f4FCUjGV4mDAkDshaQR4LkK8fdcsyZq",
+          "byte_length": "458",
+          "user_a": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+          "user_b": "Gf8cMJ3yRMLpponGJtdfkzX67BhTReLh4m1uPjYz6Ugk",
+          "mint_a": "3p9W2vGhTdMQp7sKdDXhcHmgRcxpaB3ZuXYxU8k2FhQN",
+          "mint_b": "8kQFfPJ1FwDkZUsxBernCLzexFAZpQvH4fpRS8TwEGXi",
+          "token_program_a": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "token_program_b": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "settlement_authority": "BfIwS1B8f7RC1ZY8NbZLBuJSQP9fM2tzL8t8XnJ9c8kX",
+          "destination_a": "Ck8x2E9S8DcVJ3cJnd6oFfEqBMDdhzWY9zKLzye4LYBw",
+          "destination_b": "Dq8pgDk1ZdLcPdMxyvRQ2NLhEu9XvPia8Gn2LtzY9dKo",
+          "mint_a_authority": "Eq2vH9GeNcqLQobYm5YoFbLpaKMPTZhMKAqcBf41LxNh",
+          "mint_b_authority": "Fq9kxRfM4PqNZeSVh3pLRLn9vbcEKmZAxnZqdZ4SPrBG",
+          "amount_a": "1500000000",
+          "amount_b": "250000000",
+          "expiry_timestamp": "1770086400",
+          "earliest_settlement_timestamp": null,
+          "creation_timestamp": "1769900000",
+          "nonce": "7284759301947385401",
+          "mint_a_extensions": [
+            "Total nonsense"
+          ],
+          "mint_b_extensions": [],
+          "mint_a_frozen_by_default": false,
+          "mint_b_frozen_by_default": false,
+          "mint_a_freeze_authority_set": false,
+          "mint_b_freeze_authority_set": false,
+          "leg_a_extras_count": "0",
+          "leg_b_extras_count": "0",
+          "now": "1770000000",
+          "expected": {
+            "amount_a": "1500000000",
+            "amount_b": "250000000",
+            "expiry_timestamp": "1770086400",
+            "earliest_settlement_timestamp": null,
+            "user_a": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+            "user_b": "Gf8cMJ3yRMLpponGJtdfkzX67BhTReLh4m1uPjYz6Ugk",
+            "settlement_authority": "BfIwS1B8f7RC1ZY8NbZLBuJSQP9fM2tzL8t8XnJ9c8kX",
+            "destination_a": "Ck8x2E9S8DcVJ3cJnd6oFfEqBMDdhzWY9zKLzye4LYBw",
+            "destination_b": "Dq8pgDk1ZdLcPdMxyvRQ2NLhEu9XvPia8Gn2LtzY9dKo"
+          }
+        },
+        "fixture": "art-735-solana-dvp-prefund-verifier.reachability.json#unrecognised-extension-name-refuses"
+      }
+    },
+    {
+      "id": "pda-derivation-and-pda-seeds",
+      "clause": "README Notes lines 28/33 + RecoverDvp note",
+      "branch": "PDA derivation from (seeds, nonce), escrow ATA derivation, tombstone checks and RecoverDvp seed verification.",
+      "disposition": "unrepresented_known",
+      "error_direction_note": "This node does not derive addresses or verify PDA seeds - it recomputes the terms/owner/length checklist over pasted values only. A record whose nonce was reused, or whose escrow ATAs were derived from different seeds, is out of its declared domain; the README's checked helpers (findSwapDvpPda / verifySwapDvp) remain the on-chain instrument for that half of the checklist. Never cited as PDA-safety coverage.",
+      "error_direction": "conservative_toward_finding"
+    },
+    {
+      "id": "instruction-level-account-ownership",
+      "clause": "README Notes line 19 (recipient ATA owner/mint re-reads)",
+      "branch": "RecipientAtaMismatch and the live owner/mint re-read of destination ATAs (a legacy-SPL SetAuthority reassignment) are enforced by the program at transfer time, not by the pre-funding terms checklist.",
+      "disposition": "unrepresented_known",
+      "error_direction_note": "The kernel sees destination addresses as pasted strings and cannot see account ownership; a reassigned legacy ATA at the destination address is invisible to it. Declared here rather than silently out of scope; the program's own Settle-time re-read is the control.",
+      "error_direction": "conservative_toward_finding"
+    }
+  ]
+}
