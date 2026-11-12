@@ -7,17 +7,20 @@ import { executionHash } from './_hash.mjs';
 // the outstanding exposure is totaled; disagreements between the pasted events and the ledger's
 // own status claims are listed as discrepancies.
 //
-// THE FOUR CLASSES (closed enum; a fifth sentinel not_evaluated marks entries the declared
+// THE FIVE CLASSES (closed enum; a sixth sentinel not_evaluated marks entries the declared
 // inputs cannot classify):
 //   settled          a pasted use event applies to the entry, or (with no applying event) the
 //                    ledger itself claims settled
 //   canceled         a pasted cancel event applies to the entry, or (with no applying event)
 //                    the ledger itself claims canceled
+//   not_yet_valid    ledger says signed, no applying event, and the clock has not passed the
+//                    entry's validAfter (now <= validAfter): the token contract would reject it
+//                    today, so it is excluded from total_outstanding and disclosed beside it
 //   expired_unspent  ledger says signed, no applying event, and on the caller clock the entry's
-//                    validBefore has passed (the pinned draft window rule is strict: the
-//                    authorization is live only while the clock is below validBefore)
-//   outstanding      ledger says signed, no applying event, and the clock is still below
-//                    validBefore: live money the token contract can still move
+//                    validBefore has passed
+//   outstanding      ledger says signed, no applying event, and the clock is strictly inside the
+//                    open window validAfter < now < validBefore (the reference implementation's
+//                    rule, both bounds strict): live money the token contract can still move
 //   not_evaluated    either the caller clock is absent (a signed entry cannot be split between
 //                    outstanding and expired-unspent), or pasted rows carry BOTH a use event and
 //                    a cancel event for the entry identity, which the pasted rows cannot order
@@ -34,6 +37,12 @@ import { executionHash } from './_hash.mjs';
 //   AMBIGUOUS_EVENT_SCOPE                  an event without a declared token or chain scope
 //                                          matches entries spanning more than one token and
 //                                          chain pair, so it is applied to none of them
+//   DUPLICATE_NONCE_LEDGER                 two or more ledger entries share authorizer, token, chain
+//                                          and nonce; only one authorization per identity can ever
+//                                          settle, so the FIRST entry in canonical sort order is
+//                                          evaluated and counted and every extra is classed
+//                                          not_evaluated, excluded from every total (the ledger is
+//                                          flagged, not refused)
 //   DUPLICATE_EVENT_ROW                    the same event row (identity plus scope) is pasted
 //                                          twice into one list; the second row is not applied
 //
@@ -46,7 +55,9 @@ import { executionHash } from './_hash.mjs';
 // EXPOSURE ARITHMETIC: total_outstanding sums the values of entries classified outstanding,
 // decimal-string uint256, and is null whenever a clock-absent not_evaluated entry exists (an
 // unclassifiable signed entry could be live money, so a partial total would understate
-// exposure). Entries unresolved by an event conflict are never inside that total; their count
+// exposure). Not-yet-valid entries are never inside that total either; their count and summed
+// value are disclosed as not_yet_valid_entries and not_yet_valid_value, and duplicate-nonce
+// extras are counted in duplicate_nonce_entries. Entries unresolved by an event conflict are never inside that total; their count
 // and summed value are disclosed next to it. Canceled and expired-unspent entries never count.
 //
 // DETERMINISM: compute() is a PURE function of pp. No clock, no network, no filesystem, no
@@ -86,11 +97,11 @@ const U256_MAX = '11579208923731619542357098500868790785326998466564056403945758
 
 const STATUSES = ['signed', 'settled', 'canceled'];
 
-const LEDGER_KEYS = ['from', 'token', 'chain_id', 'nonce', 'to', 'value', 'validBefore', 'signed_at', 'intent_ref', 'status'];
+const LEDGER_KEYS = ['from', 'token', 'chain_id', 'nonce', 'to', 'value', 'validAfter', 'validBefore', 'signed_at', 'intent_ref', 'status'];
 const EVENT_KEYS = ['authorizer', 'nonce', 'token', 'chain_id'];
 const TOP_KEYS = ['ledger', 'used_events', 'canceled_events', 'now_unix'];
 
-const SCOPE_NOTE = 'Reconciles a caller-pasted EIP-3009 authorization ledger against caller-pasted AuthorizationUsed and AuthorizationCanceled event rows on a caller clock: each entry is classified settled, canceled, expired-unspent or outstanding, the outstanding exposure is totaled, and disagreements between the pasted events and the ledger status are listed as discrepancies. All inputs are caller-attested and may be incomplete; the reconciler performs no chain reads, no signature recovery and no digest recomputation, and only the token contract enforces nonce uniqueness on chain. ERC-3009 is a Draft. The classification is not a conformance verdict about any token implementation, not an authorization to move funds and not proof that funds moved.';
+const SCOPE_NOTE = 'Reconciles a caller-pasted EIP-3009 authorization ledger against caller-pasted AuthorizationUsed and AuthorizationCanceled event rows on a caller clock: each entry is classified settled, canceled, not-yet-valid, expired-unspent or outstanding, the outstanding exposure is totaled (an entry is outstanding only while validAfter < now < validBefore), and disagreements between the pasted events and the ledger status are listed as discrepancies. All inputs are caller-attested and may be incomplete; the reconciler performs no chain reads, no signature recovery and no digest recomputation, and only the token contract enforces nonce uniqueness on chain. ERC-3009 is a Draft. The classification is not a conformance verdict about any token implementation, not an authorization to move funds and not proof that funds moved.';
 
 // ---- decimal-string uint256 arithmetic (no BigInt anywhere) ----
 
@@ -208,6 +219,8 @@ function entryLess(x, y) {
   if (x.to !== y.to) return x.to < y.to ? -1 : 1;
   const cv = cmpDec(x.value, y.value);
   if (cv !== 0) return cv;
+  const ca = cmpDec(x.validAfter, y.validAfter);
+  if (ca !== 0) return ca;
   const cb = cmpDec(x.validBefore, y.validBefore);
   if (cb !== 0) return cb;
   if (x.signed_at !== y.signed_at) return x.signed_at < y.signed_at ? -1 : 1;
@@ -280,6 +293,7 @@ function validateLedger(pp, r) {
     if (normalizeAddress(e.token) === null) r.push(refusal('BAD_ADDRESS', at + '.token', 'entry token must be a 20-byte hex address'));
     if (normalizeBytes32(e.nonce) === null) r.push(refusal('BAD_NONCE', at + '.nonce', 'entry nonce must be a 32-byte hex value'));
     if (toUint256String(e.value) === null) r.push(refusal('BAD_AMOUNT', at + '.value', 'entry value must be a uint256 decimal string'));
+    if (toUint256String(e.validAfter) === null) r.push(refusal('BAD_AMOUNT', at + '.validAfter', 'entry validAfter must be a uint256 decimal string'));
     if (toUint256String(e.validBefore) === null) r.push(refusal('BAD_AMOUNT', at + '.validBefore', 'entry validBefore must be a uint256 decimal string'));
     if (toUint256String(e.chain_id) === null) r.push(refusal('BAD_CHAIN_ID', at + '.chain_id', 'entry chain_id must be a uint256 decimal string'));
     if (!isSafeNonNegativeInt(e.signed_at)) r.push(refusal('BAD_CLOCK', at + '.signed_at', 'entry signed_at must be a non-negative integer epoch second'));
@@ -359,7 +373,7 @@ function eventKey(ev) {
 /**
  * compute(pp) pure exposure-reconciler kernel.
  * pp: {
- *   ledger?:         [ { from, token, chain_id, nonce, to, value, validBefore, signed_at,
+ *   ledger?:         [ { from, token, chain_id, nonce, to, value, validAfter, validBefore, signed_at,
  *                        intent_ref?, status } ],
  *   used_events?:    [ { authorizer, nonce, token?, chain_id? } ],
  *   canceled_events?: [ { authorizer, nonce, token?, chain_id? } ],
@@ -374,8 +388,8 @@ export function compute(pp) {
     return {
       output_payload: {
         entries: [],
-        class_counts: { settled: 0, canceled: 0, expired_unspent: 0, outstanding: 0, not_evaluated: 0 },
-        exposure: { total_outstanding: null, entries_in_total: null, unresolved_conflict_value: null, unresolved_conflict_entries: 0 },
+        class_counts: { settled: 0, canceled: 0, expired_unspent: 0, outstanding: 0, not_yet_valid: 0, not_evaluated: 0 },
+        exposure: { total_outstanding: null, entries_in_total: null, unresolved_conflict_value: null, unresolved_conflict_entries: 0, not_yet_valid_value: null, not_yet_valid_entries: null, duplicate_nonce_entries: null },
         discrepancies: [],
         not_evaluated: [],
         warnings: ['INPUT_REFUSED'],
@@ -404,6 +418,7 @@ export function compute(pp) {
     nonce: normalizeBytes32(e.nonce),
     to: normalizeAddress(e.to),
     value: toUint256String(e.value),
+    validAfter: toUint256String(e.validAfter),
     validBefore: toUint256String(e.validBefore),
     signed_at: e.signed_at,
     intent_ref: typeof e.intent_ref === 'string' ? e.intent_ref : null,
@@ -468,6 +483,23 @@ export function compute(pp) {
   applyList(usedEvents, usedHit, 'AuthorizationUsed', true);
   applyList(canceledEvents, canceledHit, 'AuthorizationCanceled', false);
 
+  // duplicate ledger identity: only one authorization per (authorizer, token, chain, nonce) can
+  // ever settle, so the first entry in canonical sort order is evaluated and the extras are not
+  const order = ledger.map((_, i) => i);
+  for (let a = 1; a < order.length; a++) {
+    const cur = order[a];
+    let b = a - 1;
+    while (b >= 0 && entryLess(ledger[cur], ledger[order[b]]) < 0) { order[b + 1] = order[b]; b--; }
+    order[b + 1] = cur;
+  }
+  const dupExtra = ledger.map(() => false);
+  const seenIdentity = {};
+  for (let a = 0; a < order.length; a++) {
+    const e = ledger[order[a]];
+    const k = e.from + '|' + e.token + '|' + e.chain_id + '|' + e.nonce;
+    if (seenIdentity[k]) dupExtra[order[a]] = true; else seenIdentity[k] = true;
+  }
+
   // per-entry classification (caller order; sorted for emission below)
   const classOf = [];
   const entryDiscs = [];
@@ -477,7 +509,11 @@ export function compute(pp) {
     const discs = [];
     let cls;
     let because = null;
-    if (usedHit[i] && canceledHit[i]) {
+    if (dupExtra[i]) {
+      cls = 'not_evaluated';
+      because = 'another ledger entry with the same authorizer, token, chain and nonce sorts first and is the only one counted';
+      discs.push('DUPLICATE_NONCE_LEDGER');
+    } else if (usedHit[i] && canceledHit[i]) {
       cls = 'not_evaluated';
       because = 'pasted rows carry both a use event and a cancel event for this identity, and the pasted rows cannot be ordered';
       discs.push('EVENT_CONFLICT');
@@ -499,6 +535,8 @@ export function compute(pp) {
       if (nowStr === null) {
         cls = 'not_evaluated';
         because = 'caller clock absent: a signed entry cannot be split between outstanding and expired-unspent';
+      } else if (cmpDec(e.validAfter, nowStr) >= 0) {
+        cls = 'not_yet_valid';
       } else if (cmpDec(e.validBefore, nowStr) > 0) {
         cls = 'outstanding';
       } else {
@@ -512,7 +550,9 @@ export function compute(pp) {
       discrepancies.push({
         code: discs[d], authorizer: e.from, nonce: e.nonce,
         token: e.token, chain_id: e.chain_id, ledger_status: e.status,
-        observed: discs[d] === 'EVENT_CONFLICT'
+        observed: discs[d] === 'DUPLICATE_NONCE_LEDGER'
+          ? 'this entry repeats the authorizer, token, chain and nonce of an earlier entry in canonical order; only that first entry is evaluated and counted'
+          : discs[d] === 'EVENT_CONFLICT'
           ? 'pasted rows carry both a use event and a cancel event for this identity, so the terminal state cannot be reconciled'
           : 'reconciled class ' + cls + ' disagrees with the ledger status ' + e.status,
       });
@@ -520,7 +560,10 @@ export function compute(pp) {
   }
 
   // class counts and exposure totals
-  const classCounts = { settled: 0, canceled: 0, expired_unspent: 0, outstanding: 0, not_evaluated: 0 };
+  const classCounts = { settled: 0, canceled: 0, expired_unspent: 0, outstanding: 0, not_yet_valid: 0, not_evaluated: 0 };
+  let nyvSum = '0';
+  let nyvCount = 0;
+  let dupCount = 0;
   let outstandingSum = '0';
   let outstandingCount = 0;
   let conflictSum = '0';
@@ -531,8 +574,13 @@ export function compute(pp) {
     if (classOf[i] === 'outstanding') {
       outstandingSum = addDec(outstandingSum, ledger[i].value);
       outstandingCount++;
+    } else if (classOf[i] === 'not_yet_valid') {
+      nyvSum = addDec(nyvSum, ledger[i].value);
+      nyvCount++;
     } else if (classOf[i] === 'not_evaluated') {
-      if (usedHit[i] && canceledHit[i]) {
+      if (dupExtra[i]) {
+        dupCount++;
+      } else if (usedHit[i] && canceledHit[i]) {
         conflictSum = addDec(conflictSum, ledger[i].value);
         conflictCount++;
       } else {
@@ -545,6 +593,9 @@ export function compute(pp) {
     entries_in_total: clockBlocked ? null : outstandingCount,
     unresolved_conflict_value: conflictCount > 0 ? conflictSum : '0',
     unresolved_conflict_entries: conflictCount,
+    not_yet_valid_value: nyvSum,
+    not_yet_valid_entries: nyvCount,
+    duplicate_nonce_entries: dupCount,
   };
 
   // top-level NOT_EVALUATED aspects, fixed order
@@ -563,6 +614,7 @@ export function compute(pp) {
       nonce: ledger[i].nonce,
       to: ledger[i].to,
       value: ledger[i].value,
+      validAfter: ledger[i].validAfter,
       validBefore: ledger[i].validBefore,
       signed_at: ledger[i].signed_at,
       intent_ref: ledger[i].intent_ref,

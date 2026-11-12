@@ -1,6 +1,6 @@
 // art-830-eip3009-spend-exposure-reconciler — property-test FLOOR. Scaffolded by scripts/new-kernel.mjs
 // (KERNEL-SCAFFOLD-1), authored under board row EIP3009-SPEND-EXPOSURE-RECONCILER-1 (K-FULL).
-// kernel_digest_at_authoring: sha256:3e2ec8bec31a50147e7bd65a4ebc6f614b7b2dc9cbe1a4acd213570cfe4e683a
+// kernel_digest_at_authoring: sha256:58a966726c983f28bd710045aaf468720f70737a1fd0e102bd0753a2d884e3a8
 // spec: EIP3009-SPEND-EXPOSURE-RECONCILER-1 (board/claimed) — reconciles a caller-pasted
 // authorization ledger against caller-pasted AuthorizationUsed / AuthorizationCanceled
 // event rows on a caller clock; clause digests pinned from erc-3009 snapshot 2026-11-03.
@@ -62,6 +62,7 @@ function randomPP(rng) {
       nonce: hex32(rng() < 0.15 ? 0xabab : 1 + Math.floor(rng() * 0xffffff)),
       to: '0x2222222222222222222222222222222222222222',
       value: String(Math.floor(rng() * 100000)),
+      validAfter: String(BASE_NOW + Math.floor(rng() * 6000) - 5000),
       validBefore: String(BASE_NOW + Math.floor(rng() * 10000) - 5000),
       signed_at: BASE_NOW - 1000 - Math.floor(rng() * 5000),
       status: STATUSES[Math.floor(rng() * STATUSES.length)],
@@ -134,7 +135,7 @@ function checkP2_used_event_forces_settled() {
       ledger: [{
         from: AGENTS[0], token: TOKENS[0], chain_id: CHAINS[0], nonce: hex32(1 + i),
         to: '0x2222222222222222222222222222222222222222',
-        value: String(1 + i), validBefore: String(BASE_NOW + 7200), signed_at: BASE_NOW - 100,
+        value: String(1 + i), validAfter: '0', validBefore: String(BASE_NOW + 7200), signed_at: BASE_NOW - 100,
         status: STATUSES[i % 3],
       }],
       used_events: [{ authorizer: AGENTS[0], nonce: hex32(1 + i) }],
@@ -157,7 +158,7 @@ function checkP3_exposure_additivity() {
     const mk = (k) => ({
       from: AGENTS[0], token: TOKENS[0], chain_id: CHAINS[0], nonce: hex32(k),
       to: '0x2222222222222222222222222222222222222222',
-      value: String(1000 + k), validBefore: String(BASE_NOW + 7200), signed_at: BASE_NOW - 100, status: 'signed',
+      value: String(1000 + k), validAfter: '0', validBefore: String(BASE_NOW + 7200), signed_at: BASE_NOW - 100, status: 'signed',
     });
     const full = compute({ ledger: [mk(1), mk(2), mk(3)], used_events: [], canceled_events: [], now_unix: BASE_NOW }).output_payload;
     const dropped = compute({ ledger: [mk(1), mk(3)], used_events: [], canceled_events: [], now_unix: BASE_NOW }).output_payload;
@@ -185,11 +186,12 @@ function addStrings(a, b) {
 }
 
 // ---------- P4: closed-set conformance — classes, codes, aspects come from closed sets ----------
-const CLASSES = new Set(['settled', 'canceled', 'expired_unspent', 'outstanding', 'not_evaluated']);
+const CLASSES = new Set(['settled', 'canceled', 'expired_unspent', 'outstanding', 'not_yet_valid', 'not_evaluated']);
 const DISC_CODES = new Set([
   'LEDGER_SAYS_SIGNED_EVENTS_SETTLED', 'LEDGER_SAYS_SIGNED_EVENTS_CANCELED',
   'LEDGER_SAYS_SETTLED_EVENTS_CANCELED', 'LEDGER_SAYS_CANCELED_EVENTS_SETTLED',
   'EVENT_CONFLICT', 'EVENT_WITHOUT_LEDGER_ENTRY', 'AMBIGUOUS_EVENT_SCOPE', 'DUPLICATE_EVENT_ROW',
+  'DUPLICATE_NONCE_LEDGER',
 ]);
 const ASPECTS = new Set(['used_events', 'canceled_events', 'now_unix']);
 function checkP4_closed_sets() {
@@ -246,7 +248,7 @@ function checkP7_negative_control_expired() {
       ledger: [{
         from: AGENTS[0], token: TOKENS[0], chain_id: CHAINS[0], nonce: hex32(0x77 + i),
         to: '0x2222222222222222222222222222222222222222',
-        value: String(7 + i), validBefore: String(BASE_NOW - 1 - i), signed_at: BASE_NOW - 1000, status: 'signed',
+        value: String(7 + i), validAfter: '0', validBefore: String(BASE_NOW - 1 - i), signed_at: BASE_NOW - 1000, status: 'signed',
       }],
       used_events: [], canceled_events: [], now_unix: BASE_NOW,
     };
@@ -272,6 +274,30 @@ function checkP8_flag_mirror() {
   return { name: 'P8_warnings_mirror_conditional_flags', trials: checked, violations };
 }
 
+// ---------- P9: negative control — now <= validAfter is never outstanding; duplicate identity counts once ----------
+function checkP9_not_yet_valid_and_duplicate() {
+  let violations = 0, checked = 0;
+  for (let i = 0; i < TRIALS; i++) {
+    const e = {
+      from: AGENTS[0], token: TOKENS[0], chain_id: CHAINS[0], nonce: hex32(0x99 + i),
+      to: '0x2222222222222222222222222222222222222222',
+      value: String(11 + i), validAfter: String(BASE_NOW + (i % 3)), validBefore: String(BASE_NOW + 7200),
+      signed_at: BASE_NOW - 1000, status: 'signed',
+    };
+    const out = compute({ ledger: [e], used_events: [], canceled_events: [], now_unix: BASE_NOW }).output_payload;
+    checked++;
+    if (out.entries[0].class !== 'not_yet_valid') violations++;
+    if (cmpDec(out.exposure.total_outstanding, '0') !== 0) violations++;
+    const dup = Object.assign({}, e, { validAfter: '0', value: String(900 + i) });
+    const live = Object.assign({}, e, { validAfter: '0' });
+    const two = compute({ ledger: [dup, live], used_events: [], canceled_events: [], now_unix: BASE_NOW }).output_payload;
+    if (two.exposure.duplicate_nonce_entries !== 1) violations++;
+    if (two.exposure.entries_in_total !== 1) violations++;
+    if (!two.discrepancies.some((d) => d.code === 'DUPLICATE_NONCE_LEDGER')) violations++;
+  }
+  return { name: 'P9_not_yet_valid_excluded_duplicate_counted_once', trials: checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -288,6 +314,7 @@ const properties = [
   checkP6_refusal_shape(),
   checkP7_negative_control_expired(),
   checkP8_flag_mirror(),
+  checkP9_not_yet_valid_and_duplicate(),
 ];
 const ok = summarize(KERNEL_ID, oracle, properties);
 process.exit(ok ? 0 : 1);
