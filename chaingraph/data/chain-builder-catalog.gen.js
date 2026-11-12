@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (740 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (741 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -8214,6 +8214,16 @@ window.CHAINBUILDER_CATALOG = [
     "feeds": [
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-831-receipt-export-envelopes",
+    "display_name": "Receipt Export Envelopes",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-831-receipt-export-envelopes.html",
+    "description": "Deterministically re-expresses one caller-supplied execution receipt as two wire envelopes: a lineage RunEvent (eventType COMPLETE, eventTim",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
