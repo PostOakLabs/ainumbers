@@ -61,7 +61,30 @@ plant('syn-e2-unclassified', {
   kernelSrc: `export function compute(pp) { return { output_payload: { verdict: 'GREENISH' } }; }\n`,
 });
 
+// (f) OPTIONAL field deleted and still positive: not a declared requirement, must NOT be FAIL.
+plant('syn-f-optional', {
+  required: ['a'], pp: { a: 1, opt: 2 }, payload: { verdict: 'READY' },
+  kernelSrc: `export function compute(pp) { if (pp.a === undefined || pp.a === null) return { output_payload: { verdict: 'NOT_EVALUATED' } }; return { output_payload: { verdict: 'READY' } }; }\n`,
+});
+// (g) undeclared list, kernel ignores every key: HARNESS-SUSPECT, never FAIL.
+plant('syn-g-suspect', {
+  required: null, pp: { x: 1, opt: 2 }, payload: { verdict: 'READY' },
+  kernelSrc: `export function compute(pp) { return { output_payload: { verdict: 'READY' } }; }\n`,
+});
+// (h..k) one planted fail-open kernel per widened verdict token class.
+const openKernel = (payloadJs) => `export function compute(pp) { return { output_payload: ${payloadJs} }; }\n`;
+plant('syn-h-mandate', { required: ['m'], pp: { m: 1 }, payload: { verdict: 'WITHIN_MANDATE' }, kernelSrc: openKernel(`{ verdict: 'WITHIN_MANDATE' }`) });
+plant('syn-i-conserved', { required: ['m'], pp: { m: 1 }, payload: { conserved: true }, kernelSrc: openKernel(`{ conserved: true }`) });
+plant('syn-j-eligibility', { required: ['m'], pp: { m: 1 }, payload: { eligibility: 'ELIGIBLE' }, kernelSrc: openKernel(`{ eligibility: 'ELIGIBLE' }`) });
+plant('syn-k-profile', { required: ['m'], pp: { m: 1 }, payload: { profile_status: 'READY' }, kernelSrc: openKernel(`{ profile_status: 'READY' }`) });
+
 const EXPECT = {
+  'syn-f-optional': 'PASS',
+  'syn-g-suspect': 'UNDECLARED',
+  'syn-h-mandate': 'FAIL',
+  'syn-i-conserved': 'FAIL',
+  'syn-j-eligibility': 'FAIL',
+  'syn-k-profile': 'FAIL',
   'syn-a-spend': 'FAIL',
   'syn-b-criteria': 'FAIL',
   'syn-c-flag': 'FAIL',
@@ -72,13 +95,23 @@ const EXPECT = {
 
 function runChecker(script, tag) {
   const jsonPath = join(tmp, `${tag}.json`);
-  const r = spawnSync(process.execPath, [script, '--root', tmp, '--json', jsonPath], { encoding: 'utf8' });
+  const basePath = join(tmp, `${tag}.baseline.json`);
+  const r = spawnSync(process.execPath, [script, '--root', tmp, '--json', jsonPath, '--write-baseline', basePath], { encoding: 'utf8' });
   if (r.status !== 0) return { crashed: true, status: r.status, stderr: (r.stderr || '').slice(0, 300) };
   const report = JSON.parse(readFileSync(jsonPath, 'utf8'));
   const got = Object.fromEntries(report.kernels.map((k) => [k.id, k.state]));
   const wrong = Object.entries(EXPECT).filter(([id, s]) => got[id] !== s).map(([id, s]) => `${id}: expected ${s}, got ${got[id]}`);
   const nullPassFails = report.kernels.find((k) => k.id === 'syn-c-flag')?.fails.filter((f) => f.mode === 'null').length ?? 0;
   if (nullPassFails === 0) wrong.push('syn-c-flag: the null-set pass recorded no fail-open case');
+  // An optional-field deletion or an undeclared-list hit is never a FAIL source.
+  if ((report.kernels.find((k) => k.id === 'syn-f-optional')?.fails.length ?? 1) !== 0) wrong.push('syn-f-optional: an optional field produced a FAIL');
+  const g = report.kernels.find((k) => k.id === 'syn-g-suspect');
+  if (!g || g.fails.length !== 0 || g.suspects.length === 0) wrong.push('syn-g-suspect: expected HARNESS-SUSPECT hits and zero FAIL');
+  if (!(report.totals.HARNESS_SUSPECT > 0)) wrong.push('totals: HARNESS_SUSPECT not counted');
+  // --write-baseline records FAIL pairs only (never suspects, never PASS kernels).
+  const bl = JSON.parse(readFileSync(basePath, 'utf8'));
+  if (!bl.nodes['syn-a-spend']?.fields.includes('domain')) wrong.push('baseline: syn-a-spend/domain pair missing');
+  if (bl.nodes['syn-f-optional'] || bl.nodes['syn-g-suspect'] || bl.nodes['syn-d-closed']) wrong.push('baseline: contains a non-FAIL kernel');
   return { crashed: false, wrong };
 }
 
@@ -87,8 +120,8 @@ try {
   // RED: a deliberately broken checker (never records a fail-open case) must be caught.
   const brokenPath = join(tmp, 'broken-checker.mjs');
   const src = readFileSync(REAL, 'utf8');
-  const broken = src.replace('out.fails.push(', 'void (');
-  if (broken === src) throw new Error('selftest cannot break the checker: marker `out.fails.push(` not found');
+  const broken = src.replace('sink.push(', 'void (');
+  if (broken === src) throw new Error('selftest cannot break the checker: marker `sink.push(` not found');
   writeFileSync(brokenPath, broken.replace("resolve(HERE, '..')", JSON.stringify(resolve(HERE, '..'))));
   const red = runChecker(brokenPath, 'red');
   if (red.crashed || red.wrong.length === 0) {
@@ -103,7 +136,7 @@ try {
     console.error('GREEN control failed:', green.crashed ? green : green.wrong.join('; '));
     failed++;
   } else {
-    console.log('GREEN ok: a, b, c planted FAIL; d PASS; e1 UNDECLARED; e2 UNCLASSIFIED');
+    console.log('GREEN ok: a, b, c, h, i, j, k planted FAIL; d, f PASS; e1, g UNDECLARED (g with HARNESS-SUSPECT); e2 UNCLASSIFIED; baseline holds FAIL pairs only');
   }
 } finally {
   rmSync(tmp, { recursive: true, force: true });
