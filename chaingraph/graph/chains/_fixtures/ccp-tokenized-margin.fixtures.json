@@ -1,0 +1,141 @@
+{
+  "note": "Example inputs for the ccp-tokenized-margin chain, one block per scenario, keyed by tool_id. Every input is caller-asserted: the chain shows that the caller's declared conditions were checked against the caller's declared facts, not that the facts are true. Condition descriptions are verbatim quotations from the primary texts pinned at research/clause-snapshots/noaction-collateral/ (CFTC Letter 25-39, CFTC Letter 25-40, the SEC staff no-action letter to DTC of 2025-12-11, the CME Clearing acceptable-collateral page retrieved 2026-11-07); condition_id carries the source and section reference. The capital_charge_table values and every evidence_status are illustrative caller input, not regulator figures. Verified by ccp-tokenized-margin.examples-check.mjs against the repo's own kernels.",
+  "scenarios": {
+    "cftc_25_39_tokenized_treasury": {
+      "description": "Full chain: a clearing member posts tokenized U.S. Treasuries as initial margin. art-444 applies the CME published Treasury haircut schedule (CFTC Letter 25-39 section 4: the tokenized form can use the same risk-based haircut as the traditional form), art-514 checks the Letter 25-39 conditions, art-528 compares two published CCP disclosures.",
+      "art-444-collateral-haircut-engine": {
+        "haircut_table_version": "CME-acceptable-collateral-2026-11-07",
+        "holding_period_days": 10,
+        "fx_haircut_pct": 5,
+        "min_haircut_floor_pct": 0,
+        "haircut_table": [
+          { "asset_class": "us_treasury_bill", "maturity_bucket": "0-1y", "haircut_pct": 0.5 },
+          { "asset_class": "us_treasury_note_bond", "maturity_bucket": "0-1y", "haircut_pct": 1 },
+          { "asset_class": "us_treasury_note_bond", "maturity_bucket": ">1-3y", "haircut_pct": 2 },
+          { "asset_class": "us_treasury_note_bond", "maturity_bucket": ">3-5y", "haircut_pct": 3 },
+          { "asset_class": "us_treasury_note_bond", "maturity_bucket": ">5-10y", "haircut_pct": 4.5 },
+          { "asset_class": "us_treasury_note_bond", "maturity_bucket": ">10-30y", "haircut_pct": 8 },
+          { "asset_class": "short_term_ust_etf", "maturity_bucket": null, "haircut_pct": 3 },
+          { "asset_class": "government_mmf_ief2", "maturity_bucket": null, "haircut_pct": 2 }
+        ],
+        "exposure": { "amount": 100000000, "currency": "USD", "asset_class": "cash" },
+        "collateral_items": [
+          { "item_id": "tok-ust-bill-01", "asset_class": "us_treasury_bill", "maturity_bucket": "0-1y", "market_value": 30000000, "currency": "USD" },
+          { "item_id": "tok-ust-note-02", "asset_class": "us_treasury_note_bond", "maturity_bucket": ">1-3y", "market_value": 45000000, "currency": "USD" },
+          { "item_id": "tok-ust-note-03", "asset_class": "us_treasury_note_bond", "maturity_bucket": ">5-10y", "market_value": 35000000, "currency": "USD" }
+        ]
+      },
+      "art-514-conditional-relief-collateral-receipt": {
+        "relief_regime": "cftc_staff_guidance_tokenized_collateral",
+        "relied_on_version": "CFTC-25-39-2025-12-08",
+        "condition_set": {
+          "version": "CFTC-25-39-2025-12-08",
+          "conditions": [
+            { "condition_id": "CFTC-25-39-S1-a", "description": "\"Market participants should consider whether a tokenized form of an asset provides a holder with legal and economic rights that are the same or functionally equivalent to the rights of the asset in traditional form.\"", "evidence_status": "met" },
+            { "condition_id": "CFTC-25-39-S2-a", "description": "\"Registered entities or registrants are required to demonstrate that non-cash assets collected as regulatory margin meet legal enforceability requirements.\"", "evidence_status": "met" },
+            { "condition_id": "CFTC-25-39-S3-a", "description": "\"Collateral held as margin by FCMs, DCOs, and Swap Entities are subject to segregation and custody requirements, and must be held by an eligible custodian.\"", "evidence_status": "met" },
+            { "condition_id": "CFTC-25-39-S3-b", "description": "\"An FCM is required to maintain policies and procedures 'for assessing the liquidity, marketability and mark-to-market valuation of all securities or other non-cash assets held as segregated funds' to ensure that non-cash assets held as collateral are readily marketable and highly liquid.\"", "evidence_status": "met" },
+            { "condition_id": "CFTC-25-39-S4-a", "description": "\"Registered entities and registrants should be prepared to analyze whether a tokenized form of an asset can be subject to an equivalent haircut as the asset in traditional form, subject to adjustment for any settlement-time differences or other differences in credit, market, or liquidity risks.\"", "evidence_status": "met" },
+            { "condition_id": "CFTC-25-39-S5-a", "description": "\"The Divisions encourage entities considering holding or transferring DLT-enabled tokenized assets as collateral to consider operational readiness, including technical capabilities or expertise that may be required to support them.\"", "evidence_status": "met" }
+          ]
+        },
+        "asset_class": "tokenized_treasury",
+        "issuer_permitted_status": true,
+        "declared_valuation": 110000000,
+        "declared_haircut_pct": 2,
+        "declared_reporting_cadence": "daily",
+        "last_report_ref": "RPT-2026-11-12-001",
+        "position_size": 110000000,
+        "capital_charge_table": [
+          { "asset_class": "tokenized_treasury", "charge_pct": 2 },
+          { "asset_class": "payment_stablecoin", "charge_pct": 8 }
+        ],
+        "revocation_charge_pct": 100,
+        "revocation_eligible_without_relief": true,
+        "as_of": "2026-11-12T23:59:59Z"
+      },
+      "art-528-cross-ccp-pqd-comparator": {
+        "entity_a": { "ccp": "ICE", "division": "ICEU" },
+        "entity_b": { "ccp": "ICE", "division": "ICC" },
+        "fields": ["cover2_peak_stress_usd", "default_fund_requirement_usd"]
+      }
+    },
+    "cftc_25_40_fcm_payment_stablecoin": {
+      "description": "Variant: art-514 with the CFTC Letter 25-40 conditions an FCM must meet to take payment stablecoins as customer margin. Letter 25-40 covers non-securities digital assets, so this variant carries a payment stablecoin, not a tokenized Treasury.",
+      "art-514-conditional-relief-collateral-receipt": {
+        "relief_regime": "conditional_no_action_relief",
+        "relied_on_version": "CFTC-25-40-2025-12-08",
+        "condition_set": {
+          "version": "CFTC-25-40-2025-12-08",
+          "conditions": [
+            { "condition_id": "CFTC-25-40-III-1.1", "description": "\"With respect to collateral held in futures customer accounts and Cleared Swaps Customer accounts, the digital asset is accepted as collateral or for settlement purposes by a registered DCO and the FCM takes into account the value of the collateral as determined by, and subject to the haircuts of, the applicable DCO.\"", "evidence_status": "met" },
+            { "condition_id": "CFTC-25-40-III-2", "description": "\"The FCM deposits its own payment stablecoins into segregated customer accounts as residual interest, notwithstanding the restrictions in Commission Regulations 1.23(a)(1), 22.2(e)(3)(i), 22.17, and 30.7(g)(6), provided that the FCM imposes an applicable capital charge against the value of the payment stablecoins consistent with Commission Regulation 1.17(c)(5).\"", "evidence_status": "met" },
+            { "condition_id": "CFTC-25-40-III-3", "description": "\"Prior to relying on this no-action position, the FCM files a notice of its intent to rely on this no-action position with MPD and the date at which it will commence accepting digital assets from customers as margin collateral.\"", "evidence_status": "met" },
+            { "condition_id": "CFTC-25-40-III-4", "description": "\"For a period of three (3) months from the commencement of the FCM's reliance on this no-action letter as stated in the FCM's notice of intent submitted to MPD in accordance with condition (3) above, the FCM accepts only digital assets in the form of payment stablecoins, Bitcoin, and Ether as margin collateral from customers\"", "evidence_status": "met" },
+            { "condition_id": "CFTC-25-40-III-5", "description": "\"the FCM files, as of the close of business each week, a report of the total amount of digital assets held in each of the futures, Cleared Swaps, and 30.7 customer funds accounts.\"", "evidence_status": "undecided" },
+            { "condition_id": "CFTC-25-40-III-6", "description": "\"the FCM provides prompt written notice of any significant operation or system issue, disruption, or failure, including any cybersecurity incident, that affects the use of digital assets as customer margin collateral.\"", "evidence_status": "met" }
+          ]
+        },
+        "asset_class": "payment_stablecoin",
+        "issuer_permitted_status": true,
+        "declared_valuation": 10000000,
+        "declared_haircut_pct": 2,
+        "declared_reporting_cadence": "weekly",
+        "last_report_ref": "RPT-2026-11-06-WK",
+        "position_size": 10000000,
+        "capital_charge_table": [
+          { "asset_class": "payment_stablecoin", "charge_pct": 8 },
+          { "asset_class": "tokenized_treasury", "charge_pct": 2 }
+        ],
+        "revocation_charge_pct": 100,
+        "revocation_eligible_without_relief": false,
+        "as_of": "2026-11-12T23:59:59Z"
+      }
+    },
+    "dtc_nal_tokenization_services": {
+      "description": "Variant: art-514 with representations of the SEC staff no-action letter to DTC (2025-12-11) that bear on registered-wallet eligibility. The representations are DTC's; the caller attests, per condition, that it has evidence DTC operates to each one. Representation 1 means DTC itself gives the tokens no collateral value for its Net Debit Cap or Collateral Monitor, so no haircut step is chained here.",
+      "art-514-conditional-relief-collateral-receipt": {
+        "relief_regime": "conditional_no_action_relief",
+        "relied_on_version": "SEC-DTC-NAL-2025-12-11",
+        "condition_set": {
+          "version": "SEC-DTC-NAL-2025-12-11",
+          "conditions": [
+            { "condition_id": "DTC-NAL-III.b-rep-1", "description": "\"DTC would not ascribe to any Tokenized Entitlements any collateral value or settlement value for purposes of calculating a Participant's Net Debit Cap or the Collateral Monitor.\"", "evidence_status": "met" },
+            { "condition_id": "DTC-NAL-III.b-rep-2", "description": "\"The securities that are eligible for tokenization would be limited to (i) securities in the Russell 1000 Index at the time the Preliminary Base Version launches as well as any additions to the index thereafter and notwithstanding the subsequent removal of any securities from the index, (ii) U.S. Treasury securities (i.e., bills, bonds, and notes), and (iii) ETFs that track major indices, such as the S&P 500 index and Nasdaq-100 index.\"", "evidence_status": "met" },
+            { "condition_id": "DTC-NAL-III.b-rep-3", "description": "\"Only Participants would be permitted to register wallets, and the relevant Participant would be fully responsible for the activity in the Registered Wallet(s).\"", "evidence_status": "met" },
+            { "condition_id": "DTC-NAL-III.b-rep-4", "description": "\"DTC would only register a blockchain address as a Registered Wallet if (i) the blockchain is a supported blockchain that satisfies the Technology Standards and (ii) DTC has performed its own screenings of the wallet and confirmed that it complies with OFAC requirements.\"", "evidence_status": "met" },
+            { "condition_id": "DTC-NAL-III.b-rep-6", "description": "\"The Tokens would only be transferable to Registered Wallets.\"", "evidence_status": "met" },
+            { "condition_id": "DTC-NAL-III.b-rep-7", "description": "\"DTC would have the technological capability to transfer any of the Tokens to address Conditions Requiring Reversal, such as to service a corporate action event, replace lost or stolen Tokens or correct erroneous transfers.\"", "evidence_status": "met" },
+            { "condition_id": "DTC-NAL-II.e", "description": "\"DTC would have a 'root wallet' on each blockchain with keys that it can use to convert, transfer, mint, or burn any of the Tokens, even without the private key for the Registered Wallet.\"", "evidence_status": "met" },
+            { "condition_id": "DTC-NAL-III.b-rep-13", "description": "\"DTC would provide Participants with disclosures regarding the mechanics and operation of the Preliminary Base Version and would give Participants reasonable advance notice in writing of any material changes to the service.\"", "evidence_status": "met" }
+          ]
+        },
+        "asset_class": "tokenized_treasury",
+        "issuer_permitted_status": true,
+        "declared_valuation": 25000000,
+        "declared_haircut_pct": 0,
+        "declared_reporting_cadence": "quarterly",
+        "last_report_ref": "DTC-QRP-2026-Q3",
+        "position_size": 25000000,
+        "capital_charge_table": [
+          { "asset_class": "tokenized_treasury", "charge_pct": 2 }
+        ],
+        "revocation_charge_pct": 100,
+        "revocation_eligible_without_relief": true,
+        "as_of": "2026-11-12T23:59:59Z"
+      }
+    },
+    "weekend_margin_call_sla": {
+      "description": "Example input for art-531 (not a chain step: its inputs do not take an upstream output). A margin call issued Friday 21:00Z with a 720-minute SLA, still unfunded on Saturday morning.",
+      "art-531-member-margin-call-lifecycle": {
+        "call_id": "MC-WKND-0001",
+        "member_ref": "MEMBER-REF-2210",
+        "currency": "USD",
+        "amount_minor_units": 500000000,
+        "sla_minutes": 720,
+        "issued_at": "2026-11-06T21:00:00Z",
+        "as_of": "2026-11-07T10:00:00Z"
+      }
+    }
+  }
+}
