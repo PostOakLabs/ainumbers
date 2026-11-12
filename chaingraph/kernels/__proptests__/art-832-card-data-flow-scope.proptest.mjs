@@ -1,16 +1,16 @@
-// art-830-card-data-flow-scope — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:80e51931f2ca29380de69f539dedc71011206418c4e2aa393ad7589d3ca6d004
+// art-832-card-data-flow-scope — class-K property-test FLOOR.
+// kernel_digest_at_authoring: sha256:279e8f27d932cb3e2daa4849ae7dc2b215c9c1a17d98c5ac1a23717d196e3094
 // spec: board/claimed/PCI-FLOWMAP-SCOPE-1.md
 // human_sign_off: PENDING
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
-// Run: node chaingraph/kernels/__proptests__/art-830-card-data-flow-scope.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/art-832-card-data-flow-scope.proptest.mjs
 
-import { compute } from '../art-830-card-data-flow-scope.kernel.mjs';
+import { compute } from '../art-832-card-data-flow-scope.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, pick, deepEqual } from './_pbt-common.mjs';
 
-const KERNEL_ID = 'art-830-card-data-flow-scope';
+const KERNEL_ID = 'art-832-card-data-flow-scope';
 const KINDS = ['frontend', 'backend', 'logs', 'analytics', 'browser_automation_provider', 'psp', 'other'];
 const FLAGS = ['sees_raw_pan', 'sees_token_only', 'stores', 'logs', 'records_sessions', 'unrestricted_connectivity_to_pan_component', 'could_impact_pan_security'];
 
@@ -30,7 +30,7 @@ function randomPP(rng) {
 const SETS = ['stores_processes_transmits_placed', 'unrestricted_connectivity_placed', 'security_impacting_placed', 'not_placed_by_declared_inputs'];
 
 function checkPartition() {
-  const rng = mulberry32(830);
+  const rng = mulberry32(832);
   let checked = 0, violations = 0;
   for (let i = 0; i < 500; i++) {
     const pp = randomPP(rng);
