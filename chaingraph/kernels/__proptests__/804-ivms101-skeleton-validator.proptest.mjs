@@ -1,5 +1,5 @@
 // 804-ivms101-skeleton-validator — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:d59335a962fdcf20281d2fc6e1408116571d7b6e279a2c2385dc163085ba0e9e
+// kernel_digest_at_authoring: sha256:8ca09af1505cf40e30e3925904000698304841316b32b5a12a8ffdc2ec77ff0f
 // spec: LANDSCAPE-IVMS101-VALIDATOR-1 (zero-PII skeleton contract, pinned IVMS 101.2023 rules)
 // human_sign_off: PENDING
 //
@@ -203,7 +203,7 @@ function vsort(arr) {
   return arr.slice().sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : a.rule_id < b.rule_id ? -1 : a.rule_id > b.rule_id ? 1 : 0));
 }
 const OK_ED = '101.2023';
-function addrLine(type, extra) { return Object.assign({ addressType: type, streetName: { len: 10 }, townName: { len: 6 }, country: 'DE' }, extra || {}); }
+function addrLine(type, extra) { return Object.assign({ addressType: type, streetName: { len: 10 }, buildingNumber: { len: 3 }, townName: { len: 6 }, country: 'DE' }, extra || {}); }
 function npEntry(type, pid) { return { primaryIdentifier: pid === undefined ? 'SYNTHETIC' : pid, naturalPersonNameIdentifierType: type }; }
 function npLocalEntry(type) { return { primaryIdentifier: { len: 5 }, nameIdentifierType: type }; }
 function lpEntry(type, name) { return { legalPersonName: name === undefined ? { len: 20 } : name, legalPersonNameIdentifierType: type }; }
@@ -254,7 +254,7 @@ case6('transliteration-all', ppOf({
   beneficiary: [npPerson()],
   payloadMetadata: { transliterationMethod: ['arab', 'aran', 'armn', 'cyrl', 'deva', 'geor', 'grek', 'hani', 'hebr', 'kana', 'kore', 'thai', 'othr'], payloadVersion: '101' },
 }), []);
-case6('country-format-accept', withBen(npPerson({ geographicAddress: [addrLine('GEOG', { country: 'ZZ' })], countryOfResidence: 'FR' })), []);
+case6('country-format-accept', withBen(npPerson({ geographicAddress: [addrLine('GEOG', { country: 'US' })], countryOfResidence: 'FR' })), []);
 
 // -- code lists: one rejection per slot, pinned section --
 case6('np-name-type-bad', withBen(npPerson({ name: { nameIdentifier: [npEntry('LEGL'), npEntry('XX')] } })),
@@ -268,13 +268,13 @@ case6('lp-local-name-type-bad', withBen(lpPerson({ name: { nameIdentifier: [lpEn
 case6('address-type-bad', withBen(npPerson({ geographicAddress: [addrLine('XX')] })),
   [['payload.beneficiary[0].naturalPerson.geographicAddress[0].addressType', 'CODE', '5.3.12']]);
 case6('country-lowercase', withBen(npPerson({ geographicAddress: [addrLine('GEOG', { country: 'de' })] })),
-  [['payload.beneficiary[0].naturalPerson.geographicAddress[0].country', 'CODE', '5.3.13']]);
+  [['payload.beneficiary[0].naturalPerson.geographicAddress[0].country', 'C3', '5.2.1.2']]);
 case6('country-of-issue-bad', withBen(npPerson({ nationalIdentification: { nationalIdentifier: { len: 20 }, nationalIdentifierType: 'CCPT', countryOfIssue: 'ZZZ' } })),
-  [['payload.beneficiary[0].naturalPerson.nationalIdentification.countryOfIssue', 'CODE', '5.3.13']]);
+  [['payload.beneficiary[0].naturalPerson.nationalIdentification.countryOfIssue', 'C3', '5.2.1.2']]);
 case6('country-of-registration-bad', withBen(lpPerson({ countryOfRegistration: '1A' })),
-  [['payload.beneficiary[0].legalPerson.countryOfRegistration', 'CODE', '5.3.13']]);
+  [['payload.beneficiary[0].legalPerson.countryOfRegistration', 'C3', '5.2.1.2']]);
 case6('country-of-residence-bad', withBen(npPerson({ countryOfResidence: 'us' })),
-  [['payload.beneficiary[0].naturalPerson.countryOfResidence', 'CODE', '5.3.13']]);
+  [['payload.beneficiary[0].naturalPerson.countryOfResidence', 'C3', '5.2.1.2']]);
 case6('natid-type-bad-np', withBen(npPerson({ nationalIdentification: { nationalIdentifier: { len: 20 }, nationalIdentifierType: 'XX' } })),
   [['payload.beneficiary[0].naturalPerson.nationalIdentification.nationalIdentifierType', 'CODE', '5.3.15']]);
 case6('natid-type-nonstring-np', withBen(npPerson({ nationalIdentification: { nationalIdentifier: { len: 20 }, nationalIdentifierType: 42 } })),
@@ -344,9 +344,9 @@ case6('leaf-syntheticish', withBen(npPerson({ name: { nameIdentifier: [npEntry('
 
 // -- CARD shapes --
 case6('card-nameidentifier-nonarray', withBen(npPerson({ name: { nameIdentifier: 'x' } })),
-  [['beneficiary[0].naturalPerson.name.nameIdentifier', 'C6', '5.2.3.2'], ['payload.beneficiary[0].naturalPerson.name.nameIdentifier', 'CARD', '5.2.3.1']]);
+  [['payload.beneficiary[0].naturalPerson.name.nameIdentifier', 'C6', '5.2.3.2'], ['payload.beneficiary[0].naturalPerson.name.nameIdentifier', 'CARD', '5.2.3.1']]);
 case6('card-nameidentifier-empty', withBen(npPerson({ name: { nameIdentifier: [] } })),
-  [['beneficiary[0].naturalPerson.name.nameIdentifier', 'C6', '5.2.3.2'], ['payload.beneficiary[0].naturalPerson.name.nameIdentifier', 'CARD', '5.2.3.1']]);
+  [['payload.beneficiary[0].naturalPerson.name.nameIdentifier', 'C6', '5.2.3.2'], ['payload.beneficiary[0].naturalPerson.name.nameIdentifier', 'CARD', '5.2.3.1']]);
 case6('card-addressline-8', withBen(npPerson({ geographicAddress: [addrLine('GEOG', { addressLine: [{ len: 5 }, { len: 5 }, { len: 5 }, { len: 5 }, { len: 5 }, { len: 5 }, { len: 5 }, { len: 5 }] })] })),
   [['payload.beneficiary[0].naturalPerson.geographicAddress[0].addressLine', 'CARD', '5.2.6.1']]);
 case6('card-accountnumber-nonarray', withBen(Object.assign(npPerson(), { accountNumber: 'x' })),
@@ -368,41 +368,41 @@ case6('card-sequence-noninteger', ppOf({
   beneficiary: [npPerson()],
   transferPath: [{ intermediaryVASP: npPerson(), sequence: 'x' }],
   payloadMetadata: { payloadVersion: OK_ED },
-}), [['transferPath[0].sequence', 'C12', '5.2.13.2'], ['payload.transferPath[0].sequence', 'CARD', '5.3.16']]);
+}), [['payload.transferPath[0].sequence', 'C12', '5.2.13.2'], ['payload.transferPath[0].sequence', 'CARD', '5.3.16']]);
 
 // -- dates (format, calendar bounds, leap year, C2 pinning) --
 case6('dob-format-bad', withBen(npPerson({ dateAndPlaceOfBirth: { dateOfBirth: '2026-1-01', placeOfBirth: { len: 5 } } })),
   [['payload.beneficiary[0].naturalPerson.dateAndPlaceOfBirth.dateOfBirth', 'CARD', '5.3.11']]);
 case6('dob-month-13', withBen(npPerson({ dateAndPlaceOfBirth: { dateOfBirth: '2026-13-01', placeOfBirth: { len: 5 } } })),
-  [['beneficiary[0].naturalPerson.dateAndPlaceOfBirth.dateOfBirth', 'C2', '5.2.7.2'], ['payload.beneficiary[0].naturalPerson.dateAndPlaceOfBirth.dateOfBirth', 'CARD', '5.3.11']]);
+  [['payload.beneficiary[0].naturalPerson.dateAndPlaceOfBirth.dateOfBirth', 'CARD', '5.3.11']]);
 case6('dob-feb29-nonleap', withBen(npPerson({ dateAndPlaceOfBirth: { dateOfBirth: '2023-02-29', placeOfBirth: { len: 5 } } })),
   [['payload.beneficiary[0].naturalPerson.dateAndPlaceOfBirth.dateOfBirth', 'CARD', '5.3.11']]);
 case6('dob-feb29-leap-clean', withBen(npPerson({ dateAndPlaceOfBirth: { dateOfBirth: '2024-02-29', placeOfBirth: { len: 5 } } })), []);
 case6('dob-future-c2', withBen(npPerson({ dateAndPlaceOfBirth: { dateOfBirth: '2026-11-02', placeOfBirth: { len: 5 } } })),
-  [['beneficiary[0].naturalPerson.dateAndPlaceOfBirth.dateOfBirth', 'C2', '5.2.7.2'], ['payload.beneficiary[0].naturalPerson.dateAndPlaceOfBirth.dateOfBirth', 'C2', '5.2.7.2']]);
+  [['payload.beneficiary[0].naturalPerson.dateAndPlaceOfBirth.dateOfBirth', 'C2', '5.2.7.2']]);
 case6('dob-evaldate-c2', withBen(npPerson({ dateAndPlaceOfBirth: { dateOfBirth: '2026-11-01', placeOfBirth: { len: 5 } } })),
-  [['beneficiary[0].naturalPerson.dateAndPlaceOfBirth.dateOfBirth', 'C2', '5.2.7.2'], ['payload.beneficiary[0].naturalPerson.dateAndPlaceOfBirth.dateOfBirth', 'C2', '5.2.7.2']]);
+  [['payload.beneficiary[0].naturalPerson.dateAndPlaceOfBirth.dateOfBirth', 'C2', '5.2.7.2']]);
 case6('dob-past-clean', withBen(npPerson({ dateAndPlaceOfBirth: { dateOfBirth: '2026-10-31', placeOfBirth: { len: 5 } } })), []);
 
 // -- registration authority format --
 case6('ra-short', withBen(lpPerson({ nationalIdentification: { nationalIdentifier: { len: 12 }, nationalIdentifierType: 'TXID', registrationAuthority: 'RA12345' } })),
-  [['payload.beneficiary[0].legalPerson.nationalIdentification.registrationAuthority', 'CODE', '5.3.14']]);
+  [['payload.beneficiary[0].legalPerson.nationalIdentification.registrationAuthority', 'C10', '5.2.1.2']]);
 case6('ra-prefix-bad', withBen(lpPerson({ nationalIdentification: { nationalIdentifier: { len: 12 }, nationalIdentifierType: 'TXID', registrationAuthority: 'XA000001' } })),
-  [['payload.beneficiary[0].legalPerson.nationalIdentification.registrationAuthority', 'CODE', '5.3.14']]);
+  [['payload.beneficiary[0].legalPerson.nationalIdentification.registrationAuthority', 'C10', '5.2.1.2']]);
 case6('ra-clean', withBen(lpPerson({ nationalIdentification: { nationalIdentifier: { len: 12 }, nationalIdentifierType: 'TXID', registrationAuthority: 'RA000001' } })), []);
 case6('ra-synthetic', withBen(lpPerson({ nationalIdentification: { nationalIdentifier: 'SYNTHETIC', nationalIdentifierType: 'TXID', registrationAuthority: 'SYNTHETIC' } })), []);
 
 // -- PERSON-EXCL --
 case6('person-both-branches', withBen({ naturalPerson: npPerson().naturalPerson, legalPerson: lpPerson().legalPerson }),
-  [['beneficiary[0]', 'PERSON-EXCL', '5.2.1.1']]);
+  [['payload.beneficiary[0]', 'PERSON-EXCL', '5.2.1.1']]);
 case6('person-neither-branch', withBen({}),
-  [['beneficiary[0]', 'PERSON-EXCL', '5.2.1.1']]);
+  [['payload.beneficiary[0]', 'PERSON-EXCL', '5.2.1.1']]);
 case6('person-null-branch', withBen({ naturalPerson: null }),
-  [['beneficiary[0]', 'PERSON-EXCL', '5.2.1.1']]);
+  [['payload.beneficiary[0]', 'PERSON-EXCL', '5.2.1.1']]);
 
 // -- C1 originator natural person --
 case6('c1-name-only', ppOf({ originator: [npPerson()], beneficiary: [npPerson()], payloadMetadata: { payloadVersion: OK_ED } }),
-  [['originator[0].naturalPerson', 'C1', '5.2.1.2']]);
+  [['payload.originator[0].naturalPerson', 'C1', '5.2.1.2']]);
 case6('c1-home-address', ppOf({ originator: [npPerson({ geographicAddress: [addrLine('HOME')] })], beneficiary: [npPerson()], payloadMetadata: { payloadVersion: OK_ED } }), []);
 case6('c1-bizz-address', ppOf({ originator: [npPerson({ geographicAddress: [addrLine('BIZZ')] })], beneficiary: [npPerson()], payloadMetadata: { payloadVersion: OK_ED } }), []);
 case6('c1-geog-address', ppOf({ originator: [npPerson({ geographicAddress: [addrLine('GEOG', { streetName: undefined, addressLine: [{ len: 5 }] })] })], beneficiary: [npPerson()], payloadMetadata: { payloadVersion: OK_ED } }), []);
@@ -412,21 +412,21 @@ case6('c1-dob', ppOf({ originator: [npPerson({ dateAndPlaceOfBirth: { dateOfBirt
 
 // -- C4 originator legal person (GEOG-only) --
 case6('c4-name-only', ppOf({ originator: [lpPerson()], beneficiary: [npPerson()], payloadMetadata: { payloadVersion: OK_ED } }),
-  [['originator[0].legalPerson', 'C4', '5.2.1.2']]);
+  [['payload.originator[0].legalPerson', 'C4', '5.2.1.2']]);
 case6('c4-bizz-not-enough', ppOf({ originator: [lpPerson({ geographicAddress: [addrLine('BIZZ')] })], beneficiary: [npPerson()], payloadMetadata: { payloadVersion: OK_ED } }),
-  [['originator[0].legalPerson', 'C4', '5.2.1.2']]);
+  [['payload.originator[0].legalPerson', 'C4', '5.2.1.2']]);
 case6('c4-geog', ppOf({ originator: [lpPerson({ geographicAddress: [addrLine('GEOG')] })], beneficiary: [npPerson()], payloadMetadata: { payloadVersion: OK_ED } }), []);
 case6('c4-custid', ppOf({ originator: [lpPerson({ customerIdentification: { len: 5 } })], beneficiary: [npPerson()], payloadMetadata: { payloadVersion: OK_ED } }), []);
 
 // -- C5 / C6 legal name present --
 case6('c6-np-no-legl', withBen(npPerson({ name: { nameIdentifier: [npEntry('BIRT')] } })),
-  [['beneficiary[0].naturalPerson.name.nameIdentifier', 'C6', '5.2.3.2']]);
+  [['payload.beneficiary[0].naturalPerson.name.nameIdentifier', 'C6', '5.2.3.2']]);
 case6('c5-lp-no-legl', withBen(lpPerson({ name: { nameIdentifier: [lpEntry('SHRT')] } })),
-  [['beneficiary[0].legalPerson.name.nameIdentifier', 'C5', '5.2.10.2']]);
+  [['payload.beneficiary[0].legalPerson.name.nameIdentifier', 'C5', '5.2.10.2']]);
 
 // -- C7 legal-person national identifier type domain --
 case6('c7-ccpt', withBen(lpPerson({ nationalIdentification: { nationalIdentifier: { len: 12 }, nationalIdentifierType: 'CCPT' } })),
-  [['beneficiary[0].legalPerson.nationalIdentification.nationalIdentifierType', 'C7', '5.2.8.2'], ['beneficiary[0].legalPerson.nationalIdentification.registrationAuthority', 'C9', '5.2.8.2']]);
+  [['payload.beneficiary[0].legalPerson.nationalIdentification.nationalIdentifierType', 'C7', '5.2.8.2'], ['payload.beneficiary[0].legalPerson.nationalIdentification.registrationAuthority', 'C9', '5.2.8.2']]);
 case6('c7-raid-clean', withBen(lpPerson({ nationalIdentification: { nationalIdentifier: { len: 12 }, nationalIdentifierType: 'RAID', registrationAuthority: 'RA000001' } })), []);
 case6('c7-misc-clean', withBen(lpPerson({ nationalIdentification: { nationalIdentifier: { len: 12 }, nationalIdentifierType: 'MISC', registrationAuthority: 'RA000001' } })), []);
 case6('c7-leix-clean', withBen(lpPerson({ nationalIdentification: { nationalIdentifier: { len: 20 }, nationalIdentifierType: 'LEIX' } })), []);
@@ -434,17 +434,17 @@ case6('c7-txid-clean', withBen(lpPerson({ nationalIdentification: { nationalIden
 
 // -- C9 RA / country-of-issue coherence --
 case6('c9-leix-countryofissue', withBen(lpPerson({ nationalIdentification: { nationalIdentifier: { len: 20 }, nationalIdentifierType: 'LEIX', countryOfIssue: 'DE' } })),
-  [['beneficiary[0].legalPerson.nationalIdentification.countryOfIssue', 'C9', '5.2.8.2']]);
+  [['payload.beneficiary[0].legalPerson.nationalIdentification.countryOfIssue', 'C9', '5.2.8.2']]);
 case6('c9-leix-ra-present', withBen(lpPerson({ nationalIdentification: { nationalIdentifier: { len: 20 }, nationalIdentifierType: 'LEIX', registrationAuthority: 'RA000001' } })),
-  [['beneficiary[0].legalPerson.nationalIdentification.registrationAuthority', 'C9', '5.2.8.2']]);
+  [['payload.beneficiary[0].legalPerson.nationalIdentification.registrationAuthority', 'C9', '5.2.8.2']]);
 case6('c9-txid-ra-missing', withBen(lpPerson({ nationalIdentification: { nationalIdentifier: { len: 12 }, nationalIdentifierType: 'TXID' } })),
-  [['beneficiary[0].legalPerson.nationalIdentification.registrationAuthority', 'C9', '5.2.8.2']]);
+  [['payload.beneficiary[0].legalPerson.nationalIdentification.registrationAuthority', 'C9', '5.2.8.2']]);
 case6('c9-raid-ra-missing', withBen(lpPerson({ nationalIdentification: { nationalIdentifier: { len: 12 }, nationalIdentifierType: 'RAID' } })),
-  [['beneficiary[0].legalPerson.nationalIdentification.registrationAuthority', 'C9', '5.2.8.2']]);
+  [['payload.beneficiary[0].legalPerson.nationalIdentification.registrationAuthority', 'C9', '5.2.8.2']]);
 
 // -- C11 LEI length on len markers --
 case6('c11-lei-len-19', withBen(lpPerson({ nationalIdentification: { nationalIdentifier: { len: 19 }, nationalIdentifierType: 'LEIX' } })),
-  [['beneficiary[0].legalPerson.nationalIdentification.nationalIdentifier', 'C11', '5.2.8.2']]);
+  [['payload.beneficiary[0].legalPerson.nationalIdentification.nationalIdentifier', 'C11', '5.2.8.2']]);
 case6('c11-lei-len-20-clean', withBen(lpPerson({ nationalIdentification: { nationalIdentifier: { len: 20 }, nationalIdentifierType: 'LEIX' } })), []);
 case6('c11-lei-synthetic-not-evaluated', withBen(lpPerson({ nationalIdentification: { nationalIdentifier: 'SYNTHETIC', nationalIdentifierType: 'LEIX' } })), []);
 
@@ -457,7 +457,7 @@ case6('c12-sequence-skip', ppOf({
     { intermediaryVASP: lpPerson(), sequence: 2 },
   ],
   payloadMetadata: { payloadVersion: OK_ED },
-}), [['transferPath[1].sequence', 'C12', '5.2.13.2']]);
+}), [['payload.transferPath[1].sequence', 'C12', '5.2.13.2']]);
 case6('c12-sequence-clean', ppOf({
   originator: [npPerson({ geographicAddress: [addrLine('HOME')] })],
   beneficiary: [npPerson()],
@@ -470,20 +470,29 @@ case6('c12-sequence-clean', ppOf({
 
 // -- C8 valid address --
 case6('c8-no-line-no-street', withBen(npPerson({ geographicAddress: [{ addressType: 'GEOG', townName: { len: 6 }, country: 'DE' }] })),
-  [['beneficiary[0].naturalPerson.geographicAddress[0]', 'C8', '5.2.6.2']]);
+  [['payload.beneficiary[0].naturalPerson.geographicAddress[0]', 'C8', '5.2.6.2']]);
 case6('c8-addressline-enough', withBen(npPerson({ geographicAddress: [{ addressType: 'GEOG', addressLine: [{ len: 5 }], townName: { len: 6 }, country: 'DE' }] })), []);
-case6('c8-buildingnumber-enough', withBen(npPerson({ geographicAddress: [{ addressType: 'GEOG', buildingNumber: { len: 3 }, townName: { len: 6 }, country: 'DE' }] })), []);
-case6('c8-buildingname-enough', withBen(npPerson({ geographicAddress: [{ addressType: 'GEOG', buildingName: { len: 3 }, townName: { len: 6 }, country: 'DE' }] })), []);
+case6('c8-buildingnumber-only', withBen(npPerson({ geographicAddress: [{ addressType: 'GEOG', buildingNumber: { len: 3 }, townName: { len: 6 }, country: 'DE' }] })),
+  [['payload.beneficiary[0].naturalPerson.geographicAddress[0]', 'C8', '5.2.6.2']]);
+case6('c8-buildingname-only', withBen(npPerson({ geographicAddress: [{ addressType: 'GEOG', buildingName: { len: 3 }, townName: { len: 6 }, country: 'DE' }] })),
+  [['payload.beneficiary[0].naturalPerson.geographicAddress[0]', 'C8', '5.2.6.2']]);
+case6('c8-streetname-only', withBen(npPerson({ geographicAddress: [{ addressType: 'GEOG', streetName: { len: 3 }, townName: { len: 6 }, country: 'DE' }] })),
+  [['payload.beneficiary[0].naturalPerson.geographicAddress[0]', 'C8', '5.2.6.2']]);
+case6('c8-street-and-buildingname-enough', withBen(npPerson({ geographicAddress: [{ addressType: 'GEOG', streetName: { len: 3 }, buildingName: { len: 3 }, townName: { len: 6 }, country: 'DE' }] })), []);
+case6('c3-country-zz', withBen(npPerson({ geographicAddress: [addrLine('GEOG', { country: 'ZZ' })] })),
+  [['payload.beneficiary[0].naturalPerson.geographicAddress[0].country', 'C3', '5.2.1.2']]);
+case6('c3-country-xx-clean', withBen(npPerson({ geographicAddress: [addrLine('GEOG', { country: 'XX' })] })), []);
+case6('c3-country-valid-clean', withBen(npPerson({ geographicAddress: [addrLine('GEOG', { country: 'JP' })] })), []);
 case6('c8-streetname-enough', withBen(npPerson({ geographicAddress: [addrLine('GEOG')] })), []);
 
 // -- REQUIRED deep in the tree --
 case6('req-name-empty', withBen(npPerson({ name: {} })),
-  [['beneficiary[0].naturalPerson.name.nameIdentifier', 'C6', '5.2.3.2'], ['payload.beneficiary[0].naturalPerson.name.nameIdentifier', 'REQUIRED', '5.2.3.1']]);
+  [['payload.beneficiary[0].naturalPerson.name.nameIdentifier', 'C6', '5.2.3.2'], ['payload.beneficiary[0].naturalPerson.name.nameIdentifier', 'REQUIRED', '5.2.3.1']]);
 case6('req-nameidentifier-entry-empty', withBen(npPerson({ name: { nameIdentifier: [{}] } })),
-  [['beneficiary[0].naturalPerson.name.nameIdentifier', 'C6', '5.2.3.2'],
+  [['payload.beneficiary[0].naturalPerson.name.nameIdentifier', 'C6', '5.2.3.2'],
    ['payload.beneficiary[0].naturalPerson.name.nameIdentifier[0].naturalPersonNameIdentifierType', 'REQUIRED', '5.2.4.1'],
    ['payload.beneficiary[0].naturalPerson.name.nameIdentifier[0].primaryIdentifier', 'REQUIRED', '5.2.4.1']]);
-case6('req-address-fields', withBen(npPerson({ geographicAddress: [{ streetName: { len: 3 } }] })),
+case6('req-address-fields', withBen(npPerson({ geographicAddress: [{ streetName: { len: 3 }, buildingNumber: { len: 3 } }] })),
   [['payload.beneficiary[0].naturalPerson.geographicAddress[0].addressType', 'REQUIRED', '5.2.6.1'],
    ['payload.beneficiary[0].naturalPerson.geographicAddress[0].country', 'REQUIRED', '5.2.6.1'],
    ['payload.beneficiary[0].naturalPerson.geographicAddress[0].townName', 'REQUIRED', '5.2.6.1']]);

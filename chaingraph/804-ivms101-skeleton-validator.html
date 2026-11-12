@@ -250,6 +250,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <script>
 const PINNED_EDITION = '101.2023';
 const EVAL_DATE = '2026-11-01';
+const ISO3166 = new Set(('AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW XX').split(' '));
 const CODES = {
   naturalPersonNameIdentifierType:{list:['ALIA','BIRT','MAID','LEGL','MISC'],section:'5.3.9'},
   legalPersonNameIdentifierType:{list:['LEGL','SHRT','TRAD'],section:'5.3.10'},
@@ -352,15 +353,15 @@ function leaf(v,p,datatype,out){
 }
 function codeLeaf(v,p,name,out){
   const sp=CODES[name];
-  if (typeof v!=='string') { out.push({path:p,rule_id:'CODE',section:sp.section}); return; }
-  if (sp.iso) { if (!/^[A-Z]{2}$/.test(v)) out.push({path:p,rule_id:'CODE',section:sp.section}); return; }
+  if (typeof v!=='string') { out.push({path:p,rule_id:sp.iso?'C3':'CODE',section:sp.iso?'5.2.1.2':sp.section}); return; }
+  if (sp.iso) { if (!ISO3166.has(v)) out.push({path:p,rule_id:'C3',section:'5.2.1.2'}); return; }
   const up=v.toUpperCase();
   if (!sp.list.some(c=>c.toUpperCase()===up)) out.push({path:p,rule_id:'CODE',section:sp.section});
 }
 function raLeaf(v,p,out){
   if (v==='SYNTHETIC') return;
   if (typeof v==='string'&&/^RA[0-9]{6}$/.test(v)) return;
-  out.push({path:p,rule_id:'CODE',section:'5.3.14'});
+  out.push({path:p,rule_id:'C10',section:'5.2.1.2'});
 }
 function dateLeaf(v,p,out){
   if (typeof v!=='string'||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(v)) { out.push({path:p,rule_id:'CARD',section:'5.3.11'}); return; }
@@ -373,10 +374,10 @@ function cross(payload,out){
   const ents=[['originator',payload.originator,true],['beneficiary',payload.beneficiary,false],['originatingVASP',payload.originatingVASP==null?[]:[payload.originatingVASP],false],['beneficiaryVASP',payload.beneficiaryVASP==null?[]:[payload.beneficiaryVASP],false]];
   for (const [name,list,isOrig] of ents) {
     if (!Array.isArray(list)) continue;
-    list.forEach((person,i)=>{ if (person&&typeof person==='object'&&!Array.isArray(person)) personCheck(person,name+'['+i+']',isOrig,out); });
+    list.forEach((person,i)=>{ if (person&&typeof person==='object'&&!Array.isArray(person)) personCheck(person,'payload.'+name+'['+i+']',isOrig,out); });
   }
   const tp=payload.transferPath;
-  if (Array.isArray(tp)) tp.forEach((el,i)=>{ if (el&&typeof el==='object'&&!Array.isArray(el)&&(!isInt(el.sequence)||el.sequence!==i)) out.push({path:'transferPath['+i+'].sequence',rule_id:'C12',section:'5.2.13.2'}); });
+  if (Array.isArray(tp)) tp.forEach((el,i)=>{ if (el&&typeof el==='object'&&!Array.isArray(el)&&(!isInt(el.sequence)||el.sequence!==i)) out.push({path:'payload.transferPath['+i+'].sequence',rule_id:'C12',section:'5.2.13.2'}); });
 }
 function personCheck(person,base,isOrig,out){
   const np=person.naturalPerson&&typeof person.naturalPerson==='object'&&!Array.isArray(person.naturalPerson)?person.naturalPerson:null;
@@ -416,14 +417,11 @@ function personCheck(person,base,isOrig,out){
     holder.geographicAddress.forEach((a,i)=>{
       if (!a||typeof a!=='object'||Array.isArray(a)) return;
       const hasLine=Array.isArray(a.addressLine)&&a.addressLine.length>=1;
-      const hasStreet=a.streetName!==undefined||a.buildingName!==undefined||a.buildingNumber!==undefined;
+      const hasStreet=a.streetName!==undefined&&(a.buildingName!==undefined||a.buildingNumber!==undefined);
       if (!hasLine&&!hasStreet) out.push({path:base+'.'+who+'.geographicAddress['+i+']',rule_id:'C8',section:'5.2.6.2'});
     });
   }
-  if (holder&&holder.dateAndPlaceOfBirth&&typeof holder.dateAndPlaceOfBirth==='object') {
-    const dob=holder.dateAndPlaceOfBirth.dateOfBirth;
-    if (typeof dob==='string'&&/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(dob)&&dob>=EVAL_DATE) out.push({path:base+'.'+who+'.dateAndPlaceOfBirth.dateOfBirth',rule_id:'C2',section:'5.2.7.2'});
-  }
+  // C2 for dateOfBirth is reported once, by dateLeaf during the field walk.
 }
 async function computeHash(pp, op) {
   function jcs(v) {

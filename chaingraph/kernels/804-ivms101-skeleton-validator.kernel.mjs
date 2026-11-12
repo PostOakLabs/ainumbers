@@ -20,6 +20,11 @@ const TOOL_VERSION = '1.0.0';
 const PINNED_EDITION = '101.2023';
 const EVAL_DATE = '2026-11-01'; // pinned C2 evaluation date (date pinning of this build)
 
+// ISO 3166-1 alpha-2 country codes (officially assigned + exceptionally reserved), plus the
+// IVMS101 "XX" unknown-country value. List pinned from the ISO3166 constant in
+// chaingraph/kernels/784-cbr-data-return-validator.kernel.mjs.
+const ISO3166 = new Set(('AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW XX').split(' '));
+
 const CODES = {
   naturalPersonNameIdentifierType: { list: ['ALIA', 'BIRT', 'MAID', 'LEGL', 'MISC'], section: '5.3.9' },
   naturalPersonNameIdentifierTypeLocal: { list: ['ALIA', 'BIRT', 'MAID', 'LEGL', 'MISC'], section: '5.3.9' },
@@ -278,9 +283,10 @@ function leaf(v, p, datatype, out) {
 
 function codeLeaf(v, p, codeName, out) {
   const spec = CODES[codeName];
-  if (typeof v !== 'string') { out.push({ path: p, rule_id: 'CODE', section: spec.section }); return; }
+  if (typeof v !== 'string') { out.push({ path: p, rule_id: spec.iso ? 'C3' : 'CODE', section: spec.iso ? '5.2.1.2' : spec.section }); return; }
   if (spec.iso) {
-    if (!/^[A-Z]{2}$/.test(v)) out.push({ path: p, rule_id: 'CODE', section: spec.section });
+    // C3 CountryCode: must be an ISO 3166-1 alpha-2 value (or XX).
+    if (!ISO3166.has(v)) out.push({ path: p, rule_id: 'C3', section: '5.2.1.2' });
     return;
   }
   const up = v.toUpperCase();
@@ -290,10 +296,12 @@ function codeLeaf(v, p, codeName, out) {
 
 // GLEIF Registration Authority code: 8-char RA###### format (pinned RegistrationAuthority datatype). "SYNTHETIC"
 // is accepted as a placeholder; a real value must match the format; anything else refused.
+// Format-only (C10): membership in the GLEIF registration-authority list is out of scope
+// for a skeleton validator.
 function raLeaf(v, p, out) {
   if (v === 'SYNTHETIC') return;
   if (typeof v === 'string' && /^RA[0-9]{6}$/.test(v)) return;
-  out.push({ path: p, rule_id: 'CODE', section: '5.3.14' });
+  out.push({ path: p, rule_id: 'C10', section: '5.2.1.2' });
 }
 
 function dateLeaf(v, p, out) {
@@ -319,7 +327,7 @@ function crossChecks(payload, out) {
     if (!Array.isArray(list)) continue;
     list.forEach((person, pi) => {
       if (person === null || typeof person !== 'object' || Array.isArray(person)) return;
-      const base = name + '[' + pi + ']';
+      const base = 'payload.' + name + '[' + pi + ']';
       personCheck(person, base, isOriginator, out);
     });
   }
@@ -328,7 +336,7 @@ function crossChecks(payload, out) {
   if (Array.isArray(tp)) {
     tp.forEach((el, i) => {
       if (el === null || typeof el !== 'object' || Array.isArray(el)) return;
-      const sp = 'transferPath[' + i + '].sequence';
+      const sp = 'payload.transferPath['+ i + '].sequence';
       if (!isInt(el.sequence) || el.sequence !== i) out.push({ path: sp, rule_id: 'C12', section: '5.2.13.2' });
     });
   }
@@ -402,16 +410,11 @@ function personCheck(person, base, isOriginator, out) {
       if (a === null || typeof a !== 'object' || Array.isArray(a)) return;
       const ap = base + '.' + (npObj ? 'naturalPerson' : 'legalPerson') + '.geographicAddress[' + ai + ']';
       const hasLine = Array.isArray(a.addressLine) && a.addressLine.length >= 1;
-      const hasStreet = a.streetName !== undefined || a.buildingName !== undefined || a.buildingNumber !== undefined;
+      const hasStreet = a.streetName !== undefined && (a.buildingName !== undefined || a.buildingNumber !== undefined);
       if (!hasLine && !hasStreet) out.push({ path: ap, rule_id: 'C8', section: '5.2.6.2' });
     });
   }
-  if (holder && holder.dateAndPlaceOfBirth && typeof holder.dateAndPlaceOfBirth === 'object') {
-    const dob = holder.dateAndPlaceOfBirth.dateOfBirth;
-    if (typeof dob === 'string' && /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(dob) && dob >= EVAL_DATE) {
-      out.push({ path: base + '.' + (npObj ? 'naturalPerson' : 'legalPerson') + '.dateAndPlaceOfBirth.dateOfBirth', rule_id: 'C2', section: '5.2.7.2' });
-    }
-  }
+  // C2 for dateOfBirth is reported once, by dateLeaf during the field walk.
 }
 
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
