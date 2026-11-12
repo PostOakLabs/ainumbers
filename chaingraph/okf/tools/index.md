@@ -26,6 +26,7 @@ status: stable
 - [CBR Data Return Validator](./784-cbr-data-return-validator.md) — `validate_cbr_data_return`
 - [Corridor Cost Averages](./787-corridor-cost-averages.md) — `compute_corridor_cost_averages`
 - [Curator Vault Cap Auditor](./792-curator-vault-cap-auditor.md) — `audit_curator_vault_caps`
+- [Event Fee Recompute](./794-event-fee-recompute.md) — `recompute_event_contract_fee`
 - [Stablecoin Refund Dispute Check](./795-stablecoin-refund-dispute.md) — `check_stablecoin_refunds`
 - [Stablecoin Cash Equivalent Test (FASB Proposed 2026-08)](./797-stablecoin-cash-equivalent-test.md) — `check_stablecoin_cash_equiv`
 - [Event Contract Terms Lint](./806-event-contract-terms-lint.md) — `lint_event_contract_terms`
