@@ -669,6 +669,7 @@ status: stable
 - [EU Green Bond Factsheet & Allocation Validator](./art-75-eugb-factsheet-validator.md) — `validate_eugb_factsheet`
 - [Diff Evidence Bundles](./art-750-diff-evidence-bundles.md) — `compute_diff_evidence_bundles`
 - [SHA-256 and HMAC-SHA256 Digest Demonstrator](./art-751-sha256-hmac-digest-demonstrator.md) — `compute_sha256_hmac_digest`
+- [Freelance Quarterly Estimated Tax Calculator](./art-752-freelance-quarterly-estimated-tax.md) — `estimate_quarterly_tax`
 - [Equity Exit Waterfall Modeler](./art-754-equity-exit-waterfall.md) — `calc_equity_exit_waterfall`
 - [Sales OTE & Commission Analyzer](./art-756-sales-ote-commission-analyzer.md) — `analyze_sales_ote_commission`
 - [HDHP vs. PPO Break-Even](./art-758-hdhp-ppo-break-even.md) — `estimate_hdhp_ppo_breakeven`
@@ -682,6 +683,7 @@ status: stable
 - [T+1 Settlement Readiness Diagnostic](./art-77-t1-settlement-readiness-diagnostic.md) — `run_t1_readiness_diagnostic`
 - [Total Cost of Homeownership](./art-770-total-cost-of-homeownership.md) — `total_cost_of_homeownership`
 - [Automation Payback](./art-771-automation-payback.md) — `compute_automation_payback`
+- [Money Primitives Demonstrator](./art-772-money-primitives-demonstrator.md) — `money_primitives_demo`
 - [Beacon-Seeded Fair-Sampling Deriver V2](./art-774-beacon-seeded-fair-sampling-v2.md) — `derive_beacon_fair_sample_v2`
 - [PayPal Dispute Deadline & Evidence](./art-776-paypal-dispute-deadline-evidence.md) — `compute_paypal_response`
 - [PSP Dispute Reason Crosswalk](./art-777-psp-dispute-reason-crosswalk.md) — `crosswalk_psp_dispute_reasons`

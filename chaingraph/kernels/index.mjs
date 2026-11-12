@@ -667,6 +667,7 @@ import * as art749    from './art-749-solana-paychan-voucher-verifier.kernel.mjs
 import * as art75     from './art-75-eugb-factsheet-validator.kernel.mjs';
 import * as art750    from './art-750-diff-evidence-bundles.kernel.mjs';
 import * as art751    from './art-751-sha256-hmac-digest-demonstrator.kernel.mjs';
+import * as art752    from './art-752-freelance-quarterly-estimated-tax.kernel.mjs';
 import * as art754    from './art-754-equity-exit-waterfall.kernel.mjs';
 import * as art756    from './art-756-sales-ote-commission-analyzer.kernel.mjs';
 import * as art758    from './art-758-hdhp-ppo-break-even.kernel.mjs';
@@ -680,6 +681,7 @@ import * as art765    from './art-765-dependent-care-fsa-cdctc-optimizer.kernel.
 import * as art77     from './art-77-t1-settlement-readiness-diagnostic.kernel.mjs';
 import * as art770    from './art-770-total-cost-of-homeownership.kernel.mjs';
 import * as art771    from './art-771-automation-payback.kernel.mjs';
+import * as art772    from './art-772-money-primitives-demonstrator.kernel.mjs';
 import * as art774    from './art-774-beacon-seeded-fair-sampling-v2.kernel.mjs';
 import * as art776    from './art-776-paypal-dispute-deadline-evidence.kernel.mjs';
 import * as art777    from './art-777-psp-dispute-reason-crosswalk.kernel.mjs';
@@ -1404,6 +1406,7 @@ export const KERNELS = {
   'art-75-eugb-factsheet-validator':                            art75,
   'art-750-diff-evidence-bundles':                              art750,
   'art-751-sha256-hmac-digest-demonstrator':                    art751,
+  'art-752-freelance-quarterly-estimated-tax':                  art752,
   'art-754-equity-exit-waterfall':                              art754,
   'art-756-sales-ote-commission-analyzer':                      art756,
   'art-758-hdhp-ppo-break-even':                                art758,
@@ -1417,6 +1420,7 @@ export const KERNELS = {
   'art-77-t1-settlement-readiness-diagnostic':                  art77,
   'art-770-total-cost-of-homeownership':                        art770,
   'art-771-automation-payback':                                 art771,
+  'art-772-money-primitives-demonstrator':                      art772,
   'art-774-beacon-seeded-fair-sampling-v2':                     art774,
   'art-776-paypal-dispute-deadline-evidence':                   art776,
   'art-777-psp-dispute-reason-crosswalk':                       art777,
