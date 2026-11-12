@@ -1,5 +1,5 @@
-// art-804-receipt-export-envelopes — class-K property-test FLOOR + envelope conformance test.
-// kernel_digest_at_authoring: sha256:777ea0a121bca9074c0300e55189adc7765a09ec6a0b2955509037ac5ca9e1c8
+// art-831-receipt-export-envelopes — class-K property-test FLOOR + envelope conformance test.
+// kernel_digest_at_authoring: sha256:8cc858b85b85d288aaef2aa1b6bf2a465324337e51bccddcb5e9818106de5fb4
 // spec: research/RECEIPT-EXPORT-PIN-2026-10-29.md (pins the two wire specs this kernel emits;
 //       snapshots under research/clause-snapshots/receipt-export/, schema vendored with its
 //       LICENSE at chaingraph/kernels/fixtures/vendor/openlineage-1.55.0/)
@@ -18,15 +18,15 @@
 //   5. fail-closed: any mutated hash/timestamp/URI member is refused, never exported;
 //   6. runId bit layout: version nibble 8, variant bits 10, derived only from the receipt.
 //
-// Run: node chaingraph/kernels/__proptests__/art-804-receipt-export-envelopes.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/art-831-receipt-export-envelopes.proptest.mjs
 
-import { compute } from '../art-804-receipt-export-envelopes.kernel.mjs';
+import { compute } from '../art-831-receipt-export-envelopes.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, deepEqual, NASTY_STRINGS } from './_pbt-common.mjs';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const KERNEL_ID = 'art-804-receipt-export-envelopes';
+const KERNEL_ID = 'art-831-receipt-export-envelopes';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = JSON.parse(readFileSync(join(HERE, '..', 'fixtures', `${KERNEL_ID}.fixtures.json`), 'utf8'));
 const SCHEMA = JSON.parse(readFileSync(join(HERE, '..', 'fixtures', 'vendor', 'openlineage-1.55.0', 'OpenLineage.json'), 'utf8'));

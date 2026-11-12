@@ -1,6 +1,6 @@
 import { executionHash } from './_hash.mjs';
 
-// art-804 — Receipt Export Envelopes: deterministically re-express one caller-supplied
+// art-831 — Receipt Export Envelopes: deterministically re-express one caller-supplied
 // execution receipt as two wire envelopes so lineage and eventing stacks can ingest the
 // estate's receipts without a custom adapter:
 //   1. a lineage RunEvent in the estate's dataset-facet dialect (inputs are
@@ -24,7 +24,7 @@ import { executionHash } from './_hash.mjs';
 // no network, no filesystem, no guest-environment builtin of any kind (it runs unmodified
 // inside the QuickJS-ng zkVM guest, where the browser byte/decode globals are ABSENT).
 
-const TOOL_ID = 'art-804-receipt-export-envelopes';
+const TOOL_ID = 'art-831-receipt-export-envelopes';
 const TOOL_VERSION = '1.0.0';
 
 export const meta = {

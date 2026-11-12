@@ -1073,7 +1073,7 @@ export function copySandboxDeps(kernelRelPath, proptestRelPath, fixturesRelPath,
         .map((f) => `chaingraph/kernels/fixtures/${f}`)
     : [];
   // MUTATION-TIER-SANDBOX-VENDOR-FIXTURES-1: a proptest that runtime-reads a VENDORED
-  // fixture under fixtures/vendor/ (art-804-receipt-export-envelopes.proptest.mjs:33 reads
+  // fixture under fixtures/vendor/ (art-831-receipt-export-envelopes.proptest.mjs:33 reads
   // openlineage-1.55.0/OpenLineage.json to validate the exported RunEvent against the pinned
   // upstream schema) is invisible to BOTH the import-graph derivation and the `<id>.*`
   // sibling sweep above. The cure stays caller-side and scoped: when the proptest source
