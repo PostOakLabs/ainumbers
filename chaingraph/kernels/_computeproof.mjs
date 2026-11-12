@@ -44,6 +44,36 @@ export function normId(d) {
   return typeof d === 'string' && d.startsWith('sha256:') ? d : 'sha256:' + d;
 }
 
+// ── Default engagement for the kernel_digest leg (VERIFYBINDING-DIGEST-DEFAULT-1, 2026-11-12) ──
+// The leg engages BY DEFAULT against the PUBLISHED kernel digests armed here, so a verifier that
+// forgets to pass a list still binds a receipt to the kernel that made it. Arming is a process-
+// level decision the VERIFIER owns: browser verifiers load the published digest file the site
+// serves (chaingraph/kernel-digests.json, derived on main from the node shards' sha256-source
+// compute_images) and arm it via setDefaultPublishedKernelDigests(). The param keeps two explicit
+// escapes for offline callers:
+//   publishedKernelDigests: null  -- the OPT-OUT: the leg is NOT engaged, whatever is armed
+//                                   (isolated verification with no published source keeps working);
+//   publishedKernelDigests: [..]  -- an explicit list WINS over the armed default (the previous
+//                                   behavior for supplied lists; an EMPTY array is engaged with
+//                                   nothing published, i.e. fail-closed -- use null to switch off).
+// With NOTHING armed and no param passed, a bare call keeps the legacy shape (leg not engaged), so
+// every existing predicate caller is unchanged until a verifier arms a list. SO #34 discipline is
+// unchanged: the armed list comes from published source, never from the receipt under test.
+let DEFAULT_PUBLISHED_KERNEL_DIGESTS = null;
+
+export function setDefaultPublishedKernelDigests(list) {
+  // A non-array arm is a caller bug: arm NOTHING rather than half-engage (null re-arms to unarmed).
+  DEFAULT_PUBLISHED_KERNEL_DIGESTS = Array.isArray(list) ? list.map(normId) : null;
+}
+
+// Which list the leg uses for THIS call: explicit array > armed published default > not engaged.
+function digestLegFor(publishedKernelDigests) {
+  if (publishedKernelDigests === null) return { engaged: false, mode: 'off' };
+  if (Array.isArray(publishedKernelDigests)) return { engaged: true, mode: 'explicit', digests: publishedKernelDigests.map(normId) };
+  if (DEFAULT_PUBLISHED_KERNEL_DIGESTS) return { engaged: true, mode: 'published-default', digests: DEFAULT_PUBLISHED_KERNEL_DIGESTS };
+  return { engaged: false, mode: 'unarmed' };
+}
+
 /**
  * §18.0/§18.1 BINDING check. Returns boolean (predicate — false on any structural/binding problem).
  * Checks: object shape (type/system/receiptFormat/imageId/seal/journal); journal binds output_payload
@@ -54,35 +84,54 @@ export function normId(d) {
  *
  * SO #34: the digests supplied via publishedKernelDigests must be KNOWN FROM PUBLISHED SOURCE (recomputed
  * from the kernel bytes, or read from the Graph Index) — NEVER copied out of the receipt under test.
- * Absent param = today's behavior (leg not engaged); engaged param + missing journal.kernel_digest = FAIL
- * (absence is not a pass, SO #34c).
+ * Param semantics (VERIFYBINDING-DIGEST-DEFAULT-1): an explicit ARRAY engages the leg with that list;
+ * null is the explicit opt-out (leg not engaged, offline callers); ABSENT engages the leg against the
+ * armed published default when setDefaultPublishedKernelDigests() has armed one (browser verifiers arm
+ * the served digest file) and otherwise keeps the legacy bare-call shape (leg not engaged). Engaged leg +
+ * missing journal.kernel_digest = FAIL (absence is not a pass, SO #34c). verifyBindingReport() says
+ * which mode ran.
  *
  * Does NOT verify the cryptographic seal — use verifySeal() for that. A green binding means "this receipt
  * is well-formed and is ABOUT this artifact's output, by this published program"; the seal proves the
  * program actually produced it.
  */
-export function verifyBinding(artifact, { publishedImageIds = [], publishedKernelDigests = [] } = {}) {
+export function verifyBinding(artifact, { publishedImageIds = [], publishedKernelDigests } = {}) {
+  return verifyBindingReport(artifact, { publishedImageIds, publishedKernelDigests }).ok;
+}
+
+/**
+ * The same binding check as verifyBinding, with the result SAYING WHICH MODE RAN (the boolean
+ * predicate cannot carry it, and a verifier page must be able to state which check it ran —
+ * VERIFYBINDING-DIGEST-DEFAULT-1). Returns { ok, digestLeg } with digestLeg:
+ *   'published-default' — engaged against the armed published list;
+ *   'explicit'          — engaged against the caller's own array;
+ *   'off'               — explicit publishedKernelDigests: null opt-out;
+ *   'unarmed'           — no param passed and no list armed (the legacy bare-call shape).
+ */
+export function verifyBindingReport(artifact, { publishedImageIds = [], publishedKernelDigests } = {}) {
+  const leg = digestLegFor(publishedKernelDigests);
   const cp = artifact?.audit_signature?.compute_proof;
-  if (!cp || typeof cp !== 'object') return false;
-  if (cp.type !== 'ZkVmReceipt') return false;
-  if (typeof cp.system !== 'string' || !cp.system) return false;
-  if (!RECEIPT_FORMATS.has(cp.receiptFormat)) return false;
-  if (typeof cp.imageId !== 'string' || !cp.imageId) return false;
-  if (typeof cp.seal !== 'string' || !cp.seal) return false;
-  if (!cp.journal || typeof cp.journal !== 'object') return false;
+  if (!cp || typeof cp !== 'object') return { ok: false, digestLeg: leg.mode };
+  if (cp.type !== 'ZkVmReceipt') return { ok: false, digestLeg: leg.mode };
+  if (typeof cp.system !== 'string' || !cp.system) return { ok: false, digestLeg: leg.mode };
+  if (!RECEIPT_FORMATS.has(cp.receiptFormat)) return { ok: false, digestLeg: leg.mode };
+  if (typeof cp.imageId !== 'string' || !cp.imageId) return { ok: false, digestLeg: leg.mode };
+  if (typeof cp.seal !== 'string' || !cp.seal) return { ok: false, digestLeg: leg.mode };
+  if (!cp.journal || typeof cp.journal !== 'object') return { ok: false, digestLeg: leg.mode };
   // §18.0: the journal's committed output MUST equal the artifact output_payload.
-  if (!('output' in cp.journal)) return false;
-  if (canon(cp.journal.output) !== canon(artifact.output_payload)) return false;
+  if (!('output' in cp.journal)) return { ok: false, digestLeg: leg.mode };
+  if (canon(cp.journal.output) !== canon(artifact.output_payload)) return { ok: false, digestLeg: leg.mode };
   // §18.1: imageId must be a published program identity for this node.
-  if (publishedImageIds.length && !publishedImageIds.map(normId).includes(normId(cp.imageId))) return false;
-  // §17/§18: when the caller supplies the node's PUBLISHED kernel digests, the receipt's kernel_digest
-  // must match the node's published kernel identity (the CI gate's cross-check, mirrored; most receipts
-  // share one universal guest imageId, so imageId alone does not bind a receipt to one tool's kernel).
-  if (publishedKernelDigests.length) {
-    if (typeof cp.journal.kernel_digest !== 'string' || !cp.journal.kernel_digest) return false;
-    if (!publishedKernelDigests.map(normId).includes(normId(cp.journal.kernel_digest))) return false;
+  if (publishedImageIds.length && !publishedImageIds.map(normId).includes(normId(cp.imageId))) return { ok: false, digestLeg: leg.mode };
+  // §17/§18: when the digest leg is ENGAGED (explicit list, or the armed published default), the
+  // receipt's kernel_digest must match the node's published kernel identity (the CI gate's
+  // cross-check, mirrored; most receipts share one universal guest imageId, so imageId alone does
+  // not bind a receipt to one tool's kernel).
+  if (leg.engaged) {
+    if (typeof cp.journal.kernel_digest !== 'string' || !cp.journal.kernel_digest) return { ok: false, digestLeg: leg.mode };
+    if (!leg.digests.includes(normId(cp.journal.kernel_digest))) return { ok: false, digestLeg: leg.mode };
   }
-  return true;
+  return { ok: true, digestLeg: leg.mode };
 }
 
 // ───────────────────────────────────────────────────────────────────────────────────────────────────────

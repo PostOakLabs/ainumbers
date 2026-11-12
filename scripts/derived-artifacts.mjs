@@ -186,6 +186,24 @@ export const COVERED = [
     share: '8%',
   },
   {
+    // VERIFYBINDING-DIGEST-DEFAULT-1 (2026-11-12): the PUBLISHED KERNEL-DIGEST LIST --
+    // every live node's current kernel identity digest, derived from the node SHARDS'
+    // compute_images (system sha256-source; the kernel-identity publication), written to
+    // chaingraph/kernel-digests.json. The kernel_digest leg of verifyBinding engages by
+    // DEFAULT against this list (browser verifiers load and arm it), so a receipt from
+    // one tool can no longer pass against another tool's page. Reads only the committed
+    // shards -- no after: edge on chaingraph-assemble (they share an input, not a
+    // producer/consumer link). prAbsentOk per webmcp-manifest/ai-catalog: main's regen
+    // writes the file after merge and a PR is forbidden to commit it (SO #35).
+    id: 'kernel-digests',
+    regen: 'node scripts/gen-kernel-digests.mjs',
+    gate: 'node scripts/gen-kernel-digests.mjs --check',
+    writes: ['chaingraph/kernel-digests.json'],
+    artifacts: ['chaingraph/kernel-digests.json'],
+    prAbsentOk: true,
+    share: 'n/a (new 2026-11-12, VERIFYBINDING-DIGEST-DEFAULT-1)',
+  },
+  {
     // PROVE-BASELINE-SINGLE-WRITER-1 (2026-10-19): the §18 deferred ratchet
     // baseline joins the single-writer set. Every prove PR and node PR used to
     // edit scripts/compute-proof-baseline.json (count + deferred_nodes), so
