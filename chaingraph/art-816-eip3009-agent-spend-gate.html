@@ -99,7 +99,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <style>textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.6rem .7rem;outline:none;line-height:1.5}textarea:focus{border-color:var(--teal)}</style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-816-eip3009-agent-spend-gate.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:ffcda802603d4bca4b657463b8b6f1139eff7d93497b99048abce7a5839abbaf">
+<meta name="kernel-digest" content="sha256:edb3dc76c5c4166e9120dd56c1cea95e8c8160a3ae3dfeaf542d2e7c35236827">
 </head>
 <body>
 <nav>
@@ -865,6 +865,19 @@ function countsInDupWindow(entry, windowSeconds, nowNum, nowStr) {
  * @returns {{ output_payload: object, compliance_flags: string[] }}
  */
 function compute(pp) {
+  return computeNormalized(dropNullMembers(pp));
+}
+
+// An explicit null member answers exactly as an absent one: object members
+// holding null are dropped before validation. Array elements are left untouched.
+function dropNullMembers(x) {
+  if (!isObj(x)) return x;
+  const o = {};
+  for (const k of Object.keys(x)) if (x[k] !== null) o[k] = dropNullMembers(x[k]);
+  return o;
+}
+
+function computeNormalized(pp) {
   const refusals = validate(pp);
   if (refusals.length > 0) {
     return {
@@ -879,6 +892,7 @@ function compute(pp) {
         authorization_meta: null,
         receipt: { gate: TOOL_ID, decision: 'INDETERMINATE', primary_code: null, rules_evaluated: 0, rules_not_evaluated: 0, now_unix: null, scope_note: SCOPE_NOTE },
         refusals,
+        warn_count: 1,
       },
       compliance_flags: ['INPUT_REFUSED'],
     };
@@ -1239,6 +1253,9 @@ function compute(pp) {
     if (over[i].code === 'DUPLICATE_INTENT') dupSuspected = true;
   }
   if (dupSuspected) flags.push('DUPLICATE_INTENT_SUSPECTED');
+  // mirror of the conditional flags: every flag except the clean
+  // WITHIN_DECLARED_POLICY is a caveat, so warn_count is non-zero exactly when one is raised
+  const warnCount = flags.length - (decision === 'SPEND' ? 1 : 0);
 
   const authorizationEcho = {
     name: dName,
@@ -1278,6 +1295,7 @@ function compute(pp) {
       authorization_meta: authorizationMeta,
       receipt,
       refusals: [],
+      warn_count: warnCount,
     },
     compliance_flags: flags,
   };

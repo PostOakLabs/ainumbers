@@ -444,6 +444,19 @@ function countsInDupWindow(entry, windowSeconds, nowNum, nowStr) {
  * @returns {{ output_payload: object, compliance_flags: string[] }}
  */
 export function compute(pp) {
+  return computeNormalized(dropNullMembers(pp));
+}
+
+// An explicit null member answers exactly as an absent one: object members
+// holding null are dropped before validation. Array elements are left untouched.
+function dropNullMembers(x) {
+  if (!isObj(x)) return x;
+  const o = {};
+  for (const k of Object.keys(x)) if (x[k] !== null) o[k] = dropNullMembers(x[k]);
+  return o;
+}
+
+function computeNormalized(pp) {
   const refusals = validate(pp);
   if (refusals.length > 0) {
     return {
@@ -458,6 +471,7 @@ export function compute(pp) {
         authorization_meta: null,
         receipt: { gate: TOOL_ID, decision: 'INDETERMINATE', primary_code: null, rules_evaluated: 0, rules_not_evaluated: 0, now_unix: null, scope_note: SCOPE_NOTE },
         refusals,
+        warn_count: 1,
       },
       compliance_flags: ['INPUT_REFUSED'],
     };
@@ -818,6 +832,9 @@ export function compute(pp) {
     if (over[i].code === 'DUPLICATE_INTENT') dupSuspected = true;
   }
   if (dupSuspected) flags.push('DUPLICATE_INTENT_SUSPECTED');
+  // mirror of the conditional flags: every flag except the clean
+  // WITHIN_DECLARED_POLICY is a caveat, so warn_count is non-zero exactly when one is raised
+  const warnCount = flags.length - (decision === 'SPEND' ? 1 : 0);
 
   const authorizationEcho = {
     name: dName,
@@ -857,6 +874,7 @@ export function compute(pp) {
       authorization_meta: authorizationMeta,
       receipt,
       refusals: [],
+      warn_count: warnCount,
     },
     compliance_flags: flags,
   };
