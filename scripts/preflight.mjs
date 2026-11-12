@@ -2869,7 +2869,12 @@ function psChangedFiles() {
 
 const SECRET_PATTERNS = [
   [/-----BEGIN [A-Z ]*PRIVATE KEY-----/, 'private key block'],
-  [/AKIA[0-9A-Z]{16}/, 'AWS access key id'],
+  // Boundary-anchored both sides (same idiom as the sk- pattern below): a real
+  // key id is a discrete token (quoted, assigned, whitespace-neighboured), while
+  // base64/WASM glue embedded in pages coincidentally contains AKIA+16 alnum
+  // runs (measured: tools/kernel-vm-widget.html's inlined binary, first push of
+  // FONTS-SELFHOST-EGRESS-1). Base64 alphabet chars on either side = not a key.
+  [/(?<![A-Za-z0-9+/])AKIA[0-9A-Z]{16}(?![A-Za-z0-9+/])/, 'AWS access key id'],
   [/gh[pousr]_[A-Za-z0-9]{20,}/, 'GitHub token'],
   [/github_pat_[A-Za-z0-9_]{20,}/, 'GitHub fine-grained PAT'],
   [/xox[baprs]-[A-Za-z0-9-]{10,}/, 'Slack token'],
