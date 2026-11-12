@@ -1,5 +1,5 @@
 // art-832-card-data-flow-scope — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:73d68981bee133ed7852124590101a853037e6482e0f64f70e1ccab159e31fdd
+// kernel_digest_at_authoring: sha256:6518b84b67ba2cd88669c714464e3add4a9e27014529e83f62c30b74500357db
 // spec: board/claimed/PCI-FLOWMAP-SCOPE-1.md
 // human_sign_off: PENDING
 //
@@ -89,6 +89,7 @@ function checkRefusals() {
     { components: [{ id: 'a', kind: 'nope' }] },
     { components: [{ id: 'a', kind: 'backend', stores: 'yes' }] },
     { components: [{ id: 'a', kind: 'backend', captures_from: ['b'] }] },
+    { components: [{ id: 'a', kind: 'frontend', see_raw_pan: true }] },
   ];
   let violations = 0;
   for (const pp of bad) if (compute(pp).output_payload.status !== 'refused') violations++;

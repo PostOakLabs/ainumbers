@@ -223,6 +223,12 @@ function compute(pp) {
       if (v != null && typeof v !== 'boolean') return refuse('component_flag_invalid', c.id + '.' + FLAG_KEYS[k]);
     }
     if (c.captures_from != null && !Array.isArray(c.captures_from)) return refuse('captures_from_invalid', c.id);
+    const keys = Object.keys(c);
+    for (let k = 0; k < keys.length; k++) {
+      if (keys[k] !== 'id' && keys[k] !== 'kind' && keys[k] !== 'captures_from' && FLAG_KEYS.indexOf(keys[k]) === -1) {
+        return refuse('component_field_unknown', c.id + '.' + keys[k]);
+      }
+    }
     ids.push(c.id);
   }
   for (let i = 0; i < comps.length; i++) {
@@ -255,10 +261,14 @@ function compute(pp) {
       if (c.logs === true) capture_leaks.push({ component: c.id, channel: 'logs', via: 'declared_raw_pan_view' });
       if (c.records_sessions === true) capture_leaks.push({ component: c.id, channel: 'session_recording', via: 'declared_raw_pan_view' });
     }
-    const cf = c.captures_from == null ? [] : c.captures_from;
+    const cf = (c.captures_from == null ? [] : c.captures_from).filter((v, idx, arr) => arr.indexOf(v) === idx);
     for (let j = 0; j < cf.length; j++) {
       const src = byId[cf[j]];
       if (src.sees_raw_pan === true) {
+        if (c.stores === true) {
+          if (stores_pan.indexOf(c.id) === -1) stores_pan.push(c.id);
+          capture_leaks.push({ component: c.id, channel: 'storage', via: 'captures_from:' + src.id });
+        }
         if (c.logs === true) capture_leaks.push({ component: c.id, channel: 'logs', via: 'captures_from:' + src.id });
         if (c.records_sessions === true) capture_leaks.push({ component: c.id, channel: 'session_recording', via: 'captures_from:' + src.id });
         if (c.logs !== true && c.records_sessions !== true && c.kind === 'analytics') capture_leaks.push({ component: c.id, channel: 'analytics_capture', via: 'captures_from:' + src.id });
