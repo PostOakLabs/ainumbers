@@ -91,6 +91,15 @@ function digestLegFor(publishedKernelDigests) {
  * missing journal.kernel_digest = FAIL (absence is not a pass, SO #34c). verifyBindingReport() says
  * which mode ran.
  *
+ * @param {object} artifact the artifact under test
+ * @param {object} [options]
+ * @param {any[]} [options.publishedImageIds] published program identities for the node (Graph Index
+ *   compute_images); empty or absent skips the imageId membership leg
+ * @param {any[] | null} [options.publishedKernelDigests] published kernel digests: an array engages the
+ *   digest leg with that list; null opts out; ABSENT engages the armed published default when one is
+ *   armed and otherwise keeps the leg off
+ * @returns {boolean} true when every engaged check passes
+ *
  * Does NOT verify the cryptographic seal — use verifySeal() for that. A green binding means "this receipt
  * is well-formed and is ABOUT this artifact's output, by this published program"; the seal proves the
  * program actually produced it.
@@ -107,6 +116,15 @@ export function verifyBinding(artifact, { publishedImageIds = [], publishedKerne
  *   'explicit'          — engaged against the caller's own array;
  *   'off'               — explicit publishedKernelDigests: null opt-out;
  *   'unarmed'           — no param passed and no list armed (the legacy bare-call shape).
+ *
+ * @param {object} artifact the artifact under test
+ * @param {object} [options]
+ * @param {any[]} [options.publishedImageIds] published program identities for the node (Graph Index
+ *   compute_images); empty or absent skips the imageId membership leg
+ * @param {any[] | null} [options.publishedKernelDigests] published kernel digests: an array engages the
+ *   digest leg with that list; null opts out; ABSENT engages the armed published default when one is
+ *   armed and otherwise keeps the leg off
+ * @returns {{ ok: boolean, digestLeg: string }} the verdict plus the mode that ran
  */
 export function verifyBindingReport(artifact, { publishedImageIds = [], publishedKernelDigests } = {}) {
   const leg = digestLegFor(publishedKernelDigests);
