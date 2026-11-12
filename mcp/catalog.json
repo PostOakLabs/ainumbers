@@ -2,10 +2,10 @@
   "schema_version": "mcp-catalog-v1",
   "server_id": "ainumbers-fintech-suite",
   "name": "AINumbers Fintech Intelligence Suite",
-  "description": "1257 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
+  "description": "1258 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
   "base_url": "https://ainumbers.co",
   "generated": "2026-11-12",
-  "tool_count": 1256,
+  "tool_count": 1257,
   "tools": [
     {
       "name": "calculate_a2a_fee_route",
@@ -25587,6 +25587,174 @@
         ],
         "url": "https://ainumbers.co/chaingraph/787-corridor-cost-averages.html",
         "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "recompute_event_contract_fee",
+      "description": "Recomputes event-contract trading fees per fill and per order from an effective-dated venue fee profile (Kalshi with the pinned rounding accumulator, Polymarket global category rates, Polymarket US CFTC 40.6(d) history, or caller-declared generic) and diffs against a reported fee: MATCH, OVERCHARGE or UNDERCHARGE. Integer BigInt arithmetic; no float in any fee path.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "profile",
+          "as_of",
+          "orders"
+        ],
+        "properties": {
+          "profile": {
+            "type": "string",
+            "enum": [
+              "kalshi",
+              "polymarket_global",
+              "polymarket_us",
+              "generic"
+            ],
+            "description": "Shipped profile id, or generic to declare every parameter from the caller. Any other string is refused."
+          },
+          "as_of": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "ISO calendar date selecting the effective profile row."
+          },
+          "category": {
+            "type": "string",
+            "description": "polymarket_global only: market category (crypto, sports, politics, other, combos and more). Defaults to other."
+          },
+          "balance_precision_micro": {
+            "type": "integer",
+            "enum": [
+              100,
+              10000
+            ],
+            "description": "kalshi only: the member balance grid in micro-dollars. 10000 = non-direct ($0.01, default), 100 = direct ($0.0001)."
+          },
+          "params": {
+            "type": "object",
+            "description": "Opaque synthetic label. Identifier-like values (hashes, addresses, long ids) are refused and never echoed."
+          },
+          "orders": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "required": [
+                "order_label",
+                "role"
+              ],
+              "properties": {
+                "order_label": {
+                  "type": "string",
+                  "maxLength": 64,
+                  "description": "Opaque synthetic label. Values that look like an account id, order id, address or hash are refused and never echoed."
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "taker",
+                    "maker"
+                  ]
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "standard",
+                    "combo"
+                  ],
+                  "description": "Defaults to standard. Combo orders carry legs[]."
+                },
+                "outcomes": {
+                  "type": "array",
+                  "minItems": 2,
+                  "items": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "description": "Two or more opaque outcome labels declaring a multi-outcome market."
+                },
+                "fills": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "contracts",
+                      "price_micro"
+                    ],
+                    "properties": {
+                      "contracts": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000000000
+                      },
+                      "price_micro": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 999999,
+                        "description": "Integer price in micro-dollars of par (1e-6 USD)."
+                      }
+                    }
+                  },
+                  "description": "Standard-order fills."
+                },
+                "legs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "fills": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "contracts": {
+                              "type": "integer",
+                              "minimum": 1
+                            },
+                            "price_micro": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 999999,
+                              "description": "Integer price in micro-dollars of par (1e-6 USD)."
+                            }
+                          },
+                          "required": [
+                            "contracts",
+                            "price_micro"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "fills"
+                    ]
+                  },
+                  "description": "Combo-order legs, each with its own fills."
+                },
+                "reported_fee_minor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Optional caller-reported order fee in micro-dollars; the diff verdict MATCH | OVERCHARGE | UNDERCHARGE is returned per order."
+                }
+              }
+            },
+            "description": "Orders to recompute. At most 500 fills total. Aggregate only: no account or order identifiers."
+          }
+        },
+        "description": "Profile selection with as_of, plus at least one order of synthetic labelled fills."
+      },
+      "metadata": {
+        "tool_id": "794-event-fee-recompute",
+        "category": "chaingraph",
+        "tags": [
+          "event-contracts",
+          "trading-fees",
+          "fee-recompute",
+          "effective-dated-profiles",
+          "mcp:recompute_event_contract_fee"
+        ],
+        "url": "https://ainumbers.co/chaingraph/794-event-fee-recompute.html",
+        "ap2_export": false,
         "execution_type": "browser-reference",
         "version": "1.0.0",
         "prefill": false
