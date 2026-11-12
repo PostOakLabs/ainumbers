@@ -137,7 +137,13 @@ const AD_HOC_FILE = AD_HOC ? process.argv[fileArgIdx + 1] : null;
 // as scripts/check-copy-hallmarks.mjs's SKIP_DIRS, plus worktree dirs (a
 // worktree is a full checkout of the same tree and would otherwise double
 // every count).
-const SKIP_DIRS = new Set(['.git', '.claude', '.wt', '.wrangler', 'node_modules', '.github', '.githooks']);
+// '.tmp' added by VERIFYBINDING-DIGEST-DEFAULT-1 (2026-11-12): the estate scan walked a
+// suite gate's in-flight scratch extraction under REPO/.tmp (mkdtemp 'ain-*' dir with a
+// tools/widget.html inside), which the owning gate deletes when it finishes — between the
+// walk and line-736's readFileSync the file was gone and the ENOENT crashed the gate
+// (preflight INLINESYNC-1 red at concurrency cap 8; no SSOT consumer can ever legitimately
+// live under .tmp, so skipping the dir cannot mask real drift).
+const SKIP_DIRS = new Set(['.git', '.claude', '.wt', '.wrangler', 'node_modules', '.github', '.githooks', '.tmp']);
 
 function collectFiles(dir, ext, out = []) {
   let entries;
