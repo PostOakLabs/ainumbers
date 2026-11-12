@@ -16,8 +16,10 @@ import { executionHash } from './_hash.mjs';
 //   5  NONCE_REUSED           same (from, token, chain, nonce) already in the pasted ledger,
 //                             any status; sub_code NONCE_REUSED_IDENTICAL when every
 //                             authorization field equals the ledger entry, else
-//                             NONCE_REUSED_FIELDS_DIFFER
-//   6  WINDOW_INVALID / NOT_YET_VALID / EXPIRED   strict open interval on the caller clock
+//                             NONCE_REUSED_FIELDS_DIFFER. A missing domain.verifying_contract
+//                             or domain.chain_id leaves this rule NOT_EVALUATED, and SPEND
+//                             requires rule 5 evaluated: that case is INDETERMINATE
+//   6 WINDOW_INVALID / NOT_YET_VALID / EXPIRED   strict open interval on the caller clock
 //   7  WINDOW_TOO_LONG / START_TOO_FAR            declared ceiling checks
 //   8  PAYEE_DENIED / PAYEE_NOT_ALLOWED           denylist hit; or absent from a DECLARED
 //                                                 allowlist (an absent allowlist is
@@ -584,7 +586,11 @@ function computeNormalized(pp) {
   }
 
   // rule 5 NONCE_REUSED (any ledger status)
-  if (aFrom !== null && aNonce !== null) {
+  let rule5Evaluated = false;
+  if (aFrom !== null && aNonce !== null && (dToken === null || dChain === null)) {
+    notEvaluated.push(makeNotEvaluated(5, 'NONCE_REUSED', 'domain.verifying_contract or domain.chain_id is absent'));
+  } else if (aFrom !== null && aNonce !== null) {
+    rule5Evaluated = true;
     const hits = [];
     for (let i = 0; i < ledger.length; i++) {
       const e = ledger[i];
@@ -741,6 +747,8 @@ function computeNormalized(pp) {
     notEvaluated.push(makeNotEvaluated(13, 'DUPLICATE_INTENT', 'authorization to, value or nonce is malformed (rule 1 or 4 lists it)'));
   } else if (nowStr === null) {
     notEvaluated.push(makeNotEvaluated(13, 'DUPLICATE_INTENT', 'now_unix is absent'));
+  } else if (dToken === null || dChain === null) {
+    notEvaluated.push(makeNotEvaluated(13, 'DUPLICATE_INTENT', 'domain.verifying_contract or domain.chain_id is absent'));
   } else {
     const dupHits = [];
     for (let i = 0; i < ledger.length; i++) {
@@ -807,7 +815,9 @@ function computeNormalized(pp) {
   const exposure = { outstanding_signed_unexpired: outstanding, settled_in_window: settledInWindow };
 
   // decision and primary reason. SPEND guard: no DENY, no OVER_LIMIT, at least one rule
-  // evaluated, and the per-transaction cap AND at least one window cap evaluated.
+  // evaluated, the per-transaction cap AND at least one window cap evaluated, and rule 5
+  // (nonce reuse) evaluated: a missing domain.verifying_contract or domain.chain_id is
+  // INDETERMINATE, never SPEND.
   const reasons = [];
   for (let i = 0; i < deny.length; i++) reasons.push(deny[i]);
   for (let i = 0; i < over.length; i++) reasons.push(over[i]);
@@ -818,7 +828,7 @@ function computeNormalized(pp) {
     const evaluatedCount = 13 - distinctRuleCount(notEvaluated);
     const capChecked = perTxCap !== null;
     const windowChecked = windowCaps !== null && windowCaps.length > 0 && nowStr !== null;
-    decision = (evaluatedCount > 0 && capChecked && windowChecked) ? 'SPEND' : 'INDETERMINATE';
+    decision = (evaluatedCount > 0 && capChecked && windowChecked && rule5Evaluated) ? 'SPEND' : 'INDETERMINATE';
   }
   const primary = reasons.length > 0 ? reasons[0] : null;
 

@@ -99,7 +99,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <style>textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.6rem .7rem;outline:none;line-height:1.5}textarea:focus{border-color:var(--teal)}</style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-816-eip3009-agent-spend-gate.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:edb3dc76c5c4166e9120dd56c1cea95e8c8160a3ae3dfeaf542d2e7c35236827">
+<meta name="kernel-digest" content="sha256:524cb40019f234dd83b28950345426983871c57cd4d953e39258b00ca07b2dd4">
 </head>
 <body>
 <nav>
@@ -437,7 +437,9 @@ async function computeExecHash(pp, op) {
 //   5  NONCE_REUSED           same (from, token, chain, nonce) already in the pasted ledger,
 //                             any status; sub_code NONCE_REUSED_IDENTICAL when every
 //                             authorization field equals the ledger entry, else
-//                             NONCE_REUSED_FIELDS_DIFFER
+//                             NONCE_REUSED_FIELDS_DIFFER. A missing domain.verifying_contract
+//                             or domain.chain_id leaves this rule NOT_EVALUATED, and SPEND
+//                             requires rule 5 evaluated: that case is INDETERMINATE
 //   6  WINDOW_INVALID / NOT_YET_VALID / EXPIRED   strict open interval on the caller clock
 //   7  WINDOW_TOO_LONG / START_TOO_FAR            declared ceiling checks
 //   8  PAYEE_DENIED / PAYEE_NOT_ALLOWED           denylist hit; or absent from a DECLARED
@@ -1005,7 +1007,11 @@ function computeNormalized(pp) {
   }
 
   // rule 5 NONCE_REUSED (any ledger status)
-  if (aFrom !== null && aNonce !== null) {
+  let rule5Evaluated = false;
+  if (aFrom !== null && aNonce !== null && (dToken === null || dChain === null)) {
+    notEvaluated.push(makeNotEvaluated(5, 'NONCE_REUSED', 'domain.verifying_contract or domain.chain_id is absent'));
+  } else if (aFrom !== null && aNonce !== null) {
+    rule5Evaluated = true;
     const hits = [];
     for (let i = 0; i < ledger.length; i++) {
       const e = ledger[i];
@@ -1162,6 +1168,8 @@ function computeNormalized(pp) {
     notEvaluated.push(makeNotEvaluated(13, 'DUPLICATE_INTENT', 'authorization to, value or nonce is malformed (rule 1 or 4 lists it)'));
   } else if (nowStr === null) {
     notEvaluated.push(makeNotEvaluated(13, 'DUPLICATE_INTENT', 'now_unix is absent'));
+  } else if (dToken === null || dChain === null) {
+    notEvaluated.push(makeNotEvaluated(13, 'DUPLICATE_INTENT', 'domain.verifying_contract or domain.chain_id is absent'));
   } else {
     const dupHits = [];
     for (let i = 0; i < ledger.length; i++) {
@@ -1228,7 +1236,9 @@ function computeNormalized(pp) {
   const exposure = { outstanding_signed_unexpired: outstanding, settled_in_window: settledInWindow };
 
   // decision and primary reason. SPEND guard: no DENY, no OVER_LIMIT, at least one rule
-  // evaluated, and the per-transaction cap AND at least one window cap evaluated.
+  // evaluated, the per-transaction cap AND at least one window cap evaluated, and rule 5
+  // (nonce reuse) evaluated: a missing domain.verifying_contract or domain.chain_id is
+  // INDETERMINATE, never SPEND.
   const reasons = [];
   for (let i = 0; i < deny.length; i++) reasons.push(deny[i]);
   for (let i = 0; i < over.length; i++) reasons.push(over[i]);
@@ -1239,7 +1249,7 @@ function computeNormalized(pp) {
     const evaluatedCount = 13 - distinctRuleCount(notEvaluated);
     const capChecked = perTxCap !== null;
     const windowChecked = windowCaps !== null && windowCaps.length > 0 && nowStr !== null;
-    decision = (evaluatedCount > 0 && capChecked && windowChecked) ? 'SPEND' : 'INDETERMINATE';
+    decision = (evaluatedCount > 0 && capChecked && windowChecked && rule5Evaluated) ? 'SPEND' : 'INDETERMINATE';
   }
   const primary = reasons.length > 0 ? reasons[0] : null;
 
