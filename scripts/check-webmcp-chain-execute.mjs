@@ -29,6 +29,12 @@
  *     gate has no offline server-composite source (the server leg runs in the
  *     worker repo), so the column is labelled and never fails.
  *
+ * Chain source (CHAIN-ADD-PR-SIDE-EXECUTE-1): the chain list is read through the
+ * DERIVED_ROOT overlay (merge_group judges the assembled speculative tree); on a
+ * PR whose diff touches chaingraph/graph/chains/ it is assembled ephemerally
+ * with assemble-chaingraph.mjs --out (fail closed if the assembler refuses), so
+ * a chain-add PR's own new chains are judged before main's regen.
+ *
  * Zero network: the sandbox traps fetch, XMLHttpRequest, WebSocket,
  * EventSource and navigator.sendBeacon. A composer page that reaches for the
  * network fails part 2 (CONTRACT zero-network constraint).
@@ -44,12 +50,16 @@
  * BASELINE + DOWNWARD RATCHET (wrapper-execute pattern): pre-existing failures
  * are keyed `<chain>#part2` or `<chain>#part3:<tool_id>` in
  * scripts/webmcp-chain-execute-baseline.json and WARN. A new key fails. A
- * baseline key that no longer fails is STALE and fails (down-only). Deleting a
- * baseline entry is always safe. --seed-baseline writes the file only when it
- * does not exist yet (first rollout); it never adds to an existing baseline.
+ * baseline key that no longer fails is STALE: it blocks on main and locally
+ * (down-only) and warns on a pull_request or merge_group (see verdictBlocks).
+ * `--prune` drops STALE keys and never adds one. Deleting a baseline entry is
+ * always safe. --seed-baseline writes the file only when it does not exist yet
+ * (first rollout); it never adds to an existing baseline.
  *
- * Rollout: advisory on a pull_request (GITHUB_EVENT_NAME=pull_request prints
- * ::warning and exits 0); blocking everywhere else (merge_group, main, local).
+ * NEW keys block everywhere: pull_request, merge_group, main, local.
+ * MAIN-ONLY-PATHS-GATE-1 (2026-11-03) removed the pull_request advisory arm:
+ * a NEW key that passed the PR as a ::warning ejected the same tree from the
+ * merge queue (runs 41476416995 / 41479207322, PRs #2817 / #2818).
  *
  * Usage:
  *   node scripts/check-webmcp-chain-execute.mjs                 # gate
@@ -58,11 +68,15 @@
  *   node scripts/check-webmcp-chain-execute.mjs --report <file> # write the JSON report to <file>
  *   node scripts/check-webmcp-chain-execute.mjs --pages         # add the per-page table to the report
  *   node scripts/check-webmcp-chain-execute.mjs --seed-baseline # first rollout only
+ *   node scripts/check-webmcp-chain-execute.mjs --prune         # drop STALE keys (never adds)
  */
 
-import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { derivedRoot, derivedResolve } from './_derived-resolve-lib.mjs';
+import { gitEnv } from './_git-env-lib.mjs';
 import { spawnSync } from 'node:child_process';
 import * as vm from 'node:vm';
 import { executionHash } from '../chaingraph/kernels/_hash.mjs';
@@ -79,6 +93,7 @@ const REPORT = argVal('--report');
 const JSONMODE = argv.includes('--json');
 const PAGES = argv.includes('--pages');
 const SEED = argv.includes('--seed-baseline');
+const PRUNE = argv.includes('--prune');
 const CALL_TIMEOUT_MS = 10_000;
 const SURFACE_WAIT_MS = 3_000;
 const POOL = 8;
@@ -271,6 +286,17 @@ export function failureKeys(row) {
   return keys;
 }
 
+/**
+ * Pure exit verdict. NEW keys block in every context, pull_request included
+ * (MAIN-ONLY-PATHS-GATE-1). STALE keys (a failure that went away) are never a PR's
+ * fault, so they warn on a pull_request and a merge_group and block only on
+ * main and locally, where `--prune` cures them (6 queue
+ * ejections in 10-23..10-24 were stale-only).
+ */
+export function verdictBlocks({ fresh, stale, event }) {
+  return fresh > 0 || (stale > 0 && event !== 'merge_group' && event !== 'pull_request');
+}
+
 /** Pure ratchet split. Returns { fresh, warned, stale }. */
 export function ratchet(keys, baseline, ranChains) {
   const fresh = [];
@@ -315,6 +341,52 @@ async function pageTable(registry) {
   return rows;
 }
 
+/* ── monolith source (CHAIN-ADD-PR-SIDE-EXECUTE-1) ───────────────────────── */
+
+/** Files the working tree changes against origin/main (committed, uncommitted, untracked). */
+export function changedFilesVsMain(repo) {
+  const git = (args) => spawnSync('git', ['-C', repo, ...args], { encoding: 'utf8', env: gitEnv() });
+  const out = new Set();
+  let known = false;
+  for (const args of [['diff', '--name-only', 'origin/main...HEAD'], ['diff', '--name-only', 'HEAD'], ['ls-files', '--others', '--exclude-standard']]) {
+    const r = git(args);
+    if (r.status !== 0) continue;
+    known = true;
+    for (const l of String(r.stdout).split('\n')) if (l.trim()) out.add(l.trim());
+  }
+  return known ? [...out] : [];
+}
+
+/**
+ * Where the chain list is read from. A chain-add PR carries the chain shard but
+ * never the single-writer monolith, so judging the committed monolith misses
+ * the PR's NEW chains and main's later regen reds the queue. Order:
+ *   1. a mounted DERIVED_ROOT (merge_group) via derivedResolve;
+ *   2. no DERIVED_ROOT and the diff touches chaingraph/graph/chains/: assemble
+ *      the monolith into a temp dir (never the checkout), FAIL CLOSED if the
+ *      assembler refuses;
+ *   3. the committed monolith.
+ * `assemble(outPath)` -> { status, stderr } and `changed` are injectable for the self-test.
+ */
+export function resolveMonolith({ repo, changed, assemble } = {}) {
+  const rootEnv = derivedRoot();
+  const resolved = derivedResolve('chaingraph', 'chaingraph.json');
+  if (rootEnv && resolved !== resolve(repo, 'chaingraph', 'chaingraph.json')) return { path: resolved, source: 'derived-root' };
+  const files = changed ?? changedFilesVsMain(repo);
+  if (!rootEnv && files.some((f) => f.startsWith('chaingraph/graph/chains/'))) {
+    const tmp = mkdtempSync(join(tmpdir(), 'chain-exec-asm-'));
+    const outPath = join(tmp, 'chaingraph', 'chaingraph.json');
+    mkdirSync(dirname(outPath), { recursive: true });
+    const run = assemble ?? ((p) => spawnSync(process.execPath, [join(repo, 'scripts', 'assemble-chaingraph.mjs'), '--out', p], { cwd: repo, encoding: 'utf8' }));
+    const r = run(outPath);
+    if (r.status !== 0 || !existsSync(outPath)) {
+      return { error: `assemble-chaingraph refused or failed on the PR path (exit ${r.status}): ${String(r.stderr || r.stdout || '').trim().split('\n').slice(-3).join(' | ').slice(0, 400)}` };
+    }
+    return { path: outPath, source: 'pr-assembled', tmp };
+  }
+  return { path: resolved, source: 'committed' };
+}
+
 /* ── main ─────────────────────────────────────────────────────────────────── */
 
 async function pool(items, n, fn) {
@@ -327,7 +399,10 @@ async function pool(items, n, fn) {
 }
 
 async function main() {
-  const cg = JSON.parse(readFileSync(join(REPO, 'chaingraph', 'chaingraph.json'), 'utf8'));
+  const mono = resolveMonolith({ repo: REPO });
+  if (mono.error) { console.error(`✗ check-webmcp-chain-execute FAILED (fail closed): ${mono.error}`); process.exit(1); }
+  const cg = JSON.parse(readFileSync(mono.path, 'utf8'));
+  if (mono.tmp) rmSync(mono.tmp, { recursive: true, force: true });
   const chains = (cg.chains ?? []).filter((c) => c && c.name && (!ONLY || c.name === ONLY));
   const registry = await registeredNodeSet(REPO);
 
@@ -386,14 +461,23 @@ async function main() {
   const { fresh, warned, stale } = ratchet(keys, baseline, ran);
   const line = `${summary.chains} chain(s): part 2 pass ${summary.part2_pass}, part 3 pass ${summary.part3_pass}, both ${summary.both_pass}; run_chain registered on ${summary.run_chain_registered}; part 4 advisory`;
   const say = JSONMODE ? console.error : console.log;
+  if (PRUNE) {
+    // Down-only writer: drops STALE keys, never adds one. A NEW failure is not
+    // absorbed — it still reds below.
+    const kept = Object.fromEntries([...baseline].filter(([k]) => !stale.includes(k)).sort((x, y) => (x[0] < y[0] ? -1 : 1)));
+    writeFileSync(baselinePath(), JSON.stringify(kept, null, 2) + '\n');
+    console.log(`--prune wrote ${baselinePath()}: removed ${stale.length} stale entr${stale.length === 1 ? 'y' : 'ies'}, ${Object.keys(kept).length} kept (never adds)`);
+    stale.length = 0;
+  }
   if (fresh.length || stale.length) {
-    const advisory = process.env.GITHUB_EVENT_NAME === 'pull_request';
-    const head = `check-webmcp-chain-execute ${advisory ? 'ADVISORY (pull_request)' : 'FAILED'} (${fresh.length} NEW, ${stale.length} STALE baseline entr${stale.length === 1 ? 'y' : 'ies'}; ${warned.length} baselined WARN) over ${line}`;
-    if (advisory) console.log(`::warning::${head}`);
-    console.error(`${advisory ? '⚠' : '✗'} ${head}:`);
+    const ev = process.env.GITHUB_EVENT_NAME;
+    const blocking = verdictBlocks({ fresh: fresh.length, stale: stale.length, event: ev });
+    const head = `check-webmcp-chain-execute ${blocking ? 'FAILED' : 'WARN (stale only)'} (${fresh.length} NEW, ${stale.length} STALE baseline entr${stale.length === 1 ? 'y' : 'ies'}; ${warned.length} baselined WARN) over ${line}`;
+    if (!blocking) console.log(`::warning::${head}`);
+    console.error(`${blocking ? '✗' : '⚠'} ${head}:`);
     fresh.forEach((p) => console.error('    ' + p));
-    stale.forEach((k) => console.error(`    STALE baseline entry: ${k} no longer fails; remove it from ${baselinePath()} (down-only ratchet)`));
-    process.exit(advisory ? 0 : 1);
+    stale.forEach((k) => console.error(`    STALE baseline entry: ${k} no longer fails; run node scripts/check-webmcp-chain-execute.mjs --prune (down-only ratchet)`));
+    process.exit(blocking ? 1 : 0);
   }
   say(`✓ check-webmcp-chain-execute clean: ${line}. ${warned.length} failure(s) WARN on the documented baseline (downward ratchet).`);
   process.exit(0);

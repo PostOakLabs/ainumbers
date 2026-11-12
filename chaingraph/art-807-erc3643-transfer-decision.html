@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>ERC-3643 Transfer Decision Recompute &middot; ART-807 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Recompute whether one proposed ERC-3643 (T-REX) transfer or mint would go through, from declared identity registry, claim topics, trusted issuers, compliance modules and token state. Declared-state recompute only; no chain is read.">
+<meta name="ain:category" content="run">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-807-erc3643-transfer-decision.html">
+<link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-807-erc3643-transfer-decision.md">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="number"],input[type="text"],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:90px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.claim-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:8px}
+.claim-remove{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius);padding:.4rem .6rem;cursor:pointer}
+.claim-add{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.4rem .8rem;cursor:pointer;margin-top:4px}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+<style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
+<style>textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.6rem .7rem;outline:none;line-height:1.5}textarea:focus{border-color:var(--teal)}.gate-list{margin:6px 0}</style>
+<!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-807-erc3643-transfer-decision.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
+<meta name="kernel-digest" content="sha256:a13bb6fb2360995f8dd6eb7293320ae993dba46132cca39716e58ea13c783ed1">
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-807 · ERC-3643 Transfer Decision Recompute</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-807 &middot; EVM Token Standards</div>
+  <h1>ERC-3643 Transfer Decision Recompute</h1>
+  <p class="sub">Recompute whether one proposed transfer or mint of a permissioned ERC-3643 (T-REX) token would go through, from the state you declare: identity registry entries, required claim topics, trusted issuers, bound compliance modules and token state. Gate order follows the reference implementation at commit 2f0704d, and every gate is reported, not only the first that fails.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Identity Registry</span>
+    <span class="flag">Claim Topics</span>
+    <span class="flag">Compliance Modules</span>
+    <span class="flag">Exact Integer Amounts</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice">&#9888; Declared-state recompute only. No chain is read, claim signatures are not checked, and this page cannot confirm that the state you declare matches any deployed contract. Claim validity is yours to declare. The result is not legal advice and not a determination that a transfer is lawful.</div>
+
+  <div class="card">
+    <div class="section-head">Inputs</div>
+    <div class="q">
+      <label class="q-label" for="preset">Sample scenario</label>
+      <div class="q-help">Each sample is one of the node's conformance fixtures. Pick one to load it, then edit the JSON below.</div>
+      <select id="preset" onchange="loadPreset()">
+          <option value="0">Transfer allowed: verified receiver, max balance passes</option>
+          <option value="1">Transfer denied: receiver lacks a required claim topic</option>
+          <option value="2">Transfer denied: max balance module</option>
+          <option value="3">Transfer denied: frozen wallet reported before identity</option>
+          <option value="4">Mint allowed: verified receiver</option>
+          <option value="5">Transfer denied: country restriction module</option>
+          <option value="6">Token allows, fund covenant denies</option>
+          <option value="7">Refused input: amount zero</option>
+      </select>
+    </div>
+    <div class="q">
+      <label class="q-label" for="ppJson">Declared state (policy_parameters JSON)</label>
+      <div class="q-help">Keys: transfer {from, to, amount}; identity_registry [{address, identity_present, country, claims [{topic, issuer, claim_valid}]}]; required_claim_topics; trusted_issuers {topic: [issuer]}; compliance_modules [{id, type, params}] with type max_balance, supply_limit, country_restriction, country_whitelist or pass_through; token_state {paused, frozen, frozen_tokens, balances, total_supply}; optional fund_covenant. Addresses are lowercase hex; amounts are decimal strings. A from address of all zeros is a mint.</div>
+      <textarea id="ppJson" rows="18" spellcheck="false">{
+  "transfer": {
+    "from": "0x1111111111111111111111111111111111111111",
+    "to": "0x2222222222222222222222222222222222222222",
+    "amount": "100"
+  },
+  "identity_registry": [
+    {
+      "address": "0x1111111111111111111111111111111111111111",
+      "identity_present": true,
+      "country": 840,
+      "claims": [
+        {
+          "topic": 1,
+          "issuer": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "claim_valid": true
+        }
+      ]
+    },
+    {
+      "address": "0x2222222222222222222222222222222222222222",
+      "identity_present": true,
+      "country": 840,
+      "claims": [
+        {
+          "topic": 1,
+          "issuer": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "claim_valid": true
+        }
+      ]
+    }
+  ],
+  "required_claim_topics": [
+    1
+  ],
+  "trusted_issuers": {
+    "1": [
+      "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ]
+  },
+  "compliance_modules": [
+    {
+      "id": "max_balance",
+      "type": "max_balance",
+      "params": {
+        "max_balance": "1000"
+      }
+    }
+  ],
+  "token_state": {
+    "paused": false,
+    "frozen": {},
+    "frozen_tokens": {},
+    "balances": {
+      "0x1111111111111111111111111111111111111111": "500",
+      "0x2222222222222222222222222222222222222222": "0"
+    },
+    "total_supply": "500"
+  },
+  "chain_id": 1,
+  "network_label": "declared-example"
+}</textarea>
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="runDecision()">&#9654; Recompute Decision</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+      <div class="section-head" style="margin-top:14px">Gates in order</div>
+      <div id="gateDiv" class="gate-list"></div>
+      <div class="section-head" style="margin-top:14px">Compliance modules</div>
+      <div id="moduleDiv"></div>
+      <div class="section-head" style="margin-top:14px">Receiver identity and covenant</div>
+      <div id="kvDiv"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="../helm.html">Helm</a>
+        <a href="../convert.html">Conversion Suite</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Hubs</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="../guides/web3-hub.html">Web3 Hub</a>
+        <a href="../guides/solana-hub.html">Solana</a>
+        <a href="../guides/ethereum-hub.html">Ethereum</a>
+        <a href="../guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
+        <a href="../guides/token-standards-hub.html">Token Standards</a>
+        <a href="../guides/tradetech-hub.html">TradeTech</a>
+        <a href="../guides/capital-markets-settlement-hub.html">Capital Markets Settlement</a>
+        <a href="../guides/broker-dealer-ops-hub.html">Broker-Dealer Ops</a>
+        <a href="../guides/treasury-liquidity-hub.html">Treasury and Strategy</a>
+        <a href="../guides/wealthtech-hub.html">WealthTech</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Developers</div>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">About</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: 'art-807-erc3643-transfer-decision',
+  version: '1.0.0',
+  mcp_name: 'recompute_erc3643_transfer_decision',
+  title: 'ERC-3643 Transfer Decision Recompute',
+  description: 'Recompute whether one proposed ERC-3643 (T-REX) transfer or mint would go through, from declared identity registry, claim topics, trusted issuers, compliance modules and token state. Declared-state recompute only; no chain is read.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'recompute_erc3643_transfer_decision',
+    description: 'Recompute whether one proposed ERC-3643 (T-REX) transfer or mint would go through, from declared identity registry, claim topics, trusted issuers, compliance modules and token state. Declared-state recompute only; no chain is read.',
+    inputSchema: {
+      type: 'object',
+      required: ['transfer', 'identity_registry', 'required_claim_topics', 'trusted_issuers', 'compliance_modules', 'token_state'],
+      properties: {
+        transfer: { type: 'object', required: ['from', 'to', 'amount'], properties: { from: { type: 'string' }, to: { type: 'string' }, amount: { type: 'string' } } },
+        identity_registry: { type: 'array', items: { type: 'object', required: ['address', 'identity_present'], properties: { address: { type: 'string' }, identity_present: { type: 'boolean' }, country: { type: 'integer' }, claims: { type: 'array', items: { type: 'object', properties: { topic: { type: 'integer' }, issuer: { type: 'string' }, claim_valid: { type: 'boolean' } } } } } } },
+        required_claim_topics: { type: 'array', items: { type: 'integer' } },
+        trusted_issuers: { type: 'object', additionalProperties: { type: 'array', items: { type: 'string' } } },
+        compliance_modules: { type: 'array', items: { type: 'object', required: ['id', 'type'], properties: { id: { type: 'string' }, type: { type: 'string', enum: ['max_balance', 'supply_limit', 'country_restriction', 'country_whitelist', 'pass_through'] }, params: { type: 'object' } } } },
+        token_state: { type: 'object', properties: { paused: { type: 'boolean' }, frozen: { type: 'object' }, frozen_tokens: { type: 'object' }, balances: { type: 'object' }, total_supply: { type: 'string' } } },
+        fund_covenant: { type: 'object', properties: { jurisdiction_allowlist: { type: 'array', items: { type: 'integer' } }, holder_count: { type: 'integer' }, max_holder_count: { type: 'integer' }, lockup_until_unix: { type: 'integer' }, as_of_unix: { type: 'integer' } } },
+        chain_id: { type: 'integer' },
+        network_label: { type: 'string' }
+      }
+    }
+  }
+};
+
+var PRESETS = [{"transfer":{"from":"0x1111111111111111111111111111111111111111","to":"0x2222222222222222222222222222222222222222","amount":"100"},"identity_registry":[{"address":"0x1111111111111111111111111111111111111111","identity_present":true,"country":840,"claims":[{"topic":1,"issuer":"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","claim_valid":true}]},{"address":"0x2222222222222222222222222222222222222222","identity_present":true,"country":840,"claims":[{"topic":1,"issuer":"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","claim_valid":true}]}],"required_claim_topics":[1],"trusted_issuers":{"1":["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]},"compliance_modules":[{"id":"max_balance","type":"max_balance","params":{"max_balance":"1000"}}],"token_state":{"paused":false,"frozen":{},"frozen_tokens":{},"balances":{"0x1111111111111111111111111111111111111111":"500","0x2222222222222222222222222222222222222222":"0"},"total_supply":"500"},"chain_id":1,"network_label":"declared-example"},{"transfer":{"from":"0x1111111111111111111111111111111111111111","to":"0x2222222222222222222222222222222222222222","amount":"100"},"identity_registry":[{"address":"0x1111111111111111111111111111111111111111","identity_present":true,"country":840,"claims":[{"topic":1,"issuer":"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","claim_valid":true}]},{"address":"0x2222222222222222222222222222222222222222","identity_present":true,"country":840,"claims":[{"topic":1,"issuer":"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","claim_valid":true}]}],"required_claim_topics":[1,7],"trusted_issuers":{"1":["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],"7":["0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]},"compliance_modules":[{"id":"max_balance","type":"max_balance","params":{"max_balance":"1000"}}],"token_state":{"paused":false,"frozen":{},"frozen_tokens":{},"balances":{"0x1111111111111111111111111111111111111111":"500","0x2222222222222222222222222222222222222222":"0"},"total_supply":"500"},"chain_id":1,"network_label":"declared-example"},{"transfer":{"from":"0x1111111111111111111111111111111111111111","to":"0x2222222222222222222222222222222222222222","amount":"100"},"identity_registry":[{"address":"0x1111111111111111111111111111111111111111","identity_present":true,"country":840,"claims":[{"topic":1,"issuer":"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","claim_valid":true}]},{"address":"0x2222222222222222222222222222222222222222","identity_present":true,"country":840,"claims":[{"topic":1,"issuer":"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","claim_valid":true}]}],"required_claim_topics":[1],"trusted_issuers":{"1":["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]},"compliance_modules":[{"id":"max_balance","type":"max_balance","params":{"max_balance":"1000"}}],"token_state":{"paused":false,"frozen":{},"frozen_tokens":{},"balances":{"0x1111111111111111111111111111111111111111":"500","0x2222222222222222222222222222222222222222":"950"},"total_supply":"500"},"chain_id":1,"network_label":"declared-example"},{"transfer":{"from":"0x1111111111111111111111111111111111111111","to":"0x2222222222222222222222222222222222222222","amount":"100"},"identity_registry":[{"address":"0x1111111111111111111111111111111111111111","identity_present":true,"country":840,"claims":[{"topic":1,"issuer":"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","claim_valid":true}]}],"required_claim_topics":[1],"trusted_issuers":{"1":["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]},"compliance_modules":[{"id":"max_balance","type":"max_balance","params":{"max_balance":"1000"}}],"token_state":{"paused":false,"frozen":{"0x2222222222222222222222222222222222222222":true},"frozen_tokens":{},"balances":{"0x1111111111111111111111111111111111111111":"500","0x2222222222222222222222222222222222222222":"0"},"total_supply":"500"},"chain_id":1,"network_label":"declared-example"},{"transfer":{"from":"0x0000000000000000000000000000000000000000","to":"0x2222222222222222222222222222222222222222","amount":"100"},"identity_registry":[{"address":"0x1111111111111111111111111111111111111111","identity_present":true,"country":840,"claims":[{"topic":1,"issuer":"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","claim_valid":true}]},{"address":"0x2222222222222222222222222222222222222222","identity_present":true,"country":840,"claims":[{"topic":1,"issuer":"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","claim_valid":true}]}],"required_claim_topics":[1],"trusted_issuers":{"1":["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]},"compliance_modules":[{"id":"max_balance","type":"max_balance","params":{"max_balance":"1000"}},{"id":"supply_cap","type":"supply_limit","params":{"supply_limit":"10000"}}],"token_state":{"paused":true,"frozen":{},"frozen_tokens":{},"balances":{"0x1111111111111111111111111111111111111111":"500","0x2222222222222222222222222222222222222222":"0"},"total_supply":"500"},"chain_id":1,"network_label":"declared-example"},{"transfer":{"from":"0x1111111111111111111111111111111111111111","to":"0x2222222222222222222222222222222222222222","amount":"100"},"identity_registry":[{"address":"0x1111111111111111111111111111111111111111","identity_present":true,"country":840,"claims":[{"topic":1,"issuer":"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","claim_valid":true}]},{"address":"0x2222222222222222222222222222222222222222","identity_present":true,"country":840,"claims":[{"topic":1,"issuer":"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","claim_valid":true}]}],"required_claim_topics":[1],"trusted_issuers":{"1":["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]},"compliance_modules":[{"id":"block_us","type":"country_restriction","params":{"blocked_countries":[840]}}],"token_state":{"paused":false,"frozen":{},"frozen_tokens":{},"balances":{"0x1111111111111111111111111111111111111111":"500","0x2222222222222222222222222222222222222222":"0"},"total_supply":"500"},"chain_id":1,"network_label":"declared-example"},{"transfer":{"from":"0x1111111111111111111111111111111111111111","to":"0x2222222222222222222222222222222222222222","amount":"100"},"identity_registry":[{"address":"0x1111111111111111111111111111111111111111","identity_present":true,"country":840,"claims":[{"topic":1,"issuer":"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","claim_valid":true}]},{"address":"0x2222222222222222222222222222222222222222","identity_present":true,"country":840,"claims":[{"topic":1,"issuer":"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","claim_valid":true}]}],"required_claim_topics":[1],"trusted_issuers":{"1":["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]},"compliance_modules":[{"id":"max_balance","type":"max_balance","params":{"max_balance":"1000"}}],"token_state":{"paused":false,"frozen":{},"frozen_tokens":{},"balances":{"0x1111111111111111111111111111111111111111":"500","0x2222222222222222222222222222222222222222":"0"},"total_supply":"500"},"chain_id":1,"network_label":"declared-example","fund_covenant":{"jurisdiction_allowlist":[826]}},{"transfer":{"from":"0x1111111111111111111111111111111111111111","to":"0x2222222222222222222222222222222222222222","amount":"0"},"identity_registry":[{"address":"0x1111111111111111111111111111111111111111","identity_present":true,"country":840,"claims":[{"topic":1,"issuer":"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","claim_valid":true}]},{"address":"0x2222222222222222222222222222222222222222","identity_present":true,"country":840,"claims":[{"topic":1,"issuer":"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","claim_valid":true}]}],"required_claim_topics":[1],"trusted_issuers":{"1":["0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]},"compliance_modules":[{"id":"max_balance","type":"max_balance","params":{"max_balance":"1000"}}],"token_state":{"paused":false,"frozen":{},"frozen_tokens":{},"balances":{"0x1111111111111111111111111111111111111111":"500","0x2222222222222222222222222222222222222222":"0"},"total_supply":"500"},"chain_id":1,"network_label":"declared-example"}];
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+// ---- inline compute(): byte-for-byte the kernel's logic (module syntax removed) ----
+
+const TOOL_ID = 'art-807-erc3643-transfer-decision';
+const TOOL_VERSION = '1.0.0';
+
+const meta = {
+  tool_id: TOOL_ID, tool_version: TOOL_VERSION,
+  mcp_name: 'recompute_erc3643_transfer_decision',
+  mandate_type: 'compliance_mandate', gpu: false,
+};
+
+// Recomputes the transfer decision of a permissioned token for ONE proposed
+// transfer or mint, from caller-declared state only: identity registry
+// entries (identity present, investor country, claims), required claim
+// topics, trusted issuers per topic, bound compliance modules, and token
+// state (paused, frozen wallets, frozen token amounts, balances, supply).
+// Nothing is read from any chain; the node cannot know whether the declared
+// state matches a deployed contract, and says so in declared_context.
+//
+// Gate order for a transfer (first failure denies, later gates are still
+// reported): token paused, either party frozen, amount above the sender's
+// unfrozen balance, receiver identity not verified, then every bound module
+// in declared order (logical AND, first failing module named). A mint
+// (from = zero address) skips the pause, freeze and balance gates and runs
+// identity then modules.
+//
+// Receiver verification: an identity must be present; with no required
+// topics it is verified; otherwise every required topic needs at least one
+// trusted issuer, and at least one claim on that topic from a trusted issuer
+// that the caller declares valid. Claim validity itself is caller-declared.
+//
+// Modules re-implemented as pure rules over declared params:
+//   max_balance          deny if amount > max, or receiver identity balance
+//                        (params.identity_balance, else balances[to]) plus
+//                        amount > max
+//   supply_limit         mint only: deny if total_supply + amount > limit;
+//                        an ordinary transfer passes
+//   country_restriction  deny if the receiver's registry country is in
+//                        blocked_countries (unregistered country reads as 0)
+//   country_whitelist    deny unless the receiver's registry country is in
+//                        allowed_countries
+//   pass_through         caller-declared outcome {passes, reason}; the node
+//                        aggregates it, it does not judge it
+//
+// Optional fund_covenant is evaluated independently over the same declared
+// state and compared with the token-level decision (divergence output).
+//
+// Exact integer arithmetic only (BigInt over decimal strings). No Date, no
+// Math.random, no network. Every loop is bounded by the hard caps below.
+
+const ZERO = '0x0000000000000000000000000000000000000000';
+const ADDR_RE = /^0x[0-9a-f]{40}$/;
+const UINT_RE = /^(0|[1-9][0-9]{0,77})$/;
+const MODULE_TYPES = ['max_balance', 'supply_limit', 'country_restriction', 'country_whitelist', 'pass_through'];
+const CAP_REGISTRY = 64;
+const CAP_TOPICS = 16;
+const CAP_ISSUERS = 16;
+const CAP_CLAIMS = 32;
+const CAP_MODULES = 16;
+const CAP_COUNTRIES = 300;
+const CAP_MAP = 64;
+const TOP_KEYS = ['transfer', 'identity_registry', 'required_claim_topics', 'trusted_issuers', 'compliance_modules', 'token_state', 'fund_covenant', 'chain_id', 'network_label'];
+
+function isObj(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
+
+// An explicit null at the top level reads exactly as the absent key.
+function dropTopNulls(pp) {
+  const out = {};
+  for (const k of TOP_KEYS) if (pp[k] !== undefined && pp[k] !== null) out[k] = pp[k];
+  return out;
+}
+
+function normAddr(v) {
+  if (typeof v !== 'string') return null;
+  const a = v.toLowerCase();
+  return ADDR_RE.test(a) ? a : null;
+}
+
+// Non-negative integer from a decimal string or a safe non-negative integer
+// number; anything else (fraction, negative, exponent form, NaN) is null so
+// the caller refuses rather than coerces.
+function toUint(v) {
+  if (typeof v === 'number') {
+    if (!Number.isSafeInteger(v) || v < 0) return null;
+    return BigInt(v);
+  }
+  if (typeof v === 'string' && UINT_RE.test(v)) return BigInt(v);
+  return null;
+}
+
+function toTopic(v) {
+  if (typeof v === 'number' && Number.isSafeInteger(v) && v >= 0) return v;
+  return null;
+}
+
+function toCountry(v) {
+  if (typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 65535) return v;
+  return null;
+}
+
+function countryList(v, refuse, label) {
+  if (!Array.isArray(v) || v.length > CAP_COUNTRIES) { refuse(label + '_MALFORMED'); return []; }
+  const out = [];
+  for (const c of v) {
+    const n = toCountry(c);
+    if (n === null) { refuse(label + '_MALFORMED'); return []; }
+    out.push(n);
+  }
+  return out;
+}
+
+// Address-keyed map of uints or booleans; keys normalised to lowercase.
+function addrMap(v, kind, refuse, label) {
+  const out = {};
+  if (v === undefined) return out;
+  if (!isObj(v)) { refuse(label + '_MALFORMED'); return out; }
+  const keys = Object.keys(v);
+  if (keys.length > CAP_MAP) { refuse(label + '_CAP_EXCEEDED'); return out; }
+  for (const k of keys) {
+    const a = normAddr(k);
+    if (a === null) { refuse(label + '_MALFORMED'); return {}; }
+    if (kind === 'bool') {
+      if (typeof v[k] !== 'boolean') { refuse(label + '_MALFORMED'); return {}; }
+      out[a] = v[k];
+    } else {
+      const n = toUint(v[k]);
+      if (n === null) { refuse(label + '_MALFORMED'); return {}; }
+      out[a] = n;
+    }
+  }
+  return out;
+}
+
+function parseInputs(pp, refuse) {
+  const t = pp.transfer;
+  let from = null, to = null, amount = null;
+  if (!isObj(t) || t.from === undefined || t.to === undefined) {
+    refuse('TRANSFER_PARTIES_MISSING');
+  } else {
+    from = normAddr(t.from);
+    to = normAddr(t.to);
+    if (from === null || to === null) refuse('ADDRESS_MALFORMED');
+    else if (to === ZERO) refuse('RECEIVER_ZERO_ADDRESS');
+    amount = toUint(t.amount);
+    if (amount === null) refuse('AMOUNT_MALFORMED');
+    else if (amount === 0n) refuse('AMOUNT_ZERO');
+  }
+
+  const rawTopics = pp.required_claim_topics === undefined ? [] : pp.required_claim_topics;
+  const topics = [];
+  if (!Array.isArray(rawTopics) || rawTopics.length > CAP_TOPICS) {
+    refuse('REQUIRED_TOPICS_MALFORMED');
+  } else {
+    for (const x of rawTopics) {
+      const n = toTopic(x);
+      if (n === null) { refuse('REQUIRED_TOPICS_MALFORMED'); break; }
+      if (topics.includes(n)) { refuse('DUPLICATE_REQUIRED_TOPIC'); break; }
+      topics.push(n);
+    }
+  }
+
+  const registry = {};
+  if (pp.identity_registry === undefined) {
+    if (topics.length > 0) refuse('IDENTITY_REGISTRY_MISSING');
+  } else if (!Array.isArray(pp.identity_registry) || pp.identity_registry.length > CAP_REGISTRY) {
+    refuse('IDENTITY_REGISTRY_MALFORMED');
+  } else {
+    for (const e of pp.identity_registry) {
+      const a = isObj(e) ? normAddr(e.address) : null;
+      if (a === null || typeof e.identity_present !== 'boolean') { refuse('IDENTITY_REGISTRY_MALFORMED'); break; }
+      if (registry[a]) { refuse('DUPLICATE_REGISTRY_ADDRESS'); break; }
+      const country = e.country === undefined ? 0 : toCountry(e.country);
+      if (country === null) { refuse('IDENTITY_REGISTRY_MALFORMED'); break; }
+      const rawClaims = e.claims === undefined ? [] : e.claims;
+      if (!Array.isArray(rawClaims) || rawClaims.length > CAP_CLAIMS) { refuse('IDENTITY_REGISTRY_MALFORMED'); break; }
+      const claims = [];
+      let bad = false;
+      for (const c of rawClaims) {
+        const topic = isObj(c) ? toTopic(c.topic) : null;
+        const issuer = isObj(c) ? normAddr(c.issuer) : null;
+        if (topic === null || issuer === null || typeof c.claim_valid !== 'boolean') { bad = true; break; }
+        // One claim slot per (issuer, topic) pair on an identity.
+        if (claims.some((x) => x.topic === topic && x.issuer === issuer)) { refuse('DUPLICATE_CLAIM'); bad = true; break; }
+        claims.push({ topic, issuer, claim_valid: c.claim_valid });
+      }
+      if (bad) { refuse('IDENTITY_REGISTRY_MALFORMED'); break; }
+      registry[a] = { identity_present: e.identity_present, country, claims };
+    }
+  }
+
+  const trusted = {};
+  if (pp.trusted_issuers !== undefined) {
+    if (!isObj(pp.trusted_issuers) || Object.keys(pp.trusted_issuers).length > CAP_TOPICS) {
+      refuse('TRUSTED_ISSUERS_MALFORMED');
+    } else {
+      for (const k of Object.keys(pp.trusted_issuers)) {
+        const topic = /^(0|[1-9][0-9]{0,15})$/.test(k) ? Number(k) : null;
+        const list = pp.trusted_issuers[k];
+        if (topic === null || !Array.isArray(list) || list.length > CAP_ISSUERS) { refuse('TRUSTED_ISSUERS_MALFORMED'); break; }
+        const addrs = [];
+        for (const i of list) {
+          const a = normAddr(i);
+          if (a === null) { refuse('TRUSTED_ISSUERS_MALFORMED'); break; }
+          if (!addrs.includes(a)) addrs.push(a);
+        }
+        trusted[topic] = addrs;
+      }
+    }
+  }
+
+  const ts = pp.token_state === undefined ? {} : pp.token_state;
+  const token = { paused: false, frozen: {}, frozen_tokens: {}, balances: {}, total_supply: null };
+  if (!isObj(ts)) {
+    refuse('TOKEN_STATE_MALFORMED');
+  } else {
+    if (ts.paused !== undefined && typeof ts.paused !== 'boolean') refuse('TOKEN_STATE_MALFORMED');
+    token.paused = ts.paused === true;
+    token.frozen = addrMap(ts.frozen, 'bool', refuse, 'FROZEN');
+    token.frozen_tokens = addrMap(ts.frozen_tokens, 'uint', refuse, 'FROZEN_TOKENS');
+    token.balances = addrMap(ts.balances, 'uint', refuse, 'BALANCES');
+    if (ts.total_supply !== undefined) {
+      token.total_supply = toUint(ts.total_supply);
+      if (token.total_supply === null) refuse('TOTAL_SUPPLY_MALFORMED');
+    }
+  }
+
+  const modules = [];
+  const rawModules = pp.compliance_modules === undefined ? [] : pp.compliance_modules;
+  if (!Array.isArray(rawModules) || rawModules.length > CAP_MODULES) {
+    refuse('COMPLIANCE_MODULES_MALFORMED');
+  } else {
+    for (const m of rawModules) {
+      if (!isObj(m) || typeof m.id !== 'string' || m.id.length === 0 || m.id.length > 64) { refuse('COMPLIANCE_MODULES_MALFORMED'); break; }
+      if (modules.some((x) => x.id === m.id)) { refuse('DUPLICATE_MODULE_ID'); break; }
+      if (!MODULE_TYPES.includes(m.type)) { refuse('UNKNOWN_MODULE_TYPE'); break; }
+      const p = m.params === undefined ? {} : m.params;
+      if (!isObj(p)) { refuse('MODULE_PARAMS_MALFORMED'); break; }
+      const mod = { id: m.id, type: m.type };
+      if (m.type === 'max_balance') {
+        mod.max_balance = toUint(p.max_balance);
+        mod.identity_balance = p.identity_balance === undefined ? undefined : toUint(p.identity_balance);
+        if (mod.max_balance === null || mod.identity_balance === null) { refuse('MODULE_PARAMS_MALFORMED'); break; }
+      } else if (m.type === 'supply_limit') {
+        mod.supply_limit = toUint(p.supply_limit);
+        if (mod.supply_limit === null) { refuse('MODULE_PARAMS_MALFORMED'); break; }
+      } else if (m.type === 'country_restriction') {
+        mod.blocked = countryList(p.blocked_countries, refuse, 'MODULE_PARAMS');
+      } else if (m.type === 'country_whitelist') {
+        mod.allowed = countryList(p.allowed_countries, refuse, 'MODULE_PARAMS');
+      } else {
+        if (typeof p.passes !== 'boolean') { refuse('MODULE_PARAMS_MALFORMED'); break; }
+        mod.passes = p.passes;
+        mod.reason = typeof p.reason === 'string' ? p.reason.slice(0, 200) : null;
+      }
+      modules.push(mod);
+    }
+  }
+
+  let covenant = null;
+  if (pp.fund_covenant !== undefined) {
+    const c = pp.fund_covenant;
+    if (!isObj(c)) {
+      refuse('FUND_COVENANT_MALFORMED');
+    } else {
+      covenant = { allow: undefined, max_holders: undefined, holders: undefined, lockup_until: undefined, as_of: undefined };
+      if (c.jurisdiction_allowlist !== undefined) covenant.allow = countryList(c.jurisdiction_allowlist, refuse, 'FUND_COVENANT');
+      if (c.max_holder_count !== undefined || c.holder_count !== undefined) {
+        covenant.max_holders = toUint(c.max_holder_count);
+        covenant.holders = toUint(c.holder_count);
+        if (covenant.max_holders === null || covenant.holders === null) refuse('FUND_COVENANT_MALFORMED');
+      }
+      if (c.lockup_until_unix !== undefined || c.as_of_unix !== undefined) {
+        covenant.lockup_until = toUint(c.lockup_until_unix);
+        covenant.as_of = toUint(c.as_of_unix);
+        if (covenant.lockup_until === null || covenant.as_of === null) refuse('FUND_COVENANT_MALFORMED');
+      }
+    }
+  }
+
+  // A mint checked against a supply limit needs the declared supply; never assume 0.
+  if (from === ZERO && token.total_supply === null && modules.some((m) => m.type === 'supply_limit')) {
+    refuse('TOTAL_SUPPLY_MISSING');
+  }
+
+  return { from, to, amount, topics, registry, trusted, token, modules, covenant };
+}
+
+function bal(map, a) { return map[a] === undefined ? 0n : map[a]; }
+
+function identityCheck(inp) {
+  const entry = inp.registry[inp.to];
+  const present = !!(entry && entry.identity_present);
+  const report = [];
+  const failing = [];
+  for (const topic of inp.topics) {
+    const issuers = inp.trusted[topic] || [];
+    const claims = present ? entry.claims.filter((c) => c.topic === topic && issuers.includes(c.issuer)) : [];
+    const found = claims.length > 0;
+    const valid = claims.some((c) => c.claim_valid);
+    const ok = issuers.length > 0 && valid;
+    report.push({ topic, trusted_issuer_count: issuers.length, trusted_claim_found: found, trusted_claim_valid: valid, satisfied: present && ok });
+    if (!ok) failing.push(topic);
+  }
+  const verified = present && failing.length === 0;
+  return { identity_present: present, verified, failing_topics: present ? failing : inp.topics.slice(), topics: report };
+}
+
+function moduleCheck(m, inp, isMint) {
+  const entry = inp.registry[inp.to];
+  const country = entry ? entry.country : 0;
+  if (m.type === 'max_balance') {
+    const held = m.identity_balance !== undefined ? m.identity_balance : bal(inp.token.balances, inp.to);
+    const after = held + inp.amount;
+    const passes = inp.amount <= m.max_balance && after <= m.max_balance;
+    return { id: m.id, type: m.type, passes, detail: 'identity_balance_after ' + after.toString() + (passes ? ' <= ' : ' > ') + 'max_balance ' + m.max_balance.toString() };
+  }
+  if (m.type === 'supply_limit') {
+    if (!isMint) return { id: m.id, type: m.type, passes: true, detail: 'not a mint; supply limit applies to mints only' };
+    const after = inp.token.total_supply + inp.amount;
+    const passes = after <= m.supply_limit;
+    return { id: m.id, type: m.type, passes, detail: 'supply_after_mint ' + after.toString() + (passes ? ' <= ' : ' > ') + 'supply_limit ' + m.supply_limit.toString() };
+  }
+  if (m.type === 'country_restriction') {
+    const passes = !m.blocked.includes(country);
+    return { id: m.id, type: m.type, passes, detail: 'receiver_country ' + country + (passes ? ' not in' : ' in') + ' blocked_countries' };
+  }
+  if (m.type === 'country_whitelist') {
+    const passes = m.allowed.includes(country);
+    return { id: m.id, type: m.type, passes, detail: 'receiver_country ' + country + (passes ? ' in' : ' not in') + ' allowed_countries' };
+  }
+  return { id: m.id, type: m.type, passes: m.passes, detail: m.reason === null ? 'caller-declared outcome' : 'caller-declared outcome: ' + m.reason };
+}
+
+function covenantCheck(inp, isMint) {
+  const c = inp.covenant;
+  const failures = [];
+  const entry = inp.registry[inp.to];
+  const country = entry ? entry.country : 0;
+  if (c.allow !== undefined && !c.allow.includes(country)) {
+    failures.push('receiver_country ' + country + ' not in jurisdiction_allowlist');
+  }
+  if (c.max_holders !== undefined && c.max_holders !== null && c.holders !== null) {
+    const joins = bal(inp.token.balances, inp.to) === 0n ? 1n : 0n;
+    const leaves = !isMint && bal(inp.token.balances, inp.from) === inp.amount ? 1n : 0n;
+    const after = c.holders + joins - leaves;
+    if (after > c.max_holders) failures.push('holder_count_after ' + after.toString() + ' > max_holder_count ' + c.max_holders.toString());
+  }
+  if (c.lockup_until !== undefined && c.lockup_until !== null && c.as_of !== null && !isMint && c.as_of < c.lockup_until) {
+    failures.push('as_of_unix ' + c.as_of.toString() + ' < lockup_until_unix ' + c.lockup_until.toString());
+  }
+  return { decision: failures.length === 0 ? 'ALLOWED' : 'DENIED', failures };
+}
+
+function compute(pp) {
+  pp = isObj(pp) ? dropTopNulls(pp) : {};
+  const refusals = [];
+  const refuse = (r) => { if (!refusals.includes(r)) refusals.push(r); };
+  const inp = parseInputs(isObj(pp) ? pp : {}, refuse);
+
+  const declared_context = {
+    chain_id: pp.chain_id === undefined ? null : String(pp.chain_id).slice(0, 32),
+    network_label: pp.network_label === undefined ? null : String(pp.network_label).slice(0, 64),
+    caveat: 'Recomputed from caller-declared state only. No chain was read; the node cannot confirm that the declared registry, claims, modules or token state match any deployed contract. Not legal advice and not a determination that a transfer is lawful.',
+  };
+
+  const compliance_flags = refusals.length > 0 ? ['INPUT_REFUSED'] : [];
+  if (refusals.length > 0) {
+    return {
+      output_payload: {
+        decision: null,
+        denied_by: null,
+        failing_module: null,
+        operation: null,
+        gates: [],
+        identity_report: null,
+        compliance_report: [],
+        covenant_decision: null,
+        covenant_divergence: null,
+        covenant_failures: [],
+        refusal_reasons: refusals,
+        declared_context,
+        errors: compliance_flags.slice(),
+      },
+      compliance_flags,
+    };
+  }
+
+  const isMint = inp.from === ZERO;
+  const gates = [];
+  if (!isMint) {
+    gates.push({ gate: 'TOKEN_PAUSED', passes: !inp.token.paused });
+    const frozenTo = inp.token.frozen[inp.to] === true;
+    const frozenFrom = inp.token.frozen[inp.from] === true;
+    gates.push({ gate: 'FROZEN', passes: !frozenTo && !frozenFrom, detail: 'sender_frozen ' + frozenFrom + ', receiver_frozen ' + frozenTo });
+    const balance = bal(inp.token.balances, inp.from);
+    const locked = bal(inp.token.frozen_tokens, inp.from);
+    const unfrozen = balance >= locked ? balance - locked : 0n;
+    gates.push({ gate: 'INSUFFICIENT_UNFROZEN_BALANCE', passes: inp.amount <= unfrozen, detail: 'amount ' + inp.amount.toString() + ', unfrozen_balance ' + unfrozen.toString() });
+  }
+  const identity = identityCheck(inp);
+  gates.push({ gate: 'IDENTITY_NOT_VERIFIED', passes: identity.verified, detail: identity.identity_present ? 'failing_topics [' + identity.failing_topics.join(',') + ']' : 'no identity for receiver' });
+  const report = inp.modules.map((m) => moduleCheck(m, inp, isMint));
+  const firstFail = report.find((r) => r.passes !== true);
+  gates.push({ gate: 'COMPLIANCE_MODULE', passes: firstFail === undefined, detail: firstFail === undefined ? 'all ' + report.length + ' modules pass' : 'first failing module ' + firstFail.id });
+
+  const failedGate = gates.find((g) => !g.passes);
+  const decision = failedGate === undefined ? 'ALLOWED' : 'DENIED';
+  let denied_by = null;
+  let failing_module = null;
+  if (failedGate) {
+    if (failedGate.gate === 'COMPLIANCE_MODULE') {
+      failing_module = firstFail.id;
+      denied_by = 'COMPLIANCE_MODULE:' + firstFail.id;
+    } else {
+      denied_by = failedGate.gate;
+    }
+  }
+
+  let covenant_decision = null;
+  let covenant_divergence = 'NOT_DECLARED';
+  let covenant_failures = [];
+  if (inp.covenant !== null) {
+    const cv = covenantCheck(inp, isMint);
+    covenant_decision = cv.decision;
+    covenant_failures = cv.failures;
+    if (decision === cv.decision) covenant_divergence = 'NONE';
+    else covenant_divergence = decision === 'ALLOWED' ? 'token_allows_covenant_denies' : 'token_denies_covenant_allows';
+  }
+
+  return {
+    output_payload: {
+      decision,
+      denied_by,
+      failing_module,
+      operation: isMint ? 'mint' : 'transfer',
+      gates,
+      identity_report: identity,
+      compliance_report: report,
+      covenant_decision,
+      covenant_divergence,
+      covenant_failures,
+      refusal_reasons: [],
+      declared_context,
+      errors: compliance_flags.slice(),
+    },
+    compliance_flags,
+  };
+}
+// ---- end inline compute() ----
+
+function esc(s) { return String(s).replace(/[&<>"]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+function loadPreset() {
+  var i = Number(document.getElementById('preset').value);
+  document.getElementById('ppJson').value = JSON.stringify(PRESETS[i], null, 2);
+}
+
+function runDecision() {
+  var pp;
+  try { pp = JSON.parse(document.getElementById('ppJson').value); } catch (e) { pp = { parse_error: String(e.message).slice(0, 120) }; }
+  var res = compute(pp);
+  var op = res.output_payload;
+  var flags = res.compliance_flags;
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: flags };
+
+  var refused = op.decision === null;
+  var allowed = op.decision === 'ALLOWED';
+  var vColor = refused ? 'var(--warn)' : allowed ? 'var(--green)' : 'var(--red)';
+  var vBox = document.getElementById('verdictBox');
+  vBox.style.color = vColor; vBox.style.border = '1px solid ' + vColor;
+  vBox.style.background = refused ? 'rgba(245,158,11,.08)' : allowed ? 'rgba(34,197,94,.08)' : 'rgba(239,68,68,.08)';
+  vBox.textContent = refused ? 'INPUT REFUSED' : (op.operation.toUpperCase() + ' ' + op.decision + (op.denied_by ? ' BY ' + op.denied_by : ''));
+
+  document.getElementById('statRow').innerHTML = refused ? '' :
+    '<div class="stat"><span class="stat-val">'+esc(op.operation)+'</span><span class="stat-key">Operation</span></div>'+
+    '<div class="stat"><span class="stat-val">'+op.gates.filter(function(g){return g.passes;}).length+'/'+op.gates.length+'</span><span class="stat-key">Gates passing</span></div>'+
+    '<div class="stat"><span class="stat-val">'+esc(op.failing_module || 'none')+'</span><span class="stat-key">Failing module</span></div>';
+
+  document.getElementById('flagRow').innerHTML = refused
+    ? op.refusal_reasons.map(function(r){return '<span class="badge warn">'+esc(r)+'</span>';}).join('')
+    : (flags.map(function(f){return '<span class="badge fail">'+esc(f)+'</span>';}).join('') || '<span class="badge info">DECISION RECOMPUTED</span>');
+
+  var row = function(k, v, ok) { return '<div class="kv"><span class="kv-k">'+esc(k)+'</span><span class="kv-v">'+(ok === undefined ? '' : '<span class="badge '+(ok ? 'ok' : 'fail')+'">'+(ok ? 'pass' : 'fail')+'</span> ')+esc(v)+'</span></div>'; };
+  document.getElementById('gateDiv').innerHTML = op.gates.map(function(g){ return row(g.gate, g.detail || '', g.passes); }).join('') || row('No gates evaluated', 'input refused');
+  document.getElementById('moduleDiv').innerHTML = op.compliance_report.map(function(m){ return row(m.id + ' (' + m.type + ')', m.detail || '', m.passes === true); }).join('') || row('No modules', refused ? 'input refused' : 'none bound');
+  var kv = [];
+  if (op.identity_report) {
+    kv.push(['Receiver identity present', String(op.identity_report.identity_present)]);
+    kv.push(['Receiver verified', String(op.identity_report.verified)]);
+    if (op.identity_report.failing_topics && op.identity_report.failing_topics.length) kv.push(['Failing claim topics', op.identity_report.failing_topics.join(', ')]);
+  }
+  kv.push(['Fund covenant', op.covenant_divergence === null ? 'not evaluated' : op.covenant_divergence === 'NOT_DECLARED' ? 'not declared' : (op.covenant_decision + ', divergence ' + op.covenant_divergence)]);
+  kv.push(['Caveat', op.declared_context.caveat]);
+  document.getElementById('kvDiv').innerHTML = kv.map(function(x){ return row(x[0], x[1]); }).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  computeExecHash(pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const __generatedAtCapture = new Date().toISOString();
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_mandate',
+    tool_id: 'art-807-erc3643-transfer-decision',
+    tool_version: '1.0.0',
+    generated_at: __generatedAtCapture,
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp,
+    output_payload: _lastResult.output_payload,
+    compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  document.getElementById('generatedAt').textContent='generated_at '+__generatedAtCapture;
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-807-erc3643-transfer-decision.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>

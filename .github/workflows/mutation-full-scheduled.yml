@@ -553,6 +553,25 @@ jobs:
           node "$RUNNER_TEMP/ratchet.mjs" --shards-dir shards --baseline scripts/mutation-tier-baseline.json --shard-count 20 | tee "$RUNNER_TEMP/ratchet.out" || RATCHET_RC="${PIPESTATUS[0]}"
           STATE="$(sed -n 's/^RATCHET-STATE: //p' "$RUNNER_TEMP/ratchet.out" | tail -n 1)"
           REASON="$(sed -n 's/^RATCHET-REASON: //p' "$RUNNER_TEMP/ratchet.out" | tail -n 1)"
+          # Verdict-recovery fix (2026-10-26 nightly redrive): ratchet.mjs ends with process.exit() right
+          # after console.log'ing ~16 KB of proposal JSON on a pipe — Node can
+          # drop the trailing RATCHET-STATE/RATCHET-REASON writes while the
+          # earlier 'Verdict: **…**' banner and the '- 🔴 …' reason lines are
+          # already flushed through tee (measured: nightly runs 40098671407 and
+          # 40357657270 both printed a full RED verdict, then this step
+          # misreported "produced no verdict"). A verdict WAS produced: recover
+          # it from the banner lines instead of misreporting the cause; only a
+          # ratchet.out with neither state line nor verdict banner is a genuine
+          # no-verdict fail-closed (MISSING-FILE, NOTHING-MEASURED, …).
+          if [ -z "$STATE" ] && grep -q '^Verdict: \*\*GREEN\*\*' "$RUNNER_TEMP/ratchet.out"; then
+            STATE="green"
+            REASON="none"
+          fi
+          if [ -z "$STATE" ] && grep -q '^Verdict: \*\*RED\*\*' "$RUNNER_TEMP/ratchet.out"; then
+            STATE="red"
+            REASON="$(awk '$1 == "-" { $1 = $2 = ""; sub(/^ +/, ""); printf "%s%s", sep, $0; sep = " ;; " } END { print "" }' "$RUNNER_TEMP/ratchet.out")"
+            [ -n "$REASON" ] || REASON="red verdict banner printed; no reason lines survived the pipe (see the step summary)"
+          fi
           if [ -z "$STATE" ]; then
             STATE="red"
             REASON="the ratchet step produced no verdict (hard-failed above; e.g. MISSING-FILE baseline, NOTHING-MEASURED) — fails closed"

@@ -1,0 +1,855 @@
+{
+  "tool_id": "art-778-token2022-withheld-fee-reconciler",
+  "note": "Spec-pinned fixtures for SOLANA-WITHHELD-FEE-RECON-1. Primary text re-pinned at claim per SOLANA-BUILD-CHAIN-COMMON-2026-10-27 section 2: solana-program/token-2022 at commit b5b7511e5d4f19a6a118b858d83a7fe3b0017b1e (2026-10-06) — interface/src/extension/transfer_fee/mod.rs L135-L151 (TransferFeeConfig.withheld_amount u64, withdraw_withheld_authority MaybeNull) and L178-L181 (TransferFeeAmount.withheld_amount u64), interface/src/extension/transfer_fee/instruction.rs L118-L135 (WithdrawWithheldTokensFromAccounts authority-signed, HarvestWithheldTokensToMint permissionless), program/src/extension/transfer_fee/processor.rs L169-L227 (harvest skips a wrong-mint account with MintMismatch and accumulates the mint pot with checked_add, TokenError::Overflow past u64). Hand-derived pins: F1/F2 clean reconciliations; F3/F4 declared-vs-recomputed divergence signs; F5 wrong-mint account excluded from the harvestable sum (MintMismatch skip) but flagged; F6 duplicate address counted as declared and flagged; F7/F8 the u64 boundary (exactly u64::MAX vs one past it: sums are computed in unbounded BigInt and reported, the on-chain checked_add would fail the harvest with Overflow); F9/F10 fee-receiver placement (destination mint and withdraw authority versus the config); F11 the empty-list floor; F12 the multi-flag vector pinning flag order; F13-F15 refusals. output_payload is filled by fill-fixture-payloads.mjs and golden_hash by golden-parity.test.mjs --update; spec_pins carry the hand-derived expected values and are asserted by the proptest, so the corpus is NOT a round-trip self-test.",
+  "vectors": [
+    {
+      "name": "F1_clean_match_no_destination",
+      "spec_ref": "pinned processor.rs L195-L227: harvest sums every mint-matching account; declared total equals the recomputed sum",
+      "spec_pins": {
+        "recomputed_account_sum": "450",
+        "reconciliation": "MATCH",
+        "declared_minus_recomputed": "0",
+        "wrong_mint_account_count": "0",
+        "duplicate_address_count": "0",
+        "post_harvest_mint_withheld": "950"
+      },
+      "policy_parameters": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "transfer_fee_config": {
+          "withdraw_withheld_authority": "Auth1WithdrawAuthority1111111111111111111",
+          "withheld_amount": "500"
+        },
+        "accounts": [
+          {
+            "address": "AcctHolder1Token20220000000000000001",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "100"
+          },
+          {
+            "address": "AcctHolder2Token20220000000000000002",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "250"
+          },
+          {
+            "address": "AcctHolder3Token20220000000000000003",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "100"
+          }
+        ],
+        "declared_total": "450"
+      },
+      "output_payload": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "account_count": "3",
+        "harvestable_account_count": "3",
+        "wrong_mint_account_count": "0",
+        "duplicate_address_count": "0",
+        "mint_withheld_accumulated": "500",
+        "recomputed_account_sum": "450",
+        "declared_total": "450",
+        "reconciliation": "MATCH",
+        "declared_minus_recomputed": "0",
+        "sum_over_all_declared_entries": "450",
+        "sum_exceeds_u64": false,
+        "post_harvest_mint_withheld": "950",
+        "post_harvest_would_overflow_u64": false,
+        "wrong_mint_accounts": [],
+        "duplicate_addresses": [],
+        "fee_receiver_placement": null,
+        "note": "Withheld amounts are per-account TransferFeeAmount.withheld_amount and the mint-level TransferFeeConfig.withheld_amount, both u64 in token minor units, pinned at solana-program/token-2022 commit b5b7511e5d4f19a6a118b858d83a7fe3b0017b1e. recomputed_account_sum counts only accounts whose mint matches the declared mint: the harvest instruction skips a wrong-mint account with MintMismatch instead of moving its fees. post_harvest_mint_withheld is what the mint would accumulate after harvesting every mint-matching account; the on-chain addition is checked_add, so an amount past u64 fails the harvest with TokenError::Overflow, reported here as post_harvest_would_overflow_u64. Mint and authority comparisons are string equality on the pasted values; this kernel reads nothing on-chain."
+      },
+      "golden_hash": "47df70b025b4fb8b5a34f4eb399b77c3ca1d52074d0888a9e94368d11bcccb72"
+    },
+    {
+      "name": "F2_match_with_matching_destination",
+      "spec_ref": "pinned instruction.rs L141/L118-L123: withdraw needs the config's withdraw_withheld_authority signer; destination mint matches the declared mint",
+      "spec_pins": {
+        "reconciliation": "MATCH",
+        "fee_receiver_placement.destination_mint_matches_declared_mint": true,
+        "fee_receiver_placement.declared_withdraw_authority_matches_config": true
+      },
+      "policy_parameters": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "transfer_fee_config": {
+          "withdraw_withheld_authority": "Auth1WithdrawAuthority1111111111111111111",
+          "withheld_amount": "0"
+        },
+        "accounts": [
+          {
+            "address": "AcctHolder1Token20220000000000000001",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "1000000"
+          }
+        ],
+        "declared_total": "1000000",
+        "destination": {
+          "address": "FeePotDestToken20220000000000000000001",
+          "mint": "MintXkT2WITHHELDFEES00001",
+          "withdraw_authority": "Auth1WithdrawAuthority1111111111111111111"
+        }
+      },
+      "output_payload": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "account_count": "1",
+        "harvestable_account_count": "1",
+        "wrong_mint_account_count": "0",
+        "duplicate_address_count": "0",
+        "mint_withheld_accumulated": "0",
+        "recomputed_account_sum": "1000000",
+        "declared_total": "1000000",
+        "reconciliation": "MATCH",
+        "declared_minus_recomputed": "0",
+        "sum_over_all_declared_entries": "1000000",
+        "sum_exceeds_u64": false,
+        "post_harvest_mint_withheld": "1000000",
+        "post_harvest_would_overflow_u64": false,
+        "wrong_mint_accounts": [],
+        "duplicate_addresses": [],
+        "fee_receiver_placement": {
+          "declared_destination_address": "FeePotDestToken20220000000000000000001",
+          "declared_destination_mint": "MintXkT2WITHHELDFEES00001",
+          "declared_mint": "MintXkT2WITHHELDFEES00001",
+          "destination_mint_matches_declared_mint": true,
+          "declared_withdraw_authority": "Auth1WithdrawAuthority1111111111111111111",
+          "config_withdraw_withheld_authority": "Auth1WithdrawAuthority1111111111111111111",
+          "declared_withdraw_authority_matches_config": true,
+          "authority_basis": "WithdrawWithheldTokensFromAccounts and WithdrawWithheldTokensFromMint require the config withdraw_withheld_authority as signer (\"Withdraw from mint instructions must be signed by this key\", pinned source); harvest to the mint is permissionless and needs no authority."
+        },
+        "note": "Withheld amounts are per-account TransferFeeAmount.withheld_amount and the mint-level TransferFeeConfig.withheld_amount, both u64 in token minor units, pinned at solana-program/token-2022 commit b5b7511e5d4f19a6a118b858d83a7fe3b0017b1e. recomputed_account_sum counts only accounts whose mint matches the declared mint: the harvest instruction skips a wrong-mint account with MintMismatch instead of moving its fees. post_harvest_mint_withheld is what the mint would accumulate after harvesting every mint-matching account; the on-chain addition is checked_add, so an amount past u64 fails the harvest with TokenError::Overflow, reported here as post_harvest_would_overflow_u64. Mint and authority comparisons are string equality on the pasted values; this kernel reads nothing on-chain."
+      },
+      "golden_hash": "92636dde9cddc98c89bc1d2f818ad8b333d056b2a1fc21ae011ba46250d02983"
+    },
+    {
+      "name": "F3_declared_above_recomputed",
+      "spec_ref": "declared total versus the recomputed sum: sign and magnitude of the difference",
+      "spec_pins": {
+        "recomputed_account_sum": "450",
+        "declared_total": "527",
+        "reconciliation": "DECLARED_ABOVE_RECOMPUTED",
+        "declared_minus_recomputed": "+77"
+      },
+      "policy_parameters": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "transfer_fee_config": {
+          "withdraw_withheld_authority": null,
+          "withheld_amount": "500"
+        },
+        "accounts": [
+          {
+            "address": "AcctHolder1Token20220000000000000001",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "100"
+          },
+          {
+            "address": "AcctHolder2Token20220000000000000002",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "350"
+          }
+        ],
+        "declared_total": "527"
+      },
+      "output_payload": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "account_count": "2",
+        "harvestable_account_count": "2",
+        "wrong_mint_account_count": "0",
+        "duplicate_address_count": "0",
+        "mint_withheld_accumulated": "500",
+        "recomputed_account_sum": "450",
+        "declared_total": "527",
+        "reconciliation": "DECLARED_ABOVE_RECOMPUTED",
+        "declared_minus_recomputed": "+77",
+        "sum_over_all_declared_entries": "450",
+        "sum_exceeds_u64": false,
+        "post_harvest_mint_withheld": "950",
+        "post_harvest_would_overflow_u64": false,
+        "wrong_mint_accounts": [],
+        "duplicate_addresses": [],
+        "fee_receiver_placement": null,
+        "note": "Withheld amounts are per-account TransferFeeAmount.withheld_amount and the mint-level TransferFeeConfig.withheld_amount, both u64 in token minor units, pinned at solana-program/token-2022 commit b5b7511e5d4f19a6a118b858d83a7fe3b0017b1e. recomputed_account_sum counts only accounts whose mint matches the declared mint: the harvest instruction skips a wrong-mint account with MintMismatch instead of moving its fees. post_harvest_mint_withheld is what the mint would accumulate after harvesting every mint-matching account; the on-chain addition is checked_add, so an amount past u64 fails the harvest with TokenError::Overflow, reported here as post_harvest_would_overflow_u64. Mint and authority comparisons are string equality on the pasted values; this kernel reads nothing on-chain."
+      },
+      "golden_hash": "1e6e92c98426296495f7657e39568ed9174c2f69f24814427c5f4dcf4922fae3"
+    },
+    {
+      "name": "F4_declared_below_recomputed",
+      "spec_ref": "declared total versus the recomputed sum: sign and magnitude of the difference",
+      "spec_pins": {
+        "recomputed_account_sum": "450",
+        "declared_total": "445",
+        "reconciliation": "DECLARED_BELOW_RECOMPUTED",
+        "declared_minus_recomputed": "-5"
+      },
+      "policy_parameters": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "transfer_fee_config": {
+          "withdraw_withheld_authority": null,
+          "withheld_amount": "0"
+        },
+        "accounts": [
+          {
+            "address": "AcctHolder1Token20220000000000000001",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "400"
+          },
+          {
+            "address": "AcctHolder2Token20220000000000000002",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "50"
+          }
+        ],
+        "declared_total": "445"
+      },
+      "output_payload": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "account_count": "2",
+        "harvestable_account_count": "2",
+        "wrong_mint_account_count": "0",
+        "duplicate_address_count": "0",
+        "mint_withheld_accumulated": "0",
+        "recomputed_account_sum": "450",
+        "declared_total": "445",
+        "reconciliation": "DECLARED_BELOW_RECOMPUTED",
+        "declared_minus_recomputed": "-5",
+        "sum_over_all_declared_entries": "450",
+        "sum_exceeds_u64": false,
+        "post_harvest_mint_withheld": "450",
+        "post_harvest_would_overflow_u64": false,
+        "wrong_mint_accounts": [],
+        "duplicate_addresses": [],
+        "fee_receiver_placement": null,
+        "note": "Withheld amounts are per-account TransferFeeAmount.withheld_amount and the mint-level TransferFeeConfig.withheld_amount, both u64 in token minor units, pinned at solana-program/token-2022 commit b5b7511e5d4f19a6a118b858d83a7fe3b0017b1e. recomputed_account_sum counts only accounts whose mint matches the declared mint: the harvest instruction skips a wrong-mint account with MintMismatch instead of moving its fees. post_harvest_mint_withheld is what the mint would accumulate after harvesting every mint-matching account; the on-chain addition is checked_add, so an amount past u64 fails the harvest with TokenError::Overflow, reported here as post_harvest_would_overflow_u64. Mint and authority comparisons are string equality on the pasted values; this kernel reads nothing on-chain."
+      },
+      "golden_hash": "328099989fe23fcbfd9e927f7d0dc6543d23164be1b907da48fc1eeb75f756ba"
+    },
+    {
+      "name": "F5_wrong_mint_account_excluded_and_flagged",
+      "spec_ref": "pinned processor.rs L174-L184 (harvest_from_account): an account whose mint differs from the mint key returns MintMismatch and is skipped, so its withheld never reaches this mint's pot",
+      "spec_pins": {
+        "recomputed_account_sum": "250",
+        "sum_over_all_declared_entries": "1249",
+        "reconciliation": "MATCH",
+        "wrong_mint_account_count": "1",
+        "wrong_mint_accounts[0].address": "AcctOtherMintToken2022000000000000001"
+      },
+      "policy_parameters": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "transfer_fee_config": {
+          "withdraw_withheld_authority": null,
+          "withheld_amount": "0"
+        },
+        "accounts": [
+          {
+            "address": "AcctHolder1Token20220000000000000001",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "100"
+          },
+          {
+            "address": "AcctOtherMintToken2022000000000000001",
+            "mint": "MintOTHER777FEES00000000000001",
+            "withheld_amount": "999"
+          },
+          {
+            "address": "AcctHolder2Token20220000000000000002",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "150"
+          }
+        ],
+        "declared_total": "250"
+      },
+      "output_payload": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "account_count": "3",
+        "harvestable_account_count": "2",
+        "wrong_mint_account_count": "1",
+        "duplicate_address_count": "0",
+        "mint_withheld_accumulated": "0",
+        "recomputed_account_sum": "250",
+        "declared_total": "250",
+        "reconciliation": "MATCH",
+        "declared_minus_recomputed": "0",
+        "sum_over_all_declared_entries": "1249",
+        "sum_exceeds_u64": false,
+        "post_harvest_mint_withheld": "250",
+        "post_harvest_would_overflow_u64": false,
+        "wrong_mint_accounts": [
+          {
+            "address": "AcctOtherMintToken2022000000000000001",
+            "declared_mint": "MintXkT2WITHHELDFEES00001",
+            "account_mint": "MintOTHER777FEES00000000000001"
+          }
+        ],
+        "duplicate_addresses": [],
+        "fee_receiver_placement": null,
+        "note": "Withheld amounts are per-account TransferFeeAmount.withheld_amount and the mint-level TransferFeeConfig.withheld_amount, both u64 in token minor units, pinned at solana-program/token-2022 commit b5b7511e5d4f19a6a118b858d83a7fe3b0017b1e. recomputed_account_sum counts only accounts whose mint matches the declared mint: the harvest instruction skips a wrong-mint account with MintMismatch instead of moving its fees. post_harvest_mint_withheld is what the mint would accumulate after harvesting every mint-matching account; the on-chain addition is checked_add, so an amount past u64 fails the harvest with TokenError::Overflow, reported here as post_harvest_would_overflow_u64. Mint and authority comparisons are string equality on the pasted values; this kernel reads nothing on-chain."
+      },
+      "golden_hash": "843b223066a5306edbb109cd7e4953797f9ea71879091b4b4c2a48805c287bde"
+    },
+    {
+      "name": "F6_duplicate_address_counted_as_declared_and_flagged",
+      "spec_ref": "duplicate detection on the declared list: the same address pasted twice contributes twice to the sum as declared, and the fact is flagged",
+      "spec_pins": {
+        "recomputed_account_sum": "300",
+        "reconciliation": "MATCH",
+        "duplicate_address_count": "1",
+        "duplicate_addresses[0].declared_count": 2
+      },
+      "policy_parameters": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "transfer_fee_config": {
+          "withdraw_withheld_authority": null,
+          "withheld_amount": "0"
+        },
+        "accounts": [
+          {
+            "address": "AcctHolder1Token20220000000000000001",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "100"
+          },
+          {
+            "address": "AcctHolder1Token20220000000000000001",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "100"
+          },
+          {
+            "address": "AcctHolder2Token20220000000000000002",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "100"
+          }
+        ],
+        "declared_total": "300"
+      },
+      "output_payload": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "account_count": "3",
+        "harvestable_account_count": "3",
+        "wrong_mint_account_count": "0",
+        "duplicate_address_count": "1",
+        "mint_withheld_accumulated": "0",
+        "recomputed_account_sum": "300",
+        "declared_total": "300",
+        "reconciliation": "MATCH",
+        "declared_minus_recomputed": "0",
+        "sum_over_all_declared_entries": "300",
+        "sum_exceeds_u64": false,
+        "post_harvest_mint_withheld": "300",
+        "post_harvest_would_overflow_u64": false,
+        "wrong_mint_accounts": [],
+        "duplicate_addresses": [
+          {
+            "address": "AcctHolder1Token20220000000000000001",
+            "declared_count": 2
+          }
+        ],
+        "fee_receiver_placement": null,
+        "note": "Withheld amounts are per-account TransferFeeAmount.withheld_amount and the mint-level TransferFeeConfig.withheld_amount, both u64 in token minor units, pinned at solana-program/token-2022 commit b5b7511e5d4f19a6a118b858d83a7fe3b0017b1e. recomputed_account_sum counts only accounts whose mint matches the declared mint: the harvest instruction skips a wrong-mint account with MintMismatch instead of moving its fees. post_harvest_mint_withheld is what the mint would accumulate after harvesting every mint-matching account; the on-chain addition is checked_add, so an amount past u64 fails the harvest with TokenError::Overflow, reported here as post_harvest_would_overflow_u64. Mint and authority comparisons are string equality on the pasted values; this kernel reads nothing on-chain."
+      },
+      "golden_hash": "18c3652f2c5c86de0036d119ec2df9711bfa9150ee66b696133420f9d62172f5"
+    },
+    {
+      "name": "F7_u64_boundary_exact_max",
+      "spec_ref": "pinned processor.rs L210-L215 (checked_add): the mint pot plus harvested amounts may reach exactly u64::MAX without Overflow",
+      "spec_pins": {
+        "recomputed_account_sum": "18446744073709551615",
+        "sum_exceeds_u64": false,
+        "post_harvest_mint_withheld": "18446744073709551615",
+        "post_harvest_would_overflow_u64": false,
+        "reconciliation": "MATCH"
+      },
+      "policy_parameters": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "transfer_fee_config": {
+          "withdraw_withheld_authority": null,
+          "withheld_amount": "0"
+        },
+        "accounts": [
+          {
+            "address": "AcctHigh1Token202200000000000000001",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "18446744073709551614"
+          },
+          {
+            "address": "AcctHigh2Token202200000000000000002",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "1"
+          }
+        ],
+        "declared_total": "18446744073709551615"
+      },
+      "output_payload": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "account_count": "2",
+        "harvestable_account_count": "2",
+        "wrong_mint_account_count": "0",
+        "duplicate_address_count": "0",
+        "mint_withheld_accumulated": "0",
+        "recomputed_account_sum": "18446744073709551615",
+        "declared_total": "18446744073709551615",
+        "reconciliation": "MATCH",
+        "declared_minus_recomputed": "0",
+        "sum_over_all_declared_entries": "18446744073709551615",
+        "sum_exceeds_u64": false,
+        "post_harvest_mint_withheld": "18446744073709551615",
+        "post_harvest_would_overflow_u64": false,
+        "wrong_mint_accounts": [],
+        "duplicate_addresses": [],
+        "fee_receiver_placement": null,
+        "note": "Withheld amounts are per-account TransferFeeAmount.withheld_amount and the mint-level TransferFeeConfig.withheld_amount, both u64 in token minor units, pinned at solana-program/token-2022 commit b5b7511e5d4f19a6a118b858d83a7fe3b0017b1e. recomputed_account_sum counts only accounts whose mint matches the declared mint: the harvest instruction skips a wrong-mint account with MintMismatch instead of moving its fees. post_harvest_mint_withheld is what the mint would accumulate after harvesting every mint-matching account; the on-chain addition is checked_add, so an amount past u64 fails the harvest with TokenError::Overflow, reported here as post_harvest_would_overflow_u64. Mint and authority comparisons are string equality on the pasted values; this kernel reads nothing on-chain."
+      },
+      "golden_hash": "b54a83d35d4089bc8044f96400ceb67182b54216792a610109d4af60237bbb2d"
+    },
+    {
+      "name": "F8_sum_one_past_u64_reported_not_wrapped",
+      "spec_ref": "pinned processor.rs L210-L215 (checked_add / TokenError::Overflow): one past u64 the on-chain harvest fails; the kernel reports the exact BigInt sum and the overflow fact instead of wrapping. declared_total is a u64 field, so the caller declares u64::MAX while the recomputed sum is one past it",
+      "spec_pins": {
+        "recomputed_account_sum": "18446744073709551616",
+        "declared_total": "18446744073709551615",
+        "sum_exceeds_u64": true,
+        "post_harvest_would_overflow_u64": true,
+        "reconciliation": "DECLARED_BELOW_RECOMPUTED",
+        "declared_minus_recomputed": "-1"
+      },
+      "policy_parameters": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "transfer_fee_config": {
+          "withdraw_withheld_authority": null,
+          "withheld_amount": "0"
+        },
+        "accounts": [
+          {
+            "address": "AcctHigh1Token202200000000000000001",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "18446744073709551615"
+          },
+          {
+            "address": "AcctHigh2Token202200000000000000002",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "1"
+          }
+        ],
+        "declared_total": "18446744073709551615"
+      },
+      "output_payload": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "account_count": "2",
+        "harvestable_account_count": "2",
+        "wrong_mint_account_count": "0",
+        "duplicate_address_count": "0",
+        "mint_withheld_accumulated": "0",
+        "recomputed_account_sum": "18446744073709551616",
+        "declared_total": "18446744073709551615",
+        "reconciliation": "DECLARED_BELOW_RECOMPUTED",
+        "declared_minus_recomputed": "-1",
+        "sum_over_all_declared_entries": "18446744073709551616",
+        "sum_exceeds_u64": true,
+        "post_harvest_mint_withheld": "18446744073709551616",
+        "post_harvest_would_overflow_u64": true,
+        "wrong_mint_accounts": [],
+        "duplicate_addresses": [],
+        "fee_receiver_placement": null,
+        "note": "Withheld amounts are per-account TransferFeeAmount.withheld_amount and the mint-level TransferFeeConfig.withheld_amount, both u64 in token minor units, pinned at solana-program/token-2022 commit b5b7511e5d4f19a6a118b858d83a7fe3b0017b1e. recomputed_account_sum counts only accounts whose mint matches the declared mint: the harvest instruction skips a wrong-mint account with MintMismatch instead of moving its fees. post_harvest_mint_withheld is what the mint would accumulate after harvesting every mint-matching account; the on-chain addition is checked_add, so an amount past u64 fails the harvest with TokenError::Overflow, reported here as post_harvest_would_overflow_u64. Mint and authority comparisons are string equality on the pasted values; this kernel reads nothing on-chain."
+      },
+      "golden_hash": "3729e46a17860fdc1a1aced8ad37ba466ed8e760b7dca2cef0b515c0c486973c"
+    },
+    {
+      "name": "F9_destination_placement_mismatches",
+      "spec_ref": "pinned mod.rs L141 (withdraw authority) and instruction.rs L118-L123 (destination of a withdraw): destination mint and declared withdraw authority compared with the declared mint and the config",
+      "spec_pins": {
+        "fee_receiver_placement.destination_mint_matches_declared_mint": false,
+        "fee_receiver_placement.declared_withdraw_authority_matches_config": false
+      },
+      "policy_parameters": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "transfer_fee_config": {
+          "withdraw_withheld_authority": "Auth1WithdrawAuthority1111111111111111111",
+          "withheld_amount": "10"
+        },
+        "accounts": [
+          {
+            "address": "AcctHolder1Token20220000000000000001",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "90"
+          }
+        ],
+        "declared_total": "90",
+        "destination": {
+          "address": "FeePotWrongMintToken202200000000000001",
+          "mint": "MintOTHER777FEES00000000000001",
+          "withdraw_authority": "SomeoneElseAuthority111111111111111111"
+        }
+      },
+      "output_payload": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "account_count": "1",
+        "harvestable_account_count": "1",
+        "wrong_mint_account_count": "0",
+        "duplicate_address_count": "0",
+        "mint_withheld_accumulated": "10",
+        "recomputed_account_sum": "90",
+        "declared_total": "90",
+        "reconciliation": "MATCH",
+        "declared_minus_recomputed": "0",
+        "sum_over_all_declared_entries": "90",
+        "sum_exceeds_u64": false,
+        "post_harvest_mint_withheld": "100",
+        "post_harvest_would_overflow_u64": false,
+        "wrong_mint_accounts": [],
+        "duplicate_addresses": [],
+        "fee_receiver_placement": {
+          "declared_destination_address": "FeePotWrongMintToken202200000000000001",
+          "declared_destination_mint": "MintOTHER777FEES00000000000001",
+          "declared_mint": "MintXkT2WITHHELDFEES00001",
+          "destination_mint_matches_declared_mint": false,
+          "declared_withdraw_authority": "SomeoneElseAuthority111111111111111111",
+          "config_withdraw_withheld_authority": "Auth1WithdrawAuthority1111111111111111111",
+          "declared_withdraw_authority_matches_config": false,
+          "authority_basis": "WithdrawWithheldTokensFromAccounts and WithdrawWithheldTokensFromMint require the config withdraw_withheld_authority as signer (\"Withdraw from mint instructions must be signed by this key\", pinned source); harvest to the mint is permissionless and needs no authority."
+        },
+        "note": "Withheld amounts are per-account TransferFeeAmount.withheld_amount and the mint-level TransferFeeConfig.withheld_amount, both u64 in token minor units, pinned at solana-program/token-2022 commit b5b7511e5d4f19a6a118b858d83a7fe3b0017b1e. recomputed_account_sum counts only accounts whose mint matches the declared mint: the harvest instruction skips a wrong-mint account with MintMismatch instead of moving its fees. post_harvest_mint_withheld is what the mint would accumulate after harvesting every mint-matching account; the on-chain addition is checked_add, so an amount past u64 fails the harvest with TokenError::Overflow, reported here as post_harvest_would_overflow_u64. Mint and authority comparisons are string equality on the pasted values; this kernel reads nothing on-chain."
+      },
+      "golden_hash": "82d5a26511f8e52c9d53d018ba0ae2de6db0736ed43a2b7af7df9e0cc2dc9d5b"
+    },
+    {
+      "name": "F10_config_authority_null_vs_declared",
+      "spec_ref": "pinned mod.rs L138-L141: withdraw_withheld_authority is MaybeNull; null in the config matches no non-null declared authority",
+      "spec_pins": {
+        "fee_receiver_placement.config_withdraw_withheld_authority": null,
+        "fee_receiver_placement.declared_withdraw_authority_matches_config": false,
+        "fee_receiver_placement.destination_mint_matches_declared_mint": true
+      },
+      "policy_parameters": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "transfer_fee_config": {
+          "withdraw_withheld_authority": null,
+          "withheld_amount": "7"
+        },
+        "accounts": [
+          {
+            "address": "AcctHolder1Token20220000000000000001",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "43"
+          }
+        ],
+        "declared_total": "43",
+        "destination": {
+          "address": "FeePotDestToken20220000000000000000001",
+          "mint": "MintXkT2WITHHELDFEES00001",
+          "withdraw_authority": "Auth1WithdrawAuthority1111111111111111111"
+        }
+      },
+      "output_payload": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "account_count": "1",
+        "harvestable_account_count": "1",
+        "wrong_mint_account_count": "0",
+        "duplicate_address_count": "0",
+        "mint_withheld_accumulated": "7",
+        "recomputed_account_sum": "43",
+        "declared_total": "43",
+        "reconciliation": "MATCH",
+        "declared_minus_recomputed": "0",
+        "sum_over_all_declared_entries": "43",
+        "sum_exceeds_u64": false,
+        "post_harvest_mint_withheld": "50",
+        "post_harvest_would_overflow_u64": false,
+        "wrong_mint_accounts": [],
+        "duplicate_addresses": [],
+        "fee_receiver_placement": {
+          "declared_destination_address": "FeePotDestToken20220000000000000000001",
+          "declared_destination_mint": "MintXkT2WITHHELDFEES00001",
+          "declared_mint": "MintXkT2WITHHELDFEES00001",
+          "destination_mint_matches_declared_mint": true,
+          "declared_withdraw_authority": "Auth1WithdrawAuthority1111111111111111111",
+          "config_withdraw_withheld_authority": null,
+          "declared_withdraw_authority_matches_config": false,
+          "authority_basis": "WithdrawWithheldTokensFromAccounts and WithdrawWithheldTokensFromMint require the config withdraw_withheld_authority as signer (\"Withdraw from mint instructions must be signed by this key\", pinned source); harvest to the mint is permissionless and needs no authority."
+        },
+        "note": "Withheld amounts are per-account TransferFeeAmount.withheld_amount and the mint-level TransferFeeConfig.withheld_amount, both u64 in token minor units, pinned at solana-program/token-2022 commit b5b7511e5d4f19a6a118b858d83a7fe3b0017b1e. recomputed_account_sum counts only accounts whose mint matches the declared mint: the harvest instruction skips a wrong-mint account with MintMismatch instead of moving its fees. post_harvest_mint_withheld is what the mint would accumulate after harvesting every mint-matching account; the on-chain addition is checked_add, so an amount past u64 fails the harvest with TokenError::Overflow, reported here as post_harvest_would_overflow_u64. Mint and authority comparisons are string equality on the pasted values; this kernel reads nothing on-chain."
+      },
+      "golden_hash": "2e01eb54764915dddf8f26ed7be3011bb66a3380c5bbcf4669562fd584f52dd7"
+    },
+    {
+      "name": "F11_empty_accounts_floor",
+      "spec_ref": "empty declared list: sum 0, reconciliation against declared_total 0, the mint pot unchanged",
+      "spec_pins": {
+        "account_count": "0",
+        "recomputed_account_sum": "0",
+        "reconciliation": "MATCH",
+        "post_harvest_mint_withheld": "123"
+      },
+      "policy_parameters": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "transfer_fee_config": {
+          "withdraw_withheld_authority": null,
+          "withheld_amount": "123"
+        },
+        "accounts": [],
+        "declared_total": "0"
+      },
+      "output_payload": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "account_count": "0",
+        "harvestable_account_count": "0",
+        "wrong_mint_account_count": "0",
+        "duplicate_address_count": "0",
+        "mint_withheld_accumulated": "123",
+        "recomputed_account_sum": "0",
+        "declared_total": "0",
+        "reconciliation": "MATCH",
+        "declared_minus_recomputed": "0",
+        "sum_over_all_declared_entries": "0",
+        "sum_exceeds_u64": false,
+        "post_harvest_mint_withheld": "123",
+        "post_harvest_would_overflow_u64": false,
+        "wrong_mint_accounts": [],
+        "duplicate_addresses": [],
+        "fee_receiver_placement": null,
+        "note": "Withheld amounts are per-account TransferFeeAmount.withheld_amount and the mint-level TransferFeeConfig.withheld_amount, both u64 in token minor units, pinned at solana-program/token-2022 commit b5b7511e5d4f19a6a118b858d83a7fe3b0017b1e. recomputed_account_sum counts only accounts whose mint matches the declared mint: the harvest instruction skips a wrong-mint account with MintMismatch instead of moving its fees. post_harvest_mint_withheld is what the mint would accumulate after harvesting every mint-matching account; the on-chain addition is checked_add, so an amount past u64 fails the harvest with TokenError::Overflow, reported here as post_harvest_would_overflow_u64. Mint and authority comparisons are string equality on the pasted values; this kernel reads nothing on-chain."
+      },
+      "golden_hash": "c5c7e7f6ec903ee0167d7e89f4ad00a9eabe52023670478ba4fe3ac67e6c1dd7"
+    },
+    {
+      "name": "F12_multi_flag_order",
+      "spec_ref": "flag order pin: wrong-mint, duplicate, divergence, then placement mismatches, in the kernel's fixed order",
+      "spec_pins": {
+        "compliance_flags": [
+          "ACCOUNT_MINT_MISMATCH",
+          "DUPLICATE_ACCOUNT_ADDRESS",
+          "DECLARED_TOTAL_DIVERGES",
+          "DESTINATION_MINT_MISMATCH",
+          "DECLARED_WITHDRAW_AUTHORITY_MISMATCH"
+        ],
+        "reconciliation": "DECLARED_ABOVE_RECOMPUTED",
+        "declared_minus_recomputed": "+10"
+      },
+      "policy_parameters": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "transfer_fee_config": {
+          "withdraw_withheld_authority": "Auth1WithdrawAuthority1111111111111111111",
+          "withheld_amount": "0"
+        },
+        "accounts": [
+          {
+            "address": "AcctHolder1Token20220000000000000001",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "100"
+          },
+          {
+            "address": "AcctHolder1Token20220000000000000001",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "100"
+          },
+          {
+            "address": "AcctOtherMintToken2022000000000000001",
+            "mint": "MintOTHER777FEES00000000000001",
+            "withheld_amount": "500"
+          }
+        ],
+        "declared_total": "210",
+        "destination": {
+          "address": "FeePotWrongMintToken202200000000000001",
+          "mint": "MintOTHER777FEES00000000000001",
+          "withdraw_authority": "SomeoneElseAuthority111111111111111111"
+        }
+      },
+      "output_payload": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "account_count": "3",
+        "harvestable_account_count": "2",
+        "wrong_mint_account_count": "1",
+        "duplicate_address_count": "1",
+        "mint_withheld_accumulated": "0",
+        "recomputed_account_sum": "200",
+        "declared_total": "210",
+        "reconciliation": "DECLARED_ABOVE_RECOMPUTED",
+        "declared_minus_recomputed": "+10",
+        "sum_over_all_declared_entries": "700",
+        "sum_exceeds_u64": false,
+        "post_harvest_mint_withheld": "200",
+        "post_harvest_would_overflow_u64": false,
+        "wrong_mint_accounts": [
+          {
+            "address": "AcctOtherMintToken2022000000000000001",
+            "declared_mint": "MintXkT2WITHHELDFEES00001",
+            "account_mint": "MintOTHER777FEES00000000000001"
+          }
+        ],
+        "duplicate_addresses": [
+          {
+            "address": "AcctHolder1Token20220000000000000001",
+            "declared_count": 2
+          }
+        ],
+        "fee_receiver_placement": {
+          "declared_destination_address": "FeePotWrongMintToken202200000000000001",
+          "declared_destination_mint": "MintOTHER777FEES00000000000001",
+          "declared_mint": "MintXkT2WITHHELDFEES00001",
+          "destination_mint_matches_declared_mint": false,
+          "declared_withdraw_authority": "SomeoneElseAuthority111111111111111111",
+          "config_withdraw_withheld_authority": "Auth1WithdrawAuthority1111111111111111111",
+          "declared_withdraw_authority_matches_config": false,
+          "authority_basis": "WithdrawWithheldTokensFromAccounts and WithdrawWithheldTokensFromMint require the config withdraw_withheld_authority as signer (\"Withdraw from mint instructions must be signed by this key\", pinned source); harvest to the mint is permissionless and needs no authority."
+        },
+        "note": "Withheld amounts are per-account TransferFeeAmount.withheld_amount and the mint-level TransferFeeConfig.withheld_amount, both u64 in token minor units, pinned at solana-program/token-2022 commit b5b7511e5d4f19a6a118b858d83a7fe3b0017b1e. recomputed_account_sum counts only accounts whose mint matches the declared mint: the harvest instruction skips a wrong-mint account with MintMismatch instead of moving its fees. post_harvest_mint_withheld is what the mint would accumulate after harvesting every mint-matching account; the on-chain addition is checked_add, so an amount past u64 fails the harvest with TokenError::Overflow, reported here as post_harvest_would_overflow_u64. Mint and authority comparisons are string equality on the pasted values; this kernel reads nothing on-chain."
+      },
+      "golden_hash": "3c0483ed2ff97c523e9b166f6c30d6cb0365a6a70e93580d1882b8955d156a97"
+    },
+    {
+      "name": "F13_refused_accounts_malformed_withheld",
+      "spec_ref": "structured refusal idiom (art-715 by copy): a non-decimal withheld_amount is refused by field, never coerced",
+      "spec_pins": {
+        "error": "accounts_malformed",
+        "compliance_flags": [
+          "INPUT_REFUSED"
+        ]
+      },
+      "policy_parameters": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "transfer_fee_config": {
+          "withdraw_withheld_authority": null,
+          "withheld_amount": "0"
+        },
+        "accounts": [
+          {
+            "address": "AcctHolder1Token20220000000000000001",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "100"
+          },
+          {
+            "address": "AcctHolder2Token20220000000000000002",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "12.5"
+          }
+        ],
+        "declared_total": "112"
+      },
+      "output_payload": {
+        "error": "accounts_malformed",
+        "detail": "accounts[1].withheld_amount must be a decimal string in u64 range (TransferFeeAmount.withheld_amount); got \"12.5\".",
+        "domain_errors": [
+          {
+            "code": "ACCOUNTS_MALFORMED",
+            "text": "accounts[1].withheld_amount must be a decimal string in u64 range (TransferFeeAmount.withheld_amount); got \"12.5\"."
+          }
+        ],
+        "mint": null,
+        "account_count": null,
+        "harvestable_account_count": null,
+        "wrong_mint_account_count": null,
+        "duplicate_address_count": null,
+        "mint_withheld_accumulated": null,
+        "recomputed_account_sum": null,
+        "declared_total": null,
+        "reconciliation": null,
+        "declared_minus_recomputed": null,
+        "sum_over_all_declared_entries": null,
+        "sum_exceeds_u64": null,
+        "post_harvest_mint_withheld": null,
+        "post_harvest_would_overflow_u64": null,
+        "wrong_mint_accounts": null,
+        "duplicate_addresses": null,
+        "fee_receiver_placement": null
+      },
+      "golden_hash": "9292b1b6a8c502fa77cc1eb98db8364e7870ecbd3e32611f175b532498e9e2db"
+    },
+    {
+      "name": "F14_refused_config_malformed_negative",
+      "spec_ref": "structured refusal idiom: the mint's accumulated withheld_amount must be a decimal string in u64 range",
+      "spec_pins": {
+        "error": "transfer_fee_config_malformed",
+        "compliance_flags": [
+          "INPUT_REFUSED"
+        ]
+      },
+      "policy_parameters": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "transfer_fee_config": {
+          "withdraw_withheld_authority": null,
+          "withheld_amount": "-3"
+        },
+        "accounts": [],
+        "declared_total": "0"
+      },
+      "output_payload": {
+        "error": "transfer_fee_config_malformed",
+        "detail": "transfer_fee_config.withheld_amount must be a decimal string in u64 range (the mint-accumulated withheld amount); got \"-3\".",
+        "domain_errors": [
+          {
+            "code": "TRANSFER_FEE_CONFIG_MALFORMED",
+            "text": "transfer_fee_config.withheld_amount must be a decimal string in u64 range (the mint-accumulated withheld amount); got \"-3\"."
+          }
+        ],
+        "mint": null,
+        "account_count": null,
+        "harvestable_account_count": null,
+        "wrong_mint_account_count": null,
+        "duplicate_address_count": null,
+        "mint_withheld_accumulated": null,
+        "recomputed_account_sum": null,
+        "declared_total": null,
+        "reconciliation": null,
+        "declared_minus_recomputed": null,
+        "sum_over_all_declared_entries": null,
+        "sum_exceeds_u64": null,
+        "post_harvest_mint_withheld": null,
+        "post_harvest_would_overflow_u64": null,
+        "wrong_mint_accounts": null,
+        "duplicate_addresses": null,
+        "fee_receiver_placement": null
+      },
+      "golden_hash": "04f91aa7f2f2e1ae9528dee3e212f48061c140a2de622e3524857e7d3387588b"
+    },
+    {
+      "name": "F15_refused_declared_total_invalid",
+      "spec_ref": "structured refusal idiom: the declared total must be a decimal string in u64 range",
+      "spec_pins": {
+        "error": "declared_total_invalid",
+        "compliance_flags": [
+          "INPUT_REFUSED"
+        ]
+      },
+      "policy_parameters": {
+        "mint": "MintXkT2WITHHELDFEES00001",
+        "transfer_fee_config": {
+          "withdraw_withheld_authority": null,
+          "withheld_amount": "0"
+        },
+        "accounts": [
+          {
+            "address": "AcctHolder1Token20220000000000000001",
+            "mint": "MintXkT2WITHHELDFEES00001",
+            "withheld_amount": "100"
+          }
+        ],
+        "declared_total": "abc"
+      },
+      "output_payload": {
+        "error": "declared_total_invalid",
+        "detail": "declared_total must be a decimal string in u64 range; got \"abc\".",
+        "domain_errors": [
+          {
+            "code": "DECLARED_TOTAL_INVALID",
+            "text": "declared_total must be a decimal string in u64 range; got \"abc\"."
+          }
+        ],
+        "mint": null,
+        "account_count": null,
+        "harvestable_account_count": null,
+        "wrong_mint_account_count": null,
+        "duplicate_address_count": null,
+        "mint_withheld_accumulated": null,
+        "recomputed_account_sum": null,
+        "declared_total": null,
+        "reconciliation": null,
+        "declared_minus_recomputed": null,
+        "sum_over_all_declared_entries": null,
+        "sum_exceeds_u64": null,
+        "post_harvest_mint_withheld": null,
+        "post_harvest_would_overflow_u64": null,
+        "wrong_mint_accounts": null,
+        "duplicate_addresses": null,
+        "fee_receiver_placement": null
+      },
+      "golden_hash": "efc19039139e4d4d142e5826ed1aca6377a89c6ee310077b1becb6654e22f73b"
+    }
+  ]
+}

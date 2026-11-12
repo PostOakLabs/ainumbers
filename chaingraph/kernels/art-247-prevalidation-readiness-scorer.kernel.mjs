@@ -111,7 +111,7 @@ function validateAddress(pp) {
     }
     return { valid: true, type: 'HYBRID', error: null };
   }
-  if (hasAdrLine && structured_field_count === 0 && !hasTwnNm) return { valid: false, type: 'UNSTRUCTURED', error: 'Unstructured address prohibited after 14 Nov 2026 (CBPR+ mandate). Migrate to hybrid or fully-structured format.' };
+  if (hasAdrLine && structured_field_count === 0 && !hasTwnNm) return { valid: false, type: 'UNSTRUCTURED', error: 'Unstructured address will be prohibited once the structured-address requirement takes effect (deferred by Swift on 27 Aug 2026, new date not published). CBPR+ mandate: migrate to hybrid or fully-structured format.' };
   if (!hasAdrLine && !hasCtry && structured_field_count === 0 && !hasTwnNm) return { valid: false, type: 'EMPTY', error: 'No address fields populated.' };
   return { valid: false, type: 'MIXED_INVALID', error: 'Address mix of structured and unstructured fields is invalid. Use fully-structured or hybrid format.' };
 }
@@ -170,7 +170,8 @@ export function compute(pp) {
     readiness_pct,
     check_details,
     remediation_actions,
-    cbpr_plus_deadline: '2026-11-14',
+    cbpr_plus_deadline: null,
+    cbpr_plus_deadline_status: 'deferred by Swift on 27 Aug 2026; no new date published',
     chain_gate_note: 'ready=true means this payment instruction passes CBPR+ pre-validation for STP; ready=false means one or more checks failed and remediation is required before submission.',
     pii_note: 'IBAN, BIC, and LEI are structural payment identifiers, not personal data. All checks are format/structure only. No real party PII processed -- use synthetic identifiers for testing.',
     table_version: TABLE_VERSION,

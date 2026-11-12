@@ -14,6 +14,7 @@ Generated from the shared credits registry (`data/credits-registry.json`, source
   - `chaingraph/kernels/_noble-secp256k1.bundle.mjs`
   - `chaingraph/kernels/_noble-bn254.bundle.mjs`
   - `chaingraph/kernels/_noble-ed25519.bundle.mjs`
+  - `chaingraph/art-774-beacon-seeded-fair-sampling-v2.html (inline BLS12-381 bundle, BEACON-SIG-V2-1)`
 
 ## @noble/post-quantum (ML-DSA + SLH-DSA)
 
@@ -115,3 +116,24 @@ Generated from the shared credits registry (`data/credits-registry.json`, source
   - `chaingraph/standard/vendor/rfc8785-testdata/outhex/unicode.txt`
   - `chaingraph/standard/vendor/rfc8785-testdata/outhex/values.txt`
   - `chaingraph/standard/vendor/rfc8785-testdata/outhex/weird.txt`
+
+## erdtman/canonicalize (RFC 8785 JCS canonicalizer)
+
+- **Version:** pin 31fb117afde3ef305b2e1d99bde539bf6300bc62
+- **License:** Apache-2.0
+- **Upstream:** https://github.com/erdtman/canonicalize
+- **Upstream ships a NOTICE file:** no (checked upstream root — no NOTICE file)
+- **Note:** Fifth independent JCS implementation under test in chaingraph/standard/jcs-rfc8785-vectors.test.mjs. Vendored unmodified (lib/canonicalize.js + LICENSE, no NOTICE at the pin) at pinned commit 31fb117afde3ef305b2e1d99bde539bf6300bc62 by LANDSCAPE-JCS-DIFF-ORACLE-1; per-file sha256 in PROVENANCE.md in the same directory. Entry backfilled by MAIN-CREDITS-VENDOR-HEAL-1 after the coverage gate was in the skipping set on PR 2802's own run.
+- **Path(s) in this repo:**
+  - `chaingraph/standard/vendor/canonicalize/`
+
+## Project Nayuki QR Code generator library (JavaScript port)
+
+- **Version:** v1.8.0 (reference vectors); port dates from 2026-06
+- **License:** MIT
+- **Upstream:** https://github.com/nayuki/QR-Code-generator
+- **Upstream ships a NOTICE file:** unresolved — flag separately
+- **Note:** qr.mjs is a hand port of upstream's encoder to plain JavaScript, not an unmodified copy; the MIT copyright and permission notice is retained inline in the file header. vectors.json holds matrix digests produced by upstream's python/qrcodegen.py at tag v1.8.0 (file sha256 b089855caf16185c61421ea4927c1b213cf9468940d71fa8ab11ef83662dcc84, recorded in fixtures/qr-reference/gen-reference.py); the upstream file itself is not committed. The port shipped in 2026-06 without a registry entry because the coverage gate keys on vendor/ paths and *.bundle.mjs names, which this file has neither of; backfilled when the port was brought to reference parity. upstream_ships_notice is null: the upstream root was not checked for a NOTICE file.
+- **Path(s) in this repo:**
+  - `chaingraph/exporters/qr.mjs`
+  - `chaingraph/exporters/fixtures/qr-reference/vectors.json`
