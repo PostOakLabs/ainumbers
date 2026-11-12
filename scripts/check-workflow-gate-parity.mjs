@@ -585,6 +585,18 @@ const PREFLIGHT_ONLY = new Map([
     "local git, so a named workflow step would re-run byte-for-byte the same check. Its paired " +
     "mutation control is check-trust-signals.test.mjs (its own GATES entry)."],
   ["check-trust-signals.test.mjs", SELF_TEST],
+  // ── VERIFYBINDING-DIGEST-DEFAULT-1 (2026-11-12) ─────────────────────────────
+  ["gen-kernel-digests.mjs",
+    "Published kernel-digest list freshness --check (VERIFYBINDING-DIGEST-DEFAULT-1): re-derives " +
+    "chaingraph/kernel-digests.json from the node shards' sha256-source compute_images entries " +
+    "and byte-compares. Hard in preflight; its CI route is scripts-verify.yml full preflight (the " +
+    "workflow runs `node scripts/preflight.mjs`), so a named workflow step would only duplicate " +
+    "the same suite. It is the COVERED gate of derived-artifacts.mjs id 'kernel-digests' " +
+    "(prAbsentOk advisory-on-PR, blocking-on-main via the generic downgrade), and the single " +
+    "writer is derived-artifacts-regen.yml, which regenerates it post-merge exactly like the " +
+    "trust-signals digest — a raw invocation anywhere PR-reachable would duplicate that writer. " +
+    "Reads only tracked repo files — no network, no CI-only input. The write half is a " +
+    "builder/main-side regen command, never a workflow step by name."],
   ["derived-context-detached.test.mjs", SELF_TEST],
   // ── EVREG-1 (2026-09-22) ────────────────────────────────────────────────────
   ["check-evidence-register.mjs",
@@ -851,7 +863,10 @@ const PREFLIGHT_ONLY = new Map([
     "output_schema is re-validated against its node's fixture output_payloads. Hard in preflight; " +
     "its CI route is scripts-verify.yml's full preflight (the workflow literally runs " +
     "`node scripts/preflight.mjs`), so a named workflow step would only duplicate the same suite. " +
-    "Reads only tracked repo files — no CI-only input."],
+    "Reads tracked repo files only, but on merge_group it overlay-reads the registry and the manifests " +
+    "from the assembled derived tree (QUEUE-ASSEMBLED-NEWNODE-GATES-1, 2026-11-09: it is a " +
+    "DERIVED_ROOT_GATES member, so preflight hands it DERIVED_ROOT in the queue and the verdict is " +
+    "on the tree that will be main); every other context reads the checkout, byte-for-byte as before."],
   ["check-output-schema-coverage.test.mjs", SELF_TEST],
 
   // ── MCP-INPUTSCHEMA-DESC-TRIM-1 (2026-09-18) ───────────────────────────────
@@ -881,6 +896,13 @@ const PREFLIGHT_ONLY = new Map([
   // preflight ran it blocking in every context — so there is no divergence to
   // declare; the named step surfaces the stamp class under its own name). The
   // --write half runs in pr-autofix.yml (NOT_A_GATE above).
+  // QUEUE-ASSEMBLED-NEWNODE-GATES-1 (2026-11-09): the named step now also carries
+  // `DERIVED_ROOT: ${{ github.event_name == 'merge_group' && steps.derived.outputs.root || '' }}`
+  // (the accessibility step's shape) and the command is a DERIVED_ROOT_GATES member, so on
+  // merge_group the gate overlay-reads the registry, pages and manifests from the assembled
+  // tree and a new node's findings are HARD there; pull_request and push:main read the
+  // checkout unchanged. The only declared behaviour change is merge_group's: a new node
+  // that was live-pending (advisory) is now an ordinary live node.
 
   // ── TOOLPAGE-A11Y-1 (2026-09-09) ─────────────────────────────────────────
   // PR-AUTOFIX-DERIVABLES-1 removed the PREFLIGHT_ONLY entry for
@@ -1198,6 +1220,7 @@ const PREFLIGHT_ONLY = new Map([
   ["check-retired-mcp-toggle.mjs", VIA_PREFLIGHT],
   ["check-retired-ap2-version.mjs", VIA_PREFLIGHT],
   ["generate-node-manifest.mjs", VIA_PREFLIGHT],
+  ["generate-node-manifest.test.mjs", SELF_TEST],
   ["gen-input-schemas.mjs", VIA_PREFLIGHT],
   ["gen-input-schemas.selftest.mjs", VIA_PREFLIGHT],
   ["validate-evidence-profiles.mjs", VIA_PREFLIGHT],
