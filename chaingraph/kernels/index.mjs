@@ -681,6 +681,7 @@ import * as art765    from './art-765-dependent-care-fsa-cdctc-optimizer.kernel.
 import * as art77     from './art-77-t1-settlement-readiness-diagnostic.kernel.mjs';
 import * as art770    from './art-770-total-cost-of-homeownership.kernel.mjs';
 import * as art771    from './art-771-automation-payback.kernel.mjs';
+import * as art772    from './art-772-money-primitives-demonstrator.kernel.mjs';
 import * as art774    from './art-774-beacon-seeded-fair-sampling-v2.kernel.mjs';
 import * as art776    from './art-776-paypal-dispute-deadline-evidence.kernel.mjs';
 import * as art777    from './art-777-psp-dispute-reason-crosswalk.kernel.mjs';
@@ -1419,6 +1420,7 @@ export const KERNELS = {
   'art-77-t1-settlement-readiness-diagnostic':                  art77,
   'art-770-total-cost-of-homeownership':                        art770,
   'art-771-automation-payback':                                 art771,
+  'art-772-money-primitives-demonstrator':                      art772,
   'art-774-beacon-seeded-fair-sampling-v2':                     art774,
   'art-776-paypal-dispute-deadline-evidence':                   art776,
   'art-777-psp-dispute-reason-crosswalk':                       art777,
