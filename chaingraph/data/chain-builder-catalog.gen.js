@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (728 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (737 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -224,6 +224,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "797-stablecoin-cash-equivalent-test",
+    "display_name": "Stablecoin Cash Equivalent Test (FASB Proposed 2026-08)",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/797-stablecoin-cash-equivalent-test.html",
+    "description": "Applies the FASB proposed Update of 2026-08-18 (Statement of Cash Flows (Topic 230): Cash Equivalents-Disclosure Enhancement and Evaluation ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "806-event-contract-terms-lint",
     "display_name": "Event Contract Terms Lint",
     "mandate_type": "compliance_control",
@@ -274,6 +284,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "817-eth-l2-stage-classifier",
+    "display_name": "Ethereum L2 Stage Criteria Classifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/817-eth-l2-stage-classifier.html",
+    "description": "Classifies the properties a caller declares for one Ethereum layer-2 against the L2BEAT stages framework text, and reports for each criterio",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "822-zcash-supply-check",
     "display_name": "Zcash Supply Check",
     "mandate_type": "cryptographic_mandate",
@@ -294,6 +314,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "825-reconcile-ucp-checkout-totals",
+    "display_name": "Reconcile UCP Checkout Totals",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/825-reconcile-ucp-checkout-totals.html",
+    "description": "Reconciles a pasted Universal Commerce Protocol (UCP 2026-08-25) cart, checkout or order totals block in integer minor units. Recomputes pri",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "827-agent-cred-class-matrix",
     "display_name": "Agent Cred Class Matrix",
     "mandate_type": "compliance_mandate",
@@ -305,6 +335,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-699-x402-permit2-evidence-recomputer",
       "art-703-mandate-authorization-gate"
     ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "829-safe-tx-hash-recompute",
+    "display_name": "Safe Transaction Hash Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/829-safe-tx-hash-recompute.html",
+    "description": "Recomputes the hash and decodes known calls. It does not simulate execution and cannot tell you the destination contract is safe. From paste",
+    "consumes": [],
     "feeds": [],
     "status": "live"
   },
@@ -7691,6 +7731,26 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-751-sha256-hmac-digest-demonstrator",
+    "display_name": "SHA-256 and HMAC-SHA256 Digest Demonstrator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/mcp.html",
+    "description": "Digests a caller-supplied UTF-8 string or hex byte string with SHA-256, or computes HMAC-SHA256 over it under a caller-supplied hex key, and",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-752-freelance-quarterly-estimated-tax",
+    "display_name": "Freelance Quarterly Estimated Tax Calculator",
+    "mandate_type": "consumer_finance",
+    "url": "https://ainumbers.co/chaingraph/art-752-freelance-quarterly-estimated-tax.html",
+    "description": "Quarterly IRS estimated-tax calculator for self-employed income, ported from ApexLogics Apex #116 (AL-123). From gross freelance income, bus",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-754-equity-exit-waterfall",
     "display_name": "Equity Exit Waterfall Modeler",
     "mandate_type": "consumer_finance",
@@ -7829,6 +7889,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "analytics_mandate",
     "url": "https://ainumbers.co/chaingraph/art-771-automation-payback.html",
     "description": "Automation Payback ranker ported from ApexLogics Apex #180 (AL-194). For a list of automation candidates (hours saved per week, loaded hourl",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-772-money-primitives-demonstrator",
+    "display_name": "Money Primitives Demonstrator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/mcp.html",
+    "description": "Demonstrator node for the shared _money.bundle.mjs kernel: exact decimal parse (closed grammar -?digits(.digits)? at the caller-declared sca",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -7973,6 +8043,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-805-agt-audit-chain-verifier",
+    "display_name": "Open-Source Agent-Governance Audit-Chain Verifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-805-agt-audit-chain-verifier.html",
+    "description": "Recomputes the hash chain of an exported agent-governance audit log offline, from the exported entries alone, and reports exactly where it b",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-807-erc3643-transfer-decision",
     "display_name": "ERC-3643 Transfer Decision Recompute",
     "mandate_type": "compliance_mandate",
@@ -8078,6 +8158,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-826-authenticator-assurance-level.html",
     "description": "Rates whether a DECLARED authenticator set and session policy reach a DECLARED target level of a caller-supplied, versioned authentication a",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-828-reconcile-omnibus-token-position",
+    "display_name": "Omnibus Token Position Reconciliation",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-828-reconcile-omnibus-token-position.html",
+    "description": "Reconciles a tokenized-securities omnibus token position against caller-declared state: it sums the balances of every declared wallet, compu",
     "consumes": [],
     "feeds": [],
     "status": "live"

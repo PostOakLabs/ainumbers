@@ -8,36 +8,36 @@ Recomputes the hash and decodes known calls. It does not simulate execution and 
 
 ## Inputs
 
-- version (string, required): the Safe contract's VERSION string; must be exactly 1.3.0, 1.4.1 or 1.5.0. Any other value, including 1.2.0 and older (whose signing domain carries no chain id), is refused with an explicit code, never recomputed.
-- chainId (string or number, required): the chain id of the network the Safe lives on, a non-negative uint256 (decimal or 0x-hex).
-- safe (string, required): the 20-byte hex address of the Safe account being signed for.
-- to (string, required): the 20-byte hex destination address of the transaction.
-- value (string or number, optional): the value field in wei, a non-negative uint256; defaults to 0.
-- data (string, optional): the transaction call data as even-length hex, 0x-prefixed or bare; absent or empty means a plain transfer. Over 32768 bytes is refused.
-- operation (number or string, required): 0 (call) or 1 (delegatecall); anything else is refused.
-- safeTxGas (string or number, required): non-negative uint256.
-- baseGas (string or number, required): non-negative uint256.
-- gasPrice (string or number, required): non-negative uint256.
-- gasToken (string, required): 20-byte hex address; the zero address means ether.
-- refundReceiver (string, required): 20-byte hex address; the zero address means tx.origin.
-- nonce (string or number, required): the Safe's current nonce, a non-negative uint256.
+- version (string, required): Safe contract version (the VERSION constant). Versions before 1.3.0 are refused.
+- chainId (string, required): Chain id the Safe is deployed on (uint256, decimal or 0x-hex).
+- safe (string, required): Address of the Safe that will execute the transaction (the EIP-712 verifyingContract), 20-byte hex.
+- to (string, required): Destination address, 20-byte hex.
+- value (string, required): Ether value in wei (uint256).
+- data (string, optional): Call data as hex (0x-prefixed or bare). Empty or 0x for a plain ether transfer. Up to 32768 bytes.
+- operation (string, required): 0 = call, 1 = delegatecall.
+- safeTxGas (string, required): safeTxGas (uint256).
+- baseGas (string, required): baseGas (uint256).
+- gasPrice (string, required): gasPrice (uint256).
+- gasToken (string, required): gasToken address; the zero address for ether.
+- refundReceiver (string, required): refundReceiver address; the zero address for tx.origin.
+- nonce (string, required): Safe nonce (uint256).
 
 ## Outputs
 
-- verdict (string, optional): HASH_COMPUTED, REFUSED (unsupported version) or INDETERMINATE (malformed input).
-- refusal_code (string or null, optional): UNSUPPORTED_SAFE_VERSION, MALFORMED_INPUT or null.
-- reasons (array, optional): empty on success; refusal reasons otherwise.
-- safe_version (string or null, optional): the echoed version when supported.
-- transaction (object, optional): the normalized, echoed transaction fields.
-- domain_hash (string or null, optional): keccak256 of the EIP-712 domain separator preimage.
-- message_hash (string or null, optional): keccak256 of the SafeTx struct preimage.
-- safe_tx_hash (string or null, optional): keccak256 of 0x1901 plus domain hash plus message hash; what a Trezor or MetaMask display.
-- data_keccak256 (string or null, optional): keccak256 of the call data as it enters the struct.
-- data_length_bytes (integer or null, optional)
-- decoded_call (object or null, optional): status no_data, not_decoded, partially_decoded or decoded, with selector, name, signature, args and a note where two standards share a selector.
-- risk_flags (array, optional): DELEGATECALL, ADMIN_CALL_ON_SAFE, TOKEN_APPROVAL, APPROVAL_UNLIMITED_AMOUNT, APPROVAL_FOR_ALL_GRANTED, MULTISEND_NESTED_NOT_DECODED, CALL_NOT_DECODED, VALUE_SENT_TO_SELF, GAS_REFUND_FIELDS_SET.
-- domain_typehash (string, optional): the domain separator typehash, self-checked inside compute().
-- safe_tx_typehash (string, optional): the SafeTx typehash, self-checked inside compute().
+- verdict (string, optional)
+- refusal_code (string,null, optional)
+- reasons (array, optional)
+- safe_version (string,null, optional)
+- transaction (object, optional)
+- domain_hash (string,null, optional)
+- message_hash (string,null, optional)
+- safe_tx_hash (string,null, optional)
+- data_keccak256 (string,null, optional)
+- data_length_bytes (number,null, optional)
+- decoded_call (object,null, optional)
+- risk_flags (array, optional)
+- domain_typehash (string, optional)
+- safe_tx_typehash (string, optional)
 - scope_note (string, optional)
 
 ## Sample
@@ -46,11 +46,11 @@ Recomputes the hash and decodes known calls. It does not simulate execution and 
 {
   "version": "1.3.0",
   "chainId": "1",
-  "safe": "0x91a3230d6ba2a0e5f5b2e6d1a1e2c3b4a596877a",
-  "to": "0x1111111111111111111111111111111111111111",
-  "value": "0",
-  "data": "0xa9059cbb000000000000000000000000222222222222222222222222222222222222222200000000000000000000000000000000000000000000000000000000000003e8",
-  "operation": 0,
+  "safe": "0x1111111111111111111111111111111111111111",
+  "to": "0x2222222222222222222222222222222222222222",
+  "value": "1000000000000000000",
+  "data": "0x",
+  "operation": "0",
   "safeTxGas": "0",
   "baseGas": "0",
   "gasPrice": "0",
@@ -62,4 +62,4 @@ Recomputes the hash and decodes known calls. It does not simulate execution and 
 
 ## Verify
 
-Run the sample policy_parameters through MCP tool `recompute_safe_tx_hash` at https://mcp.ainumbers.co/mcp (or the page form) and check the returned safeTxHash against what your signing device displays for the same fields. Use synthetic inputs only; never send real personal data.
+Run the sample policy_parameters through MCP tool `recompute_safe_tx_hash` at https://mcp.ainumbers.co/mcp (or the page form) and check the returned receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
