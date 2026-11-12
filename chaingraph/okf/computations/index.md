@@ -714,6 +714,7 @@ status: stable
 - [Authenticator Assurance Level Evaluator](./art-826-authenticator-assurance-level.md)
 - [Omnibus Token Position Reconciliation](./art-828-reconcile-omnibus-token-position.md)
 - [Buy-In Exposure Modeler](./art-83-buy-in-exposure-modeler.md)
+- [Receipt Export Envelopes](./art-831-receipt-export-envelopes.md)
 - [Settlement Efficiency KPI Engine](./art-84-settlement-efficiency-kpi.md)
 - [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md)
 - [TLS / X.509 PKI Migration Planner](./art-86-tls-pki-migration-planner.md)
