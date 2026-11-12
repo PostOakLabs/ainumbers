@@ -44,7 +44,7 @@ const AGENTS = ['0x1111111111111111111111111111111111111111', '0x444444444444444
 const TOKENS = ['0x31c8eacbff8e47cfbefd98d63ab04cbaff51c9cc', '0x9999999999999999999999999999999999999999'];
 const CHAINS = ['84532', '1'];
 const STATUSES = ['signed', 'settled', 'canceled'];
-const NOW = 1700001000;
+const BASE_NOW = 1700001000;
 
 const hex32 = (n) => '0x' + n.toString(16).padStart(64, '0');
 
@@ -62,8 +62,8 @@ function randomPP(rng) {
       nonce: hex32(rng() < 0.15 ? 0xabab : 1 + Math.floor(rng() * 0xffffff)),
       to: '0x2222222222222222222222222222222222222222',
       value: String(Math.floor(rng() * 100000)),
-      validBefore: String(NOW + Math.floor(rng() * 10000) - 5000),
-      signed_at: NOW - 1000 - Math.floor(rng() * 5000),
+      validBefore: String(BASE_NOW + Math.floor(rng() * 10000) - 5000),
+      signed_at: BASE_NOW - 1000 - Math.floor(rng() * 5000),
       status: STATUSES[Math.floor(rng() * STATUSES.length)],
     });
   }
@@ -89,7 +89,7 @@ function randomPP(rng) {
       pp.canceled_events.push(rng() < 0.1 ? { authorizer: AGENTS[1], nonce: hex32(0xdddd0000) } : mkEv());
     }
   }
-  if (rng() < 0.85) pp.now_unix = NOW;
+  if (rng() < 0.85) pp.now_unix = BASE_NOW;
   return pp;
 }
 
@@ -134,12 +134,12 @@ function checkP2_used_event_forces_settled() {
       ledger: [{
         from: AGENTS[0], token: TOKENS[0], chain_id: CHAINS[0], nonce: hex32(1 + i),
         to: '0x2222222222222222222222222222222222222222',
-        value: String(1 + i), validBefore: String(NOW + 7200), signed_at: NOW - 100,
+        value: String(1 + i), validBefore: String(BASE_NOW + 7200), signed_at: BASE_NOW - 100,
         status: STATUSES[i % 3],
       }],
       used_events: [{ authorizer: AGENTS[0], nonce: hex32(1 + i) }],
       canceled_events: [],
-      now_unix: NOW,
+      now_unix: BASE_NOW,
     };
     const out = compute(pp).output_payload;
     checked++;
@@ -157,10 +157,10 @@ function checkP3_exposure_additivity() {
     const mk = (k) => ({
       from: AGENTS[0], token: TOKENS[0], chain_id: CHAINS[0], nonce: hex32(k),
       to: '0x2222222222222222222222222222222222222222',
-      value: String(1000 + k), validBefore: String(NOW + 7200), signed_at: NOW - 100, status: 'signed',
+      value: String(1000 + k), validBefore: String(BASE_NOW + 7200), signed_at: BASE_NOW - 100, status: 'signed',
     });
-    const full = compute({ ledger: [mk(1), mk(2), mk(3)], used_events: [], canceled_events: [], now_unix: NOW }).output_payload;
-    const dropped = compute({ ledger: [mk(1), mk(3)], used_events: [], canceled_events: [], now_unix: NOW }).output_payload;
+    const full = compute({ ledger: [mk(1), mk(2), mk(3)], used_events: [], canceled_events: [], now_unix: BASE_NOW }).output_payload;
+    const dropped = compute({ ledger: [mk(1), mk(3)], used_events: [], canceled_events: [], now_unix: BASE_NOW }).output_payload;
     checked++;
     // full = dropped + value(mk(2)) = dropped + '1002'
     const want = addStrings(dropped.exposure.total_outstanding, '1002');
@@ -220,12 +220,12 @@ function checkP5_determinism() {
 // ---------- P6: refusal shape — malformed inputs refuse with empty entries and flag ----------
 function checkP6_refusal_shape() {
   const malformed = [
-    { ledger: [{ from: '0xzz' }], now_unix: NOW },
-    { ledger: [{ nonce: '0x12' }], now_unix: NOW },
-    { ledger: 'not-an-array', now_unix: NOW },
-    { ledger: [], used_events: [{ authorizer: '0x1' }], now_unix: NOW },
+    { ledger: [{ from: '0xzz' }], now_unix: BASE_NOW },
+    { ledger: [{ nonce: '0x12' }], now_unix: BASE_NOW },
+    { ledger: 'not-an-array', now_unix: BASE_NOW },
+    { ledger: [], used_events: [{ authorizer: '0x1' }], now_unix: BASE_NOW },
     { ledger: [], now_unix: 'soon' },
-    { ledger: [], extra: 1, now_unix: NOW },
+    { ledger: [], extra: 1, now_unix: BASE_NOW },
   ];
   let violations = 0, checked = 0;
   for (const pp of malformed) {
@@ -246,9 +246,9 @@ function checkP7_negative_control_expired() {
       ledger: [{
         from: AGENTS[0], token: TOKENS[0], chain_id: CHAINS[0], nonce: hex32(0x77 + i),
         to: '0x2222222222222222222222222222222222222222',
-        value: String(7 + i), validBefore: String(NOW - 1 - i), signed_at: NOW - 1000, status: 'signed',
+        value: String(7 + i), validBefore: String(BASE_NOW - 1 - i), signed_at: BASE_NOW - 1000, status: 'signed',
       }],
-      used_events: [], canceled_events: [], now_unix: NOW,
+      used_events: [], canceled_events: [], now_unix: BASE_NOW,
     };
     const out = compute(pp).output_payload;
     checked++;
