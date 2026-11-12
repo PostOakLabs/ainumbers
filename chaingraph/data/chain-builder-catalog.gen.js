@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (738 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (739 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -209,6 +209,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/792-curator-vault-cap-auditor.html",
     "description": "Audits a vault curator's point-in-time allocation snapshot against per-market caps and a declared mandate, from caller-declared minor-unit v",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "794-event-fee-recompute",
+    "display_name": "Event Fee Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/794-event-fee-recompute.html",
+    "description": "Recomputes event-contract trading fees per fill and per order from an effective-dated venue fee profile, and diffs the recompute against a c",
     "consumes": [],
     "feeds": [],
     "status": "live"
