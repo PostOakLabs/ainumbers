@@ -1,5 +1,5 @@
 // art-834-asc606-transaction-price-allocator — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:c6185d0d37a2913677f42e82d0d1d7db31d9ef003d1097823fd6016cfe2ebf8c
+// kernel_digest_at_authoring: sha256:a5fc86788526c97004e538ce8a220e63293c36a07c0f90f1318e339601e8c6ef
 // spec: ASC606-ALLOCATION-NODE-1 board row (allocation by declared method; integer minor units)
 // human_sign_off: PENDING
 //
@@ -82,7 +82,7 @@ function finish(items, nums, den, P, rule) {
   const out = new Map();
   const fr = items.map((x, i) => ({ id: x.id, ssp: x.ssp, fl: nums[i] / den, rm: nums[i] % den }));
   if (rule === 'largest_remainder') {
-    let left = P - fr.reduce((s, x) => s + x.fl, 0n);
+    let left = BigInt(P) - fr.reduce((s, x) => s + x.fl, 0n);
     const ranked = fr.slice().sort((p, q) => (p.rm !== q.rm ? (p.rm > q.rm ? -1 : 1) : p.ssp !== q.ssp ? (p.ssp > q.ssp ? -1 : 1) : p.id < q.id ? -1 : 1));
     for (const x of fr) out.set(x.id, x.fl);
     for (const x of ranked) {
