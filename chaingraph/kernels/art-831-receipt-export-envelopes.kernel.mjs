@@ -173,7 +173,7 @@ export function compute(pp) {
     eventTime: r.event_time,
     run: { runId: runIdFromHash(r.execution_hash) },
     job: { namespace: r.namespace, name: r.tool_id },
-    inputs: ph.map((h) => ({ namespace: r.namespace, name: h, type: 'table' })),
+    inputs: ph.map((h) => ({ namespace: r.namespace, name: h })),
     outputs: [],
     producer: PRODUCER,
     schemaURL: SCHEMA_URL,

@@ -1,5 +1,5 @@
 // art-831-receipt-export-envelopes — class-K property-test FLOOR + envelope conformance test.
-// kernel_digest_at_authoring: sha256:8cc858b85b85d288aaef2aa1b6bf2a465324337e51bccddcb5e9818106de5fb4
+// kernel_digest_at_authoring: sha256:93ed1edfa356a5d342241897393b23cc71d2b7f5fdc6cf739393ec9451c3f6e3
 // spec: research/RECEIPT-EXPORT-PIN-2026-10-29.md (pins the two wire specs this kernel emits;
 //       snapshots under research/clause-snapshots/receipt-export/, schema vendored with its
 //       LICENSE at chaingraph/kernels/fixtures/vendor/openlineage-1.55.0/)
@@ -262,7 +262,7 @@ function checkInputsFacetDialect() {
     inputs.forEach((ds, i) => {
       if (ds.name !== pp.receipt.parent_hashes[i]) { violations++; console.log(`  input ${i} not named by parent hash for ${vec.name}`); }
       if (ds.namespace !== pp.receipt.namespace) { violations++; console.log(`  input ${i} namespace mismatch for ${vec.name}`); }
-      if (ds.type !== 'table') { violations++; console.log(`  input ${i} not in the dataset-facet dialect (type) for ${vec.name}`); }
+      if ('type' in ds) { violations++; console.log(`  input ${i} carries a non-spec type member for ${vec.name}`); }
     });
   }
   return { name: 'one dataset per parent hash, named by hash, in the estate lineage-card facet dialect', checked, violations };
