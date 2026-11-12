@@ -2,7 +2,7 @@
 // Authored by PAN-SAD-EXPOSURE-LINT-1, 2026-11-04.
 // spec: node shard art-833-lint-pan-sad-exposure.json, cited_clause_digest (PCI DSS v4.0.1
 //       excerpts 3.3.1.x / 3.4.1 / 3.5.1.x registered in clause-snapshot-registry.json)
-// kernel_digest_at_authoring: sha256:0bf4137a67dbe6815e5a5db00f892291536a288047849f787875139461ab3d16
+// kernel_digest_at_authoring: sha256:11790e57751c5175dc900584b64b2e998a61dd85631d7e9c3ce4dd41c276fb1d
 // human_sign_off: PENDING
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.

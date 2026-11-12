@@ -110,12 +110,14 @@ function analyzeDisplayExpression(raw) {
   let prefix = 0;
   let suffix = 0;
   let hits = 0;
+  let full = false;
   for (const m of found) {
     hits += 1;
+    if (!m[1]) full = true;
     if (m[1] === 'prefix') prefix += parseInt(m[2], 10);
     if (m[1] === 'suffix') suffix += parseInt(m[2], 10);
   }
-  return { expression: text, recognized_directives: hits, prefix_digits: prefix, suffix_digits: suffix, analyzable: hits > 0 };
+  return { expression: text, recognized_directives: hits, prefix_digits: prefix, suffix_digits: suffix, full, analyzable: hits > 0 };
 }
 
 function isPlainObject(v) {
@@ -273,6 +275,18 @@ export function compute(pp) {
         subject: 'search_index_expressions',
         message: 'search index expression reveals prefix=' + s.prefix_digits + ' suffix='
           + s.suffix_digits + ' digits, above the display ceiling',
+        paragraph: 'Requirement 3.4.1',
+      });
+    }
+  }
+  const fullSurfaces = [{ a: aliasAnalysis, subject: 'alias_template' }]
+    .concat(searchIndexAnalysis.map((a) => ({ a, subject: 'search_index_expressions' })));
+  for (const s of fullSurfaces) {
+    if (s.a.full) {
+      findings.push({
+        code: 'MASK_DISPLAY_FULL_PAN',
+        subject: s.subject,
+        message: 'the expression declares plain display: it shows the full PAN',
         paragraph: 'Requirement 3.4.1',
       });
     }
