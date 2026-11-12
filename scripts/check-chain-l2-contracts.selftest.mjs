@@ -13,7 +13,7 @@ import {
   checkMappedField, checkGateRule, checkL2Edge, checkL2Chain, extractConstraint, resolvePointer,
   measuredL2Precision, ADJUDICATED_L2_EDGES,
   checkSharedInputField, checkSharedInputs, checkProvenanceThreading, gateAuthoringInstruction,
-  resolveSchemaPointer,
+  resolveSchemaPointer, manifestSidecarDisagreements, chooseOutputContract,
 } from './check-chain-l2-contracts.mjs';
 import { deriveField, deriveSidecar } from './gen-output-schema.mjs';
 
@@ -25,8 +25,10 @@ function check(name, cond) {
 
 /** Build a ctx from plain manifest-shaped data. Mirrors the live wiring's shape exactly.
  *  `derived` (a Set of tool_ids) marks producers whose output-contract is a fixture-derived SIDECAR
- *  rather than a manifest — the RESCOPE-3 witness site. Their output x-sources use kind:"derived". */
-function makeCtx(manifests, { fixtureOutputs = {}, snapshotDigests = {}, derived = new Set() } = {}) {
+ *  rather than a manifest — the RESCOPE-3 witness site. Their output x-sources use kind:"derived".
+ *  `disagreements` (id -> descriptor[]) mirrors the live wiring's outContractDisagreement accessor
+ *  (CHAIN-FV-L2G-CHECKER-PRECEDENCE-1 scope guard). */
+function makeCtx(manifests, { fixtureOutputs = {}, snapshotDigests = {}, derived = new Set(), disagreements = {} } = {}) {
   function schemaOf(id, side) {
     const m = manifests[id];
     if (!m || !m[side] || !m[side].properties) return null;
@@ -64,6 +66,7 @@ function makeCtx(manifests, { fixtureOutputs = {}, snapshotDigests = {}, derived
       ? `chaingraph/graph/output-schemas/${id}.json → output_schema.properties`
       : `manifests/${id}.manifest.json → output_schema.properties`),
     outSchemaIsDerived: (id) => derived.has(id),
+    outContractDisagreement: (id) => disagreements[id] || [],
     fixtureObservedValues: () => [],
   };
 }
@@ -854,6 +857,123 @@ console.log('── GENERATOR-1 D: gen-output-schema.mjs deriveField/deriveSidec
   const resolved = resolveSchemaPointer(sidecar.output_schema, '/ratios/total_capital_pass');
   check('D-resolve: resolveSchemaPointer finds the nested leaf in a real generated sidecar', !!resolved && resolved.enum.includes(true));
   check('D-resolve: a pointer one segment too deep does not resolve', resolveSchemaPointer(sidecar.output_schema, '/ratios/total_capital_pass/x') === null);
+}
+
+/* ═══ CHAIN-FV-L2G-CHECKER-PRECEDENCE-1 — a witness sidecar outranks a bare manifest block ═══════ */
+// Tim's ruling 2026-10-23 ("Sidecar wins"): the three mandated precedence cases, each verified at
+// BOTH grades — the pure chooser (chooseOutputContract, the same function the live wiring calls)
+// and the checker's own gate path — plus mutations per SO #34 item 7.
+
+console.log('── PRECEDENCE-1 A: sidecar + bare block ⇒ SIDECAR WINS ──');
+{
+  // The MANIFEST-SCHEMA-BACKFILL-1 shape: a bare {type}-stub block over the SAME property set the
+  // sidecar witnessed (no enum/bounds/x-source anywhere, nothing the sidecar omits).
+  const sidecarOut = { type: 'object', properties: { status: { type: 'string', enum: ['ready'], 'x-source': DERIVED_SRC(2) } } };
+  const bareBlock = { type: 'object', properties: { status: { type: 'string' } } };
+  const choice = chooseOutputContract(bareBlock, sidecarOut);
+  check('A-chooser: the sidecar is the deciding schema', choice.schema === sidecarOut);
+  check('A-chooser: it decides as a DERIVED witness', choice.isDerived === true);
+  check('A-chooser: no disagreement is raised', choice.disagreement.length === 0);
+  check('A-chooser: no detail the sidecar lacks, so the guard list is empty',
+    manifestSidecarDisagreements(bareBlock, sidecarOut).length === 0);
+
+  // Checker-level: the gate the sidecar's enum WITNESSES decides pass — the bare block alone could
+  // not have decided it (no enum), so this pass is the sidecar's, not the block's.
+  const ctx = makeCtx({ prod: { output_schema: sidecarOut } }, { derived: new Set(['prod']) });
+  const r = checkGateRule({ input: '/status' }, { op: 'eq', value: 'ready', next: 'end' }, 'prod', ['prod'], ctx);
+  check('A-gate: the witness sidecar decides the gate (gate-value-witness), no finding',
+    r.findings.length === 0 && r.checks_run.includes('gate-value-witness'));
+}
+
+console.log('── PRECEDENCE-1 B: bare block ALONE ⇒ the block decides ──');
+{
+  const bareBlock = { type: 'object', properties: { status: { type: 'string' } } };
+  const choice = chooseOutputContract(bareBlock, null);
+  check('B-chooser: the manifest block is the deciding schema', choice.schema === bareBlock);
+  check('B-chooser: it decides at the DECLARED grade, not derived', choice.isDerived === false);
+
+  // Checker-level: a bare stub decides NOTHING by itself — no domain, so the gate stays
+  // indeterminate (a fixture sample is not a domain; the block is not shadowing anything here).
+  const bareCtx = makeCtx({ prod: { output_schema: bareBlock } });
+  const bare = checkGateRule({ input: '/status' }, { op: 'eq', value: 'ready', next: 'end' }, 'prod', ['prod'], bareCtx);
+  check('B-gate: a bare stub with no domain leaves the gate indeterminate(insufficient-declared-domain)',
+    bare.findings.length === 0 && bare.undecided_reasons.includes('insufficient-declared-domain'));
+
+  // ...but a block that DOES declare an authored domain (enum + x-source) still convicts — the
+  // manifest-only path is unchanged by this row.
+  const declaredBlock = { type: 'object', properties: { status: { type: 'string', enum: ['pending'], 'x-source': MANIFEST_SRC() } } };
+  const declared = checkGateRule({ input: '/status' }, { op: 'eq', value: 'ready', next: 'end' }, 'prod', ['prod'], makeCtx({ prod: { output_schema: declaredBlock } }));
+  check('B-gate: a manifest block alone still convicts a dead branch (gate-value-outside-guarantee)',
+    declared.findings.some((f) => f.code === 'gate-value-outside-guarantee'));
+}
+
+console.log('── PRECEDENCE-1 C: sidecar + RICHER block ⇒ disagreement FINDING, neither side preferred ──');
+{
+  const sidecarOut = { type: 'object', properties: { status: { type: 'string', enum: ['ready'], 'x-source': DERIVED_SRC(2) } } };
+  const richerBlock = { type: 'object', properties: { status: { type: 'string' }, aggregate: { type: 'object', properties: { count_total: { type: 'integer' } } } } };
+  const choice = chooseOutputContract(richerBlock, sidecarOut);
+  check('C-chooser: neither schema decides (schema null)', choice.schema === null);
+  check('C-chooser: no grade is assigned (isDerived null)', choice.isDerived === null);
+  check('C-chooser: the disagreement names the omitted subtree by path and kind',
+    choice.disagreement.length === 1 && choice.disagreement[0].field === 'aggregate'
+      && choice.disagreement[0].kind === 'property');
+  check('C-guard: a nested omission is ONE descriptor at the subtree top, not one per leaf',
+    manifestSidecarDisagreements(richerBlock, sidecarOut).length === 1);
+
+  // Checker-level: the finding fires and NO side is preferred — no gate-pointer-unresolved, no
+  // witness pass stolen from the sidecar, the verdict comes from the disagreement itself.
+  const dis = manifestSidecarDisagreements(richerBlock, sidecarOut);
+  const ctx = makeCtx({ prod: { output_schema: sidecarOut } }, { derived: new Set(['prod']), disagreements: { prod: dis } });
+  const r = checkGateRule({ input: '/status' }, { op: 'eq', value: 'ready', next: 'end' }, 'prod', ['prod'], ctx);
+  check('C-gate: the disagreement is a FINDING with the omitted detail as witness',
+    r.findings.some((f) => f.code === 'manifest-sidecar-domain-disagreement' && f.witness === 'aggregate:property'));
+  check('C-gate: ⛔ neither side decided the gate — no gate-pointer path ran at all',
+    !r.checks_run.includes('gate-pointer') && !r.checks_run.includes('gate-value-witness'));
+  check('C-gate: the reason names the disagreement', r.undecided_reasons.includes('manifest-sidecar-domain-disagreement'));
+  check('C-gate: the authoring instruction says RECONCILE first, not "author an enum"',
+    !!r.authoring && /reconcile the two published contracts first/.test(r.authoring.reconcile_first));
+
+  // MUTATION: reconcile by deleting the extra manifest detail — the finding vanishes and the
+  // sidecar's witness decides the gate again. Proves the guard fires on the disagreement itself.
+  const reconciled = makeCtx({ prod: { output_schema: sidecarOut } }, { derived: new Set(['prod']) });
+  const rm = checkGateRule({ input: '/status' }, { op: 'eq', value: 'ready', next: 'end' }, 'prod', ['prod'], reconciled);
+  check('C-MUTATION: reconciling the block (dropping its extra detail) flips finding -> sidecar witness pass',
+    rm.findings.length === 0 && rm.checks_run.includes('gate-value-witness'));
+}
+
+console.log('── PRECEDENCE-1 guard primitives: enum- and type-kind omissions; one-directional walk ──');
+{
+  // enum kind: the block declares membership the sidecar has no answer for.
+  const enumDis = manifestSidecarDisagreements(
+    { type: 'object', properties: { band: { type: 'string', enum: ['a', 'b'] } } },
+    { type: 'object', properties: { band: { type: 'string' } } },
+  );
+  check('guard: a manifest enum the sidecar omits is an enum-kind disagreement',
+    enumDis.length === 1 && enumDis[0].kind === 'enum' && enumDis[0].field === 'band');
+  // ...but the sidecar's numeric point-witness set (x-observed-values) IS its answer for membership.
+  const observedOk = manifestSidecarDisagreements(
+    { type: 'object', properties: { n: { type: 'number', enum: [0, 1] } } },
+    { type: 'object', properties: { n: { type: 'number', minimum: 0, maximum: 1, 'x-observed-values': [0, 1] } } },
+  );
+  check('guard: x-observed-values answers a manifest enum (no disagreement)',
+    observedOk.length === 0);
+  // type kind: the block declares a type the sidecar property omits entirely.
+  const typeDis = manifestSidecarDisagreements(
+    { type: 'object', properties: { v: { type: 'integer' } } },
+    { type: 'object', properties: { v: {} } },
+  );
+  check('guard: a manifest type the sidecar omits is a type-kind disagreement',
+    typeDis.length === 1 && typeDis[0].kind === 'type');
+  // One-directional: sidecar detail the manifest lacks is FINE — a fixture corpus may see more.
+  const sideRicher = manifestSidecarDisagreements(
+    { type: 'object', properties: { v: { type: 'number' } } },
+    { type: 'object', properties: { v: { type: 'number', minimum: 0, maximum: 1, 'x-source': DERIVED_SRC(1) }, extra_witnessed: { type: 'string' } } },
+  );
+  check('guard: sidecar-only detail (extra property, bounds) raises NOTHING — the walk is manifest→sidecar',
+    sideRicher.length === 0);
+  // Trivial cases: fewer than two sources is not this guard's question.
+  check('guard: no manifest properties -> no disagreement', manifestSidecarDisagreements({ type: 'object' }, { type: 'object', properties: {} }).length === 0);
+  check('guard: no sidecar at all -> no disagreement (the block just decides)', manifestSidecarDisagreements({ type: 'object', properties: { v: { type: 'string' } } }, null).length === 0);
 }
 
 console.log(failures === 0 ? '\n✓ chain L2 contract-composition selftest: all controls passed' : `\n✗ ${failures} control(s) FAILED`);

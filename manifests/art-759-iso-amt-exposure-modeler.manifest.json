@@ -1,0 +1,197 @@
+{
+  "tool_id": "art-759-iso-amt-exposure-modeler",
+  "version": "1.0.0",
+  "title": "ISO AMT Exposure Modeler",
+  "description": "AMT liability from an ISO exercise spread using the 2026 exemption amounts and phase-out thresholds. Reports AMT owed, the effective (post-phase-out) exemption, the maximum shares exercisable without triggering AMT, and the AMT credit generated, plus a 5-step exercise-quantity scenario ladder. Port of Apex #109 (al_id AL-116).",
+  "category": "chaingraph",
+  "tags": [
+    "iso",
+    "amt",
+    "stock-options",
+    "equity",
+    "tax",
+    "2026",
+    "mcp:estimate_iso_amt_exposure"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "shares",
+      "strike_price",
+      "fmv",
+      "ordinary_income",
+      "filing_status"
+    ],
+    "properties": {
+      "shares": {
+        "type": "integer",
+        "description": "Shares to exercise this year. Apex control id 'shares', default 10000, min 1, max 10000000, step 100."
+      },
+      "strike_price": {
+        "type": "number",
+        "description": "Incentive stock option strike price in USD per share. Apex control id 'strikePrice', default 2.50, min 0.01, step 0.01."
+      },
+      "fmv": {
+        "type": "number",
+        "description": "Fair market value per share at exercise, USD. Apex control id 'fmv', default 18.00, min 0.01, step 0.01."
+      },
+      "ordinary_income": {
+        "type": "number",
+        "description": "Gross W-2 and other ordinary income for the year, USD, before the standard deduction (the node subtracts the 2026 deduction itself; assumes the standard deduction, itemized and other 63(b) deductions not modelled). Apex control id 'ordinaryIncome', default 175000, min 0, step 1000. Drives the regular-tax leg, computed on taxable income (IRC sec. 63(b)(1))."
+      },
+      "other_amt_adjustments": {
+        "type": "number",
+        "description": "Other AMT preference items (depreciation, percentage depletion, etc.), USD. Apex control id 'otherAMT', default 0, min 0, step 1000."
+      },
+      "filing_status": {
+        "type": "string",
+        "enum": [
+          "single",
+          "mfj"
+        ],
+        "description": "Filing status. Apex control id 'filingStatus', default 'single' ('Single / MFS') or 'mfj' ('Married Filing Jointly'). Selects the exemption, phase-out threshold and regular-tax brackets."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "estimate_iso_amt_exposure",
+    "description": "AMT liability from an ISO exercise spread using the 2026 exemption amounts and phase-out thresholds (IRS Rev. Proc. 2025-32; IRC 55-57; IRC 422). Regular tax is on taxable income, gross ordinary income minus the 2026 standard deduction; AMTI takes no deduction (IRC 56(b)(1)(D)); standard deduction assumed, itemizers not modelled. Reports AMT owed, effective exemption, max shares without AMT, and the AMT credit, plus a 5-step scenario ladder. Deterministic, client-side, zero PII.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "shares",
+        "strike_price",
+        "fmv",
+        "ordinary_income",
+        "filing_status"
+      ],
+      "properties": {
+        "shares": {
+          "type": "integer",
+          "description": "Shares to exercise this year. Integer, min 1, max 10000000."
+        },
+        "strike_price": {
+          "type": "number",
+          "description": "ISO strike price in USD per share; min 0.01."
+        },
+        "fmv": {
+          "type": "number",
+          "description": "Fair market value per share at exercise in USD; min 0.01."
+        },
+        "ordinary_income": {
+          "type": "number",
+          "description": "Gross W-2 and other ordinary income for the year in USD, before the standard deduction; min 0."
+        },
+        "other_amt_adjustments": {
+          "type": "number",
+          "description": "Other AMT preference items in USD; min 0. Optional; defaults to 0."
+        },
+        "filing_status": {
+          "type": "string",
+          "enum": [
+            "single",
+            "mfj"
+          ],
+          "description": "Filing status: 'single' (Single / MFS) or 'mfj' (Married Filing Jointly)."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-759-iso-amt-exposure-modeler.html",
+    "function_name": "run",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "output_schema": {
+    "type": "object",
+    "description": "output_payload: shares_exercised, strike_price, fmv_at_exercise, ordinary_income (the gross input, echoed), other_amt_adjustments, filing_status, iso_spread, amti, effective_exemption, amt_base, tentative_minimum_tax, standard_deduction (2026 amount by filing status, Rev. Proc. 2025-32 sec. 4.14(1)), taxable_income (max(0, ordinary_income - standard_deduction), the base of the regular tax per IRC sec. 63(b)(1)), regular_tax, amt_owed, amt_credit_generated, max_shares_no_amt, amt_triggered, scenarios[]{shares_exercised, iso_spread, amti, effective_exemption, amt_owed, net_value_after_amt, is_entered}."
+  },
+  "source": "chaingraph/kernels/art-759-iso-amt-exposure-modeler.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: shares, strike_price, fmv, ordinary_income, other_amt_adjustments, filing_status. Required set = the inputs unconditionally dereferenced by compute().",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "shares": 10000,
+    "strike_price": 2.5,
+    "fmv": 18,
+    "ordinary_income": 175000,
+    "other_amt_adjustments": 0,
+    "filing_status": "single"
+  },
+  "output_example": {
+    "shares_exercised": 10000,
+    "strike_price": 2.5,
+    "fmv_at_exercise": 18,
+    "ordinary_income": 175000,
+    "other_amt_adjustments": 0,
+    "filing_status": "single",
+    "iso_spread": 155000,
+    "amti": 330000,
+    "effective_exemption": 90100,
+    "amt_base": 239900,
+    "tentative_minimum_tax": 62374,
+    "standard_deduction": 16100,
+    "taxable_income": 158900,
+    "regular_tax": 30734,
+    "amt_owed": 31640,
+    "amt_credit_generated": 31640,
+    "max_shares_no_amt": 2148,
+    "amt_triggered": true,
+    "scenarios": [
+      {
+        "shares_exercised": 0,
+        "iso_spread": 0,
+        "amti": 175000,
+        "effective_exemption": 90100,
+        "amt_owed": 0,
+        "net_value_after_amt": 0,
+        "is_entered": false
+      },
+      {
+        "shares_exercised": 2500,
+        "iso_spread": 38750,
+        "amti": 213750,
+        "effective_exemption": 90100,
+        "amt_owed": 1415,
+        "net_value_after_amt": 37335,
+        "is_entered": false
+      },
+      {
+        "shares_exercised": 5000,
+        "iso_spread": 77500,
+        "amti": 252500,
+        "effective_exemption": 90100,
+        "amt_owed": 11490,
+        "net_value_after_amt": 66010,
+        "is_entered": false
+      },
+      {
+        "shares_exercised": 7500,
+        "iso_spread": 116250,
+        "amti": 291250,
+        "effective_exemption": 90100,
+        "amt_owed": 21565,
+        "net_value_after_amt": 94685,
+        "is_entered": false
+      },
+      {
+        "shares_exercised": 10000,
+        "iso_spread": 155000,
+        "amti": 330000,
+        "effective_exemption": 90100,
+        "amt_owed": 31640,
+        "net_value_after_amt": 123360,
+        "is_entered": true
+      }
+    ]
+  },
+  "example_execution_hash": "a7753040699df975aa86625b74da5cdfd0d1bb02c7f4c48ad4779051d4e348fe"
+}

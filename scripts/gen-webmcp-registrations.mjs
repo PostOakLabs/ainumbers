@@ -1006,6 +1006,13 @@ export const propertyIdMap = {
     merkle_root: { element_id: 'merkleRoot', via: 'string' },
     proof_entries: { element_id: 'proofEntries', via: 'json' },
   },
+  // WEBMCP-REGISTER-CRY05-1: register cry-05 for the chain-execute gate's part 3
+  // (every `<chain>#part3:cry-05-...` step); via authored from the page's own
+  // control read:
+  //   chaingraph/cry-05-agent-action-audit-trail-aggregator.html:664 — artifacts -> #srcInput (JSON-text textarea (#srcInput); page JSON.parses the textarea)
+  'cry-05-agent-action-audit-trail-aggregator': {
+    artifacts: { element_id: 'srcInput', via: 'json' },
+  },
   // WEBMCP-PROPERTYIDMAP-BATCH-1: rename pair(s) from fixlist WEBMCP-SCHEMA-DIVERGENCE-FIXLIST-1
   // (graded PASS, board/reference/SHADOW-PROPOSALS.md CS-145); via authored from the page's
   // own control reads:
@@ -1579,7 +1586,11 @@ export function insertIntoPage(pageSrc, block) {
     return pageSrc.slice(0, region.start) + block + pageSrc.slice(region.end);
   }
   if (!pageSrc.includes('</body>')) throw new Error('page has no </body> to insert before');
-  return pageSrc.replace('</body>', block + '\n\n</body>');
+  // Insert before the LAST </body>: pages may carry a literal '</body>' inside a
+  // script string or template (e.g. document.write('</body></html>')), and a
+  // first-match splice would land the region inside script text and throw at load.
+  const at = pageSrc.lastIndexOf('</body>');
+  return pageSrc.slice(0, at) + block + '\n\n' + pageSrc.slice(at);
 }
 
 // ── Candidate derivation (sweep gate live) ────────────────────────────────────
@@ -1920,24 +1931,159 @@ export function buildChainBlock(chainName, hasRunner) {
   return lines.join('\n');
 }
 
+/** WEBMCP-CHAIN-GEN-COMPOSER-URL-1: a chain's composer_url as a repo-relative
+ *  page path, or null. Absolute URLs (https://ainumbers.co/…) yield their
+ *  pathname; a bare path is taken as-is. Query/hash never reach the disk. */
+function composerUrlPagePath(chain) {
+  const raw = chain.composer_url;
+  if (typeof raw !== 'string' || raw.length === 0) return null;
+  let p;
+  try { p = new URL(raw).pathname; } catch { p = raw; }
+  p = p.replace(/^\/+/, '').split('?')[0].split('#')[0];
+  return p.length > 0 ? p : null;
+}
+
+/** WEBMCP-CHAIN-GEN-COMPOSER-URL-1: the page a chain CLAIMS for the advisory
+ *  coverage/bijection report — its composer_url path when that file exists
+ *  under chaingraph/chains/, otherwise the name-keyed path; null when neither
+ *  exists (the chain lists under `unregistered`). Report-only: the blocking
+ *  drift verdict uses the frozen population in expectedChainBlocks, not this. */
+function claimedChainPage(repoRoot, chain) {
+  const nameRel = `chaingraph/chains/${chain.name}.html`;
+  const cuRel = composerUrlPagePath(chain);
+  if (cuRel !== null && cuRel.startsWith('chaingraph/chains/') && existsSync(resolve(repoRoot, cuRel))) {
+    return { page: cuRel, via: 'composer_url' };
+  }
+  if (existsSync(resolve(repoRoot, nameRel))) return { page: nameRel, via: 'name' };
+  return null;
+}
+
+/** Verdict of one chain entry against its page's region. 'byte-exact' matches
+ *  the entry's own block; 'foreign-region' is a region owned by another chain
+ *  (or drifted bytes); 'no-region' carries nothing generated. */
+function classifyChainRegion(entry, pageSrc) {
+  const region = regionOf(pageSrc);
+  if (!region) return 'no-region';
+  return pageSrc.slice(region.start, region.end) === entry.block ? 'byte-exact' : 'foreign-region';
+}
+
+const BIJECTION_EXPECTED_FILE = 'webmcp-chain-bijection-expected.json';
+
+/** Declared-expected bijection collisions (WEBMCP-CHAIN-GEN-COMPOSER-URL-1).
+ *  Keys are page basenames; '_'-prefixed keys (e.g. '_why') are prose, not
+ *  pages. A missing or unreadable file degrades to an empty expectation — the
+ *  report goes loud with NEW lines, it never fails the run. */
+function loadBijectionExpected(repoRoot) {
+  const p = resolve(repoRoot, 'scripts', BIJECTION_EXPECTED_FILE);
+  if (!existsSync(p)) return { map: {}, note: 'no expected file — every collision prints NEW' };
+  let raw;
+  try { raw = JSON.parse(readFileSync(p, 'utf8')); } catch (e) {
+    return { map: {}, note: `expected file unreadable (${e.message}) — every collision prints NEW` };
+  }
+  const map = {};
+  for (const [k, v] of Object.entries(raw ?? {})) {
+    if (k.startsWith('_')) continue;
+    if (Array.isArray(v)) map[k] = v.map(String).sort();
+  }
+  return { map, note: null };
+}
+
+/** WEBMCP-CHAIN-GEN-COMPOSER-URL-1: the advisory every-chain coverage and
+ *  one-chain-one-page (bijection) report. Pure data; chainAdvisoryLines
+ *  renders it; --check prints it without ever affecting the exit code. */
+function chainAdvisoryReport(repoRoot) {
+  const cg = JSON.parse(readFileSync(resolve(repoRoot, 'chaingraph', 'chaingraph.json'), 'utf8'));
+  const claims = new Map(); // claimed page (repo-relative) -> [chain names]
+  const claimedChains = new Set();
+  let total = 0;
+  for (const chain of (cg.chains ?? [])) {
+    if (!chain.name) continue;
+    total++;
+    const claim = claimedChainPage(repoRoot, chain);
+    if (!claim) continue;
+    if (!claims.has(claim.page)) claims.set(claim.page, []);
+    claims.get(claim.page).push(chain.name);
+    claimedChains.add(chain.name);
+  }
+  const unregistered = (cg.chains ?? []).filter((c) => c.name && !claimedChains.has(c.name)).map((c) => c.name).sort();
+  const collisions = [...claims.entries()]
+    .filter(([, cs]) => cs.length > 1)
+    .map(([page, cs]) => ({ page: basename(page), chains: [...cs].sort() }))
+    .sort((a, b) => (a.page < b.page ? -1 : a.page > b.page ? 1 : 0));
+  const { map: expectedMap, note } = loadBijectionExpected(repoRoot);
+  const canon = (cs) => cs.join(',');
+  const live = new Map(collisions.map((c) => [c.page, canon(c.chains)]));
+  const newCollisions = collisions.filter((c) => live.get(c.page) !== (expectedMap[c.page] ? canon(expectedMap[c.page]) : null));
+  const staleEntries = Object.entries(expectedMap).filter(([p, cs]) => live.get(p) !== canon(cs));
+  return { total, registered: claimedChains.size, unregistered, collisions, newCollisions, staleEntries, note };
+}
+
+function chainAdvisoryLines(repoRoot) {
+  const r = chainAdvisoryReport(repoRoot);
+  const lines = [];
+  lines.push(`chain-coverage: ${r.registered}/${r.total} chains registered; unregistered: ${r.unregistered.length > 0 ? r.unregistered.join(', ') : '(none)'}`);
+  const detail = r.collisions.map((c) => `${c.page} ← ${c.chains.join(', ')}`).join('; ');
+  lines.push(`chain-bijection: ${r.collisions.length} page(s) claimed by more than one chain${detail.length > 0 ? ': ' + detail : ''}`);
+  for (const c of r.newCollisions) lines.push(`chain-bijection NEW: ${c.page} ← ${c.chains.join(', ')}`);
+  for (const [p, cs] of r.staleEntries) lines.push(`chain-bijection STALE: ${p} ← ${cs.join(', ')} (expected collision no longer measured — the expected file should shrink)`);
+  if (r.note) lines.push(`chain-bijection NOTE: ${r.note}`);
+  return lines;
+}
+
 /** Chain-mode writer/check over every chain in chaingraph.json that has a
- *  composer page on disk. Returns the per-page verdict list. */
+ *  composer page on disk. Returns the per-page verdict list.
+ *
+ *  WEBMCP-CHAIN-GEN-COMPOSER-URL-1: a chain's page resolves by composer_url
+ *  first (its path, when it names an existing file under chaingraph/chains/);
+ *  otherwise the name-keyed path. The BLOCKING set stays frozen at the row's
+ *  pre-change population — chains whose name-keyed page exists — with today's
+ *  page, block and drift semantics byte-identical. A chain whose composer_url
+ *  reaches a DIFFERENT existing chains/ page additionally yields an ADVISORY
+ *  entry (via 'composer_url', blocking false): reported by --check as WARN
+ *  lines plus the coverage/bijection report, never written by --chains
+ *  --write, never drift. A chain with neither page yields no entry and lists
+ *  under the coverage report's `unregistered`. */
 export function expectedChainBlocks(repoRoot) {
   const cg = JSON.parse(readFileSync(resolve(repoRoot, 'chaingraph', 'chaingraph.json'), 'utf8'));
+  // GRADE-FIX-COMPOSER-WEBMCP-9-1: a composer_url-reached page inside
+  // chaingraph/chains/ that exactly ONE chain claims is blocking (written and
+  // drift-checked like a name-keyed page); a page claimed by MORE than one
+  // chain stays advisory — two chains cannot both be byte-exact on one page,
+  // so the bijection-honest population never flips.
+  const cuClaims = new Map(); // composer_url page (repo-relative) -> claiming chains
+  for (const chain of (cg.chains ?? [])) {
+    if (!chain.name) continue;
+    const cuRel = composerUrlPagePath(chain);
+    if (cuRel !== null && cuRel.startsWith('chaingraph/chains/') && existsSync(resolve(repoRoot, cuRel))) {
+      cuClaims.set(cuRel, (cuClaims.get(cuRel) ?? 0) + 1);
+    }
+  }
   const out = [];
   for (const chain of (cg.chains ?? [])) {
     if (!chain.name) continue;
-    const pageRel = `chaingraph/chains/${chain.name}.html`;
-    const pageAbs = resolve(repoRoot, pageRel);
-    if (!existsSync(pageAbs)) continue;
-    const hasRunner = existsSync(resolve(repoRoot, 'chaingraph', 'runners', `${chain.name}.html`));
-    out.push({ chain: chain.name, page: pageRel, hasRunner, block: buildChainBlock(chain.name, hasRunner) });
+    const nameRel = `chaingraph/chains/${chain.name}.html`;
+    const nameExists = existsSync(resolve(repoRoot, nameRel));
+    const cuRel = composerUrlPagePath(chain);
+    const cuUsable = cuRel !== null && cuRel.startsWith('chaingraph/chains/') && existsSync(resolve(repoRoot, cuRel));
+    if (nameExists) {
+      const hasRunner = existsSync(resolve(repoRoot, 'chaingraph', 'runners', `${chain.name}.html`));
+      out.push({ chain: chain.name, page: nameRel, via: 'name', blocking: true, hasRunner, block: buildChainBlock(chain.name, hasRunner) });
+    }
+    if (cuUsable && cuRel !== nameRel) {
+      const hasRunner = existsSync(resolve(repoRoot, 'chaingraph', 'runners', `${chain.name}.html`));
+      const solo = (cuClaims.get(cuRel) ?? 0) === 1;
+      out.push({ chain: chain.name, page: cuRel, via: 'composer_url', blocking: solo, hasRunner, block: buildChainBlock(chain.name, hasRunner) });
+    }
   }
   return out;
 }
 
 function runChainMode(write) {
-  const entries = expectedChainBlocks(REPO);
+  // GRADE-FIX-COMPOSER-WEBMCP-9-1: --chains writes and checks the blocking
+  // population — name-keyed pages plus composer_url-reached chains/ pages that
+  // exactly one chain claims. Pages claimed by more than one chain stay
+  // report-only here (see expectedChainBlocks).
+  const entries = expectedChainBlocks(REPO).filter((e) => e.blocking);
   const ot = readOtToken(REPO);
   const otBlock = ot.present ? otMetaBlock(ot.token) : null;
   let written = 0, drifted = 0;
@@ -2037,19 +2183,35 @@ function runCheck() {
   }
   // 3. Chain composer pages (COMPOSER-PLAN-AND-ROOT-WEBMCP-1): byte-exact
   // chain-mode regions (plan_chain, assemble_session_receipt, apply_delegation_bundle).
-  for (const e of expectedChainBlocks(REPO)) {
+  // GRADE-FIX-COMPOSER-WEBMCP-9-1: blocking now includes solo-claim
+  // composer_url-reached chains/ pages (byte-checked like name-keyed pages).
+  // Only pages claimed by MORE than one chain stay advisory: WARN lines plus
+  // data in the 3b report — never drift, never exit code.
+  const chainEntries = expectedChainBlocks(REPO);
+  for (const e of chainEntries) {
     let pageSrc;
-    try { pageSrc = readRepoFile(e.page, REPO); } catch { continue; }
-    const region = regionOf(pageSrc);
-    if (!region) {
+    try { pageSrc = readRepoFile(e.page, REPO); } catch { pageSrc = null; }
+    const verdict = pageSrc === null ? 'page-absent' : classifyChainRegion(e, pageSrc);
+    if (!e.blocking) {
+      const status = {
+        'page-absent': 'page absent',
+        'no-region': 'page carries no generated chain region yet',
+        'foreign-region': "page's region belongs to another chain",
+        'byte-exact': "page's region is already byte-exact for this chain"
+      }[verdict];
+      console.log(`WARN ${e.page}: chain '${e.chain}' reaches this page via composer_url (${status}); advisory — the page is claimed by more than one chain, so no single generated block is byte-exact here`);
+      continue;
+    }
+    if (verdict === 'page-absent' || verdict === 'no-region') {
       problems.push(`${e.page}: no generated chain registration region (expected for chain '${e.chain}')`);
       continue;
     }
-    const actual = pageSrc.slice(region.start, region.end);
-    if (actual !== e.block) {
+    if (verdict === 'foreign-region') {
       problems.push(`${e.page}: chain registration region drifted — hand-edits are red; run node scripts/gen-webmcp-registrations.mjs --chains --write`);
       continue;
     }
+    const region = regionOf(pageSrc);
+    const actual = pageSrc.slice(region.start, region.end);
     const chainScripts = [...actual.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
     for (const scriptBody of chainScripts) {
       try { new Function(scriptBody); } catch (err) {
@@ -2057,6 +2219,10 @@ function runCheck() {
       }
     }
   }
+  // 3b. Advisory every-chain coverage + one-chain-one-page bijection report
+  // (WEBMCP-CHAIN-GEN-COMPOSER-URL-1), printed by --check, never affecting the
+  // exit code. This is the population the successor rows clear.
+  for (const line of chainAdvisoryLines(REPO)) console.log(line);
 
   // 4. Derived pages (WEBMCP-WRAPPER-PARSE-1): committed derived entries are
   // re-parsed and re-probed against fixture 0 — wrapper-byte drift, entry
@@ -2147,7 +2313,7 @@ function runCheck() {
     problems.forEach((p) => console.error('    ' + p));
     process.exit(1);
   }
-  const chainCount = expectedChainBlocks(REPO).length;
+  const chainCount = chainEntries.filter((e) => e.blocking).length;
   const derivedTools = Object.entries(propertyIdMap).filter(([, m]) => derivedEntriesOf(m).length).length;
   console.log(`✓ direct-mode probe clean (WEBMCP-DIRECT-MODE-1) — ${directHistogram(directVerdicts)}; ${directRegions} direct-mode region(s) on disk, all eligible and byte-exact vs their manifests.`);
   console.log(`✓ webmcp-registration freshness clean — ${emittable.length} generated registration(s) byte-exact vs their manifests, ${chainCount} chain composer page(s) byte-exact in chain mode, ${derivedTools} derived-map page(s) re-parsed and probe-verified vs fixture 0; ${excluded.length} sweep-cleared tool(s) excluded with reasons (shrinks as fix rows land).`);
@@ -3303,7 +3469,7 @@ export function findRenderFunctionName(pageSrc, fn, resGlobal) {
  * The static direct-mode probe: per-page eligibility verdict.
  *   { eligible: true,  code: 'eligible', detail: { manifest, page, resGlobal, render, name } }
  *   { eligible: false, code, reason }   — code names the failing condition
- *     (opt-out | digest-sentinel | result-global | fn-shape | dom-read | render |
+ *     (opt-out | digest-sentinel | result-global | fn-shape | dom-read | render | fn-exec |
  *      fixture | kernel-parity | manifest | page), reason is the exclusion-list
  *     line (`direct-probe: …` / `direct-opt-out: …`).
  * `opts.optOuts` overrides DIRECT_MODE_OPT_OUT (selftest seam).
@@ -3411,10 +3577,66 @@ export async function directAdjudication(toolId, manifestIndex, mcpNameByTool, r
   if (producedHex !== goldenHex) {
     return { toolId, eligible: false, code: 'kernel-parity', reason: `direct-probe: hash-mismatch (kernel produced ${producedHex.slice(0, 16)}…, fixture golden ${goldenHex.slice(0, 16)}…)` };
   }
+
+  // (e) the declared function EXECUTES: called with fixture 0's policy_parameters
+  // in the execute harness's sandbox it must return an object that hashes via
+  // executionHash. Parameter count alone passed sync helpers that trigger a
+  // download and return nothing.
+  const execErr = await probeFunctionExecutes(pageSrc, fn, fx.policy_parameters);
+  if (execErr) {
+    return { toolId, eligible: false, code: 'fn-exec', reason: `direct-probe: execution.function_name '${fn}' ${execErr}` };
+  }
   return {
     toolId, eligible: true, code: 'eligible', reason: null,
     detail: { manifest: loaded.file, page: pageRel, resGlobal, render: renderFn, name: manifest.mcp_tool_definition.name },
   };
+}
+
+const FN_EXEC_TIMEOUT_MS = 10_000;
+
+/**
+ * Probe (e) of directAdjudication: load the page in the wrapper gate's
+ * minimal-DOM sandbox (no harness stubs beyond it), call `fn(policy_parameters)`
+ * and require a settled object whose outcome hashes through executionHash.
+ * Returns null when the call is sound, else the reason clause.
+ * The wrapper gate imports this module, so it is loaded lazily to avoid a cycle.
+ */
+export async function probeFunctionExecutes(pageSrc, fn, policyParameters, timeoutMs = FN_EXEC_TIMEOUT_MS) {
+  const { makeExecuteSandbox, extractInlineScripts } = await import('./check-webmcp-wrapper-execute.mjs');
+  const vm = await import('node:vm');
+  const { scripts, seedElements } = extractInlineScripts(pageSrc);
+  const { sandbox } = makeExecuteSandbox(seedElements);
+  const context = vm.createContext(sandbox);
+  for (let i = 0; i < scripts.length; i++) {
+    try { new vm.Script(scripts[i], { filename: `probe#script-${i}` }).runInContext(context); } catch (e) {
+      return `could not be executed: inline script ${i} threw at load (${e.message})`;
+    }
+  }
+  let target;
+  try { target = new vm.Script(fn).runInContext(context); } catch { target = undefined; }
+  if (typeof target !== 'function') return 'is not callable after the page scripts load';
+  let timer;
+  let returned;
+  try {
+    returned = await Promise.race([
+      Promise.resolve().then(() => target(JSON.parse(JSON.stringify(policyParameters)))),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`did not settle within ${timeoutMs}ms`)), timeoutMs); }),
+    ]);
+  } catch (e) {
+    return `threw on fixture 0 policy_parameters (${e.message})`;
+  } finally {
+    clearTimeout(timer);
+  }
+  if (returned === null || typeof returned !== 'object' || Array.isArray(returned)) {
+    return `returned ${returned === null ? 'null' : Array.isArray(returned) ? 'an array' : typeof returned} on fixture 0, not an object that hashes via executionHash (a sync helper that downloads or returns nothing is not a direct target)`;
+  }
+  if (typeof returned.error === 'string') return `returned a structured error on fixture 0 (${returned.error})`;
+  try {
+    await executionHash(policyParameters, readOutcome(returned));
+  } catch (e) {
+    return `result does not hash via executionHash (${e.message})`;
+  }
+  return null;
 }
 
 // ── MR-R4-NULL-NORMALIZE-WEBMCP-1: the shared null-member normalizer ─────────
@@ -3711,6 +3933,7 @@ async function selftest(){
     if (!ok) failures++;
   };
   const tmp = mkdtempSync(join(tmpdir(), 'gwmr-'));
+  let chainTmp = null; // section 17's chain-mode fixture root; cleaned in finally
   try {
     const manifestsDir = join(tmp, 'manifests');
     const kernelsDir = join(tmp, 'chaingraph', 'kernels');
@@ -3797,6 +4020,12 @@ async function selftest(){
     check('file-import reader present, sourced from _page-chrome.mjs', block.includes(FILE_IMPORT_MARKER) && block.includes('__ocgFileImport'));
     check('file-import reader shares the deep-link run target', block.includes('var RUN_TARGET = "run"'));
     check('file-import reader declares json/csv acceptance and no-upload posture', block.includes(".csv") && block.includes(".json") && block.includes("no storage, no network"));
+
+    // 4b. WEBMCP-GEN-LASTBODY-FIX-1: a literal '</body>' inside script text must
+    // not capture the insert — the block lands before the FINAL </body>.
+    const trickySrc = '<!doctype html>\n<html><body>\n<script>w.document.write("</body></html>");</script>\n</body></html>';
+    const trickyOut = insertIntoPage(trickySrc, block);
+    check('insert lands before the LAST </body> (literal </body> in script text is not the anchor)', trickyOut.indexOf(block) > trickySrc.indexOf('</body>') && trickyOut.endsWith(block + '\n\n</body></html>'));
 
     // 4. Insert is idempotent.
     const once = insertIntoPage(pageBody, block);
@@ -4369,8 +4598,104 @@ async function selftest(){
     // The histogram line format the PR body and --check quote.
     const dHist = directHistogram([{ code: 'eligible' }, { code: 'dom-read' }, { code: 'dom-read' }]);
     check('direct histogram: eligible and refused classes counted', dHist.includes('eligible=1') && dHist.includes('refused:dom-read=2'));
+
+    // 17. Chain-mode composer_url resolution (WEBMCP-CHAIN-GEN-COMPOSER-URL-1):
+    // resolution precedence, the frozen blocking set, and the advisory
+    // coverage/bijection report. RED+GREEN per control (a)-(e) of the row.
+    chainTmp = mkdtempSync(join(tmpdir(), 'gwmr-chain-'));
+    const chainPagesDir = join(chainTmp, 'chaingraph', 'chains');
+    const chainScriptsDir = join(chainTmp, 'scripts');
+    mkdirSync(chainPagesDir, { recursive: true });
+    mkdirSync(chainScriptsDir, { recursive: true });
+    const chainFixturePage = (name) => {
+      const block = buildChainBlock(name, false);
+      writeFileSync(join(chainPagesDir, `${name}.html`), insertIntoPage('<!doctype html>\n<html><body>\n<h1>chain fixture</h1>\n</body></html>\n', block));
+      return block;
+    };
+    const FXSITE = 'https://fixture.example';
+    const fxChains = [
+      { name: 'fx-500-own', composer_url: `${FXSITE}/chaingraph/chains/fx-500-own.html` },
+      { name: 'fx-501-cu', composer_url: `${FXSITE}/chaingraph/chains/fx-500-own.html` },
+      { name: 'fx-502-pair-a', composer_url: `${FXSITE}/chaingraph/chains/fx-pair-page.html` },
+      { name: 'fx-502-pair-b', composer_url: `${FXSITE}/chaingraph/chains/fx-pair-page.html` },
+      { name: 'fx-503-none', composer_url: `${FXSITE}/chaingraph/chains/absent.html` },
+      { name: 'fx-504-outside', composer_url: `${FXSITE}/chaingraph/fx-art-page.html` },
+      { name: 'fx-505-solo', composer_url: `${FXSITE}/chaingraph/chains/fx-solo-page.html` }
+    ];
+    writeFileSync(join(chainTmp, 'chaingraph', 'chaingraph.json'), JSON.stringify({ chains: fxChains }, null, 2));
+    writeFileSync(join(chainTmp, 'chaingraph', 'fx-art-page.html'), '<!doctype html>\n<html><body>\n<p>art page, outside chains/</p>\n</body></html>\n');
+    chainFixturePage('fx-500-own');
+    writeFileSync(join(chainPagesDir, 'fx-pair-page.html'), '<!doctype html>\n<html><body>\n<p>shared composer page; carries no chain region</p>\n</body></html>\n');
+    // GRADE-FIX-COMPOSER-WEBMCP-9-1: a composer_url page claimed by exactly
+    // ONE chain (fx-solo-page.html ← fx-505-solo only) is blocking, so its
+    // region must already be byte-exact for control (e)'s 0-drift assertion.
+    writeFileSync(join(chainPagesDir, 'fx-solo-page.html'),
+      insertIntoPage('<!doctype html>\n<html><body>\n<p>solo composer page</p>\n</body></html>\n', buildChainBlock('fx-505-solo', false)));
+    const bijectionFile = join(chainScriptsDir, 'webmcp-chain-bijection-expected.json');
+    writeFileSync(bijectionFile, JSON.stringify({
+      'fx-500-own.html': ['fx-500-own', 'fx-501-cu'],
+      ghost: ['fx-a', 'fx-b'],
+      _why: 'fixture v1: control (c) expected collision; ghost is the STALE control'
+    }, null, 2));
+
+    const fxEntries = expectedChainBlocks(chainTmp);
+    const fxOwnSrc = readFileSync(join(chainPagesDir, 'fx-500-own.html'), 'utf8');
+    // (a) RED+GREEN: composer_url reach of an existing non-name-keyed page
+    // resolves via composer_url and is REPORTED, never drifted.
+    const e501 = fxEntries.find((e) => e.chain === 'fx-501-cu');
+    check('chain (a): composer_url reach yields an advisory entry (via composer_url, blocking false)',
+      !!e501 && e501.via === 'composer_url' && e501.blocking === false && e501.page === 'chaingraph/chains/fx-500-own.html');
+    check('chain (a) RED: foreign region on the composer_url page classifies foreign, and blocking:false keeps it out of the drift verdict',
+      !!e501 && classifyChainRegion(e501, fxOwnSrc) === 'foreign-region' && e501.blocking === false);
+    check('chain (a) GREEN: the chain still counts registered (it claims fx-500-own.html)',
+      chainAdvisoryReport(chainTmp).registered === 5);
+
+    // (b) RED+GREEN: a two-chains-one-page collision not in the expected file prints NEW.
+    const lines1 = chainAdvisoryLines(chainTmp);
+    check('chain (b) RED: unlisted collision prints chain-bijection NEW',
+      lines1.some((l) => l === 'chain-bijection NEW: fx-pair-page.html ← fx-502-pair-a, fx-502-pair-b'));
+    writeFileSync(bijectionFile, JSON.stringify({
+      'fx-500-own.html': ['fx-500-own', 'fx-501-cu'],
+      'fx-pair-page.html': ['fx-502-pair-a', 'fx-502-pair-b'],
+      _why: 'fixture v2: both collisions declared; no NEW, no STALE'
+    }, null, 2));
+    const rep2 = chainAdvisoryReport(chainTmp);
+    check('chain (b) GREEN: listed collision stops printing NEW (0 NEW, 0 STALE)',
+      rep2.newCollisions.length === 0 && rep2.staleEntries.length === 0);
+
+    // (c) RED+GREEN: a listed collision prints in the summary as expected
+    // (the aml-trio shape); a listed collision that dissolves prints STALE.
+    check('chain (c) GREEN: the expected collision lists inline, chains sorted',
+      chainAdvisoryLines(chainTmp).some((l) => l === 'chain-bijection: 2 page(s) claimed by more than one chain: fx-500-own.html ← fx-500-own, fx-501-cu; fx-pair-page.html ← fx-502-pair-a, fx-502-pair-b'));
+    check('chain (c) RED: expected collision that no longer exists prints STALE',
+      lines1.some((l) => l.startsWith('chain-bijection STALE: ghost ← fx-a, fx-b')));
+
+    // (d) RED+GREEN: a chain with neither page lists under unregistered; its page clears it.
+    check('chain (d) RED: neither-page chains list under unregistered (incl. composer_url outside chains/)',
+      lines1.some((l) => l === 'chain-coverage: 5/7 chains registered; unregistered: fx-503-none, fx-504-outside'));
+    chainFixturePage('fx-503-none');
+    check('chain (d) GREEN: once its name-keyed page exists, the chain leaves the unregistered list',
+      chainAdvisoryLines(chainTmp).some((l) => l === 'chain-coverage: 6/7 chains registered; unregistered: fx-504-outside'));
+
+    // (e) RED+GREEN: the blocking drift count is UNCHANGED on a fixture where
+    // only composer_url pages lack regions — advisory reaches never enter it.
+    const blocking = fxEntries.filter((e) => e.blocking);
+    check('chain (e): the blocking set is name-keyed pages plus the ONE solo-claim composer_url page (fx-500-own, fx-505-solo)',
+      blocking.length === 2 && blocking.every((e) => ['fx-500-own', 'fx-505-solo'].includes(e.chain)));
+    check('chain (f) GRADE-FIX-COMPOSER-WEBMCP-9-1: a composer_url page claimed by exactly one chain is blocking and byte-exact; collision pages stay advisory',
+      fxEntries.find((e) => e.chain === 'fx-505-solo')?.blocking === true
+        && fxEntries.find((e) => e.chain === 'fx-505-solo')?.page === 'chaingraph/chains/fx-solo-page.html'
+        && fxEntries.find((e) => e.chain === 'fx-501-cu')?.blocking === false
+        && fxEntries.find((e) => e.chain === 'fx-502-pair-a')?.blocking === false);
+    check('chain (e) RED+GREEN: every blocking entry is byte-exact (0 drift) while composer_url reaches classify no-region/foreign',
+      blocking.every((e) => classifyChainRegion(e, readFileSync(join(chainTmp, e.page), 'utf8')) === 'byte-exact')
+        && fxEntries.filter((e) => !e.blocking).every((e) => {
+          const v = classifyChainRegion(e, readFileSync(join(chainTmp, e.page), 'utf8'));
+          return v === 'no-region' || v === 'foreign-region';
+        }));
   } finally {
     rmSync(tmp, { recursive: true, force: true });
+    if (chainTmp) rmSync(chainTmp, { recursive: true, force: true });
   }
 
   console.log(failures === 0 ? 'GEN-WEBMCP-REGISTRATIONS SELFTEST: PASS' : 'GEN-WEBMCP-REGISTRATIONS SELFTEST: FAIL');
