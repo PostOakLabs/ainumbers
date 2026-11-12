@@ -1,4 +1,4 @@
-// art-831-asc606-transaction-price-allocator — class-K property-test FLOOR.
+// art-834-asc606-transaction-price-allocator — class-K property-test FLOOR.
 // kernel_digest_at_authoring: sha256:c6185d0d37a2913677f42e82d0d1d7db31d9ef003d1097823fd6016cfe2ebf8c
 // spec: ASC606-ALLOCATION-NODE-1 board row (allocation by declared method; integer minor units)
 // human_sign_off: PENDING
@@ -9,12 +9,12 @@
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
-// Run: node chaingraph/kernels/__proptests__/art-831-asc606-transaction-price-allocator.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/art-834-asc606-transaction-price-allocator.proptest.mjs
 
-import { compute } from '../art-831-asc606-transaction-price-allocator.kernel.mjs';
+import { compute } from '../art-834-asc606-transaction-price-allocator.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, pick } from './_pbt-common.mjs';
 
-const KERNEL_ID = 'art-831-asc606-transaction-price-allocator';
+const KERNEL_ID = 'art-834-asc606-transaction-price-allocator';
 const N_CASES = 400;
 const ROUNDING = ['largest_remainder', 'half_up_remainder_to_largest'];
 const IDS = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];

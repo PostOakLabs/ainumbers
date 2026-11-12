@@ -1,6 +1,6 @@
 import { executionHash } from './_hash.mjs';
 
-// art-831-asc606-transaction-price-allocator — allocates a declared transaction price across declared
+// art-834-asc606-transaction-price-allocator — allocates a declared transaction price across declared
 // performance obligations by relative standalone selling price (SSP), under a declared discount
 // handling, rounding rule and residual approach. Integer minor units only (BigInt inside, safe-integer
 // Numbers out). It allocates by the method you declare; it does not decide SSPs, does not identify
@@ -8,7 +8,7 @@ import { executionHash } from './_hash.mjs';
 //
 // DETERMINISM: compute() is a pure function of pp (no clock, no randomness, no I/O, no TextEncoder).
 
-const TOOL_ID = 'art-831-asc606-transaction-price-allocator';
+const TOOL_ID = 'art-834-asc606-transaction-price-allocator';
 const TOOL_VERSION = '1.0.0';
 
 export const meta = {
