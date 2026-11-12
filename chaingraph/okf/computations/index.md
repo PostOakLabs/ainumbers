@@ -688,6 +688,7 @@ status: stable
 - [Total Cost of Homeownership](./art-770-total-cost-of-homeownership.md)
 - [Automation Payback](./art-771-automation-payback.md)
 - [Money Primitives Demonstrator](./art-772-money-primitives-demonstrator.md)
+- [Daycount Year Fraction](./art-773-daycount-year-fraction.md)
 - [Beacon-Seeded Fair-Sampling Deriver V2](./art-774-beacon-seeded-fair-sampling-v2.md)
 - [PayPal Dispute Deadline & Evidence](./art-776-paypal-dispute-deadline-evidence.md)
 - [PSP Dispute Reason Crosswalk](./art-777-psp-dispute-reason-crosswalk.md)

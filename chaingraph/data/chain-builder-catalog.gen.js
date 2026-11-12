@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (739 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (740 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7919,6 +7919,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/mcp.html",
     "description": "Demonstrator node for the shared _money.bundle.mjs kernel: exact decimal parse (closed grammar -?digits(.digits)? at the caller-declared sca",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-773-daycount-year-fraction",
+    "display_name": "Daycount Year Fraction",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/mcp.html",
+    "description": "Demonstrator node for the shared _daycount.bundle.mjs kernel: prices ONE caller-supplied date pair under ONE declared day-count mode and rol",
     "consumes": [],
     "feeds": [],
     "status": "live"
