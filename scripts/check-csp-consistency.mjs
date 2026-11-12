@@ -35,23 +35,23 @@ const SCAN_DIRS = [...MANIFEST.flatDirs, ...MANIFEST.recursiveDirs]
 // Named canonical profiles (2026-07-14 survey: these two cover ~88% of the
 // 834-file estate already; everything else is legacy drift, baselined below).
 const PROFILES = {
-  CSP_STANDARD: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';`,
-  CSP_WASM_VM: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';`,
+  CSP_STANDARD: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';`,
+  CSP_WASM_VM: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';`,
   // CSP-CONTRACT-1: Orchestrated Workflow Runner (CONTRACT §5.3) + ChainGraph
   // chain pages (CONTRACT §A3.1) — the sole permitted relaxation is
   // frame-src 'self' for the same-origin composer bridge iframe. No worker
   // usage in this bridge, so worker-src stays 'none' (same as CSP_STANDARD).
-  CSP_COMPOSER: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'self'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';`,
+  CSP_COMPOSER: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'none'; frame-src 'self'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';`,
   // TOOLPAGE-FILE-IMPORT-1 — Web Share Target host page. start.html links the
   // site web-app manifest (manifest.webmanifest, share_target text-only routed
   // to the local tool search), so its manifest-src must be 'self' instead of
   // the 'none' every other profile carries. Everything else is byte-identical
   // to CSP_WASM_VM (start.html runs the suite in-browser VM profile).
-  CSP_MANIFEST: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self';`,
+  CSP_MANIFEST: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self';`,
   // CONTRACT §A10.2 — docs/ API-portal carve-out. connect-src 'self' covers
   // the same-origin ./catalog.json + ./openapi.json GETs (§A10.1); worker-src
   // 'self' blob: mirrors CSP_WASM_VM (Redoc is vendored, no CDN host named).
-  CSP_DOCS_PORTAL: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';`,
+  CSP_DOCS_PORTAL: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';`,
 };
 const CANONICAL_VALUES = new Set(Object.values(PROFILES));
 

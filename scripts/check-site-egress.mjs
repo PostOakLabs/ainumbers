@@ -85,12 +85,15 @@ const PATTERNS = [
   [/\bnew\s+Image\s*\(/g, 'new Image('],
 ];
 
-// Non-Google-Fonts, non-same-origin external resource tags — same "no
-// lawful reason to reference one" posture as externalScripts (NET-3/NET-5).
-// ainumbers.co (and its subdomains, e.g. mcp./anchor.) is excluded because
-// an absolute self-referencing URL (<link rel="canonical">, JSON-LD, OG
-// tags) is not egress — it is same-origin content written with a full URL.
-const LAWFUL_RESOURCE_HOST_RE = /^(fonts\.googleapis\.com|fonts\.gstatic\.com|([a-z0-9-]+\.)?ainumbers\.co)$/i;
+// Non-same-origin external resource tags — same "no lawful reason to
+// reference one" posture as externalScripts (NET-3/NET-5). ainumbers.co
+// (and its subdomains, e.g. mcp./anchor.) is excluded because an absolute
+// self-referencing URL (<link rel="canonical">, JSON-LD, OG tags) is not
+// egress — it is same-origin content written with a full URL. The Google
+// Fonts hosts (fonts.googleapis.com, fonts.gstatic.com) left this allowlist
+// when the fonts became self-hosted (FONTS-SELFHOST-EGRESS-1): a page that
+// links them now fails here, exactly like any other third-party host.
+const LAWFUL_RESOURCE_HOST_RE = /^(([a-z0-9-]+\.)?ainumbers\.co)$/i;
 // img/iframe/video/object always fetch their src on load — any external host
 // there is a hit. <link> is different: most rel values (canonical, me,
 // alternate, license, author...) are metadata only and fetch nothing, so
