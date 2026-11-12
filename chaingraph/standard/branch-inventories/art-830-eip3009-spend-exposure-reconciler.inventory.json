@@ -1,0 +1,293 @@
+{
+  "tool_id": "art-830-eip3009-spend-exposure-reconciler",
+  "inventory_version": "1.0.0",
+  "authored_at": "2026-11-08",
+  "error_direction": "conservative_toward_finding",
+  "error_direction_rationale": "Every mismatch the reconciler can see becomes a discrepancy code, a not-evaluated aspect or a flag — never a silent default. A used and a canceled event on the same identity is reported as EVENT_CONFLICT with the entry excluded from the exposure total and its value disclosed separately in unresolved_conflict_value, so an unresolved conflict can neither inflate nor disappear from the total. An absent clock nulls total_outstanding rather than guessing a window verdict; an absent event list marks that aspect not_evaluated instead of treating it as positive emptiness. The direction is conditional on caller-attested inputs (clock, event extracts, ledger claims), declared out_of_scope_by_input below with their owners.",
+  "derived_from": [
+    {
+      "digest": "sha256:8461b53fec1aab01701dde6b2c36a2662ca4835f965ea3fc845336b3549a8208",
+      "clause_path": "reference implementation transferWithAuthorization window requires (strict open interval)"
+    },
+    {
+      "digest": "sha256:e3ccbec1e32ce1feca0548243b298b205831caaef00efa1ce29416e70a9ff481",
+      "clause_path": "reference implementation authorization state mapping, AuthorizationUsed event and authorizationState view"
+    },
+    {
+      "digest": "sha256:7049911a30e8057ba33fcb23babcdaaf9fde19716439423eb10ae51004bdd6e5",
+      "clause_path": "reference implementation used-bit require, state set and AuthorizationUsed emit"
+    },
+    {
+      "digest": "sha256:ada74957cdf197f315be092a344ee1fac666ae4e65294e7d2dee44c3b8c1a4f4",
+      "clause_path": "optional AuthorizationCanceled event and cancelAuthorization interface"
+    }
+  ],
+  "branches": [
+    {
+      "id": "window-open-entry-outstanding",
+      "clause": "window requires (strict open interval): now < validBefore",
+      "branch": "A signed authorization whose upper validity bound is still in the future at the caller clock has not lapsed and not been reported used or canceled, so its full value counts as outstanding exposure.",
+      "disposition": "represented",
+      "represented_by": "output_payload.entries[].class == 'outstanding' and output_payload.exposure.total_outstanding (integer sum of outstanding values)",
+      "evidence": "exposure"
+    },
+    {
+      "id": "window-closed-entry-expired",
+      "clause": "window requires (strict open interval): now < validBefore",
+      "branch": "A signed authorization whose validBefore is at or before the caller clock (the boundary itself is expired, matching the strict inequality) can no longer be pulled and is excluded from outstanding exposure as expired_unspent.",
+      "disposition": "represented",
+      "represented_by": "output_payload.entries[].class == 'expired_unspent'; excluded from exposure.total_outstanding",
+      "evidence": "entries"
+    },
+    {
+      "id": "used-bit-settles-entry",
+      "clause": "used-bit require, state set and AuthorizationUsed emit; authorizationState view",
+      "branch": "An AuthorizationUsed row matching exactly one ledger identity settles that entry regardless of the ledger's own status claim, because the contract's used bit is the operative settlement fact.",
+      "disposition": "represented",
+      "represented_by": "output_payload.entries[].class == 'settled' with a LEDGER_SAYS_* discrepancy when the ledger claimed otherwise; receipt.used_events_applied counts applied rows",
+      "evidence": "receipt"
+    },
+    {
+      "id": "canceled-event-cancels-entry",
+      "clause": "optional AuthorizationCanceled event and cancelAuthorization interface",
+      "branch": "An AuthorizationCanceled row matching exactly one ledger identity cancels that entry; a canceled entry is removed from outstanding exposure.",
+      "disposition": "represented",
+      "represented_by": "output_payload.entries[].class == 'canceled' with a LEDGER_SAYS_* discrepancy when the ledger claimed otherwise; receipt.canceled_events_applied counts applied rows",
+      "evidence": "receipt"
+    },
+    {
+      "id": "ledger-claims-honored",
+      "clause": "used-bit require, state set and AuthorizationUsed emit (absence of the used bit)",
+      "branch": "With no contradicting event row pasted, the ledger's own settled or canceled claim is honored (no settlement event among the pasted rows contradicts it).",
+      "disposition": "represented",
+      "represented_by": "output_payload.class_counts (settled/canceled counters) with no discrepancy emitted for the entry",
+      "evidence": "class_counts"
+    },
+    {
+      "id": "status-event-mismatch-reported",
+      "clause": "authorizationState view vs AuthorizationUsed emit (state read and event must agree)",
+      "branch": "Every disagreement between the ledger's status claim and an applied event row is itemized, because a state/event mismatch is the core reconciliation finding.",
+      "disposition": "represented",
+      "represented_by": "output_payload.discrepancies[] with the four LEDGER_SAYS_* codes",
+      "evidence": "discrepancies"
+    },
+    {
+      "id": "event-without-ledger-row",
+      "clause": "used-bit require, state set and AuthorizationUsed emit",
+      "branch": "An event row matching no ledger identity is reported: either the ledger is incomplete or the event extract covers an authorization the ledger never recorded.",
+      "disposition": "represented",
+      "represented_by": "output_payload.discrepancies[] code EVENT_WITHOUT_LEDGER_ENTRY",
+      "evidence": "discrepancies"
+    },
+    {
+      "id": "used-and-canceled-conflict",
+      "clause": "used-bit require (single terminal state) vs optional cancelAuthorization",
+      "branch": "The same identity carrying both a used and a canceled event row cannot be classified either way from the pasted evidence; the entry is not_evaluated, its value is excluded from total_outstanding and disclosed in exposure.unresolved_conflict_value.",
+      "disposition": "represented",
+      "represented_by": "output_payload.entries[].class == 'not_evaluated', discrepancies[] code EVENT_CONFLICT, flag EVENT_DATA_CONFLICT, exposure.unresolved_conflict_value/entries",
+      "evidence": "exposure"
+    },
+    {
+      "id": "ambiguous-event-scope",
+      "clause": "used-bit require, state set (identity is authorizer plus nonce at the contract)",
+      "branch": "An unscoped event row whose authorizer+nonce spans more than one (token, chain) pair in the ledger is applied to none of them and flagged, because the pasted evidence cannot say which on-chain authorization it belongs to; an event row narrowed by its optional token/chain_id fields applies only to the identities it spans.",
+      "disposition": "represented",
+      "represented_by": "output_payload.discrepancies[] code AMBIGUOUS_EVENT_SCOPE",
+      "evidence": "discrepancies"
+    },
+    {
+      "id": "duplicate-event-row",
+      "clause": "used-bit require, state set (a nonce's used bit is set once)",
+      "branch": "A repeated identical event row is flagged as a paste artifact and not applied twice.",
+      "disposition": "represented",
+      "represented_by": "output_payload.discrepancies[] code DUPLICATE_EVENT_ROW; receipt.used_events_applied / canceled_events_applied count distinct identities",
+      "evidence": "receipt"
+    },
+    {
+      "id": "clock-non-integer-refuses",
+      "clause": "window requires (strict open interval): the now operand",
+      "branch": "A clock that is not a non-negative integer cannot be compared to validBefore under any ordering, so no window verdict is possible; the input is refused rather than defaulted.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "refusals",
+        "reachability_vector": {
+          "ledger": [
+            {
+              "from": "0x1111111111111111111111111111111111111111",
+              "token": "0x31c8eacbff8e47cfbefd98d63ab04cbaff51c9cc",
+              "chain_id": "84532",
+              "nonce": "0xabababababababababababababababababababababababababababababababab",
+              "to": "0x2222222222222222222222222222222222222222",
+              "value": "500",
+              "validBefore": "1700007200",
+              "signed_at": 1700000100,
+              "status": "signed"
+            }
+          ],
+          "now_unix": "1700001000"
+        },
+        "fixture": "art-830-eip3009-spend-exposure-reconciler.reachability.json#clock-non-integer-refuses"
+      }
+    },
+    {
+      "id": "event-authorizer-malformed-refuses",
+      "clause": "AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce)",
+      "branch": "An event row whose authorizer is not a 20-byte hex address (or whose row is not an object with exactly the indexed fields plus optional scope fields) cannot be matched to any ledger identity; the input is refused rather than skipped.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "refusals",
+        "reachability_vector": {
+          "ledger": [
+            {
+              "from": "0x1111111111111111111111111111111111111111",
+              "token": "0x31c8eacbff8e47cfbefd98d63ab04cbaff51c9cc",
+              "chain_id": "84532",
+              "nonce": "0xabababababababababababababababababababababababababababababababab",
+              "to": "0x2222222222222222222222222222222222222222",
+              "value": "500",
+              "validBefore": "1700007200",
+              "signed_at": 1700000100,
+              "status": "signed"
+            }
+          ],
+          "used_events": [
+            {
+              "authorizer": "0x1234",
+              "nonce": "0xabababababababababababababababababababababababababababababababab"
+            }
+          ],
+          "now_unix": 1700001000
+        },
+        "fixture": "art-830-eip3009-spend-exposure-reconciler.reachability.json#event-authorizer-malformed-refuses"
+      }
+    },
+    {
+      "id": "ledger-status-unknown-refuses",
+      "clause": "authorizationState view (the caller ledger's status vocabulary)",
+      "branch": "A ledger entry whose status is outside the declared signed/settled/canceled vocabulary cannot be classified; the input is refused rather than treated as signed.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "refusals",
+        "reachability_vector": {
+          "ledger": [
+            {
+              "from": "0x1111111111111111111111111111111111111111",
+              "token": "0x31c8eacbff8e47cfbefd98d63ab04cbaff51c9cc",
+              "chain_id": "84532",
+              "nonce": "0xabababababababababababababababababababababababababababababababab",
+              "to": "0x2222222222222222222222222222222222222222",
+              "value": "500",
+              "validBefore": "1700007200",
+              "signed_at": 1700000100,
+              "status": "pending"
+            }
+          ],
+          "now_unix": 1700001000
+        },
+        "fixture": "art-830-eip3009-spend-exposure-reconciler.reachability.json#ledger-status-unknown-refuses"
+      }
+    },
+    {
+      "id": "unknown-top-level-field-refuses",
+      "clause": "declared input contract (ledger, used_events, canceled_events, now_unix)",
+      "branch": "A top-level key outside the declared input contract changes what the caller believes was reconciled; the input is refused rather than ignored.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "refusals",
+        "reachability_vector": {
+          "ledger": [
+            {
+              "from": "0x1111111111111111111111111111111111111111",
+              "token": "0x31c8eacbff8e47cfbefd98d63ab04cbaff51c9cc",
+              "chain_id": "84532",
+              "nonce": "0xabababababababababababababababababababababababababababababababab",
+              "to": "0x2222222222222222222222222222222222222222",
+              "value": "500",
+              "validBefore": "1700007200",
+              "signed_at": 1700000100,
+              "status": "signed"
+            }
+          ],
+          "block_number": 100,
+          "now_unix": 1700001000
+        },
+        "fixture": "art-830-eip3009-spend-exposure-reconciler.reachability.json#unknown-top-level-field-refuses"
+      }
+    },
+    {
+      "id": "input-caller-clock",
+      "clause": "window requires (strict open interval): the now operand",
+      "branch": "The clock at which validity windows are evaluated is a caller attestation; the kernel never reads a system clock, and an absent clock marks now_unix not_evaluated and nulls total_outstanding.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "now_unix — non-negative integer unix seconds at which every validBefore comparison is evaluated",
+        "source": "the integrating operator's own clock at paste time; the kernel contains no clock read and treats absence as not_evaluated, never as zero",
+        "owner": "the integrating operator pasting the ledger and event rows; a clock skewed late overstates expired_unspent and understates outstanding, a skewed-early clock the reverse"
+      }
+    },
+    {
+      "id": "input-event-extracts",
+      "clause": "AuthorizationUsed / optional AuthorizationCanceled events",
+      "branch": "Both event lists are caller-attested extracts; the kernel performs no chain read, so reconciliation completeness is bounded by extract completeness.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "used_events / canceled_events — AuthorizationUsed and AuthorizationCanceled rows for the reconciled identities, optional token/chain_id scope fields per row",
+        "source": "the caller's event extract from the token contract on each referenced chain; an absent list is marked not_evaluated for that aspect, an empty list is positive emptiness",
+        "owner": "the integrating operator; an incomplete or wrong-chain extract makes the output under-report — an entry classified outstanding may already be settled on chain, which is why the scope note says caller-attested"
+      }
+    },
+    {
+      "id": "input-ledger-status-claims",
+      "clause": "authorizationState view (ledger-side status vocabulary)",
+      "branch": "The ledger's own settled/canceled claims are caller-attested bookkeeping, not contract state; the reconciler honors them only where no pasted event contradicts them.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "ledger[].status — the ledger maintainer's signed/settled/canceled claim per authorization",
+        "source": "the caller's authorization ledger (the same entry shape the sibling spend gate parses)",
+        "owner": "the ledger maintainer; a stale claim is exactly what the LEDGER_SAYS_* discrepancy codes report, never silently trusted when an event row contradicts it"
+      }
+    },
+    {
+      "id": "input-validafter-lower-bound",
+      "clause": "window requires (strict open interval): now > validAfter",
+      "branch": "The not-yet-valid half of the window is outside the pasted input contract: the ledger entry shape carries validBefore but no validAfter, so entries still below their lower bound are classified by the same rules here (and counted outstanding) while the lower-bound gate itself lives in the contract.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "validAfter per authorization — absent from the ledger entry shape this node reconciles",
+        "source": "the signed authorization's own fields as maintained in the caller's ledger system (the entry shape is shared with the sibling spend gate)",
+        "owner": "the caller's ledger system and the token contract's own validity require; this node's scope note says exposure is stated for signed entries without a lower-bound carve-out, so an operator reconciling pre-valid authorizations should treat their outstanding classification accordingly"
+      }
+    },
+    {
+      "id": "input-cancel-optionality",
+      "clause": "optional AuthorizationCanceled event and cancelAuthorization interface",
+      "branch": "Cancellation is an optional interface in the cited Draft: a deployed token may never emit AuthorizationCanceled, in which case no canceled classification can ever be event-corroborated for it.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "whether the deployed token contract implements cancelAuthorization and emits its event",
+        "source": "the token contract's implementation (the interface is optional in the cited standard text)",
+        "owner": "the token contract implementer; for contracts without a cancel path, canceled classifications rest on ledger claims alone, and an empty canceled_events paste is the honest input"
+      }
+    },
+    {
+      "id": "onchain-single-use-enforcement",
+      "clause": "used-bit require, state set and AuthorizationUsed emit",
+      "branch": "The contract's enforcement that a nonce's used bit is set exactly once (replay protection) is on-chain behavior; this node reconciles pasted rows and cannot verify the chain enforced anything.",
+      "disposition": "unrepresented_known",
+      "error_direction": "conservative_toward_finding",
+      "error_direction_note": "A paste containing a forged or replay-inconsistent event row parses identically to a genuine one; the reconciliation findings are statements about the pasted evidence, not about chain state. Declared rather than silently out of scope; never cited as on-chain enforcement coverage."
+    },
+    {
+      "id": "signature-validity",
+      "clause": "transferWithAuthorization signature parameters (v, r, s)",
+      "branch": "The kernel does not verify that any ledger entry was validly signed: the signature parameters are not part of the pasted input contract, so a forged ledger row reconciles identically to a genuine one.",
+      "disposition": "unrepresented_known",
+      "error_direction": "conservative_toward_finding",
+      "error_direction_note": "Signature and EIP-712 domain verification is a separate control (the contract's own recover at execution time); this node's output is a reconciliation over caller-attested records. Declared as a known gap; the scope note in the receipt says the Draft is not a final standard and all rows are caller-attested."
+    }
+  ]
+}
