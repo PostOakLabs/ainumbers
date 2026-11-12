@@ -345,12 +345,18 @@ function renderPage(registry, overrides, chrome) {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="Every domain hub and integration guide on AINumbers.co, clustered by the work it supports: payments, regulation, markets, risk, tokenization, trade, agents, the OpenChainGraph platform, and evidence.">
 <meta name="ain:category" content="guide">
 <title>Hubs and Guides | AINumbers.co</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>/* Self-hosted fonts (SIL Open Font Licence): DM Serif Display, Sora, JetBrains Mono. Licence texts live beside the files in assets/fonts/. */
+@font-face{font-family:'DM Serif Display';font-style:normal;font-weight:400;font-display:swap;src:url('assets/fonts/dm-serif-display.ttf') format('truetype')}
+@font-face{font-family:'DM Serif Display';font-style:italic;font-weight:400;font-display:swap;src:url('assets/fonts/dm-serif-display-italic.ttf') format('truetype')}
+@font-face{font-family:'Sora';font-style:normal;font-weight:100 800;font-display:swap;src:url('assets/fonts/sora.ttf') format('truetype')}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:100 800;font-display:swap;src:url('assets/fonts/jetbrains-mono.woff2') format('woff2')}</style>
+
 <style>
 ${chrome.css}
 ${chrome.footerCss}

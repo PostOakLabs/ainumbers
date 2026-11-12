@@ -679,7 +679,7 @@ The `docs/` directory hosts the generated API/OpenAPI portal (`scripts/gen-opena
 ### A10.2 · CSP is mandatory and generator-enforced
 Every `docs/` page MUST carry a CSP meta whose `connect-src` is `'self'` and whose `script-src` names only `'self'` (plus the estate's canonical `'unsafe-inline'` allowance) — **no external script host; no CDN entry for the renderer or anything else**. The canonical value is profile `CSP_DOCS_PORTAL`:
 
-> `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';`
+> `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';`
 
 The docs/ generator (`scripts/gen-openapi.mjs`) **emits and repairs** this meta and the local renderer path on every regeneration, so a regen can never reintroduce a CDN reference or drop the tag. `scripts/check-site-egress.mjs` and `scripts/check-csp-consistency.mjs` scan `docs/` and enforce this allowlist; where their scan scope does not yet include `docs/`, widening it is required follow-on work and this clause is the normative source that widening consumes.
 

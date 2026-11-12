@@ -70,14 +70,20 @@ const html = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>Kernel VM · OpenChainGraph · AINumbers.co</title>
 <meta name="description" content="Run a ChainGraph decision kernel's compute(policy_parameters) inside a sandboxed, deterministic, in-browser QuickJS-ng VM under the ocg-deterministic-compute@2 profile, and compare its execution_hash against the worker.">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/kernel-vm.html">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+
+
+<style>/* Self-hosted fonts (SIL Open Font Licence): DM Serif Display, Sora, JetBrains Mono. Licence texts live beside the files in ../assets/fonts/. */
+@font-face{font-family:'DM Serif Display';font-style:normal;font-weight:400;font-display:swap;src:url('../assets/fonts/dm-serif-display.ttf') format('truetype')}
+@font-face{font-family:'DM Serif Display';font-style:italic;font-weight:400;font-display:swap;src:url('../assets/fonts/dm-serif-display-italic.ttf') format('truetype')}
+@font-face{font-family:'Sora';font-style:normal;font-weight:100 800;font-display:swap;src:url('../assets/fonts/sora.ttf') format('truetype')}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:100 800;font-display:swap;src:url('../assets/fonts/jetbrains-mono.woff2') format('woff2')}</style>
+
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"TechArticle","headline":"Kernel VM","description":"Run a ChainGraph decision kernel inside a sandboxed, deterministic, in-browser QuickJS-ng WebAssembly VM.","publisher":{"@type":"Organization","name":"Post Oak Labs"}}
 </script>

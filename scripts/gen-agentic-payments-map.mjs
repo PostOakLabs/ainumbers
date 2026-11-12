@@ -377,7 +377,7 @@ function render(data) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>Agentic Payments Cookbook Map | AINumbers.co</title>
 <meta name="description" content="A field-by-field map across the OpenAI×AWS AgentCore Payments cookbook, x402 v2, VPSF/STARK receipt drafts, ACP, AP2, ERC-8004, MPP, and the AINumbers node or chain that verifies each piece, with what we assert and what we do not.">
 <meta name="robots" content="index, follow">
@@ -416,9 +416,15 @@ function render(data) {
 }
 </script>
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+
+
+<style>/* Self-hosted fonts (SIL Open Font Licence): DM Serif Display, Sora, JetBrains Mono. Licence texts live beside the files in ../assets/fonts/. */
+@font-face{font-family:'DM Serif Display';font-style:normal;font-weight:400;font-display:swap;src:url('../assets/fonts/dm-serif-display.ttf') format('truetype')}
+@font-face{font-family:'DM Serif Display';font-style:italic;font-weight:400;font-display:swap;src:url('../assets/fonts/dm-serif-display-italic.ttf') format('truetype')}
+@font-face{font-family:'Sora';font-style:normal;font-weight:100 800;font-display:swap;src:url('../assets/fonts/sora.ttf') format('truetype')}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:100 800;font-display:swap;src:url('../assets/fonts/jetbrains-mono.woff2') format('woff2')}</style>
+
 
 <style>
 :root{

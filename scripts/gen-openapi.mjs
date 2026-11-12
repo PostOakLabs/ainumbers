@@ -294,7 +294,7 @@ if (docsHtml !== null) {
   // meta and MUST load Redoc from the vendored local bundle, never a CDN host.
   // Idempotent on a conforming page; repairs a drifted one on every regen so a
   // regeneration can never reintroduce a CDN reference or drop the CSP tag.
-  const CSP_DOCS_PORTAL = `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';`
+  const CSP_DOCS_PORTAL = `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';`
   const REDOC_LOCAL_SRC = './vendor/redoc.standalone.js'
   // Any absolute-URL redoc bundle reference → the vendored path.
   docsHtml = docsHtml.replace(/(['"])https?:\/\/[^'"]*redoc[^'"]*\.js\1/gi, `$1${REDOC_LOCAL_SRC}$1`)
