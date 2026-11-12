@@ -13,7 +13,9 @@ const KINDS = ['frontend', 'backend', 'logs', 'analytics', 'browser_automation_p
 const FLAG_KEYS = ['sees_raw_pan', 'sees_token_only', 'stores', 'logs', 'records_sessions', 'unrestricted_connectivity_to_pan_component', 'could_impact_pan_security'];
 
 function refuse(reason, detail) {
-  const compliance_flags = ['INPUT_REFUSED'];
+  // The flag is earned by a stated refusal reason (conditional emission, FLAGS-COMPUTED-LINT-1).
+  const compliance_flags = [];
+  if (reason) compliance_flags.push('INPUT_REFUSED');
   return {
     output_payload: { status: 'refused', reason, detail, warnings: compliance_flags.slice() },
     compliance_flags,
