@@ -1813,6 +1813,13 @@ export const DERIVED_ROOT_GATES = new Set([
   // fixture proofs that never overlay, so they stay out of the set).
   'node scripts/check-ask-agent-block.mjs',                  // ask-agent block freshness (registry, pages, manifests overlay)
   'node scripts/check-output-schema-coverage.mjs',           // output-schema coverage (registry, manifests overlay)
+  // VERIFYBINDING-DIGEST-DEFAULT-1 (2026-11-12): check-ledger-hermetic.mjs NAMES the published
+  // kernel-digest list (chaingraph/kernel-digests.json) in its fetch allowlist, so the derived-reader
+  // text-match classifies it as reading main-regen derived bytes (DERIVED-READER-COVERAGE-1). It
+  // never opens that file — it greps the LEDGER PAGE SOURCE for allowlist tokens — and it must stay
+  // hard in every context. Membership here is classification-only: the gate is not COVERED, so
+  // runVerifyGates never runs it and never skips it for non-awareness.
+  'node scripts/check-ledger-hermetic.mjs',                  // ledger hermetic (names kernel-digests.json; reads page source only)
 ]);
 
 // S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1 (2026-10-31): derivedRoot/derivedResolve moved VERBATIM

@@ -1926,6 +1926,13 @@ const GATES = [
   ['Trust-signals digest freshness (single-writer main regen, TRUST-SIGNALS-WELLKNOWN-1)', 'node scripts/gen-trust-signals.mjs --check'],
   ['Trust-signals digest schema + commit anchor (TRUST-SIGNALS-WELLKNOWN-1)', 'node scripts/check-trust-signals.mjs'],
   ['Trust-signals gate controls (validator RED/GREEN + anchor quadrants, GATE-SELFTEST-META-1 pair)', 'node scripts/check-trust-signals.test.mjs'],
+  // VERIFYBINDING-DIGEST-DEFAULT-1 (2026-11-12): the PUBLISHED KERNEL-DIGEST LIST freshness
+  // gate, same single-writer shape as trust-signals above: derived-artifacts.mjs COVERED id
+  // 'kernel-digests' puts it in advisoryGates(), so the ADVISORY_ON_PR categorisation
+  // downgrades it on a PR checkout (the file is absent there until main's regen writes it,
+  // prAbsentOk) and it stays blocking on main. This GATES row is also what the generator
+  // coverage meta-gate (SSOT-GATES-1 §G2.5) requires: a --check generator must be wired here.
+  ['Published kernel-digest list freshness (single-writer main regen, VERIFYBINDING-DIGEST-DEFAULT-1)', 'node scripts/gen-kernel-digests.mjs --check'],
   ['OCG integrator profile freshness (OCG-INTEGRATOR-PROFILE-1)', 'node scripts/gen-integrator-profile.mjs --check'],
   ['Chain-builder catalog freshness (CHAINBUILDER-CATALOG-GEN-1)', 'node scripts/gen-chainbuilder-catalog.mjs --check'],
   ['Hub node-card coverage (HUB-GEN-1)', 'node scripts/gen-chaingraph-hub.mjs --check'],
