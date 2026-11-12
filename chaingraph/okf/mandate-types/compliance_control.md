@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-128"]
+tags: ["compliance_control", "count-130"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,14 +10,16 @@ status: stable
 
 # compliance_control
 
-128 tool(s) in this mandate-type group:
+130 tool(s) in this mandate-type group:
 
 - [Corridor Cost Averages](../tools/787-corridor-cost-averages.md)
 - [Curator Vault Cap Auditor](../tools/792-curator-vault-cap-auditor.md)
+- [Event Fee Recompute](../tools/794-event-fee-recompute.md)
 - [Stablecoin Refund Dispute Check](../tools/795-stablecoin-refund-dispute.md)
 - [Stablecoin Cash Equivalent Test (FASB Proposed 2026-08)](../tools/797-stablecoin-cash-equivalent-test.md)
 - [Event Contract Terms Lint](../tools/806-event-contract-terms-lint.md)
 - [Liquid-Staking Share Rate Reconciler](../tools/808-lst-share-rate-reconciler.md)
+- [Contract Bytecode Identity Verifier](../tools/810-contract-bytecode-identity-verifier.md)
 - [Ethereum Validator Queue and Sweep Wait](../tools/812-eth-staking-queue.md)
 - [Ethereum Epoch Accounting Recompute](../tools/813-eth-staking-accounting.md)
 - [Ethereum Base Fee and Blob Base Fee Recompute](../tools/815-eth-fee-market.md)

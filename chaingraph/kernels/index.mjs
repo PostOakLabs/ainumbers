@@ -23,10 +23,12 @@ import * as t733      from './733-servicing-compliance-clock.kernel.mjs';
 import * as t784      from './784-cbr-data-return-validator.kernel.mjs';
 import * as t787      from './787-corridor-cost-averages.kernel.mjs';
 import * as t792      from './792-curator-vault-cap-auditor.kernel.mjs';
+import * as t794      from './794-event-fee-recompute.kernel.mjs';
 import * as t795      from './795-stablecoin-refund-dispute.kernel.mjs';
 import * as t797      from './797-stablecoin-cash-equivalent-test.kernel.mjs';
 import * as t806      from './806-event-contract-terms-lint.kernel.mjs';
 import * as t808      from './808-lst-share-rate-reconciler.kernel.mjs';
+import * as t810      from './810-contract-bytecode-identity-verifier.kernel.mjs';
 import * as t812      from './812-eth-staking-queue.kernel.mjs';
 import * as t813      from './813-eth-staking-accounting.kernel.mjs';
 import * as t815      from './815-eth-fee-market.kernel.mjs';
@@ -762,10 +764,12 @@ export const KERNELS = {
   '784-cbr-data-return-validator':                              t784,
   '787-corridor-cost-averages':                                 t787,
   '792-curator-vault-cap-auditor':                              t792,
+  '794-event-fee-recompute':                                    t794,
   '795-stablecoin-refund-dispute':                              t795,
   '797-stablecoin-cash-equivalent-test':                        t797,
   '806-event-contract-terms-lint':                              t806,
   '808-lst-share-rate-reconciler':                              t808,
+  '810-contract-bytecode-identity-verifier':                    t810,
   '812-eth-staking-queue':                                      t812,
   '813-eth-staking-accounting':                                 t813,
   '815-eth-fee-market':                                         t815,

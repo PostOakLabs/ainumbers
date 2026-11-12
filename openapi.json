@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1292 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1294 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -3444,6 +3444,9 @@
       "name": "effective-date"
     },
     {
+      "name": "effective-dated-profiles"
+    },
+    {
       "name": "effective-interest-method"
     },
     {
@@ -3760,6 +3763,9 @@
     },
     {
       "name": "fee recompute"
+    },
+    {
+      "name": "fee-recompute"
     },
     {
       "name": "fee-withholding"
@@ -4789,6 +4795,9 @@
     },
     {
       "name": "mcp:recompute_erc7540_request_accounting"
+    },
+    {
+      "name": "mcp:recompute_event_contract_fee"
     },
     {
       "name": "mcp:recompute_mla_mapr_actuarial"
@@ -6850,6 +6859,9 @@
     },
     {
       "name": "trading operations"
+    },
+    {
+      "name": "trading-fees"
     },
     {
       "name": "trading-halt"
@@ -50931,6 +50943,479 @@
         "x-tool-url": "https://ainumbers.co/tools/79-dynamic-discounting.html",
         "x-source": "manifest",
         "x-ap2-export": true
+      }
+    },
+    "/v1/tools/recompute_event_contract_fee": {
+      "post": {
+        "operationId": "recompute_event_contract_fee",
+        "summary": "Event Fee Recompute",
+        "description": "Recomputes event-contract trading fees per fill and per order from an effective-dated venue fee profile (Kalshi with the pinned rounding accumulator, Polymarket global category rates, Polymarket US CFTC 40.6(d) history, or caller-declared generic) and diffs against a reported fee: MATCH, OVERCHARGE or UNDERCHARGE. Integer BigInt arithmetic; no float in any fee path.\n\n**Tool URL:** https://ainumbers.co/tools/",
+        "tags": [
+          "event-contracts",
+          "trading-fees",
+          "fee-recompute",
+          "effective-dated-profiles",
+          "mcp:recompute_event_contract_fee"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "profile",
+                  "as_of",
+                  "orders"
+                ],
+                "properties": {
+                  "profile": {
+                    "type": "string",
+                    "enum": [
+                      "kalshi",
+                      "polymarket_global",
+                      "polymarket_us",
+                      "generic"
+                    ],
+                    "description": "Shipped profile id, or generic to declare every parameter from the caller. Any other string is refused."
+                  },
+                  "as_of": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "description": "ISO calendar date selecting the effective profile row."
+                  },
+                  "category": {
+                    "type": "string",
+                    "description": "polymarket_global only: market category (crypto, sports, politics, other, combos and more). Defaults to other."
+                  },
+                  "balance_precision_micro": {
+                    "type": "integer",
+                    "enum": [
+                      100,
+                      10000
+                    ],
+                    "description": "kalshi only: the member balance grid in micro-dollars. 10000 = non-direct ($0.01, default), 100 = direct ($0.0001)."
+                  },
+                  "params": {
+                    "type": "object",
+                    "description": "Opaque synthetic label. Identifier-like values (hashes, addresses, long ids) are refused and never echoed."
+                  },
+                  "orders": {
+                    "type": "array",
+                    "maxItems": 100,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "order_label",
+                        "role"
+                      ],
+                      "properties": {
+                        "order_label": {
+                          "type": "string",
+                          "maxLength": 64,
+                          "description": "Opaque synthetic label. Values that look like an account id, order id, address or hash are refused and never echoed."
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "taker",
+                            "maker"
+                          ]
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "standard",
+                            "combo"
+                          ],
+                          "description": "Defaults to standard. Combo orders carry legs[]."
+                        },
+                        "outcomes": {
+                          "type": "array",
+                          "minItems": 2,
+                          "items": {
+                            "type": "string",
+                            "maxLength": 64
+                          },
+                          "description": "Two or more opaque outcome labels declaring a multi-outcome market."
+                        },
+                        "fills": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "contracts",
+                              "price_micro"
+                            ],
+                            "properties": {
+                              "contracts": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 1000000000
+                              },
+                              "price_micro": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 999999,
+                                "description": "Integer price in micro-dollars of par (1e-6 USD)."
+                              }
+                            }
+                          },
+                          "description": "Standard-order fills."
+                        },
+                        "legs": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "fills": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "contracts": {
+                                      "type": "integer",
+                                      "minimum": 1
+                                    },
+                                    "price_micro": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 999999,
+                                      "description": "Integer price in micro-dollars of par (1e-6 USD)."
+                                    }
+                                  },
+                                  "required": [
+                                    "contracts",
+                                    "price_micro"
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "fills"
+                            ]
+                          },
+                          "description": "Combo-order legs, each with its own fills."
+                        },
+                        "reported_fee_minor": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "Optional caller-reported order fee in micro-dollars; the diff verdict MATCH | OVERCHARGE | UNDERCHARGE is returned per order."
+                        }
+                      }
+                    },
+                    "description": "Orders to recompute. At most 500 fills total. Aggregate only: no account or order identifiers."
+                  }
+                },
+                "description": "Profile selection with as_of, plus at least one order of synthetic labelled fills."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accumulator": {
+                      "type": "boolean",
+                      "enum": [
+                        false,
+                        true
+                      ]
+                    },
+                    "as_of": {
+                      "type": "string"
+                    },
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "combos",
+                        "crypto"
+                      ]
+                    },
+                    "conservation_ok": {
+                      "type": "boolean"
+                    },
+                    "effective_date_pinned": {
+                      "type": "boolean"
+                    },
+                    "effective_theta": {
+                      "type": "object",
+                      "properties": {
+                        "maker": {
+                          "type": "object",
+                          "properties": {
+                            "den": {
+                              "type": "number"
+                            },
+                            "num": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "den",
+                            "num"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "taker": {
+                          "type": "object",
+                          "properties": {
+                            "den": {
+                              "type": "number"
+                            },
+                            "num": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "den",
+                            "num"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "maker",
+                        "taker"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "evidence": {
+                      "type": "object",
+                      "properties": {
+                        "record_type": {
+                          "type": "string"
+                        },
+                        "refused": {
+                          "type": "boolean"
+                        },
+                        "tool_id": {
+                          "type": "string"
+                        },
+                        "tool_version": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "record_type",
+                        "refused",
+                        "tool_id",
+                        "tool_version"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "fee_family": {
+                      "type": "string",
+                      "enum": [
+                        "flat",
+                        "linear",
+                        "multiplier",
+                        "parabolic",
+                        "rebate_share"
+                      ]
+                    },
+                    "fill_rounding_unit_micro": {
+                      "type": "number"
+                    },
+                    "fills_net_sum_micro": {
+                      "type": "number"
+                    },
+                    "order_rounding_unit_micro": {
+                      "type": "number"
+                    },
+                    "per_order": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "carry_micro": {
+                            "type": "number"
+                          },
+                          "conservation_ok": {
+                            "type": "boolean"
+                          },
+                          "fee_check": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "MATCH",
+                              "OVERCHARGE",
+                              "UNDERCHARGE",
+                              null
+                            ]
+                          },
+                          "fills_in": {
+                            "type": "number"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "combo",
+                              "standard"
+                            ]
+                          },
+                          "order_fee_micro": {
+                            "type": "number"
+                          },
+                          "order_label": {
+                            "type": "string"
+                          },
+                          "per_fill": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "contracts": {
+                                  "type": "number"
+                                },
+                                "net_fee_micro": {
+                                  "type": "number"
+                                },
+                                "price_micro": {
+                                  "type": "number"
+                                },
+                                "rebate_micro": {
+                                  "type": "number"
+                                },
+                                "rounding_fee_micro": {
+                                  "type": "number"
+                                },
+                                "trade_fee_micro": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "contracts",
+                                "net_fee_micro",
+                                "price_micro",
+                                "rebate_micro",
+                                "rounding_fee_micro",
+                                "trade_fee_micro"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "rebate_total_micro": {
+                            "type": "number"
+                          },
+                          "reported_fee_minor": {
+                            "type": "number"
+                          },
+                          "role": {
+                            "type": "string",
+                            "enum": [
+                              "maker",
+                              "taker"
+                            ]
+                          },
+                          "trade_fees_micro": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "carry_micro",
+                          "conservation_ok",
+                          "fee_check",
+                          "fills_in",
+                          "kind",
+                          "order_fee_micro",
+                          "order_label",
+                          "per_fill",
+                          "rebate_total_micro",
+                          "role",
+                          "trade_fees_micro"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "profile_id": {
+                      "type": "string",
+                      "enum": [
+                        "generic",
+                        "kalshi",
+                        "polymarket_global",
+                        "polymarket_us"
+                      ]
+                    },
+                    "rebate_share_bp": {
+                      "type": [
+                        "null",
+                        "number"
+                      ]
+                    },
+                    "rounding_mode": {
+                      "type": "string",
+                      "enum": [
+                        "ceil",
+                        "round_half_up"
+                      ]
+                    },
+                    "series_multiplier": {
+                      "type": "object",
+                      "properties": {
+                        "den": {
+                          "type": "number"
+                        },
+                        "num": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "den",
+                        "num"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "source_pin": {
+                      "type": "string"
+                    },
+                    "total_fee_micro": {
+                      "type": "number"
+                    },
+                    "venue_label": {
+                      "type": "string"
+                    },
+                    "verdict": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "accumulator",
+                    "as_of",
+                    "conservation_ok",
+                    "effective_theta",
+                    "evidence",
+                    "fee_family",
+                    "fill_rounding_unit_micro",
+                    "fills_net_sum_micro",
+                    "order_rounding_unit_micro",
+                    "per_order",
+                    "profile_id",
+                    "rebate_share_bp",
+                    "rounding_mode",
+                    "series_multiplier",
+                    "source_pin",
+                    "total_fee_micro",
+                    "venue_label",
+                    "verdict"
+                  ],
+                  "additionalProperties": false,
+                  "x-derived-from": "fixture"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "recompute_event_contract_fee",
+        "x-tool-url": "https://ainumbers.co/tools/",
+        "x-source": "manifest"
       }
     },
     "/v1/tools/check_stablecoin_refunds": {
@@ -141079,6 +141564,46 @@
         },
         "x-mcp-tool-name": "reconcile_lst_share_rate",
         "x-tool-url": "https://ainumbers.co/chaingraph/808-lst-share-rate-reconciler.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 142
+      }
+    },
+    "/v1/tools/verify_contract_bytecode_identity": {
+      "post": {
+        "operationId": "verify_contract_bytecode_identity",
+        "summary": "Contract Bytecode Identity Verifier",
+        "description": "Recomputes the identity of a deployed smart contract from caller-declared bytes: the Keccak-256 hash of the runtime code and of the creation code, the runtime size check against the 24,576-byte limit and the initcode size check against the 49,152-byte limit, the fields appended by the Solidity compiler (hash scheme, hash value, compiler version), and the contract address that a CREATE (deployer and nonce) or CREATE2 (deployer, 32-byte salt and creation code) deployment must produce. It compares the recomputed address with the declared address and the runtime hash with a declared verified-source hash, and returns a pass or fail with the list of flags. Identity rests on the runtime code hash only: the metadata hash identifies the compiler metadata file, which is not an input, so it is reported as extracted and never recomputed. Inputs over the two size limits are flagged and not hashed, which also bounds the work. Malformed hex, a wrong-length salt or address, or a scheme that mixes nonce and salt is refused. This node never reads a chain: it cannot know whether the declared bytes are what is deployed at the declared address, and it does not verify source code, checksum capitalization of addresses, or proxy and upgrade patterns. It is not proved: a zero-knowledge proof of this node is slow because hashing the code inside the prover is expensive, and it waits on a host hashing function and a scheduled downtime run. No sealed-proof claim is made.\n\n**Tool URL:** https://ainumbers.co/chaingraph/810-contract-bytecode-identity-verifier.html\n**Wave:** 142\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/810-contract-bytecode-identity-verifier.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "verify_contract_bytecode_identity",
+        "x-tool-url": "https://ainumbers.co/chaingraph/810-contract-bytecode-identity-verifier.html",
         "x-source": "chaingraph",
         "x-ap2-export": true,
         "x-mandate-type": "compliance_control",
