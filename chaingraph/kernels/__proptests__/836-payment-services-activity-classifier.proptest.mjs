@@ -1,8 +1,8 @@
 // 836-payment-services-activity-classifier — class-K property-test FLOOR, authored for the
 // activity-classifier build (PAYMENT-SERVICES-ACTIVITY-CLASSIFIER-1).
-// kernel_digest_at_authoring: sha256:19cd7cc505f589acd2bfd143fa7bd0f8f8e5556b0345569756df3968da63f33b
-// spec: board/queued/PAYMENT-SERVICES-ACTIVITY-CLASSIFIER-1.md (fixed contract) +
-// research/PAYMENT-SERVICES-CLASSES-PIN-2026-10-30.md (pinned texts, class/exclusion mapping).
+// kernel_digest_at_authoring: sha256:12cd80fdeb1f8f82f97929b677b60805a7e2268a2e4589e3aad1919b174161ca
+// spec: the pinned regime texts and the class/exclusion mapping recorded in the node's
+// cited_clause_digest entries (node shard) and the kernel's PROFILES/SOURCES tables.
 // human_sign_off: PENDING
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.

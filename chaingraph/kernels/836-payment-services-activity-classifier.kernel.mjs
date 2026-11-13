@@ -153,6 +153,7 @@ export function compute(pp) {
         transition_note: null,
         regime_status: null,
         not_legal_advice: true,
+        warnings: ['PSA_REFUSED_UNKNOWN_PROFILE'], // mirrors compliance_flags into the payload
       },
       compliance_flags: ['PSA_REFUSED_UNKNOWN_PROFILE'],
     };
@@ -174,6 +175,7 @@ export function compute(pp) {
         transition_note: null,
         regime_status: profile.regime_status,
         not_legal_advice: true,
+        warnings: ['PSA_REFUSED_MISSING_ACTIVITIES'], // mirrors compliance_flags into the payload
       },
       compliance_flags: ['PSA_REFUSED_MISSING_ACTIVITIES'],
     };
@@ -264,6 +266,7 @@ export function compute(pp) {
       transition_note,
       regime_status: profile.regime_status,
       not_legal_advice: true,
+      warnings: compliance_flags.slice(), // mirrors compliance_flags into the payload
     },
     compliance_flags,
   };
