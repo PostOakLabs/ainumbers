@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (750 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (751 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -8312,6 +8312,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-834-asc606-transaction-price-allocator.html",
     "description": "Allocates a declared transaction price across declared performance obligations by relative standalone selling price, in integer minor units,",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-839-statement-footing-crossfoot",
+    "display_name": "Statement Footing and Cross-Footing Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-839-statement-footing-crossfoot.html",
+    "description": "Foots and cross-foots declared financial statement lines and ties declared note amounts to declared statement lines, in integer minor units,",
     "consumes": [],
     "feeds": [],
     "status": "live"
