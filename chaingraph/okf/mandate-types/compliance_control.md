@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-138"]
+tags: ["compliance_control", "count-139"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-138 tool(s) in this mandate-type group:
+139 tool(s) in this mandate-type group:
 
 - [Corridor Cost Averages](../tools/787-corridor-cost-averages.md)
 - [Curator Vault Cap Auditor](../tools/792-curator-vault-cap-auditor.md)
@@ -27,6 +27,7 @@ status: stable
 - [ZIP-317 Transfer Fee](../tools/824-zip317-transfer-fee.md)
 - [Reconcile UCP Checkout Totals](../tools/825-reconcile-ucp-checkout-totals.md)
 - [Safe Transaction Hash Recompute](../tools/829-safe-tx-hash-recompute.md)
+- [Issuer Reserve Yield Share Check](../tools/837-issuer-yield-share.md)
 - [Control Frequency Sample](../tools/838-control-frequency-sample.md)
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)

@@ -43,6 +43,7 @@ status: stable
 - [Reconcile UCP Checkout Totals](./825-reconcile-ucp-checkout-totals.md)
 - [Agent Cred Class Matrix](./827-agent-cred-class-matrix.md)
 - [Safe Transaction Hash Recompute](./829-safe-tx-hash-recompute.md)
+- [Issuer Reserve Yield Share Check](./837-issuer-yield-share.md)
 - [Control Frequency Sample](./838-control-frequency-sample.md)
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md)
 - [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md)
