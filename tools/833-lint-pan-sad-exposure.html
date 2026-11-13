@@ -1,0 +1,1605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>PAN and SAD Exposure Linter · AINumbers.co</title>
+<meta name="description" content="Vendor-neutral linter for a declared token-record schema: checks declared display masks, alias and search-index expressions, sensitive-authentication-data retention, and digest fields against the published PAN display-masking and account-data storage rules. Schema declaration only; no real card data anywhere. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/tools/833-lint-pan-sad-exposure.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"PAN and SAD Exposure Linter","url":"https://ainumbers.co/tools/833-lint-pan-sad-exposure.html","applicationCategory":"FinanceApplication","operatingSystem":"Any","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"}}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin-bottom:1rem;}
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--teal-lt:#2DD4BF;--gold:#D4A847;--gold-dim:rgba(212,168,71,.12);--green:#22C55E;--green-dim:rgba(34,197,94,.12);--red:#EF4444;--warn:#F59E0B;--purple:#9B72F5;--purple-dim:rgba(155,114,245,.12);--purple-lt:#B794F4;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}button{cursor:pointer;font-family:inherit}
+.container{max-width:1100px;margin:0 auto;padding:0 1.5rem}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(155,114,245,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(155,114,245,.012) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;z-index:200;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1100px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-text{display:flex;flex-direction:column;gap:.08rem;}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright);line-height:1;}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;justify-content:center}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.nav-sep{color:var(--border-2)}.nav-bc-current{color:var(--text)}
+.nav-cta{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--teal);padding:.28rem .75rem;border-radius:4px;text-decoration:none}
+.nav-cta:hover{background:var(--teal-lt)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border);position:relative;z-index:1}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hero-eyebrow{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);margin-bottom:.75rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--teal)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8;margin-bottom:1rem}
+.disclaimer{background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);padding:.65rem 1rem;font-size:.72rem;color:var(--muted);line-height:1.6;margin-bottom:1rem}
+.hero-badges{display:flex;gap:.5rem;flex-wrap:wrap}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .6rem;border:1px solid;border-radius:3px}
+.badge-teal{color:var(--teal);border-color:rgba(20,184,166,.3)}.badge-gold{color:var(--gold);border-color:rgba(212,168,71,.3)}.badge-green{color:var(--green);border-color:rgba(34,197,94,.3)}.badge-muted{color:var(--muted);border-color:var(--border)}
+.tool-body{position:relative;z-index:1;padding:2rem 0 4rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);display:block;margin-bottom:1rem}
+.panel-row{display:flex;flex-direction:column;gap:.25rem;margin-bottom:.9rem}
+.panel-row label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.panel-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.9rem}
+.arch-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem}
+@media(max-width:760px){.panel-grid{grid-template-columns:1fr}.arch-grid{grid-template-columns:1fr}}
+.arch-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem}
+.arch-name{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bright);margin-bottom:.35rem}
+.arch-desc{font-size:.68rem;color:var(--body);line-height:1.6;margin-bottom:.85rem}
+.arch-fields{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.6rem}
+@media(max-width:520px){.arch-fields{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:.25rem}
+.field label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+input[type=text],select{background:var(--bg);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.4rem .5rem;border-radius:3px;outline:none;width:100%;transition:border-color .2s;-webkit-appearance:none}
+input[type=text]:focus,select:focus{border-color:var(--teal)}
+.hint{font-size:.6rem;color:var(--muted);line-height:1.5}
+.run-btn{background:var(--teal);color:var(--bg);border:none;padding:.65rem 2rem;border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;transition:background .2s}
+.run-btn:hover{background:var(--teal-lt)}
+.err-list{list-style:none;margin-bottom:1rem}
+.err-list li{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--red);background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:4px;padding:.35rem .7rem;margin-bottom:.35rem}
+.results-panel{margin-top:1.5rem;display:flex;flex-direction:column;gap:1rem}
+.out-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.out-header{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:space-between}
+.out-title{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.out-body{padding:1.25rem}
+.result-table{width:100%;border-collapse:collapse;font-size:.73rem}
+.result-table th{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.55rem .75rem;border-bottom:1px solid var(--border);text-align:left;font-weight:400;white-space:nowrap}
+.result-table td{padding:.5rem .75rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+.result-table tr:last-child td{border-bottom:none}
+.result-table tr:hover td{background:var(--bg-3)}
+.num{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--bright);white-space:nowrap}
+.pos{color:var(--green)}.neg{color:var(--red)}.neu{color:var(--muted)}
+.note-line{font-size:.68rem;color:var(--body);line-height:1.7}
+.memo-block{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;font-size:.68rem;color:var(--body);line-height:1.8;white-space:pre-wrap;font-family:'JetBrains Mono',monospace}
+.scope-note{background:rgba(212,168,71,.08);border:1px solid rgba(212,168,71,.25);border-left:3px solid #d4a847;border-radius:6px;padding:.6rem .9rem;font-size:.72rem;line-height:1.6;margin:0 0 1rem;color:#9aa7b8}
+.scope-note-label{color:#d4a847;font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase}
+.mfst-btn{width:100%;background:var(--bg-2);border:1px solid var(--border);padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;border-radius:var(--radius);transition:background .15s;margin-bottom:1px;cursor:pointer}
+.mfst-btn:hover{background:var(--bg-3)}
+.mfst-body{display:none;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);background:var(--bg-3);padding:1.25rem;overflow-x:auto}
+.mfst-code{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text);line-height:1.6;white-space:pre}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal,#14B8A6);color:var(--bright,#D4E8F8)}
+#ap2ExportBtn.ready:hover{background:var(--bg-4,#162340)}
+.warn-list li{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--warn);background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:4px;padding:.35rem .7rem;margin-bottom:.35rem;line-height:1.6}
+.ok-line{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--green);background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:4px;padding:.35rem .7rem;line-height:1.6}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem}
+.footer-inner-ai{display:flex;align-items:center;gap:2rem;flex-wrap:wrap;justify-content:space-between}
+.footer-links-ai{display:flex;gap:1.25rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.footer-links-ai a{color:var(--muted);text-decoration:none;transition:color .2s}
+.footer-links-ai a:hover{color:var(--teal-lt)}
+.footer-badge-ai{display:flex;flex-direction:column;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:var(--muted)}
+.footer-brand-link{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--text)}
+.footer-wordmark{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:500}
+@media(max-width:640px){.footer-inner-ai{flex-direction:column;text-align:center}.footer-badge-ai{align-items:center}}
+</style>
+</head>
+<body>
+<nav><div class="nav-inner">
+  <a href="../index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/><rect x="20" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/><rect x="31" y="9" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/><rect x="9" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/><rect x="9" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/></svg>
+    <div class="logo-text"><div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div></div>
+  </a>
+  <div class="nav-bc"><a href="../tools.html">All Tools</a><span class="nav-sep">/</span><a href="../guides/agentic-commerce-mcp-hub.html">Agentic Commerce Hub</a><span class="nav-sep">/</span><span class="nav-bc-current">T833</span></div>
+  <div class="nav-right"><a href="../guides/agentic-commerce-mcp-hub.html" class="nav-cta">Hub &#8594;</a></div>
+</div></nav>
+
+<div class="hero"><div class="container">
+  <div class="hero-eyebrow">Cat-19 · T833 · Agentic Commerce</div>
+  <span class="hero-badge badge-muted"><span>v1.0</span></span>
+  <h1>PAN and SAD Exposure Linter</h1>
+  <p class="hero-desc">Check a declared token-record schema against the published masking rule and the sensitive-authentication-data retention rules: how each declared field displays the primary account number, what the alias template and declared search-index expressions reveal, which sensitive authentication elements the declaration stores past authorization (encrypted or not), and whether digest fields cover the entire PAN and are keyed. The input is a declaration, never card data itself: the schema names fields, mask expressions, and storage facts, and no primary account number value is ever entered on this page.</p>
+  <div class="scope-note"><span class="scope-note-label">Scope and reliance:</span> <span>🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</span> This page checks the declaration you type against the published rule text and asserts nothing about the system the declaration describes: business-need role lists, issuer carve-outs, deletion processes, key management, and display surfaces you do not declare are outside the input, and several carve-out conditions resolve to manual-review flags instead of a pass because the facts that decide them are yours, not the schema's. Cited text (PCI DSS v4.0.1) was retrieved November 2026; verify against the current official text and your own assessor before relying on any output, since this page is not legal, compliance, or assessment advice. Deterministic logic · no inference · zero PII · runs offline · CC BY 4.0.</div>
+  <div class="hero-meta hero-badges">
+    <span class="badge badge-teal">Vendor-Neutral</span>
+    <span class="badge badge-gold">Schema Declaration Only</span>
+    <span class="badge badge-green">Zero PII</span>
+    <span class="badge badge-muted">Client-Side</span>
+  </div>
+</div></div>
+
+<div class="tool-body"><div class="container">
+
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="panel">
+    <span class="panel-label">Record declaration</span>
+    <div class="panel-grid">
+      <div class="panel-row">
+        <label for="record_type">Record type (label you declare)</label>
+        <input type="text" id="record_type" autocomplete="off" placeholder="card_token">
+        <span class="hint">A label for the record kind this schema describes, echoed in the report.</span>
+      </div>
+      <div class="panel-row">
+        <label for="container_path">Container path (optional)</label>
+        <input type="text" id="container_path" autocomplete="off" placeholder="sandbox/token-records/example.json">
+        <span class="hint">Where the declared record is described as living; echoed, never scanned.</span>
+      </div>
+      <div class="panel-row">
+        <label for="alias_template">Alias template (optional)</label>
+        <input type="text" id="alias_template" autocomplete="off" placeholder="prefix:6,suffix:4">
+        <span class="hint">The display template aliases of the PAN are declared to use; checked against the same ceiling.</span>
+      </div>
+    </div>
+    <div class="panel-row">
+      <label for="search_index_expressions">Search-index display expressions (one per line, optional)</label>
+      <textarea id="search_index_expressions" autocomplete="off" spellcheck="false" style="min-height:56px;resize:vertical;background:var(--bg);border:1px solid var(--border);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.4rem .5rem;border-radius:3px;outline:none;width:100%"></textarea>
+      <span class="hint">Any display expression a declared search index renders; each line is checked against the same ceiling. A declared expression with no recognizable directive is reported for manual review rather than passed silently.</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <span class="panel-label">Schema fields (3 slots; a slot is used when its name is filled)</span>
+    <div class="arch-grid">
+      <div class="arch-block">
+        <div class="arch-name">Field slot 1</div>
+        <div class="arch-fields">
+          <div class="field"><label for="field_1_name">Field name</label><input type="text" id="field_1_name" autocomplete="off" placeholder="pan"></div>
+          <div class="field"><label for="field_1_class">Value class</label>
+            <select id="field_1_class"><option value="">-- Select class --</option><option value="primary_account_number">primary_account_number</option><option value="card_verification_code">card_verification_code</option><option value="pin_or_pin_block">pin_or_pin_block</option><option value="full_track_data">full_track_data</option><option value="deterministic_digest">deterministic_digest</option><option value="other">other</option></select>
+          </div>
+          <div class="field"><label for="field_1_mask">Mask expression (PAN fields)</label><input type="text" id="field_1_mask" autocomplete="off" placeholder="prefix:6,suffix:4"></div>
+          <div class="field"><label for="field_1_digest_target">Digest target (digest fields)</label><input type="text" id="field_1_digest_target" autocomplete="off" placeholder="entire_pan"></div>
+          <div class="field"><label for="field_1_keyed">Digest keyed (digest fields)</label>
+            <select id="field_1_keyed"><option value="">-- Select --</option><option value="true">true</option><option value="false">false</option></select>
+          </div>
+        </div>
+        <div class="arch-desc" style="margin-top:.6rem">Recognized mask directives: prefix:N, suffix:N, redact:N, redact:all, plain. An empty mask on a PAN field is a declared no-mask state and is reported as a full-display finding, not refused.</div>
+      </div>
+      <div class="arch-block">
+        <div class="arch-name">Field slot 2</div>
+        <div class="arch-fields">
+          <div class="field"><label for="field_2_name">Field name</label><input type="text" id="field_2_name" autocomplete="off"></div>
+          <div class="field"><label for="field_2_class">Value class</label>
+            <select id="field_2_class"><option value="">-- Select class --</option><option value="primary_account_number">primary_account_number</option><option value="card_verification_code">card_verification_code</option><option value="pin_or_pin_block">pin_or_pin_block</option><option value="full_track_data">full_track_data</option><option value="deterministic_digest">deterministic_digest</option><option value="other">other</option></select>
+          </div>
+          <div class="field"><label for="field_2_mask">Mask expression (PAN fields)</label><input type="text" id="field_2_mask" autocomplete="off"></div>
+          <div class="field"><label for="field_2_digest_target">Digest target (digest fields)</label><input type="text" id="field_2_digest_target" autocomplete="off"></div>
+          <div class="field"><label for="field_2_keyed">Digest keyed (digest fields)</label>
+            <select id="field_2_keyed"><option value="">-- Select --</option><option value="true">true</option><option value="false">false</option></select>
+          </div>
+        </div>
+        <div class="arch-desc" style="margin-top:.6rem">The card verification code of a card-type record is declared here as a field of class card_verification_code: declaring one is only a schema statement, and its retention is judged from the stored-element slots below.</div>
+      </div>
+      <div class="arch-block">
+        <div class="arch-name">Field slot 3</div>
+        <div class="arch-fields">
+          <div class="field"><label for="field_3_name">Field name</label><input type="text" id="field_3_name" autocomplete="off"></div>
+          <div class="field"><label for="field_3_class">Value class</label>
+            <select id="field_3_class"><option value="">-- Select class --</option><option value="primary_account_number">primary_account_number</option><option value="card_verification_code">card_verification_code</option><option value="pin_or_pin_block">pin_or_pin_block</option><option value="full_track_data">full_track_data</option><option value="deterministic_digest">deterministic_digest</option><option value="other">other</option></select>
+          </div>
+          <div class="field"><label for="field_3_mask">Mask expression (PAN fields)</label><input type="text" id="field_3_mask" autocomplete="off"></div>
+          <div class="field"><label for="field_3_digest_target">Digest target (digest fields)</label><input type="text" id="field_3_digest_target" autocomplete="off"></div>
+          <div class="field"><label for="field_3_keyed">Digest keyed (digest fields)</label>
+            <select id="field_3_keyed"><option value="">-- Select --</option><option value="true">true</option><option value="false">false</option></select>
+          </div>
+        </div>
+        <div class="arch-desc" style="margin-top:.6rem">Mask expressions are parsed strictly: any token outside the recognized grammar refuses the whole run rather than guessing what you meant.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <span class="panel-label">Stored data elements (3 slots; retention, storage class, encryption)</span>
+    <div class="arch-grid">
+      <div class="arch-block">
+        <div class="arch-name">Element slot 1</div>
+        <div class="arch-fields">
+          <div class="field"><label for="elem_1_name">Element name</label><input type="text" id="elem_1_name" autocomplete="off" placeholder="token_vault_index"></div>
+          <div class="field"><label for="elem_1_sad">Sensitive class</label>
+            <select id="elem_1_sad"><option value="">-- Select class --</option><option value="none">none (no sensitive authentication data)</option><option value="full_track_data">full_track_data</option><option value="card_verification_code">card_verification_code</option><option value="pin_or_pin_block">pin_or_pin_block</option></select>
+          </div>
+          <div class="field"><label for="elem_1_retention">Retention</label>
+            <select id="elem_1_retention"><option value="">-- Select state --</option><option value="before_authorization">before_authorization</option><option value="during_authorization_only">during_authorization_only</option><option value="after_authorization">after_authorization</option></select>
+          </div>
+          <div class="field"><label for="elem_1_storage">Storage location class</label>
+            <select id="elem_1_storage"><option value="">-- Select class --</option><option value="persistent">persistent</option><option value="non_persistent_memory">non_persistent_memory</option><option value="ephemeral_process">ephemeral_process</option></select>
+          </div>
+          <div class="field"><label for="elem_1_encrypted">Stored encrypted</label>
+            <select id="elem_1_encrypted"><option value="">-- Select --</option><option value="true">true</option><option value="false">false</option></select>
+          </div>
+        </div>
+        <div class="arch-desc" style="margin-top:.6rem">A persistent element holding sensitive authentication data past authorization is flagged whether or not you declare it encrypted.</div>
+      </div>
+      <div class="arch-block">
+        <div class="arch-name">Element slot 2</div>
+        <div class="arch-fields">
+          <div class="field"><label for="elem_2_name">Element name</label><input type="text" id="elem_2_name" autocomplete="off"></div>
+          <div class="field"><label for="elem_2_sad">Sensitive class</label>
+            <select id="elem_2_sad"><option value="">-- Select class --</option><option value="none">none (no sensitive authentication data)</option><option value="full_track_data">full_track_data</option><option value="card_verification_code">card_verification_code</option><option value="pin_or_pin_block">pin_or_pin_block</option></select>
+          </div>
+          <div class="field"><label for="elem_2_retention">Retention</label>
+            <select id="elem_2_retention"><option value="">-- Select state --</option><option value="before_authorization">before_authorization</option><option value="during_authorization_only">during_authorization_only</option><option value="after_authorization">after_authorization</option></select>
+          </div>
+          <div class="field"><label for="elem_2_storage">Storage location class</label>
+            <select id="elem_2_storage"><option value="">-- Select class --</option><option value="persistent">persistent</option><option value="non_persistent_memory">non_persistent_memory</option><option value="ephemeral_process">ephemeral_process</option></select>
+          </div>
+          <div class="field"><label for="elem_2_encrypted">Stored encrypted</label>
+            <select id="elem_2_encrypted"><option value="">-- Select --</option><option value="true">true</option><option value="false">false</option></select>
+          </div>
+        </div>
+        <div class="arch-desc" style="margin-top:.6rem">A non-persistent element holding sensitive data past authorization resolves to a manual-review flag: the carve-out conditions are facts about your operation, not your schema.</div>
+      </div>
+      <div class="arch-block">
+        <div class="arch-name">Element slot 3</div>
+        <div class="arch-fields">
+          <div class="field"><label for="elem_3_name">Element name</label><input type="text" id="elem_3_name" autocomplete="off"></div>
+          <div class="field"><label for="elem_3_sad">Sensitive class</label>
+            <select id="elem_3_sad"><option value="">-- Select class --</option><option value="none">none (no sensitive authentication data)</option><option value="full_track_data">full_track_data</option><option value="card_verification_code">card_verification_code</option><option value="pin_or_pin_block">pin_or_pin_block</option></select>
+          </div>
+          <div class="field"><label for="elem_3_retention">Retention</label>
+            <select id="elem_3_retention"><option value="">-- Select state --</option><option value="before_authorization">before_authorization</option><option value="during_authorization_only">during_authorization_only</option><option value="after_authorization">after_authorization</option></select>
+          </div>
+          <div class="field"><label for="elem_3_storage">Storage location class</label>
+            <select id="elem_3_storage"><option value="">-- Select class --</option><option value="persistent">persistent</option><option value="non_persistent_memory">non_persistent_memory</option><option value="ephemeral_process">ephemeral_process</option></select>
+          </div>
+          <div class="field"><label for="elem_3_encrypted">Stored encrypted</label>
+            <select id="elem_3_encrypted"><option value="">-- Select --</option><option value="true">true</option><option value="false">false</option></select>
+          </div>
+        </div>
+        <div class="arch-desc" style="margin-top:.6rem">Declaring a digest of a PAN fragment or an unkeyed whole-PAN digest is flagged against the hash requirements; no digest field is declared, no digest verdict is produced either way.</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap">
+    <button class="run-btn" onclick="loadExample()">◇ Load synthetic example</button>
+    <button class="run-btn" onclick="runLint()">▶ Run Lint</button>
+  </div>
+
+  <div class="results-panel" id="outputSection" role="region" aria-live="polite"></div>
+
+</div></div>
+
+<div class="panel" id="mfstSec" style="max-width:1100px;margin:0 auto 1.5rem">
+  <button class="mfst-btn" onclick="toggleMfst()"><span>📦 &nbsp;manifest.json · MCP tool definition · Policy Mandate schema</span><span id="mfstArr" style="color:var(--muted)">▼</span></button>
+  <div class="mfst-body" id="mfstBody"><div class="mfst-code" id="mfstCode"></div></div>
+</div>
+
+<div class="container" style="padding-bottom:1.5rem">
+  <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;border-top:1px solid var(--border)">
+    <button id="ainSendVerifyBtn" onclick="apSendToVerify()" title="Open the Artifact Verifier and hand it this Policy Mandate: same-origin message, no file, no network" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:pointer;opacity:.85;transition:opacity .2s,border-color .2s">&#x27A1; Send to Verify</button>
+    <button id="mdExportBtn" onclick="exportMarkdown()" disabled title="Run the analysis above to generate the Markdown transcript" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.28;transition:opacity .2s,border-color .2s">↓ Export Markdown<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">transcript</span></button>
+    <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Run the analysis above to generate a Policy Mandate" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3);color:var(--text);border:1px solid var(--border);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.28;transition:opacity .2s,border-color .2s">{} Export Policy Mandate<span style="margin-left:.5rem;color:var(--muted);font-size:.85em">API · audit trail</span></button>
+  </div>
+</div>
+
+<footer><div class="container">
+  <div class="footer-inner-ai">
+    <a href="../index.html" class="footer-brand-link">
+      <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect width="48" height="48" rx="9" fill="var(--bg-2)"/><rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/><rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity="1"/><rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".45"/><rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".15"/><rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".6"/><rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)"  opacity=".9"/><rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".3"/><rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".2"/><rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".35"/><rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)"  opacity=".7"/></svg><span class="footer-wordmark"><span style="color:var(--teal)">AI</span>Numbers<span style="color:var(--muted);font-size:.8em">.co</span></span>
+    </a>
+    <div class="footer-links-ai">
+      <a href="../tools.html">All Tools</a>
+      <a href="../guides/agentic-commerce-mcp-hub.html">Agentic Commerce Hub</a>
+      <a href="../sitemap.html">Sitemap</a>
+      <a href="../contact.html">Contact</a>
+    </div>
+    <div class="footer-badge-ai">
+      <span>CC BY 4.0 · Post Oak Labs</span>
+      <span>🔒 Zero PII &nbsp; 📡 No server calls &nbsp; 💻 Client-side</span>
+    </div>
+  </div>
+</div>
+</footer>
+
+<script>
+/* Tool 833 · PAN and SAD Exposure Linter.
+   Client-side port of the art-833 kernel: the input is a schema DECLARATION
+   (field names, mask expression strings, storage facts), never card data, so
+   no primary account number value is ever entered on this page. The port
+   mirrors the registered kernel behaviour; the kernel remains the source of
+   truth and its fixture set is the oracle the row's gates run against.
+
+   Hand-checked example (also carried in the row PR): a clean token record with
+   the mask prefix:6,suffix:4 stays within the ceiling; a keyed digest of the
+   entire PAN alongside a truncated PAN display in one record raises the
+   correlation manual review, because the additional-controls fact is the
+   caller's to own. */
+
+var VALUE_CLASSES = ['primary_account_number','card_verification_code','pin_or_pin_block','full_track_data','deterministic_digest','other'];
+var SAD_CLASSES = ['none','full_track_data','card_verification_code','pin_or_pin_block'];
+var RETENTIONS = ['before_authorization','during_authorization_only','after_authorization'];
+var STORAGES = ['persistent','non_persistent_memory','ephemeral_process'];
+var SAD_SUB_RULE = { full_track_data:'3.3.1.1', card_verification_code:'3.3.1.2', pin_or_pin_block:'3.3.1.3' };
+var PREFIX_CEILING = 6, SUFFIX_CEILING = 4;
+
+/* Mask grammar: comma-separated directives, each `name` or `name:N`. Recognised:
+   prefix:N, suffix:N, redact:N, redact:all, plain. An empty expression is a
+   recognized no-mask state (reported, not refused); anything unparseable
+   refuses the whole run rather than guessing. */
+function parseMask(expr) {
+  var trimmed = String(expr == null ? '' : expr).trim();
+  if (trimmed === '') return { recognized:true, directives:[] };
+  if (trimmed.toLowerCase() === 'plain') return { recognized:true, directives:[{ name:'plain' }] };
+  var directives = [];
+  var parts = trimmed.split(',');
+  for (var i = 0; i < parts.length; i++) {
+    var token = parts[i].trim();
+    if (token === '') continue;
+    var m = /^([a-z_]+)(?::(\d+|all))?$/i.exec(token);
+    if (!m) return { recognized:false, directives:[] };
+    var name = m[1].toLowerCase(), arg = m[2];
+    if (name === 'prefix' || name === 'suffix' || name === 'redact') {
+      if (arg == null) return { recognized:false, directives:[] };
+      if (name !== 'redact' && arg === 'all') return { recognized:false, directives:[] };
+      directives.push({ name:name, count:arg === 'all' ? Infinity : parseInt(arg, 10) });
+    } else if (name === 'plain') {
+      if (arg != null) return { recognized:false, directives:[] };
+      directives.push({ name:'plain' });
+    } else return { recognized:false, directives:[] };
+  }
+  if (directives.length === 0) return { recognized:false, directives:[] };
+  return { recognized:true, directives:directives };
+}
+
+/* Digits of a PAN a mask expression reveals, against the display ceiling. */
+function maskExposure(parsed) {
+  var prefix = 0, suffix = 0, full = false;
+  for (var i = 0; i < parsed.directives.length; i++) {
+    var d = parsed.directives[i];
+    if (d.name === 'plain') full = true;
+    if (d.name === 'prefix') prefix += d.count;
+    if (d.name === 'suffix') suffix += d.count;
+  }
+  return { prefix:prefix, suffix:suffix, full:full };
+}
+
+/* The same grammar over an alias template or search-index expression: recognized
+   directives count toward the ceiling; a string with none is reported as not
+   analyzable (manual review), never silently clean. */
+function analyzeDisplayExpression(raw) {
+  var text = String(raw == null ? '' : raw);
+  var re = /(prefix|suffix):(\d+)|\bplain\b/gi;
+  var prefix = 0, suffix = 0, hits = 0, full = false, m;
+  while ((m = re.exec(text)) !== null) {
+    hits += 1;
+    if (!m[1]) full = true;
+    if (m[1] === 'prefix') prefix += parseInt(m[2], 10);
+    if (m[1] === 'suffix') suffix += parseInt(m[2], 10);
+  }
+  return { expression:text, recognized_directives:hits, prefix_digits:prefix, suffix_digits:suffix, full:full, analyzable:hits > 0 };
+}
+
+function isPlainObject(v) { return v != null && typeof v === 'object' && !Array.isArray(v); }
+
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function refusalPayload(reasons) {
+  return {
+    output_payload: {
+      verdict:'input_refused',
+      refusal_reasons:reasons,
+      findings:[], manual_review:[],
+      issues:reasons.map(function (r) { return 'input refused: ' + r; }),
+      manual_review_required:false,
+      findings_count:0, manual_review_count:0
+    },
+    compliance_flags:['INPUT_REFUSED']
+  };
+}
+
+/* Faithful port of the art-833 compute(): same closed vocabularies, same
+   refusals, same finding codes, same output_payload shape. */
+function lintCompute(pp) {
+  pp = pp || {};
+  var refusalReasons = [];
+  var record = isPlainObject(pp.record) ? pp.record : null;
+  var storedElements = Array.isArray(pp.stored_elements) ? pp.stored_elements : null;
+  if (!record) refusalReasons.push('record object missing');
+  if (!storedElements) refusalReasons.push('stored_elements array missing');
+  if (refusalReasons.length > 0) return refusalPayload(refusalReasons);
+
+  var fields = Array.isArray(record.fields) ? record.fields : [];
+  if (fields.length === 0) refusalReasons.push('record.fields empty');
+  var i, f, e;
+  for (i = 0; i < fields.length; i++) {
+    f = fields[i];
+    if (!isPlainObject(f) || typeof f.name !== 'string' || f.name === '') { refusalReasons.push('field without a name'); continue; }
+    if (VALUE_CLASSES.indexOf(f.value_class) === -1) refusalReasons.push('field "' + f.name + '" has unknown value_class "' + String(f.value_class) + '"');
+    if (f.value_class === 'primary_account_number') {
+      var p0 = parseMask(f.mask_expression);
+      if (!p0.recognized) refusalReasons.push('field "' + f.name + '" mask_expression unparseable: "' + String(f.mask_expression) + '"');
+    }
+    if (f.value_class === 'deterministic_digest') {
+      if (typeof f.digest_target !== 'string' || f.digest_target === '') refusalReasons.push('field "' + f.name + '" deterministic_digest missing digest_target');
+      if (typeof f.digest_keyed !== 'boolean') refusalReasons.push('field "' + f.name + '" deterministic_digest missing boolean digest_keyed');
+    }
+  }
+  for (i = 0; i < storedElements.length; i++) {
+    e = storedElements[i];
+    if (!isPlainObject(e) || typeof e.name !== 'string' || e.name === '') { refusalReasons.push('stored element without a name'); continue; }
+    if (SAD_CLASSES.indexOf(e.sad_class) === -1) refusalReasons.push('stored element "' + e.name + '" has unknown sad_class "' + String(e.sad_class) + '"');
+    if (RETENTIONS.indexOf(e.retention) === -1) refusalReasons.push('stored element "' + e.name + '" has unknown retention "' + String(e.retention) + '"');
+    if (STORAGES.indexOf(e.storage_location_class) === -1) refusalReasons.push('stored element "' + e.name + '" has unknown storage_location_class "' + String(e.storage_location_class) + '"');
+    if (typeof e.encrypted !== 'boolean') refusalReasons.push('stored element "' + e.name + '" missing boolean encrypted');
+  }
+  if (refusalReasons.length > 0) return refusalPayload(refusalReasons);
+
+  var findings = [], manualReview = [];
+
+  /* Rule pack A: display masking, per declared PAN field. */
+  var fieldExposure = [];
+  for (i = 0; i < fields.length; i++) {
+    f = fields[i];
+    if (f.value_class !== 'primary_account_number') continue;
+    var pm = parseMask(f.mask_expression);
+    var exp = maskExposure(pm);
+    var verdict;
+    if (exp.full || (!exp.full && exp.prefix === 0 && exp.suffix === 0 && pm.directives.length === 0)) verdict = 'full_display';
+    else if (exp.prefix > PREFIX_CEILING || exp.suffix > SUFFIX_CEILING) verdict = 'exceeds_ceiling';
+    else verdict = 'within_ceiling';
+    if (verdict === 'exceeds_ceiling') findings.push({ code:'MASK_DISPLAY_EXCEEDS_CEILING', subject:f.name, message:'mask reveals prefix=' + exp.prefix + ' suffix=' + exp.suffix + ' digits; the display ceiling is the first ' + PREFIX_CEILING + ' (BIN) and last ' + SUFFIX_CEILING + ' digits', paragraph:'Requirement 3.4.1' });
+    if (verdict === 'full_display') findings.push({ code:'MASK_DISPLAY_FULL_PAN', subject:f.name, message:'no recognized mask directive: the field displays the full PAN', paragraph:'Requirement 3.4.1' });
+    fieldExposure.push({ field:f.name, prefix_digits:exp.prefix, suffix_digits:exp.suffix, ceiling:{ prefix:PREFIX_CEILING, suffix:SUFFIX_CEILING }, verdict:verdict });
+  }
+
+  /* Rule pack A over the alias template and each declared search-index
+     expression. Undeclared surfaces are not demanded; a declared expression
+     with no recognizable directive is a manual review, not a silent pass. */
+  var hasAlias = typeof record.alias_template === 'string' && record.alias_template !== '';
+  var searchInputs = (Array.isArray(record.search_index_expressions) ? record.search_index_expressions : [])
+    .filter(function (x) { return typeof x === 'string' && x !== ''; });
+  var aliasAnalysis = hasAlias ? analyzeDisplayExpression(record.alias_template) : { expression:null, recognized_directives:0, prefix_digits:0, suffix_digits:0, analyzable:false, declared:false };
+  if (hasAlias) aliasAnalysis.declared = true;
+  if (aliasAnalysis.analyzable && (aliasAnalysis.prefix_digits > PREFIX_CEILING || aliasAnalysis.suffix_digits > SUFFIX_CEILING)) {
+    findings.push({ code:'ALIAS_DISPLAY_EXCEEDS_CEILING', subject:'alias_template', message:'alias template reveals prefix=' + aliasAnalysis.prefix_digits + ' suffix=' + aliasAnalysis.suffix_digits + ' digits, above the display ceiling', paragraph:'Requirement 3.4.1' });
+  }
+  var searchIndexAnalysis = searchInputs.map(function (x) { return analyzeDisplayExpression(x); });
+  var si, s;
+  for (i = 0; i < searchIndexAnalysis.length; i++) {
+    si = searchIndexAnalysis[i];
+    if (si.analyzable && (si.prefix_digits > PREFIX_CEILING || si.suffix_digits > SUFFIX_CEILING)) {
+      findings.push({ code:'SEARCH_INDEX_DISPLAY_EXCEEDS_CEILING', subject:'search_index_expressions', message:'search index expression reveals prefix=' + si.prefix_digits + ' suffix=' + si.suffix_digits + ' digits, above the display ceiling', paragraph:'Requirement 3.4.1' });
+    }
+  }
+  var fullSurfaces = [{ a:aliasAnalysis, subject:'alias_template' }]
+    .concat(searchIndexAnalysis.map(function (x) { return { a:x, subject:'search_index_expressions' }; }));
+  for (i = 0; i < fullSurfaces.length; i++) {
+    if (fullSurfaces[i].a.full) {
+      findings.push({ code:'MASK_DISPLAY_FULL_PAN', subject:fullSurfaces[i].subject, message:'the expression declares plain display: it shows the full PAN', paragraph:'Requirement 3.4.1' });
+    }
+  }
+  var aliasUnanalyzed = (hasAlias &&!aliasAnalysis.analyzable) || searchIndexAnalysis.some(function (x) { return !x.analyzable; });
+
+  /* Rule pack B: sensitive authentication data retention. */
+  var retentionVerdicts = [];
+  for (i = 0; i < storedElements.length; i++) {
+    e = storedElements[i];
+    if (e.sad_class === 'none') {
+      retentionVerdicts.push({ element:e.name, sad_class:e.sad_class, retention:e.retention, storage_location_class:e.storage_location_class, encrypted:e.encrypted, verdict:'no_sad_element' });
+      continue;
+    }
+    var rverdict;
+    if (e.retention === 'after_authorization' && e.storage_location_class === 'persistent') {
+      rverdict = 'sad_stored_after_authorization';
+      findings.push({ code:'SAD_STORED_AFTER_AUTHORIZATION', subject:e.name, message:'stores ' + e.sad_class + ' after authorization in persistent storage' + (e.encrypted ? ' (stored encrypted, which the rule does not except)' : ''), paragraph:'Requirement 3.3.1' + (SAD_SUB_RULE[e.sad_class] ? ' / ' + SAD_SUB_RULE[e.sad_class] : '') });
+    } else if (e.retention === 'after_authorization') {
+      rverdict = 'manual_review_required';
+      manualReview.push({ code:'SAD_NONPERSISTENT_MANUAL_REVIEW', subject:e.name, message:'holds ' + e.sad_class + ' after authorization in ' + e.storage_location_class + '; the carve-out conditions (business need, non-persistent state controls, prompt removal) are caller-owned facts this check cannot verify', paragraph:'Requirement 3.3.1 (non-persistent memory guidance)' });
+    } else {
+      rverdict = 'not_after_authorization';
+    }
+    retentionVerdicts.push({ element:e.name, sad_class:e.sad_class, retention:e.retention, storage_location_class:e.storage_location_class, encrypted:e.encrypted, verdict:rverdict });
+  }
+
+  /* Rule pack C: digest fields. */
+  var digestVerdicts = [];
+  var digestOverFullPan = false;
+  var truncatedPanDisplayed = fieldExposure.some(function (x) { return x.verdict === 'within_ceiling'; });
+  for (i = 0; i < fields.length; i++) {
+    f = fields[i];
+    if (f.value_class !== 'deterministic_digest') continue;
+    var entire = f.digest_target === 'entire_pan';
+    var dverdict = 'entire_pan_keyed';
+    if (!entire) {
+      dverdict = 'digest_target_not_entire_pan';
+      findings.push({ code:'DIGEST_TARGET_NOT_ENTIRE_PAN', subject:f.name, message:'digest target "' + f.digest_target + '" is a PAN fragment or a low-entropy value; a hash used to render PAN unreadable must be of the entire PAN, and a short keyspace is recoverable by brute force', paragraph:'Requirement 3.5.1 (one-way hashes of the entire PAN; truncation bullet)' });
+    } else if (!f.digest_keyed) {
+      dverdict = 'digest_unkeyed';
+      digestOverFullPan = true;
+      findings.push({ code:'DIGEST_UNKEYED_ENTIRE_PAN', subject:f.name, message:'unkeyed hash of the entire PAN; hashes used to render PAN unreadable must be keyed cryptographic hashes', paragraph:'Requirement 3.5.1.1' });
+    } else {
+      digestOverFullPan = true;
+    }
+    digestVerdicts.push({ field:f.name, digest_target:f.digest_target, keyed:f.digest_keyed, verdict:dverdict });
+  }
+
+  /* Hashed and truncated versions of the same PAN coexisting: the
+     additional-controls fact is caller-owned, so the check refuses to answer
+     and asks for review instead. */
+  if (digestOverFullPan && truncatedPanDisplayed) {
+    manualReview.push({ code:'DIGEST_TRUNCATION_CORRELATION_REVIEW', subject:'record', message:'a keyed digest of the entire PAN and a truncated PAN display coexist in one record; whether additional controls prevent correlation is a caller-owned fact this check cannot verify', paragraph:'Requirement 3.5.1.c' });
+  }
+
+  var flags = [];
+  for (i = 0; i < findings.length; i++) flags.push(findings[i].code);
+  for (i = 0; i < manualReview.length; i++) flags.push(manualReview[i].code);
+  if (aliasUnanalyzed) {
+    flags.push('DISPLAY_EXPRESSION_NOT_ANALYZED');
+    manualReview.push({ code:'DISPLAY_EXPRESSION_NOT_ANALYZED', subject:'alias_template/search_index_expressions', message:'an alias template or search index expression carries no recognizable display directive, so its revealed digit count is unknown', paragraph:'Requirement 3.4.1' });
+  }
+
+  var verdict = findings.length > 0 ? 'findings_present' : (manualReview.length > 0 ? 'manual_review_required' : 'no_findings');
+  var issues = [];
+  for (i = 0; i < findings.length; i++) issues.push(findings[i].code + ': ' + findings[i].message);
+  for (i = 0; i < manualReview.length; i++) issues.push(manualReview[i].code + ': ' + manualReview[i].message);
+
+  return {
+    output_payload: {
+      verdict:verdict,
+      ceilings:{ display_prefix:PREFIX_CEILING, display_suffix:SUFFIX_CEILING },
+      field_exposure:fieldExposure,
+      alias_analysis:aliasAnalysis,
+      search_index_analysis:searchIndexAnalysis,
+      retention_verdicts:retentionVerdicts,
+      digest_verdicts:digestVerdicts,
+      findings:findings,
+      manual_review:manualReview,
+      issues:issues,
+      manual_review_required:manualReview.length > 0,
+      findings_count:findings.length,
+      manual_review_count:manualReview.length,
+      container_path:typeof record.container_path === 'string' ? record.container_path : null,
+      record_type:typeof record.record_type === 'string' ? record.record_type : null
+    },
+    compliance_flags:flags
+  };
+}
+
+/* ---- form collection ---------------------------------------------------- */
+
+function slotValue(id) { var el = document.getElementById(id); return el ? String(el.value || '').trim() : ''; }
+
+function collectPP(errs) {
+  var fields = [], elems = [], n, name;
+  for (n = 1; n <= 3; n++) {
+    name = slotValue('field_' + n + '_name');
+    if (name === '') {
+      if (slotValue('field_' + n + '_class') !== '' || slotValue('field_' + n + '_mask') !== '' || slotValue('field_' + n + '_digest_target') !== '' || slotValue('field_' + n + '_keyed') !== '') errs.push('Field slot ' + n + ': fill a field name to use the slot, or clear its other inputs');
+      continue;
+    }
+    var cls = slotValue('field_' + n + '_class');
+    if (cls === '') { errs.push('Field slot ' + n + ' (' + name + '): select a value class'); continue; }
+    var fld = { name:name, value_class:cls };
+    if (cls === 'primary_account_number') fld.mask_expression = slotValue('field_' + n + '_mask');
+    if (cls === 'deterministic_digest') {
+      fld.digest_target = slotValue('field_' + n + '_digest_target');
+      var keyed = slotValue('field_' + n + '_keyed');
+      if (keyed === '') { errs.push('Field slot ' + n + ' (' + name + '): select whether the digest is keyed'); continue; }
+      fld.digest_keyed = keyed === 'true';
+    }
+    fields.push(fld);
+  }
+  for (n = 1; n <= 3; n++) {
+    name = slotValue('elem_' + n + '_name');
+    if (name === '') {
+      if (slotValue('elem_' + n + '_sad') !== '' || slotValue('elem_' + n + '_retention') !== '' || slotValue('elem_' + n + '_storage') !== '' || slotValue('elem_' + n + '_encrypted') !== '') errs.push('Element slot ' + n + ': fill an element name to use the slot, or clear its other inputs');
+      continue;
+    }
+    var sad = slotValue('elem_' + n + '_sad'), ret = slotValue('elem_' + n + '_retention'), st = slotValue('elem_' + n + '_storage'), enc = slotValue('elem_' + n + '_encrypted');
+    if (sad === '' || ret === '' || st === '' || enc === '') { errs.push('Element slot ' + n + ' (' + name + '): select the sensitive class, retention, storage class, and encryption state'); continue; }
+    elems.push({ name:name, sad_class:sad, retention:ret, storage_location_class:st, encrypted:enc === 'true' });
+  }
+  var record = { record_type:slotValue('record_type'), fields:fields };
+  var cp = slotValue('container_path');
+  if (cp !== '') record.container_path = cp;
+  var alias = slotValue('alias_template');
+  if (alias !== '') record.alias_template = alias;
+  var searches = String(document.getElementById('search_index_expressions').value || '').split('\n').map(function (x) { return x.trim(); }).filter(function (x) { return x !== ''; });
+  if (searches.length > 0) record.search_index_expressions = searches;
+  return { record:record, stored_elements:elems };
+}
+
+/* Synthetic example: a schema declaration only. Where the schema references the
+   account number it is by pattern, and the sample pattern family shown in the
+   hint copy is the Luhn-valid industry test range, never a real account. */
+function loadExample() {
+  document.getElementById('record_type').value = 'card_token';
+  document.getElementById('container_path').value = 'sandbox/example/token-record.json';
+  document.getElementById('alias_template').value = 'prefix:6,suffix:4';
+  document.getElementById('search_index_expressions').value = 'prefix:6';
+  document.getElementById('field_1_name').value = 'pan';
+  document.getElementById('field_1_class').value = 'primary_account_number';
+  document.getElementById('field_1_mask').value = 'prefix:6,suffix:4';
+  document.getElementById('field_1_digest_target').value = '';
+  document.getElementById('field_1_keyed').value = '';
+  document.getElementById('field_2_name').value = 'pan_fingerprint';
+  document.getElementById('field_2_class').value = 'deterministic_digest';
+  document.getElementById('field_2_mask').value = '';
+  document.getElementById('field_2_digest_target').value = 'entire_pan';
+  document.getElementById('field_2_keyed').value = 'true';
+  document.getElementById('field_3_name').value = '';
+  document.getElementById('field_3_class').value = '';
+  document.getElementById('field_3_mask').value = '';
+  document.getElementById('field_3_digest_target').value = '';
+  document.getElementById('field_3_keyed').value = '';
+  document.getElementById('elem_1_name').value = 'token_vault_index';
+  document.getElementById('elem_1_sad').value = 'none';
+  document.getElementById('elem_1_retention').value = 'after_authorization';
+  document.getElementById('elem_1_storage').value = 'persistent';
+  document.getElementById('elem_1_encrypted').value = 'true';
+  document.getElementById('elem_2_name').value = '';
+  document.getElementById('elem_2_sad').value = '';
+  document.getElementById('elem_2_retention').value = '';
+  document.getElementById('elem_2_storage').value = '';
+  document.getElementById('elem_2_encrypted').value = '';
+  document.getElementById('elem_3_name').value = '';
+  document.getElementById('elem_3_sad').value = '';
+  document.getElementById('elem_3_retention').value = '';
+  document.getElementById('elem_3_storage').value = '';
+  document.getElementById('elem_3_encrypted').value = '';
+}
+
+function runLint() {
+  var errs = [];
+  var pp = collectPP(errs);
+  var out = document.getElementById('outputSection');
+  if (errs.length) {
+    out.innerHTML = '<div class="out-section"><div class="out-header"><span class="out-title">Input errors</span></div>' +
+      '<div class="out-body"><ul class="err-list">' +
+      errs.map(function (e) { return '<li>' + esc(e) + '</li>'; }).join('') +
+      '</ul><p class="note-line">Fix the listed slots and run again.</p></div></div>';
+    return;
+  }
+  var r = lintCompute(pp);
+  window._lintPP = pp;
+  window._lintOp = r.output_payload;
+  window._lintFlags = r.compliance_flags;
+  window._lintInputs = {};
+  document.querySelectorAll('input,select,textarea').forEach(function (x) { if (x.id && x.value) window._lintInputs[x.id] = x.value; });
+  buildMarkdown();
+  render();
+}
+
+function td(cls, txt) { return '<td class="' + cls + '">' + txt + '</td>'; }
+
+var VERDICT_LABEL = {
+  input_refused:'Input refused',
+  no_findings:'No findings on the declared surfaces',
+  manual_review_required:'Manual review required',
+  findings_present:'Findings present'
+};
+
+function verdictClass(v) { return v === 'input_refused' || v === 'findings_present' ? 'neg' : v === 'manual_review_required' ? '' : 'pos'; }
+
+function render() {
+  var op = window._lintOp;
+
+  if (op.verdict === 'input_refused') {
+    var tr = '<div class="out-section"><div class="out-header"><span class="out-title">Verdict</span></div><div class="out-body">' +
+      '<p class="note-line"><span class="num neg">' + VERDICT_LABEL.input_refused + '</span> — the declaration could not be interpreted, so nothing was checked.</p>' +
+      '<ul class="err-list" style="margin-top:.6rem">' + op.refusal_reasons.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('') + '</ul>' +
+      '<p class="note-line">An unparseable mask expression, an unknown class label, or an empty field list refuses the whole run rather than guessing; fix the declaration and run again.</p></div></div>';
+    document.getElementById('outputSection').innerHTML = tr;
+    return;
+  }
+
+  var t1 = '<div class="out-section"><div class="out-header"><span class="out-title">Verdict</span></div><div class="out-body">' +
+    '<p class="note-line"><span class="num ' + verdictClass(op.verdict) + '">' + (VERDICT_LABEL[op.verdict] || op.verdict) + '</span>' +
+    ' · findings: <span class="num">' + op.findings_count + '</span> · manual review: <span class="num">' + op.manual_review_count + '</span>' +
+    ' · display ceiling: first <span class="num">' + op.ceilings.display_prefix + '</span> and last <span class="num">' + op.ceilings.display_suffix + '</span> digits</p></div></div>';
+
+  var t2 = '<div class="out-section"><div class="out-header"><span class="out-title">Declared field display exposure (Requirement 3.4.1)</span></div><div class="out-body" style="padding:0;overflow-x:auto"><table class="result-table">' +
+    '<thead><tr><th>Field</th><th>Revealed prefix</th><th>Revealed suffix</th><th>Verdict against the published masking rule</th></tr></thead><tbody>';
+  if (op.field_exposure.length === 0) {
+    t2 += '<tr><td colspan="4" class="neu">No primary-account-number field was declared.</td></tr>';
+  }
+  op.field_exposure.forEach(function (x) {
+    t2 += '<tr><td>' + esc(x.field) + '</td>' + td('num', String(x.prefix_digits)) + td('num', String(x.suffix_digits)) +
+      '<td><span class="num ' + (x.verdict === 'within_ceiling' ? 'pos' : 'neg') + '">' + esc(x.verdict) + '</span></td></tr>';
+  });
+  t2 += '</tbody></table></div></div>';
+
+  var t3 = '<div class="out-section"><div class="out-header"><span class="out-title">Alias template and search-index expressions</span></div><div class="out-body" style="padding:0;overflow-x:auto"><table class="result-table">' +
+    '<thead><tr><th>Surface</th><th>Declared expression</th><th>Recognized directives</th><th>Prefix / suffix digits</th><th>Analyzable</th></tr></thead><tbody>';
+  if (op.alias_analysis.declared) {
+    t3 += '<tr><td>alias_template</td><td class="num">' + esc(op.alias_analysis.expression) + '</td>' + td('num', String(op.alias_analysis.recognized_directives)) +
+      td('num', op.alias_analysis.prefix_digits + ' / ' + op.alias_analysis.suffix_digits) +
+      '<td><span class="' + (op.alias_analysis.analyzable ? 'pos' : 'neg') + '">' + (op.alias_analysis.analyzable ? 'yes' : 'no') + '</span></td></tr>';
+  }
+  op.search_index_analysis.forEach(function (x, idx) {
+    t3 += '<tr><td>search_index_expressions[' + idx + ']</td><td class="num">' + esc(x.expression) + '</td>' + td('num', String(x.recognized_directives)) +
+      td('num', x.prefix_digits + ' / ' + x.suffix_digits) +
+      '<td><span class="' + (x.analyzable ? 'pos' : 'neg') + '">' + (x.analyzable ? 'yes' : 'no') + '</span></td></tr>';
+  });
+  if (!op.alias_analysis.declared && op.search_index_analysis.length === 0) {
+    t3 += '<tr><td colspan="5" class="neu">No alias template and no search-index expressions were declared; those surfaces are not demanded and are not examined.</td></tr>';
+  }
+  t3 += '</tbody></table></div></div>';
+
+  var t4 = '<div class="out-section"><div class="out-header"><span class="out-title">Stored-element retention verdicts (Requirements 3.3.1, 3.3.1.1, 3.3.1.2, 3.3.1.3)</span></div><div class="out-body" style="padding:0;overflow-x:auto"><table class="result-table">' +
+    '<thead><tr><th>Element</th><th>Sensitive class</th><th>Retention</th><th>Storage</th><th>Encrypted</th><th>Verdict</th></tr></thead><tbody>';
+  op.retention_verdicts.forEach(function (x) {
+    var vc = x.verdict === 'no_sad_element' || x.verdict === 'not_after_authorization' ? 'pos' : x.verdict === 'sad_stored_after_authorization' ? 'neg' : '';
+    t4 += '<tr><td>' + esc(x.element) + '</td>' + td('num', esc(x.sad_class)) + td('num', esc(x.retention)) + td('num', esc(x.storage_location_class)) +
+      td('num', x.encrypted ? 'yes' : 'no') + '<td><span class="num ' + vc + '">' + esc(x.verdict) + '</span></td></tr>';
+  });
+  if (op.retention_verdicts.length === 0) t4 += '<tr><td colspan="6" class="neu">No stored data element was declared.</td></tr>';
+  t4 += '</tbody></table></div></div>';
+
+  var t5 = '<div class="out-section"><div class="out-header"><span class="out-title">Digest verdicts (Requirements 3.5.1, 3.5.1.1)</span></div><div class="out-body" style="padding:0;overflow-x:auto"><table class="result-table">' +
+    '<thead><tr><th>Field</th><th>Digest target</th><th>Keyed</th><th>Verdict</th></tr></thead><tbody>';
+  op.digest_verdicts.forEach(function (x) {
+    t5 += '<tr><td>' + esc(x.field) + '</td>' + td('num', esc(x.digest_target)) + td('num', x.keyed ? 'yes' : 'no') +
+      '<td><span class="num ' + (x.verdict === 'entire_pan_keyed' ? 'pos' : 'neg') + '">' + esc(x.verdict) + '</span></td></tr>';
+  });
+  if (op.digest_verdicts.length === 0) t5 += '<tr><td colspan="4" class="neu">No digest field was declared; the absence of digest findings is not evidence that an undeclared readability method conforms.</td></tr>';
+  t5 += '</tbody></table></div></div>';
+
+  var t6 = '<div class="out-section"><div class="out-header"><span class="out-title">Findings and manual review</span></div><div class="out-body">';
+  if (op.findings.length === 0 && op.manual_review.length === 0) {
+    t6 += '<p class="ok-line">No findings on the declared surfaces. This speaks to the declaration you typed, not to any real system.</p>';
+  } else {
+    if (op.findings.length > 0) t6 += '<ul class="err-list">' + op.findings.map(function (x) { return '<li>' + esc(x.code) + ' · ' + esc(x.subject) + ' · ' + esc(x.message) + ' <span style="color:var(--muted)">[' + esc(x.paragraph) + ']</span></li>'; }).join('') + '</ul>';
+    if (op.manual_review.length > 0) t6 += '<ul class="warn-list" style="margin-top:.5rem">' + op.manual_review.map(function (x) { return '<li>' + esc(x.code) + ' · ' + esc(x.subject) + ' · ' + esc(x.message) + ' <span style="color:var(--muted)">[' + esc(x.paragraph) + ']</span></li>'; }).join('') + '</ul>';
+  }
+  t6 += '</div></div>';
+
+  var t7 = '<div class="out-section"><div class="out-header"><span class="out-title">Scope</span></div><div class="out-body"><p class="note-line">' +
+    'Record type: <span class="num">' + esc(op.record_type || '(none)') + '</span> · Container path: <span class="num">' + esc(op.container_path || '(none)') + '</span>' +
+    ' · Declared surfaces checked: <span class="num">' + op.field_exposure.length + '</span> PAN display(s), <span class="num">' + op.digest_verdicts.length + '</span> digest(s), <span class="num">' + op.retention_verdicts.length + '</span> stored element(s)</p></div></div>';
+
+  var t8 = '<div class="out-section"><div class="out-header"><span class="out-title">Method and sources</span></div><div class="out-body">' +
+    '<p class="note-line">Mask expressions are parsed under a strict grammar (prefix:N, suffix:N, redact:N, redact:all, plain); a display may reveal at most the first six digits (the BIN) and the last four digits of the PAN. Sensitive authentication data (full track data, card verification codes, PINs and PIN blocks) declared stored past authorization is flagged whether or not it is declared encrypted; a non-persistent holder past authorization resolves to manual review because the carve-out conditions are operational facts. Digest fields are checked for a whole-PAN target and a keyed construction. Cited text: PCI DSS v4.0.1 (PCI SSC), Requirements 3.3.1, 3.3.1.1, 3.3.1.2, 3.3.1.3, 3.4.1, 3.5.1, 3.5.1.1 (retrieved November 2026).</p>' +
+    '<p class="note-line" style="margin-top:.6rem">This page checks the declaration you typed against the published rule text. It is not legal, compliance, or assessment advice; verify against the current official text and your own assessor before relying on any output. No card data is ever entered here: the input is a declaration of fields, expressions, and storage facts, and every sample pattern in the hints is drawn from the Luhn-valid industry test-number ranges.</p>' +
+    '</div></div>';
+
+  document.getElementById('outputSection').innerHTML = t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + '<div class="out-section"><div class="out-header"><span class="out-title">Markdown transcript</span></div><div class="out-body" style="padding:.75rem"><div class="memo-block" id="mdBlock">' + esc(window._lintMarkdown || '') + '</div></div></div>';
+}
+
+function buildMarkdown() {
+  var op = window._lintOp;
+  var L = [];
+  L.push('# PAN and SAD Exposure Linter');
+  L.push('');
+  L.push('Generated: ' + new Date().toISOString().slice(0, 10) + ' · Last Reviewed: 2026-11-04');
+  L.push('Schema-declaration check against the published masking and retention rules. Not legal, compliance, or assessment advice; verify against current official text before relying on any output.');
+  L.push('');
+  L.push('## Verdict');
+  L.push('verdict: ' + op.verdict + '; findings: ' + op.findings_count + '; manual review: ' + op.manual_review_count);
+  if (op.verdict === 'input_refused') {
+    L.push('');
+    L.push('## Refusal reasons');
+    op.refusal_reasons.forEach(function (r) { L.push('- ' + r); });
+    window._lintMarkdown = L.join('\n');
+    return;
+  }
+  L.push('');
+  L.push('## Declared field display exposure (Requirement 3.4.1)');
+  L.push('| Field | Revealed prefix | Revealed suffix | Verdict |');
+  L.push('|---|---|---|---|');
+  op.field_exposure.forEach(function (x) { L.push('| ' + x.field + ' | ' + x.prefix_digits + ' | ' + x.suffix_digits + ' | ' + x.verdict + ' |'); });
+  L.push('');
+  L.push('## Alias template and search-index expressions');
+  if (op.alias_analysis.declared) L.push('alias_template: expression "' + op.alias_analysis.expression + '", recognized directives ' + op.alias_analysis.recognized_directives + ', prefix/suffix ' + op.alias_analysis.prefix_digits + '/' + op.alias_analysis.suffix_digits + ', analyzable ' + op.alias_analysis.analyzable);
+  op.search_index_analysis.forEach(function (x, i) { L.push('search_index_expressions[' + i + ']: expression "' + x.expression + '", recognized directives ' + x.recognized_directives + ', prefix/suffix ' + x.prefix_digits + '/' + x.suffix_digits + ', analyzable ' + x.analyzable); });
+  if (!op.alias_analysis.declared && op.search_index_analysis.length === 0) L.push('No alias template and no search-index expressions were declared; those surfaces are not demanded and are not examined.');
+  L.push('');
+  L.push('## Stored-element retention verdicts (Requirements 3.3.1.x)');
+  L.push('| Element | Sensitive class | Retention | Storage | Encrypted | Verdict |');
+  L.push('|---|---|---|---|---|---|');
+  op.retention_verdicts.forEach(function (x) { L.push('| ' + x.element + ' | ' + x.sad_class + ' | ' + x.retention + ' | ' + x.storage_location_class + ' | ' + x.encrypted + ' | ' + x.verdict + ' |'); });
+  L.push('');
+  L.push('## Digest verdicts (Requirements 3.5.1, 3.5.1.1)');
+  L.push('| Field | Digest target | Keyed | Verdict |');
+  L.push('|---|---|---|---|');
+  op.digest_verdicts.forEach(function (x) { L.push('| ' + x.field + ' | ' + x.digest_target + ' | ' + x.keyed + ' | ' + x.verdict + ' |'); });
+  L.push('');
+  L.push('## Findings');
+  if (op.findings.length === 0) L.push('None on the declared surfaces.');
+  op.findings.forEach(function (x) { L.push('- ' + x.code + ' (' + x.subject + ') [' + x.paragraph + ']: ' + x.message); });
+  L.push('');
+  L.push('## Manual review');
+  if (op.manual_review.length === 0) L.push('None.');
+  op.manual_review.forEach(function (x) { L.push('- ' + x.code + ' (' + x.subject + ') [' + x.paragraph + ']: ' + x.message); });
+  L.push('');
+  L.push('## Scope');
+  L.push('record_type: ' + (op.record_type || '(none)') + '; container_path: ' + (op.container_path || '(none)'));
+  L.push('The check ran over the declaration above only; a verdict speaks to the declaration, not to any real system.');
+  L.push('');
+  L.push('## Sources');
+  L.push('PCI DSS v4.0.1 (PCI SSC), Requirements 3.3.1, 3.3.1.1, 3.3.1.2, 3.3.1.3, 3.4.1, 3.5.1, 3.5.1.1, retrieved November 2026.');
+  window._lintMarkdown = L.join('\n');
+}
+
+/* ===== Tier 1 export: Policy Mandate JSON + Markdown transcript ===== */
+function downloadText(text, filename, mime) {
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: mime }));
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function exportMarkdown() {
+  if (!window._lintMarkdown) { alert('Run the lint first to generate results.'); return; }
+  var ts = new Date().toISOString();
+  downloadText(window._lintMarkdown, MANIFEST.tool_id + '_' + ts.replace(/[:.TZ]/g, '').replace(/-/g, '').slice(0, 14) + '.md', 'text/markdown');
+}
+function exportAP2() {
+  if (!window._lintOp) { alert('Run the lint first to generate results.'); return; }
+  var ts = new Date().toISOString();
+  var op = window._lintOp;
+  var mandate = {
+    mandate_id: crypto.randomUUID(),
+    issued_at: ts,
+    issued_by: 'ainumbers.co',
+    tool_id: MANIFEST.tool_id,
+    tool_version: MANIFEST.version,
+    mandate_type: 'compliance_control',
+    jurisdiction: ['ZZ'],
+    regulatory_frameworks: ['PCI DSS v4.0.1'],
+    payload: {
+      verdict: op.verdict,
+      ceilings: op.ceilings,
+      field_exposure: op.field_exposure,
+      alias_analysis: op.alias_analysis,
+      search_index_analysis: op.search_index_analysis,
+      retention_verdicts: op.retention_verdicts,
+      digest_verdicts: op.digest_verdicts,
+      findings: op.findings,
+      manual_review: op.manual_review,
+      issues: op.issues,
+      manual_review_required: op.manual_review_required,
+      findings_count: op.findings_count,
+      manual_review_count: op.manual_review_count,
+      container_path: op.container_path,
+      record_type: op.record_type,
+      markdown_transcript: window._lintMarkdown
+    },
+    summary: MANIFEST.title + ': schema-declaration lint against the published masking and retention rules, ' + ts.slice(0, 10),
+    agent_instructions: ['Review the exported verdict against your own systems and assessor; verify cited text against the current official version before relying on any output. The verdict speaks to the declaration, not to a real system.'],
+    valid_from: ts.slice(0, 10),
+    source_tool_inputs: window._lintInputs,
+    regulatory_citations: ['PCI DSS v4.0.1 (PCI SSC): Requirements 3.3.1.x, 3.4.1, 3.5.1, 3.5.1.1'],
+    caveats: [
+      'A schema-declaration check; not legal, compliance, or assessment advice.',
+      'Carve-out conditions resolve to manual-review flags because the deciding facts belong to the declarer, not to the schema.'
+    ],
+    audit_metadata: { client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  try {
+    AP2Schema.validate(mandate);
+  } catch (e) {
+    alert('Policy Mandate validation failed: ' + e.message);
+    return;
+  }
+  downloadText(JSON.stringify(mandate, null, 2), MANIFEST.tool_id + '_' + ts.replace(/[:.TZ]/g, '').replace(/-/g, '').slice(0, 14) + '.policy.json', 'application/json');
+}
+
+/* Structured capture for the AIN Bridge and the Artifact Verifier. */
+window._captureAP2 = function () {
+  if (!window._lintOp) return;
+  var inputs = {};
+  document.querySelectorAll('input,select,textarea').forEach(function (f) {
+    if (f.id && f.value) inputs[f.id] = f.value;
+  });
+  window._lintInputs = inputs;
+  window._ap2Result = {
+    output: document.getElementById('outputSection').textContent.trim().slice(0, 3000),
+    inputs: inputs,
+    matrix: {
+      verdict: window._lintOp.verdict,
+      counts: { findings: window._lintOp.findings_count, manual_review: window._lintOp.manual_review_count },
+      flags: window._lintFlags
+    }
+  };
+};
+window.enableAP2Btn = function () {
+  var b = document.getElementById('ap2ExportBtn');
+  var m = document.getElementById('mdExportBtn');
+  if (b) { b.disabled = false; b.classList.add('ready'); b.title = 'For API integration · audit trail'; }
+  if (m) { m.disabled = false; m.style.opacity = '1'; m.style.cursor = 'pointer'; m.title = 'Markdown transcript of the lint'; }
+};
+var _obs = new MutationObserver(function () {
+  if (!window._ap2Result && window._lintOp) { window._captureAP2(); window.enableAP2Btn(); }
+});
+_obs.observe(document.body, { childList: true, subtree: true, characterData: true });
+
+</script>
+
+<script>
+  var MANIFEST = JSON.parse('{"tool_id": "833-lint-pan-sad-exposure", "version": "1.0.0", "title": "PAN and SAD Exposure Linter", "description": "Vendor-neutral linter for a declared token-record schema: checks declared display mask expressions, alias template and search-index expressions, sensitive-authentication-data retention, and digest fields against the published PAN display-masking rule and account-data storage rules. The input is a schema declaration, never card data. Client-side. Works offline. Zero PII.", "category": "cat-1", "tags": ["PAN masking", "sensitive authentication data", "SAD retention", "display ceiling", "digest", "token record schema", "PCI DSS"], "audience": ["payments", "compliance", "engineering", "agent builders"], "input_schema": {"type": "object", "properties": {"record_type": {"type": "string", "description": "Label for the record kind the schema describes"}, "container_path": {"type": "string", "description": "Where the declared record is described as living; echoed, never scanned"}, "alias_template": {"type": "string", "description": "Display template aliases of the PAN are declared to use, e.g. prefix:6,suffix:4"}, "search_index_expressions": {"type": "string", "description": "One declared search-index display expression per line"}, "field_1_name": {"type": "string", "description": "Field slot 1 name"}, "field_1_class": {"type": "string", "description": "Field slot 1 value class: primary_account_number, card_verification_code, pin_or_pin_block, full_track_data, deterministic_digest, other"}, "field_1_mask": {"type": "string", "description": "Field slot 1 mask expression for PAN fields: prefix:N, suffix:N, redact:N, redact:all, plain"}, "field_1_digest_target": {"type": "string", "description": "Field slot 1 digest target for deterministic_digest fields, e.g. entire_pan"}, "field_1_keyed": {"type": "string", "description": "Field slot 1 digest keyed, true or false"}, "field_2_name": {"type": "string", "description": "Field slot 2 name"}, "field_2_class": {"type": "string", "description": "Field slot 2 value class"}, "field_2_mask": {"type": "string", "description": "Field slot 2 mask expression"}, "field_2_digest_target": {"type": "string", "description": "Field slot 2 digest target"}, "field_2_keyed": {"type": "string", "description": "Field slot 2 digest keyed"}, "field_3_name": {"type": "string", "description": "Field slot 3 name"}, "field_3_class": {"type": "string", "description": "Field slot 3 value class"}, "field_3_mask": {"type": "string", "description": "Field slot 3 mask expression"}, "field_3_digest_target": {"type": "string", "description": "Field slot 3 digest target"}, "field_3_keyed": {"type": "string", "description": "Field slot 3 digest keyed"}, "elem_1_name": {"type": "string", "description": "Stored element slot 1 name"}, "elem_1_sad": {"type": "string", "description": "Element slot 1 sensitive class: none, full_track_data, card_verification_code, pin_or_pin_block"}, "elem_1_retention": {"type": "string", "description": "Element slot 1 retention: before_authorization, during_authorization_only, after_authorization"}, "elem_1_storage": {"type": "string", "description": "Element slot 1 storage location class: persistent, non_persistent_memory, ephemeral_process"}, "elem_1_encrypted": {"type": "string", "description": "Element slot 1 stored encrypted, true or false"}, "elem_2_name": {"type": "string", "description": "Stored element slot 2 name"}, "elem_2_sad": {"type": "string", "description": "Element slot 2 sensitive class"}, "elem_2_retention": {"type": "string", "description": "Element slot 2 retention"}, "elem_2_storage": {"type": "string", "description": "Element slot 2 storage location class"}, "elem_2_encrypted": {"type": "string", "description": "Element slot 2 stored encrypted"}, "elem_3_name": {"type": "string", "description": "Stored element slot 3 name"}, "elem_3_sad": {"type": "string", "description": "Element slot 3 sensitive class"}, "elem_3_retention": {"type": "string", "description": "Element slot 3 retention"}, "elem_3_storage": {"type": "string", "description": "Element slot 3 storage location class"}, "elem_3_encrypted": {"type": "string", "description": "Element slot 3 stored encrypted"}}, "required": []}, "output_schema": {"type": "object", "properties": {"verdict": {"type": "string"}, "ceilings": {"type": "object"}, "field_exposure": {"type": "array"}, "alias_analysis": {"type": "object"}, "search_index_analysis": {"type": "array"}, "retention_verdicts": {"type": "array"}, "digest_verdicts": {"type": "array"}, "findings": {"type": "array"}, "manual_review": {"type": "array"}, "issues": {"type": "array"}, "manual_review_required": {"type": "boolean"}, "findings_count": {"type": "number"}, "manual_review_count": {"type": "number"}, "container_path": {"type": "string"}, "record_type": {"type": "string"}}}, "mcp_tool_definition": {"name": "lint_pan_sad_exposure", "description": "Lints a declared token-record schema against the published PCI DSS v4.0.1 account-data rules: display exposure against the first-six-and-last-four masking ceiling, sensitive authentication data retention after authorization, and digest fields. Unrecognized input values refuse the whole call. Checks a schema declaration, not a production data store; not a PCI DSS assessment. Client-side only, zero PII.", "inputSchema": {"type": "object", "properties": {"record": {"type": "object", "description": "Declared record schema: record_type, fields, optional alias_template, optional search_index_expressions"}, "stored_elements": {"type": "array", "description": "Declared stored data elements: name, sad_class, retention, storage_location_class, encrypted"}}, "required": ["record", "stored_elements"]}}, "execution": {"type": "browser-javascript", "entry": "tools/833-lint-pan-sad-exposure.html", "function_name": "runLint", "timeout_ms": 5000}, "ap2_export": true, "pii_transmitted": false, "execution_context": "client_side_browser", "prefill": true, "bridge_version": "1.3", "author": "PostOakLabs", "license": "CC-BY-4.0"}');
+    function toggleMfst(){var b=document.getElementById('mfstBody'),a=document.getElementById('mfstArr');if(b.style.display==='none'||b.style.display===''){b.style.display='block';if(a)a.textContent='▲';document.getElementById('mfstCode').textContent=JSON.stringify(MANIFEST,null,2);}else{b.style.display='none';if(a)a.textContent='▼';}}
+</script>
+
+<script>
+/* AP2 Policy Mandate validation — CONTRACT §3.1 (retained legacy JS name) */
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  var RE_ISO=/^\d{4}-\d{2}-\d{2}/,RE_VER=/^\d+\.\d+/,RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('mandate_id' in m&&!RE_UUID4.test(m.mandate_id))_f('mandate_id must be UUIDv4');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+})();
+</script>
+
+<!-- ═══ AIN Bridge v1.3: prefill deep-links (#in=<base64url JSON>[&run=1]). Master: scripts/ain-bridge-v1.snippet.html ═══ -->
+<script>window.AIN_BRIDGE_CFG={runFn:'runLint',intake:false,intakeTarget:null,intakeAnchor:null,share:true};</script>
+<script>
+(function(){
+'use strict';
+/* Declared ONCE and read by both AINBridge.version and AINBridge.capabilities.version,
+   so the two can never disagree. scripts/sync-ain-bridge.mjs reads this literal to
+   decide the version it stamps onto a page's header comment and bridge_version
+   metadata — the master snippet is the only place a bridge version is authored. */
+var BRIDGE_VERSION='1.3';
+var CFG=window.AIN_BRIDGE_CFG||{};
+var L={
+ en:{pf:'Inputs prefilled from link — review, then Run',ran:'Inputs prefilled from link and executed',fields:'fields',it:'Import Policy Mandate (.policy.json)',drop:'Drop a .policy.json here, or',choose:'Choose file',paste:'Paste JSON',apply:'Apply',ok:'Policy Mandate imported from',bad:'Not a valid AINumbers Policy Mandate JSON'},
+ es:{pf:'Campos precargados desde el enlace — revise y ejecute',ran:'Campos precargados desde el enlace y ejecutados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Suelte un .policy.json aquí, o',choose:'Elegir archivo',paste:'Pegar JSON',apply:'Aplicar',ok:'Policy Mandate importado desde',bad:'JSON de Policy Mandate no válido'},
+ fr:{pf:'Champs préremplis depuis le lien — vérifiez puis exécutez',ran:'Champs préremplis depuis le lien et exécutés',fields:'champs',it:'Importer un Policy Mandate (.policy.json)',drop:'Déposez un .policy.json ici, ou',choose:'Choisir un fichier',paste:'Coller le JSON',apply:'Appliquer',ok:'Policy Mandate importé depuis',bad:'JSON Policy Mandate non valide'},
+ ar:{pf:'تم ملء الحقول مسبقًا من الرابط — راجع ثم شغّل',ran:'تم ملء الحقول من الرابط وتنفيذها',fields:'حقول',it:'استيراد Policy Mandate (.policy.json)',drop:'أسقط ملف ‎.policy.json هنا، أو',choose:'اختر ملفًا',paste:'لصق JSON',apply:'تطبيق',ok:'تم استيراد Policy Mandate من',bad:'JSON غير صالح لـ Policy Mandate'},
+ pt:{pf:'Campos pré-preenchidos a partir do link — revise e execute',ran:'Campos pré-preenchidos a partir do link e executados',fields:'campos',it:'Importar Policy Mandate (.policy.json)',drop:'Solte um .policy.json aqui, ou',choose:'Escolher arquivo',paste:'Colar JSON',apply:'Aplicar',ok:'Policy Mandate importado de',bad:'JSON de Policy Mandate inválido'},
+ zh:{pf:'已从链接预填输入 — 请检查后运行',ran:'已从链接预填并自动执行',fields:'个字段',it:'导入 Policy Mandate (.policy.json)',drop:'将 .policy.json 拖放到此处，或',choose:'选择文件',paste:'粘贴 JSON',apply:'应用',ok:'已导入 Policy Mandate，来源：',bad:'无效的 AINumbers Policy Mandate JSON'}
+};
+function t(k){return (L.en&&L.en[k])||k;}
+function b64uDec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(Array.prototype.map.call(atob(s),function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2);}).join(''));}
+function b64uEnc(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function applyFields(fields){
+  var n=0;if(!fields||typeof fields!=='object')return 0;
+  Object.keys(fields).forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')return;
+    var v=fields[id];
+    if(el.type==='checkbox'||el.type==='radio'){el.checked=!!v;}
+    else{el.value=(v!==null&&typeof v==='object')?JSON.stringify(v,null,2):String(v);}
+    try{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}
+    n++;
+  });
+  return n;
+}
+function runTool(){if(!CFG.runFn)return false;var f=window[CFG.runFn];if(typeof f==='function'){try{f();return true;}catch(e){return false;}}return false;}
+function anchorEl(){return (CFG.intakeAnchor&&document.querySelector(CFG.intakeAnchor))||document.querySelector('.pii-notice')||document.querySelector('.panel')||document.body.firstElementChild;}
+function notice(msg,kind){
+  var d=document.getElementById('ainBridgeNotice');
+  if(!d){d=document.createElement('div');d.id='ainBridgeNotice';
+    var a=document.getElementById('ainIntakeZone')||anchorEl();
+    if(a&&a.parentNode)a.parentNode.insertBefore(d,a);else document.body.insertBefore(d,document.body.firstChild);}
+  d.setAttribute('style','font-family:\'JetBrains Mono\',monospace;font-size:.68rem;letter-spacing:.04em;margin:0 0 1rem;padding:.55rem .8rem;border-radius:6px;border:1px solid '+(kind==='warn'?'#F59E0B':'#14B8A6')+';color:'+(kind==='warn'?'#F59E0B':'#2DD4BF')+';background:'+(kind==='warn'?'rgba(245,158,11,.08)':'rgba(20,184,166,.08)'));
+  d.textContent=msg;
+}
+function looksLikeMandate(o){return !!(o&&typeof o==='object'&&o.mandate_id&&o.tool_id&&('payload' in o));}
+function intakeApply(text){
+  var o;try{o=JSON.parse(text);}catch(e){notice('⚠ '+t('bad'),'warn');return 0;}
+  if(!looksLikeMandate(o)){notice('⚠ '+t('bad'),'warn');return 0;}
+  var n=0;
+  if(CFG.intakeTarget){var ta=document.getElementById(CFG.intakeTarget);
+    if(ta){ta.value=JSON.stringify(o,null,2);try{ta.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}n++;}}
+  if(o.payload&&typeof o.payload==='object')n+=applyFields(o.payload);
+  if(o.source_tool_inputs&&typeof o.source_tool_inputs==='object')n+=applyFields(o.source_tool_inputs);
+  notice((n>0?'📥 ':'⚠ ')+t('ok')+' '+(o.tool_id||'?')+' · '+n+' '+t('fields'),n>0?'ok':'warn');
+  return n;
+}
+function buildIntakeUI(){
+  if(!CFG.intake)return;
+  var a=anchorEl();if(!a||!a.parentNode)return;
+  var z=document.createElement('div');z.id='ainIntakeZone';
+  z.setAttribute('style','border:1px dashed #263855;border-radius:6px;padding:.7rem .9rem;margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace;font-size:.66rem;color:#6888A8;letter-spacing:.04em');
+  var lbl=document.createElement('div');lbl.textContent='📥 '+t('it');lbl.setAttribute('style','color:#A8C4DE;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.1em;font-size:.6rem');
+  var row=document.createElement('div');row.setAttribute('style','display:flex;gap:.6rem;align-items:center;flex-wrap:wrap');
+  var txt=document.createElement('span');txt.textContent=t('drop');
+  function mkBtn(label){var b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');return b;}
+  var bFile=mkBtn(t('choose')),bPaste=mkBtn(t('paste'));
+  var fi=document.createElement('input');fi.type='file';fi.accept='.json,application/json';fi.style.display='none';
+  fi.addEventListener('change',function(){var f=fi.files&&fi.files[0];if(!f)return;var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);fi.value='';});
+  bFile.addEventListener('click',function(){fi.click();});
+  var pasteRow=document.createElement('div');pasteRow.style.display='none';pasteRow.setAttribute('style','display:none;margin-top:.6rem');
+  var ta=document.createElement('textarea');ta.rows=5;ta.spellcheck=false;ta.setAttribute('style','width:100%;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.64rem;padding:.5rem');
+  var bApply=mkBtn(t('apply'));bApply.style.marginTop='.4rem';
+  bApply.addEventListener('click',function(){if(ta.value.trim()){intakeApply(ta.value);ta.value='';pasteRow.style.display='none';}});
+  pasteRow.appendChild(ta);pasteRow.appendChild(bApply);
+  bPaste.addEventListener('click',function(){pasteRow.style.display=(pasteRow.style.display==='none')?'block':'none';if(pasteRow.style.display==='block')ta.focus();});
+  z.addEventListener('dragover',function(e){e.preventDefault();z.style.borderColor='#14B8A6';});
+  z.addEventListener('dragleave',function(){z.style.borderColor='#263855';});
+  z.addEventListener('drop',function(e){e.preventDefault();z.style.borderColor='#263855';var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f){var r=new FileReader();r.onload=function(){intakeApply(String(r.result));};r.readAsText(f);}});
+  row.appendChild(txt);row.appendChild(bFile);row.appendChild(bPaste);row.appendChild(fi);
+  z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);
+  a.parentNode.insertBefore(z,a);
+}
+/* ── SHARE LINK (BRIDGE-SHARE-FLAG-1, 2026-09-29; PREFILL-SHARE-SCRUB-1,
+   2026-11-12) — off by default ───────────────────────────────────────────────
+   Behind CFG.share===true. The button rebuilds this page's address with #in=
+   from the tool's current inputs: fragment only, clipboard only. Everything
+   after # never reaches a server, ours included. A shared link is nonetheless
+   a full copy of the inputs: whoever holds the link can read every field it
+   carries, in a chat message, in an email, in browser history and in synced
+   history, so the button's confirmation says so in plain words before
+   anything is sent. The button itself calls neither history.replaceState nor
+   pushState, stores nothing, and makes no network call; the PAGE
+   strips the #in= fragment from the address bar once a shared link has been
+   applied (stripSharedFragment, called from initPrefill), so the inputs do
+   not linger in the URL box or in a later copy-paste. The collected field
+   set is exactly what applyFields can write back (same tag gate, keyed by
+   id), minus file, password and hidden inputs, so a shared link can only
+   ever carry values this page's own prefill path accepts. makeLink carries
+   the encoding, so share and prefill can never diverge on the wire shape. */
+function writableFields(){
+  var out={};var els=document.querySelectorAll('input[id],select[id],textarea[id]');
+  for(var i=0;i<els.length;i++){var el=els[i];
+    var tag=el.tagName;if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA')continue;
+    if(el.type==='file'||el.type==='password'||el.type==='hidden')continue;
+    out[el.id]=(el.type==='checkbox'||el.type==='radio')?!!el.checked:String(el.value);
+  }
+  return out;
+}
+/* Select-and-copy fallback for browsers without navigator.clipboard or when a
+   permission prompt is denied: off-screen textarea, select, execCommand. */
+function legacyCopy(text){
+  var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
+  ta.setAttribute('style','position:fixed;left:-9999px;top:0');
+  document.body.appendChild(ta);ta.focus();ta.select();
+  try{ta.setSelectionRange(0,text.length);}catch(e){}
+  var ok=false;try{ok=document.execCommand('copy');}catch(e){ok=false;}
+  document.body.removeChild(ta);return ok;
+}
+function copyShareLink(){
+  if(!window.AINBridge||typeof window.AINBridge.makeLink!=='function')return;
+  var link=window.AINBridge.makeLink(writableFields(),false);
+  if(link.length>HANDOFF_MAX_CHARS){notice('⚠ Too large to share ('+link.length+' chars).','warn');return;}
+  var report=function(ok){
+    if(ok){notice('🔗 Link copied. This link contains every input on this page. Anyone you send it to can read them. Share synthetic values only.','ok');return;}
+    notice('⚠ Copy failed. Select the link below and copy it.','warn');
+    var z=document.getElementById('ainShareZone');
+    if(!z)return;
+    var old=z.querySelector('input[data-ain-share-fallback]');
+    if(old)old.parentNode.removeChild(old);
+    var f=document.createElement('input');
+    f.type='text';f.setAttribute('readonly','');f.setAttribute('data-ain-share-fallback','');
+    f.setAttribute('style','display:inline-block;vertical-align:middle;box-sizing:border-box;max-width:100%;width:36rem;margin-left:.6rem;margin-top:.4rem;padding:.3rem .5rem;background:#0D1627;border:1px solid #263855;border-radius:6px;color:#A8C4DE;font-family:inherit;font-size:.62rem');
+    f.value=link;
+    z.appendChild(f);
+    f.focus();f.select();
+    try{f.setSelectionRange(0,link.length);}catch(e){}
+  };
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(link).then(function(){report(true);},function(){report(legacyCopy(link));});}
+  else report(legacyCopy(link));
+}
+function buildShareUI(){
+  if(CFG.share!==true)return;
+  var a=anchorEl();if(!a||!a.parentNode)return;
+  var z=document.createElement('div');z.id='ainShareZone';
+  z.setAttribute('style','margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace');
+  var b=document.createElement('button');b.type='button';b.id='ainShareBtn';b.textContent='🔗 Copy share link';
+  /* PREFILL-SHARE-SCRUB-1: the warning also lives on the button's title, so it
+     is readable before the first copy, not only in the confirmation after. */
+  b.title='This link contains every input on this page. Anyone you send it to can read them.';
+  b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');
+  b.addEventListener('click',copyShareLink);
+  z.appendChild(b);
+  a.parentNode.insertBefore(z,a);
+}
+/* ONE INTAKE PATH (BRIDGE-MCP-APPS-ALIGN-1, goal 1). The `#in=` deep link and the
+   host's ui/notifications/tool-input notification carry the SAME shape — a bare
+   id→value map, or {"fields":{...}} — so both feed this routine. The MCP leg gets
+   no second parser: a divergence between the two would be invisible on the page
+   and visible only to whichever host happened to send the other shape. */
+function intakeFieldObject(obj){
+  var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
+  return applyFields(fields);
+}
+/* PREFILL-SHARE-SCRUB-1 (2026-11-12): a shared #in= link is a copy of the
+   inputs, and the address bar keeps that copy after the page has read it —
+   in the URL box, in a later copy-paste, in browser and synced history. Once
+   the fields are applied the fragment has served its purpose, so the page
+   rewrites its own address down to the bare path and drops the fragment.
+   The query string is never read on this estate (TOOLPAGE-DEEPLINK-1 §3.1
+   grep gate; QUERYSTRING-PRIVACY-1), so the strip drops any query alongside
+   the fragment rather than preserve it. No storage, no network: replaceState
+   touches the address bar only. Guarded try/catch so headless harnesses and
+   file:// contexts without history degrade to the pre-row behaviour. */
+function stripSharedFragment(){
+  try{
+    if(!window.history||typeof window.history.replaceState!=='function')return;
+    window.history.replaceState(null,'',location.pathname);
+  }catch(e){}
+}
+function initPrefill(){
+  var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
+  var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
+  var n=intakeFieldObject(obj);
+  if(n>0){
+    if(/[#&]run=1/.test(h)&&runTool())notice('⚡ '+t('ran')+' ('+n+' '+t('fields')+')','ok');
+    else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');
+    stripSharedFragment();
+  }
+  /* BRIDGE-SHARE-FLAG-1: a link that parsed but matches no field here must say
+     so — silence reads as "this tool accepted the link" to whoever shared it. */
+  else notice('⚠ This link had no fields matching this tool.','warn');
+}
+var HANDOFF_MAX_CHARS=2000000;
+/* ── AIN LEDGER LIVE CHANNEL v1: MESSAGE SCHEMA (B3/B4/B5) ────────────────────
+   This comment block is IDENTICAL in ledger/index.html and in
+   scripts/ain-bridge-v1.snippet.html. Change one, change both.
+
+   Transport: BroadcastChannel, name 'ain-ledger-v1'. Same-origin by
+   construction: a message only ever reaches a tab on the SAME origin, so the
+   channel carries nothing across an origin boundary. The ledger serves at BOTH
+   ainumbers.co/ledger/ (path form) and ledger.ainumbers.co (subdomain form);
+   only the path form shares an origin with a tool page, so the subdomain form
+   keeps today's fragment-only intake unchanged.
+
+   Envelope: JSON-RPC 2.0 in the MCP Apps ui/ dialect, the same envelope the AIN
+   Bridge postMessage leg carries. Both legs are notifications, so neither
+   carries an id and neither expects a JSON-RPC response object.
+
+   page to ledger:
+     {"jsonrpc":"2.0","method":"ui/notifications/receipt",
+      "params":{"v":1,"receipt":<OCG artifact>}}
+
+   ledger to page:
+     {"jsonrpc":"2.0","method":"ui/notifications/receipt-ack",
+      "params":{"v":1,"execution_hash":"<hash>",
+                "status":"added"|"duplicate"|"rejected"}}
+
+   Identity: a receipt's ledger identity is its execution_hash, the keyPath of
+   the artifact store. The ack deliberately does NOT use the name record_hash:
+   on this page record_hash already means the SPEC.md 22.8.4 escalation-record
+   hash, a different value over a different object.
+
+   params.receipt is validated exactly the way a #a=v1 fragment is, by the same
+   extractArtifact + isArtifact pair, and anything else acks 'rejected'. The
+   channel carries a receipt only, never a mandate body and never any other
+   payload: the same rule the fragment leg already follows.
+   ─────────────────────────────────────────────────────────────────────────── */
+var AIN_LEDGER_CHANNEL='ain-ledger-v1';
+var AIN_LEDGER_ACK_MS=2000;
+/* B3 origin guard. BroadcastChannel is same-origin, so a receipt can only reach a
+   ledger tab served from THIS origin, which is the path form ainumbers.co/ledger/.
+   Returns the ledger URL this page may live-update, or null when this origin has
+   no path-form ledger (ledger.ainumbers.co included: a different origin, whose
+   intake stays fragment-only). Pure: reads the origin it is handed, no globals. */
+function ainLedgerTarget(origin){
+  if(typeof origin!=='string'||!origin)return null;
+  var u;try{u=new URL(origin);}catch(e){return null;}
+  if(u.protocol!=='https:'&&u.protocol!=='http:')return null;
+  var h=u.hostname.toLowerCase();
+  if(h!=='ainumbers.co'&&h!=='localhost'&&h!=='127.0.0.1')return null;
+  return u.origin+'/ledger/';
+}
+function ainLedgerReceipt(receipt){
+  return {jsonrpc:'2.0',method:'ui/notifications/receipt',params:{v:1,receipt:receipt}};
+}
+function ainIsLedgerAck(msg){
+  if(!msg||typeof msg!=='object')return false;
+  if(msg.jsonrpc!=='2.0'||msg.method!=='ui/notifications/receipt-ack')return false;
+  var p=msg.params;
+  if(!p||typeof p!=='object'||p.v!==1)return false;
+  if(typeof p.execution_hash!=='string'&&p.execution_hash!==null)return false;
+  return p.status==='added'||p.status==='duplicate'||p.status==='rejected';
+}
+/* B3 send + B5 ack. Resolves with the ack params when a ledger tab answers inside
+   AIN_LEDGER_ACK_MS, else with null, so a page with no ledger tab open behaves
+   exactly as it did before this leg existed. */
+function ainLedgerSend(receipt,origin){
+  var target=ainLedgerTarget(origin||(typeof location!=='undefined'?location.origin:''));
+  if(!target||typeof BroadcastChannel!=='function')return Promise.resolve(null);
+  var ch;try{ch=new BroadcastChannel(AIN_LEDGER_CHANNEL);}catch(e){return Promise.resolve(null);}
+  return new Promise(function(resolve){
+    var done=false,timer=null;
+    function finish(v){if(done)return;done=true;if(timer)clearTimeout(timer);try{ch.close();}catch(e){}resolve(v);}
+    ch.onmessage=function(ev){if(ainIsLedgerAck(ev&&ev.data))finish(ev.data.params);};
+    try{ch.postMessage(ainLedgerReceipt(receipt));}catch(e){finish(null);return;}
+    timer=setTimeout(function(){finish(null);},AIN_LEDGER_ACK_MS);
+  });
+}
+function apSendToVerify(){
+  var m;try{m=window.AINBridge.getMandate();}catch(e){m=null;}
+  if(!m){notice('⚠ No Policy Mandate to send — run the tool first.','warn');return Promise.resolve(null);}
+  var json;try{json=JSON.stringify(m);}catch(e){notice('⚠ Could not serialize the mandate: '+e.message,'warn');return Promise.resolve(null);}
+  if(json.length>HANDOFF_MAX_CHARS){notice('⚠ Too large to hand off ('+json.length+' chars).','warn');return Promise.resolve(null);}
+  /* B3/B5: hand the receipt to an open ledger tab on this origin. Fired BEFORE
+     window.open so the user gesture is not spent waiting on the ack. With no
+     ledger tab open the promise resolves null and nothing on this page changes. */
+  var ledgerAck=ainLedgerSend(m).then(function(ack){
+    if(ack&&ack.status==='added')notice('🧾 Recorded in the open Ledger tab.','ok');
+    else if(ack&&ack.status==='duplicate')notice('🧾 Already recorded in the open Ledger tab.','ok');
+    return ack;
+  });
+  /* An MCP Apps host that answered ui/initialize is told, in its own transcript,
+     that a receipt now exists (BRIDGE-MCP-APPS-ALIGN-1, goal 1). Identifiers only
+     — mcpReceiptText never carries the mandate body. The same-origin verifier
+     handoff below is unchanged and happens either way. */
+  if(MCP.ready)mcpPost(mcpMessageRequest(mcpNextId(),mcpReceiptText(m)));
+  var target=new URL('../chaingraph/verify.html',window.location.href).href;
+  var win=window.open(target,'_blank');
+  if(!win){notice('⚠ The verifier window was blocked. Allow pop-ups for this site.','warn');return ledgerAck;}
+  var sent=false,timer=null;
+  function onReady(ev){
+    if(ev.origin!==window.location.origin)return;
+    if(ev.source!==win)return;
+    var d=ev.data;
+    if(!d||typeof d!=='object'||d.type!=='ain-handoff-ready/v1')return;
+    if(sent)return;sent=true;
+    window.removeEventListener('message',onReady);
+    if(timer)clearTimeout(timer);
+    win.postMessage({type:'ain-handoff/v1',kind:'policy-mandate',mandate:json},window.location.origin);
+    notice('➡ Sent to the Artifact Verifier in the new tab.','ok');
+  }
+  window.addEventListener('message',onReady);
+  notice('Opening the Artifact Verifier…','ok');
+  timer=setTimeout(function(){
+    if(sent)return;
+    window.removeEventListener('message',onReady);
+    notice('⚠ The verifier did not answer. Export the mandate and paste it in.','warn');
+  },10000);
+  return ledgerAck;
+}
+window.apSendToVerify=apSendToVerify;
+/* ══ MCP-APPS-JSONRPC v1 START ══════════════════════════════════════════════
+   BRIDGE-MCP-APPS-ALIGN-1. Primary text: MCP Apps specification 2026-01-26
+   (modelcontextprotocol/ext-apps, specification/2026-01-26/apps.mdx). Message
+   shapes quoted from it, direction as the spec labels them:
+
+     ui/initialize                    View→Host REQUEST
+         params {protocolVersion, clientInfo, appCapabilities}
+         result {protocolVersion, hostCapabilities, hostInfo, hostContext}
+     ui/notifications/initialized     View→Host notification, after that result
+     ui/message                       View→Host request
+         params {role:'user', content:{type:'text', text}}
+     ui/open-link                     View→Host request   params {url}
+     ui/request-display-mode          View→Host request   params {mode}
+     ui/update-model-context          View→Host request   params {content?, structuredContent?}
+     ui/notifications/size-changed    View→Host notification  params {width, height}
+     tools/call                       View→Host, proxied by the host to the server
+
+     ui/notifications/tool-input          Host→View  params {arguments}  at most once
+     ui/notifications/tool-input-partial  Host→View  params {arguments}  0..n, before tool-input
+     ui/notifications/tool-result         Host→View  params CallToolResult {content, structuredContent, _meta}
+     ui/notifications/tool-cancelled      Host→View  params {reason}
+     ui/notifications/host-context-changed Host→View params {hostContext}
+     ui/resource-teardown                 Host→View  REQUEST (carries an id), result {}
+
+   ui/notifications/sandbox-proxy-ready and ui/notifications/sandbox-resource-ready
+   are RESERVED for a web host's sandbox proxy (spec, "Reserved Messages (Sandbox
+   Proxy)"): a View neither sends nor receives them, so they are absent from both
+   lists by decision, not by oversight.
+
+   NOTHING IN THIS REGION MAY REFERENCE AN IDENTIFIER DECLARED OUTSIDE IT. The
+   routines are pure: scripts/ain-bridge-jsonrpc.test.mjs cuts the region out of
+   this file and evaluates it on its own, and scripts/check-bridge-jsonrpc.mjs
+   reads the two allowlists out of it and holds them to the spec list above.
+   ────────────────────────────────────────────────────────────────────────── */
+var MCP_PROTOCOL_VERSION='2026-01-26';
+/* Host→View: the methods this View ACCEPTS. Anything else with an id is answered
+   -32601 (JSON-RPC 2.0 "Method not found"); anything else without one is dropped,
+   because a notification has no reply channel to carry an error on. */
+var MCP_HOST_METHODS=[
+  'ui/notifications/tool-input',
+  'ui/notifications/tool-input-partial',
+  'ui/notifications/tool-result',
+  'ui/notifications/tool-cancelled',
+  'ui/notifications/host-context-changed',
+  'ui/resource-teardown'
+];
+/* View→Host: the methods this View may EMIT. A send outside this list is a bug in
+   the bridge, not a host problem, so mcpEnvelopeOut refuses it locally. */
+var MCP_VIEW_METHODS=[
+  'ui/initialize',
+  'ui/notifications/initialized',
+  'ui/message',
+  'ui/open-link',
+  'ui/request-display-mode',
+  'ui/update-model-context',
+  'ui/notifications/size-changed',
+  'tools/call'
+];
+/* ain-handoff/v1 alias table (goal 3) — kept for ONE snippet version so pages
+   rolled at different times interoperate; a later row deletes it. One line each,
+   naming the MCP method the legacy type corresponds to, or null where the legacy
+   leg has no MCP twin at all (getMandate is a composer pull; the spec has no
+   Host→View "give me your state" request, so it stays ain-handoff-only). */
+var MCP_LEGACY_ALIAS={
+  'ain:prefill':'ui/notifications/tool-input',
+  'ain:run':'ui/notifications/tool-input',
+  'ain:getMandate':null
+};
+function mcpNewState(){return {hostOrigin:null,ready:false,initId:null,nextId:2,hostCapabilities:null,hostInfo:null,hostContext:null};}
+/* 'request' | 'notification' | 'response' | null. null = not a JSON-RPC 2.0
+   envelope we can act on (this includes every ain-handoff/v1 message, which the
+   legacy listener owns). */
+function mcpEnvelopeKind(d){
+  if(!d||typeof d!=='object'||d.jsonrpc!=='2.0')return null;
+  if(typeof d.method==='string')return (d.id===undefined||d.id===null)?'notification':'request';
+  if(d.id!==undefined&&('result' in d||'error' in d))return 'response';
+  return null;
+}
+function mcpError(id,code,message){return {jsonrpc:'2.0',id:id,error:{code:code,message:message}};}
+function mcpOk(id,result){return {jsonrpc:'2.0',id:id,result:result};}
+/* Pure. The outbound envelope, or null when the method is not one this View is
+   allowed to emit. */
+function mcpEnvelopeOut(method,params,id){
+  if(MCP_VIEW_METHODS.indexOf(method)===-1)return null;
+  var env={jsonrpc:'2.0',method:method};
+  if(id!==undefined&&id!==null)env.id=id;
+  if(params!==undefined)env.params=params;
+  return env;
+}
+/* appCapabilities per the spec's McpUiAppCapabilities: `tools` is omitted because
+   the page exposes no MCP-style tools TO the host (its WebMCP registrations are a
+   different surface), and the B7 capabilities object rides in `experimental`,
+   whose structure the spec leaves open. */
+function mcpAppCapabilities(caps){
+  return {experimental:{ainBridge:caps||null},availableDisplayModes:['inline','fullscreen']};
+}
+function mcpInitRequest(id,caps,version){
+  return mcpEnvelopeOut('ui/initialize',{
+    protocolVersion:MCP_PROTOCOL_VERSION,
+    clientInfo:{name:'ainumbers-ain-bridge',version:String(version||'')},
+    appCapabilities:mcpAppCapabilities(caps)
+  },id);
+}
+function mcpInitializedNotification(){return mcpEnvelopeOut('ui/notifications/initialized',{});}
+/* Origin pinning. Before the handshake the host origin is unknown, so any origin
+   may carry the ui/initialize RESPONSE; from the moment that response lands, the
+   origin it came from is the only one this View will read or write. */
+function mcpOriginOk(state,origin){
+  if(state.hostOrigin===null)return true;
+  return origin===state.hostOrigin;
+}
+/* Pure. Consume the ui/initialize response: pin the origin, keep the host's own
+   three fields. Returns the ui/notifications/initialized envelope to send, or
+   null when this is not our pending handshake (or the host answered with an
+   error, in which case the View stays unpinned and un-ready). */
+function mcpAcceptInitResponse(state,d,origin){
+  if(state.ready)return null;
+  if(state.initId===null||d.id!==state.initId)return null;
+  if(d.error)return null;
+  var r=d.result||{};
+  state.hostOrigin=origin;
+  state.ready=true;
+  state.hostCapabilities=r.hostCapabilities||null;
+  state.hostInfo=r.hostInfo||null;
+  state.hostContext=r.hostContext||null;
+  return mcpInitializedNotification();
+}
+/* Pure. One line of text naming the receipt a Send to Verify just produced —
+   identifiers only, never the mandate body: ui/message content goes into the
+   host's chat transcript, and the payload can carry the user's own inputs. */
+function mcpReceiptText(mandate){
+  var m=mandate||{};
+  var bits=['AINumbers Policy Mandate ready to verify'];
+  if(m.mandate_id)bits.push('mandate '+m.mandate_id);
+  if(m.tool_id)bits.push('tool '+m.tool_id);
+  if(m.execution_hash)bits.push('execution_hash '+m.execution_hash);
+  return bits.join(' · ');
+}
+function mcpMessageRequest(id,text){
+  return mcpEnvelopeOut('ui/message',{role:'user',content:{type:'text',text:String(text)}},id);
+}
+/**
+ * Pure. Handle one Host→View envelope.
+ * deps: {applyArguments(args,complete), renderResult(callToolResult),
+ *        cancelled(reason), hostContextChanged(hostContext)} — every one
+ * optional; a missing dep means that leg is a no-op, never a throw.
+ * Returns {responses:[envelope...], handled:<method|null>, ignored:<reason|null>}.
+ */
+function mcpHandleHostMessage(state,d,origin,deps){
+  var out={responses:[],handled:null,ignored:null};
+  var kind=mcpEnvelopeKind(d);
+  if(kind===null||kind==='response'){out.ignored='not-a-host-message';return out;}
+  if(!mcpOriginOk(state,origin)){out.ignored='origin-not-pinned-host';return out;}
+  var method=d.method,params=d.params||{},fn;
+  if(MCP_HOST_METHODS.indexOf(method)===-1){
+    if(kind==='request')out.responses.push(mcpError(d.id,-32601,'Method not found: '+method));
+    out.ignored='method-not-allowlisted';
+    return out;
+  }
+  if(method==='ui/notifications/tool-input'||method==='ui/notifications/tool-input-partial'){
+    fn=deps&&deps.applyArguments;
+    if(fn)fn(params.arguments,method==='ui/notifications/tool-input');
+  }else if(method==='ui/notifications/tool-result'){
+    fn=deps&&deps.renderResult;
+    if(fn)fn(params);
+  }else if(method==='ui/notifications/tool-cancelled'){
+    fn=deps&&deps.cancelled;
+    if(fn)fn(params.reason);
+  }else if(method==='ui/notifications/host-context-changed'){
+    state.hostContext=params.hostContext||params||null;
+    fn=deps&&deps.hostContextChanged;
+    if(fn)fn(state.hostContext);
+  }else if(method==='ui/resource-teardown'){
+    /* Responded to WITHOUT work: the page holds no host-owned resource and no
+       unsaved state of the host's, so there is nothing to flush and nothing that
+       could make the host wait (the spec has it wait for this response). */
+    if(kind==='request')out.responses.push(mcpOk(d.id,{}));
+  }
+  out.handled=method;
+  return out;
+}
+/* ══ MCP-APPS-JSONRPC v1 END ═══════════════════════════════════════════════ */
+/* DOM wiring for the region above. Everything that touches window lives HERE, so
+   the region stays evaluable on its own. */
+var MCP=mcpNewState();
+/* Every post after the handshake goes through this: no host origin, no send. The
+   targetOrigin is the pinned origin, never a wildcard. */
+function mcpPost(env){
+  if(!MCP.hostOrigin)return false;
+  if(!env)return false;
+  try{window.parent.postMessage(env,MCP.hostOrigin);}catch(e){return false;}
+  return true;
+}
+/* The ONE pre-handshake send. The host's origin is unknowable until it answers
+   ui/initialize (a sandboxed View is not told who framed it), so this single
+   message is addressed with a wildcard and carries nothing but our capability
+   declaration — no page data. Every later send is mcpPost, pinned. */
+function mcpPostInit(env){
+  if(!env)return false;
+  try{window.parent.postMessage(env,MCP.hostOrigin||'*');}catch(e){return false;} /* PRE-HANDSHAKE-ORIGIN-OK: MCP.hostOrigin is null until ui/initialize answers */
+  return true;
+}
+function mcpSend(method,params,id){return mcpPost(mcpEnvelopeOut(method,params,id));}
+function mcpNextId(){return MCP.nextId++;}
+function mcpApplyArguments(args,complete){
+  var n=intakeFieldObject(args||{});
+  if(n>0)notice((complete?'🔗 ':'… ')+t('pf')+' ('+n+' '+t('fields')+')','ok');
+  return n;
+}
+/* The existing result hook, reused: a CallToolResult whose structuredContent is a
+   Policy Mandate goes through intakeApply — the same routine the 📥 import zone
+   and a dropped .policy.json use. Anything else is reported, not parsed. */
+function mcpRenderResult(res){
+  var r=res||{};
+  var sc=r.structuredContent;
+  if(looksLikeMandate(sc)){try{return intakeApply(JSON.stringify(sc));}catch(e){}}
+  if(sc&&typeof sc==='object'&&looksLikeMandate(sc.mandate)){try{return intakeApply(JSON.stringify(sc.mandate));}catch(e){}}
+  if(r.isError)notice('⚠ The host reported a tool error.','warn');
+  else notice('✓ Tool result received from the host.','ok');
+  return 0;
+}
+function mcpOnMessage(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  var d=e.data;
+  var kind=mcpEnvelopeKind(d);
+  if(kind===null)return; /* ain-handoff/v1 and everything else: onComposerMessage owns it */
+  if(kind==='response'){
+    var initialized=mcpAcceptInitResponse(MCP,d,e.origin);
+    if(initialized)mcpPost(initialized);
+    return;
+  }
+  var r=mcpHandleHostMessage(MCP,d,e.origin,{
+    applyArguments:mcpApplyArguments,
+    renderResult:mcpRenderResult,
+    cancelled:function(reason){notice('⚠ The host cancelled the tool call'+(reason?': '+reason:'.'),'warn');},
+    hostContextChanged:null
+  });
+  for(var i=0;i<r.responses.length;i++){
+    /* A -32601 or a teardown result before the handshake has nowhere pinned to
+       go; mcpPost refuses it rather than broadcasting. */
+    mcpPost(r.responses[i]);
+  }
+}
+function mcpBoot(){
+  if(window.parent===window)return false;
+  MCP.initId=1;
+  return mcpPostInit(mcpInitRequest(MCP.initId,window.AINBridge&&window.AINBridge.capabilities,BRIDGE_VERSION));
+}
+/* sessionRoot — COMPOSER-PLAN-AND-ROOT-WEBMCP-1. ONE ROUTINE LAW: the core below
+   is byte-identical to SESSION_ROOT_SOURCE in scripts/gen-webmcp-registrations.mjs
+   (emitted onto every chain composer page) and a port of the worker's
+   build_session_receipt (worker.mjs buildSessionReceiptCore). Asserted by
+   scripts/session-root-parity.test.mjs. Never re-derive the Merkle rule. */
+async function ainSessionRoot(executionHashes) {
+  if (!Array.isArray(executionHashes) || executionHashes.length === 0) throw new Error('execution_hashes must be a non-empty array.');
+  var normalize = function (h) { return String(h).replace(/^sha256:/, '').toLowerCase(); };
+  var level = executionHashes.map(normalize).map(function (h) { return 'sha256:' + h; });
+  var hashPair = async function (a, b) {
+    var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(normalize(a) + normalize(b)));
+    return 'sha256:' + Array.from(new Uint8Array(buf)).map(function (x) { return x.toString(16).padStart(2, '0'); }).join('');
+  };
+  while (level.length > 1) {
+    var next = [];
+    for (var i = 0; i < level.length; i += 2) {
+      var right = level[i + 1] !== undefined ? level[i + 1] : level[i]; // duplicate last leaf when odd
+      next.push(await hashPair(level[i], right));
+    }
+    level = next;
+  }
+  return level[0];
+}
+window.AINBridge={
+  version:BRIDGE_VERSION,
+  /* capabilities — B7 (BRIDGE-SNIPPET-SYNC-GEN-1). A feature-detect surface so an
+     agent can read what this page's bridge supports instead of probing it by
+     calling functions and watching them throw. Every flag is DERIVED from the
+     routine actually present in this closure, never hand-maintained: an older
+     page carrying an older copy of this block reports the truth about itself. */
+  capabilities:{
+    version:BRIDGE_VERSION,
+    prefill:typeof applyFields==='function',
+    mandate:typeof intakeApply==='function',
+    handoff:typeof onComposerMessage==='function',
+    sendToVerify:typeof apSendToVerify==='function',
+    sessionRoot:typeof ainSessionRoot==='function',
+    liveLedger:typeof ainLedgerSend==='function',
+    mcpApps:typeof mcpHandleHostMessage==='function',
+    /* BRIDGE-SHARE-FLAG-1: derived from the page's own config, not the routine's
+       presence — every rolled page carries copyShareLink, but only a page whose
+       CFG.share is true supports it. */
+    share:CFG.share===true
+  },
+  apply:applyFields,
+  run:runTool,
+  intake:intakeApply,
+  sendToVerify:apSendToVerify,
+  sessionRoot:ainSessionRoot,
+  ledgerSend:ainLedgerSend,
+  ledgerTarget:ainLedgerTarget,
+  /* MCP Apps View legs, so a page never hand-rolls a JSON-RPC envelope: every
+     send goes through the allowlist (mcpEnvelopeOut) and the pinned origin
+     (mcpPost). Reads of the host's own three fields are copies of state. */
+  mcp:{
+    ready:function(){return MCP.ready;},
+    host:function(){return {origin:MCP.hostOrigin,info:MCP.hostInfo,capabilities:MCP.hostCapabilities,context:MCP.hostContext};},
+    send:mcpSend,
+    message:function(text){return mcpPost(mcpMessageRequest(mcpNextId(),text));},
+    openLink:function(url){return mcpPost(mcpEnvelopeOut('ui/open-link',{url:String(url)},mcpNextId()));}
+  },
+  getMandate:function(){if(window._lastMandate)return window._lastMandate;if(typeof window.AIN_BUILD_MANDATE==='function'){try{var m=window.AIN_BUILD_MANDATE();if(m)return m;}catch(e){}}return window._currentMandate||null;},
+  makeLink:function(fields,run){return location.origin+location.pathname+'#in='+b64uEnc(JSON.stringify(fields))+(run?'&run=1':'');}
+};
+/* Named (was an inline anonymous listener) so capabilities.handoff can be derived
+   from the routine's presence rather than asserted. Function declarations hoist,
+   so the typeof test above is true at the moment AINBridge is assigned. */
+/* Reply target for the ain-handoff/v1 legs. Once a host has answered
+   ui/initialize, the pinned origin is the only address used — the wildcard
+   below can only be reached before any handshake, on an opaque-origin page
+   (file://), where a same-origin composer has no other addressable form. */
+function legacyTarget(e){
+  if(MCP.hostOrigin)return MCP.hostOrigin;
+  return (e.origin&&e.origin!=='null')?e.origin:'*'; /* PRE-HANDSHAKE-ORIGIN-OK: MCP.hostOrigin is null, opaque-origin composer */
+}
+function onComposerMessage(e){
+  if(window.parent===window||e.source!==window.parent)return;
+  if(e.origin&&e.origin!=='null'&&location.origin&&location.origin!=='null'&&e.origin!==location.origin)return;
+  var ro=legacyTarget(e);
+  var d=e.data||{};
+  /* MCP_LEGACY_ALIAS (goal 3) names the ui/ method each of these three legacy
+     types corresponds to; the behaviour below is unchanged, so a page rolled to
+     v1.3 and a composer still speaking ain-handoff/v1 keep working together for
+     this one snippet version. A later row deletes the alias and this listener. */
+  if(d.type==='ain:prefill'){var n=applyFields(d.fields||{});e.source.postMessage({type:'ain:prefilled',applied:n,tool:location.pathname},ro);}
+  else if(d.type==='ain:run'){var ok=runTool();e.source.postMessage({type:'ain:ran',ok:ok,tool:location.pathname},ro);}
+  else if(d.type==='ain:getMandate'){e.source.postMessage({type:'ain:mandate',mandate:window.AINBridge.getMandate(),tool:location.pathname},ro);}
+}
+window.addEventListener('message',onComposerMessage);
+window.addEventListener('message',mcpOnMessage);
+function boot(){buildIntakeUI();buildShareUI();initPrefill();mcpBoot();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+</body>
+</html>
