@@ -26,14 +26,22 @@ const ALG_ALLOW = {
 // no async primitive, and is therefore sync end to end — which is what makes
 // the policy zkVM-provable in the FAST cycle class. Trust-list + OCSP/CRL stay
 // policy inputs, never fetched: NO network.
+// Required inputs are fail-closed: alg and revocation_status are required, and an
+// absent, null or non-string revocation_status (no caller statement at all) never
+// reads as "not revoked", while an explicit revocation attestation ('good' or
+// 'unknown') is the caller's own statement and evaluates as such. The verdict also
+// requires the declared alg to be allowlisted: a signature over an unallowed
+// algorithm is never accepted, only flagged. cert_not_expired is optional; absent
+// means no expiry problem attested, and an explicit false still untrusts the chain.
 export function compute(pp) {
   const { alg, signature_verified, trust_anchor_match, cert_not_expired, revocation_status } = pp;
 
   const alg_allowed = typeof alg === 'string' && Object.prototype.hasOwnProperty.call(ALG_ALLOW, alg);
+  const revocation_attested = typeof revocation_status === 'string' && revocation_status !== 'revoked';
   const chain_trusted = trust_anchor_match === true
     && cert_not_expired !== false
-    && revocation_status !== 'revoked';
-  const verdict = (signature_verified === true && chain_trusted) ? 'ACCEPT' : 'REFUSE';
+    && revocation_attested;
+  const verdict = (signature_verified === true && alg_allowed && chain_trusted) ? 'ACCEPT' : 'REFUSE';
 
   const compliance_flags = [];
   compliance_flags.push('CONTENT_CREDENTIAL_SIGNATURE_ASSESSED');

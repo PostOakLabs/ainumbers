@@ -1,5 +1,5 @@
 // art-124-content-credential-signature-verifier.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C3-1).
-// kernel_digest_at_authoring: sha256:815b73ede91f61e07afc98d9ac7e04f808c7c477c00535e5f0817df1f041bca9
+// kernel_digest_at_authoring: sha256:4d94affd65e42394718260c88b921c6d47aee442cf49f0573fd5fc401c377bc2
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -91,27 +91,70 @@ function checkP2_verdict_differential() {
     const pp = randomPP(rand);
     const { output_payload } = compute(pp);
     checked++;
-    const expectedChainTrusted = pp.trust_anchor_match === true && pp.cert_not_expired !== false && pp.revocation_status !== 'revoked';
+    const expectedChainTrusted = pp.trust_anchor_match === true && pp.cert_not_expired !== false
+      && typeof pp.revocation_status === 'string' && pp.revocation_status !== 'revoked';
     if (output_payload.chain_trusted !== expectedChainTrusted) violations++;
     const expectedVerified = pp.signature_verified === true;
     if (output_payload.signature_verified !== expectedVerified) violations++;
-    const expectedVerdict = (expectedVerified && expectedChainTrusted) ? 'ACCEPT' : 'REFUSE';
+    const expectedAlgAllowed = typeof pp.alg === 'string' && ['Ed25519', 'ES256', 'ES384', 'PS256'].includes(pp.alg);
+    const expectedVerdict = (expectedVerified && expectedAlgAllowed && expectedChainTrusted) ? 'ACCEPT' : 'REFUSE';
     if (output_payload.verdict !== expectedVerdict) violations++;
   }
   return { name: 'P2_verdict_differential', trials: checked, violations };
 }
 
-// ---------- P3: boundedness — verdict is ACCEPT iff signature_verified AND chain_trusted ----------
+// ---------- P3: boundedness — verdict is ACCEPT iff signature_verified AND alg_allowed AND chain_trusted ----------
 function checkP3_accept_iff_both() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
     const pp = randomPP(rand);
     const { output_payload } = compute(pp);
     checked++;
-    const bothTrue = output_payload.signature_verified && output_payload.chain_trusted;
-    if (bothTrue !== (output_payload.verdict === 'ACCEPT')) violations++;
+    const allTrue = output_payload.signature_verified && output_payload.alg_allowed && output_payload.chain_trusted;
+    if (allTrue !== (output_payload.verdict === 'ACCEPT')) violations++;
   }
   return { name: 'P3_accept_iff_signature_and_chain', trials: checked, violations };
+}
+
+// ---------- P4: required inputs fail closed (missing-input cure) ----------
+// alg and revocation_status are required: absent, null or non-string revocation_status
+// is no caller statement at all and must REFUSE, never ACCEPT; an explicit 'unknown'
+// attestation is the caller's own statement and evaluates. An absent or unallowlisted
+// alg refuses because the verdict now requires alg_allowed. cert_not_expired is
+// optional; absent evaluates (no expiry problem attested), explicit false untrusts.
+function checkP4_requiredInputsFailClosed() {
+  const base = JSON.parse(readFileSync(path.join(__dirname, '..', 'fixtures', 'art-124-content-credential-signature-verifier.fixtures.json'), 'utf8')).vectors[0].policy_parameters;
+  let violations = 0, checked = 0;
+  for (const value of ['deleted', null, 42]) {
+    const pp = { ...base, revocation_status: value };
+    if (value === 'deleted') delete pp.revocation_status;
+    const { output_payload } = compute(pp);
+    checked++;
+    if (output_payload.verdict !== 'REFUSE') violations++;
+    if (output_payload.chain_trusted !== false) violations++;
+  }
+  // An explicit unknown revocation state is a caller statement and evaluates.
+  const ppUnknown = { ...base, revocation_status: 'unknown' };
+  const outUnknown = compute(ppUnknown).output_payload;
+  checked++;
+  if (outUnknown.verdict !== 'ACCEPT') violations++;
+  if (outUnknown.chain_trusted !== true) violations++;
+  for (const value of ['deleted', null, 42, 'RS512-BOGUS']) {
+    const pp = { ...base, alg: value };
+    if (value === 'deleted') delete pp.alg;
+    const { output_payload } = compute(pp);
+    checked++;
+    if (output_payload.verdict !== 'REFUSE') violations++;
+    if (output_payload.alg_allowed !== false) violations++;
+  }
+  // Optional: cert_not_expired absent evaluates through the attested-boolean path.
+  const ppNoCert = { ...base };
+  delete ppNoCert.cert_not_expired;
+  const outNoCert = compute(ppNoCert).output_payload;
+  checked++;
+  if (outNoCert.verdict !== 'ACCEPT') violations++;
+  if (outNoCert.chain_trusted !== true) violations++;
+  return { name: 'P4_required_inputs_fail_closed', trials: checked, violations };
 }
 
 // ---------- run ----------
@@ -124,6 +167,7 @@ if (!oracleOk) {
 results.properties.push(checkP1_termination());
 results.properties.push(checkP2_verdict_differential());
 results.properties.push(checkP3_accept_iff_both());
+results.properties.push(checkP4_requiredInputsFailClosed());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
