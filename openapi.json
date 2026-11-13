@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1299 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1301 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -2886,7 +2886,13 @@
       "name": "control attestation"
     },
     {
+      "name": "control frequency"
+    },
+    {
       "name": "control sum"
+    },
+    {
+      "name": "control testing"
     },
     {
       "name": "control-mapping"
@@ -4278,6 +4284,9 @@
       "name": "interpolation"
     },
     {
+      "name": "interval sampling"
+    },
+    {
       "name": "intra-EU"
     },
     {
@@ -5541,6 +5550,9 @@
       "name": "policy-lint"
     },
     {
+      "name": "population"
+    },
+    {
       "name": "portfolio"
     },
     {
@@ -6229,6 +6241,9 @@
     },
     {
       "name": "salted hash"
+    },
+    {
+      "name": "sample size"
     },
     {
       "name": "sanctions"
@@ -53042,6 +53057,143 @@
         "x-tool-url": "https://ainumbers.co/tools/833-lint-pan-sad-exposure.html",
         "x-source": "manifest",
         "x-ap2-export": true
+      }
+    },
+    "/v1/tools/plan_control_frequency_sample": {
+      "post": {
+        "operationId": "plan_control_frequency_sample",
+        "summary": "Plan Control Frequency Sample",
+        "description": "Applies a table you declare. It ships no table, and is not guidance from any audit firm or standard-setter. The sample size is only as defensible as the table. From a control frequency, a declared population size, a declared population hash, a period in days and a caller-supplied policy table keyed by frequency, it returns the sample size from the matching row, whether the declared population falls inside the expected range for that frequency (a mismatch is flagged, never corrected), and a deterministic integer start offset derived from the population hash and evenly spread selected indices. A missing table, a missing or duplicated frequency row, an invalid row or a sample size above the population is refused with an explicit code. No randomness and no clock.\n\n**Tool URL:** https://ainumbers.co/chaingraph/838-control-frequency-sample.html",
+        "tags": [
+          "control testing",
+          "sample size",
+          "control frequency",
+          "population",
+          "interval sampling",
+          "SOX 404",
+          "ICFR"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "control_frequency",
+                  "population_size",
+                  "population_hash",
+                  "period_days",
+                  "policy_table"
+                ],
+                "properties": {
+                  "control_frequency": {
+                    "description": "Frequency id matching one policy_table row",
+                    "type": "string"
+                  },
+                  "population_size": {
+                    "description": "Instances of the control in the period",
+                    "type": "integer"
+                  },
+                  "population_hash": {
+                    "description": "Declared hash of the sorted population extract",
+                    "type": "string"
+                  },
+                  "period_days": {
+                    "description": "Testing period length in days",
+                    "type": "integer"
+                  },
+                  "policy_table": {
+                    "description": "Caller-declared rows: frequency, min_population, max_population, sample_size",
+                    "type": "array"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "description": "planned, or refused when the input cannot be planned",
+                      "type": "string"
+                    },
+                    "refusal_reasons": {
+                      "description": "Explicit refusal codes, empty when planned",
+                      "type": "array"
+                    },
+                    "control_frequency": {
+                      "description": "The declared frequency, null when none was given",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "population_size": {
+                      "description": "The declared population size, null when not a valid integer",
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "period_days": {
+                      "description": "The declared period in days, null when not a valid integer",
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "frequency_row": {
+                      "description": "The policy table row used, null when refused",
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "sample_size": {
+                      "description": "Sample size taken from the table row, null when refused",
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "within_expected_range": {
+                      "description": "Whether the population lies inside the row's expected range, null when refused",
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "start_offset": {
+                      "description": "fold(population_hash) mod population_size, in 0..population_size-1, null when refused",
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "selected_indices": {
+                      "description": "Zero-based indices floor((start_offset + i * population_size) / sample_size), unique and in range, empty when refused",
+                      "type": "array"
+                    },
+                    "warnings": {
+                      "description": "Conditional flags raised, mirroring compliance_flags",
+                      "type": "array"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "plan_control_frequency_sample",
+        "x-tool-url": "https://ainumbers.co/chaingraph/838-control-frequency-sample.html",
+        "x-source": "manifest"
       }
     },
     "/v1/tools/plan_a2a_migration": {
@@ -143445,6 +143597,46 @@
         "x-ap2-export": true,
         "x-mandate-type": "compliance_control",
         "x-ocg-wave": 143
+      }
+    },
+    "/v1/tools/map_card_data_flow_scope": {
+      "post": {
+        "operationId": "map_card_data_flow_scope",
+        "summary": "Card Data Flow Worksheet",
+        "description": "A worksheet over declared inputs rather than a scope determination. You list system nodes (front end, back end, logs, analytics, a browser-automation provider, a payment service provider) with flags for what each handles: sees the raw card number, sees a token only, stores, logs, records sessions, has unrestricted connectivity to a card-number-handling component, could affect the security of one. The node sorts the declared nodes into four sets that mirror the wording of the PCI DSS v4.0.1 scope section (stores, processes or transmits card data; unrestricted connectivity to such a component; could impact its security; not placed by the declared inputs) and lists capture leaks: logs, session recordings and analytics captures that, by the declared inputs, record or log a system that sees the card number. It does not evaluate segmentation adequacy, does not read any network, and says nothing about whether any entity meets any requirement. Scope decisions stay with the entity and its assessor.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-832-card-data-flow-scope.html\n**Wave:** 144\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-832-card-data-flow-scope.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "map_card_data_flow_scope",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-832-card-data-flow-scope.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 144
       }
     },
     "/v1/tools/allocate_asc606_transaction_price": {
