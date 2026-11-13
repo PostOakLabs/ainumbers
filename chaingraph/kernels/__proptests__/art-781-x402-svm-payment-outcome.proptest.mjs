@@ -1,9 +1,12 @@
 // @ts-nocheck — floor file: node:crypto/Buffer reference section needs it (precedent art-780).
 // art-781-x402-svm-payment-outcome property-test floor.
-// kernel_digest_at_authoring: sha256:55ac9997859a08eeb048e8d529a1bd7e9e06e5c1625b0941bb46d25903f6c9dc
+// kernel_digest_at_authoring: sha256:8306bd6d21e0fff19d298b5c4b71c779db2a37d4c9a9692289fa97618642a4d0
 // (re-pinned X402-SVM-OUTCOME-CI-HEAL-1: the KERNEL-INPUT-USAGE-CHECK-1 heal removed the dead
 //  `const mintDecimals = pp.mint.decimals;` local at old line 444 — behavior-neutral, all 27
 //  fixture goldens deep-equal byte-identically before and after)
+// (re-pinned again by the art-781 cure: GHSA text first_patched_version 2.0.5, create_idempotent
+//  instruction kind, top-level memo count; 27 existing vectors move only in note and the R4
+//  kind-list text, plus 6 new vectors F21-F26, 33 in all)
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md section 3. Shape:
@@ -127,7 +130,7 @@ for (const g of GOLDENS) {
 
 // ---- fixture oracle --------------------------------------------------------
 const fixtures = JSON.parse(readFileSync(path.join(HERE, '..', 'fixtures', 'art-781-x402-svm-payment-outcome.fixtures.json'), 'utf8'));
-ok('fixtures.count', fixtures.vectors.length === 27, String(fixtures.vectors.length));
+ok('fixtures.count', fixtures.vectors.length === 33,String(fixtures.vectors.length));
 for (const v of fixtures.vectors) {
   const out = compute(v.policy_parameters);
   const op = out.output_payload;
@@ -136,7 +139,7 @@ for (const v of fixtures.vectors) {
   // recorded output_payload per vector; compute() must reproduce it byte-identically
   // (same JSON key order the fixture generator serialized). This is the deep-equality
   // the golden_hash comment above always claimed; asserting it pins every output string,
-  // number and clause verdict on all 27 vectors (mutation-tier kill floor, test-side).
+  // number and clause verdict on all 33 vectors (mutation-tier kill floor, test-side).
   ok('oracle.' + v.name + '.golden', JSON.stringify(op) === JSON.stringify(v.output_payload), v.name + ' output diverged from recorded golden');
   if (pins.error) {
     ok('oracle.' + v.name, op.error === pins.error, op.error + ' / ' + (op.detail || '').slice(0, 80));
