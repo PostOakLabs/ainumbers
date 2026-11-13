@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (749 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (750 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7901,6 +7901,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "dependent_care_fsa_cdctc_record",
     "url": "https://ainumbers.co/chaingraph/art-765-dependent-care-fsa-cdctc-optimizer.html",
     "description": "Compare a Dependent Care FSA (IRC section 129 exclusion) against the Child and Dependent Care Tax Credit (IRC section 21) plus the optimal c",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-766-parental-leave-income-gap",
+    "display_name": "Parental Leave Income Gap",
+    "mandate_type": "career_workforce",
+    "url": "https://ainumbers.co/chaingraph/art-766-parental-leave-income-gap.html",
+    "description": "Parental-leave income gap planner ported from ApexLogics Apex #131 (AL-138). From an annual base salary, an effective tax rate, monthly hous",
     "consumes": [],
     "feeds": [],
     "status": "live"
