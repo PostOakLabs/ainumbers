@@ -712,6 +712,7 @@ status: stable
 - [Authenticator Assurance Level Evaluator](./art-826-authenticator-assurance-level.md) — `compute_authn_assurance_level`
 - [Omnibus Token Position Reconciliation](./art-828-reconcile-omnibus-token-position.md) — `reconcile_omnibus_position`
 - [Buy-In Exposure Modeler](./art-83-buy-in-exposure-modeler.md) — `model_buy_in_exposure`
+- [EIP-3009 Spend Exposure Reconciler](./art-830-eip3009-spend-exposure-reconciler.md) — `reconcile_eip3009_spend_exposure`
 - [Receipt Export Envelopes](./art-831-receipt-export-envelopes.md) — `export_receipt_lineage_events`
 - [Settlement Efficiency KPI Engine](./art-84-settlement-efficiency-kpi.md) — `compute_settlement_efficiency_kpi`
 - [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md) — `run_pqc_timeline_fit`
