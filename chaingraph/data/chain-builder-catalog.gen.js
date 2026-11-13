@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (746 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (747 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -8143,6 +8143,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-814-qf-pairwise-recompute.html",
     "description": "Recomputes how a quadratic funding round splits a matching pool from contribution amounts you supply, in two modes. Plain mode gives each pr",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-816-eip3009-agent-spend-gate",
+    "display_name": "EIP-3009 Agent Spend Gate",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-816-eip3009-agent-spend-gate.html",
+    "description": "Pre-sign gate for one EIP-3009 (ERC-3009, Draft) transferWithAuthorization or receiveWithAuthorization intent, decided against a caller-decl",
     "consumes": [],
     "feeds": [],
     "status": "live"
