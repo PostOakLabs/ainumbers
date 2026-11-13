@@ -1,4 +1,4 @@
-// 789-payment-services-activity-classifier — class-K property-test FLOOR, authored for the
+// 836-payment-services-activity-classifier — class-K property-test FLOOR, authored for the
 // activity-classifier build (PAYMENT-SERVICES-ACTIVITY-CLASSIFIER-1).
 // kernel_digest_at_authoring: sha256:8327eb29242dc5b4aa5975f9ba3249f38717b6f834c8275f478f90a022914bcc
 // spec: board/queued/PAYMENT-SERVICES-ACTIVITY-CLASSIFIER-1.md (fixed contract) +
@@ -7,12 +7,12 @@
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
-// Run: node chaingraph/kernels/__proptests__/789-payment-services-activity-classifier.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/836-payment-services-activity-classifier.proptest.mjs
 
-import { compute } from '../789-payment-services-activity-classifier.kernel.mjs';
+import { compute } from '../836-payment-services-activity-classifier.kernel.mjs';
 import { runFixtureOracle, summarize } from './_pbt-common.mjs';
 
-const KERNEL_ID = '789-payment-services-activity-classifier';
+const KERNEL_ID = '836-payment-services-activity-classifier';
 
 const PROFILES = ['bermuda_psa', 'eu_psd2', 'uk_psrs'];
 const FACTS = ['holds_customer_funds', 'executes_transfers', 'issues_payment_instruments', 'acquires_transactions', 'money_remittance', 'initiates_payments_without_holding_funds', 'provides_account_information', 'technical_service_only', 'operates_stored_value_wallet', 'commercial_agent_for_one_side', 'limited_network'];

@@ -1,6 +1,6 @@
 import { executionHash } from './_hash.mjs';
 
-// 789-payment-services-activity-classifier — classify a declared business model's payment
+// 836-payment-services-activity-classifier — classify a declared business model's payment
 // activities into the licence classes of a pinned payment-services regime profile, with
 // exclusions considered, transition notes and a not-legal-advice marker. Regime profile
 // data is embedded below as pure data (mirrored, with source cites, in the fixtures
@@ -9,7 +9,7 @@ import { executionHash } from './_hash.mjs';
 // network, no filesystem, no guest builtins. The scaffold's utf8ToBytes helper was deleted
 // per scaffold guidance: this compute() never encodes UTF-8.
 
-const TOOL_ID = '789-payment-services-activity-classifier';
+const TOOL_ID = '836-payment-services-activity-classifier';
 const TOOL_VERSION = '1.0.0';
 
 export const meta = {
