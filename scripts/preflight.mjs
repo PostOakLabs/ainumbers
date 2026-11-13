@@ -1412,8 +1412,9 @@ const GATES = [
   // fresh vm contexts, recomputes its execution_hash through _hash.mjs, asserts
   // it is stable, and resolves every chain step against the generator's
   // registered node set. Part 4 and run_chain presence are report columns.
-  // Advisory on a pull_request, blocking on merge_group and main; pre-existing
-  // failures are baselined WARN with a downward ratchet
+  // Same verdict on every event: a step present in the overlay monolith's
+  // mcp_name registry is registered, an absent one blocks on pull_request and
+  // merge_group alike; pre-existing failures are baselined WARN with a downward ratchet
   // (scripts/webmcp-chain-execute-baseline.json). About 30 s, so not in the
   // quick subset.
   ['WebMCP chain-execute (plan_chain stable hash + registered step nodes per chain)', 'node scripts/check-webmcp-chain-execute.mjs'],
