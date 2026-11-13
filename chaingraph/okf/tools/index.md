@@ -685,6 +685,7 @@ status: stable
 - [AI Displacement Risk Screener](./art-763-ai-displacement-risk-screener.md) — `ai_displacement_risk_screener`
 - [Solo 401(k) vs. SEP-IRA Optimizer](./art-764-solo-401k-vs-sep-ira.md) — `compare_solo401k_sep_simple`
 - [Dependent Care FSA vs. CDCTC Optimizer](./art-765-dependent-care-fsa-cdctc-optimizer.md) — `estimate_dc_fsa_cdctc_split`
+- [Parental Leave Income Gap](./art-766-parental-leave-income-gap.md) — `parental_leave_income_gap`
 - [T+1 Settlement Readiness Diagnostic](./art-77-t1-settlement-readiness-diagnostic.md) — `run_t1_readiness_diagnostic`
 - [Total Cost of Homeownership](./art-770-total-cost-of-homeownership.md) — `total_cost_of_homeownership`
 - [Automation Payback](./art-771-automation-payback.md) — `compute_automation_payback`
