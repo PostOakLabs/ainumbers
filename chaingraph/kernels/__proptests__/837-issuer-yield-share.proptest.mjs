@@ -1,5 +1,5 @@
 // 837-issuer-yield-share — class-K property-test floor. Authored per FV-PBT-FLOOR-BUILD-SPEC.md.
-// kernel_digest_at_authoring: sha256:ba72a85e8dbe6f7ff01d2fa7b344229806924fad74641786bf21702e6e639c3f
+// kernel_digest_at_authoring: sha256:c4390f2e67b1701636ebee2e36733d97990632764ad980cca6c54498c8aa4a37
 // spec: board/queued/ISSUER-YIELD-SHARE-CHECK-1.md (aggregate split recompute + issuer-yield trace)
 // human_sign_off: PENDING (node lands deferred)
 //
