@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-135"]
+tags: ["compliance_control", "count-137"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-135 tool(s) in this mandate-type group:
+137 tool(s) in this mandate-type group:
 
 - [Corridor Cost Averages](../tools/787-corridor-cost-averages.md)
 - [Curator Vault Cap Auditor](../tools/792-curator-vault-cap-auditor.md)
@@ -27,6 +27,7 @@ status: stable
 - [ZIP-317 Transfer Fee](../tools/824-zip317-transfer-fee.md)
 - [Reconcile UCP Checkout Totals](../tools/825-reconcile-ucp-checkout-totals.md)
 - [Safe Transaction Hash Recompute](../tools/829-safe-tx-hash-recompute.md)
+- [Control Frequency Sample](../tools/838-control-frequency-sample.md)
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
 - [Mastercard Agentic Token Scope Builder](../tools/art-24-mastercard-agentic-token-builder.md)
@@ -145,5 +146,6 @@ status: stable
 - [Omnibus Token Position Reconciliation](../tools/art-828-reconcile-omnibus-token-position.md)
 - [EIP-3009 Spend Exposure Reconciler](../tools/art-830-eip3009-spend-exposure-reconciler.md)
 - [Receipt Export Envelopes](../tools/art-831-receipt-export-envelopes.md)
+- [Card Data Flow Worksheet](../tools/art-832-card-data-flow-scope.md)
 - [PAN and SAD Exposure Linter](../tools/art-833-lint-pan-sad-exposure.md)
 - [ASC 606 Transaction Price Allocator](../tools/art-834-asc606-transaction-price-allocator.md)
