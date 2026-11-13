@@ -5,6 +5,8 @@
 <meta http-equiv="origin-trial" content="AvjPE9Ubhx2ZAiql3vUsqFtXvuHuGVZq9xxwxs6FXkgBXIRAnf+mFu3UmPHszhqN3NW8YvRNXbVbAGvEsuFG7w0AAABfeyJvcmlnaW4iOiJodHRwczovL2FpbnVtYmVycy5jbzo0NDMiLCJmZWF0dXJlIjoiV2ViTUNQIiwiZXhwaXJ5IjoxODA2MzY0ODAwLCJpc1N1YmRvbWFpbiI6dHJ1ZX0=">
 <!-- WEBMCP:OT-META-END -->
 <meta charset="UTF-8">
+<!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-593-webbotauth-nonce-replay-check.kernel.mjs; restamp whenever the inline compute() is rebuilt. -->
+<meta name="kernel-digest" content="sha256:138c2f487a173ef2bd8b97435481bbacafd2c216a9a9a9663f7526c835d8f57c">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>Web Bot Auth Nonce &amp; Replay-Window Checker · ART-593 · OpenChainGraph · AINumbers.co</title>
@@ -445,13 +447,18 @@ function nonceFormatOk(nonce){
   return approxBytes>=16;
 }
 
+// Fail-closed on required inputs: nonce, created, expires and now_unix are
+// required (manifest input schema). A null derived value never passes: when
+// the created/expires spread cannot be evaluated (expires absent, null or
+// non-numeric) the spread does not read as satisfied, so freshness fails and
+// the nonce is REFUSED instead of bypassing the 8-minute spread rule.
 async function compute(pp){
   const{nonce,created,expires,now_unix,max_age_s=3600,seen_nonces=[],nonce_already_used=false}=pp;
   const format_ok=nonceFormatOk(nonce);
   const spread_ok=(typeof created==='number'&&typeof expires==='number')
     ?(expires-created)>0&&(expires-created)<=480:null;
   const fresh=(typeof created==='number'&&typeof now_unix==='number')
-    ?(now_unix-created)<=max_age_s&&(now_unix-created)>=-300&&spread_ok!==false:null;
+    ?(now_unix-created)<=max_age_s&&(now_unix-created)>=-300&&spread_ok===true:null;
   const already_used=nonce_already_used===true||(Array.isArray(seen_nonces)&&typeof nonce==='string'&&seen_nonces.includes(nonce));
   const nonce_valid=format_ok&&fresh===true&&!already_used;
   const verdict=nonce_valid?'ACCEPT':'REFUSE';
