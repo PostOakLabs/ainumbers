@@ -722,6 +722,7 @@ status: stable
 - [Card Data Flow Worksheet](./art-832-card-data-flow-scope.md) — `map_card_data_flow_scope`
 - [PAN and SAD Exposure Linter](./art-833-lint-pan-sad-exposure.md) — `lint_pan_sad_exposure`
 - [ASC 606 Transaction Price Allocator](./art-834-asc606-transaction-price-allocator.md) — `allocate_asc606_transaction_price`
+- [Statement Footing and Cross-Footing Check](./art-839-statement-footing-crossfoot.md) — `check_statement_footing_crossfoot`
 - [Settlement Efficiency KPI Engine](./art-84-settlement-efficiency-kpi.md) — `compute_settlement_efficiency_kpi`
 - [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md) — `run_pqc_timeline_fit`
 - [TLS / X.509 PKI Migration Planner](./art-86-tls-pki-migration-planner.md) — `plan_tls_pki_migration`
