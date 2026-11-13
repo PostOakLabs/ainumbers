@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (723 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (749 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -214,6 +214,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "794-event-fee-recompute",
+    "display_name": "Event Fee Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/794-event-fee-recompute.html",
+    "description": "Recomputes event-contract trading fees per fill and per order from an effective-dated venue fee profile, and diffs the recompute against a c",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "795-stablecoin-refund-dispute",
     "display_name": "Stablecoin Refund Dispute Check",
     "mandate_type": "compliance_control",
@@ -224,11 +234,51 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "797-stablecoin-cash-equivalent-test",
+    "display_name": "Stablecoin Cash Equivalent Test (FASB Proposed 2026-08)",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/797-stablecoin-cash-equivalent-test.html",
+    "description": "Applies the FASB proposed Update of 2026-08-18 (Statement of Cash Flows (Topic 230): Cash Equivalents-Disclosure Enhancement and Evaluation ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "806-event-contract-terms-lint",
     "display_name": "Event Contract Terms Lint",
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/806-event-contract-terms-lint.html",
     "description": "Lints a prediction-market event contract's DECLARED settlement terms (source agency kind, unresolvable-outcome fallback, revision rule, expi",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "808-lst-share-rate-reconciler",
+    "display_name": "Liquid-Staking Share Rate Reconciler",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/808-lst-share-rate-reconciler.html",
+    "description": "Recomputes the share rate of a rebasing liquid-staking token from caller-declared protocol state: internal ether (the rate numerator), inter",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "810-contract-bytecode-identity-verifier",
+    "display_name": "Contract Bytecode Identity Verifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/810-contract-bytecode-identity-verifier.html",
+    "description": "Recomputes the identity of a deployed smart contract from caller-declared bytes: the Keccak-256 hash of the runtime code and of the creation",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "812-eth-staking-queue",
+    "display_name": "Ethereum Validator Queue and Sweep Wait",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/812-eth-staking-queue.html",
+    "description": "Computes when one validator's exit, consolidation, activation and withdrawal sweep land, from the Electra consensus specification's balance-",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -254,6 +304,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "817-eth-l2-stage-classifier",
+    "display_name": "Ethereum L2 Stage Criteria Classifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/817-eth-l2-stage-classifier.html",
+    "description": "Classifies the properties a caller declares for one Ethereum layer-2 against the L2BEAT stages framework text, and reports for each criterio",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "822-zcash-supply-check",
     "display_name": "Zcash Supply Check",
     "mandate_type": "cryptographic_mandate",
@@ -274,6 +334,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "825-reconcile-ucp-checkout-totals",
+    "display_name": "Reconcile UCP Checkout Totals",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/825-reconcile-ucp-checkout-totals.html",
+    "description": "Reconciles a pasted Universal Commerce Protocol (UCP 2026-08-25) cart, checkout or order totals block in integer minor units. Recomputes pri",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "827-agent-cred-class-matrix",
     "display_name": "Agent Cred Class Matrix",
     "mandate_type": "compliance_mandate",
@@ -285,6 +355,46 @@ window.CHAINBUILDER_CATALOG = [
       "art-699-x402-permit2-evidence-recomputer",
       "art-703-mandate-authorization-gate"
     ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "829-safe-tx-hash-recompute",
+    "display_name": "Safe Transaction Hash Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/829-safe-tx-hash-recompute.html",
+    "description": "Recomputes the hash and decodes known calls. It does not simulate execution and cannot tell you the destination contract is safe. From paste",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "836-payment-services-activity-classifier",
+    "display_name": "Payment Services Activity Classifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/836-payment-services-activity-classifier.html",
+    "description": "Reads a caller-declared business model as a closed set of boolean payment-activity facts and classifies it into the licence classes of one o",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "837-issuer-yield-share",
+    "display_name": "Issuer Reserve Yield Share Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/837-issuer-yield-share.html",
+    "description": "Recomputes a white-label stablecoin deal's reserve-income split (issuer, platform, distributor, custodian) from aggregate declared values, a",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "838-control-frequency-sample",
+    "display_name": "Control Frequency Sample",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/838-control-frequency-sample.html",
+    "description": "Applies a table you declare. It ships no table, and is not guidance from any audit firm or standard-setter. The sample size is only as defen",
+    "consumes": [],
     "feeds": [],
     "status": "live"
   },
@@ -7671,6 +7781,26 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-751-sha256-hmac-digest-demonstrator",
+    "display_name": "SHA-256 and HMAC-SHA256 Digest Demonstrator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/mcp.html",
+    "description": "Digests a caller-supplied UTF-8 string or hex byte string with SHA-256, or computes HMAC-SHA256 over it under a caller-supplied hex key, and",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-752-freelance-quarterly-estimated-tax",
+    "display_name": "Freelance Quarterly Estimated Tax Calculator",
+    "mandate_type": "consumer_finance",
+    "url": "https://ainumbers.co/chaingraph/art-752-freelance-quarterly-estimated-tax.html",
+    "description": "Quarterly IRS estimated-tax calculator for self-employed income, ported from ApexLogics Apex #116 (AL-123). From gross freelance income, bus",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-754-equity-exit-waterfall",
     "display_name": "Equity Exit Waterfall Modeler",
     "mandate_type": "consumer_finance",
@@ -7736,6 +7866,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-761-caregiver-income-impact",
+    "display_name": "Caregiver Income Impact & Lost Earnings Estimator",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-761-caregiver-income-impact.html",
+    "description": "Financial cost of unpaid caregiving: direct income loss during the care period, the retirement savings gap from missed 401(k) contributions ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-763-ai-displacement-risk-screener",
     "display_name": "AI Displacement Risk Screener",
     "mandate_type": "analytics_mandate",
@@ -7751,6 +7891,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compensation_assessment",
     "url": "https://ainumbers.co/chaingraph/art-764-solo-401k-vs-sep-ira.html",
     "description": "Self-employed retirement-contribution comparator ported from ApexLogics Apex #112 (AL-119). For a tax year, net self-employment profit, age ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-765-dependent-care-fsa-cdctc-optimizer",
+    "display_name": "Dependent Care FSA vs. CDCTC Optimizer",
+    "mandate_type": "dependent_care_fsa_cdctc_record",
+    "url": "https://ainumbers.co/chaingraph/art-765-dependent-care-fsa-cdctc-optimizer.html",
+    "description": "Compare a Dependent Care FSA (IRC section 129 exclusion) against the Child and Dependent Care Tax Credit (IRC section 21) plus the optimal c",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -7789,6 +7939,26 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "analytics_mandate",
     "url": "https://ainumbers.co/chaingraph/art-771-automation-payback.html",
     "description": "Automation Payback ranker ported from ApexLogics Apex #180 (AL-194). For a list of automation candidates (hours saved per week, loaded hourl",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-772-money-primitives-demonstrator",
+    "display_name": "Money Primitives Demonstrator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/mcp.html",
+    "description": "Demonstrator node for the shared _money.bundle.mjs kernel: exact decimal parse (closed grammar -?digits(.digits)? at the caller-declared sca",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-773-daycount-year-fraction",
+    "display_name": "Daycount Year Fraction",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/mcp.html",
+    "description": "Demonstrator node for the shared _daycount.bundle.mjs kernel: prices ONE caller-supplied date pair under ONE declared day-count mode and rol",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -7933,11 +8103,31 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-805-agt-audit-chain-verifier",
+    "display_name": "Open-Source Agent-Governance Audit-Chain Verifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-805-agt-audit-chain-verifier.html",
+    "description": "Recomputes the hash chain of an exported agent-governance audit log offline, from the exported entries alone, and reports exactly where it b",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-807-erc3643-transfer-decision",
     "display_name": "ERC-3643 Transfer Decision Recompute",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-807-erc3643-transfer-decision.html",
     "description": "Recomputes whether one proposed ERC-3643 (T-REX) transfer or mint would go through, from caller-declared state only: identity registry entri",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-809-check-reserves-cover-outstanding-private",
+    "display_name": "Private-Input Reserves Cover Outstanding Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-809-check-reserves-cover-outstanding-private.html",
+    "description": "Pilot private-input predicate: 16 committed reserve slots, tagged by the eight GENIUS Act 4(a)(1)(A) categories, must cover the committed pa",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -7973,6 +8163,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-814-qf-pairwise-recompute.html",
     "description": "Recomputes how a quadratic funding round splits a matching pool from contribution amounts you supply, in two modes. Plain mode gives each pr",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-816-eip3009-agent-spend-gate",
+    "display_name": "EIP-3009 Agent Spend Gate",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-816-eip3009-agent-spend-gate.html",
+    "description": "Pre-sign gate for one EIP-3009 (ERC-3009, Draft) transferWithAuthorization or receiveWithAuthorization intent, decided against a caller-decl",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -8033,6 +8233,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-828-reconcile-omnibus-token-position",
+    "display_name": "Omnibus Token Position Reconciliation",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-828-reconcile-omnibus-token-position.html",
+    "description": "Reconciles a tokenized-securities omnibus token position against caller-declared state: it sums the balances of every declared wallet, compu",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-83-buy-in-exposure-modeler",
     "display_name": "Buy-In Exposure Modeler",
     "mandate_type": "compliance_mandate",
@@ -8044,6 +8254,56 @@ window.CHAINBUILDER_CATALOG = [
     "feeds": [
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-830-eip3009-spend-exposure-reconciler",
+    "display_name": "EIP-3009 Spend Exposure Reconciler",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-830-eip3009-spend-exposure-reconciler.html",
+    "description": "Reconciles a caller-pasted EIP-3009 (ERC-3009, Draft) authorization ledger against caller-pasted AuthorizationUsed and AuthorizationCanceled",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-831-receipt-export-envelopes",
+    "display_name": "Receipt Export Envelopes",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-831-receipt-export-envelopes.html",
+    "description": "Deterministically re-expresses one caller-supplied execution receipt as two wire envelopes: a lineage RunEvent (eventType COMPLETE, eventTim",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-832-card-data-flow-scope",
+    "display_name": "Card Data Flow Worksheet",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-832-card-data-flow-scope.html",
+    "description": "A worksheet over declared inputs rather than a scope determination. You list system nodes (front end, back end, logs, analytics, a browser-a",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-833-lint-pan-sad-exposure",
+    "display_name": "PAN and SAD Exposure Linter",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/833-lint-pan-sad-exposure.html",
+    "description": "Lints a caller-declared token-record schema against the published PCI DSS v4.0.1 account-data rules and reports which declared surfaces expo",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-834-asc606-transaction-price-allocator",
+    "display_name": "ASC 606 Transaction Price Allocator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-834-asc606-transaction-price-allocator.html",
+    "description": "Allocates a declared transaction price across declared performance obligations by relative standalone selling price, in integer minor units,",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="ain:category" content="run">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Liquid-Staking Share Rate Reconciler · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Recompute a rebasing liquid-staking share rate from declared internal ether, internal shares and external shares: balances, wrap and unwrap amounts, fee dilution and round-trip loss, all rounded down.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/808-lst-share-rate-reconciler.html">
+<link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/808-lst-share-rate-reconciler.md">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);
+  --red:#F87171;--green:#34D399;--radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:1.5rem 0}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem}
+textarea{width:100%;min-height:260px;background:var(--bg);color:var(--bright);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem;font-family:'JetBrains Mono',monospace;font-size:.68rem;line-height:1.5}
+.btn{background:var(--teal);color:var(--bg);border:0;border-radius:var(--radius);padding:.55rem 1.1rem;font-family:'Sora',sans-serif;font-weight:600;font-size:.74rem;cursor:pointer;margin:.7rem .5rem 0 0}
+.btn.alt{background:var(--bg-3);color:var(--text);border:1px solid var(--border)}
+.btn:focus-visible,textarea:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.results{display:none}.results.show{display:block}
+.scroll-x{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-family:'JetBrains Mono',monospace;font-size:.62rem}
+th,td{border-bottom:1px solid var(--border);padding:.35rem .6rem;text-align:left;white-space:nowrap}
+th{color:var(--teal);font-weight:500}
+.verdict{font-size:.8rem;margin-bottom:.8rem}
+.bad{color:var(--red)}.ok{color:var(--green)}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--body);word-break:break-all;margin-top:.8rem}
+.note{font-size:.7rem;color:var(--body);margin-top:.8rem;line-height:1.7}
+pre{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--body);white-space:pre-wrap;word-break:break-word;margin-top:.7rem}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">Liquid-Staking Share Rate Reconciler · OpenChainGraph</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="hero"><div class="container">
+  <h1>Liquid-Staking Share Rate Reconciler</h1>
+  <p class="hero-desc">Declare the protocol state you were given: internal ether, internal shares and external shares for one or more snapshots. The node recomputes the holder balance, wrap and unwrap amounts, the round-trip loss and its exact bound, rebases between snapshots (negative ones included) and fee dilution. Every conversion rounds down. Nothing is read from a chain, so the result is only as good as the numbers you declare.</p>
+</div></div>
+<div class="container">
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="panel">
+    <div class="panel-label">Declared state (JSON)</div>
+    <label for="ppInput" style="font-size:.7rem;color:var(--body)">snapshots, holder_shares, wrap_ops and unwrap_ops, all integers as decimal strings</label>
+    <textarea id="ppInput" aria-label="policy_parameters JSON" spellcheck="false">{
+  "holder_shares": "3",
+  "snapshots": [
+    { "snapshot_id": "A", "internal_ether": "1000", "internal_shares": "3", "external_shares": "1", "declared_total_pooled_ether": "1334", "declared_total_shares": "4" }
+  ],
+  "wrap_ops": [ { "snapshot_id": "A", "amount": "1001" } ],
+  "unwrap_ops": [ { "snapshot_id": "A", "amount": "3" } ]
+}</textarea>
+    <button class="btn" id="runBtn" type="button" onclick="runCheck()">Reconcile</button>
+    <button class="btn alt" id="ap2ExportBtn" type="button" onclick="exportArtifact()">Export Policy Mandate</button>
+    <button class="btn alt" id="verifyBtn" type="button" onclick="verifyHash()">Verify hash</button>
+    <span id="verifyResult" aria-live="polite"></span>
+  </div>
+  <div class="panel results" id="resultsPanel">
+    <div class="panel-label">Result</div>
+    <div class="verdict" id="verdictBox" role="status"></div>
+    <div class="scroll-x"><table id="snapTable"></table></div>
+    <div class="scroll-x"><table id="accrualTable"></table></div>
+    <div class="scroll-x"><table id="wrapTable"></table></div>
+    <div class="scroll-x"><table id="unwrapTable"></table></div>
+    <div class="note" id="noteBox"></div>
+    <div class="exec-hash" id="execHashBox"></div>
+    <pre id="artifactPre" style="display:none"></pre>
+  </div>
+  <div class="panel">
+    <div class="panel-label">Manifest</div>
+    <button class="btn alt" type="button" onclick="toggleMfst()">Show manifest</button>
+    <div id="mfstBody" style="display:none"><pre id="mfstCode"></pre></div>
+  </div>
+</div>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="../helm.html">Helm</a>
+        <a href="../convert.html">Conversion Suite</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Hubs</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="../guides/web3-hub.html">Web3 Hub</a>
+        <a href="../guides/solana-hub.html">Solana</a>
+        <a href="../guides/ethereum-hub.html">Ethereum</a>
+        <a href="../guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
+        <a href="../guides/token-standards-hub.html">Token Standards</a>
+        <a href="../guides/tradetech-hub.html">TradeTech</a>
+        <a href="../guides/capital-markets-settlement-hub.html">Capital Markets Settlement</a>
+        <a href="../guides/broker-dealer-ops-hub.html">Broker-Dealer Ops</a>
+        <a href="../guides/treasury-liquidity-hub.html">Treasury and Strategy</a>
+        <a href="../guides/wealthtech-hub.html">WealthTech</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Developers</div>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">About</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+<script>
+var MANIFEST = {
+  tool_id: '808-lst-share-rate-reconciler',
+  version: '1.0.0',
+  mcp_name: 'reconcile_lst_share_rate',
+  title: 'Liquid-Staking Share Rate Reconciler',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  mcp_tool_definition: {
+    name: 'reconcile_lst_share_rate',
+    description: 'Recomputes a rebasing liquid-staking share rate from declared internal ether, internal shares and external shares: holder balances, wrap and unwrap amounts, round-trip loss with its exact bound, rebases between snapshots and fee dilution, all rounded down.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        holder_shares: { type: 'string' },
+        snapshots: { type: 'array' },
+        wrap_ops: { type: 'array' },
+        unwrap_ops: { type: 'array' },
+        network_label: { type: 'string' }
+      }
+    }
+  }
+};
+
+var _lastResult = null;
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  return 'sha256:' + Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+
+// Ported verbatim from chaingraph/kernels/808-lst-share-rate-reconciler.kernel.mjs: browser and server share the same BigInt arithmetic.
+var SCOPE_NOTE = 'Recomputes share-rate conversions for a rebasing liquid-staking token from caller-declared state: internal ether (the rate numerator), internal shares (the rate denominator) and external shares. Conversions use internal ether and internal shares, rounded down; total shares, external ether and total pooled ether are reported as disclosure only. This kernel does NOT read any chain: it cannot know whether the declared values match any deployed token, whether a declared snapshot came from a real oracle report, or how external shares were minted. Fee rates, withdrawal finalization and mintable-external capacity are not modeled; fees enter only as a declared count of shares minted as fees. Findings are properties of the declared numbers under the stated arithmetic, not an audit of any deployment.';
+
+var UINT128_MAX = (1n << 128n) - 1n;
+var TWO_128 = 1n << 128n;
+var MAX_SNAPSHOTS = 64;
+var MAX_OPS = 256;
+
+function parseUint(v) {
+  if (typeof v === 'number') {
+    if (!Number.isInteger(v) || v < 0 || !Number.isSafeInteger(v)) return null;
+    return BigInt(v);
+  }
+  if (typeof v !== 'string') return null;
+  const t = v.trim();
+  if (!/^[0-9]+$/.test(t) || t.length > 80) return null;
+  return BigInt(t);
+}
+
+/** @param {bigint} a @param {bigint} b @returns {bigint} */
+function ceilDiv(a, b) {
+  const q = a / b;
+  return q * b === a ? q : q + 1n;
+}
+
+function isObj(v) {
+  return v !== null && typeof v === 'object' && !Array.isArray(v);
+}
+
+function labelOf(v) {
+  return typeof v === 'string' && v.trim().length > 0 ? v.trim() : null;
+}
+
+function refused(reasons) {
+  return {
+    output_payload: {
+      snapshots: [],
+      fee_accrual_between_snapshots: [],
+      wraps: [],
+      unwraps: [],
+      note: SCOPE_NOTE,
+      reasons,
+    },
+    compliance_flags: ['INPUT_REFUSED'],
+  };
+}
+
+function compute(pp) {
+  pp = isObj(pp) ? pp : {};
+  const reasons = [];
+
+  const holder = parseUint(pp.holder_shares);
+  if (holder === null) reasons.push('holder_shares is required and must be a non-negative integer');
+  else if (!(holder < UINT128_MAX)) reasons.push('holder_shares must be below 2^128 - 1');
+
+  const rawSnaps = pp.snapshots;
+  const snaps = [];
+  if (!Array.isArray(rawSnaps) || rawSnaps.length === 0) {
+    reasons.push('snapshots is required and must be a non-empty array');
+  } else if (rawSnaps.length > MAX_SNAPSHOTS) {
+    reasons.push('snapshots may hold at most ' + MAX_SNAPSHOTS + ' entries');
+  } else {
+    const seen = {};
+    for (let i = 0; i < rawSnaps.length; i++) {
+      const s = rawSnaps[i];
+      if (!isObj(s)) { reasons.push('snapshots[' + i + '] must be an object'); continue; }
+      const id = labelOf(s.snapshot_id);
+      if (id === null) { reasons.push('snapshots[' + i + '].snapshot_id is required'); continue; }
+      if (Object.prototype.hasOwnProperty.call(seen, id)) { reasons.push('snapshots[' + i + '].snapshot_id is a duplicate'); continue; }
+      seen[id] = true;
+      const N = parseUint(s.internal_ether);
+      const D = parseUint(s.internal_shares);
+      const X = s.external_shares === undefined || s.external_shares === null ? 0n : parseUint(s.external_shares);
+      let bad = false;
+      if (N === null || N === 0n || !(N < TWO_128)) { reasons.push('snapshots[' + i + '].internal_ether must be an integer above 0 and below 2^128'); bad = true; }
+      if (D === null || D === 0n) { reasons.push('snapshots[' + i + '].internal_shares must be an integer above 0'); bad = true; }
+      if (X === null) { reasons.push('snapshots[' + i + '].external_shares must be a non-negative integer'); bad = true; }
+      if (!bad && !(D + X < TWO_128)) { reasons.push('snapshots[' + i + '] internal_shares plus external_shares must be below 2^128'); bad = true; }
+      let F = null;
+      if (s.shares_minted_as_fees !== undefined && s.shares_minted_as_fees !== null) {
+        F = parseUint(s.shares_minted_as_fees);
+        if (F === null) { reasons.push('snapshots[' + i + '].shares_minted_as_fees must be a non-negative integer'); bad = true; }
+        else if (!bad && !(F < D)) { reasons.push('snapshots[' + i + '].shares_minted_as_fees must be below internal_shares'); bad = true; }
+      }
+      let dTotS = null;
+      if (s.declared_total_shares !== undefined && s.declared_total_shares !== null) {
+        dTotS = parseUint(s.declared_total_shares);
+        if (dTotS === null) { reasons.push('snapshots[' + i + '].declared_total_shares must be a non-negative integer'); bad = true; }
+      }
+      let dTotE = null;
+      if (s.declared_total_pooled_ether !== undefined && s.declared_total_pooled_ether !== null) {
+        dTotE = parseUint(s.declared_total_pooled_ether);
+        if (dTotE === null) { reasons.push('snapshots[' + i + '].declared_total_pooled_ether must be a non-negative integer'); bad = true; }
+      }
+      const ts = s.report_timestamp === undefined || s.report_timestamp === null ? null : labelOf(String(s.report_timestamp));
+      if (!bad) snaps.push({ id, N, D, X, F, dTotS, dTotE, ts });
+    }
+  }
+
+  const rawWraps = pp.wrap_ops === undefined || pp.wrap_ops === null ? [] : pp.wrap_ops;
+  const rawUnwraps = pp.unwrap_ops === undefined || pp.unwrap_ops === null ? [] : pp.unwrap_ops;
+  if (!Array.isArray(rawWraps)) reasons.push('wrap_ops, if supplied, must be an array');
+  if (!Array.isArray(rawUnwraps)) reasons.push('unwrap_ops, if supplied, must be an array');
+  const byId = {};
+  for (let i = 0; i < snaps.length; i++) byId[snaps[i].id] = snaps[i];
+
+  const wraps = [];
+  const unwraps = [];
+  if (Array.isArray(rawWraps) && Array.isArray(rawUnwraps)) {
+    if (rawWraps.length + rawUnwraps.length > MAX_OPS) {
+      reasons.push('wrap_ops plus unwrap_ops may hold at most ' + MAX_OPS + ' entries');
+    } else {
+      for (let i = 0; i < rawWraps.length; i++) {
+        const o = rawWraps[i];
+        const sid = isObj(o) ? labelOf(o.snapshot_id) : null;
+        const amt = isObj(o) ? parseUint(o.amount) : null;
+        if (sid === null || !Object.prototype.hasOwnProperty.call(byId, sid)) { reasons.push('wrap_ops[' + i + '].snapshot_id must name a declared snapshot'); continue; }
+        if (amt === null) { reasons.push('wrap_ops[' + i + '].amount must be a non-negative integer'); continue; }
+        if (amt === 0n) { reasons.push('wrap_ops[' + i + '].amount is zero; a wrap of zero is refused'); continue; }
+        if (!(amt < UINT128_MAX)) { reasons.push('wrap_ops[' + i + '].amount must be below 2^128 - 1'); continue; }
+        wraps.push({ sid, amt });
+      }
+      for (let i = 0; i < rawUnwraps.length; i++) {
+        const o = rawUnwraps[i];
+        const sid = isObj(o) ? labelOf(o.snapshot_id) : null;
+        const amt = isObj(o) ? parseUint(o.amount) : null;
+        if (sid === null || !Object.prototype.hasOwnProperty.call(byId, sid)) { reasons.push('unwrap_ops[' + i + '].snapshot_id must name a declared snapshot'); continue; }
+        if (amt === null) { reasons.push('unwrap_ops[' + i + '].amount must be a non-negative integer'); continue; }
+        if (amt === 0n) { reasons.push('unwrap_ops[' + i + '].amount is zero; an unwrap of zero is refused'); continue; }
+        if (!(amt < UINT128_MAX)) { reasons.push('unwrap_ops[' + i + '].amount must be below 2^128 - 1'); continue; }
+        unwraps.push({ sid, amt });
+      }
+    }
+  }
+
+  const chain_label = labelOf(pp.network_label);
+
+  if (reasons.length > 0) return refused(reasons);
+
+  // Rate: ether = floor(shares * N / D); shares = floor(ether * D / N). N and D are the INTERNAL
+  // figures; totals below are disclosure only and never enter a conversion.
+  const out = [];
+  const balances = [];
+  for (let i = 0; i < snaps.length; i++) {
+    const s = snaps[i];
+    const balance = (holder * s.N) / s.D;
+    balances.push(balance);
+    const externalEther = (s.X * s.N) / s.D;
+    const totalShares = s.D + s.X;
+    const totalPooled = s.N + externalEther;
+    const entry = {
+      snapshot_id: s.id,
+      report_timestamp: s.ts,
+      internal_ether: s.N.toString(),
+      internal_shares: s.D.toString(),
+      external_shares: s.X.toString(),
+      holder_shares: holder.toString(),
+      balance: balance.toString(),
+      balance_remainder: ((holder * s.N) % s.D).toString(),
+      rounding_direction: 'down',
+      cost_to_deposit_round_up: ceilDiv(holder * s.N, s.D).toString(),
+      disclosed_totals: {
+        total_shares: totalShares.toString(),
+        external_ether: externalEther.toString(),
+        total_pooled_ether: totalPooled.toString(),
+        label: 'disclosure only; conversions use internal_ether and internal_shares',
+      },
+      cross_check: {
+        residual_shares: s.dTotS === null ? null : (s.dTotS - totalShares).toString(),
+        residual_ether: s.dTotE === null ? null : (s.dTotE - totalPooled).toString(),
+      },
+      fee: null,
+    };
+    if (s.F !== null) {
+      const noFee = (holder * s.N) / (s.D - s.F);
+      entry.fee = {
+        shares_minted_as_fees: s.F.toString(),
+        nofee_balance: noFee.toString(),
+        net_balance: balance.toString(),
+        fee_dilution: (noFee - balance).toString(),
+      };
+    }
+    out.push(entry);
+  }
+
+  const accrual = [];
+  for (let i = 1; i < snaps.length; i++) {
+    const delta = balances[i] - balances[i - 1];
+    accrual.push({
+      from_snapshot_id: snaps[i - 1].id,
+      to_snapshot_id: snaps[i].id,
+      balance_delta: delta.toString(),
+      rebase_direction: delta > 0n ? 'positive' : (delta < 0n ? 'negative' : 'none'),
+      fee_dilution_at_to: out[i].fee === null ? null : out[i].fee.fee_dilution,
+    });
+  }
+
+  const wrapOut = [];
+  for (let i = 0; i < wraps.length; i++) {
+    const s = byId[wraps[i].sid];
+    const a = wraps[i].amt;
+    const w = (a * s.D) / s.N;
+    const back = (w * s.N) / s.D;
+    const loss = a - back;
+    const bound = ceilDiv(s.N, s.D);
+    wrapOut.push({
+      snapshot_id: s.id,
+      ether_in: a.toString(),
+      shares_out: w.toString(),
+      rounding_direction: 'down',
+      remainder: ((a * s.D) % s.N).toString(),
+      round_trip_ether_back: back.toString(),
+      round_trip_loss: loss.toString(),
+      round_trip_loss_bound: bound.toString(),
+      loss_within_bound: loss >= 0n && loss <= bound,
+      floors_to_zero: w === 0n,
+    });
+  }
+
+  const unwrapOut = [];
+  for (let i = 0; i < unwraps.length; i++) {
+    const s = byId[unwraps[i].sid];
+    const a = unwraps[i].amt;
+    const e = (a * s.N) / s.D;
+    unwrapOut.push({
+      snapshot_id: s.id,
+      shares_in: a.toString(),
+      ether_out: e.toString(),
+      rounding_direction: 'down',
+      remainder: ((a * s.N) % s.D).toString(),
+      floors_to_zero: e === 0n,
+    });
+  }
+
+  return {
+    output_payload: {
+      network_label: chain_label,
+      snapshots: out,
+      fee_accrual_between_snapshots: accrual,
+      wraps: wrapOut,
+      unwraps: unwrapOut,
+      note: SCOPE_NOTE,
+      reasons: [],
+    },
+    compliance_flags: [],
+  };
+}
+
+
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function table(el, head, rows) {
+  var t = document.getElementById(el);
+  t.innerHTML = rows.length ? '<tr>' + head.map(function(h){return '<th>' + esc(h) + '</th>';}).join('') + '</tr>' + rows.map(function(r){return '<tr>' + r.map(function(c){return '<td>' + esc(c) + '</td>';}).join('') + '</tr>';}).join('') : '';
+}
+
+function runCheck() {
+  var pp;
+  try { pp = JSON.parse(document.getElementById('ppInput').value); }
+  catch (e) { pp = null; }
+  var r = compute(pp);
+  var op = r.output_payload;
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: r.compliance_flags };
+  var v = document.getElementById('verdictBox');
+  if (r.compliance_flags.length) {
+    v.innerHTML = '<span class="bad">Input refused.</span> ' + esc(op.reasons.join('; '));
+  } else {
+    v.innerHTML = '<span class="ok">Reconciled.</span> ' + op.snapshots.length + ' snapshot(s), ' + op.wraps.length + ' wrap(s), ' + op.unwraps.length + ' unwrap(s).';
+  }
+  table('snapTable', ['snapshot', 'balance', 'remainder', 'cost to deposit (rounds up)', 'total shares', 'external ether', 'total pooled ether', 'residual shares', 'residual ether', 'fee dilution'],
+    op.snapshots.map(function(s) { return [s.snapshot_id, s.balance, s.balance_remainder, s.cost_to_deposit_round_up, s.disclosed_totals.total_shares, s.disclosed_totals.external_ether, s.disclosed_totals.total_pooled_ether, s.cross_check.residual_shares === null ? '-' : s.cross_check.residual_shares, s.cross_check.residual_ether === null ? '-' : s.cross_check.residual_ether, s.fee === null ? '-' : s.fee.fee_dilution]; }));
+  table('accrualTable', ['from', 'to', 'balance change', 'direction'],
+    op.fee_accrual_between_snapshots.map(function(a) { return [a.from_snapshot_id, a.to_snapshot_id, a.balance_delta, a.rebase_direction]; }));
+  table('wrapTable', ['wrap at', 'ether in', 'shares out', 'ether back', 'loss', 'loss bound', 'within bound'],
+    op.wraps.map(function(w) { return [w.snapshot_id, w.ether_in, w.shares_out, w.round_trip_ether_back, w.round_trip_loss, w.round_trip_loss_bound, String(w.loss_within_bound)]; }));
+  table('unwrapTable', ['unwrap at', 'shares in', 'ether out', 'remainder'],
+    op.unwraps.map(function(u) { return [u.snapshot_id, u.shares_in, u.ether_out, u.remainder]; }));
+  document.getElementById('noteBox').textContent = op.note;
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('execHashBox').textContent = 'computing...';
+  document.getElementById('verifyResult').textContent = '';
+  computeExecHash(pp === null ? {} : pp, op).then(function(h) { document.getElementById('execHashBox').textContent = h; });
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp === null ? {} : _lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span class="ok">&#10003; Hash verified</span>' : '<span class="bad">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  var stamp = new Date().toISOString();
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0', mandate_type: 'compliance_control',
+    tool_id: '808-lst-share-rate-reconciler', tool_version: '1.0.0',
+    generated_at: stamp, execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp === null ? {} : _lastResult.pp, output_payload: _lastResult.output_payload, compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type: 'application/json'}));
+  a.download = '808-lst-share-rate-reconciler.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none') {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>

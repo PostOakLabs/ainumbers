@@ -6,6 +6,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>In-House Bank Interest Allocation &middot; ART-260 &middot; OpenChainGraph &middot; AINumbers.co</title>
 <meta name="description" content="Allocates interest for notional pooling or ZBA sweep structures across IHB members. OECD transfer-pricing arm's-length rates. Withholding tax per member. ZERO PII.">
+<meta name="kernel-digest" content="sha256:6e9a9c6e57168ff88d9a4933856fe6f04ecc88942a01e7937c076d1e80235b76">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/art-260-allocate-ihb-interest.html">
 <link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-260-allocate-ihb-interest.md">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
@@ -147,9 +148,9 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
         </select>
       </div>
       <div class="q">
-        <label class="q-label" for="poolRate">Pool Rate (annual %)</label>
-        <div class="q-help">Arm's-length overnight / overnight-indexed rate for the pool.</div>
-        <input type="number" id="poolRate" value="5.0" step="0.001">
+        <label class="q-label" for="poolRate">Arm's-Length Rate (annual, decimal)</label>
+        <div class="q-help">Arm's-length overnight / overnight-indexed rate for the pool, as a decimal (0.05 = 5%).</div>
+        <input type="number" id="poolRate" value="0.05" step="0.0001">
       </div>
       <div class="q">
         <label class="q-label" for="dayCountConvention">Day-Count Convention</label>
@@ -174,12 +175,12 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <div class="section-head">Pool Members (JSON Array)</div>
     <div class="q">
       <label class="q-label" for="members">Members</label>
-      <div class="q-help">Array of {member_id, balance, withholding_rate_pct (0-100)}. Positive balance = depositor; negative = borrower. Withholding rate: 0 for domestic, e.g. 15 for 15% WHT.</div>
+      <div class="q-help">Array of {entity_id, balance, withholding_rate} with the rate as a decimal. Positive balance = depositor; negative = borrower. Withholding rate: 0 for domestic, e.g. 0.15 for 15% WHT.</div>
       <textarea id="members" rows="8">[
-  {"member_id":"PARENT_CO","balance":500000,"withholding_rate_pct":0},
-  {"member_id":"SUB_US","balance":300000,"withholding_rate_pct":0},
-  {"member_id":"SUB_NL","balance":-250000,"withholding_rate_pct":15},
-  {"member_id":"SUB_DE","balance":-100000,"withholding_rate_pct":15}
+  {"entity_id":"PARENT_CO","balance":500000,"withholding_rate":0},
+  {"entity_id":"SUB_US","balance":300000,"withholding_rate":0},
+  {"entity_id":"SUB_NL","balance":-250000,"withholding_rate":0.15},
+  {"entity_id":"SUB_DE","balance":-100000,"withholding_rate":0.15}
 ]</textarea>
     </div>
     <div style="margin-top:20px">
@@ -324,11 +325,11 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-260
     "type": "object",
     "properties": {
       "pool_type":              {"type": "string",  "enum": ["notional","zba"], "default": "notional"},
-      "pool_rate_annual_pct":   {"type": "number",  "description": "Annual interest rate (%)"},
+      "arm_length_rate":        {"type": "number",  "description": "Arm's-length annual interest rate, decimal (0.05 = 5%)"},
       "day_count_convention":   {"type": "string",  "enum": ["ACT/360","ACT/365","30/360"], "default": "ACT/360"},
-      "period_days":            {"type": "integer", "description": "Accrual period days"},
-      "currency":               {"type": "string",  "default": "USD"},
-      "members":                {"type": "array",   "description": "Array of {member_id, balance, withholding_rate_pct}"}
+      "days":                   {"type": "number",  "description": "Accrual period days"},
+      "base_currency":          {"type": "string",  "default": "USD"},
+      "pool_members":           {"type": "array",   "description": "Array of {entity_id, balance, withholding_rate (decimal)}"}
     }
   }
 }
@@ -339,56 +340,133 @@ const TOOL_ID      = 'art-260-allocate-ihb-interest';
 const TOOL_VERSION = '1.0.0';
 let _lastArtifact  = null;
 
-function _finite(v,def){const n=Number(v);return(isFinite(n)&&!isNaN(n))?n:def;}
-function _round6(v){return Math.round(v*1000000)/1000000;}
-function _round2(v){return Math.round(v*100)/100;}
+// In-house bank (IHB) interest allocation for notional pooling and ZBA sweep structures.
+// Computes arm's-length interest allocation per OECD Transfer Pricing Guidelines 2022.
+// Supports ACT/360, ACT/365, and 30/360 day-count conventions.
+// Includes withholding tax flag per participating entity.
+// ZERO PII: entity IDs, balances, rates, and period parameters only.
 
-function dayCountFraction(days,convention){
-  days=Math.max(0,Math.floor(days));
-  if(convention==='ACT/360')return days/360;
-  if(convention==='ACT/365')return days/365;
-  if(convention==='30/360')return days/360;
-  return days/360;
+const TABLE_VERSION = 'OECD-TP-IHB-INTEREST-ALLOC-2022';
+const TABLE_SOURCE  = 'OECD Transfer Pricing Guidelines 2022 Ch.I (arm\'s-length standard) + Ch.X §C (intra-group financial transactions, cash pooling); OECD BEPS Action 4 (interest deductibility); ACT/360, ACT/365 and 30/360 day-count conventions per ISDA Definitions 2006 §4.16';
+
+// Day-count fraction computation (pure arithmetic, no transcendentals)
+function dayCountFraction(days, convention) {
+  if (convention === 'ACT/360') return days / 360;
+  if (convention === 'ACT/365') return days / 365;
+  // 30/360: assume days already converted to 30/360 basis
+  return days / 360;
 }
 
-function compute(p) {
-  p=p||{};
-  const pool_type=['notional','zba'].includes(p.pool_type)?p.pool_type:'notional';
-  const pool_rate_annual_pct=_finite(p.pool_rate_annual_pct,0);
-  const day_count_convention=['ACT/360','ACT/365','30/360'].includes(p.day_count_convention)?p.day_count_convention:'ACT/360';
-  const period_days=Math.max(1,Math.floor(_finite(p.period_days,1)));
-  const currency=(p.currency||'USD').toUpperCase();
-  const members=Array.isArray(p.members)?p.members:[];
-  const dcf=dayCountFraction(period_days,day_count_convention);
-  const rate_decimal=pool_rate_annual_pct/100;
-  let pool_balance=0;
-  for(let i=0;i<members.length;i++){pool_balance+=_finite((members[i]||{}).balance,0);}
-  pool_balance=_round2(pool_balance);
-  const gross_pool_interest=_round6(pool_balance*rate_decimal*dcf);
-  const allocations=[];
-  let total_gross=0,total_wht=0,total_net=0;
-  for(let i=0;i<members.length;i++){
-    const m=members[i]||{};
-    const balance=_finite(m.balance,0);
-    const withholding_rate_pct=_finite(m.withholding_rate_pct,0);
-    const wht_decimal=withholding_rate_pct/100;
-    let gross_interest=0;
-    if(pool_type==='notional'){
-      if(pool_balance!==0&&gross_pool_interest>0)gross_interest=_round6(gross_pool_interest*(balance/pool_balance));
-      else if(pool_balance===0)gross_interest=0;
-      else gross_interest=0;
-    }else{
-      gross_interest=_round6(balance*rate_decimal*dcf);
-    }
-    const withholding_amount=_round6(gross_interest>0?gross_interest*wht_decimal:0);
-    const net_interest=_round6(gross_interest-withholding_amount);
-    total_gross=_round6(total_gross+gross_interest);
-    total_wht=_round6(total_wht+withholding_amount);
-    total_net=_round6(total_net+net_interest);
-    allocations.push({member_id:m.member_id||('member_'+i),balance:_round2(balance),gross_interest:gross_interest,withholding_rate_pct:withholding_rate_pct,withholding_amount:withholding_amount,net_interest:net_interest,currency:currency});
+function compute(params) {
+  const p = params || {};
+
+  const pool_type = ['notional','zba'].includes(p.pool_type) ? p.pool_type : 'notional';
+  const arm_length_rate = _finite(p.arm_length_rate, 0);
+  const days = _finite(p.days, 1);
+  const day_count_convention = ['ACT/360','ACT/365','30/360'].includes(p.day_count_convention) ? p.day_count_convention : 'ACT/360';
+  const pool_members = Array.isArray(p.pool_members) ? p.pool_members : [];
+  const base_currency = (p.base_currency || 'USD').toUpperCase();
+
+  const dcf = dayCountFraction(days, day_count_convention);
+
+  let pool_net = 0;
+  const members_normalized = [];
+
+  for (let i = 0; i < pool_members.length; i++) {
+    const m = pool_members[i] || {};
+    const balance = _finite(m.balance, 0);
+    const wh_rate = _finite(m.withholding_rate, 0);
+    const entity_id = m.entity_id || ('entity_' + i);
+    members_normalized.push({ entity_id, balance, withholding_rate: wh_rate, currency: m.currency || base_currency });
+    pool_net += balance;
   }
-  return{pool_type:pool_type,pool_balance:pool_balance,pool_rate_annual_pct:pool_rate_annual_pct,day_count_convention:day_count_convention,period_days:period_days,day_count_fraction:_round6(dcf),gross_pool_interest:gross_pool_interest,total_interest_allocated:_round6(total_gross),total_withholding:_round6(total_wht),net_interest_payable:_round6(total_net),currency:currency,allocations:allocations,table_version:'OECD-TP-IHB-INTEREST-ALLOC-2022',table_source:'OECD Transfer Pricing Guidelines 2022 Ch.I (arm\'s-length standard) + Ch.X §C (intra-group financial transactions, cash pooling); OECD BEPS Action 4 (interest deductibility); ACT/360, ACT/365 and 30/360 day-count conventions per ISDA Definitions 2006 §4.16',regulatory_basis:"Interest allocation per OECD TP Guidelines 2022 Ch.X §C (cash pooling, arm's-length principle); pool leader earns spread between lending/borrowing rates; arm_length_rate should reflect comparable uncontrolled transactions. Day-count per ISDA Definitions 2006 §4.16; ACT/360 default per euro money-market convention (the Eurosystem applies the day-count convention actual/360, per the ECB monetary policy glossary). Withholding tax per member jurisdiction. ZERO PII.",pii_note:'ZERO PII: member IDs, balances, rates, and withholding rates only. No account holder, beneficial owner, or personal data enters this kernel.',not_legal_advice:"Not tax or legal advice. Interest allocation and withholding obligations must be reviewed by qualified tax counsel for each jurisdiction."};
+  pool_net = _round4(pool_net);
+
+  const allocations = [];
+
+  if (pool_type === 'notional') {
+    // Notional pooling: interest computed on net pool balance, allocated pro-rata
+    const gross_pool_interest = _round4(pool_net * arm_length_rate * dcf);
+
+    // Total positive balances and total negative balances for pro-rata
+    const total_positive = members_normalized.reduce(function(s, m) { return s + (m.balance > 0 ? m.balance : 0); }, 0);
+    const total_negative = members_normalized.reduce(function(s, m) { return s + (m.balance < 0 ? Math.abs(m.balance) : 0); }, 0);
+
+    for (let i = 0; i < members_normalized.length; i++) {
+      const m = members_normalized[i];
+      let gross_interest = 0;
+
+      if (m.balance > 0 && total_positive > 0) {
+        // Depositor: receives credit interest pro-rata
+        gross_interest = _round4(gross_pool_interest > 0 ? gross_pool_interest * m.balance / total_positive : 0);
+      } else if (m.balance < 0 && total_negative > 0) {
+        // Borrower: charged debit interest pro-rata on absolute balance
+        gross_interest = _round4(gross_pool_interest < 0 ? gross_pool_interest * Math.abs(m.balance) / total_negative : 0);
+      }
+
+      const wh_amount = m.withholding_rate > 0 && gross_interest > 0 ? _round4(gross_interest * m.withholding_rate) : 0;
+      const net_interest = _round4(gross_interest - wh_amount);
+
+      allocations.push({
+        entity_id:          m.entity_id,
+        balance:            m.balance,
+        gross_interest,
+        withholding_rate:   m.withholding_rate,
+        withholding_amount: wh_amount,
+        net_interest,
+        allocation_basis:   'PRO_RATA_NOTIONAL',
+      });
+    }
+  } else {
+    // ZBA sweep: each entity earns/pays interest independently on its own balance
+    for (let i = 0; i < members_normalized.length; i++) {
+      const m = members_normalized[i];
+      const gross_interest = _round4(m.balance * arm_length_rate * dcf);
+      const wh_amount = m.withholding_rate > 0 && gross_interest > 0 ? _round4(gross_interest * m.withholding_rate) : 0;
+      const net_interest = _round4(gross_interest - wh_amount);
+
+      allocations.push({
+        entity_id:          m.entity_id,
+        balance:            m.balance,
+        gross_interest,
+        withholding_rate:   m.withholding_rate,
+        withholding_amount: wh_amount,
+        net_interest,
+        allocation_basis:   'INDIVIDUAL_ZBA',
+      });
+    }
+  }
+
+  const total_interest_allocated = _round4(allocations.reduce(function(s, a) { return s + a.gross_interest; }, 0));
+  const net_interest_payable     = _round4(allocations.reduce(function(s, a) { return s + a.net_interest; }, 0));
+
+  return {
+    pool_type,
+    pool_net_balance:           pool_net,
+    arm_length_rate,
+    days,
+    day_count_convention,
+    day_count_fraction:         _round6(dcf),
+    base_currency,
+    total_interest_allocated,
+    net_interest_payable,
+    entity_count:               allocations.length,
+    allocations,
+    oecd_tp_compliant:          true,
+    table_version:              TABLE_VERSION,
+    table_source:               TABLE_SOURCE,
+    regulatory_basis:           'Interest allocation per OECD TP Guidelines 2022 Ch.X §C (cash pooling, arm\'s-length principle); pool leader earns spread between lending/borrowing rates; arm_length_rate should reflect comparable uncontrolled transactions. Day-count per ISDA Definitions 2006 §4.16; ACT/360 default per euro money-market convention (the Eurosystem applies the day-count convention actual/360, per the ECB monetary policy glossary). Withholding tax per member jurisdiction. ZERO PII.',
+    pii_note:                   'ZERO PII: entity IDs, aggregate balances, rates, and period parameters only. No account holder, ultimate beneficiary, or personal data enters this kernel.',
+    not_legal_advice:           'Not tax, legal, or accounting advice. IHB structures require review by qualified transfer-pricing advisors and local tax counsel.',
+  };
 }
+
+function _finite(v, def) {
+  const n = Number(v);
+  return (isFinite(n) && !isNaN(n)) ? n : def;
+}
+function _round4(v) { return Math.round(v * 10000) / 10000; }
+function _round6(v) { return Math.round(v * 1000000) / 1000000; }
 
 function cgCanon(v){return Array.isArray(v)?v.map(cgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}):v;}
 async function executionHash(pp,op){const canon=JSON.stringify(cgCanon({policy_parameters:pp,output_payload:op}));const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canon));return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');}
@@ -396,17 +474,18 @@ async function executionHash(pp,op){const canon=JSON.stringify(cgCanon({policy_p
 async function runCompute() {
   let mems=[];
   try{mems=JSON.parse(document.getElementById('members').value);}catch(e){alert('Invalid members JSON');return;}
-  const pp={pool_type:document.getElementById('poolType').value,pool_rate_annual_pct:Number(document.getElementById('poolRate').value),day_count_convention:document.getElementById('dayCountConvention').value,period_days:Number(document.getElementById('periodDays').value),currency:document.getElementById('currency').value,members:mems};
+  const pp={pool_type:document.getElementById('poolType').value,arm_length_rate:Number(document.getElementById('poolRate').value),day_count_convention:document.getElementById('dayCountConvention').value,days:Number(document.getElementById('periodDays').value),base_currency:document.getElementById('currency').value,pool_members:mems};
   const op=compute(pp);
   const hash=await executionHash(pp,op);
   const generatedAt = new Date().toISOString();
   const art={' @context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'analytics_mandate',tool_id:TOOL_ID,tool_version:TOOL_VERSION,generated_at: generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags:[],compute_mode:'client',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
   document.getElementById('generatedAt').textContent = 'generated_at ' + generatedAt;
   _lastArtifact=art;
-  document.getElementById('statRow').innerHTML=[stat('Pool Type',op.pool_type.toUpperCase()),stat('Pool Balance',op.pool_balance),stat('Gross Interest',op.gross_pool_interest),stat('Net Payable',op.net_interest_payable),stat('Total WHT',op.total_withholding)].join('');
+  const totalWht=Math.round(op.allocations.reduce(function(s,a){return s+a.withholding_amount;},0)*10000)/10000;
+  document.getElementById('statRow').innerHTML=[stat('Pool Type',op.pool_type.toUpperCase()),stat('Pool Net Balance',op.pool_net_balance),stat('Gross Allocated',op.total_interest_allocated),stat('Net Payable',op.net_interest_payable),stat('Total WHT',totalWht)].join('');
   const ad=document.getElementById('allocDiv');
-  ad.innerHTML=op.allocations.map(function(a){return kv(a.member_id+' (bal: '+a.balance+')',['gross: '+a.gross_interest,' wht: '+a.withholding_amount,' net: '+a.net_interest].join(' | '));}).join('');
-  document.getElementById('summaryDiv').innerHTML=kv('Day-Count Fraction',op.day_count_fraction)+kv('Total Gross Allocated',op.total_interest_allocated)+kv('Total Withholding',op.total_withholding)+kv('Net Interest Payable',op.net_interest_payable)+kv('Day Count Convention',op.day_count_convention)+kv('Period Days',op.period_days);
+  ad.innerHTML=op.allocations.map(function(a){return kv(a.entity_id+' (bal: '+a.balance+')',['gross: '+a.gross_interest,' wht: '+a.withholding_amount,' net: '+a.net_interest].join(' | '));}).join('');
+  document.getElementById('summaryDiv').innerHTML=kv('Day-Count Fraction',op.day_count_fraction)+kv('Total Gross Allocated',op.total_interest_allocated)+kv('Total Withholding',totalWht)+kv('Net Interest Payable',op.net_interest_payable)+kv('Day Count Convention',op.day_count_convention)+kv('Period Days',op.days);
   document.getElementById('execHashBox').textContent=hash;
   document.getElementById('resultsPanel').className='results-panel show';
 }

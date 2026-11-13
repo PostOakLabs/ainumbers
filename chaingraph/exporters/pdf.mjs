@@ -168,9 +168,16 @@ export function buildPdf(artifact) {
   for (const pl of pages) {
     const contentNum = objNum++, pageNum = objNum++;
     let stream = pageContent(pl);
-    // QR PARKED (see PUNCHLIST). Two encoder attempts (hand-rolled + Nayuki port) didn't
-    // reliably scan in testing; the verify URL is printed as text, so nothing is lost.
-    // To retry: validate qr.mjs against a reference encoder in a runnable env, then restore
+    // QR STILL PARKED. The verify URL is printed as text, so nothing is lost.
+    // History: two encoder attempts (hand-rolled, then a Nayuki port) did not reliably scan.
+    // 2026-11: the port was compared against upstream's own encoder and three defects were
+    // fixed; qr.mjs now matches the reference on every vector (qr-reference-parity.test.mjs).
+    // Before restoring the line below, two things in qrOps() above still need doing:
+    //   1. Quiet zone. The "Scan to verify" label sits about 6.5 pt above the symbol; the
+    //      symbol needs 4 modules (9.2 pt at ms = 2.3) clear on every side.
+    //   2. Overlap. The symbol spans x 436..540, inside the body text column (72..540), so
+    //      a long line near the top of page 1 can print through it.
+    // Then scan a printed sample-export.pdf with a phone, and restore:
     //   if (pageIdx === 0) stream += qrOps(artifact);
     pageIdx++;
     all[contentNum] = `<< /Length ${stream.length} >>\nstream\n${stream}endstream`;

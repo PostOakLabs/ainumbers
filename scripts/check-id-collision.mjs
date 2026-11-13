@@ -281,14 +281,35 @@ function openPrsClaiming(id) {
 }
 
 /** This PR's number from the CI environment (pull_request ref or merge-group queue name). */
-function thisPrNumber() {
-  if (process.env.PR_ID_COLLISION_PR) return Number(process.env.PR_ID_COLLISION_PR)
-  const refName = process.env.GITHUB_REF_NAME || ''
+function thisPrNumber(env = process.env, branchOf = currentBranch, ghOpenByHead = realOpenPrsByHead) {
+  if (env.PR_ID_COLLISION_PR) return Number(env.PR_ID_COLLISION_PR)
+  const refName = env.GITHUB_REF_NAME || ''
   let m = /^(\d+)\/merge$/.exec(refName)
   if (m) return Number(m[1])
   m = /pr-(\d+)-/.exec(refName) // gh-readonly-queue/main/pr-<n>-<sha>
   if (m) return Number(m[1])
+  // ID-COLLISION-SELF-PR-BY-HEAD-1: local pre-push fallback. The hook's PR_ID_COLLISION_PR export
+  // can come back empty (8 s gh cap, no auth/network in the call), and then the branch's own open
+  // PR reads as a rival claim. Resolve it by head branch; use it only when EXACTLY ONE open PR
+  // has that head. Any gh error or ambiguity leaves the PR undeterminable (null), as before.
+  if (env.GITHUB_ACTIONS) return null
+  try {
+    const branch = branchOf()
+    if (!branch || branch === 'HEAD') return null
+    const prs = ghOpenByHead(branch)
+    if (Array.isArray(prs) && prs.length === 1 && Number.isInteger(prs[0].number) && prs[0].number > 0) return prs[0].number
+  } catch { /* undeterminable: current behaviour */ }
   return null
+}
+
+function currentBranch() {
+  try { return git(['rev-parse', '--abbrev-ref', 'HEAD']).trim() } catch { return null }
+}
+
+function realOpenPrsByHead(branch) {
+  const out = execFileSync('gh', ['pr', 'list', '-R', 'PostOakLabs/ainumbers', '--head', branch, '--state', 'open',
+    '--json', 'number', '--limit', '2'], { cwd: REPO, encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'pipe'] })
+  return JSON.parse(out)
 }
 
 // ---------------------------------------------------------------- self-test
@@ -430,6 +451,29 @@ export function selfTest() {
     checkId({ id: 'art-790', kind: 'node', path: 'chaingraph/graph/nodes/art-790-foo.json', mainPaths,
       ...split, openPrs: null, prNumber: 1762 }),
     'b')
+
+  // ID-COLLISION-SELF-PR-BY-HEAD-1: local head-branch fallback, injected gh runner, no network.
+  const pn = (branch, prs, env = {}) => thisPrNumber(env, () => branch, () => { if (prs instanceof Error) throw prs; return prs })
+  const selfRes = { ...reservations, 'art-790': { row: 'THIS-ROW-1', pr: 3058, reserved: '2026-11-12T01:00:00Z' } }
+  const selfPath = 'chaingraph/graph/nodes/art-790-foo.json'
+  const selfOpen = [{ number: 3058, title: 'art-790 foo: node + page' }]
+  const own = pn('cure-branch', [{ number: 3058 }])
+  results.push({ name: 'fallback: one open PR on the head branch resolves to its number', ok: own === 3058, quote: `thisPrNumber -> ${own}` })
+  expectGreen('GREEN own open PR excluded from rivals via head fallback',
+    checkId({ id: 'art-790', kind: 'node', path: selfPath, mainPaths, reservations: selfRes, openPrs: selfOpen, prNumber: own }))
+  const none = pn('cure-branch', [])
+  results.push({ name: 'fallback: no open PR on the branch stays null', ok: none === null, quote: `thisPrNumber -> ${none}` })
+  const two = pn('cure-branch', [{ number: 3058 }, { number: 3099 }])
+  results.push({ name: 'fallback: two open PRs on the branch stays null (ambiguous)', ok: two === null, quote: `thisPrNumber -> ${two}` })
+  const gherr = pn('cure-branch', new Error('gh: not authenticated'))
+  results.push({ name: 'fallback: gh error stays null, never throws', ok: gherr === null, quote: `thisPrNumber -> ${gherr}` })
+  const detached = pn('HEAD', [{ number: 3058 }])
+  results.push({ name: 'fallback: detached HEAD skipped', ok: detached === null, quote: `thisPrNumber -> ${detached}` })
+  expectRed('RED(c) null PR number still sees own PR as rival (pre-fix behaviour)',
+    checkId({ id: 'art-790', kind: 'node', path: selfPath, mainPaths, reservations: selfRes, openPrs: selfOpen, prNumber: none }), 'c')
+  expectRed('RED(c) a DIFFERENT open PR claiming the same id is still refused with the fallback on',
+    checkId({ id: 'art-790', kind: 'node', path: selfPath, mainPaths, reservations: selfRes,
+      openPrs: [...selfOpen, { number: 3070, title: 'art-790 rival mint' }], prNumber: own }), 'c')
 
   // BARE-NUMBER SPELLING (ID-COLLISION-BARE-PREFIX-1): a bare shard
   // (nodes/790-foo.json, no art- prefix) must clear the same legs an art-

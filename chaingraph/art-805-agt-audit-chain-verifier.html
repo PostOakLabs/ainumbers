@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Open-Source Agent-Governance Audit-Chain Verifier · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Recompute an exported agent-governance audit-log hash chain offline and report exactly where it breaks , first break index, per-break reason codes, recomputed root, claimed-root match.">
+<meta name="robots" content="index, follow">
+<meta name="ain:category" content="verify">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-805-agt-audit-chain-verifier.html">
+<link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-805-agt-audit-chain-verifier.md">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin-bottom:1.25rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem}
+label{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--bright);margin-bottom:.35rem}
+.help{font-size:.68rem;color:var(--muted);margin-bottom:.5rem}
+textarea,input[type=text]{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.6rem;outline:none}
+textarea:focus,input[type=text]:focus{border-color:var(--teal)}
+textarea{min-height:220px;resize:vertical}
+button{font-family:'JetBrains Mono',monospace;font-size:.66rem;background:var(--teal-dim);color:var(--teal);border:1px solid rgba(20,184,166,.35);border-radius:var(--radius);padding:.55rem 1rem;cursor:pointer;letter-spacing:.05em}
+button:hover{background:rgba(20,184,166,.22)}
+.verdict{font-family:'JetBrains Mono',monospace;font-size:.8rem;padding:.8rem 1rem;border-radius:var(--radius);margin:.9rem 0}
+.verdict.ok{color:#34D399;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.4)}
+.verdict.bad{color:#F87171;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.4)}
+.badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.56rem;border:1px solid var(--border);border-radius:3px;padding:.15rem .5rem;margin:0 .35rem .35rem 0;color:var(--body)}
+.badge.ok{color:#34D399;border-color:rgba(52,211,153,.4)}
+.badge.bad{color:#F87171;border-color:rgba(248,113,113,.4)}
+table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.64rem}
+th,td{text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--border);color:var(--text)}
+th{color:var(--muted);font-weight:400;text-transform:uppercase;letter-spacing:.1em;font-size:.52rem}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--text);margin-top:10px;max-height:380px;white-space:pre-wrap;word-break:break-all}
+.kv{display:flex;justify-content:space-between;gap:1rem;font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.3rem 0;border-bottom:1px dashed var(--border)}
+.kv-k{color:var(--muted)}.kv-v{color:var(--bright)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+</style>
+<!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-805-agt-audit-chain-verifier.kernel.mjs. -->
+<meta name="kernel-digest" content="sha256:d3a96683e60729156f0ca539f5eec22cd1d4facd9f5a4b397b7262bdad3e54fc">
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-805 · Open-Source Agent-Governance Audit-Chain Verifier</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="hero"><div class="container">
+  <h1>Open-Source Agent-Governance Audit-Chain Verifier</h1>
+  <p class="hero-desc">Recompute the hash chain of an exported agent-governance audit log offline, from the exported entries alone, and report exactly where it breaks. Subject format: the open-source agent-governance-toolkit audit-log format (MIT) , each link hash is a SHA-256 over a Python json.dumps(sort_keys=True) serialisation of the entry (default separators, ensure_ascii=True, parent_hash null coalesced to the empty string; deliberately not RFC&nbsp;8785), and the chain root is the last link hash, not a Merkle root. Outputs chain_intact, first_break_index, per-break reason codes (HASH_MISMATCH, CHAIN_BROKEN), recomputed_root and claimed_root_match. Fail-closed: any field outside the pinned entry schema rejects the whole input, naming each rejected field, and entry content is never echoed , the output carries hashes and indices only.</p>
+</div></div>
+<div class="container">
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data , use synthetic or anonymised inputs only.</div>
+
+  <div class="panel">
+    <div class="panel-label">Inputs</div>
+    <label for="entriesIn">Exported audit entries (JSON array, values only)</label>
+    <div class="help">Paste the exported entries exactly as the emitting engine wrote them. Each entry: delta_id (string), turn_id (integer), session_id, agent_did, timestamp (ISO-8601), parent_hash (hex or null), delta_hash (64 lowercase hex), changes (list of {path, operation, content_hash, previous_hash, agent_did}). Any other field is rejected , the verifier refuses free-form payloads by construction.</div>
+    <textarea id="entriesIn" spellcheck="false"></textarea>
+    <div style="margin-top:12px">
+      <label for="claimedRoot">Claimed chain root (optional)</label>
+      <div class="help">Optional hex root (a sha256: or 0x prefix is accepted). The root of this format is the LAST entry's delta_hash.</div>
+      <input type="text" id="claimedRoot" placeholder="e.g. 77e3109d… (optional)">
+    </div>
+    <div style="margin-top:14px">
+      <button onclick="runVerify()">&#9654; Verify chain</button>
+      <button onclick="loadSample()" style="margin-left:8px">Load sample chain</button>
+    </div>
+  </div>
+
+  <div class="panel" id="resultsPanel" style="display:none">
+    <div class="panel-label">Result</div>
+    <div id="verdict" class="verdict"></div>
+    <div id="flagRow"></div>
+    <div id="kvDiv"></div>
+    <div id="breaksWrap" style="margin-top:12px;display:none">
+      <div class="panel-label" style="margin-top:8px">Breaks</div>
+      <table id="breaksTable"><thead><tr><th>Index</th><th>Reason</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="panel-label" style="margin-top:16px">Execution Hash (SHA-256)</div>
+    <div class="kv"><span class="kv-k">execution_hash</span><span class="kv-v" id="execHash">,</span></div>
+    <div style="margin-top:12px">
+      <button onclick="exportArtifact()">Export §4 Artifact</button>
+    </div>
+    <pre id="artifactPre" style="display:none"></pre>
+  </div>
+</div>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="../helm.html">Helm</a>
+        <a href="../convert.html">Conversion Suite</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Hubs</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="../guides/web3-hub.html">Web3 Hub</a>
+        <a href="../guides/solana-hub.html">Solana</a>
+        <a href="../guides/ethereum-hub.html">Ethereum</a>
+        <a href="../guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
+        <a href="../guides/token-standards-hub.html">Token Standards</a>
+        <a href="../guides/tradetech-hub.html">TradeTech</a>
+        <a href="../guides/capital-markets-settlement-hub.html">Capital Markets Settlement</a>
+        <a href="../guides/broker-dealer-ops-hub.html">Broker-Dealer Ops</a>
+        <a href="../guides/treasury-liquidity-hub.html">Treasury and Strategy</a>
+        <a href="../guides/wealthtech-hub.html">WealthTech</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Developers</div>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">About</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var TOOL_ID = 'art-805-agt-audit-chain-verifier';
+
+// ---- inline port of the kernel's pinned subject serialiser (art-805 kernel, subjectHash) ----
+function pyEscape(s) {
+  var out = '"';
+  var i = 0;
+  while (i < s.length) {
+    var c = s.codePointAt(i);
+    var ch = String.fromCodePoint(c);
+    i += c >= 0x10000 ? 2 : 1;
+    if (ch === '"') out += '\\"';
+    else if (ch === '\\') out += '\\\\';
+    else if (ch === '\n') out += '\\n';
+    else if (ch === '\r') out += '\\r';
+    else if (ch === '\t') out += '\\t';
+    else if (ch === '\b') out += '\\b';
+    else if (ch === '\f') out += '\\f';
+    else if (c < 0x20) out += '\\u' + c.toString(16).padStart(4, '0');
+    else if (c <= 0x7e) out += ch;
+    else if (c <= 0xffff) out += '\\u' + c.toString(16).padStart(4, '0');
+    else { var v = c - 0x10000; out += '\\u' + (0xd800 + (v >> 10)).toString(16).padStart(4, '0') + '\\u' + (0xdc00 + (v & 0x3ff)).toString(16).padStart(4, '0'); }
+  }
+  return out + '"';
+}
+function pyJsonDumps(obj) {
+  if (obj === null) return 'null';
+  if (typeof obj === 'string') return pyEscape(obj);
+  if (typeof obj === 'number') { if (!Number.isInteger(obj)) throw new Error('non-integer number outside pinned schema'); return String(obj); }
+  if (Array.isArray(obj)) return '[' + obj.map(pyJsonDumps).join(', ') + ']';
+  if (typeof obj === 'object') {
+    return '{' + Object.keys(obj).sort().map(function (k) { return pyEscape(k) + ': ' + pyJsonDumps(obj[k]); }).join(', ') + '}';
+  }
+  throw new Error('value type outside the pinned schema');
+}
+var HEX64 = /^[0-9a-f]{64}$/;
+var ISO_TS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?([+-]\d{2}:\d{2}|Z)$/;
+var TOP_KEYS = ['delta_id', 'turn_id', 'session_id', 'agent_did', 'timestamp', 'parent_hash', 'delta_hash', 'changes'];
+var CHANGE_KEYS = ['path', 'operation', 'content_hash', 'previous_hash', 'agent_did'];
+function isStr(v) { return typeof v === 'string'; }
+function isInt(v) { return typeof v === 'number' && Number.isInteger(v); }
+function validateEntries(entries) {
+  var rejected = [];
+  if (!Array.isArray(entries)) return ['entries'];
+  entries.forEach(function (e, i) {
+    var at = 'entries[' + i + ']';
+    if (e === null || typeof e !== 'object' || Array.isArray(e)) { rejected.push(at); return; }
+    Object.keys(e).forEach(function (k) { if (TOP_KEYS.indexOf(k) < 0) rejected.push(at + '.' + k); });
+    TOP_KEYS.forEach(function (k) { if (!(k in e)) rejected.push(at + '.' + k + '(missing)'); });
+    if ('delta_id' in e && !isStr(e.delta_id)) rejected.push(at + '.delta_id');
+    if ('turn_id' in e && !isInt(e.turn_id)) rejected.push(at + '.turn_id');
+    if ('session_id' in e && !isStr(e.session_id)) rejected.push(at + '.session_id');
+    if ('agent_did' in e && !isStr(e.agent_did)) rejected.push(at + '.agent_did');
+    if ('timestamp' in e && !(isStr(e.timestamp) && ISO_TS.test(e.timestamp))) rejected.push(at + '.timestamp');
+    if ('parent_hash' in e && !(e.parent_hash === null || (isStr(e.parent_hash) && HEX64.test(e.parent_hash)))) rejected.push(at + '.parent_hash');
+    if ('delta_hash' in e && !(isStr(e.delta_hash) && HEX64.test(e.delta_hash))) rejected.push(at + '.delta_hash');
+    if ('changes' in e) {
+      if (!Array.isArray(e.changes)) { rejected.push(at + '.changes'); return; }
+      e.changes.forEach(function (c, j) {
+        var cat = at + '.changes[' + j + ']';
+        if (c === null || typeof c !== 'object' || Array.isArray(c)) { rejected.push(cat); return; }
+        Object.keys(c).forEach(function (k) { if (CHANGE_KEYS.indexOf(k) < 0) rejected.push(cat + '.' + k); });
+        if ('path' in c && !isStr(c.path)) rejected.push(cat + '.path');
+        if ('operation' in c && !isStr(c.operation)) rejected.push(cat + '.operation');
+        ['content_hash', 'previous_hash', 'agent_did'].forEach(function (k) {
+          if (k in c && !(c[k] === null || isStr(c[k]))) rejected.push(cat + '.' + k);
+        });
+      });
+    }
+  });
+  return rejected;
+}
+function hashInputFor(e) {
+  return pyJsonDumps({
+    delta_id: e.delta_id, turn_id: e.turn_id, session_id: e.session_id, agent_did: e.agent_did,
+    timestamp: e.timestamp,
+    parent_hash: (e.parent_hash === null || e.parent_hash === undefined) ? '' : e.parent_hash,
+    changes: (e.changes || []).map(function (c) {
+      return { path: c.path, operation: c.operation,
+        content_hash: c.content_hash === undefined ? null : c.content_hash,
+        previous_hash: c.previous_hash === undefined ? null : c.previous_hash,
+        agent_did: c.agent_did === undefined ? null : c.agent_did };
+    })
+  });
+}
+function bytesToHexStr(bytes) { return Array.from(bytes).map(function (b) { return b.toString(16).padStart(2, '0'); }).join(''); }
+
+// ---- async compute (crypto.subtle in browser; byte-identical to the kernel port) ----
+async function sha256Hex(str) {
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return bytesToHexStr(new Uint8Array(buf));
+}
+async function computeAsync(pp) {
+  pp = pp || {};
+  var out = { entry_count: 0, chain_intact: false, first_break_index: null, breaks: [], recomputed_root: null, claimed_root_match: null, signature_status: 'no_keyed_signature_field_in_pinned_schema', rejected: false, rejected_fields: [], issues: [] };
+  var rejectedFields = [];
+  Object.keys(pp).forEach(function (k) { if (k !== 'entries' && k !== 'claimed_root') rejectedFields.push(k); });
+  if ('claimed_root' in pp && pp.claimed_root !== null && !isStr(pp.claimed_root)) rejectedFields.push('claimed_root');
+  validateEntries(pp.entries).forEach(function (r) { rejectedFields.push(r); });
+  if (rejectedFields.length > 0) {
+    out.rejected = true; out.rejected_fields = rejectedFields; out.chain_intact = false; out.breaks = [];
+    out.issues = ['AGT_AUDIT_INPUT_REJECTED_SCHEMA'];
+    return { output_payload: out, compliance_flags: ['AGT_AUDIT_INPUT_REJECTED_SCHEMA'] };
+  }
+  var entries = pp.entries;
+  out.entry_count = entries.length;
+  var breaks = [], previousHash = null;
+  for (var i = 0; i < entries.length; i++) {
+    var e = entries[i], recomputed = null;
+    try { recomputed = await sha256Hex(hashInputFor(e)); }
+    catch (err) { breaks.push({ index: i, reason: 'SERIALISATION_REFUSED' }); continue; }
+    if (recomputed !== e.delta_hash) breaks.push({ index: i, reason: 'HASH_MISMATCH' });
+    if ((e.parent_hash === undefined ? null : e.parent_hash) !== previousHash) breaks.push({ index: i, reason: 'CHAIN_BROKEN' });
+    previousHash = e.delta_hash;
+  }
+  out.breaks = breaks;
+  out.chain_intact = entries.length === 0 || breaks.length === 0;
+  out.first_break_index = breaks.length > 0 ? breaks[0].index : null;
+  if (entries.length > 0) out.recomputed_root = entries[entries.length - 1].delta_hash;
+  if ('claimed_root' in pp && isStr(pp.claimed_root)) {
+    var stripped = pp.claimed_root.replace(/^(sha256:|0x)/, '').toLowerCase();
+    out.claimed_root_match = out.recomputed_root !== null && stripped === out.recomputed_root;
+  }
+  var flags = [];
+  if (out.chain_intact) flags.push('AGT_AUDIT_CHAIN_INTACT');
+  else {
+    flags.push('AGT_AUDIT_CHAIN_BREAK_DETECTED');
+    breaks.forEach(function (b) { out.issues.push('AGT_AUDIT_CHAIN_BREAK:' + b.index + ':' + b.reason); });
+  }
+  if (out.claimed_root_match === false) {
+    flags.push('AGT_AUDIT_CLAIMED_ROOT_MISMATCH');
+    out.issues.push('AGT_AUDIT_CLAIMED_ROOT_MISMATCH');
+  }
+  return { output_payload: out, compliance_flags: flags };
+}
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function (o, k) { o[k] = cgCanon(v[k]); return o; }, {}) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({ policy_parameters: pp, output_payload: op }));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  return 'sha256:' + bytesToHexStr(new Uint8Array(buf));
+}
+
+var _lastResult = null;
+
+function loadSample() {
+  document.getElementById('entriesIn').value = JSON.stringify(SAMPLE_CHAIN, null, 2);
+}
+
+var SAMPLE_CHAIN = [
+  {
+    "delta_id": "delta:1",
+    "turn_id": 1,
+    "session_id": "session:test-audit",
+    "agent_did": "did:agent1",
+    "timestamp": "2026-01-01T00:00:00+00:00",
+    "parent_hash": null,
+    "changes": [
+      {
+        "path": "/file.txt",
+        "operation": "add",
+        "content_hash": "abc123",
+        "previous_hash": null,
+        "agent_did": null
+      }
+    ],
+    "delta_hash": "3576849021951679bc0df55f129d44aa1197bac0197b53f6bdc6557618fca3df"
+  }
+];
+
+async function runVerify() {
+  var entries, claimedRoot = document.getElementById('claimedRoot').value.trim();
+  try { entries = JSON.parse(document.getElementById('entriesIn').value); }
+  catch (e) {
+    document.getElementById('resultsPanel').style.display = 'block';
+    var v0 = document.getElementById('verdict');
+    v0.className = 'verdict bad'; v0.textContent = 'INPUT NOT PARSEABLE JSON , nothing verified.';
+    return;
+  }
+  var pp = { entries: entries };
+  if (claimedRoot) pp.claimed_root = claimedRoot;
+  var r = await computeAsync(pp);
+  var o = r.output_payload;
+  _lastResult = { pp: pp, output_payload: o, compliance_flags: r.compliance_flags };
+  document.getElementById('resultsPanel').style.display = 'block';
+  var v = document.getElementById('verdict');
+  if (o.rejected) { v.className = 'verdict bad'; v.textContent = 'INPUT REJECTED (fail-closed) , ' + o.rejected_fields.length + ' rejected field(s) named below.'; }
+  else if (o.chain_intact) { v.className = 'verdict ok'; v.textContent = 'CHAIN INTACT , ' + o.entry_count + ' entr' + (o.entry_count === 1 ? 'y' : 'ies') + ' verified.'; }
+  else { v.className = 'verdict bad'; v.textContent = 'CHAIN BROKEN , first break at index ' + o.first_break_index + '.'; }
+  document.getElementById('flagRow').innerHTML = r.compliance_flags.map(function (f) {
+    return '<span class="badge ' + (f === 'AGT_AUDIT_CHAIN_INTACT' ? 'ok' : 'bad') + '">' + f + '</span>';
+  }).join('') + '<span class="badge">' + o.signature_status + '</span>';
+  var kv = [
+    ['entry_count', o.entry_count],
+    ['chain_intact', o.chain_intact],
+    ['first_break_index', o.first_break_index === null ? 'null' : o.first_break_index],
+    ['recomputed_root', o.recomputed_root === null ? 'null' : o.recomputed_root],
+    ['claimed_root_match', o.claimed_root_match === null ? 'null (no claimed root supplied)' : o.claimed_root_match]
+  ];
+  if (o.rejected) kv.push(['rejected_fields', o.rejected_fields.join(', ')]);
+  document.getElementById('kvDiv').innerHTML = kv.map(function (x) {
+    return '<div class="kv"><span class="kv-k">' + x[0] + '</span><span class="kv-v">' + String(x[1]) + '</span></div>';
+  }).join('');
+  var bw = document.getElementById('breaksWrap');
+  if (o.breaks && o.breaks.length) {
+    bw.style.display = 'block';
+    document.querySelector('#breaksTable tbody').innerHTML = o.breaks.map(function (b) {
+      return '<tr><td>' + b.index + '</td><td>' + b.reason + '</td></tr>';
+    }).join('');
+  } else bw.style.display = 'none';
+  var h = await computeExecHash(pp, o);
+  document.getElementById('execHash').textContent = h;
+  document.getElementById('artifactPre').style.display = 'none';
+}
+
+async function exportArtifact() {
+  if (!_lastResult) return;
+  var __generatedAtCapture = new Date().toISOString();
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_control',
+    tool_id: TOOL_ID,
+    tool_version: '1.0.0',
+    generated_at: __generatedAtCapture,
+    execution_hash: document.getElementById('execHash').textContent || 'pending',
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp,
+    output_payload: _lastResult.output_payload,
+    compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    compute_proof_ready: 'deferred',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  document.getElementById('artifactPre').textContent = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(artifact, null, 2)], { type: 'application/json' }));
+  a.download = TOOL_ID + '.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+</script>
+</body>
+</html>

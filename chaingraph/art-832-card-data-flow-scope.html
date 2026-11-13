@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Card Data Flow Worksheet · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="A worksheet over system nodes you declare: which handle the raw card number, which connect to them, and where logs, session recordings and analytics can capture it. Not a scope determination.">
+<meta name="robots" content="index, follow">
+<meta name="ain:category" content="run">
+<meta name="kernel-digest" content="sha256:6518b84b67ba2cd88669c714464e3add4a9e27014529e83f62c30b74500357db">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-832-card-data-flow-scope.html">
+<link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-832-card-data-flow-scope.md">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script>
+/* PolicyMandate validator (AP2Schema internal name retained, CONTRACT 3.1) */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+AP2Schema.validate = function(m) {
+  var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+  var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+  function _fail(msg){throw new Error('AP2Schema: '+msg);}
+  if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+  if (typeof m.tool_id !== 'string') _fail('missing identity field tool_id');
+  if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+  if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver');
+  ['regulatory_citations','agent_instructions'].forEach(function(k){
+    if (k in m) {
+      if (!Array.isArray(m[k])) _fail('"'+k+'" must be an array');
+      m[k].forEach(function(item,i){ if (typeof item !== 'string') _fail('"'+k+'['+i+']" must be a string'); });
+    }
+  });
+  ['policy_parameters','output_payload'].forEach(function(k){
+    if (k in m && (typeof m[k] !== 'object' || Array.isArray(m[k]) || m[k] === null)) _fail('"'+k+'" must be an object');
+  });
+  if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+  ['issued_at','generated_at','valid_from'].forEach(function(k){
+    if (k in m && (typeof m[k] !== 'string' || !RE_ISO.test(m[k]))) _fail('"'+k+'" must be ISO-8601');
+  });
+  return true;
+};
+</script>
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--amber:#E0A93B;
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.85rem;color:var(--body);max-width:720px;line-height:1.8}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:1.5rem 0}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem}
+.note{font-size:.78rem;color:var(--body);margin-bottom:.8rem;max-width:760px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.74rem}
+th,td{border-bottom:1px solid var(--border);padding:.35rem .4rem;text-align:left;vertical-align:middle}
+th{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);font-weight:400;letter-spacing:.04em}
+td.c{text-align:center}
+input[type=text],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);border-radius:4px;padding:.25rem .4rem;font:inherit;font-size:.74rem;max-width:150px}
+input[type=checkbox]{accent-color:var(--teal);width:15px;height:15px}
+button{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);border-radius:var(--radius);padding:.4rem .8rem;font-family:'JetBrains Mono',monospace;font-size:.68rem;cursor:pointer}
+button:hover{border-color:var(--teal);color:var(--teal)}
+button.primary{background:var(--teal-dim);border-color:var(--teal);color:var(--teal)}
+.row-actions{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.9rem}
+.set{margin-bottom:.8rem}
+.set h3{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--bright);font-weight:500}
+.set p{font-size:.72rem;color:var(--body)}
+.tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.66rem;border:1px solid var(--border);border-radius:4px;padding:.1rem .45rem;margin:.15rem .25rem .15rem 0;color:var(--text)}
+.tag.leak{border-color:var(--amber);color:var(--amber)}
+.cite{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:.4rem}
+.results-export-row{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem;padding-top:.9rem;border-top:1px solid var(--border)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted)}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-832 · Card Data Flow Worksheet</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="page-main" role="main">
+<div class="hero"><div class="container">
+  <h1>Card Data Flow Worksheet</h1>
+  <p class="hero-desc">List the systems in your card flow and tick what each one handles. The worksheet sorts them into the groups the PCI DSS v4.0.1 scope section describes, and lists every log, session recording or analytics capture that, by your answers, records or logs a system that sees the full card number. It is a worksheet over what you declare. It does not decide scope, and it says nothing about whether any requirement is met. Scope decisions stay with your organisation and its assessor. To work out which self-assessment type applies, use the <a href="../tools/226-pci-dss-v4-scope-wizard.html" style="color:var(--teal)">PCI DSS scope wizard</a>; this page takes system nodes rather than its answers.</p>
+</div></div>
+<div class="container">
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="panel">
+    <div class="panel-label">Declared system nodes</div>
+    <p class="note">One row per system. "Raw number" means the full card number is visible to that system. "Token only" means it sees a substitute value. "Captures from" lists the ids of systems whose screens or traffic this one records, comma separated.</p>
+    <div class="scroll"><table id="nodes" aria-label="Declared system nodes">
+      <thead><tr><th>id</th><th>kind</th><th>raw number</th><th>token only</th><th>stores</th><th>logs</th><th>records sessions</th><th>unrestricted link to a raw-number system</th><th>could affect its security</th><th>captures from</th><th></th></tr></thead>
+      <tbody id="nodeRows"></tbody>
+    </table></div>
+    <div class="row-actions">
+      <button type="button" id="addRow">Add row</button>
+      <button type="button" id="loadExample">Load example</button>
+      <button type="button" class="primary" id="runBtn">Run worksheet</button>
+    </div>
+  </div>
+
+  <div class="panel" id="results" aria-live="polite" hidden>
+    <div class="panel-label">Worksheet result</div>
+    <div id="resultBody"></div>
+    <div class="results-export-row">
+      <button type="button" class="primary" id="ap2ExportBtn">Export Policy Mandate JSON</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">Basis</div>
+    <p class="note">Only your answers are used, and segmentation is left for you and your assessor to judge: the standard allows a system to be treated as outside scope only if it is properly segmented (isolated) so that it could not affect the security of card data even if compromised. A system left unplaced here is one your answers do not link to card data.</p>
+    <p class="cite">Source: PCI DSS v4.0.1, Section 4 "Scope of PCI DSS Requirements", and Requirement 3.5.1, as pinned in the node's cited clause digests.</p>
+  </div>
+</div>
+</div>
+<script type="application/json" id="manifest">{"tool_id":"art-832-card-data-flow-scope","version":"1.0.0","inputs":{"components":"array of { id, kind, sees_raw_pan, sees_token_only, stores, logs, records_sessions, unrestricted_connectivity_to_pan_component, could_impact_pan_security, captures_from }"}}</script>
+<script>
+/* Inline copy of the node's compute(); the page never imports the kernel. */
+var KINDS = ['frontend', 'backend', 'logs', 'analytics', 'browser_automation_provider', 'psp', 'other'];
+var FLAG_KEYS = ['sees_raw_pan', 'sees_token_only', 'stores', 'logs', 'records_sessions', 'unrestricted_connectivity_to_pan_component', 'could_impact_pan_security'];
+
+function refuse(reason, detail) {
+  const compliance_flags = ['INPUT_REFUSED'];
+  return {
+    output_payload: { status: 'refused', reason, detail, warnings: compliance_flags.slice() },
+    compliance_flags,
+  };
+}
+
+function compute(pp) {
+  pp = pp || {};
+  const comps = pp.components;
+  if (!Array.isArray(comps) || comps.length === 0) return refuse('components_missing', 'components must be a non-empty array');
+  const ids = [];
+  for (let i = 0; i < comps.length; i++) {
+    const c = comps[i];
+    if (c == null || typeof c !== 'object') return refuse('component_invalid', 'component ' + i + ' is not an object');
+    if (typeof c.id !== 'string' || c.id === '') return refuse('component_id_invalid', 'component ' + i + ' has no id');
+    if (ids.indexOf(c.id) !== -1) return refuse('component_id_duplicate', c.id);
+    if (KINDS.indexOf(c.kind) === -1) return refuse('component_kind_invalid', c.id);
+    for (let k = 0; k < FLAG_KEYS.length; k++) {
+      const v = c[FLAG_KEYS[k]];
+      if (v != null && typeof v !== 'boolean') return refuse('component_flag_invalid', c.id + '.' + FLAG_KEYS[k]);
+    }
+    if (c.captures_from != null && !Array.isArray(c.captures_from)) return refuse('captures_from_invalid', c.id);
+    const keys = Object.keys(c);
+    for (let k = 0; k < keys.length; k++) {
+      if (keys[k] !== 'id' && keys[k] !== 'kind' && keys[k] !== 'captures_from' && FLAG_KEYS.indexOf(keys[k]) === -1) {
+        return refuse('component_field_unknown', c.id + '.' + keys[k]);
+      }
+    }
+    ids.push(c.id);
+  }
+  for (let i = 0; i < comps.length; i++) {
+    const cf = comps[i].captures_from == null ? [] : comps[i].captures_from;
+    for (let j = 0; j < cf.length; j++) {
+      if (ids.indexOf(cf[j]) === -1) return refuse('captures_from_unknown_id', comps[i].id + ' -> ' + String(cf[j]));
+    }
+  }
+
+  const byId = {};
+  for (let i = 0; i < comps.length; i++) byId[comps[i].id] = comps[i];
+
+  const cde = [];
+  const connected_to = [];
+  const security_impacting = [];
+  const unplaced = [];
+  const capture_leaks = [];
+  const stores_pan = [];
+  const conflicts = [];
+  const token_only_with_path = [];
+
+  for (let i = 0; i < comps.length; i++) {
+    const c = comps[i];
+    const raw = c.sees_raw_pan === true;
+    const tok = c.sees_token_only === true;
+    if (raw && tok) conflicts.push(c.id);
+    if (raw) {
+      cde.push(c.id);
+      if (c.stores === true) stores_pan.push(c.id);
+      if (c.logs === true) capture_leaks.push({ component: c.id, channel: 'logs', via: 'declared_raw_pan_view' });
+      if (c.records_sessions === true) capture_leaks.push({ component: c.id, channel: 'session_recording', via: 'declared_raw_pan_view' });
+    }
+    const cf = (c.captures_from == null ? [] : c.captures_from).filter((v, idx, arr) => arr.indexOf(v) === idx);
+    for (let j = 0; j < cf.length; j++) {
+      const src = byId[cf[j]];
+      if (src.sees_raw_pan === true) {
+        if (c.stores === true) {
+          if (stores_pan.indexOf(c.id) === -1) stores_pan.push(c.id);
+          capture_leaks.push({ component: c.id, channel: 'storage', via: 'captures_from:' + src.id });
+        }
+        if (c.logs === true) capture_leaks.push({ component: c.id, channel: 'logs', via: 'captures_from:' + src.id });
+        if (c.records_sessions === true) capture_leaks.push({ component: c.id, channel: 'session_recording', via: 'captures_from:' + src.id });
+        if (c.logs !== true && c.records_sessions !== true && c.kind === 'analytics') capture_leaks.push({ component: c.id, channel: 'analytics_capture', via: 'captures_from:' + src.id });
+      }
+    }
+  }
+  const cdeSet = {};
+  for (let i = 0; i < cde.length; i++) cdeSet[cde[i]] = true;
+  // A component that captures from a raw-PAN view and holds the capture is itself a PAN-handling placement.
+  for (let i = 0; i < capture_leaks.length; i++) {
+    if (!cdeSet[capture_leaks[i].component]) { cdeSet[capture_leaks[i].component] = true; cde.push(capture_leaks[i].component); }
+  }
+  for (let i = 0; i < comps.length; i++) {
+    const c = comps[i];
+    if (cdeSet[c.id]) continue;
+    if (c.unrestricted_connectivity_to_pan_component === true) connected_to.push(c.id);
+    else if (c.could_impact_pan_security === true) security_impacting.push(c.id);
+    else unplaced.push(c.id);
+    if (c.sees_token_only === true && c.sees_raw_pan !== true &&
+        (c.unrestricted_connectivity_to_pan_component === true || c.could_impact_pan_security === true)) token_only_with_path.push(c.id);
+  }
+
+  const compliance_flags = [];
+  const hasChannel = (ch) => capture_leaks.some((l) => l.channel === ch);
+  if (hasChannel('logs')) compliance_flags.push('CAPTURE_LEAK_LOGS');
+  if (hasChannel('session_recording')) compliance_flags.push('CAPTURE_LEAK_SESSION_RECORDING');
+  if (hasChannel('analytics_capture')) compliance_flags.push('CAPTURE_LEAK_ANALYTICS');
+  if (stores_pan.length > 0) compliance_flags.push('PAN_STORAGE_DECLARED');
+  if (conflicts.length > 0) compliance_flags.push('INPUT_CONFLICT_RAW_AND_TOKEN_ONLY');
+  if (token_only_with_path.length > 0) compliance_flags.push('TOKEN_ONLY_COMPONENT_WITH_DECLARED_PATH');
+  const warnings = compliance_flags.slice();
+
+  return {
+    output_payload: {
+      status: 'worksheet',
+      stores_processes_transmits_placed: cde,
+      unrestricted_connectivity_placed: connected_to,
+      security_impacting_placed: security_impacting,
+      not_placed_by_declared_inputs: unplaced,
+      capture_leaks,
+      pan_storage_declared: stores_pan,
+      input_conflicts: conflicts,
+      token_only_with_declared_path: token_only_with_path,
+      segmentation_adequacy_evaluated: false,
+      warnings,
+    },
+    compliance_flags,
+  };
+}
+
+/* ---- page ---- */
+var EXAMPLE = [
+  { id: 'web', kind: 'frontend', sees_raw_pan: true, logs: true },
+  { id: 'rec', kind: 'analytics', records_sessions: true, captures_from: ['web'] },
+  { id: 'api', kind: 'backend', sees_token_only: true, unrestricted_connectivity_to_pan_component: true },
+  { id: 'ci', kind: 'other', could_impact_pan_security: true },
+  { id: 'wiki', kind: 'other' }
+];
+var lastPP = null, lastResult = null;
+
+function el(tag, attrs, text) {
+  var n = document.createElement(tag);
+  for (var k in attrs) { if (Object.prototype.hasOwnProperty.call(attrs, k)) n.setAttribute(k, attrs[k]); }
+  if (text != null) n.textContent = text;
+  return n;
+}
+
+function addRow(c) {
+  c = c || {};
+  var tr = el('tr', {});
+  var td = el('td', {}); td.appendChild(el('input', { type: 'text', 'data-f': 'id', value: c.id || '', 'aria-label': 'id' })); tr.appendChild(td);
+  td = el('td', {}); var sel = el('select', { 'data-f': 'kind', 'aria-label': 'kind' });
+  KINDS.forEach(function (k) { var o = el('option', { value: k }, k.replace(/_/g, ' ')); if (k === (c.kind || 'other')) o.selected = true; sel.appendChild(o); });
+  td.appendChild(sel); tr.appendChild(td);
+  FLAG_KEYS.forEach(function (f) {
+    var t = el('td', { 'class': 'c' }); var cb = el('input', { type: 'checkbox', 'data-f': f, 'aria-label': f.replace(/_/g, ' ') });
+    cb.checked = c[f] === true; t.appendChild(cb); tr.appendChild(t);
+  });
+  td = el('td', {}); td.appendChild(el('input', { type: 'text', 'data-f': 'captures_from', value: (c.captures_from || []).join(','), 'aria-label': 'captures from' })); tr.appendChild(td);
+  td = el('td', {}); var rm = el('button', { type: 'button', 'aria-label': 'Remove row' }, 'Remove');
+  rm.addEventListener('click', function () { tr.parentNode.removeChild(tr); });
+  td.appendChild(rm); tr.appendChild(td);
+  document.getElementById('nodeRows').appendChild(tr);
+}
+
+function readRows() {
+  var out = [];
+  Array.prototype.forEach.call(document.querySelectorAll('#nodeRows tr'), function (tr) {
+    var c = {};
+    Array.prototype.forEach.call(tr.querySelectorAll('[data-f]'), function (inp) {
+      var f = inp.getAttribute('data-f');
+      if (inp.type === 'checkbox') { if (inp.checked) c[f] = true; }
+      else if (f === 'captures_from') {
+        var parts = inp.value.split(',').map(function (s) { return s.trim(); }).filter(function (s) { return s !== ''; });
+        if (parts.length) c.captures_from = parts;
+      } else c[f] = inp.value.trim();
+    });
+    out.push(c);
+  });
+  return out;
+}
+
+function section(parent, title, items, note, leak) {
+  var d = el('div', { 'class': 'set' });
+  d.appendChild(el('h3', {}, title + ' (' + items.length + ')'));
+  if (note) d.appendChild(el('p', {}, note));
+  items.forEach(function (x) { d.appendChild(el('span', { 'class': 'tag' + (leak ? ' leak' : '') }, x)); });
+  parent.appendChild(d);
+}
+
+function run() {
+  lastPP = { components: readRows() };
+  lastResult = compute(lastPP);
+  var o = lastResult.output_payload, body = document.getElementById('resultBody');
+  while (body.firstChild) body.removeChild(body.firstChild);
+  if (o.status === 'refused') {
+    body.appendChild(el('p', { 'class': 'note' }, 'The declared rows cannot be read as a worksheet: ' + o.reason + ' (' + o.detail + '). Nothing was placed.'));
+  } else {
+    section(body, 'Stores, processes or transmits card data, per your answers or a declared capture', o.stores_processes_transmits_placed, 'A system that records or logs a raw-number system is placed here; the standard counts storage in any format, including video recordings.');
+    section(body, 'Unrestricted connectivity to one of those', o.unrestricted_connectivity_placed, 'Matches the wording on components that may not handle card data but have unrestricted connectivity to ones that do.');
+    section(body, 'Could affect the security of card data', o.security_impacting_placed, 'Matches the wording on components that could impact the security of card data.');
+    section(body, 'Not placed by the declared answers', o.not_placed_by_declared_inputs, 'Your answers link these to no card data. This is not a statement about scope.');
+    section(body, 'Capture leaks', o.capture_leaks.map(function (l) { return l.component + ': ' + l.channel.replace(/_/g, ' ') + ' (' + l.via.replace(/_/g, ' ') + ')'; }), 'Logs, session recordings and analytics captures that, by your answers, record or log a system that sees the full card number.', true);
+    section(body, 'Storage declared on a raw-number system', o.pan_storage_declared, 'Stored card numbers are the subject of Requirement 3.5.1.');
+    if (o.input_conflicts.length) section(body, 'Conflicting answers (raw number and token only both ticked)', o.input_conflicts, 'Treated as raw number. Review the row.');
+    if (o.token_only_with_declared_path.length) section(body, 'Token only, but a link is declared', o.token_only_with_declared_path, 'Check that the link answer is intended.');
+    body.appendChild(el('p', { 'class': 'cite' }, 'Segmentation adequacy is not evaluated. Wording follows PCI DSS v4.0.1 Section 4; Requirement 3.5.1 for stored numbers.'));
+  }
+  document.getElementById('results').hidden = false;
+}
+
+function exportMandate() {
+  if (!lastResult) return;
+  var m = {
+    tool_id: 'art-832-card-data-flow-scope',
+    tool_version: '1.0.0',
+    mandate_type: 'compliance_control',
+    generated_at: new Date().toISOString(),
+    policy_parameters: lastPP,
+    output_payload: lastResult.output_payload,
+    compliance_flags: lastResult.compliance_flags,
+    summary: 'Card data flow worksheet over ' + lastPP.components.length + ' declared system nodes. A worksheet over declared inputs; not a scope determination.',
+    agent_instructions: [
+      'Treat this as a record of declared answers, not as a scope determination.',
+      'Have the organisation and its assessor confirm every placement and every not-placed system against the standard before relying on it.'
+    ],
+    regulatory_citations: [
+      'PCI DSS v4.0.1, Section 4 Scope of PCI DSS Requirements',
+      'PCI DSS v4.0.1, Requirement 3.5.1'
+    ]
+  };
+  AP2Schema.validate(m);
+  var fn = 'policy-card-data-flow-worksheet.policy.json';
+  var a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([JSON.stringify(m, null, 2)], { type: 'application/json' })), download: fn });
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
+}
+
+document.getElementById('addRow').addEventListener('click', function () { addRow({}); });
+document.getElementById('loadExample').addEventListener('click', function () {
+  document.getElementById('nodeRows').textContent = '';
+  EXAMPLE.forEach(addRow);
+});
+document.getElementById('runBtn').addEventListener('click', run);
+document.getElementById('ap2ExportBtn').addEventListener('click', exportMandate);
+EXAMPLE.forEach(addRow);
+</script>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="../helm.html">Helm</a>
+        <a href="../convert.html">Conversion Suite</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Hubs</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="../guides/web3-hub.html">Web3 Hub</a>
+        <a href="../guides/solana-hub.html">Solana</a>
+        <a href="../guides/ethereum-hub.html">Ethereum</a>
+        <a href="../guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
+        <a href="../guides/token-standards-hub.html">Token Standards</a>
+        <a href="../guides/tradetech-hub.html">TradeTech</a>
+        <a href="../guides/capital-markets-settlement-hub.html">Capital Markets Settlement</a>
+        <a href="../guides/broker-dealer-ops-hub.html">Broker-Dealer Ops</a>
+        <a href="../guides/treasury-liquidity-hub.html">Treasury and Strategy</a>
+        <a href="../guides/wealthtech-hub.html">WealthTech</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Developers</div>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">About</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

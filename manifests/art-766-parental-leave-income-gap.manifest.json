@@ -1,0 +1,552 @@
+{
+  "tool_id": "art-766-parental-leave-income-gap",
+  "version": "1.0.0",
+  "title": "Parental Leave Income Gap",
+  "description": "Port of ApexLogics Apex #131 (AL-138) Parental Leave Income Gap Planner into the AINumbers chaingraph shape. From an annual base salary, an effective tax rate, monthly household and baby expenses, partner monthly take-home, current savings, an employer paid/partial leave structure, a state PFL/SDI program (2025-vintage rate and weekly cap), a PFL duration and a total leave duration, the node computes the week-by-week leave schedule (employer pay by phase, haircut state benefit, partner pass-through, 1.05x-of-net no-windfall cap, net per week), the total income gap (sum of negative weekly nets), average monthly leave income, monthly shortfall, savings needed, and post-return recovery months (finite ceil of gap over surplus, or the 999 display sentinel when surplus is non-positive, distinguished by recovery_finite). Verdict bands at covered and half-covered. Out-of-domain inputs are refused by throw with a named REFUSED_BAD_* reason (the Apex page silently substituted falsy defaults; the seven declared divergences are pinned by fixtures BF-T1..T7). State rates/caps are the Apex 2025 schedule kept verbatim for fixture parity; the official 2026 schedules differ on every state row (payload DIFFERS D1-D6, CITES G1-G6) and the L351 half-rate benefit haircut is UNGROUNDED (CITES U2); every output carries the vintage and grounding flags. Port provenance: Apex page https://apexlogics.org/tools/131-parental-leave-income-gap/ fetched 2026-10-13 (sha256 ddd140c288a9219c6873ad1c54fe724d271e81dfa4216014b1da4cc5a0ec3001), tasking APEXPORT-131 (GRADES PASS-PENDING-XV 2026-10-18, Builder-verifies-at-land 35/35 vectors), landed by APEX-PORT-131-LAND-1 on 2026-10-20.",
+  "category": "chaingraph",
+  "tags": [
+    "parental-leave",
+    "paid-family-leave",
+    "state-pfl",
+    "income-gap",
+    "fmla",
+    "mcp:parental_leave_income_gap"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "base_salary",
+      "tax_rate_pct",
+      "monthly_expenses",
+      "partner_income",
+      "savings",
+      "employer_paid_weeks",
+      "employer_partial_weeks",
+      "employer_partial_pct",
+      "state_program",
+      "state_pfl_weeks",
+      "custom_pfl_rate_pct",
+      "total_leave_weeks",
+      "baby_expense"
+    ],
+    "properties": {
+      "base_salary": {
+        "type": "number",
+        "description": "Annual base salary in dollars (gross); drives weekly gross/net and the state PFL base (Apex L122/L344).",
+        "minimum": 10000,
+        "maximum": 500000
+      },
+      "tax_rate_pct": {
+        "type": "number",
+        "description": "Effective tax rate as a PERCENT; divided by 100 internally. Net pay is haircut fully, the state benefit at half rate (ungrounded assumption U2).",
+        "minimum": 0,
+        "maximum": 50
+      },
+      "monthly_expenses": {
+        "type": "number",
+        "description": "Monthly household expenses in dollars, before baby expense (Apex L130).",
+        "minimum": 500,
+        "maximum": 30000
+      },
+      "partner_income": {
+        "type": "number",
+        "description": "Partner/spouse monthly take-home income in dollars; steady through leave and after return (Apex L136).",
+        "minimum": 0,
+        "maximum": 20000
+      },
+      "savings": {
+        "type": "number",
+        "description": "Current savings in dollars; compared against the gap, never drawn down arithmetically (Apex L140).",
+        "minimum": 0,
+        "maximum": 500000
+      },
+      "employer_paid_weeks": {
+        "type": "number",
+        "description": "Employer-paid leave weeks at full net pay, starting week 1 (Apex L150).",
+        "minimum": 0,
+        "maximum": 26
+      },
+      "employer_partial_weeks": {
+        "type": "number",
+        "description": "Employer partial-pay weeks immediately after the full-pay weeks (Apex L153).",
+        "minimum": 0,
+        "maximum": 26
+      },
+      "employer_partial_pct": {
+        "type": "number",
+        "description": "Employer partial-pay rate as a PERCENT of net weekly pay; divided by 100 internally (Apex L158).",
+        "minimum": 0,
+        "maximum": 100
+      },
+      "state_program": {
+        "type": "string",
+        "description": "State PFL/SDI program selector; rates/caps use the Apex 2025 schedule (kernel STATE_PFL_RATES_2025 / STATE_CAPS_WEEKLY_2025).",
+        "enum": [
+          "none",
+          "ca",
+          "ny",
+          "nj",
+          "wa",
+          "co",
+          "or",
+          "custom"
+        ]
+      },
+      "state_pfl_weeks": {
+        "type": "number",
+        "description": "State PFL/SDI duration in weeks, concurrent from week 1 (Apex L177).",
+        "minimum": 0,
+        "maximum": 16
+      },
+      "custom_pfl_rate_pct": {
+        "type": "number",
+        "description": "Custom state PFL wage-replacement rate as a PERCENT, used only when state_program is custom; divided by 100 internally (Apex L181).",
+        "minimum": 0,
+        "maximum": 100
+      },
+      "total_leave_weeks": {
+        "type": "integer",
+        "description": "Total leave duration in weeks including FMLA unpaid weeks; drives the schedule loop (Apex L187).",
+        "minimum": 1,
+        "maximum": 52
+      },
+      "baby_expense": {
+        "type": "number",
+        "description": "New recurring monthly baby expense in dollars (diapers, formula, nursery), starting month 1 (Apex L190).",
+        "minimum": 0,
+        "maximum": 5000
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "parental_leave_income_gap",
+    "description": "Week-by-week parental-leave income schedule stacking employer paid/partial leave, state PFL/SDI and partner income against household expenses: total income gap, average monthly income during leave, monthly shortfall, savings needed to cover the gap, and post-return recovery months. State rates/caps are the Apex 2025 schedule. Refuses out-of-domain inputs by name rather than silently substituting defaults.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "base_salary",
+        "tax_rate_pct",
+        "monthly_expenses",
+        "partner_income",
+        "savings",
+        "employer_paid_weeks",
+        "employer_partial_weeks",
+        "employer_partial_pct",
+        "state_program",
+        "state_pfl_weeks",
+        "custom_pfl_rate_pct",
+        "total_leave_weeks",
+        "baby_expense"
+      ],
+      "properties": {
+        "base_salary": {
+          "type": "number",
+          "description": "Annual base salary in dollars (gross); drives weekly gross/net and the state PFL base (Apex L122/L344).",
+          "minimum": 10000,
+          "maximum": 500000
+        },
+        "tax_rate_pct": {
+          "type": "number",
+          "description": "Effective tax rate as a PERCENT; divided by 100 internally. Net pay is haircut fully, the state benefit at half rate (ungrounded assumption U2).",
+          "minimum": 0,
+          "maximum": 50
+        },
+        "monthly_expenses": {
+          "type": "number",
+          "description": "Monthly household expenses in dollars, before baby expense (Apex L130).",
+          "minimum": 500,
+          "maximum": 30000
+        },
+        "partner_income": {
+          "type": "number",
+          "description": "Partner/spouse monthly take-home income in dollars; steady through leave and after return (Apex L136).",
+          "minimum": 0,
+          "maximum": 20000
+        },
+        "savings": {
+          "type": "number",
+          "description": "Current savings in dollars; compared against the gap, never drawn down arithmetically (Apex L140).",
+          "minimum": 0,
+          "maximum": 500000
+        },
+        "employer_paid_weeks": {
+          "type": "number",
+          "description": "Employer-paid leave weeks at full net pay, starting week 1 (Apex L150).",
+          "minimum": 0,
+          "maximum": 26
+        },
+        "employer_partial_weeks": {
+          "type": "number",
+          "description": "Employer partial-pay weeks immediately after the full-pay weeks (Apex L153).",
+          "minimum": 0,
+          "maximum": 26
+        },
+        "employer_partial_pct": {
+          "type": "number",
+          "description": "Employer partial-pay rate as a PERCENT of net weekly pay; divided by 100 internally (Apex L158).",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "state_program": {
+          "type": "string",
+          "description": "State PFL/SDI program selector; rates/caps use the Apex 2025 schedule (kernel STATE_PFL_RATES_2025 / STATE_CAPS_WEEKLY_2025).",
+          "enum": [
+            "none",
+            "ca",
+            "ny",
+            "nj",
+            "wa",
+            "co",
+            "or",
+            "custom"
+          ]
+        },
+        "state_pfl_weeks": {
+          "type": "number",
+          "description": "State PFL/SDI duration in weeks, concurrent from week 1 (Apex L177).",
+          "minimum": 0,
+          "maximum": 16
+        },
+        "custom_pfl_rate_pct": {
+          "type": "number",
+          "description": "Custom state PFL wage-replacement rate as a PERCENT, used only when state_program is custom; divided by 100 internally (Apex L181).",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "total_leave_weeks": {
+          "type": "integer",
+          "description": "Total leave duration in weeks including FMLA unpaid weeks; drives the schedule loop (Apex L187).",
+          "minimum": 1,
+          "maximum": 52
+        },
+        "baby_expense": {
+          "type": "number",
+          "description": "New recurring monthly baby expense in dollars (diapers, formula, nursery), starting month 1 (Apex L190).",
+          "minimum": 0,
+          "maximum": 5000
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-766-parental-leave-income-gap.html",
+    "function_name": "run",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "total_gap": {
+        "type": "number",
+        "description": "Total income gap: sum of |net| over weeks with negative net (Apex L376/L384)."
+      },
+      "avg_leave_monthly": {
+        "type": "number",
+        "description": "Average monthly income during leave: (total income / leave weeks) x 4.333 (Apex L382)."
+      },
+      "shortfall_monthly": {
+        "type": "number",
+        "description": "max(0, monthly_expenses + baby_expense - avg_leave_monthly) (Apex L383)."
+      },
+      "savings_needed": {
+        "type": "number",
+        "description": "Savings needed to cover the gap; equals total_gap (Apex L384)."
+      },
+      "recovery_months": {
+        "type": "number",
+        "description": "ceil(savings_needed / surplus_per_month) when surplus is positive, else the 999 display sentinel (Apex L390)."
+      },
+      "recovery_finite": {
+        "type": "boolean",
+        "description": "True when post-return surplus per month is positive; distinguishes the 999 sentinel from a duration."
+      },
+      "is_fully_covered": {
+        "type": "boolean",
+        "description": "savings >= savings_needed (Apex L385)."
+      },
+      "verdict": {
+        "type": "string",
+        "enum": [
+          "positive",
+          "warn",
+          "danger"
+        ],
+        "description": "Covered reads positive; above half the gap reads warn; at or below half reads danger (Apex L411-414)."
+      },
+      "weekly_gross": {
+        "type": "number",
+        "description": "base_salary / 52 (Apex L344)."
+      },
+      "weekly_net": {
+        "type": "number",
+        "description": "weekly_gross x (1 - tax_rate) (Apex L345)."
+      },
+      "weekly_expenses": {
+        "type": "number",
+        "description": "(monthly_expenses + baby_expense) / 4.333 (Apex L346)."
+      },
+      "weekly_partner": {
+        "type": "number",
+        "description": "partner_income / 4.333 (Apex L347)."
+      },
+      "state_pfl_rate": {
+        "type": "number",
+        "description": "Applied PFL wage-replacement rate (custom rate or the 2025-vintage state row, Apex L349)."
+      },
+      "state_pfl_weekly": {
+        "type": "number",
+        "description": "min(gross x rate, cap) x (1 - tax_rate x 0.5) (Apex L351; UNGROUNDED haircut)."
+      },
+      "state_cap": {
+        "type": "number",
+        "description": "Applied weekly benefit cap, 99999 fallback for the none row (Apex L350)."
+      },
+      "state_cap_binds": {
+        "type": "boolean",
+        "description": "Diagnostic: gross x rate >= cap (Apex L351)."
+      },
+      "return_monthly_net": {
+        "type": "number",
+        "description": "Post-return monthly net: (base_salary / 12) x (1 - tax_rate) (Apex L388)."
+      },
+      "surplus_per_month": {
+        "type": "number",
+        "description": "max(0, return net + partner income - expenses - baby expense) (Apex L389)."
+      },
+      "rows": {
+        "type": "array",
+        "description": "Week-by-week schedule: week, phase, emp_pay, state_pfl, partner, total_in, expenses, net, windfall_capped."
+      },
+      "compliance_flags": {
+        "type": "array",
+        "description": "Vintage, grounding, cap-binding and sentinel flags carried on every output."
+      }
+    }
+  },
+  "source": "chaingraph/kernels/art-766-parental-leave-income-gap.kernel.mjs",
+  "input_schema_provenance": "Each property is exactly the policy_parameters member the kernel reads; there is no other input surface, and every property is required: the kernel refuses any missing or out-of-domain input by throw (DIFFERS D10; the Apex page substituted falsy defaults). Minima and maxima mirror the Apex page control attributes, Apex L122-L193. State rates/caps are the Apex 2025-vintage schedule (payload DIFFERS D1-D6).",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "base_salary": 85000,
+    "tax_rate_pct": 22,
+    "monthly_expenses": 6500,
+    "partner_income": 4000,
+    "savings": 20000,
+    "employer_paid_weeks": 6,
+    "employer_partial_weeks": 2,
+    "employer_partial_pct": 60,
+    "state_program": "none",
+    "state_pfl_weeks": 8,
+    "custom_pfl_rate_pct": 60,
+    "total_leave_weeks": 16,
+    "baby_expense": 1200
+  },
+  "output_example": {
+    "total_gap": 7009.118393722593,
+    "avg_leave_monthly": 6486.058750000003,
+    "shortfall_monthly": 1213.9412499999971,
+    "savings_needed": 7009.118393722593,
+    "recovery_months": 4,
+    "recovery_finite": true,
+    "is_fully_covered": true,
+    "verdict": "positive",
+    "weekly_gross": 1634.6153846153845,
+    "weekly_net": 1275,
+    "weekly_expenses": 1777.059773828756,
+    "weekly_partner": 923.1479344564966,
+    "state_pfl_rate": 0,
+    "state_pfl_weekly": 0,
+    "state_cap": 99999,
+    "state_cap_binds": false,
+    "return_monthly_net": 5525,
+    "surplus_per_month": 1825,
+    "rows": [
+      {
+        "week": 1,
+        "phase": "Employer Paid",
+        "emp_pay": 1275,
+        "state_pfl": 0,
+        "partner": 923.1479344564966,
+        "total_in": 2198.147934456497,
+        "expenses": 1777.059773828756,
+        "net": 421.08816062774076,
+        "windfall_capped": false
+      },
+      {
+        "week": 2,
+        "phase": "Employer Paid",
+        "emp_pay": 1275,
+        "state_pfl": 0,
+        "partner": 923.1479344564966,
+        "total_in": 2198.147934456497,
+        "expenses": 1777.059773828756,
+        "net": 421.08816062774076,
+        "windfall_capped": false
+      },
+      {
+        "week": 3,
+        "phase": "Employer Paid",
+        "emp_pay": 1275,
+        "state_pfl": 0,
+        "partner": 923.1479344564966,
+        "total_in": 2198.147934456497,
+        "expenses": 1777.059773828756,
+        "net": 421.08816062774076,
+        "windfall_capped": false
+      },
+      {
+        "week": 4,
+        "phase": "Employer Paid",
+        "emp_pay": 1275,
+        "state_pfl": 0,
+        "partner": 923.1479344564966,
+        "total_in": 2198.147934456497,
+        "expenses": 1777.059773828756,
+        "net": 421.08816062774076,
+        "windfall_capped": false
+      },
+      {
+        "week": 5,
+        "phase": "Employer Paid",
+        "emp_pay": 1275,
+        "state_pfl": 0,
+        "partner": 923.1479344564966,
+        "total_in": 2198.147934456497,
+        "expenses": 1777.059773828756,
+        "net": 421.08816062774076,
+        "windfall_capped": false
+      },
+      {
+        "week": 6,
+        "phase": "Employer Paid",
+        "emp_pay": 1275,
+        "state_pfl": 0,
+        "partner": 923.1479344564966,
+        "total_in": 2198.147934456497,
+        "expenses": 1777.059773828756,
+        "net": 421.08816062774076,
+        "windfall_capped": false
+      },
+      {
+        "week": 7,
+        "phase": "Employer Partial",
+        "emp_pay": 765,
+        "state_pfl": 0,
+        "partner": 923.1479344564966,
+        "total_in": 1688.1479344564966,
+        "expenses": 1777.059773828756,
+        "net": -88.91183937225946,
+        "windfall_capped": false
+      },
+      {
+        "week": 8,
+        "phase": "Employer Partial",
+        "emp_pay": 765,
+        "state_pfl": 0,
+        "partner": 923.1479344564966,
+        "total_in": 1688.1479344564966,
+        "expenses": 1777.059773828756,
+        "net": -88.91183937225946,
+        "windfall_capped": false
+      },
+      {
+        "week": 9,
+        "phase": "Unpaid / FMLA",
+        "emp_pay": 0,
+        "state_pfl": 0,
+        "partner": 923.1479344564966,
+        "total_in": 923.1479344564966,
+        "expenses": 1777.059773828756,
+        "net": -853.9118393722595,
+        "windfall_capped": false
+      },
+      {
+        "week": 10,
+        "phase": "Unpaid / FMLA",
+        "emp_pay": 0,
+        "state_pfl": 0,
+        "partner": 923.1479344564966,
+        "total_in": 923.1479344564966,
+        "expenses": 1777.059773828756,
+        "net": -853.9118393722595,
+        "windfall_capped": false
+      },
+      {
+        "week": 11,
+        "phase": "Unpaid / FMLA",
+        "emp_pay": 0,
+        "state_pfl": 0,
+        "partner": 923.1479344564966,
+        "total_in": 923.1479344564966,
+        "expenses": 1777.059773828756,
+        "net": -853.9118393722595,
+        "windfall_capped": false
+      },
+      {
+        "week": 12,
+        "phase": "Unpaid / FMLA",
+        "emp_pay": 0,
+        "state_pfl": 0,
+        "partner": 923.1479344564966,
+        "total_in": 923.1479344564966,
+        "expenses": 1777.059773828756,
+        "net": -853.9118393722595,
+        "windfall_capped": false
+      },
+      {
+        "week": 13,
+        "phase": "Unpaid / FMLA",
+        "emp_pay": 0,
+        "state_pfl": 0,
+        "partner": 923.1479344564966,
+        "total_in": 923.1479344564966,
+        "expenses": 1777.059773828756,
+        "net": -853.9118393722595,
+        "windfall_capped": false
+      },
+      {
+        "week": 14,
+        "phase": "Unpaid / FMLA",
+        "emp_pay": 0,
+        "state_pfl": 0,
+        "partner": 923.1479344564966,
+        "total_in": 923.1479344564966,
+        "expenses": 1777.059773828756,
+        "net": -853.9118393722595,
+        "windfall_capped": false
+      },
+      {
+        "week": 15,
+        "phase": "Unpaid / FMLA",
+        "emp_pay": 0,
+        "state_pfl": 0,
+        "partner": 923.1479344564966,
+        "total_in": 923.1479344564966,
+        "expenses": 1777.059773828756,
+        "net": -853.9118393722595,
+        "windfall_capped": false
+      },
+      {
+        "week": 16,
+        "phase": "Unpaid / FMLA",
+        "emp_pay": 0,
+        "state_pfl": 0,
+        "partner": 923.1479344564966,
+        "total_in": 923.1479344564966,
+        "expenses": 1777.059773828756,
+        "net": -853.9118393722595,
+        "windfall_capped": false
+      }
+    ],
+    "warn_count": 0,
+    "compliance_flags": [
+      "ART766_2025_VINTAGE",
+      "ART766_PFL_PARTIALLY_TAXABLE_ASSUMPTION",
+      "ART766_WINDFALL_CAP"
+    ]
+  },
+  "example_execution_hash": "d9a84612fc50b5fbae9a01801084bb6e0fe35816bfdf2e0e495a5b175e0b64e7"
+}

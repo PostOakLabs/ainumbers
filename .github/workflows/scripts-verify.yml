@@ -447,6 +447,18 @@ jobs:
         run: node scripts/gen-manifest-examples.mjs --check
 
       - name: Ask-agent block freshness (HARD on pull_request — per-PR derivables promotion)
+        # 2026-11-09: on merge_group this gate adjudicates
+        # the assembled tree main will hold (the "Ephemeral derived tree" step above ran
+        # first), exactly as the accessibility step below does. Without it the gate read the
+        # checkout registry, a new node was only live-pending (advisory) in the queue, and
+        # main went red on the same page after the regen (art-756 no block, art-793 and
+        # art-795 block drifted). Wired merge_group ONLY: pull_request and push-to-main keep
+        # judging the committed checkout, byte-for-byte the previous behaviour (empty string
+        # = unset for the gate). Preflight's own run of this command is covered by the
+        # DERIVED_ROOT_GATES set (derived-artifacts.mjs); this named step is the enforcement
+        # point that surfaces the class under its own name.
+        env:
+          DERIVED_ROOT: ${{ github.event_name == 'merge_group' && steps.derived.outputs.root || '' }}
         run: node scripts/check-ask-agent-block.mjs
 
       # Main-only paths: a PR may not carry a file only main's derived regen writes

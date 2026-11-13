@@ -496,10 +496,14 @@ export function loadManifestIndex(repoRoot) {
   return { byTool, byMcp, parseErrors, count };
 }
 
-/** tool_id → mcp_name from the assembled chaingraph.json. READ-ONLY indexing read. */
-export function loadMcpNameIndex(repoRoot) {
+/**
+ * tool_id → mcp_name from the assembled chaingraph.json. READ-ONLY indexing read.
+ * `monolithPath` (optional) points at an overlay monolith (DERIVED_ROOT or the
+ * PR-assembled tree); default is the committed file.
+ */
+export function loadMcpNameIndex(repoRoot, monolithPath) {
   try {
-    const g = JSON.parse(fs.readFileSync(path.join(repoRoot, 'chaingraph', 'chaingraph.json'), 'utf8'));
+    const g = JSON.parse(fs.readFileSync(monolithPath || path.join(repoRoot, 'chaingraph', 'chaingraph.json'), 'utf8'));
     const map = new Map();
     for (const n of g?.nodes || []) if (n?.tool_id && n?.mcp_name) map.set(n.tool_id, n.mcp_name);
     return map;
