@@ -1735,6 +1735,9 @@ const GATES = [
   // KERNEL-MISSING-INPUT-FAILCLOSED-GATE-1 (stage 1): ADVISORY by construction, the checker always exits 0.
   ['Kernel missing-input fail-closed sweep (stage 1 advisory, always exits 0)', 'node scripts/check-kernel-missing-input-failclosed.mjs'],
   ['Kernel missing-input fail-closed controls (RED+GREEN planted kernels)', 'node scripts/check-kernel-missing-input-failclosed.selftest.mjs'],
+  // PAGE-KERNEL-PARITY-GATE-1 (stage 1): ADVISORY by construction, the checker always exits 0 (full estate about 50 s).
+  ['Page-versus-kernel parity sweep (stage 1 advisory, always exits 0)', 'node scripts/check-page-kernel-parity.mjs'],
+  ['Page-versus-kernel parity controls (RED+GREEN synthetic pages)', 'node scripts/check-page-kernel-parity.selftest.mjs'],
   ['Retired ap2_version tombstone (§3.1/A3.2, RETIREMENT-TOMBSTONE-GATES-1)','node scripts/check-retired-ap2-version.mjs'],
   ['Retired ap2_version tombstone controls (RED+GREEN mutation)', 'node scripts/check-retired-ap2-version.test.mjs'],
   ['Credits registry coverage (vendored-code license gate)', 'node scripts/check-credits-coverage.mjs repo'],
