@@ -152,12 +152,17 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { classifyKernelSource, tierReport, tierOfMutant, scanBalanced, scoreOf } from '../chaingraph/kernels/mutation-tier-split.mjs';
 import { checkSandboxComplete, deriveSandboxFiles } from './lib-sandbox-deps.mjs';
+import { mergeMutationSiblings } from './lib-per-kernel-config.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..');
 
-function loadConfig(repoRoot = REPO) {
-  return JSON.parse(readFileSync(path.join(repoRoot, 'chaingraph', 'kernels', 'mutation-tiers.config.json'), 'utf8'));
+// PER-KERNEL-CONFIG-SHARD-1: the config keeps thresholds/defaults; per-kernel entries live in
+// chaingraph/kernels/<id>.mutation.json siblings, merged here so every consumer sees one object.
+export function loadConfig(repoRoot = REPO) {
+  const kernelsDir = path.join(repoRoot, 'chaingraph', 'kernels');
+  const base = JSON.parse(readFileSync(path.join(kernelsDir, 'mutation-tiers.config.json'), 'utf8'));
+  return mergeMutationSiblings(base, kernelsDir);
 }
 
 // ── CLI parsing ───────────────────────────────────────────────────────────
@@ -1067,7 +1072,26 @@ export function copySandboxDeps(kernelRelPath, proptestRelPath, fixturesRelPath,
         .filter((f) => f.startsWith(`${kernelId}.`) && f !== fixturesFile)
         .map((f) => `chaingraph/kernels/fixtures/${f}`)
     : [];
-  const files = deriveSandboxFiles({ roots: [kernelRelPath, proptestRelPath], extras: [fixturesRelPath, ...runtimeReadSiblings], repoRoot });
+  // MUTATION-TIER-SANDBOX-VENDOR-FIXTURES-1: a proptest that runtime-reads a VENDORED
+  // fixture under fixtures/vendor/ (art-831-receipt-export-envelopes.proptest.mjs:33 reads
+  // openlineage-1.55.0/OpenLineage.json to validate the exported RunEvent against the pinned
+  // upstream schema) is invisible to BOTH the import-graph derivation and the `<id>.*`
+  // sibling sweep above. The cure stays caller-side and scoped: when the proptest source
+  // names `vendor` at all, sweep every file under fixtures/vendor/ into the sandbox (the
+  // whole tree, not a guessed literal path — the same future-proofing stance as the sibling
+  // sweep; the tree is small, upstream release-pinned, and shared, so no per-kernel filter).
+  const vendorDir = path.join(fixturesDir, 'vendor');
+  const vendorFiles = [];
+  const walkVendor = (dir, relBase) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.isDirectory()) walkVendor(path.join(dir, e.name), `${relBase}/${e.name}`);
+      else vendorFiles.push(`chaingraph/kernels/fixtures/${relBase}/${e.name}`);
+    }
+  };
+  if (existsSync(vendorDir) && /vendor/.test(readFileSync(path.join(repoRoot, proptestRelPath), 'utf8'))) {
+    walkVendor(vendorDir, 'vendor');
+  }
+  const files = deriveSandboxFiles({ roots: [kernelRelPath, proptestRelPath], extras: [fixturesRelPath, ...runtimeReadSiblings, ...vendorFiles], repoRoot });
   for (const rel of files) {
     const dest = path.join(scratchRoot, rel);
     if (existsSync(dest)) continue; // already primed by an earlier kernel this process

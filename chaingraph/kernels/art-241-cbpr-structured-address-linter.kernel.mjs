@@ -13,7 +13,8 @@ export const meta = {
 // Validates PostalAddress24 blocks against the SWIFT CBPR+ Nov-2026 mandate:
 //   - Fully-structured: all ISO fields populated, no AdrLine.
 //   - Hybrid: TwnNm + Ctry structured, max 2 AdrLine each <=70 chars, no silent-fail duplication.
-//   - Unstructured: AdrLine-only -- PROHIBITED after 14 Nov 2026.
+//   - Unstructured: AdrLine-only -- will be prohibited once the structured-address requirement
+//     takes effect (deferred by Swift on 27 Aug 2026, new date not published).
 //   - Silent-fail rule: AdrLine must NOT duplicate structured field values verbatim.
 // table_version: "CBPR-PLUS-STRUCTURED-ADDRESS-NOV2026-V1"
 // Source: SWIFT CBPR+ Structured Address Migration Bulletin (swift.com/cbpr-plus-migration);
@@ -65,7 +66,7 @@ export function compute(pp) {
   }
 
   if (structure_type === 'UNSTRUCTURED') {
-    violations.push({ code: 'UNSTRUCTURED_ADDRESS', severity: 'ERROR', field: 'AdrLine', message: 'Unstructured AdrLine-only addresses are prohibited after 14 Nov 2026 (CBPR+ mandate). Migrate to fully-structured or hybrid format.' });
+    violations.push({ code: 'UNSTRUCTURED_ADDRESS', severity: 'ERROR', field: 'AdrLine', message: 'Unstructured AdrLine-only addresses will be prohibited once the structured-address requirement takes effect (deferred by Swift on 27 Aug 2026, new date not published). CBPR+ mandate: migrate to fully-structured or hybrid format.' });
   }
   if (structure_type === 'MIXED_INVALID') {
     violations.push({ code: 'INVALID_MIX', severity: 'ERROR', field: 'PostalAddress24', message: 'Address mixes structured and unstructured fields in an invalid combination. Apply either fully-structured (no AdrLine, all ISO fields) or hybrid (TwnNm+Ctry+max 2 AdrLine) format.' });
@@ -113,12 +114,13 @@ export function compute(pp) {
     readiness_pct,
     error_count,
     violations,
-    cbpr_plus_deadline: '2026-11-14',
+    cbpr_plus_deadline: null,
+    cbpr_plus_deadline_status: 'deferred by Swift on 27 Aug 2026; no new date published',
     disambiguation: 'lint_cbpr_structured_address checks per-message Nov-2026 hybrid/fully-structured rule lint including the AdrLine silent-fail duplication rule. For batch verification of already-migrated address archives use verify_address_migration_batch (rca-03). For ISO 20022 securities settlement messages (sese/semt) use lint_securities_settlement_message (art-82). This tool operates on pacs.008 payments address blocks only.',
     pii_note: 'All fields operate on STRUCTURAL address components only. No real party PII enters this kernel -- use synthetic or anonymised address data.',
     table_version: TABLE_VERSION,
     table_source: TABLE_SOURCE,
-    regulatory_basis: 'SWIFT CBPR+ Structured Address Migration Bulletin; ISO 20022 PostalAddress24 element set (MX catalogue); SEPA and CHAPS aligned Nov 2026',
+    regulatory_basis: 'SWIFT CBPR+ Structured Address Migration Bulletin; ISO 20022 PostalAddress24 element set (MX catalogue); SEPA and CHAPS aligned; Swift notice of 27 Aug 2026 (structured-address date deferred, no new date published)',
   };
 
   const compliance_flags = [];

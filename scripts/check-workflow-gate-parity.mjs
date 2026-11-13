@@ -217,6 +217,8 @@ const NOT_A_GATE = new Map([
   ["automerge-label.yml",
     "pull_request: [labeled] automation that PERFORMS the merge (SO #37's label path); " +
     "it is not a required status check and blocks nothing."],
+  ["auto-arm.yml",
+    "arms labelled PRs; no merge gate."],
   ["deploy-docs.yml",
     "push main only — deploys the docs subdomain post-merge."],
   ["deploy-drift-check.yml",
@@ -371,6 +373,25 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── Interpolated-markup ratchet (2026-11-07) ───────────────────────────────
+  ["check-innerhtml-ratchet.mjs",
+    "Advisory-first interpolated-markup ratchet over tools/*.html: preflight wires " +
+    "--advisory (counts, exit 0) for its first cycle, so a blocking CI step would " +
+    "re-run a gate that cannot fail yet. The flip (drop --advisory in preflight) and " +
+    "the CI routing decision land together, with the NEW-site rate the advisory cycle " +
+    "measures; until then this entry declares that plan. scripts/-only estate scan of " +
+    "tracked files — no network, no CI-only input — and the only PRs that can change " +
+    "its verdict shape are tools/*.html edits and scripts/ edits, both of which " +
+    "scripts-verify.yml's path-scoped full preflight already runs."],
+  ["check-innerhtml-ratchet.selftest.mjs", SELF_TEST],
+  // ── ZK-TRUST-STAGES-GATE-1 / PR-2888-SELFTEST-PAIR-1 (2026-11-05) ───────────
+  ["check-zk-trust-page.mjs",
+    "Advisory-on-PR COVERED freshness gate (derived-artifacts.mjs id 'zk-trust-page': its regen is " +
+    "--fix, its gate is this check). CI enforces it HARD through `derived-artifacts.mjs --verify`, not " +
+    "as a standalone step: scripts-verify.yml's merge-group-shadow and merge_group runs under " +
+    "DERIVED_ROOT (it is a DERIVED_ROOT_GATES member), land-verify.yml, and derived-artifacts-regen.yml " +
+    "on main. A direct blocking-workflow wire would only duplicate that call site."],
+  ["check-zk-trust-page.selftest.mjs", SELF_TEST],
   // ── SIGSTORE-BUNDLE-V03-EXPORT-7 (2026-10-26) ───────────────────────────────
   ["receipt-bundle-attest-subjects.mjs",
     "Network-free receipt-bundle attest-subjects lister, run pre-push in preflight; its " +
@@ -388,6 +409,8 @@ const PREFLIGHT_ONLY = new Map([
     "the gate or the page through a full preflight."],
   // ── ENGINE-BUNDLE-ESM-LINT-1 (2026-10-15) ───────────────────────────────────
   ["check-engine-parity.bundle.test.mjs", SELF_TEST],
+  // ── PREPUSH-HYGIENE-ALWAYS-1 (2026-11-06) ──────────────────────────────────
+  ["affected-gates.test.mjs", SELF_TEST],
   // ── CHAIN-PAGES-CANON-ORDER-FIX-1 (2026-10-24) ──────────────────────────────
   ["check-chain-pages-canon-order.selftest.mjs", SELF_TEST],
   // ── WEBMCP-META-LINT-CEILING-1 (2026-10-01) ─────────────────────────────────
@@ -562,6 +585,19 @@ const PREFLIGHT_ONLY = new Map([
     "local git, so a named workflow step would re-run byte-for-byte the same check. Its paired " +
     "mutation control is check-trust-signals.test.mjs (its own GATES entry)."],
   ["check-trust-signals.test.mjs", SELF_TEST],
+  // ── VERIFYBINDING-DIGEST-DEFAULT-1 (2026-11-12) ─────────────────────────────
+  ["gen-kernel-digests.mjs",
+    "Published kernel-digest list freshness --check (VERIFYBINDING-DIGEST-DEFAULT-1): re-derives " +
+    "chaingraph/kernel-digests.json from the node shards' sha256-source compute_images entries " +
+    "and byte-compares. Hard in preflight; its CI route is scripts-verify.yml full preflight (the " +
+    "workflow runs `node scripts/preflight.mjs`), so a named workflow step would only duplicate " +
+    "the same suite. It is the COVERED gate of derived-artifacts.mjs id 'kernel-digests' " +
+    "(prAbsentOk advisory-on-PR, blocking-on-main via the generic downgrade), and the single " +
+    "writer is derived-artifacts-regen.yml, which regenerates it post-merge exactly like the " +
+    "trust-signals digest — a raw invocation anywhere PR-reachable would duplicate that writer. " +
+    "Reads only tracked repo files — no network, no CI-only input. The write half is a " +
+    "builder/main-side regen command, never a workflow step by name."],
+  ["derived-context-detached.test.mjs", SELF_TEST],
   // ── EVREG-1 (2026-09-22) ────────────────────────────────────────────────────
   ["check-evidence-register.mjs",
     "Claim-level evidence register gate (EVREG-1): verifies the generated register " +
@@ -827,7 +863,10 @@ const PREFLIGHT_ONLY = new Map([
     "output_schema is re-validated against its node's fixture output_payloads. Hard in preflight; " +
     "its CI route is scripts-verify.yml's full preflight (the workflow literally runs " +
     "`node scripts/preflight.mjs`), so a named workflow step would only duplicate the same suite. " +
-    "Reads only tracked repo files — no CI-only input."],
+    "Reads tracked repo files only, but on merge_group it overlay-reads the registry and the manifests " +
+    "from the assembled derived tree (QUEUE-ASSEMBLED-NEWNODE-GATES-1, 2026-11-09: it is a " +
+    "DERIVED_ROOT_GATES member, so preflight hands it DERIVED_ROOT in the queue and the verdict is " +
+    "on the tree that will be main); every other context reads the checkout, byte-for-byte as before."],
   ["check-output-schema-coverage.test.mjs", SELF_TEST],
 
   // ── MCP-INPUTSCHEMA-DESC-TRIM-1 (2026-09-18) ───────────────────────────────
@@ -857,6 +896,13 @@ const PREFLIGHT_ONLY = new Map([
   // preflight ran it blocking in every context — so there is no divergence to
   // declare; the named step surfaces the stamp class under its own name). The
   // --write half runs in pr-autofix.yml (NOT_A_GATE above).
+  // QUEUE-ASSEMBLED-NEWNODE-GATES-1 (2026-11-09): the named step now also carries
+  // `DERIVED_ROOT: ${{ github.event_name == 'merge_group' && steps.derived.outputs.root || '' }}`
+  // (the accessibility step's shape) and the command is a DERIVED_ROOT_GATES member, so on
+  // merge_group the gate overlay-reads the registry, pages and manifests from the assembled
+  // tree and a new node's findings are HARD there; pull_request and push:main read the
+  // checkout unchanged. The only declared behaviour change is merge_group's: a new node
+  // that was live-pending (advisory) is now an ordinary live node.
 
   // ── TOOLPAGE-A11Y-1 (2026-09-09) ─────────────────────────────────────────
   // PR-AUTOFIX-DERIVABLES-1 removed the PREFLIGHT_ONLY entry for
@@ -1001,6 +1047,20 @@ const PREFLIGHT_ONLY = new Map([
     "push to main. DELIBERATELY not a named CI step. The paired red-proof is the same script's " +
     "--self-test mode, wired as its own GATES entry."],
 
+  // ── WEBMCP-SIGNED-EXPIRY-1 (2026-11-12) ────────────────────────────────────
+  ["check-webmcp-snapshot-fresh.mjs",
+    "WebMCP signed snapshot expiry freshness: fails when the published " +
+    ".well-known/webmcp-signed.json sits inside the 7-day renewal window or is expired. The " +
+    "PR/main split lives INSIDE the gate (isMainContext(): advisory on a pull_request, HARD on " +
+    "push:main and merge_group), because the branch cannot re-sign (the key never leaves the " +
+    "key-holding desk). It reads the snapshot through derivedResolve and is a DERIVED_ROOT_GATES " +
+    "member (classification only: the snapshot is hand-signed, EXCLUDED from regen, so the gate is " +
+    "not COVERED). Its CI route is scripts-verify.yml's full preflight (runs " +
+    "`node scripts/preflight.mjs` on scripts/** changes, this gate's own diff shape) plus every " +
+    "push to main and every merge_group run; same shape as check-webmcp-signed-snapshot.mjs above. " +
+    "DELIBERATELY not a named CI step. The paired red-proof is the same script's --self-test " +
+    "mode, wired as its own GATES entry."],
+
   // ── VENDOR-DIGEST-GATE-1 (2026-09-03) ──────────────────────────────────────
   ["check-vendored-digests.mjs",
     "Vendored-crypto sha256 pin gate: recomputes the digest of the noble bn254/ed25519/secp256k1 " +
@@ -1039,9 +1099,11 @@ const PREFLIGHT_ONLY = new Map([
 
   // ── paired self-tests / mutation controls (66) ──────────────────────────────
   ["pre-push.test.mjs", SELF_TEST],
+  ["pre-commit.test.mjs", SELF_TEST],
   ["check-binary-bytes.test.mjs", SELF_TEST],
   ["jsdoc-checkjs-gate.test.mjs", SELF_TEST],
   ["gen-kernel-identity.test.mjs", SELF_TEST],
+  ["renumber-node.mjs", SELF_TEST],
   ["check-guest-builtin-safety.test.mjs", SELF_TEST],
   ["quantization-parity.test.mjs", SELF_TEST],
   ["seed-replay.test.mjs", SELF_TEST],
@@ -1058,6 +1120,8 @@ const PREFLIGHT_ONLY = new Map([
   ["gen-rule-registry.test.mjs", SELF_TEST],
   ["check-nav-reachability.test.mjs", SELF_TEST],
   ["check-retired-mcp-toggle.test.mjs", SELF_TEST],
+  ["check-kernel-missing-input-failclosed.selftest.mjs", SELF_TEST],
+  ["check-page-kernel-parity.selftest.mjs", SELF_TEST],
   ["check-retired-ap2-version.test.mjs", SELF_TEST],
   ["diff-scope.test.mjs", SELF_TEST],
   ["check-clause-digest.test.mjs", SELF_TEST],
@@ -1170,8 +1234,11 @@ const PREFLIGHT_ONLY = new Map([
   ["apply-topic-links.mjs", VIA_PREFLIGHT],
   ["check-ssot-no-npm.mjs", VIA_PREFLIGHT],
   ["check-retired-mcp-toggle.mjs", VIA_PREFLIGHT],
+  ["check-kernel-missing-input-failclosed.mjs", VIA_PREFLIGHT],
+  ["check-page-kernel-parity.mjs", VIA_PREFLIGHT],
   ["check-retired-ap2-version.mjs", VIA_PREFLIGHT],
   ["generate-node-manifest.mjs", VIA_PREFLIGHT],
+  ["generate-node-manifest.test.mjs", SELF_TEST],
   ["gen-input-schemas.mjs", VIA_PREFLIGHT],
   ["gen-input-schemas.selftest.mjs", VIA_PREFLIGHT],
   ["validate-evidence-profiles.mjs", VIA_PREFLIGHT],
@@ -1595,7 +1662,9 @@ const DECLARED_SOFTENERS = new Map([
   // this attest step; same pin-move.
   // SIGSTORE-BUNDLE-V03-EXPORT-8 (2026-10-26) moved it :1018 → :1024 — six
   // ordering-comment lines added inside the receipt block above; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:1024",
+  // CHANGELOG-DEPLOY-INCLUDE-1 (2026-10-31) moved it :1024 → :1026 — two
+  // --include lines added to the dry-run rsync above; same pin-move.
+  ["deploy-to-dreamhost.yml:continue-on-error:1026",
    "attest step is advisory-first by design; promotion criterion on the step"],
   // SIGSTORE-BUNDLE-V03-EXPORT-4 (2026-10-24): the receipt-bundle index
   // attest step (continue-on-error at :829) is advisory-first for the SAME

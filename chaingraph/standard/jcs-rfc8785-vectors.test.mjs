@@ -15,6 +15,11 @@
  *                         preimage string {"output_payload":null,"policy_parameters":<expected>} (the §4 path).
  *   twin-jcsCanonicalize  jcsCanonicalize(v) from ../vm/twin/verify.mjs, which mirrors the zkVM guest's
  *                         journal serializer (UTF-8 key order, fail-closed on exponent-form numbers).
+ *   vendor-canonicalize   an independent RFC 8785 canonicalizer written outside this estate, vendored
+ *                         at ./vendor/canonicalize/ (erdtman/canonicalize, Apache-2.0, pinned commit,
+ *                         see PROVENANCE.md there; LANDSCAPE-JCS-DIFF-ORACLE-1). Byte-compared like the
+ *                         twin; its upstream rules (lone surrogate / NaN / Infinity throws) are NOT
+ *                         OCG policy rejections and are classified on their own outcome.
  *   page-ocgJcs           the PAGE estate's inline canonicalizer (JCS-CANON-PAGES-1): the SSOT lines
  *                         __ocgAssertIJson / __ocgJcs / __ocgCanonStr are extracted live from
  *                         kernels/fix-hash-scheme.mjs (the ocgJcs/ocgCanonStr manifest pairs' SSOT),
@@ -48,9 +53,11 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import { policyParametersHash, canonicalPreimage } from '../kernels/_hash.mjs';
 import { jcsCanonicalize } from '../vm/twin/verify.mjs';
+import vendorCanonicalize from './vendor/canonicalize/canonicalize.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const VENDOR = resolve(HERE, 'vendor', 'rfc8785-testdata');
+const CANON_VENDOR = resolve(HERE, 'vendor', 'canonicalize');
 const PROBES = resolve(HERE, 'fixtures', 'jcs-ocg-probes.json');
 const BASELINE = resolve(HERE, 'jcs-rfc8785-baseline.json');
 const SSOT = resolve(HERE, '..', 'kernels', 'fix-hash-scheme.mjs');
@@ -117,16 +124,26 @@ const PINS = {
   'LICENSE': '6821faaddedf2d78c95bb6d98b127e9e616097afd2f6bcc34389f000d13ab12d',
 };
 
+// Upstream erdtman/canonicalize @ 31fb117afde3ef305b2e1d99bde539bf6300bc62 (see PROVENANCE.md).
+const CANON_PINS = {
+  'canonicalize.js': 'c1d0195af2a0748454b06af8f218e5c90415c19d39154d0058fee8229c12d859',
+  'LICENSE': 'c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4',
+};
+
 const sha256hex = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const POLICY_RE = /I-JSON|2\^53|Non-finite/;
 
 export function checkPins() {
   const errors = [];
-  for (const [rel, pin] of Object.entries(PINS)) {
-    let got;
-    try { got = sha256hex(readFileSync(resolve(VENDOR, rel))); } catch { errors.push(`missing vendored file ${rel}`); continue; }
-    if (got !== pin) errors.push(`vendored file ${rel} sha256 ${got} != pinned ${pin}`);
-  }
+  const pinDir = (dir, pins, label) => {
+    for (const [rel, pin] of Object.entries(pins)) {
+      let got;
+      try { got = sha256hex(readFileSync(resolve(dir, rel))); } catch { errors.push(`missing vendored file ${label}/${rel}`); continue; }
+      if (got !== pin) errors.push(`vendored file ${label}/${rel} sha256 ${got} != pinned ${pin}`);
+    }
+  };
+  pinDir(VENDOR, PINS, 'rfc8785-testdata');
+  pinDir(CANON_VENDOR, CANON_PINS, 'canonicalize');
   return errors;
 }
 
@@ -152,17 +169,18 @@ export async function runMatrix(cases) {
   for (const c of cases) {
     const expectedText = c.expected.toString('utf8');
     const want = sha256hex(c.expected);
-    let a, p, t, g;
+    let a, p, t, g, v;
     try { a = (await policyParametersHash(JSON.parse(c.text))) === want ? 'PASS' : 'FAIL'; } catch (e) { a = classify(e); }
     try { p = canonicalPreimage(JSON.parse(c.text), null) === `{"output_payload":null,"policy_parameters":${expectedText}}` ? 'PASS' : 'FAIL'; } catch (e) { p = classify(e); }
     try { t = Buffer.from(jcsCanonicalize(JSON.parse(c.text))).equals(c.expected) ? 'PASS' : 'FAIL'; } catch { t = 'THROW'; }
     try { g = sha256hex(Buffer.from(pageOcgJcs(JSON.parse(c.text)), 'utf8')) === want ? 'PASS' : 'FAIL'; } catch (e) { g = classify(e); }
-    rows.push({ case: c.id, source: c.source, 'ocg-hash-path': a, 'ocg-preimage': p, 'twin-jcsCanonicalize': t, 'page-ocgJcs': g });
+    try { v = Buffer.from(vendorCanonicalize(JSON.parse(c.text)), 'utf8').equals(c.expected) ? 'PASS' : 'FAIL'; } catch (e) { v = classify(e); }
+    rows.push({ case: c.id, source: c.source, 'ocg-hash-path': a, 'ocg-preimage': p, 'twin-jcsCanonicalize': t, 'page-ocgJcs': g, 'vendor-canonicalize': v });
   }
   return rows;
 }
 
-export const IMPLS = ['ocg-hash-path', 'ocg-preimage', 'twin-jcsCanonicalize', 'page-ocgJcs'];
+export const IMPLS = ['ocg-hash-path', 'ocg-preimage', 'twin-jcsCanonicalize', 'page-ocgJcs', 'vendor-canonicalize'];
 
 export function compare(rows, known) {
   const errors = [];
@@ -189,6 +207,129 @@ export function compare(rows, known) {
   }
   for (const k of known) if (!seen.has(key(k.impl, k.case))) errors.push(`ORPHAN baseline entry: ${k.impl} × ${k.case} (no such case or implementation)`);
   return errors;
+}
+
+// -- seeded differential fuzz (LANDSCAPE-JCS-DIFF-ORACLE-1) --
+// Deterministic PRNG (mulberry32), seed fixed below, no Math.random and no clock. Generates N values
+// weighted toward the ES2015 number-serialization surface (RFC 8785 §3.2.2.2.3) where independent
+// ports most often diverge, plus unicode/astral keys and nested arrays, and byte-compares the OCG
+// paths (canonicalPreimage / policyParametersHash) against the vendored independent canonicalizer.
+// OCG policy rejections (I-JSON) count as POLICY-REJECT, never as a divergence; any other mismatch is
+// a gate failure with a shrunk reproducer.
+export const FUZZ_N = 5000;
+export const FUZZ_SEED = 0x8785f00d;
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Boundary constants named by the row: the 1e21 / 1e-7 exponent-notation boundaries, -0, subnormals,
+// the largest safe integer and its neighbours, and values that round-trip only at 17 digits.
+const BOUNDARY_NUMBERS = [
+  0, -0, 1, -1, 0.1, 1 / 3, 1e-7, 9.999999999999999e-8, 1e20, 1e21,
+  5e-324, 1e-323, 2.2250738585072014e-308, // subnormals and the smallest normal
+  Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER - 1, Number.MAX_SAFE_INTEGER - 2, 2 ** 53,
+  900719925474099.1, 1.0000000000000002, 0.30000000000000004, -1e-7, -1e21, -5e-324,
+  123456789012345678, 1.7976931348623157e308,
+];
+
+const KEY_POOL = ['a', 'b', 'Z', '0', 'é', 'ü', '中', '𝕒', '\u007f', 'a\u0301', '𝔸', '𐀀', '€'];
+
+function randomDouble(rnd) {
+  // Build a full 64-bit double from PRNG bits: mantissa (53 bits) and a signed exponent, so the
+  // sample covers subnormals, 17-digit round-trip values and both signs, never NaN or Infinity.
+  const mantissa = Math.floor(rnd() * 2 ** 52) + 2 ** 52; // 53-bit with implicit leading 1
+  const exp = Math.floor(rnd() * 2176) - 1087; // [2^-1086 .. 2^1023-ish), keeps every result finite
+  const sign = rnd() < 0.5 ? -1 : 1;
+  const v = sign * (mantissa / 2 ** 52) * 2 ** exp;
+  return Number.isFinite(v) ? v : 0.1;
+}
+
+function randomString(rnd) {
+  const pool = [...KEY_POOL, '𝕫', 'ñ', 'ﬀ', '\u0000', 'line\u000asep'];
+  const base = pool[Math.floor(rnd() * pool.length)];
+  if (rnd() < 0.5) return base;
+  return base + pool[Math.floor(rnd() * pool.length)];
+}
+
+function fuzzValue(rnd, depth) {
+  const roll = rnd();
+  if (depth <= 0 || roll < 0.55) {
+    // numbers first: boundary constants on a fixed cycle, PRNG doubles beyond them
+    const pick = rnd();
+    if (pick < 0.45) return BOUNDARY_NUMBERS[Math.floor(rnd() * BOUNDARY_NUMBERS.length)];
+    if (pick < 0.6) return Math.floor(rnd() * 1000) - 500;
+    if (pick < 0.7) return Math.floor(rnd() * 4) * 1e-7; // near the 1e-7 boundary
+    return randomDouble(rnd);
+  }
+  if (roll < 0.7) return randomString(rnd);
+  if (roll < 0.8) return rnd() < 0.5;
+  if (roll < 0.85) return null;
+  if (roll < 0.93) return Array.from({ length: 1 + Math.floor(rnd() * 4) }, () => fuzzValue(rnd, depth - 1));
+  const obj = {};
+  const n = 1 + Math.floor(rnd() * 3);
+  for (let i = 0; i < n; i++) {
+    const key = rnd() < 0.5 ? randomString(rnd) : KEY_POOL[Math.floor(rnd() * KEY_POOL.length)] + i;
+    obj[key] = fuzzValue(rnd, depth - 1);
+  }
+  return obj;
+}
+
+// Repeatedly simplify a diverging input so the reported reproducer is minimal (shrink-only).
+function shrink(divergent) {
+  const kind = (v) => Array.isArray(v) ? 'array' : v && typeof v === 'object' ? 'object' : 'scalar';
+  let cur = divergent;
+  for (;;) {
+    const k = kind(cur);
+    if (k === 'array' && cur.length > 1) {
+      const halves = [cur.slice(0, cur.length - 1), cur.slice(1), cur.filter((_, i) => i % 2 === 0)].filter((c) => c.length && c.length < cur.length);
+      const next = halves.find((c) => kind(c) === 'array' && JSON.stringify(c) !== JSON.stringify(cur));
+      if (!next) break;
+      cur = next; continue;
+    }
+    if (k === 'object' && Object.keys(cur).length > 1) {
+      let next = null;
+      for (const key of Object.keys(cur)) {
+        const cand = { ...cur }; delete cand[key];
+        if (Object.keys(cand).length && JSON.stringify(cand) !== JSON.stringify(cur)) { next = cand; break; }
+      }
+      if (!next) break;
+      cur = next; continue;
+    }
+    break;
+  }
+  return cur;
+}
+
+export async function runFuzz(n = FUZZ_N, seed = FUZZ_SEED) {
+  const rnd = mulberry32(seed);
+  const errors = [];
+  let policyRejects = 0;
+  for (let i = 0; i < n; i++) {
+    const value = fuzzValue(rnd, 4);
+    let vendBytes = null, vendThrew = null;
+    try { vendBytes = Buffer.from(vendorCanonicalize(value), 'utf8'); } catch (e) { vendThrew = e; }
+    let hash = null, pre = null, ocgThrew = null;
+    try { hash = await policyParametersHash(value); } catch (e) { ocgThrew = e; }
+    try { pre = canonicalPreimage(value, null); } catch (e) { ocgThrew = ocgThrew || e; }
+    if (ocgThrew && POLICY_RE.test(String(ocgThrew && ocgThrew.message))) { policyRejects++; continue; }
+    if (ocgThrew) { errors.push(`FUZZ OCG THROW (unclassified): seed=${seed} i=${i} input=${JSON.stringify(value)} error=${ocgThrew.message}`); continue; }
+    if (vendThrew) { errors.push(`FUZZ DIVERGENCE: vendor throws where the OCG path accepts — seed=${seed} i=${i} input=${JSON.stringify(value)} error=${vendThrew.message}`); continue; }
+    const vendText = vendBytes.toString('utf8');
+    const wantHash = sha256hex(vendBytes);
+    const wantPre = `{"output_payload":null,"policy_parameters":${vendText}}`;
+    if (hash !== wantHash || pre !== wantPre) {
+      const shrunk = shrink(value);
+      errors.push(`FUZZ DIVERGENCE: seed=${seed} i=${i} shrunk input=${JSON.stringify(shrunk)} original input=${JSON.stringify(value)} (hash ${hash === wantHash ? 'equal' : 'differs'}, preimage ${pre === wantPre ? 'equal' : 'differs'})`);
+    }
+  }
+  return { n, seed, policyRejects, divergences: errors.length, errors };
 }
 
 async function selfTest() {
@@ -218,17 +359,21 @@ async function main() {
   const rows = await runMatrix(cases);
   const known = JSON.parse(readFileSync(BASELINE, 'utf8')).known;
   if (cases.length) errors.push(...compare(rows, known));
+  const fuzz = await runFuzz();
   if (args.includes('--json')) {
-    console.log(JSON.stringify({ ok: errors.length === 0, errors, rows }, null, 2));
+    console.log(JSON.stringify({ ok: errors.length === 0 && fuzz.divergences === 0, errors, fuzz: { n: fuzz.n, seed: fuzz.seed, policyRejects: fuzz.policyRejects, divergences: fuzz.divergences }, rows }, null, 2));
   } else {
-    if (args.includes('--list') || errors.length) {
+    if (args.includes('--list') || errors.length || fuzz.divergences) {
       for (const r of rows) console.log(`${r.case.padEnd(26)} ${IMPLS.map((i) => `${i}=${r[i]}`).join('  ')}`);
     }
     const counts = IMPLS.map((i) => `${i} ${rows.filter((r) => r[i] === 'PASS').length}/${rows.length} pass`).join(' · ');
-    if (errors.length) { console.error(`\nJCS-RFC8785 GATE: FAIL (${errors.length})\n  ` + errors.join('\n  ')); }
-    else console.log(`JCS-RFC8785 GATE: OK · ${counts} · ${known.length} baselined outcome(s), all unchanged`);
+    const fuzzLine = `fuzz: N=${fuzz.n} seed=${FUZZ_SEED} divergences=${fuzz.divergences} policy-rejects=${fuzz.policyRejects}`;
+    if (errors.length || fuzz.divergences) {
+      console.error(`\nJCS-RFC8785 GATE: FAIL (${errors.length + fuzz.divergences})\n  ` + [...errors, ...fuzz.errors].join('\n  '));
+    }
+    else console.log(`JCS-RFC8785 GATE: OK · ${counts} · ${known.length} baselined outcome(s), all unchanged · ${fuzzLine}`);
   }
-  process.exit(errors.length ? 1 : 0);
+  process.exit(errors.length || fuzz.divergences ? 1 : 0);
 }
 
 main();

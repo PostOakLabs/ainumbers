@@ -51,7 +51,7 @@ import { fileURLToPath } from 'node:url';
 import * as vm from 'node:vm';
 import { executionHash } from '../chaingraph/kernels/_hash.mjs';
 import { readOutcome } from '../chaingraph/kernels/_shape.mjs';
-import { deriveTargets, adjudicateTool, directAdjudication } from './gen-webmcp-registrations.mjs';
+import { deriveTargets, adjudicateTool, directAdjudication, probeFunctionExecutes } from './gen-webmcp-registrations.mjs';
 import { makeExecuteSandbox, extractInlineScripts, judgeExecute } from './check-webmcp-wrapper-execute.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -352,6 +352,71 @@ const RUN_PATH_ADAPTERS = {
       for (const t of ART616_CHARGE_TYPES) setVal(sandbox, `c_${t}`, '0');
     },
   },
+  // PR-2734-WEBMCP-CURE-1: the agent-payment-compliance-trail chain's six
+  // direct-mode pages (art-01 is wrapper/prefill-bound, so it never appears
+  // here). Adapters name each page's no-arg run wrapper and prefill fixture 0
+  // into the page's own controls; where fixture 0's policy_parameters is {}
+  // (art-10/art-62/art-104) the run path cannot reproduce the kernel golden's
+  // empty-pp preimage and the leg-2 mismatch is baselined with a reason.
+  'art-565-kya-x402-scope-verifier': {
+    run: 'runCheck',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'credInput', JSON.stringify(pp.kya_credential ?? {}, null, 2));
+      setVal(sandbox, 'payInput', JSON.stringify(pp.x402_payload ?? {}, null, 2));
+    },
+  },
+  'art-585-sanctions-screening-evidence-pack': {
+    run: 'runBindingCheck',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'ppQuery', pp.screening?.query ?? '');
+      setVal(sandbox, 'ppDecision', pp.screening?.decision ?? '');
+      setVal(sandbox, 'ppMatchCount', pp.screening?.match_count == null ? '' : String(pp.screening.match_count));
+      setVal(sandbox, 'ppDatasetId', pp.dataset_ref?.dataset_id ?? '');
+      setVal(sandbox, 'ppDatasetVersion', pp.dataset_ref?.version ?? '');
+      setVal(sandbox, 'ppDigestAlgo', pp.dataset_ref?.digest_algo ?? '');
+      setVal(sandbox, 'ppPublishedDigest', pp.dataset_ref?.published_digest ?? '');
+      setVal(sandbox, 'ppCallerDigest', pp.caller_computed_digest ?? '');
+    },
+  },
+  'art-699-x402-permit2-evidence-recomputer': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      setVal(sandbox, 'ppInput', JSON.stringify(fx.policy_parameters, null, 2));
+    },
+  },
+  'art-10-amla-transaction-typology-risk-scorer': {
+    run: 'runScoring',
+    prefill(sandbox, fx) {
+      // fixture 0 carries {} (the kernel's default-scenario path); load the
+      // page's own structuring scenario so the form path still runs end-to-end.
+      if (typeof sandbox.loadScenario === 'function') sandbox.loadScenario('structuring');
+      // the six weight sliders carry their defaults only as HTML value
+      // attributes, which the element stubs do not reproduce — set them so
+      // runScoring's bare parseFloat() calls never see NaN.
+      setVal(sandbox, 'wStructuring', '1.0');
+      setVal(sandbox, 'wLayering', '1.0');
+      setVal(sandbox, 'wFunnel', '1.0');
+      setVal(sandbox, 'wRoundtrip', '1.0');
+      setVal(sandbox, 'wVelocity', '1.0');
+      setVal(sandbox, 'wTravelRule', '1.2');
+    },
+  },
+  'art-104-tfr-travel-rule-batch-validator': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      setVal(sandbox, 'transfer_batch', '[]');
+      setVal(sandbox, 'tfr_threshold', '1000');
+    },
+  },
+  'art-62-ap2-payment-receipt-verifier': {
+    run: 'run',
+    prefill(sandbox) {
+      // fixture 0 carries {} (the kernel's rejected-inputs path); the form's
+      // empty fields exercise that same path through the page's own controls.
+    },
+  },
 };
 
 function setVal(sandbox, id, v) {
@@ -432,6 +497,28 @@ export async function runDirectRunPath(toolId, pageAbs, pageRel, fixture, resGlo
   return { ok: true, executionHash: String(hash), resultGlobal: rg };
 }
 
+/* ── same-change rule: the pieces a direct-eligible page must ship together ── */
+
+/**
+ * The pieces a direct-eligible page lacks. `leg1` is runDirectExecute's result:
+ * an empty modelContext capture means the page carries no direct block; a missing
+ * RUN_PATH_ADAPTERS entry is read straight from the table.
+ */
+export function missingDirectPieces(toolId, leg1, adapters = RUN_PATH_ADAPTERS) {
+  const missing = [];
+  if (!leg1.ok && /^page registered no WebMCP tool/.test(leg1.error || '')) {
+    missing.push('the direct registration block on the page (generator: node scripts/gen-webmcp-registrations.mjs --direct)');
+  }
+  if (!adapters[toolId]) {
+    missing.push(`a RUN_PATH_ADAPTERS entry for '${toolId}' in scripts/check-webmcp-direct-execute.mjs naming the page's no-arg run wrapper`);
+  }
+  return missing;
+}
+
+export function sameChangeFinding(manifestFile, missing) {
+  return `manifest ${manifestFile} makes this page direct-eligible, but the same change must also ship: ${missing.join('; and ')}`;
+}
+
 /* ── main ─────────────────────────────────────────────────────────────────── */
 
 async function collectFailures() {
@@ -460,6 +547,15 @@ async function collectFailures() {
     // Leg 1 — the registered tool's execute() settles with the golden hash.
     const leg1 = await runDirectExecute(pageAbs, page, fx.policy_parameters);
     const v1 = await judgeDirectExecute(leg1, fx.golden_hash, fx.policy_parameters);
+
+    // Same-change rule: a page that is direct-eligible must carry its direct
+    // block AND its RUN_PATH_ADAPTERS entry. One finding names the manifest and
+    // every missing piece, instead of two leg messages a repointer must decode.
+    const missing = missingDirectPieces(id, leg1);
+    if (missing.length) {
+      problems.push(`${page}: leg 1 (execute): ${sameChangeFinding(v.detail.manifest, missing)}`);
+      continue;
+    }
     if (!v1.ok) {
       problems.push(`${page}: leg 1 (execute): ${v1.problem}`);
     } else if (JSONMODE) {
@@ -604,6 +700,22 @@ async function selfTest() {
     // RED, fail-closed: a derived page with no adapter can never skip leg 2.
     const l2u = await runDirectRunPath('unwired_tool', pageAbs, 'selftest.html', { policy_parameters: pp0 }, '_lastResult');
     if (l2u.ok || !l2u.error.includes('no run-path adapter wired')) fails.push('self-test fail-closed control expected the unwired-adapter RED');
+
+    // Same-change rule. RED: no direct block and no adapter => ONE finding naming
+    // the manifest and both pieces. GREEN: block + adapter present => nothing.
+    const noBlock = { ok: false, error: 'page registered no WebMCP tool (modelContext capture empty)' };
+    const redMissing = missingDirectPieces('unwired_tool', noBlock);
+    const redText = sameChangeFinding('manifests/unwired_tool.manifest.json', redMissing);
+    if (redMissing.length !== 2 || !redText.includes('manifests/unwired_tool.manifest.json') || !redText.includes('direct registration block') || !redText.includes('RUN_PATH_ADAPTERS')) {
+      fails.push(`same-change RED control expected one finding naming the manifest and both missing pieces, got: ${redText}`);
+    }
+    if (missingDirectPieces('selftest_tool', { ok: true })[0]) fails.push('same-change GREEN control (block + adapter present) expected no missing piece');
+
+    // fn-exec probe. GREEN: returns a hashable object. RED: sync helper that returns nothing.
+    const execGreen = await probeFunctionExecutes('<script>function compute(p) { return { output_payload: { echo: p.x } }; }</script>', 'compute', pp0, 2000);
+    if (execGreen !== null) fails.push(`fn-exec GREEN control expected null, got: ${execGreen}`);
+    const execRed = await probeFunctionExecutes('<script>function exportIt(p) { document.body.appendChild({}); }</script>', 'exportIt', pp0, 2000);
+    if (execRed === null || !execRed.includes('returned undefined')) fails.push(`fn-exec RED control (returns nothing) expected a returned-undefined reason, got: ${execRed}`);
   } finally {
     delete RUN_PATH_ADAPTERS.selftest_tool;
     rmSync(dir, { recursive: true, force: true });
@@ -615,7 +727,7 @@ async function selfTest() {
     process.exitCode = 1;
     return;
   }
-  console.log('✓ check-webmcp-direct-execute --self-test clean — leg-1 GREEN + hash-mismatch RED + never-settles RED; leg-2 GREEN + run-throw RED + wrong-hash RED + unwired-adapter fail-closed RED.');
+  console.log('✓ check-webmcp-direct-execute --self-test clean — leg-1 GREEN + hash-mismatch RED + never-settles RED; leg-2 GREEN + run-throw RED + wrong-hash RED + unwired-adapter fail-closed RED; same-change RED + GREEN; fn-exec RED + GREEN.');
 }
 
 const invokedAsMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);

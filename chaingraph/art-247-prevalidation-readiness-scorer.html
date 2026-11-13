@@ -95,7 +95,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 </style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-247-prevalidation-readiness-scorer.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:5474f7090f70ee2ec83b77349b3e6a1aa511bfb76c6e43c9b8972f5556b752c7">
+<meta name="kernel-digest" content="sha256:3a611321fca01c490b5bf91489ba7bf44e4a97c1b74ae28e82cf1e047fc247d9">
 </head>
 <body>
 <nav>
@@ -135,7 +135,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   <h1>Cross-Border Payment Prevalidation Readiness Scorer</h1>
   <p class="sub">Validates a cross-border payment bundle across five dimensions: IBAN mod-97 check digit, BIC format (ISO 9362), UETR UUIDv4 format, LEI 20-character format presence, and PostalAddress24 structure (including silent-fail AdrLine duplication detection). Emits a <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:var(--teal-lt)">ready</code> boolean for the gated prevalidation chain.</p>
   <div style="margin-bottom:6px">
-    <span class="flag info">CBPR+ Nov 2026</span>
+    <span class="flag info">CBPR+ (date deferred)</span>
     <span class="flag info">ISO 13616 IBAN</span>
     <span class="flag info">ISO 9362 BIC</span>
     <span class="flag info">SWIFT UETR UUIDv4</span>
@@ -190,7 +190,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       </div>
       <div class="q">
         <label class="q-label" for="pAdrLines">AdrLine (unstructured, one per line)</label>
-        <div class="q-help">Optional. CBPR+ Nov 2026: max 2 lines x 70 chars. Duplication of structured fields causes silent-fail.</div>
+        <div class="q-help">Optional. CBPR+: max 2 lines x 70 chars. Duplication of structured fields causes silent-fail.</div>
         <textarea id="pAdrLines" placeholder="Leave blank for fully structured address"></textarea>
       </div>
     </div>
@@ -233,6 +233,7 @@ Call it with arguments: {"policy_parameters":{"iban":"DE89370400440532013000","b
 Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string.
 Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.
 PII rule: All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
+Over MCP, the run happens on the AINumbers worker. No AINumbers server stores your inputs.
 Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-247-prevalidation-readiness-scorer.html#p=v1.H4sIAAAAAAAA_wEYAef-eyJpYmFuIjoiREU4OTM3MDQwMDQ0MDUzMjAxMzAwMCIsImJpYyI6IkRFVVRERUZGWFhYIiwibGVpIjoiMDAwMDAwMDAwMDAwMDAwMDAwMDEiLCJ1ZXRyIjoiNTUwZTg0MDAtZTI5Yi00MWQ0LWE3MTYtNDQ2NjU1NDQwMDAwIiwiYWRkcmVzc19zdHJlZXRfbmFtZSI6IkthaXNlcnN0cmFzc2UiLCJhZGRyZXNzX2J1aWxkaW5nX251bWJlciI6IjI5IiwiYWRkcmVzc19wb3N0X2NvZGUiOiI2MDMxMSIsImFkZHJlc3NfdG93bl9uYW1lIjoiRnJhbmtmdXJ0IiwiYWRkcmVzc19jb3VudHJ5IjoiREUifXPgfMwYAQAA</pre>
 </section>
 <!-- ASK-AGENT:END -->
@@ -335,7 +336,7 @@ var MANIFEST = {
   description: 'Validates IBAN mod-97, BIC format, UETR UUIDv4, LEI format presence, and PostalAddress24 structure (CBPR+ silent-fail duplication). Emits ready boolean for gated chain.',
   spec_version: '0.8.0',
   chaingraph_version: '0.4.0',
-  regulation: 'ISO 13616 IBAN; ISO 9362 BIC; SWIFT UETR UUIDv4; ISO 17442 LEI; CBPR+ Nov-2026 PostalAddress24 mandate',
+  regulation: 'ISO 13616 IBAN; ISO 9362 BIC; SWIFT UETR UUIDv4; ISO 17442 LEI; CBPR+ PostalAddress24 structured-address requirement (date deferred by Swift on 27 Aug 2026, new date not published)',
   mcp_tool_definition: {
     name: 'prevalidation_readiness_scorer',
     description: 'Validate IBAN, BIC, UETR, LEI, and PostalAddress24 for a cross-border payment. Returns ready=true only when all required checks pass.',
@@ -430,7 +431,7 @@ function validateAddress(street, city, country, adrLines) {
   var warnings = [];
   if (country && !CTRY_RE.test(country)) errors.push('Ctry must be ISO 3166-1 alpha-2 (two uppercase letters)');
   /* AdrLine count/length check */
-  if (adrLines.length > 2) errors.push('CBPR+ Nov 2026 mandates at most 2 AdrLine entries; ' + adrLines.length + ' provided');
+  if (adrLines.length > 2) errors.push('CBPR+ mandates at most 2 AdrLine entries; ' + adrLines.length + ' provided');
   for (var i = 0; i < adrLines.length; i++) {
     if (adrLines[i].length > 70) errors.push('AdrLine[' + i + '] exceeds 70 chars (' + adrLines[i].length + ')');
   }
@@ -456,7 +457,7 @@ function validateAddress(street, city, country, adrLines) {
   var structure_type = hasStructured && !hasAdrLine ? 'FULLY_STRUCTURED' :
                        hasStructured && hasAdrLine ? 'HYBRID' :
                        !hasStructured && hasAdrLine ? 'UNSTRUCTURED' : 'EMPTY';
-  if (structure_type === 'UNSTRUCTURED') warnings.push('UNSTRUCTURED address (AdrLine only, no StrtNm/TwnNm) will be banned by CBPR+ from 14 November 2026');
+  if (structure_type === 'UNSTRUCTURED') warnings.push('UNSTRUCTURED address (AdrLine only, no StrtNm/TwnNm) will be banned by CBPR+ once the structured-address requirement takes effect (deferred by Swift on 27 Aug 2026, new date not published)');
   return {errors: errors, warnings: warnings, structure_type: structure_type, silent_fail_hits: silentFailHits};
 }
 
@@ -550,7 +551,8 @@ function runScore(){
     readiness_pct: readiness_pct,
     check_details: check_details,
     remediation_actions: remediation_actions,
-    cbpr_plus_deadline: '2026-11-14',
+    cbpr_plus_deadline: null,
+    cbpr_plus_deadline_status: 'deferred by Swift on 27 Aug 2026; no new date published',
     chain_gate_note: 'ready=true means this payment instruction passes CBPR+ pre-validation for STP; ready=false means one or more checks failed and remediation is required before submission.',
     pii_note: 'IBAN, BIC, and LEI are structural payment identifiers, not personal data. All checks are format/structure only. No real party PII processed -- use synthetic identifiers for testing.',
     table_version: 'CBPR-PLUS-PREVALIDATION-COMPOSITE-V1',
