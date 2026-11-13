@@ -1,6 +1,6 @@
 // 838-control-frequency-sample — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:927bf69b1cbb198282cae6ac896ada21bbb1be94d8ad4ca3d609fef41e595df0
-// spec: board/queued CONTROL-FREQ-SAMPLE-NODE-1 (SECOND-OPINION-ESTATE-REVIEW-2026-11-06 idea 3)
+// kernel_digest_at_authoring: sha256:69c6709ef19686ddf6b3eec36c3570e777cdbd10233d35ce3a18fcf468035ee0
+// method: systematic sampling over a caller-declared population hash (see the attribute sampling plan node, art-458)
 // human_sign_off: PENDING
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
@@ -41,7 +41,7 @@ function checkIndicesUniqueInRange() {
   return { name: 'indices_unique_in_range_and_counted', checked, violations };
 }
 
-// Same inputs (same hash) replay to the same selection; the offset stays under the interval.
+// Same inputs (same hash) replay to the same selection; the offset stays under the population size.
 function checkReplayable() {
   const rng = mulberry32(8381);
   let checked = 0, violations = 0;
@@ -49,9 +49,25 @@ function checkReplayable() {
     const pp = randomCase(rng);
     const a = compute(pp), b = compute(JSON.parse(JSON.stringify(pp)));
     checked++;
-    if (!deepEqual(a, b) || a.output_payload.start_offset >= a.output_payload.interval) violations++;
+    if (!deepEqual(a, b) || a.output_payload.start_offset >= pp.population_size) violations++;
   }
   return { name: 'replayable_from_same_hash', checked, violations };
+}
+
+// Every index of the population is reachable across hashes, including the tail, for
+// populations that do not divide evenly by the sample size.
+function checkTailReachable() {
+  let checked = 0, violations = 0;
+  for (const [pop, sample] of [[260, 25], [100, 60], [99, 10], [7, 7], [1000, 25]]) {
+    const seen = new Set();
+    for (let h = 0; h < 6000; h++) {
+      const r = compute({ control_frequency: 'f', population_size: pop, population_hash: 'h' + h, period_days: 30, policy_table: table(1, 1e6, sample) });
+      for (const x of r.output_payload.selected_indices) seen.add(x);
+    }
+    checked++;
+    if (seen.size !== pop || !seen.has(pop - 1)) violations++;
+  }
+  return { name: 'whole_population_reachable_across_hashes', checked, violations };
 }
 
 // A population outside the declared range is flagged, never corrected; the flag mirrors warnings.
@@ -85,6 +101,13 @@ function checkRefusals() {
     [{ ...base, period_days: 0 }, 'PERIOD_DAYS_INVALID'],
     [{ ...base, population_hash: '' }, 'POPULATION_HASH_MISSING'],
     [{ ...base, control_frequency: '' }, 'CONTROL_FREQUENCY_MISSING'],
+    [{ ...base, control_frequency: false }, 'CONTROL_FREQUENCY_MISSING'],
+    [{ ...base, control_frequency: {} }, 'CONTROL_FREQUENCY_MISSING'],
+    [{ ...base, population_hash: ['x'] }, 'POPULATION_HASH_MISSING'],
+    [{ ...base, population_hash: false }, 'POPULATION_HASH_MISSING'],
+    [{ ...base, population_size: 1e9, policy_table: table(1, 1e12, 100001) }, 'SAMPLE_SIZE_EXCEEDS_LIMIT'],
+    [{ ...base, population_size: 1e21, policy_table: table(1, 1e22, 1e21) }, 'POLICY_TABLE_ROW_INVALID'],
+    [{ ...base, population_size: 9007199254740991, policy_table: table(1, 9007199254740991, 5e7) }, 'SAMPLE_SIZE_EXCEEDS_LIMIT'],
     [{ ...base, policy_table: [{ ...base.policy_table[0], sample_size: 0 }] }, 'POLICY_TABLE_ROW_INVALID'],
     [{ ...base, policy_table: [base.policy_table[0], base.policy_table[0]] }, 'FREQUENCY_ROW_DUPLICATED'],
   ];
@@ -111,6 +134,7 @@ try {
 const properties = [
   checkIndicesUniqueInRange(),
   checkReplayable(),
+  checkTailReachable(),
   checkOutOfRangeFlagged(),
   checkRefusals(),
 ];

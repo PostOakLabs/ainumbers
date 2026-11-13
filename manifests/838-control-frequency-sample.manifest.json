@@ -8,7 +8,7 @@
   "author": "PostOakLabs",
   "bridge_version": "1.3",
   "category": "sox-404-icfr-audit-controls",
-  "description": "Applies a table you declare. It ships no table, and is not guidance from any audit firm or standard-setter. The sample size is only as defensible as the table. From a control frequency, a declared population size, a declared population hash, a period in days and a caller-supplied policy table keyed by frequency, it returns the sample size from the matching row, whether the declared population falls inside the expected range for that frequency (a mismatch is flagged, never corrected), and a deterministic integer selection interval and start offset derived from the population hash. A missing table, a missing or duplicated frequency row, an invalid row or a sample size above the population is refused with an explicit code. No randomness and no clock.",
+  "description": "Applies a table you declare. It ships no table, and is not guidance from any audit firm or standard-setter. The sample size is only as defensible as the table. From a control frequency, a declared population size, a declared population hash, a period in days and a caller-supplied policy table keyed by frequency, it returns the sample size from the matching row, whether the declared population falls inside the expected range for that frequency (a mismatch is flagged, never corrected), and a deterministic integer start offset derived from the population hash and evenly spread selected indices. A missing table, a missing or duplicated frequency row, an invalid row or a sample size above the population is refused with an explicit code. No randomness and no clock.",
   "execution": {
     "type": "browser-javascript",
     "entry": "chaingraph/838-control-frequency-sample.html",
@@ -50,7 +50,7 @@
   },
   "license": "CC-BY-4.0",
   "mcp_tool_definition": {
-    "description": "Applies a table you declare: from a control frequency, a declared population and your policy table, returns the sample size and a deterministic selection interval, and flags a population outside the range declared for that frequency. Ships no table and is not audit guidance. Refuses a missing table, a missing frequency row or a sample larger than the population. Zero network calls, zero PII.",
+    "description": "Applies a table you declare: from a control frequency, a declared population and your policy table, returns the sample size and a deterministic selection of indices across the whole population, and flags a population outside the range declared for that frequency. Ships no table and is not audit guidance. Refuses a missing table, a missing or wrong-typed frequency or hash, a missing frequency row, a sample larger than the population or larger than 100000. Zero network calls, zero PII.",
     "inputSchema": {
       "type": "object",
       "required": [
@@ -138,22 +138,15 @@
           "null"
         ]
       },
-      "interval": {
-        "description": "Selection interval, floor(population_size / sample_size), null when refused",
-        "type": [
-          "integer",
-          "null"
-        ]
-      },
       "start_offset": {
-        "description": "Start offset folded from population_hash, below the interval, null when refused",
+        "description": "fold(population_hash) mod population_size, in 0..population_size-1, null when refused",
         "type": [
           "integer",
           "null"
         ]
       },
       "selected_indices": {
-        "description": "Zero-based selected indices, unique and in range, empty when refused",
+        "description": "Zero-based indices floor((start_offset + i * population_size) / sample_size), unique and in range, empty when refused",
         "type": "array"
       },
       "warnings": {
@@ -234,12 +227,11 @@
     },
     "sample_size": 1,
     "within_expected_range": true,
-    "interval": 1,
     "start_offset": 0,
     "selected_indices": [
       0
     ],
     "warnings": []
   },
-  "example_execution_hash": "e5f1f131c6dead25e0860aff765eda31abe000e8f0fc03d178a1350d15ae3803"
+  "example_execution_hash": "96bb91e24edf2bc22cbd756cabe711a88dfed03c9fc1cdd582f31fc1bceef887"
 }

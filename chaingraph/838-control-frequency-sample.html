@@ -5,24 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>Control Frequency Sample · ART-838 · OpenChainGraph · AINumbers.co</title>
-<meta name="description" content="Applies a table you declare: from a control frequency, a declared population and your own policy table, returns the sample size and a deterministic selection interval, and flags a population outside the range declared for that frequency. Ships no table. Zero network calls.">
+<meta name="description" content="Applies a table you declare: from a control frequency, a declared population and your own policy table, returns the sample size and a deterministic selection of indices, and flags a population outside the range declared for that frequency. Ships no table. Zero network calls.">
 <meta name="ain:category" content="run">
 <meta name="robots" content="index, follow">
 <meta name="author" content="Post Oak Labs">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/838-control-frequency-sample.html">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Control Frequency Sample · ART-838 · OpenChainGraph · AINumbers.co">
-<meta property="og:description" content="Sample size and deterministic selection interval from a control frequency and a policy table you declare. A population outside the declared range is flagged, never corrected.">
+<meta property="og:description" content="Sample size and deterministic selection of indices from a control frequency and a policy table you declare. A population outside the declared range is flagged, never corrected.">
 <meta property="og:url" content="https://ainumbers.co/chaingraph/838-control-frequency-sample.html">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"Control Frequency Sample · ART-838 · OpenChainGraph","url":"https://ainumbers.co/chaingraph/838-control-frequency-sample.html","applicationCategory":"FinanceApplication","operatingSystem":"Web","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs"},"description":"Applies a table you declare: returns the sample size and a deterministic selection interval for a control frequency and a declared population, and flags a population outside the declared range. Ships no table."}
+{"@context":"https://schema.org","@type":"WebApplication","name":"Control Frequency Sample · ART-838 · OpenChainGraph","url":"https://ainumbers.co/chaingraph/838-control-frequency-sample.html","applicationCategory":"FinanceApplication","operatingSystem":"Web","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Post Oak Labs"},"description":"Applies a table you declare: returns the sample size and a deterministic selection of indices for a control frequency and a declared population, and flags a population outside the declared range. Ships no table."}
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <meta name="ai-tool" content="plan_control_frequency_sample">
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/838-control-frequency-sample.kernel.mjs; restamp with --digest whenever the kernel source moves. -->
-<meta name="kernel-digest" content="sha256:927bf69b1cbb198282cae6ac896ada21bbb1be94d8ad4ca3d609fef41e595df0">
+<meta name="kernel-digest" content="sha256:69c6709ef19686ddf6b3eec36c3570e777cdbd10233d35ce3a18fcf468035ee0">
 <style>
 :root{
   --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--bg-4:#162340;
@@ -140,7 +140,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   <div class="hero">
     <div class="hero-eyebrow">ART-838 &middot; OpenChainGraph &middot; Control Frequency Sample</div>
     <h1>Control Frequency Sample</h1>
-    <p>Give this node a control&rsquo;s frequency, the size of the population of instances you are sampling from, and a policy table you declare. It returns the sample size from the table row for that frequency, says whether the population falls inside the range the table expects for that frequency, and derives an integer selection interval and start offset from the population hash you declare.</p>
+    <p>Give this node a control&rsquo;s frequency, the size of the population of instances you are sampling from, and a policy table you declare. It returns the sample size from the table row for that frequency, says whether the population falls inside the range the table expects for that frequency, and derives an integer start offset from the population hash you declare, then spreads the selected indices evenly across the whole population.</p>
     <div class="hero-meta">
       <span class="badge badge-teal">compliance_control</span>
       <span class="badge badge-teal">server compute</span>
@@ -159,14 +159,13 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="out-body">
         <div class="out-row"><span class="k">sample_size</span><span class="v">taken from your table row, never computed</span></div>
         <div class="out-row"><span class="k">within_expected_range</span><span class="v">whether the declared population lies between the row&rsquo;s min_population and max_population</span></div>
-        <div class="out-row"><span class="k">interval</span><span class="v">floor(population_size &divide; sample_size)</span></div>
-        <div class="out-row"><span class="k">start_offset</span><span class="v">a fold of population_hash, always below the interval</span></div>
-        <div class="out-row"><span class="k">selected_indices</span><span class="v">start_offset + i &times; interval, unique and in range, replayable from the same hash</span></div>
+        <div class="out-row"><span class="k">start_offset</span><span class="v">a fold of population_hash, modulo population_size</span></div>
+        <div class="out-row"><span class="k">selected_indices</span><span class="v">floor((start_offset + i &times; population_size) &divide; sample_size) for i from 0 to sample_size &minus; 1, unique and in range, replayable from the same hash</span></div>
         <div class="out-row"><span class="k">frequency_row</span><span class="v">the table row that was used, echoed back</span></div>
       </div>
     </div>
     <p>A population outside the expected range, such as 40 instances of a control declared monthly, is flagged <code>POPULATION_OUTSIDE_EXPECTED_RANGE</code>. The node still plans the sample from the declared row and never silently corrects the population or the frequency, because the mismatch is itself a finding for the reviewer.</p>
-    <p>Selection is systematic interval sampling over a population hash you commit to before the call. There is no random number generator and no clock, so a verifier can replay the exact selection.</p>
+    <p>Selection is systematic sampling over a population hash you commit to before the call, using integer arithmetic only, so every position in the population can be selected for some hash. There is no random number generator and no clock, so a verifier can replay the exact selection.</p>
   </div>
 
   <div class="section" id="manifest">
@@ -181,13 +180,13 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
         <div class="out-row"><span class="k">policy_table <span style="color:var(--warn)">(required, array)</span></span><span class="v">rows of frequency, min_population, max_population, sample_size (integers)</span></div>
       </div>
     </div>
-    <p>Refusal codes (compliance_flags <code>["INPUT_REFUSED"]</code>): CONTROL_FREQUENCY_MISSING, POPULATION_SIZE_INVALID, PERIOD_DAYS_INVALID, POPULATION_HASH_MISSING, POLICY_TABLE_MISSING, POLICY_TABLE_ROW_INVALID, FREQUENCY_ROW_MISSING, FREQUENCY_ROW_DUPLICATED, SAMPLE_SIZE_EXCEEDS_POPULATION. A refusal returns no sample size and no indices.</p>
+    <p>Refusal codes (compliance_flags <code>["INPUT_REFUSED"]</code>): CONTROL_FREQUENCY_MISSING, POPULATION_SIZE_INVALID, PERIOD_DAYS_INVALID, POPULATION_HASH_MISSING, POLICY_TABLE_MISSING, POLICY_TABLE_ROW_INVALID, FREQUENCY_ROW_MISSING, FREQUENCY_ROW_DUPLICATED, SAMPLE_SIZE_EXCEEDS_POPULATION, SAMPLE_SIZE_EXCEEDS_LIMIT (above 100000). A frequency or hash that is not a string is refused with the matching MISSING code. A refusal returns no sample size and no indices.</p>
     <p>Every table in the conformance fixtures is synthetic and illustrative, labelled as such in the fixture names. None of those values is a recommended sample size.</p>
   </div>
 
   <div class="section">
     <h2>Provenance</h2>
-    <p class="provenance">Selection by interval over a caller-declared population hash follows the same method as the attribute sampling plan node (ART-458); the code is a copy, not an import. This page and the node are CC BY 4.0.</p>
+    <p class="provenance">Selection over a caller-declared population hash follows the same method as the attribute sampling plan node (ART-458); the code is a copy, not an import. This page and the node are CC BY 4.0.</p>
   </div>
 
   <div class="generated-at">Node page authored 2026-11-13</div>
@@ -200,7 +199,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <button type="button" aria-label="Copy the ask-your-agent paragraph" onclick="(function(b){var t=document.getElementById('ask-agent-copy').textContent;function d(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy';},1200);}if(navigator.clipboard&amp;&amp;navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){});}else{var r=document.createRange();r.selectNodeContents(document.getElementById('ask-agent-copy'));var s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('copy');s.removeAllRanges();d();}})(this)" style="margin-left:auto;background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .8rem;cursor:pointer">Copy</button>
   </div>
   <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
-  <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `plan_control_frequency_sample`. Task: Apply a table you declare: from a control frequency, a declared population and your policy table, returns the sample size and a deterministic selection interval, and flags a population outside the range declared for that frequency.
+  <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `plan_control_frequency_sample`. Task: Apply a table you declare: from a control frequency, a declared population and your policy table, returns the sample size and a deterministic selection of indices, and flags a population outside the range declared for that frequency.
 Call it with arguments: {"policy_parameters":{"control_frequency":"annual","population_size":1,"population_hash":"pop-hash-annual-0001","period_days":365,"policy_table":[{"frequency":"annual","min_population":1,"max_population":1,"sample_size":1},{"frequency":"quarterly","min_population":4,"max_population":4,"sample_size":2},{"frequency":"monthly","min_population":12,"max_population":12,"sample_size":2},{"frequency":"weekly","min_population":52,"max_population":52,"sample_size":5},{"frequency":"daily","min_population":250,"max_population":260,"sample_size":25},{"frequency":"multiple_per_day","min_population":1000,"max_population":100000,"sample_size":60}]}}
 Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string.
 Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.

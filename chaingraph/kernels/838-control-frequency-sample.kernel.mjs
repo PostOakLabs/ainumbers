@@ -1,15 +1,18 @@
 import { executionHash } from './_hash.mjs';
 
 // 838-control-frequency-sample: from a control's frequency, a declared population and a
-// caller-declared policy table, return the sample size and a deterministic selection interval.
+// caller-declared policy table, return the sample size and a deterministic selection.
 // The kernel applies a table you declare. It ships no table: every row (expected population
 // range and sample size per frequency) arrives in the call. A population outside the declared
-// range for its frequency is FLAGGED, never silently corrected. Selection is interval sampling
-// over the caller-declared population_hash (integer fold, no randomness, no clock), copied in
-// concept from art-458. Zero network, zero PII, pure function of pp.
+// range for its frequency is FLAGGED, never silently corrected. Selection is systematic
+// sampling over the caller-declared population_hash (integer fold, no randomness, no clock),
+// the same method family as the attribute sampling plan node (art-458). Zero network, zero PII,
+// pure function of pp.
 
 const TOOL_ID = '838-control-frequency-sample';
 const TOOL_VERSION = '1.0.0';
+// Upper bound on a declared sample_size; larger plans refuse instead of allocating.
+const MAX_SAMPLE_SIZE = 100000;
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -17,15 +20,16 @@ export const meta = {
   mandate_type: 'compliance_control', gpu: false,
 };
 
-function s(v) { return v == null ? '' : String(v).trim(); }
-function isInt(v) { return typeof v === 'number' && Number.isInteger(v); }
+// Strings only: any other type reads as absent, so a wrong-typed input refuses.
+function s(v) { return typeof v === 'string' ? v.trim() : ''; }
+function isInt(v) { return typeof v === 'number' && Number.isSafeInteger(v); }
 
 // Deterministic string -> non-negative integer fold (not cryptographic): a reproducible
-// start offset derived from the caller-declared population_hash.
-function foldHashToOffset(hashStr, interval) {
+// start derived from the caller-declared population_hash.
+function foldHash(hashStr) {
   let acc = 0;
   for (let i = 0; i < hashStr.length; i++) acc = (acc * 31 + hashStr.charCodeAt(i)) >>> 0;
-  return interval > 0 ? acc % interval : 0;
+  return acc;
 }
 
 function refused(pp, reasons) {
@@ -40,7 +44,6 @@ function refused(pp, reasons) {
       frequency_row: null,
       sample_size: null,
       within_expected_range: null,
-      interval: null,
       start_offset: null,
       selected_indices: [],
       warnings: flags.slice(),
@@ -84,17 +87,21 @@ export function compute(pp) {
   if (row !== null && isInt(pp.population_size) && row.sample_size > pp.population_size) {
     reasons.push('SAMPLE_SIZE_EXCEEDS_POPULATION');
   }
+  if (row !== null && row.sample_size > MAX_SAMPLE_SIZE) reasons.push('SAMPLE_SIZE_EXCEEDS_LIMIT');
   if (reasons.length > 0) return refused(pp, reasons);
 
   const population_size = pp.population_size;
   const sample_size = row.sample_size;
   const within = population_size >= row.min_population && population_size <= row.max_population;
-  const interval = Math.floor(population_size / sample_size);
-  const start_offset = foldHashToOffset(population_hash, interval);
-  // start_offset < interval, so start + i*interval < sample_size*interval <= population_size:
-  // every index is unique and in range without clamping.
+  // start_offset = fold(population_hash) mod population_size, in [0, population_size).
+  // idx_i = floor((start_offset + i * population_size) / sample_size). Because
+  // sample_size <= population_size, consecutive steps differ by at least 1 and the last index
+  // is below population_size: unique, in range, no clamping, and the tail is reachable.
+  // BigInt keeps the product exact for any safe-integer population.
+  const start_offset = foldHash(population_hash) % population_size;
+  const P = BigInt(population_size), S = BigInt(sample_size), O = BigInt(start_offset);
   const selected_indices = [];
-  for (let i = 0; i < sample_size; i++) selected_indices.push(start_offset + i * interval);
+  for (let i = 0n; i < S; i++) selected_indices.push(Number((O + i * P) / S));
 
   const compliance_flags = [];
   if (!within) compliance_flags.push('POPULATION_OUTSIDE_EXPECTED_RANGE');
@@ -115,7 +122,6 @@ export function compute(pp) {
       },
       sample_size,
       within_expected_range: within,
-      interval,
       start_offset,
       selected_indices,
       warnings,
