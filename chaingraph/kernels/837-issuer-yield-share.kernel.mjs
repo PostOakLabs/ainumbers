@@ -15,6 +15,8 @@ import { executionHash } from './_hash.mjs';
 //   split          — [{ party_role, share_bp | fixed_minor }] over issuer / platform /
 //                    distributor / custodian.
 //   holder_rewards — [{ payer_role, funded_from, value_minor, conditioned_on }] with
+//                    payer_role in { issuer, permitted_issuer, foreign_issuer, platform,
+//                    distributor, custodian } (the first three count as the issuer) and
 //                    funded_from in { reserve_income, distributor_margin, other } and
 //                    conditioned_on in { holding, activity, none }.
 //
@@ -157,27 +159,33 @@ export function compute(pp) {
   if (!Array.isArray(rewards) || rewards.length > 64) {
     return refuse('holder_rewards_must_be_array_0_to_64', show(Array.isArray(rewards) ? rewards.length : (rewards === undefined || rewards === null ? null : typeof rewards)));
   }
-  const FUND_FROM = { reserve_income: true, distributor_margin: true, other: true };
-  const COND_ON = { holding: true, activity: true, none: true };
+  // Closed vocabularies. Sets, so a prototype name or a non-string never matches.
+  const FUND_FROM = new Set(['reserve_income', 'distributor_margin', 'other']);
+  const COND_ON = new Set(['holding', 'activity', 'none']);
+  // payer_role is closed: issuer classes (permitted and foreign payment stablecoin
+  // issuers) count as the issuer; platform, distributor, custodian are non-issuers.
+  // Any other role, including issuer_affiliate, is refused rather than read as a non-issuer.
+  const ISSUER_PAYER = new Set(['issuer', 'permitted_issuer', 'foreign_issuer']);
+  const PAYER_ROLES = new Set(['issuer', 'permitted_issuer', 'foreign_issuer', 'platform', 'distributor', 'custodian']);
   const trace = [];
   let issuerPaid = false;
   let issuerFunded = false;
   for (let i = 0; i < rewards.length; i++) {
     const r = rewards[i] || {};
-    if (typeof r.payer_role !== 'string' || !ROLE_RE.test(r.payer_role)) {
-      return refuse('reward_payer_role_must_be_snake_case', show(r.payer_role).slice(0, 40));
+    if (typeof r.payer_role !== 'string' || !PAYER_ROLES.has(r.payer_role)) {
+      return refuse('reward_payer_role_must_be_enumerated', show(r.payer_role).slice(0, 40));
     }
-    if (!FUND_FROM[r.funded_from]) {
+    if (typeof r.funded_from !== 'string' || !FUND_FROM.has(r.funded_from)) {
       return refuse('reward_funded_from_must_be_enumerated', show(r.funded_from).slice(0, 40));
     }
     const v = r.value_minor;
     if (typeof v !== 'number' || !isFinite(v) || v !== Math.floor(v) || v < 0) {
       return refuse('reward_value_minor_must_be_nonnegative_integer', show(v));
     }
-    if (!COND_ON[r.conditioned_on]) {
+    if (typeof r.conditioned_on !== 'string' || !COND_ON.has(r.conditioned_on)) {
       return refuse('reward_conditioned_on_must_be_enumerated', show(r.conditioned_on).slice(0, 40));
     }
-    const payerIsIssuer = r.payer_role === 'issuer';
+    const payerIsIssuer = ISSUER_PAYER.has(r.payer_role);
     const fromIssuerFlow = r.funded_from === 'reserve_income';
     if (payerIsIssuer) issuerPaid = true;
     if (fromIssuerFlow && !payerIsIssuer) issuerFunded = true;

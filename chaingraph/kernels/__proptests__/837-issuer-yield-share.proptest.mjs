@@ -1,5 +1,5 @@
 // 837-issuer-yield-share — class-K property-test floor. Authored per FV-PBT-FLOOR-BUILD-SPEC.md.
-// kernel_digest_at_authoring: sha256:c4390f2e67b1701636ebee2e36733d97990632764ad980cca6c54498c8aa4a37
+// kernel_digest_at_authoring: sha256:b123b156ec3cde8bcfbafbee76cd95b0adccb12143c99741a90e9ee3c681ba5e
 // spec: board/queued/ISSUER-YIELD-SHARE-CHECK-1.md (aggregate split recompute + issuer-yield trace)
 // human_sign_off: PENDING (node lands deferred)
 //
@@ -77,14 +77,15 @@ function checkConservation() {
 // otherwise NO_ISSUER_YIELD.
 function checkVerdictMapping() {
   const rng = mulberry32(789004);
-  const payers = ['issuer', 'platform', 'distributor', 'custodian'];
+  const payers = ['issuer', 'permitted_issuer', 'foreign_issuer', 'platform', 'distributor', 'custodian'];
+  const issuerClass = ['issuer', 'permitted_issuer', 'foreign_issuer'];
   const funds = ['reserve_income', 'distributor_margin', 'other'];
   const conds = ['holding', 'activity', 'none'];
   let checked = 0, violations = 0;
   for (let i = 0; i < 90; i++) {
     const payer = pick(rng, payers), from = pick(rng, funds), cond = pick(rng, conds);
     const r = compute(basePP({ period: { days: 31, reserve_income_minor: 300000 }, split: [{ party_role: 'issuer', fixed_minor: 150000 }, { party_role: 'platform', fixed_minor: 90000 }, { party_role: 'distributor', fixed_minor: 60000 }], holder_rewards: [{ payer_role: payer, funded_from: from, value_minor: 1000, conditioned_on: cond }] })).output_payload;
-    const want = payer === 'issuer' ? 'ISSUER_YIELD_PRESENT' : (from === 'reserve_income' ? 'REVIEW' : 'NO_ISSUER_YIELD');
+    const want = issuerClass.includes(payer) ?'ISSUER_YIELD_PRESENT' : (from === 'reserve_income' ? 'REVIEW' : 'NO_ISSUER_YIELD');
     if (r.verdict !== want) violations++;
     checked++;
     if (r.profile !== 'genius_enacted' || r.proposed !== false) violations++;
@@ -110,6 +111,11 @@ function checkRefusals() {
     basePP({ holder_rewards: [{ payer_role: 'issuer', funded_from: 'share_buyback', value_minor: 1, conditioned_on: 'holding' }] }),
     basePP({ holder_rewards: [{ payer_role: 'issuer', funded_from: 'reserve_income', value_minor: -5, conditioned_on: 'holding' }] }),
     basePP({ holder_rewards: [{ payer_role: 'issuer', funded_from: 'reserve_income', value_minor: 1, conditioned_on: 'loyalty' }] }),
+    // wrong-typed and prototype-named enum values refuse (an array or prototype name must not pass)
+    ...[['reserve_income'], 'constructor', '__proto__', 'toString'].map((f) => basePP({ holder_rewards: [{ payer_role: 'platform', funded_from: f, value_minor: 1, conditioned_on: 'holding' }] })),
+    ...[['holding'], 'constructor', '__proto__', 'toString'].map((c) => basePP({ holder_rewards: [{ payer_role: 'platform', funded_from: 'other', value_minor: 1, conditioned_on: c }] })),
+    // roles outside the closed payer vocabulary refuse, including issuer_affiliate
+    ...['issuer_affiliate', 'regulator', 'constructor'].map((p) => basePP({ holder_rewards: [{ payer_role: p, funded_from: 'other', value_minor: 1, conditioned_on: 'holding' }] })),
   ];
   let checked = 0, violations = 0;
   for (const pp of bad) {
