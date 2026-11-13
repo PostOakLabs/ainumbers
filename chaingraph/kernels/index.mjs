@@ -712,6 +712,7 @@ import * as art828    from './art-828-reconcile-omnibus-token-position.kernel.mj
 import * as art83     from './art-83-buy-in-exposure-modeler.kernel.mjs';
 import * as art830    from './art-830-eip3009-spend-exposure-reconciler.kernel.mjs';
 import * as art831    from './art-831-receipt-export-envelopes.kernel.mjs';
+import * as art833    from './art-833-lint-pan-sad-exposure.kernel.mjs';
 import * as art84     from './art-84-settlement-efficiency-kpi.kernel.mjs';
 import * as art85     from './art-85-pqc-timeline-fit-diagnostic.kernel.mjs';
 import * as art86     from './art-86-tls-pki-migration-planner.kernel.mjs';
@@ -1456,6 +1457,7 @@ export const KERNELS = {
   'art-83-buy-in-exposure-modeler':                             art83,
   'art-830-eip3009-spend-exposure-reconciler':                  art830,
   'art-831-receipt-export-envelopes':                           art831,
+  'art-833-lint-pan-sad-exposure':                              art833,
   'art-84-settlement-efficiency-kpi':                           art84,
   'art-85-pqc-timeline-fit-diagnostic':                         art85,
   'art-86-tls-pki-migration-planner':                           art86,

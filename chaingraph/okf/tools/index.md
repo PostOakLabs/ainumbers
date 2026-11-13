@@ -714,6 +714,7 @@ status: stable
 - [Buy-In Exposure Modeler](./art-83-buy-in-exposure-modeler.md) — `model_buy_in_exposure`
 - [EIP-3009 Spend Exposure Reconciler](./art-830-eip3009-spend-exposure-reconciler.md) — `reconcile_eip3009_spend_exposure`
 - [Receipt Export Envelopes](./art-831-receipt-export-envelopes.md) — `export_receipt_lineage_events`
+- [PAN and SAD Exposure Linter](./art-833-lint-pan-sad-exposure.md) — `lint_pan_sad_exposure`
 - [Settlement Efficiency KPI Engine](./art-84-settlement-efficiency-kpi.md) — `compute_settlement_efficiency_kpi`
 - [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md) — `run_pqc_timeline_fit`
 - [TLS / X.509 PKI Migration Planner](./art-86-tls-pki-migration-planner.md) — `plan_tls_pki_migration`
