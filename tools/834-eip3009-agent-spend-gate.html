@@ -1122,7 +1122,31 @@ function runGate() {
       '</ul><p class="note-line">Fix the listed JSON and run again.</p></div></div>';
     return;
   }
-  var r = gateCompute(pp);
+  var r;
+  try {
+    r = gateCompute(pp);
+  } catch (e) {
+    /* A compute that throws must not leave the previous verdict on screen or
+       in the export: drop every run-state member, re-lock the export buttons
+       (mirror of enableAP2Btn), and show the problem as a plain-words input
+       error. No stack trace, no stale SPEND anywhere. */
+    window._gatePP = null;
+    window._gateOp = null;
+    window._gateFlags = null;
+    window._gateInputs = {};
+    window._gateMarkdown = '';
+    window._ap2Result = null;
+    window._lastMandate = null;
+    var b = document.getElementById('ap2ExportBtn');
+    var m = document.getElementById('mdExportBtn');
+    if (b) { b.disabled = true; b.classList.remove('ready'); b.style.cursor = 'not-allowed'; b.style.opacity = '.28'; b.title = 'Run the analysis above to generate a Policy Mandate'; }
+    if (m) { m.disabled = true; m.style.cursor = 'not-allowed'; m.style.opacity = '.28'; m.title = 'Run the analysis above to generate the Markdown transcript'; }
+    out.innerHTML = '<div class="out-section"><div class="out-header"><span class="out-title">Input errors</span></div>' +
+      '<div class="out-body"><p class="note-line">The gate could not evaluate these inputs, so no decision was made and any earlier result was cleared. ' +
+      'This usually means a policy value the gate reads as text, such as an allowed_chain_ids entry or a window cap amount, was written as a plain number. ' +
+      'Write those values as quoted strings (for example "84532" or "250.00") and run again.</p></div></div>';
+    return;
+  }
   window._gatePP = pp;
   window._gateOp = r.output_payload;
   window._gateFlags = r.compliance_flags;
