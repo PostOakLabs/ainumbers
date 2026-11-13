@@ -1047,6 +1047,20 @@ const PREFLIGHT_ONLY = new Map([
     "push to main. DELIBERATELY not a named CI step. The paired red-proof is the same script's " +
     "--self-test mode, wired as its own GATES entry."],
 
+  // ── WEBMCP-SIGNED-EXPIRY-1 (2026-11-12) ────────────────────────────────────
+  ["check-webmcp-snapshot-fresh.mjs",
+    "WebMCP signed snapshot expiry freshness: fails when the published " +
+    ".well-known/webmcp-signed.json sits inside the 7-day renewal window or is expired. The " +
+    "PR/main split lives INSIDE the gate (isMainContext(): advisory on a pull_request, HARD on " +
+    "push:main and merge_group), because the branch cannot re-sign (the key never leaves the " +
+    "key-holding desk). It reads the snapshot through derivedResolve and is a DERIVED_ROOT_GATES " +
+    "member (classification only: the snapshot is hand-signed, EXCLUDED from regen, so the gate is " +
+    "not COVERED). Its CI route is scripts-verify.yml's full preflight (runs " +
+    "`node scripts/preflight.mjs` on scripts/** changes, this gate's own diff shape) plus every " +
+    "push to main and every merge_group run; same shape as check-webmcp-signed-snapshot.mjs above. " +
+    "DELIBERATELY not a named CI step. The paired red-proof is the same script's --self-test " +
+    "mode, wired as its own GATES entry."],
+
   // ── VENDOR-DIGEST-GATE-1 (2026-09-03) ──────────────────────────────────────
   ["check-vendored-digests.mjs",
     "Vendored-crypto sha256 pin gate: recomputes the digest of the noble bn254/ed25519/secp256k1 " +
@@ -1106,6 +1120,7 @@ const PREFLIGHT_ONLY = new Map([
   ["gen-rule-registry.test.mjs", SELF_TEST],
   ["check-nav-reachability.test.mjs", SELF_TEST],
   ["check-retired-mcp-toggle.test.mjs", SELF_TEST],
+  ["check-kernel-missing-input-failclosed.selftest.mjs", SELF_TEST],
   ["check-retired-ap2-version.test.mjs", SELF_TEST],
   ["diff-scope.test.mjs", SELF_TEST],
   ["check-clause-digest.test.mjs", SELF_TEST],
@@ -1218,6 +1233,7 @@ const PREFLIGHT_ONLY = new Map([
   ["apply-topic-links.mjs", VIA_PREFLIGHT],
   ["check-ssot-no-npm.mjs", VIA_PREFLIGHT],
   ["check-retired-mcp-toggle.mjs", VIA_PREFLIGHT],
+  ["check-kernel-missing-input-failclosed.mjs", VIA_PREFLIGHT],
   ["check-retired-ap2-version.mjs", VIA_PREFLIGHT],
   ["generate-node-manifest.mjs", VIA_PREFLIGHT],
   ["generate-node-manifest.test.mjs", SELF_TEST],

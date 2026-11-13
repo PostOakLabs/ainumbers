@@ -1820,6 +1820,11 @@ export const DERIVED_ROOT_GATES = new Set([
   // hard in every context. Membership here is classification-only: the gate is not COVERED, so
   // runVerifyGates never runs it and never skips it for non-awareness.
   'node scripts/check-ledger-hermetic.mjs',                  // ledger hermetic (names kernel-digests.json; reads page source only)
+  // WEBMCP-SIGNED-EXPIRY-1 (DERIVED-READER-COVERAGE-1): the snapshot freshness gate reads
+  // .well-known/webmcp-signed.json through derivedResolve, so a merge_group overlay judges the
+  // assembled tree. The file itself is hand-signed (EXCLUDED, never regen-written); the gate is not
+  // COVERED, so membership is awareness classification only.
+  'node scripts/check-webmcp-snapshot-fresh.mjs',            // snapshot expiry freshness (overlay-reads the signed snapshot)
 ]);
 
 // S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1 (2026-10-31): derivedRoot/derivedResolve moved VERBATIM

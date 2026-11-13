@@ -1732,7 +1732,10 @@ const GATES = [
   ['SSOT no dead npm commands (CONTRACT-DEADCMD-FIX-1)', 'node scripts/check-ssot-no-npm.mjs'],
   ['Retired mcp-toggle tombstone (§1.2, RETIREMENT-TOMBSTONE-GATES-1)', 'node scripts/check-retired-mcp-toggle.mjs'],
   ['Retired mcp-toggle tombstone controls (RED+GREEN mutation)', 'node scripts/check-retired-mcp-toggle.test.mjs'],
-  ['Retired ap2_version tombstone (§3.1/A3.2, RETIREMENT-TOMBSTONE-GATES-1)', 'node scripts/check-retired-ap2-version.mjs'],
+  // KERNEL-MISSING-INPUT-FAILCLOSED-GATE-1 (stage 1): ADVISORY by construction, the checker always exits 0.
+  ['Kernel missing-input fail-closed sweep (stage 1 advisory, always exits 0)', 'node scripts/check-kernel-missing-input-failclosed.mjs'],
+  ['Kernel missing-input fail-closed controls (RED+GREEN planted kernels)', 'node scripts/check-kernel-missing-input-failclosed.selftest.mjs'],
+  ['Retired ap2_version tombstone (§3.1/A3.2, RETIREMENT-TOMBSTONE-GATES-1)','node scripts/check-retired-ap2-version.mjs'],
   ['Retired ap2_version tombstone controls (RED+GREEN mutation)', 'node scripts/check-retired-ap2-version.test.mjs'],
   ['Credits registry coverage (vendored-code license gate)', 'node scripts/check-credits-coverage.mjs repo'],
   ['Credits page freshness (generated from registry)', 'node scripts/gen-credits.mjs repo --check'],
@@ -1994,6 +1997,15 @@ const GATES = [
   // (bad signature / wrong typ / malformed); absence, age and drift are advisory.
   ['WebMCP signed snapshot (WEBMCP-SIGNED-SNAPSHOT-1)', 'node scripts/check-webmcp-signed-snapshot.mjs'],
   ['WebMCP signed snapshot fixture proof (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-webmcp-signed-snapshot.mjs --self-test'],
+  // WEBMCP-SIGNED-EXPIRY-1: the snapshot now carries expires (generated_at + 30d) and a
+  // monotonic version. Hard on main/merge_group when the published snapshot sits inside
+  // the 7-day renewal window (or is expired), so the expiry cannot lapse silently;
+  // advisory on PRs — the branch cannot re-sign (the key never leaves the key-holding
+  // desk; derived-artifacts.mjs EXCLUDED entry). The split lives INSIDE the gate
+  // (isMainContext()), mirroring check-kernel-coverage.mjs. A snapshot with no expires
+  // (pre-EXPIRY legacy) has nothing to lapse: reported, never failing, everywhere.
+  ['WebMCP snapshot expiry freshness (WEBMCP-SIGNED-EXPIRY-1, hard on main)', 'node scripts/check-webmcp-snapshot-fresh.mjs'],
+  ['WebMCP snapshot expiry fixture proof (RED/GREEN, WEBMCP-SIGNED-EXPIRY-1)', 'node scripts/check-webmcp-snapshot-fresh.mjs --self-test'],
   // MCPCARD-SCHEMA-1: the hand-maintained MCP server card conforms to the
   // authored schema (chaingraph/standard/mcp-server-card.schema.json), its
   // tool_count equals the counts-engine mcp.live value, and the served schema
