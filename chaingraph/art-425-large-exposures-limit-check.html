@@ -151,7 +151,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     </div>
 
     <div class="section-head">Counterparty Exposures <button type="button" class="mini-btn" onclick="addRow()">+ Add counterparty</button></div>
-    <div class="row5"><div class="q-label">Counterparty ID / connected group</div><div class="q-label">Gross exposure ($M)</div><div class="q-label">Eligible CRM ($M)</div><div class="q-label">Is GSIB?</div><div class="q-label"></div></div>
+    <div class="row5"><div class="q-label">Counterparty ID | group | name | exposure label</div><div class="q-label">Gross exposure ($M)</div><div class="q-label">Eligible CRM ($M)</div><div class="q-label">Is GSIB?</div><div class="q-label"></div></div>
     <div id="cpRows"></div>
 
     <div style="margin-top:20px">
@@ -309,7 +309,7 @@ var MANIFEST = {
       properties: {
         tier1_capital_musd: { type: 'number' },
         caller_is_gsib: { type: 'boolean' },
-        counterparties: { type: 'array' }
+        counterparties: { type: 'array', description: 'Array of {counterparty_id, counterparty_name, connected_group_id, is_gsib, exposures: [{label, gross_exposure_musd, crm_eligible, crm_value_musd}]}' }
       }
     }
   }
@@ -327,17 +327,17 @@ async function computeExecHash(pp, op) {
   return 'sha256:' + hex;
 }
 
-function r2(v) { return (v===null || !isFinite(v)) ? null : Math.round(v * 100) / 100; }
 function safe(v, d) { var n = Number(v); return Number.isFinite(n) ? n : d; }
 
 function addRow(id, name, group, gross, crm, isGsib) {
   _rowSeq++;
   var n = _rowSeq;
+  var idText = (id || ('cp-' + n)) + (group || name ? (' | ' + (group || '')) : '') + (name ? (' | ' + name) : '');
   var wrap = document.createElement('div');
   wrap.className = 'row5';
   wrap.id = 'cprow' + n;
   wrap.innerHTML =
-    '<input type="text" id="cid' + n + '" placeholder="cp-id / group-id" value="' + (id || ('cp-' + n)) + (group ? (' | ' + group) : '') + '">' +
+    '<input type="text" id="cid' + n + '" placeholder="cp-id | group-id | name | exposure label" value="' + idText + '">' +
     '<input type="number" id="cgross' + n + '" value="' + (gross != null ? gross : 0) + '" step="1" min="0">' +
     '<input type="number" id="ccrm' + n + '" value="' + (crm != null ? crm : 0) + '" step="1" min="0">' +
     '<label class="chk"><input type="checkbox" id="cgsib' + n + '"' + (isGsib ? ' checked' : '') + '> GSIB</label>' +
@@ -345,96 +345,175 @@ function addRow(id, name, group, gross, crm, isGsib) {
   document.getElementById('cpRows').appendChild(wrap);
 }
 
-addRow('cp-A', null, null, 2000, 400, false);
-addRow('cp-B', null, 'grp1', 1000, 0, false);
-addRow('cp-C', null, 'grp1', 800, 300, false);
-addRow('cp-G1', null, 'grp-gsib', 700, 0, true);
-addRow('cp-G2', null, 'grp-gsib', 600, 0, true);
+addRow('cp-A', 'Standalone Corp A', null, 2000, 400, false);
+addRow('cp-B', 'Group B Sub 1', 'grp1', 1000, 0, false);
+addRow('cp-C', 'Group B Sub 2', 'grp1', 800, 300, false);
+addRow('cp-G1', 'GSIB Peer 1', 'grp-gsib', 700, 0, true);
+addRow('cp-G2', 'GSIB Peer 2', 'grp-gsib', 600, 0, true);
 
 function parseIdField(raw) {
   var parts = String(raw || '').split('|');
+  // Field format: counterparty id | connected group | counterparty name | exposure label
   return {
     counterparty_id: (parts[0] || '').trim(),
-    connected_group_id: parts[1] ? parts[1].trim() : null
+    connected_group_id: parts[1] && parts[1].trim() ? parts[1].trim() : null,
+    counterparty_name: parts[2] ? parts[2].trim() : '',
+    label: parts[3] ? parts[3].trim() : ''
   };
+}
+
+// Large exposures limit check (Basel III large exposures framework, BCBS 283; codified in the
+// U.S. by Regulation YY / 12 CFR 252 Subpart H for banks subject to single-counterparty credit
+// limits). Aggregates a counterparty's gross exposure net of eligible credit-risk-mitigation
+// (CRM) per caller-supplied input flags, rolls up connected/economically-interdependent
+// counterparties into one group exposure, then checks it against Tier 1 capital under the
+// general 25% limit or the tighter 15% GSIB-to-GSIB limit. Deterministic point-in-time
+// calculation from caller-supplied exposure/CRM/capital figures -- no market data fetch, no
+// stochastic simulation.
+//
+// Pure ECMA-262 arithmetic only -- no Date.now/new Date(), no Math.random. Ratios and dollar
+// figures rounded to 2 decimals (r2) only at declared output boundaries; a zero-denominator
+// ratio is reported as null (finite gate: never NaN/Infinity).
+
+function safeNum(v, def) { const n = Number(v); return Number.isFinite(n) ? n : def; }
+function r2(v) { return (v === null || !Number.isFinite(v)) ? null : Math.round(v * 100) / 100; }
+function arr(v) { return Array.isArray(v) ? v : []; }
+
+function netExposure(item) {
+  const gross = Math.max(0, safeNum(item && item.gross_exposure_musd, 0));
+  const crmEligible = !!(item && item.crm_eligible);
+  const crmValue = crmEligible ? Math.max(0, safeNum(item && item.crm_value_musd, 0)) : 0;
+  const net = Math.max(0, gross - Math.min(crmValue, gross));
+  return { gross, crmValue: crmEligible ? Math.min(crmValue, gross) : 0, net };
 }
 
 function computeCounterparty(cp) {
-  var gross = Math.max(0, safe(cp.gross_exposure_musd, 0));
-  var crm = Math.max(0, safe(cp.crm_value_musd, 0));
-  var net = Math.max(0, gross - Math.min(crm, gross));
+  const items = arr(cp && cp.exposures).map((item) => {
+    const { gross, crmValue, net } = netExposure(item);
+    return {
+      label: (item && item.label) || '',
+      gross_exposure_musd: r2(gross),
+      crm_value_musd: r2(crmValue),
+      net_exposure_musd: r2(net),
+    };
+  });
+  const netTotal = items.reduce((s, i) => s + i.net_exposure_musd, 0);
   return {
-    counterparty_id: cp.counterparty_id, counterparty_name: cp.counterparty_id,
-    connected_group_id: cp.connected_group_id, is_gsib: !!cp.is_gsib,
-    net_exposure_total_musd: r2(net)
+    counterparty_id: (cp && cp.counterparty_id) || '',
+    counterparty_name: (cp && cp.counterparty_name) || '',
+    connected_group_id: (cp && cp.connected_group_id) || null,
+    is_gsib: !!(cp && cp.is_gsib),
+    exposures: items,
+    net_exposure_total_musd: r2(netTotal),
   };
 }
 
-function groupKey(cp) { return cp.connected_group_id || ('__single__:' + cp.counterparty_id); }
+function groupKey(cp) {
+  return cp.connected_group_id || ('__single__:' + cp.counterparty_id);
+}
 
-function computeLargeExposures(pp) {
-  var tier1 = Math.max(0, safe(pp.tier1_capital_musd, 0));
-  var callerGsib = !!pp.caller_is_gsib;
-  var counterparties = pp.counterparties.map(computeCounterparty);
+function compute(pp) {
+  pp = pp || {};
 
-  var groups = {};
-  var order = [];
-  counterparties.forEach(function(cp) {
-    var key = groupKey(cp);
-    if (!groups[key]) {
-      groups[key] = { group_id: cp.connected_group_id, is_connected_group: !!cp.connected_group_id, member_counterparty_ids: [], member_is_gsib: false, net_exposure_total_musd: 0 };
-      order.push(key);
+  const tier1CapitalMusd = Math.max(0, safeNum(pp.tier1_capital_musd, 0));
+  const callerIsGsib = !!pp.caller_is_gsib;
+
+  const counterparties = arr(pp.counterparties).map(computeCounterparty);
+
+  const groups = new Map();
+  for (const cp of counterparties) {
+    const key = groupKey(cp);
+    if (!groups.has(key)) {
+      groups.set(key, {
+        group_id: cp.connected_group_id,
+        is_connected_group: !!cp.connected_group_id,
+        member_counterparty_ids: [],
+        member_is_gsib: false,
+        net_exposure_total_musd: 0,
+      });
     }
-    groups[key].member_counterparty_ids.push(cp.counterparty_id);
-    groups[key].member_is_gsib = groups[key].member_is_gsib || cp.is_gsib;
-    groups[key].net_exposure_total_musd += cp.net_exposure_total_musd;
-  });
+    const g = groups.get(key);
+    g.member_counterparty_ids.push(cp.counterparty_id);
+    g.member_is_gsib = g.member_is_gsib || cp.is_gsib;
+    g.net_exposure_total_musd += cp.net_exposure_total_musd;
+  }
 
-  var groupResults = [], breachList = [];
-  order.forEach(function(key) {
-    var g = groups[key];
-    var gsibToGsib = callerGsib && g.member_is_gsib;
-    var limitPct = gsibToGsib ? 15 : 25;
-    var limitMusd = r2(tier1 * limitPct / 100);
-    var exposurePct = tier1 > 0 ? r2((g.net_exposure_total_musd / tier1) * 100) : null;
-    var breached = exposurePct === null ? false : exposurePct > limitPct;
-    var result = {
-      group_id: g.group_id, is_connected_group: g.is_connected_group, member_counterparty_ids: g.member_counterparty_ids,
-      gsib_to_gsib: gsibToGsib, applicable_limit_pct: limitPct, applicable_limit_musd: limitMusd,
-      net_exposure_total_musd: r2(g.net_exposure_total_musd), exposure_pct_of_tier1: exposurePct, breached: breached
+  const breach_list = [];
+  const groupResults = [];
+
+  for (const g of groups.values()) {
+    const gsibToGsib = callerIsGsib && g.member_is_gsib;
+    const limitPct = gsibToGsib ? 15 : 25;
+    const limitMusd = r2(tier1CapitalMusd * limitPct / 100);
+    const exposurePct = tier1CapitalMusd > 0 ? r2((g.net_exposure_total_musd / tier1CapitalMusd) * 100) : null;
+    const breached = exposurePct === null ? false : exposurePct > limitPct;
+
+    const result = {
+      group_id: g.group_id,
+      is_connected_group: g.is_connected_group,
+      member_counterparty_ids: g.member_counterparty_ids,
+      gsib_to_gsib: gsibToGsib,
+      applicable_limit_pct: limitPct,
+      applicable_limit_musd: limitMusd,
+      net_exposure_total_musd: r2(g.net_exposure_total_musd),
+      exposure_pct_of_tier1: exposurePct,
+      breached,
     };
     groupResults.push(result);
-    if (breached) breachList.push(result);
-  });
+    if (breached) breach_list.push(result);
+  }
 
-  var flags = [];
-  if (breachList.length > 0) flags.push('LARGE_EXPOSURE_LIMIT_BREACHED'); else flags.push('ALL_EXPOSURES_WITHIN_LIMIT');
+  const compliance_flags = [];
+  if (breach_list.length > 0) compliance_flags.push('LARGE_EXPOSURE_LIMIT_BREACHED');
+  else compliance_flags.push('ALL_EXPOSURES_WITHIN_LIMIT');
 
-  var op = {
-    tier1_capital_musd: r2(tier1), caller_is_gsib: callerGsib,
-    counterparties: counterparties.map(function(cp) { return { counterparty_id: cp.counterparty_id, counterparty_name: cp.counterparty_name, connected_group_id: cp.connected_group_id, is_gsib: cp.is_gsib, net_exposure_total_musd: cp.net_exposure_total_musd }; }),
-    groups: groupResults, breach_list: breachList,
+  const output_payload = {
+    tier1_capital_musd: r2(tier1CapitalMusd),
+    caller_is_gsib: callerIsGsib,
+    counterparties: counterparties.map((cp) => ({
+      counterparty_id: cp.counterparty_id,
+      counterparty_name: cp.counterparty_name,
+      connected_group_id: cp.connected_group_id,
+      is_gsib: cp.is_gsib,
+      net_exposure_total_musd: cp.net_exposure_total_musd,
+    })),
+    groups: groupResults,
+    breach_list,
     regulatory_basis: 'Basel III large exposures framework (BCBS 283); U.S. single-counterparty credit limits (Regulation YY, 12 CFR 252 Subpart H): 25% of Tier 1 capital general limit, 15% for GSIB-to-GSIB exposures.',
-    note: 'Deterministic point calculation from caller-supplied gross exposure, eligible CRM, and connected-group rollup for a single reporting date.'
+    note: 'Deterministic point calculation from caller-supplied gross exposure, eligible CRM, and connected-group rollup for a single reporting date.',
   };
-  return { output_payload: op, compliance_flags: flags };
+
+  return { output_payload, compliance_flags };
 }
 
 function runCheck() {
   var rows = document.getElementById('cpRows').children;
   var counterparties = [];
+  var byId = {};
   for (var i = 0; i < rows.length; i++) {
     var row = rows[i];
     var idInput = row.querySelector('input[type="text"]');
     var nums = row.querySelectorAll('input[type="number"]');
     var chk = row.querySelector('input[type="checkbox"]');
     var idf = parseIdField(idInput.value);
-    counterparties.push({
-      counterparty_id: idf.counterparty_id || ('cp-' + (i + 1)),
-      connected_group_id: idf.connected_group_id,
+    var cpId = idf.counterparty_id || ('cp-' + (i + 1));
+    var crmValue = safe(nums[1].value, 0);
+    // Rows that share a counterparty id become exposures[] entries of one counterparty.
+    if (!byId[cpId]) {
+      byId[cpId] = {
+        counterparty_id: cpId,
+        counterparty_name: idf.counterparty_name || cpId,
+        connected_group_id: idf.connected_group_id,
+        is_gsib: chk.checked,
+        exposures: []
+      };
+      counterparties.push(byId[cpId]);
+    }
+    byId[cpId].exposures.push({
+      label: idf.label,
       gross_exposure_musd: safe(nums[0].value, 0),
-      crm_value_musd: safe(nums[1].value, 0),
-      is_gsib: chk.checked
+      crm_eligible: crmValue > 0,
+      crm_value_musd: crmValue
     });
   }
 
@@ -444,7 +523,7 @@ function runCheck() {
     counterparties: counterparties
   };
 
-  var result = computeLargeExposures(pp);
+  var result = compute(pp);
   var op = result.output_payload, flags = result.compliance_flags;
   _lastResult = { pp: pp, output_payload: op, compliance_flags: flags };
 

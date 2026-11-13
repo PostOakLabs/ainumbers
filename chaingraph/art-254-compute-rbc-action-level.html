@@ -6,6 +6,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>NAIC RBC Action Level Calculator &middot; ART-254 &middot; OpenChainGraph &middot; AINumbers.co</title>
 <meta name="description" content="Computes NAIC Risk-Based Capital action level from Total Adjusted Capital and Authorized Control Level RBC. Maps to the 200/150/100/70% ACL ladder. ZERO PII.">
+<meta name="kernel-digest" content="sha256:a55fcead8d91066d4678479d0792b6faacc67a98b724625025533952be8d0ec3">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/art-254-compute-rbc-action-level.html">
 <link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-254-compute-rbc-action-level.md">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
@@ -174,9 +175,16 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
         </select>
       </div>
       <div class="q">
-        <label class="q-label" for="tacPriorYear">Prior Year TAC ($, optional)</label>
-        <div class="q-help">Prior year TAC for trend test. Trend test triggers if current-year RBC ratio is below prior by &ge;10 percentage points and ratio &lt; 250%.</div>
-        <input type="number" id="tacPriorYear" value="" placeholder="Leave blank to skip trend test" step="100000">
+        <label class="q-label" for="priorYearRatio">Prior Year RBC Ratio (% of ACL, optional)</label>
+        <div class="q-help">Trend test runs only when both prior ratios are given. It triggers if the ratio fell by &ge;10 percentage points in each of the last two years and is now &lt; 250%.</div>
+        <input type="number" id="priorYearRatio" value="" placeholder="Leave blank to skip trend test" step="1">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="q">
+        <label class="q-label" for="twoYearRatio">RBC Ratio Two Years Ago (% of ACL, optional)</label>
+        <div class="q-help">RBC ratio two years before the current year, for the trend test.</div>
+        <input type="number" id="twoYearRatio" value="" placeholder="Leave blank to skip trend test" step="1">
       </div>
     </div>
     <div style="margin-top:20px">
@@ -319,10 +327,11 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-254
   "input_schema": {
     "type": "object",
     "properties": {
-      "tac":              {"type": "number", "description": "Total Adjusted Capital"},
-      "acl":              {"type": "number", "description": "Authorized Control Level RBC"},
-      "insurer_type":     {"type": "string", "enum": ["pc","life","health"], "default": "pc"},
-      "tac_prior_year":   {"type": "number", "description": "Prior year TAC for trend test (optional)"}
+      "total_adjusted_capital":   {"type": "number", "description": "Total Adjusted Capital"},
+      "authorized_control_level": {"type": "number", "description": "Authorized Control Level RBC"},
+      "insurer_type":             {"type": "string", "enum": ["pc","life","health"], "default": "pc"},
+      "prior_year_rbc_ratio":     {"type": "number", "description": "Prior year RBC ratio, % of ACL, for the trend test (optional)"},
+      "two_year_rbc_ratio":       {"type": "number", "description": "RBC ratio two years ago, % of ACL, for the trend test (optional)"}
     }
   }
 }
@@ -333,60 +342,153 @@ const TOOL_ID      = 'art-254-compute-rbc-action-level';
 const TOOL_VERSION = '1.0.0';
 let _lastArtifact  = null;
 
+// NAIC Risk-Based Capital (RBC) action level computation for US P&C and life insurers.
+// Thresholds: 200%/150%/100%/70% of Authorized Control Level (ACL).
+// RBC Ratio = Total Adjusted Capital (TAC) / ACL.
+// ZERO PII: capital and RBC component figures only.
+
+const TABLE_VERSION = 'NAIC-RBC-ACTION-LEVELS-2024';
+const TABLE_SOURCE  = 'NAIC RBC Instructions (2024 edition): Life RBC (LR023), P&C RBC (Exhibit 1), Health RBC (HR-1). NAIC Model Laws: Life Insurance RBC Model Law #312, P&C RBC Model Law #315, Health RBC Model Law #315H.';
+
+// Action level definitions (NAIC standard)
 const ACTION_LEVELS = [
-  { code: 'NO_ACTION',          min_pct: 200,  max_pct: null, description: 'RBC ratio >= 200% ACL. No regulatory action required.' },
-  { code: 'COMPANY_ACTION',     min_pct: 150,  max_pct: 200,  description: 'RBC ratio 150-199% ACL. Company must submit RBC plan.' },
-  { code: 'REGULATORY_ACTION',  min_pct: 100,  max_pct: 150,  description: 'RBC ratio 100-149% ACL. Commissioner may issue orders.' },
-  { code: 'AUTHORIZED_CONTROL', min_pct:  70,  max_pct: 100,  description: 'RBC ratio 70-99% ACL. Commissioner may seize control.' },
-  { code: 'MANDATORY_CONTROL',  min_pct: null, max_pct:  70,  description: 'RBC ratio < 70% ACL. Commissioner must seize control.' },
+  { code: 'MANDATORY_CONTROL',  label: 'Mandatory Control Level',  rbc_pct_acl: 70,  description: 'Regulatory takeover authority. State must take action to protect policyholders.' },
+  { code: 'AUTHORIZED_CONTROL', label: 'Authorized Control Level', rbc_pct_acl: 100, description: 'State authorized but not required to take control.' },
+  { code: 'REGULATORY_ACTION',  label: 'Regulatory Action Level',  rbc_pct_acl: 150, description: 'Detailed corrective action plan required; state can examine/require action.' },
+  { code: 'COMPANY_ACTION',     label: 'Company Action Level',     rbc_pct_acl: 200, description: 'Company must file RBC plan with comprehensive corrective strategy.' },
+  { code: 'NO_ACTION',          label: 'No Action Level',          rbc_pct_acl: null, description: 'Above 200% ACL — no regulatory action required.' },
 ];
 
-function _finite(v, def) { const n = Number(v); return (isFinite(n) && !isNaN(n)) ? n : def; }
-function _round2(v) { return Math.round(v * 100) / 100; }
+function compute(params) {
+  const p = params || {};
 
-function compute(p) {
-  p = p || {};
-  const tac           = _finite(p.tac, 0);
-  const acl           = _finite(p.acl, 0);
-  const insurer_type  = p.insurer_type || 'pc';
-  const tac_prior     = p.tac_prior_year != null ? _finite(p.tac_prior_year, null) : null;
+  const total_adjusted_capital = _finite(p.total_adjusted_capital, 0);   // TAC ($)
+  const authorized_control_level = _finite(p.authorized_control_level, 0); // ACL ($) — from RBC formula
+  const insurer_type = ['life','pc','health'].includes(p.insurer_type) ? p.insurer_type : 'pc';
 
-  const rbc_ratio_pct = acl > 0 ? _round2((tac / acl) * 100) : 0;
+  // Optional RBC component inputs for trend test (life only)
+  const prior_year_rbc_ratio = _finite(p.prior_year_rbc_ratio, null); // prior year TAC/ACL %
+  const two_year_rbc_ratio   = _finite(p.two_year_rbc_ratio, null);   // two years ago %
 
-  let action_level_code = 'MANDATORY_CONTROL';
-  let action_level_description = '';
+  // RBC Ratio = TAC / ACL * 100  (expressed as % of ACL)
+  let rbc_ratio_pct = 0;
+  if (authorized_control_level > 0) {
+    rbc_ratio_pct = _round2((total_adjusted_capital / authorized_control_level) * 100);
+  }
+
+  // Determine action level
+  let action_level_code = 'NO_ACTION';
+  let action_level_label = 'No Action Level';
+  let action_level_description = 'Above 200% ACL — no regulatory action required.';
+  let threshold_breached_pct = null;
+
   for (const al of ACTION_LEVELS) {
-    const aboveMin = al.min_pct === null || rbc_ratio_pct >= al.min_pct;
-    const belowMax = al.max_pct === null || rbc_ratio_pct < al.max_pct;
-    if (aboveMin && belowMax) { action_level_code = al.code; action_level_description = al.description; break; }
+    if (al.rbc_pct_acl !== null && rbc_ratio_pct < al.rbc_pct_acl) {
+      action_level_code  = al.code;
+      action_level_label = al.label;
+      action_level_description = al.description;
+      threshold_breached_pct = al.rbc_pct_acl;
+      break;
+    }
+    if (al.code === 'COMPANY_ACTION' && rbc_ratio_pct >= 150 && rbc_ratio_pct < 200) {
+      // Between 150% and 200% = COMPANY_ACTION
+      action_level_code  = 'COMPANY_ACTION';
+      action_level_label = 'Company Action Level';
+      action_level_description = 'Company must file RBC plan with comprehensive corrective strategy.';
+      threshold_breached_pct = 200;
+      break;
+    }
   }
 
+  // Recalibrate: walk thresholds in descending order
+  if (rbc_ratio_pct < 70) {
+    action_level_code  = 'MANDATORY_CONTROL';
+    action_level_label = 'Mandatory Control Level';
+    action_level_description = 'Regulatory takeover authority. State must take action to protect policyholders.';
+    threshold_breached_pct = 70;
+  } else if (rbc_ratio_pct < 100) {
+    action_level_code  = 'AUTHORIZED_CONTROL';
+    action_level_label = 'Authorized Control Level';
+    action_level_description = 'State authorized but not required to take control.';
+    threshold_breached_pct = 100;
+  } else if (rbc_ratio_pct < 150) {
+    action_level_code  = 'REGULATORY_ACTION';
+    action_level_label = 'Regulatory Action Level';
+    action_level_description = 'Detailed corrective action plan required; state can examine and require corrective action.';
+    threshold_breached_pct = 150;
+  } else if (rbc_ratio_pct < 200) {
+    action_level_code  = 'COMPANY_ACTION';
+    action_level_label = 'Company Action Level';
+    action_level_description = 'Company must file RBC plan with comprehensive corrective strategy.';
+    threshold_breached_pct = 200;
+  } else {
+    action_level_code  = 'NO_ACTION';
+    action_level_label = 'No Action Level';
+    action_level_description = 'Above 200% ACL — no NAIC regulatory action required.';
+    threshold_breached_pct = null;
+  }
+
+  // Trend test (life insurer §VI, P&C similar): if RBC ratio decreased by >= 10 ppt each of last 2 years
+  // AND current ratio < 250%, flag trend test concern
   let trend_test_triggered = false;
-  let rbc_ratio_prior_pct  = null;
-  if (tac_prior !== null && acl > 0) {
-    rbc_ratio_prior_pct = _round2((tac_prior / acl) * 100);
-    const drop = rbc_ratio_prior_pct - rbc_ratio_pct;
-    trend_test_triggered = drop >= 10 && rbc_ratio_pct < 250;
+  let trend_test_applicable = prior_year_rbc_ratio !== null && two_year_rbc_ratio !== null;
+  if (trend_test_applicable) {
+    const drop1 = two_year_rbc_ratio   - prior_year_rbc_ratio; // drop in year n-2 → n-1
+    const drop2 = prior_year_rbc_ratio - rbc_ratio_pct;        // drop in year n-1 → n
+    trend_test_triggered =
+      drop1 >= 10 && drop2 >= 10 && rbc_ratio_pct < 250;
   }
 
-  const issues = [];
-  if (acl <= 0) issues.push('acl must be > 0 to compute RBC ratio');
-  if (tac < 0)  issues.push('tac is negative; review capital computation');
-  if (trend_test_triggered) issues.push('Trend test triggered: RBC ratio dropped >= 10 ppt year-over-year and is < 250%');
+  // Capital cushion to next threshold
+  let headroom_to_next_level_pct = null;
+  const next_threshold_map = {
+    'MANDATORY_CONTROL':  70,
+    'AUTHORIZED_CONTROL': 100,
+    'REGULATORY_ACTION':  150,
+    'COMPANY_ACTION':     200,
+    'NO_ACTION':          null,
+  };
+  const next_t = next_threshold_map[action_level_code];
+  if (next_t !== null) {
+    headroom_to_next_level_pct = _round2(rbc_ratio_pct - (
+      action_level_code === 'MANDATORY_CONTROL'  ? 0   :
+      action_level_code === 'AUTHORIZED_CONTROL' ? 70  :
+      action_level_code === 'REGULATORY_ACTION'  ? 100 :
+      action_level_code === 'COMPANY_ACTION'     ? 150 : 200
+    ));
+  } else {
+    headroom_to_next_level_pct = _round2(rbc_ratio_pct - 200);
+  }
 
   return {
-    action_level_code, action_level_description, rbc_ratio_pct,
-    total_adjusted_capital: tac, authorized_control_level: acl, insurer_type,
-    prior_year_rbc_ratio: rbc_ratio_prior_pct, trend_test_triggered,
+    action_level_code,
+    action_level_label,
+    action_level_description,
+    rbc_ratio_pct,
+    total_adjusted_capital,
+    authorized_control_level,
+    threshold_breached_pct,
+    headroom_to_next_level_pct,
+    trend_test_triggered,
+    trend_test_applicable,
+    prior_year_rbc_ratio,
+    two_year_rbc_ratio,
+    insurer_type,
     action_levels_reference: ACTION_LEVELS,
-    issues,
-    table_version:   'NAIC-RBC-ACTION-LEVEL-V1.0-2025',
-    table_source:    'NAIC Risk-Based Capital Model Act (Property and Casualty, 2022 ed.; Life, 2022 ed.; Health, 2022 ed.); NAIC Accounting Practices and Procedures Manual; IAIS Insurance Core Principle 17 (Capital Adequacy).',
-    regulatory_basis:'NAIC Risk-Based Capital Model Act (applicable P&C/Life/Health version). Five-action-level ladder per NAIC RBC instructions: No Action (>=200% ACL), Company Action Level (>=150%), Regulatory Action Level (>=100%), Authorized Control Level (>=70%), Mandatory Control Level (<70%). IAIS ICP 17.',
-    pii_note:        'ZERO PII: aggregate capital amounts only. No policyholder, claimant, or personal data enters this kernel.',
-    not_legal_advice:'Not legal or actuarial advice. RBC action level determinations require review by a qualified actuary and the applicable state insurance department. Filing obligations vary by state.',
+    table_version:   TABLE_VERSION,
+    table_source:    TABLE_SOURCE,
+    regulatory_basis:'NAIC RBC Model Laws #312 (life), #315 (P&C), #315H (health). Action levels: Company Action (200% ACL), Regulatory Action (150%), Authorized Control (100%), Mandatory Control (70%). TAC/ACL calculation follows the applicable NAIC RBC formula for the insurer type.',
+    pii_note:        'ZERO PII: capital totals and RBC formula components only. No policyholder, premium, or personal data enters this kernel.',
+    not_legal_advice:'Not legal or actuarial advice. RBC calculations require review by a qualified actuary and the applicable state insurance department. NAIC RBC Ratio is not the sole indicator of insurer solvency.',
   };
 }
+
+function _finite(v, def) {
+  const n = Number(v);
+  return (isFinite(n) && !isNaN(n)) ? n : def;
+}
+
+function _round2(v) { return Math.round(v * 100) / 100; }
 
 function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
 async function executionHash(pp, op) {
@@ -396,13 +498,15 @@ async function executionHash(pp, op) {
 }
 
 async function runCompute() {
-  const tacPY = document.getElementById('tacPriorYear').value.trim();
+  const priorY = document.getElementById('priorYearRatio').value.trim();
+  const twoY   = document.getElementById('twoYearRatio').value.trim();
   const pp = {
-    tac:            Number(document.getElementById('tac').value),
-    acl:            Number(document.getElementById('acl').value),
-    insurer_type:   document.getElementById('insurerType').value,
-    tac_prior_year: tacPY !== '' ? Number(tacPY) : null,
+    total_adjusted_capital:   Number(document.getElementById('tac').value),
+    authorized_control_level: Number(document.getElementById('acl').value),
+    insurer_type:             document.getElementById('insurerType').value,
   };
+  if (priorY !== '') pp.prior_year_rbc_ratio = Number(priorY);
+  if (twoY !== '')   pp.two_year_rbc_ratio   = Number(twoY);
   const op   = compute(pp);
   const hash = await executionHash(pp, op);
   const generatedAt = new Date().toISOString();
@@ -441,9 +545,9 @@ async function runCompute() {
     kv('Total Adjusted Capital', '$' + op.total_adjusted_capital.toLocaleString()) +
     kv('ACL RBC', '$' + op.authorized_control_level.toLocaleString()) +
     kv('Insurer Type', op.insurer_type.toUpperCase()) +
-    kv('Trend Test Triggered', op.trend_test_triggered ? 'YES' : (op.prior_year_rbc_ratio !== null ? 'NO' : 'NOT RUN (no prior year)')) +
+    kv('Trend Test Triggered', op.trend_test_triggered ? 'YES' : (op.trend_test_applicable ? 'NO' : 'NOT RUN (needs both prior ratios)')) +
     (op.prior_year_rbc_ratio !== null ? kv('Prior Year RBC Ratio', op.prior_year_rbc_ratio + '%') : '') +
-    (op.issues.length ? kv('Issues', op.issues.join(' | ')) : '') +
+    (op.two_year_rbc_ratio !== null ? kv('RBC Ratio Two Years Ago', op.two_year_rbc_ratio + '%') : '') +
     kv('Regulatory Basis', op.regulatory_basis);
 
   document.getElementById('execHashBox').textContent = hash;
