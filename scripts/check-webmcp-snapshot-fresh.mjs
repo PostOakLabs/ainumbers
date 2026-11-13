@@ -26,16 +26,25 @@
  *   node scripts/check-webmcp-snapshot-fresh.mjs              # freshness gate
  *   node scripts/check-webmcp-snapshot-fresh.mjs --self-test  # pure-disposition fixture proof
  */
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
 import { isMainContext } from './derived-artifacts.mjs';
+import { derivedResolve } from './_derived-resolve-lib.mjs';
 import { SNAPSHOT_REL, SNAPSHOT_RENEW_WINDOW_DAYS } from './lib/webmcp-snapshot.mjs';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const REPO = resolve(HERE, '..');
-const SNAP_PATH = resolve(REPO, SNAPSHOT_REL);
 const DAY_MS = 86400000;
+
+/**
+ * DERIVED-READER-COVERAGE-1: the snapshot is read through derivedResolve, so when
+ * DERIVED_ROOT is set (the merge_group assembled tree) the gate judges the overlay
+ * copy, and otherwise the committed checkout file. The published path is split into
+ * segments so the overlay mirrors the repo layout.
+ */
+export function snapshotPath() {
+  return derivedResolve(...SNAPSHOT_REL.split('/'));
+}
+const SNAP_PATH = snapshotPath();
 
 function red(msg) {
   console.error(`✗ webmcp snapshot freshness: ${msg}`);
@@ -93,8 +102,26 @@ if (process.argv.slice(2).includes('--self-test')) {
     if (gateShouldFail(d, false)) { console.error(`✗ self-test: ${d} must be advisory off main`); bad++; }
   for (const d of ['renew', 'expired'])
     if (!gateShouldFail(d, true)) { console.error(`✗ self-test: ${d} must be HARD on main`); bad++; }
+  // DERIVED_ROOT awareness: with the variable set and a snapshot inside it, the overlay
+  // copy wins (RED if the gate still read the checkout); with it unset, or set to a tree
+  // lacking the file, the checkout path is used (GREEN fallback).
+  const savedRoot = process.env.DERIVED_ROOT;
+  const scratch = mkdtempSync(resolve(tmpdir(), 'webmcp-fresh-'));
+  try {
+    delete process.env.DERIVED_ROOT;
+    const checkoutPath = snapshotPath();
+    process.env.DERIVED_ROOT = scratch;
+    if (snapshotPath() !== checkoutPath) { console.error('✗ self-test: empty DERIVED_ROOT must fall back to the checkout snapshot'); bad++; }
+    const overlay = resolve(scratch, ...SNAPSHOT_REL.split('/'));
+    mkdirSync(dirname(overlay), { recursive: true });
+    writeFileSync(overlay, '{}\n');
+    if (snapshotPath() !== overlay) { console.error('✗ self-test: DERIVED_ROOT overlay snapshot must be the one read'); bad++; }
+  } finally {
+    if (savedRoot === undefined) delete process.env.DERIVED_ROOT; else process.env.DERIVED_ROOT = savedRoot;
+    rmSync(scratch, { recursive: true, force: true });
+  }
   if (bad) process.exit(1);
-  console.log(`✓ freshness self-test GREEN: ${cases.length} dispositions + exit mapping as specified`);
+  console.log(`✓ freshness self-test GREEN: ${cases.length} dispositions + exit mapping + DERIVED_ROOT overlay as specified`);
   process.exit(0);
 }
 
