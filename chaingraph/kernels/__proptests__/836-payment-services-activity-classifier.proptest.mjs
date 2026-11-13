@@ -1,6 +1,6 @@
 // 836-payment-services-activity-classifier — class-K property-test FLOOR, authored for the
 // activity-classifier build (PAYMENT-SERVICES-ACTIVITY-CLASSIFIER-1).
-// kernel_digest_at_authoring: sha256:12cd80fdeb1f8f82f97929b677b60805a7e2268a2e4589e3aad1919b174161ca
+// kernel_digest_at_authoring: sha256:821d1d5329086d92e11b779e2765ffcb325ba72b8f047f994df8082cbc84b55f
 // spec: the pinned regime texts and the class/exclusion mapping recorded in the node's
 // cited_clause_digest entries (node shard) and the kernel's PROFILES/SOURCES tables.
 // human_sign_off: PENDING

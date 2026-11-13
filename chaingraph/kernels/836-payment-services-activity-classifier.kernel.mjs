@@ -43,12 +43,12 @@ const PROFILES = {
       digital_facility_provider: ['operates_stored_value_wallet'],
     },
     exclusions: {
-      technical_service_only: { available: true, blocked_by: ['holds_customer_funds', 'initiates_payments_without_holding_funds'], reason_applied: 'sole technical or connectivity infrastructure outside the payment flow; the refined definition excludes the sole provision of communication or messaging infrastructure', reason_blocked: 'the exclusion cannot hold while the provider participates in the payment flow or holds customer funds; third-party-asset custody remains under the parallel digital-assets regime' },
+      technical_service_only: { available: true, blocked_by: ['holds_customer_funds', 'executes_transfers', 'issues_payment_instruments', 'acquires_transactions', 'money_remittance', 'initiates_payments_without_holding_funds'], reason_applied: 'sole technical or connectivity infrastructure outside the payment flow; the refined definition excludes the sole provision of communication or messaging infrastructure', reason_blocked: 'the exclusion cannot hold while the provider participates in the payment flow or holds customer funds; third-party-asset custody remains under the parallel digital-assets regime' },
       commercial_agent_for_one_side: { available: false, reason_blocked: 'no commercial-agent exclusion is recorded in the proposed regime text; consultation respondents sought closed-loop and intra-group exclusions and the Authority deferred final perimeter drafting' },
       limited_network: { available: false, reason_blocked: 'no limited-network exclusion is recorded in the proposed regime text; consultation respondents sought closed-loop exclusions and the perimeter drafting continues' },
     },
     transition: {
-      msb_2016: 'existing money service businesses are expected to transition to the proposed Act, with a one-year transition period recorded in the consultation response; the proposed Act replaces the Money Service Business Act 2016',
+      msb_2016: 'existing money service businesses are expected to transition to the proposed Act; the proposed Act replaces the Money Service Business Act 2016',
     },
     conflicts: {
       digital_facility_provider: { blocked_by: ['holds_customer_funds'], id: 'DFP_CUSTODY_LIMIT_EXCEEDED', reason: 'the permitted custody for this class is limited to the provider\u2019s own stablecoins and does not extend to other stablecoins, unrelated digital assets or third-party customer funds' },
@@ -65,7 +65,7 @@ const PROFILES = {
       account_information_service: ['provides_account_information'],
     },
     exclusions: {
-      technical_service_only: { available: true, blocked_by: ['holds_customer_funds', 'initiates_payments_without_holding_funds', 'provides_account_information'], reason_applied: 'technical service providers support the provision of payment services without entering at any time into possession of the funds to be transferred', reason_blocked: 'the exclusion expressly does not cover payment initiation or account information services, and cannot hold where the provider enters into possession of the funds' },
+      technical_service_only: { available: true, blocked_by: ['holds_customer_funds', 'executes_transfers', 'issues_payment_instruments', 'acquires_transactions', 'money_remittance', 'initiates_payments_without_holding_funds', 'provides_account_information'], reason_applied: 'technical service providers support the provision of payment services without entering at any time into possession of the funds to be transferred', reason_blocked: 'the exclusion expressly does not cover payment initiation or account information services, cannot hold where the provider enters into possession of the funds, and does not carry a declared payment execution, instrument issuing or acquiring, or money remittance activity' },
       commercial_agent_for_one_side: { available: true, blocked_by: FLOW_FACTS, reason_applied: 'payment transactions between payer and payee through a commercial agent authorised to negotiate or conclude the sale or purchase on behalf of either the payer or the payee but not both are excluded', reason_blocked: 'an exclusion can only be read where the declared activity set is that of a one-sided commercial agent; the declared facts include payment-flow participation' },
       limited_network: { available: true, blocked_by: ['holds_customer_funds', 'money_remittance'], reason_applied: 'services based on specific payment instruments usable only in a limited way, on the issuer\u2019s premises, in a limited network of service providers with direct commercial agreements, or for a very limited range of goods or services, are excluded', reason_blocked: 'the limited-way instrument exclusion does not carry general funds handling or money remittance' },
     },
@@ -83,7 +83,7 @@ const PROFILES = {
       account_information_service: ['provides_account_information'],
     },
     exclusions: {
-      technical_service_only: { available: true, blocked_by: ['holds_customer_funds', 'initiates_payments_without_holding_funds', 'provides_account_information'], reason_applied: 'technical service providers support the provision of payment services without the provider entering at any time into possession of the funds to be transferred', reason_blocked: 'the exclusion expressly excludes payment initiation and account information services, and cannot hold where the provider is in possession of the funds' },
+      technical_service_only: { available: true, blocked_by: ['holds_customer_funds', 'executes_transfers', 'issues_payment_instruments', 'acquires_transactions', 'money_remittance', 'initiates_payments_without_holding_funds', 'provides_account_information'], reason_applied: 'technical service providers support the provision of payment services without the provider entering at any time into possession of the funds to be transferred', reason_blocked: 'the exclusion expressly excludes payment initiation and account information services, cannot hold where the provider is in possession of the funds, and does not carry a declared payment execution, instrument issuing or acquiring, or money remittance activity' },
       commercial_agent_for_one_side: { available: true, blocked_by: FLOW_FACTS, reason_applied: 'payment transactions between the payer and the payee through a commercial agent authorised in an agreement to negotiate or conclude the sale or purchase on behalf of either the payer or the payee but not both do not constitute payment services', reason_blocked: 'an exclusion can only be read where the declared activity set is that of a one-sided commercial agent; the declared facts include payment-flow participation' },
       limited_network: { available: true, blocked_by: ['holds_customer_funds', 'money_remittance'], reason_applied: 'services based on specific payment instruments that can be used only in a limited way, including instruments limited to the issuer\u2019s premises, a limited network of service providers with direct commercial agreements, or a very limited range of goods or services, are excluded', reason_blocked: 'the limited-way instrument exclusion does not carry general funds handling or money remittance' },
     },
@@ -138,7 +138,7 @@ export function compute(pp) {
   pp = pp || {};
   const rejected_inputs = [];
   const profile_id = pp.profile;
-  const profile = PROFILES[profile_id];
+  const profile = (typeof profile_id === 'string' && Object.hasOwn(PROFILES, profile_id)) ? PROFILES[profile_id] : null;
 
   // Refusal branch 1: an unknown profile cannot be classified at all. Reachable, fixture-covered.
   if (!profile) {
@@ -221,6 +221,7 @@ export function compute(pp) {
     if (ex.exclusion_id === 'limited_network') {
       suppressed.add('payment_handling');
       suppressed.add('digital_facility_provider');
+      suppressed.add('issuing_or_acquiring_payment_instruments');
     }
   }
   for (const c of classes_triggered) if (suppressed.has(c.class_id)) c.suppressed_by_exclusion = true;
@@ -241,8 +242,11 @@ export function compute(pp) {
 
   // Transition note.
   let transition_note = null;
-  if (pp.current_licence != null && profile.transition[String(pp.current_licence)]) {
-    transition_note = profile.transition[String(pp.current_licence)];
+  let licence_note_issued = false;
+  const licence = typeof pp.current_licence === 'string' ? pp.current_licence : null;
+  if (licence !== null && Object.hasOwn(profile.transition, licence) && typeof profile.transition[licence] === 'string') {
+    transition_note = profile.transition[licence];
+    licence_note_issued = true;
   } else if (profile.regime_status === 'proposed') {
     transition_note = 'the regime is proposed, not enacted: the licence classes, perimeter and transition arrangements remain subject to the Bill\u2019s drafting; no firm may treat this reading as an enacted licence determination';
   }
@@ -251,7 +255,7 @@ export function compute(pp) {
   if (conflicts.some((c) => c.conflict_id === 'TECH_CLASS_BUT_HOLDS_FUNDS')) compliance_flags.push('PSA_CONFLICT_TECH_CLASS_BUT_HOLDS_FUNDS');
   if (conflicts.some((c) => c.conflict_id === 'DFP_CUSTODY_LIMIT_EXCEEDED')) compliance_flags.push('PSA_CONFLICT_DFP_CUSTODY_LIMIT_EXCEEDED');
   if (profile.regime_status === 'proposed') compliance_flags.push('PSA_REGIME_PROPOSED_NOT_ENACTED');
-  if (transition_note != null && pp.current_licence != null) compliance_flags.push('PSA_TRANSITION_NOTE_ISSUED');
+  if (licence_note_issued) compliance_flags.push('PSA_TRANSITION_NOTE_ISSUED');
   if (rejected_inputs.length > 0) compliance_flags.push('PSA_INPUTS_REJECTED_RECORDED');
   if (classes_triggered.length > 0 && classes_triggered.every((c) => c.suppressed_by_exclusion)) compliance_flags.push('PSA_ALL_CLASSES_SUPPRESSED_BY_EXCLUSION');
 
