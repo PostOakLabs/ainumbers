@@ -4,7 +4,7 @@ import { executionHash } from './_hash.mjs';
 // execution receipt as two wire envelopes so lineage and eventing stacks can ingest the
 // estate's receipts without a custom adapter:
 //   1. a lineage RunEvent in the estate's dataset-facet dialect (inputs are
-//      {namespace, name, type} records, one per parent hash, named by hash);
+//      {namespace, name} records, one per parent hash, named by hash);
 //   2. an event envelope in structured-mode JSON (specversion/id/source/type/time/
 //      datacontenttype/data), with `data` echoing the receipt fields verbatim.
 //

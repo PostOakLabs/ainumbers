@@ -1,5 +1,5 @@
 // art-831-receipt-export-envelopes — class-K property-test FLOOR + envelope conformance test.
-// kernel_digest_at_authoring: sha256:93ed1edfa356a5d342241897393b23cc71d2b7f5fdc6cf739393ec9451c3f6e3
+// kernel_digest_at_authoring: sha256:0059de782826aba95159d0cc0e4aebe58329b700eb1109951dca9e1a5c5e45c3
 // spec: research/RECEIPT-EXPORT-PIN-2026-10-29.md (pins the two wire specs this kernel emits;
 //       snapshots under research/clause-snapshots/receipt-export/, schema vendored with its
 //       LICENSE at chaingraph/kernels/fixtures/vendor/openlineage-1.55.0/)
