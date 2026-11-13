@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (748 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (749 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -364,6 +364,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/829-safe-tx-hash-recompute.html",
     "description": "Recomputes the hash and decodes known calls. It does not simulate execution and cannot tell you the destination contract is safe. From paste",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "836-payment-services-activity-classifier",
+    "display_name": "Payment Services Activity Classifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/836-payment-services-activity-classifier.html",
+    "description": "Reads a caller-declared business model as a closed set of boolean payment-activity facts and classifies it into the licence classes of one o",
     "consumes": [],
     "feeds": [],
     "status": "live"

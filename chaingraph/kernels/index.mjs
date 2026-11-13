@@ -38,6 +38,7 @@ import * as t824      from './824-zip317-transfer-fee.kernel.mjs';
 import * as t825      from './825-reconcile-ucp-checkout-totals.kernel.mjs';
 import * as t827      from './827-agent-cred-class-matrix.kernel.mjs';
 import * as t829      from './829-safe-tx-hash-recompute.kernel.mjs';
+import * as t836      from './836-payment-services-activity-classifier.kernel.mjs';
 import * as t837      from './837-issuer-yield-share.kernel.mjs';
 import * as t838      from './838-control-frequency-sample.kernel.mjs';
 import * as art01     from './art-01-ap2-mandate-chain-validator.kernel.mjs';
@@ -788,6 +789,7 @@ export const KERNELS = {
   '825-reconcile-ucp-checkout-totals':                          t825,
   '827-agent-cred-class-matrix':                                t827,
   '829-safe-tx-hash-recompute':                                 t829,
+  '836-payment-services-activity-classifier':                   t836,
   '837-issuer-yield-share':                                     t837,
   '838-control-frequency-sample':                               t838,
   'art-01-ap2-mandate-chain-validator':                         art01,

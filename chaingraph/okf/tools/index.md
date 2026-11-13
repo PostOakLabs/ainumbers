@@ -41,6 +41,7 @@ status: stable
 - [Reconcile UCP Checkout Totals](./825-reconcile-ucp-checkout-totals.md) — `reconcile_ucp_checkout_totals`
 - [Agent Cred Class Matrix](./827-agent-cred-class-matrix.md) — `compute_agent_cred_matrix`
 - [Safe Transaction Hash Recompute](./829-safe-tx-hash-recompute.md) — `recompute_safe_tx_hash`
+- [Payment Services Activity Classifier](./836-payment-services-activity-classifier.md) — `classify_payment_services`
 - [Issuer Reserve Yield Share Check](./837-issuer-yield-share.md) — `check_issuer_reserve_yield_share`
 - [Control Frequency Sample](./838-control-frequency-sample.md) — `plan_control_frequency_sample`
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md) — `validate_ap2_mandate_chain`
