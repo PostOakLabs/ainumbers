@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (743 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (744 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -8242,6 +8242,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/tools/833-lint-pan-sad-exposure.html",
     "description": "Lints a caller-declared token-record schema against the published PCI DSS v4.0.1 account-data rules and reports which declared surfaces expo",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-834-asc606-transaction-price-allocator",
+    "display_name": "ASC 606 Transaction Price Allocator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-834-asc606-transaction-price-allocator.html",
+    "description": "Allocates a declared transaction price across declared performance obligations by relative standalone selling price, in integer minor units,",
     "consumes": [],
     "feeds": [],
     "status": "live"
