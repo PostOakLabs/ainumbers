@@ -45,11 +45,18 @@ function isObj(v) { return v !== null && typeof v === 'object' && !Array.isArray
 function seg(k) { return RE.safeKey.test(k) ? k : '(key)'; }
 function sortedKeys(o) { return Object.keys(o).sort(); }
 
+// Gregorian calendar: leap year when divisible by 4, except centuries not divisible by 400.
+function daysInMonth(y, mo) {
+  if (mo === 2) return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0 ? 29 : 28;
+  return mo === 4 || mo === 6 || mo === 9 || mo === 11 ? 30 : 31;
+}
+
 function okDateTime(s) {
   const m = RE.dateTime.exec(s);
   if (m === null) return false;
   const mo = +m[2], d = +m[3], h = +m[4], mi = +m[5], se = +m[6];
-  if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59 || se > 60) return false;
+  if (mo < 1 || mo > 12 || d < 1 || h > 23 || mi > 59 || se > 60) return false;
+  if (d > daysInMonth(+m[1], mo)) return false;
   if (m[9] !== undefined && (+m[9] > 23 || +m[10] > 59)) return false;
   return true;
 }
@@ -156,7 +163,7 @@ const IVMS_CODES = {
 function skeletonLeaf(key, v) {
   if (typeof v !== 'string') return false;
   if (v === 'SYNTHETIC' || RE.syntheticMarker.test(v)) return true;
-  return IVMS_CODES[key] !== undefined && IVMS_CODES[key].test(v);
+  return Object.hasOwn(IVMS_CODES, key) && IVMS_CODES[key].test(v);
 }
 
 // Returns true when every leaf under node satisfies the skeleton rule; false otherwise (depth capped).
@@ -201,8 +208,16 @@ function checkFree(ctx, v, path) {
 function checkObjectKeys(ctx, obj, known, path, forbidExtras) {
   const ks = sortedKeys(obj);
   for (let i = 0; i < ks.length; i++) {
-    if (known.indexOf(ks[i]) === -1) ctx.unexpected.push({ path: path + '.' + seg(ks[i]), schema_forbids: forbidExtras });
+    if (known.indexOf(ks[i]) === -1) {
+      ctx.unexpected.push({ path: path + '.' + seg(ks[i]), schema_forbids: forbidExtras });
+      checkSkeleton(ctx, obj[ks[i]], ks[i], path + '.' + seg(ks[i]));
+    }
   }
+}
+
+// Zero-PII rule for a value the schema walk does not format-check: every string leaf must satisfy the skeleton rule.
+function checkSkeleton(ctx, v, key, path) {
+  if (!skeletonOk(v, key, 0) && ctx.refusal === null) ctx.refusal = { reason: 'free_text_leaf_refused', detail: path };
 }
 
 function checkParty(ctx, v, path, isAgent) {
@@ -211,36 +226,36 @@ function checkParty(ctx, v, path, isAgent) {
   if (isAgent) known.push('role', 'for', 'policies');
   if (v['@id'] == null) add(ctx, path + '.@id', 'MISSING_REQUIRED');
   else checkFormat(ctx, isAgent ? 'did' : 'didOrIri', v['@id'], path + '.@id');
-  if (v['@type'] != null) {
+  if (v['@type'] !== undefined) {
     const want = isAgent ? 'Agent' : 'Party';
     if (typeof v['@type'] !== 'string') add(ctx, path + '.@type', 'WRONG_TYPE');
     else if (v['@type'] !== want && !FORMAT.uri(v['@type'])) add(ctx, path + '.@type', 'BAD_FORMAT');
   }
-  if (v['lei:leiCode'] != null) checkFormat(ctx, 'lei', v['lei:leiCode'], path + '.lei:leiCode');
-  if (v.nameHash != null) {
+  if (v['lei:leiCode'] !== undefined) checkFormat(ctx, 'lei', v['lei:leiCode'], path + '.lei:leiCode');
+  if (v.nameHash !== undefined) {
     checkFormat(ctx, 'base64', v.nameHash, path + '.nameHash');
     if (typeof v.nameHash === 'string' && FORMAT.base64(v.nameHash)) {
       const pad = v.nameHash.endsWith('==') ? 2 : v.nameHash.endsWith('=') ? 1 : 0;
       ctx.nameHashes.push({ path: path + '.nameHash', decoded_bytes: (v.nameHash.length / 4) * 3 - pad });
     }
   }
-  if (v.mcc != null) checkFormat(ctx, 'mcc', v.mcc, path + '.mcc');
-  if (v.url != null) checkFormat(ctx, 'uri', v.url, path + '.url');
-  if (v.logo != null) checkFormat(ctx, 'uri', v.logo, path + '.logo');
-  for (const k of ['name', 'description', 'email', 'telephone']) if (v[k] != null) checkFree(ctx, v[k], path + '.' + k);
-  if (v.ivms101 != null) {
+  if (v.mcc !== undefined) checkFormat(ctx, 'mcc', v.mcc, path + '.mcc');
+  if (v.url !== undefined) checkFormat(ctx, 'uri', v.url, path + '.url');
+  if (v.logo !== undefined) checkFormat(ctx, 'uri', v.logo, path + '.logo');
+  for (const k of ['name', 'description', 'email', 'telephone']) if (v[k] !== undefined) checkFree(ctx, v[k], path + '.' + k);
+  if (v.ivms101 !== undefined) {
     if (!isObj(v.ivms101)) add(ctx, path + '.ivms101', 'WRONG_TYPE');
     else if (!skeletonOk(v.ivms101, 'ivms101', 0) && ctx.refusal === null) ctx.refusal = { reason: 'ivms101_non_skeleton_leaf_refused', detail: path + '.ivms101' };
   }
   if (isAgent) {
-    if (v.role != null) checkFormat(ctx, 'role', v.role, path + '.role');
-    if (v['for'] != null) {
+    if (v.role !== undefined) checkFormat(ctx, 'role', v.role, path + '.role');
+    if (v['for'] !== undefined) {
       if (Array.isArray(v['for'])) {
         if (v['for'].length < 1) add(ctx, path + '.for', 'MIN_ITEMS');
         for (let i = 0; i < v['for'].length; i++) checkFormat(ctx, 'did', v['for'][i], path + '.for[' + i + ']');
       } else checkFormat(ctx, 'did', v['for'], path + '.for');
     }
-    if (v.policies != null && ctx.refusal === null) ctx.refusal = { reason: 'uncovered_subtree_refused', detail: path + '.policies' };
+    if (v.policies !== undefined && ctx.refusal === null) ctx.refusal = { reason: 'uncovered_subtree_refused', detail: path + '.policies' };
   }
   checkObjectKeys(ctx, v, known, path, false);
 }
@@ -248,8 +263,14 @@ function checkParty(ctx, v, path, isAgent) {
 function checkField(ctx, spec, v, path) {
   if (typeof spec === 'string') { checkFormat(ctx, spec, v, path); return; }
   switch (spec.t) {
-    case 'any': return;
-    case 'string': if (typeof v !== 'string') add(ctx, path, 'WRONG_TYPE'); return;
+    case 'any':
+      // JSON-LD @context / @type: a URI-shaped string passes, anything else must satisfy the skeleton rule.
+      if (!(typeof v === 'string' && FORMAT.uri(v))) checkSkeleton(ctx, v, path, path);
+      return;
+    case 'string':
+      if (typeof v !== 'string') add(ctx, path, 'WRONG_TYPE');
+      else checkFree(ctx, v, path);
+      return;
     case 'free': checkFree(ctx, v, path); return;
     case 'const':
       if (typeof v !== 'string') add(ctx, path, 'WRONG_TYPE');
@@ -278,9 +299,9 @@ function checkField(ctx, spec, v, path) {
       return;
     case 'exchangeRate':
       if (!isObj(v)) { add(ctx, path, 'WRONG_TYPE'); return; }
-      if (v.rate != null && (typeof v.rate !== 'number' || !(v.rate > 0))) add(ctx, path + '.rate', typeof v.rate !== 'number' ? 'WRONG_TYPE' : 'BAD_FORMAT');
-      if (v.from != null) checkFormat(ctx, 'ccy', v.from, path + '.from');
-      if (v.to != null) checkFormat(ctx, 'ccy', v.to, path + '.to');
+      if (v.rate !== undefined && (typeof v.rate !== 'number' || !(v.rate > 0))) add(ctx, path + '.rate', typeof v.rate !== 'number' ? 'WRONG_TYPE' : 'BAD_FORMAT');
+      if (v.from !== undefined) checkFormat(ctx, 'ccy', v.from, path + '.from');
+      if (v.to !== undefined) checkFormat(ctx, 'ccy', v.to, path + '.to');
       checkObjectKeys(ctx, v, ['rate', 'from', 'to'], path, false);
       return;
     case 'transactionValue':
@@ -298,13 +319,12 @@ function checkBody(ctx, def, body) {
   for (let i = 0; i < def.required.length; i++) if (body[def.required[i]] == null) add(ctx, 'body.' + def.required[i], 'MISSING_REQUIRED');
   if (def.oneOf) {
     let n = 0;
-    for (let i = 0; i < def.oneOf.length; i++) if (body[def.oneOf[i]] != null) n++;
+    for (let i = 0; i < def.oneOf.length; i++) if (body[def.oneOf[i]] !== undefined) n++;
     if (n !== 1) add(ctx, 'body', 'ONE_OF_VIOLATION');
   }
   const ks = sortedKeys(body);
   for (let i = 0; i < ks.length; i++) {
-    const spec = def.props[ks[i]];
-    if (spec !== undefined && body[ks[i]] != null) checkField(ctx, spec, body[ks[i]], 'body.' + seg(ks[i]));
+    if (Object.hasOwn(def.props, ks[i])) checkField(ctx, def.props[ks[i]], body[ks[i]], 'body.' + seg(ks[i]));
   }
   checkObjectKeys(ctx, body, Object.keys(def.props), 'body', !def.open);
 }
@@ -318,30 +338,33 @@ function checkMessage(msg, index) {
   // header
   if (msg.id == null) add(ctx, 'id', 'MISSING_REQUIRED'); else checkFormat(ctx, 'uuid', msg.id, 'id');
   if (msg.type == null) add(ctx, 'type', 'MISSING_REQUIRED');
-  if (msg.thid != null) checkFormat(ctx, 'uuid', msg.thid, 'thid');
-  if (msg.from != null) checkFormat(ctx, 'did', msg.from, 'from');
-  if (msg.to != null) {
+  if (msg.thid !== undefined) checkFormat(ctx, 'uuid', msg.thid, 'thid');
+  if (msg.from !== undefined) checkFormat(ctx, 'did', msg.from, 'from');
+  if (msg.to !== undefined) {
     if (!Array.isArray(msg.to)) add(ctx, 'to', 'WRONG_TYPE');
     else {
       if (msg.to.length < 1) add(ctx, 'to', 'MIN_ITEMS');
       for (let i = 0; i < msg.to.length; i++) checkFormat(ctx, 'did', msg.to[i], 'to[' + i + ']');
     }
   }
-  if (msg.created_time != null) checkFormat(ctx, 'dateTime', msg.created_time, 'created_time');
-  if (msg.expires_time != null) checkFormat(ctx, 'dateTime', msg.expires_time, 'expires_time');
-  if (msg.please_ack != null && typeof msg.please_ack !== 'boolean') add(ctx, 'please_ack', 'WRONG_TYPE');
-  if (msg.ack != null) {
+  if (msg.created_time !== undefined) checkFormat(ctx, 'dateTime', msg.created_time, 'created_time');
+  if (msg.expires_time !== undefined) checkFormat(ctx, 'dateTime', msg.expires_time, 'expires_time');
+  if (msg.please_ack !== undefined && typeof msg.please_ack !== 'boolean') add(ctx, 'please_ack', 'WRONG_TYPE');
+  if (msg.ack !== undefined) {
     if (!Array.isArray(msg.ack)) add(ctx, 'ack', 'WRONG_TYPE');
     else for (let i = 0; i < msg.ack.length; i++) checkFormat(ctx, 'uuid', msg.ack[i], 'ack[' + i + ']');
   }
-  if (msg.attachments != null) {
+  if (msg.attachments !== undefined) {
     if (!Array.isArray(msg.attachments)) add(ctx, 'attachments', 'WRONG_TYPE');
     else if (msg.attachments.length > 0 && ctx.refusal === null) ctx.refusal = { reason: 'uncovered_subtree_refused', detail: 'attachments' };
   }
   const topKeys = sortedKeys(msg);
   for (let i = 0; i < topKeys.length; i++) {
     if (SIGNATURE_KEYS.indexOf(topKeys[i]) !== -1) rec.signature_material = 'present_not_verified';
-    else if (HEADER_KEYS.indexOf(topKeys[i]) === -1) ctx.unexpected.push({ path: seg(topKeys[i]), schema_forbids: false });
+    else if (HEADER_KEYS.indexOf(topKeys[i]) === -1) {
+      ctx.unexpected.push({ path: seg(topKeys[i]), schema_forbids: false });
+      checkSkeleton(ctx, msg[topKeys[i]], topKeys[i], seg(topKeys[i]));
+    }
   }
   // type dispatch
   let def = null;
@@ -356,9 +379,9 @@ function checkMessage(msg, index) {
   if (def !== null) {
     rec.coverage = 'covered'; rec.schema = def.schema; rec.taip = def.taip;
     if (msg.body == null) add(ctx, 'body', 'MISSING_REQUIRED'); else checkBody(ctx, def, msg.body);
-  } else if (isObj(msg.body)) {
+  } else if (msg.body !== undefined) {
     // body of an uncovered type is never walked; its leaves are not inspected, so refuse anything with strings in it
-    if (typeof msg.type === 'string' && !skeletonOk(msg.body, 'body', 0) && ctx.refusal === null) {
+    if (!skeletonOk(msg.body, 'body', 0) && ctx.refusal === null) {
       ctx.refusal = { reason: 'uncovered_subtree_refused', detail: 'body' };
     }
   }

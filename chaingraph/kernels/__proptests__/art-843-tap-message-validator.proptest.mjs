@@ -1,5 +1,5 @@
 // art-843-tap-message-validator — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:0c5ef12455dd4a8f76dbfa649e603e195632353f090208b5ea42747039f5594e
+// kernel_digest_at_authoring: sha256:9dde88ef9a9c89ed07fd72c1078d4d8f0dd6b0323185cfcc671c7bec4e955003
 // spec: board/claimed/TAP-MESSAGE-VALIDATOR-NODE-1.md
 // human_sign_off: PENDING
 //
@@ -78,7 +78,7 @@ function checkUnknownFieldFlagged() {
     // an uncovered type's body is never walked, so only the envelope can carry the extra field there
     const atBody = rng() < 0.5 && pp.messages[which].type !== H + 'Connect';
     const target = atBody ? pp.messages[which].body : pp.messages[which];
-    target.zz_unknown_field = true;
+    target.zz_unknown_field = 'SYNTHETIC';
     const r = compute(pp);
     checked++;
     if (r.output_payload.status !== 'report') { violations++; continue; }
@@ -173,6 +173,80 @@ function checkDeterminism() {
   return { name: 'deterministic', checked, violations };
 }
 
+const PROTO_KEYS = ['constructor', '__proto__', 'toString', 'hasOwnProperty', 'valueOf', 'isPrototypeOf'];
+const withKey = (o, k, v) => { Object.defineProperty(o, k, { value: v, enumerable: true, configurable: true, writable: true }); return o; };
+
+// compute never throws, whatever Object.prototype name a key carries, at every depth the walker reads
+function checkPrototypeNamesNeverThrow() {
+  const rng = mulberry32(8435);
+  let checked = 0, violations = 0;
+  for (let i = 0; i < 40; i++) {
+    const pp = randomPP(rng);
+    const m = pp.messages[0];
+    const k = pick(rng, PROTO_KEYS);
+    const v = pick(rng, ['SYNTHETIC', 'plain text', 7, null, { a: 'x' }, ['x']]);
+    const where = Math.floor(rng() * 4);
+    if (where === 0) withKey(m, k, v);
+    else if (where === 1 && m.body && typeof m.body === 'object') withKey(m.body, k, v);
+    else if (where === 2) m.body = Object.assign({}, m.body, { originator: { '@id': ORIG, ivms101: withKey({}, k, v) } });
+    else m.body = Object.assign({}, m.body, { originator: withKey({ '@id': ORIG }, k, v) });
+    checked++;
+    try { compute(pp); } catch (e) { violations++; }
+  }
+  return { name: 'prototype_named_keys_never_throw', checked, violations };
+}
+
+// a calendar-impossible day is always BAD_FORMAT and a real day never is
+function checkCalendarDates() {
+  const dim = (y, mo) => (mo === 2 ? ((y % 4 === 0 && y % 100 !== 0) || y % 400 === 0 ? 29 : 28) : [4, 6, 9, 11].indexOf(mo) !== -1 ? 30 : 31);
+  const rng = mulberry32(8436);
+  let checked = 0, violations = 0;
+  for (let i = 0; i < 60; i++) {
+    const y = 1900 + Math.floor(rng() * 300), mo = 1 + Math.floor(rng() * 12), d = 1 + Math.floor(rng() * 31);
+    const pp = randomPP(rng);
+    pp.messages[0].created_time = String(y) + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0') + 'T10:00:00Z';
+    const f = compute(pp).output_payload.messages[0].findings.some((x) => x.path === 'created_time' && x.code === 'BAD_FORMAT');
+    checked++;
+    if (f !== (d > dim(y, mo))) violations++;
+  }
+  return { name: 'calendar_day_valid_iff_within_month', checked, violations };
+}
+
+// a present null is never read as absent: every typed header field turns it into a finding
+function checkPresentNullIsFinding() {
+  const rng = mulberry32(8437);
+  let checked = 0, violations = 0;
+  for (let i = 0; i < 40; i++) {
+    const pp = randomPP(rng);
+    const k = pick(rng, ['thid', 'from', 'to', 'created_time', 'expires_time', 'please_ack', 'ack']);
+    pp.messages[0][k] = null;
+    const r = compute(pp);
+    checked++;
+    if (r.output_payload.status !== 'report' || !r.output_payload.messages[0].findings.some((x) => x.path === k && x.code === 'WRONG_TYPE')) violations++;
+  }
+  return { name: 'present_null_is_wrong_type_finding', checked, violations };
+}
+
+// free text under any location the schema walk does not format-check refuses, and never echoes
+function checkFreeTextAnywhereRefused() {
+  const rng = mulberry32(8438);
+  let checked = 0, violations = 0;
+  for (let i = 0; i < 40; i++) {
+    const pp = randomPP(rng);
+    const m = pp.messages[0];
+    const where = Math.floor(rng() * 5);
+    if (where === 0) m.zz_extra = 'Jane Q Public';
+    else if (where === 1) m.body = Object.assign({}, m.body, { zz_extra: 'Jane Q Public' });
+    else if (where === 2) m.body = Object.assign({}, m.body, { originator: { '@id': ORIG, address: 'Jane Q Public' } });
+    else if (where === 3) m.body = Object.assign({}, m.body, { purpose: 'Jane Q Public', reasonCode: 'Jane Q Public' });
+    else { m.type = H + 'Unlisted'; m.body = ['Jane Q Public']; }
+    const r = compute(pp);
+    checked++;
+    if (r.output_payload.status !== 'refused' || JSON.stringify(r.output_payload).indexOf('Jane') !== -1) violations++;
+  }
+  return { name: 'free_text_under_unchecked_locations_refused', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -180,7 +254,8 @@ try {
 } catch (e) {
   oracle = { total: 1, failures: [{ name: 'fixture-oracle-load', expected: '(compute() implemented)', got: String((e && e.message) || e) }] };
 }
-const properties = [checkKeyOrderInvariance(), checkUnknownFieldFlagged(), checkNeverClaimsValid(), checkReplyToEarlierIdNotDangling(), checkFlagsMirror(), checkRefusals(), checkDeterminism()];
+const properties = [checkKeyOrderInvariance(), checkUnknownFieldFlagged(), checkNeverClaimsValid(), checkReplyToEarlierIdNotDangling(), checkFlagsMirror(), checkRefusals(), checkDeterminism(),
+  checkPrototypeNamesNeverThrow(), checkCalendarDates(), checkPresentNullIsFinding(), checkFreeTextAnywhereRefused()];
 console.log(`[${KERNEL_ID}] class-K floor property test.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
 process.exit(ok ? 0 : 1);
