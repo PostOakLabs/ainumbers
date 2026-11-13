@@ -1,5 +1,5 @@
 // art-807-erc3643-transfer-decision — class-K property-test FLOOR (KERNEL-SCAFFOLD-1 scaffold, authored).
-// kernel_digest_at_authoring: sha256:a13bb6fb2360995f8dd6eb7293320ae993dba46132cca39716e58ea13c783ed1
+// kernel_digest_at_authoring: sha256:8414998d60f89bb7841e516b0d9fedf7aa8038973a47ecf91876fc8105c6f899
 // spec: permissioned-token transfer decision recomputed from declared registry, claim, module and token state
 // human_sign_off: PENDING
 //
@@ -9,8 +9,9 @@
 // and denied_by names exactly the first failing gate; a mint is never denied by the pause,
 // freeze or balance gates; adding a failing module never turns DENIED into ALLOWED and turns
 // ALLOWED into DENIED; max_balance differential against the plain integer rule; zero amount
-// and zero receiver always refuse; errors mirrors compliance_flags; no NaN/Infinity anywhere;
-// determinism.
+// and zero receiver always refuse; deleting a required input (required_claim_topics,
+// trusted_issuers, compliance_modules) always refuses, never a positive verdict;
+// errors mirrors compliance_flags; no NaN/Infinity anywhere; determinism.
 // Zero external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
 // Run: node chaingraph/kernels/__proptests__/art-807-erc3643-transfer-decision.proptest.mjs
@@ -120,6 +121,8 @@ function checkMaxBalanceDifferential() {
     const pp = {
       transfer: { from: A, to: B, amount: String(amount) },
       identity_registry: [{ address: B, identity_present: true }],
+      required_claim_topics: [],
+      trusted_issuers: {},
       compliance_modules: [{ id: 'mb', type: 'max_balance', params: { max_balance: String(max), identity_balance: String(held) } }],
       token_state: { balances: { [A]: String(amount) } },
     };
@@ -168,6 +171,34 @@ function checkFlagMirrorAndShape() {
   return { name: 'flag_mirror_and_no_nan_or_infinity', checked, violations };
 }
 
+// Deleting (or nulling) a required input list refuses with INPUT_REFUSED and no
+// decision; an explicit empty list stays the caller's statement and evaluates.
+function checkRequiredInputsFailClosed() {
+  let checked = 0, violations = 0;
+  const required = { required_claim_topics: 'REQUIRED_CLAIM_TOPICS_MISSING', trusted_issuers: 'TRUSTED_ISSUERS_MISSING', compliance_modules: 'COMPLIANCE_MODULES_MISSING' };
+  for (let i = 0; i < 300; i++) {
+    for (const [field, reason] of Object.entries(required)) {
+      for (const mode of ['delete', 'null']) {
+        const pp = randomPP();
+        if (mode === 'delete') delete pp[field]; else pp[field] = null;
+        const { output_payload, compliance_flags } = compute(pp);
+        if (output_payload.decision !== null) violations++;
+        if (!output_payload.refusal_reasons.includes(reason)) violations++;
+        if (compliance_flags.length !== 1 || compliance_flags[0] !== 'INPUT_REFUSED') violations++;
+        checked++;
+      }
+    }
+  }
+  for (const [field, empty] of [['required_claim_topics', []], ['compliance_modules', []], ['trusted_issuers', {}]]) {
+    const pp = randomPP();
+    pp[field] = empty;
+    const { output_payload } = compute(pp);
+    if (output_payload.refusal_reasons.length !== 0) violations++;
+    checked++;
+  }
+  return { name: 'required_inputs_fail_closed', checked, violations };
+}
+
 function checkDeterminism() {
   let checked = 0, violations = 0;
   for (let i = 0; i < 100; i++) {
@@ -191,6 +222,7 @@ const properties = [
   checkFailingModuleIsMonotone(),
   checkMaxBalanceDifferential(),
   checkRefusals(),
+  checkRequiredInputsFailClosed(),
   checkFlagMirrorAndShape(),
   checkDeterminism(),
 ];
