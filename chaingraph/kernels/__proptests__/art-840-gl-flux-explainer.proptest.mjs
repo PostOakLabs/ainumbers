@@ -1,12 +1,16 @@
 // art-840-gl-flux-explainer -- class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:fda91e239e839e06f7c52ae68c92b17a5f7954ced16de736d58aa5be26aefccd
-// spec: board row GL-FLUX-EXPLAIN-NODE-1 (SECOND-OPINION-ESTATE-REVIEW-2026-11-06 idea 7)
+// kernel_digest_at_authoring: sha256:7c48e57354229f5ef96cf3591d3c7aad4260ce5d1aefecb61e9ab06bd3607e4e
+// spec: the art-840 node description (chaingraph/graph/nodes/art-840-gl-flux-explainer.json) and the gate vocabulary in chaingraph/standard/SPEC.md section 27.4
 // human_sign_off: PENDING
 //
 // Properties:
 //   P1 sorted order stable: breaches are ordered by abs movement desc, ties by account id asc.
 //   P2 unexplained set equals breaches minus explained.
-//   P3 gate is blocked iff the unexplained set is non-empty; clear iff no breach and none unexplained.
+//   P3 gate is blocked iff the unexplained set is non-empty; clear iff no breach, none unexplained and
+//      no zero-prior account left untested.
+//   P7 a zero or missing threshold never yields a silent clear: zero is refused THRESHOLD_NOT_POSITIVE,
+//      a missing field THRESHOLD_FIELD_MISSING, and an untestable zero-prior movement carries
+//      ZERO_PRIOR_NOT_EVALUATED.
 //   P4 independent recompute parity: a second implementation in plain Number arithmetic (balances
 //      kept small so every product is exact) agrees on the breach set and the bps floor.
 //   P5 determinism: two calls on the same input are byte-identical.
@@ -42,16 +46,19 @@ function genCase(rng) {
     const target = rng() < 0.1 ? 'NOT_DECLARED' : accounts[Math.floor(rng() * n)];
     explanations.push({ account_id: target, explanation_id: pick(rng, codes) });
   }
+  const rule = pick(rng, ['either', 'both']);
+  const tp = { rule, zero_prior_rule: pick(rng, ['abs_only', 'any_movement']) };
+  let a = pick(rng, [null, 1000, 50000, 400000]);
+  let b = pick(rng, [null, 100, 2500, 10000]);
+  if (rule === 'both') { a = a === null ? 1000 : a; b = b === null ? 100 : b; }
+  if (a === null && b === null) a = 1000;
+  if (a !== null) tp.abs_minor_units = a;
+  if (b !== null) tp.pct_bps = b;
   return {
     accounts,
     prior_balances: prior,
     current_balances: current,
-    threshold_policy: {
-      abs_minor_units: pick(rng, [0, 1000, 50000, 400000]),
-      pct_bps: pick(rng, [0, 100, 2500, 10000]),
-      rule: pick(rng, ['either', 'both']),
-      zero_prior_rule: pick(rng, ['abs_only', 'any_movement']),
-    },
+    threshold_policy: tp,
     reason_codes: codes,
     explanations,
   };
@@ -71,12 +78,11 @@ function reference(pp) {
     let bps = 'NOT_EVALUATED';
     if (p === 0) {
       if (th.zero_prior_rule === 'any_movement') breach = mv !== 0;
-      else breach = th.abs_minor_units > 0 && mv >= th.abs_minor_units && true;
-      if (th.zero_prior_rule === 'abs_only' && th.abs_minor_units === 0) breach = false;
+      else breach = th.abs_minor_units !== undefined && mv >= th.abs_minor_units;
     } else {
       bps = String(Math.floor((mv * 10000) / Math.abs(p)));
-      const aOn = th.abs_minor_units > 0;
-      const bOn = th.pct_bps > 0;
+      const aOn = th.abs_minor_units !== undefined;
+      const bOn = th.pct_bps !== undefined;
       const aHit = aOn && mv >= th.abs_minor_units;
       const bHit = bOn && mv * 10000 >= th.pct_bps * Math.abs(p);
       if (!aOn && !bOn) breach = false;
@@ -119,8 +125,10 @@ function checkGate(cases) {
     const blocked = o.unexplained_breaches.length > 0;
     if ((o.gate_status === 'blocked') !== blocked) v++;
     if (o.gate_status === 'clear' && o.breaches.length !== 0) v++;
-    if (o.breaches.length === 0 && o.gate_status !== 'clear') v++;
-    if (!blocked && o.breaches.length > 0 && o.gate_status !== 'review_required') v++;
+    const untested = o.summary.not_evaluated_count > 0;
+    if (o.breaches.length === 0 && !untested && o.gate_status !== 'clear') v++;
+    if (untested && o.gate_status === 'clear') v++;
+    if (!blocked && (o.breaches.length > 0 || untested) && o.gate_status !== 'review_required') v++;
   }
   return { name: 'P3_gate_blocked_iff_unexplained', checked: cases.length, violations: v };
 }
@@ -165,6 +173,40 @@ function checkRefusals(rng) {
   return { name: 'P6_refusals_flag_and_no_gate', checked, violations: v };
 }
 
+// P7: zero / missing thresholds are never a silent clear, and the zero-prior flag matches an independent rule.
+function checkThresholdSignal(cases, rng) {
+  let v = 0;
+  let checked = 0;
+  for (let i = 0; i < 100; i++) {
+    const pp = genCase(rng);
+    pp.prior_balances[0].minor_units = 100;
+    pp.current_balances[0].minor_units = 900000000000000;
+    const kind = i % 3;
+    const tp = pp.threshold_policy;
+    let want;
+    if (kind === 0) { tp.abs_minor_units = 0; want = 'THRESHOLD_NOT_POSITIVE'; }
+    else if (kind === 1) { delete tp.abs_minor_units; delete tp.pct_bps; want = 'THRESHOLD_FIELD_MISSING'; }
+    else { tp.pct_bps = 0; want = 'THRESHOLD_NOT_POSITIVE'; }
+    const r = compute(pp);
+    checked++;
+    const code = r.output_payload.domain_errors && r.output_payload.domain_errors[0] && r.output_payload.domain_errors[0].code;
+    if (code !== want || r.output_payload.gate_status !== null || !deepEqual(r.output_payload.warnings, ['INPUT_REFUSED'])) v++;
+  }
+  for (const pp of cases) {
+    const o = compute(pp).output_payload;
+    const th = pp.threshold_policy;
+    for (let i = 0; i < pp.accounts.length; i++) {
+      const p = pp.prior_balances[i].minor_units;
+      const c = pp.current_balances[i].minor_units;
+      const want = p === 0 && c !== p && th.zero_prior_rule === 'abs_only' && th.abs_minor_units === undefined;
+      const row = o.accounts.find((a) => a.account_id === pp.accounts[i]);
+      checked++;
+      if (row.not_evaluated !== want) v++;
+    }
+  }
+  return { name: 'P7_zero_or_missing_threshold_never_silent', checked, violations: v };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -182,6 +224,7 @@ const properties = [
   checkParity(cases),
   checkDeterminism(cases),
   checkRefusals(rng),
+  checkThresholdSignal(cases, rng),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test.`);
 const ok = summarize(KERNEL_ID, oracle, properties);

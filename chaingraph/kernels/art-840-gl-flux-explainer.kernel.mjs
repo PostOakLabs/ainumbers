@@ -17,10 +17,27 @@ import { executionHash } from './_hash.mjs';
 //   accounts              array of declared account ids (ids only, never account numbers)
 //   prior_balances        [{account_id, minor_units}]   integer minor units, |v| <= 1e15
 //   current_balances      [{account_id, minor_units}]
-//   threshold_policy      { version?, abs_minor_units>=0, pct_bps>=0, rule: 'either'|'both',
+//   threshold_policy      { version?, abs_minor_units>0, pct_bps>0, rule: 'either'|'both',
 //                           zero_prior_rule: 'abs_only'|'any_movement',
 //                           overrides?: [{account_id, abs_minor_units?, pct_bps?}] }
-//                         a threshold of 0 means that test is not configured.
+//                         A threshold that is present must be a positive integer (0 or negative is
+//                         refused THRESHOLD_NOT_POSITIVE). A threshold that is absent means that test
+//                         is not configured. rule 'both' needs both thresholds present, rule 'either'
+//                         needs at least one (else THRESHOLD_FIELD_MISSING); an override inherits the
+//                         base value for a field it omits and the same check applies to the result.
+//                         version, when given, must match the id pattern (no free text).
+//                         Unknown keys at the top level, in threshold_policy or in an override are
+//                         refused (UNKNOWN_KEY_REFUSED).
+//
+// Declared limits (each is a named behaviour, not a silent one):
+//   - a breach is movement >= threshold (the threshold itself breaches);
+//   - movement_bps is floored; the breach test uses the exact cross-multiplication, not the floor;
+//   - balances and thresholds are capped at 1e15 minor units, bps at 100000000, every list at 5000;
+//   - ids are screened by shape plus a digit-run heuristic (6 or more consecutive digits reads as
+//     account-number-like); it is a screen, not proof that an id carries no account number;
+//   - a zero-prior account whose declared zero_prior_rule is abs_only and which has no absolute
+//     threshold cannot be tested; a non-zero movement there carries ZERO_PRIOR_NOT_EVALUATED and the
+//     gate reads review_required at best, never clear.
 //   reason_codes          array of caller-declared explanation ids
 //   explanations          [{account_id, explanation_id}] -- exactly those two keys
 //
@@ -70,6 +87,7 @@ function refusal(code, detail) {
       unexplained_breaches: [],
       orphan_explanations: [],
       summary: null,
+      warnings: code ? ['INPUT_REFUSED'] : [],
       note: NOTE,
     },
     compliance_flags: code ? ['INPUT_REFUSED'] : [],
@@ -98,30 +116,68 @@ function readBalances(list, label, declared) {
   return { map };
 }
 
+const MAX_BPS = 100000000;
+const PP_KEYS = ['accounts', 'prior_balances', 'current_balances', 'threshold_policy', 'reason_codes', 'explanations'];
+const POLICY_KEYS = ['version', 'abs_minor_units', 'pct_bps', 'rule', 'zero_prior_rule', 'overrides'];
+const OVERRIDE_KEYS = ['account_id', 'abs_minor_units', 'pct_bps'];
+
+function hasUnknownKey(o, allowed) {
+  for (const k of Object.keys(o)) if (!allowed.includes(k)) return true;
+  return false;
+}
+
+// One threshold field: absent (undefined or null) is "not configured"; present must be a positive integer.
+function readLimit(v, name, max) {
+  if (v === undefined || v === null) return { value: null };
+  if (!isInt(v)) return { code: 'THRESHOLD_INVALID', detail: name + ' must be a positive integer' };
+  if (v <= 0) return { code: 'THRESHOLD_NOT_POSITIVE', detail: name + ' must be greater than zero; omit it to leave that test unconfigured' };
+  if (v > max) return { code: 'THRESHOLD_INVALID', detail: name + ' exceeds the cap' };
+  return { value: v };
+}
+
+// The rule decides which thresholds must be present on the effective policy for an account.
+function ruleProblem(rule, abs, bps, who) {
+  if (rule === 'both' && (abs === null || bps === null)) return { code: 'THRESHOLD_FIELD_MISSING', detail: who + ': rule both needs abs_minor_units and pct_bps' };
+  if (abs === null && bps === null) return { code: 'THRESHOLD_FIELD_MISSING', detail: who + ': at least one of abs_minor_units and pct_bps is required' };
+  return null;
+}
+
 function readThreshold(v) {
   if (!isObj(v)) return { code: 'THRESHOLD_POLICY_MISSING', detail: 'threshold_policy is required' };
-  const abs = v.abs_minor_units == null ? 0 : v.abs_minor_units;
-  const bps = v.pct_bps == null ? 0 : v.pct_bps;
-  if (!isInt(abs) || abs < 0 || abs > MAX_ABS) return { code: 'THRESHOLD_INVALID', detail: 'abs_minor_units must be a non-negative integer within 1e15' };
-  if (!isInt(bps) || bps < 0 || bps > 100000000) return { code: 'THRESHOLD_INVALID', detail: 'pct_bps must be a non-negative integer' };
+  if (hasUnknownKey(v, POLICY_KEYS)) return { code: 'UNKNOWN_KEY_REFUSED', detail: 'threshold_policy carries a key outside the declared set' };
   if (v.rule !== 'either' && v.rule !== 'both') return { code: 'THRESHOLD_RULE_UNDECLARED', detail: 'rule must be either or both' };
   if (v.zero_prior_rule !== 'abs_only' && v.zero_prior_rule !== 'any_movement') return { code: 'ZERO_PRIOR_RULE_UNDECLARED', detail: 'zero_prior_rule must be abs_only or any_movement' };
+  if (v.version !== undefined && v.version !== null && (typeof v.version !== 'string' || !ID_RE.test(v.version))) return { code: 'VERSION_SHAPE', detail: 'version must be an id (letters, digits, . _ : -), not free text' };
+  const a = readLimit(v.abs_minor_units, 'abs_minor_units', MAX_ABS);
+  if (a.code) return a;
+  const b = readLimit(v.pct_bps, 'pct_bps', MAX_BPS);
+  if (b.code) return b;
+  const abs = a.value;
+  const bps = b.value;
+  const rp = ruleProblem(v.rule, abs, bps, 'threshold_policy');
+  if (rp) return rp;
   const overrides = new Map();
   const ov = v.overrides == null ? [] : v.overrides;
   if (!isArr(ov) || ov.length > MAX_ITEMS) return { code: 'THRESHOLD_INVALID', detail: 'overrides must be an array' };
   for (const o of ov) {
     if (!isObj(o)) return { code: 'THRESHOLD_INVALID', detail: 'override entry is not an object' };
+    if (hasUnknownKey(o, OVERRIDE_KEYS)) return { code: 'UNKNOWN_KEY_REFUSED', detail: 'an override carries a key outside the declared set' };
     const p = idProblem(o.account_id);
     if (p) return { code: p, detail: 'override account_id is not an acceptable account id' };
     if (overrides.has(o.account_id)) return { code: 'THRESHOLD_INVALID', detail: 'override repeats an account id' };
-    const oa = o.abs_minor_units == null ? abs : o.abs_minor_units;
-    const ob = o.pct_bps == null ? bps : o.pct_bps;
-    if (!isInt(oa) || oa < 0 || oa > MAX_ABS || !isInt(ob) || ob < 0 || ob > 100000000) return { code: 'THRESHOLD_INVALID', detail: 'override thresholds must be non-negative integers' };
-    overrides.set(o.account_id, { abs: oa, bps: ob });
+    const oa = readLimit(o.abs_minor_units, 'override abs_minor_units', MAX_ABS);
+    if (oa.code) return oa;
+    const ob = readLimit(o.pct_bps, 'override pct_bps', MAX_BPS);
+    if (ob.code) return ob;
+    const ea = oa.value === null ? abs : oa.value;
+    const eb = ob.value === null ? bps : ob.value;
+    const orp = ruleProblem(v.rule, ea, eb, 'override');
+    if (orp) return orp;
+    overrides.set(o.account_id, { abs: ea, bps: eb });
   }
   return {
     policy: {
-      version: v.version == null ? null : String(v.version),
+      version: v.version == null ? null : v.version,
       abs, bps, rule: v.rule, zero_prior_rule: v.zero_prior_rule, overrides,
     },
   };
@@ -129,6 +185,7 @@ function readThreshold(v) {
 
 export function compute(pp) {
   pp = pp || {};
+  if (!isObj(pp) || hasUnknownKey(pp, PP_KEYS)) return refusal('UNKNOWN_KEY_REFUSED', 'policy_parameters carries a key outside the declared set');
 
   // ---- declared accounts
   const accIn = pp.accounts;
@@ -196,8 +253,8 @@ export function compute(pp) {
     const zeroPrior = pv === 0;
 
     const bpsFloor = zeroPrior ? null : (absBig(BigInt(movement)) * 10000n) / absBig(BigInt(pv));
-    const absConfigured = tAbs > 0;
-    const pctConfigured = tBps > 0 && !zeroPrior;
+    const absConfigured = tAbs !== null;
+    const pctConfigured = tBps !== null && !zeroPrior;
     const absExceeded = absConfigured ? absMovement >= tAbs : null;
     // exact: |mov| * 10000 >= tBps * |prior|
     const pctExceeded = pctConfigured ? absBig(BigInt(movement)) * 10000n >= BigInt(tBps) * absBig(BigInt(pv)) : null;
@@ -213,6 +270,8 @@ export function compute(pp) {
       else if (policy.rule === 'both') breach = tests.every((t) => t);
       else breach = tests.some((t) => t);
     }
+    // a non-zero movement on a zero-prior account with no evaluable test is named, never a silent pass
+    const notEvaluated = zeroPrior && movement !== 0 && !breach && !(policy.zero_prior_rule === 'any_movement') && !absConfigured;
 
     const ex = explByAccount.get(id);
     const explanationIds = ex ? [...ex].sort(cmp) : [];
@@ -228,6 +287,7 @@ export function compute(pp) {
       abs_exceeded: absExceeded,
       pct_exceeded: pctExceeded,
       breach,
+      not_evaluated: notEvaluated,
       explanation_ids: explanationIds,
       explained: breach && explanationIds.length > 0,
     });
@@ -259,9 +319,12 @@ export function compute(pp) {
   let gate_policy_equivalent = 'auto_pass';
   if (unexplained.length > 0) { gate_status = 'blocked'; gate_policy_equivalent = 'hold'; }
   else if (breaches.length > 0) { gate_status = 'review_required'; gate_policy_equivalent = 'review_required'; }
+  const notEvaluatedCount = rows.filter((r) => r.not_evaluated).length;
+  if (notEvaluatedCount > 0 && gate_status === 'clear') { gate_status = 'review_required'; gate_policy_equivalent = 'review_required'; }
 
   const compliance_flags = [];
   if (unexplained.length > 0) compliance_flags.push('FLUX_BREACH_UNEXPLAINED');
+  if (notEvaluatedCount > 0) compliance_flags.push('ZERO_PRIOR_NOT_EVALUATED');
   if (orphans.length > 0) compliance_flags.push('EXPLANATION_ORPHANED');
   const warnings = compliance_flags.slice();
 
@@ -279,6 +342,7 @@ export function compute(pp) {
       account_count: rows.length,
       breach_count: breaches.length,
       unexplained_count: unexplained.length,
+      not_evaluated_count: notEvaluatedCount,
       orphan_explanation_count: orphans.length,
     },
     warnings,

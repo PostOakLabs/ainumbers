@@ -95,7 +95,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 </style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-840-gl-flux-explainer.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:fda91e239e839e06f7c52ae68c92b17a5f7954ced16de736d58aa5be26aefccd">
+<meta name="kernel-digest" content="sha256:7c48e57354229f5ef96cf3591d3c7aad4260ce5d1aefecb61e9ab06bd3607e4e">
 </head>
 <body>
 <nav>
@@ -145,7 +145,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <div class="q" style="grid-column:1/-1"><label>Declared account ids (JSON array)</label><textarea id="accounts_json">["CASH","ACCOUNTS_RECEIVABLE","INVENTORY","ACCRUED_LIABILITIES"]</textarea><div class="hint">Ids only, for example CASH. Account-number-like ids are refused.</div></div>
     <div class="q" style="grid-column:1/-1"><label>Prior period balances (JSON array)</label><textarea id="prior_json">[{"account_id":"CASH","minor_units":10000000},{"account_id":"ACCOUNTS_RECEIVABLE","minor_units":5000000},{"account_id":"INVENTORY","minor_units":2000000},{"account_id":"ACCRUED_LIABILITIES","minor_units":-1500000}]</textarea><div class="hint">Each: account_id, minor_units (integer).</div></div>
     <div class="q" style="grid-column:1/-1"><label>Current period balances (JSON array)</label><textarea id="current_json">[{"account_id":"CASH","minor_units":15000000},{"account_id":"ACCOUNTS_RECEIVABLE","minor_units":5050000},{"account_id":"INVENTORY","minor_units":2900000},{"account_id":"ACCRUED_LIABILITIES","minor_units":-2600000}]</textarea></div>
-    <div class="q" style="grid-column:1/-1"><label>Threshold policy (JSON object)</label><textarea id="policy_json">{"version":"FLUX-2026-Q4","abs_minor_units":500000,"pct_bps":1000,"rule":"either","zero_prior_rule":"abs_only"}</textarea><div class="hint">abs_minor_units, pct_bps, rule (either or both), zero_prior_rule (abs_only or any_movement), optional overrides. A threshold of 0 means that test is off.</div></div>
+    <div class="q" style="grid-column:1/-1"><label>Threshold policy (JSON object)</label><textarea id="policy_json">{"version":"FLUX-2026-Q4","abs_minor_units":500000,"pct_bps":1000,"rule":"either","zero_prior_rule":"abs_only"}</textarea><div class="hint">abs_minor_units, pct_bps, rule (either or both), zero_prior_rule (abs_only or any_movement), optional overrides. A threshold that is present must be greater than 0; leave a field out to turn that test off. Rule both needs both thresholds, rule either needs at least one. Unknown keys are refused, and version must be an id such as FLUX-2026-Q4. Limits: a movement equal to the threshold counts as a breach; basis points are floored; balances and thresholds are capped at 1e15 minor units; each list holds at most 5000 entries; an id with six or more digits in a row is treated as account-number-like and refused (a screen, not proof). A zero-prior account under abs_only with no absolute threshold cannot be tested and is flagged ZERO_PRIOR_NOT_EVALUATED.</div></div>
     <div class="q" style="grid-column:1/-1"><label>Declared reason codes (JSON array)</label><textarea id="codes_json">["VOLUME","TIMING","ONE_OFF"]</textarea></div>
     <div class="q" style="grid-column:1/-1"><label>Explanations on file (JSON array)</label><textarea id="explanations_json">[{"account_id":"CASH","explanation_id":"VOLUME"},{"account_id":"INVENTORY","explanation_id":"TIMING"}]</textarea><div class="hint">Each: account_id, explanation_id. No other fields.</div></div>
   </div><button onclick="run()">Run flux gate →</button></div>
@@ -168,7 +168,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 </div>
 
 <script type="application/json" id="manifest">
-{"tool_id":"art-840-gl-flux-explainer","mcp_name":"explain_gl_flux_with_gate","mandate_type":"assurance","chaingraph_version":"0.4.0","spec_version":"0.8.8","inputSchema":{"type":"object","properties":{"accounts":{"type":"array","items":{"type":"string"}},"prior_balances":{"type":"array","items":{"type":"object","properties":{"account_id":{"type":"string"},"minor_units":{"type":"integer"}}}},"current_balances":{"type":"array","items":{"type":"object","properties":{"account_id":{"type":"string"},"minor_units":{"type":"integer"}}}},"threshold_policy":{"type":"object","properties":{"version":{"type":"string"},"abs_minor_units":{"type":"integer"},"pct_bps":{"type":"integer"},"rule":{"type":"string","enum":["either","both"]},"zero_prior_rule":{"type":"string","enum":["abs_only","any_movement"]},"overrides":{"type":"array","items":{"type":"object"}}}},"reason_codes":{"type":"array","items":{"type":"string"}},"explanations":{"type":"array","items":{"type":"object","properties":{"account_id":{"type":"string"},"explanation_id":{"type":"string"}}}}}}}
+{"tool_id":"art-840-gl-flux-explainer","mcp_name":"explain_gl_flux_with_gate","mandate_type":"assurance","chaingraph_version":"0.4.0","spec_version":"0.8.8","inputSchema":{"type":"object","properties":{"accounts":{"type":"array","items":{"type":"string"}},"prior_balances":{"type":"array","items":{"type":"object","properties":{"account_id":{"type":"string"},"minor_units":{"type":"integer"}}}},"current_balances":{"type":"array","items":{"type":"object","properties":{"account_id":{"type":"string"},"minor_units":{"type":"integer"}}}},"threshold_policy":{"type":"object","properties":{"version":{"type":"string"},"abs_minor_units":{"type":"integer","minimum":1},"pct_bps":{"type":"integer","minimum":1},"rule":{"type":"string","enum":["either","both"]},"zero_prior_rule":{"type":"string","enum":["abs_only","any_movement"]},"overrides":{"type":"array","items":{"type":"object"}}}},"reason_codes":{"type":"array","items":{"type":"string"}},"explanations":{"type":"array","items":{"type":"object","properties":{"account_id":{"type":"string"},"explanation_id":{"type":"string"}}}}}}}
 </script>
 
 <script>
@@ -202,6 +202,7 @@ function refusal(code, detail) {
       unexplained_breaches: [],
       orphan_explanations: [],
       summary: null,
+      warnings: code ? ['INPUT_REFUSED'] : [],
       note: NOTE,
     },
     compliance_flags: code ? ['INPUT_REFUSED'] : [],
@@ -230,30 +231,68 @@ function readBalances(list, label, declared) {
   return { map };
 }
 
+const MAX_BPS = 100000000;
+const PP_KEYS = ['accounts', 'prior_balances', 'current_balances', 'threshold_policy', 'reason_codes', 'explanations'];
+const POLICY_KEYS = ['version', 'abs_minor_units', 'pct_bps', 'rule', 'zero_prior_rule', 'overrides'];
+const OVERRIDE_KEYS = ['account_id', 'abs_minor_units', 'pct_bps'];
+
+function hasUnknownKey(o, allowed) {
+  for (const k of Object.keys(o)) if (!allowed.includes(k)) return true;
+  return false;
+}
+
+// One threshold field: absent (undefined or null) is "not configured"; present must be a positive integer.
+function readLimit(v, name, max) {
+  if (v === undefined || v === null) return { value: null };
+  if (!isInt(v)) return { code: 'THRESHOLD_INVALID', detail: name + ' must be a positive integer' };
+  if (v <= 0) return { code: 'THRESHOLD_NOT_POSITIVE', detail: name + ' must be greater than zero; omit it to leave that test unconfigured' };
+  if (v > max) return { code: 'THRESHOLD_INVALID', detail: name + ' exceeds the cap' };
+  return { value: v };
+}
+
+// The rule decides which thresholds must be present on the effective policy for an account.
+function ruleProblem(rule, abs, bps, who) {
+  if (rule === 'both' && (abs === null || bps === null)) return { code: 'THRESHOLD_FIELD_MISSING', detail: who + ': rule both needs abs_minor_units and pct_bps' };
+  if (abs === null && bps === null) return { code: 'THRESHOLD_FIELD_MISSING', detail: who + ': at least one of abs_minor_units and pct_bps is required' };
+  return null;
+}
+
 function readThreshold(v) {
   if (!isObj(v)) return { code: 'THRESHOLD_POLICY_MISSING', detail: 'threshold_policy is required' };
-  const abs = v.abs_minor_units == null ? 0 : v.abs_minor_units;
-  const bps = v.pct_bps == null ? 0 : v.pct_bps;
-  if (!isInt(abs) || abs < 0 || abs > MAX_ABS) return { code: 'THRESHOLD_INVALID', detail: 'abs_minor_units must be a non-negative integer within 1e15' };
-  if (!isInt(bps) || bps < 0 || bps > 100000000) return { code: 'THRESHOLD_INVALID', detail: 'pct_bps must be a non-negative integer' };
+  if (hasUnknownKey(v, POLICY_KEYS)) return { code: 'UNKNOWN_KEY_REFUSED', detail: 'threshold_policy carries a key outside the declared set' };
   if (v.rule !== 'either' && v.rule !== 'both') return { code: 'THRESHOLD_RULE_UNDECLARED', detail: 'rule must be either or both' };
   if (v.zero_prior_rule !== 'abs_only' && v.zero_prior_rule !== 'any_movement') return { code: 'ZERO_PRIOR_RULE_UNDECLARED', detail: 'zero_prior_rule must be abs_only or any_movement' };
+  if (v.version !== undefined && v.version !== null && (typeof v.version !== 'string' || !ID_RE.test(v.version))) return { code: 'VERSION_SHAPE', detail: 'version must be an id (letters, digits, . _ : -), not free text' };
+  const a = readLimit(v.abs_minor_units, 'abs_minor_units', MAX_ABS);
+  if (a.code) return a;
+  const b = readLimit(v.pct_bps, 'pct_bps', MAX_BPS);
+  if (b.code) return b;
+  const abs = a.value;
+  const bps = b.value;
+  const rp = ruleProblem(v.rule, abs, bps, 'threshold_policy');
+  if (rp) return rp;
   const overrides = new Map();
   const ov = v.overrides == null ? [] : v.overrides;
   if (!isArr(ov) || ov.length > MAX_ITEMS) return { code: 'THRESHOLD_INVALID', detail: 'overrides must be an array' };
   for (const o of ov) {
     if (!isObj(o)) return { code: 'THRESHOLD_INVALID', detail: 'override entry is not an object' };
+    if (hasUnknownKey(o, OVERRIDE_KEYS)) return { code: 'UNKNOWN_KEY_REFUSED', detail: 'an override carries a key outside the declared set' };
     const p = idProblem(o.account_id);
     if (p) return { code: p, detail: 'override account_id is not an acceptable account id' };
     if (overrides.has(o.account_id)) return { code: 'THRESHOLD_INVALID', detail: 'override repeats an account id' };
-    const oa = o.abs_minor_units == null ? abs : o.abs_minor_units;
-    const ob = o.pct_bps == null ? bps : o.pct_bps;
-    if (!isInt(oa) || oa < 0 || oa > MAX_ABS || !isInt(ob) || ob < 0 || ob > 100000000) return { code: 'THRESHOLD_INVALID', detail: 'override thresholds must be non-negative integers' };
-    overrides.set(o.account_id, { abs: oa, bps: ob });
+    const oa = readLimit(o.abs_minor_units, 'override abs_minor_units', MAX_ABS);
+    if (oa.code) return oa;
+    const ob = readLimit(o.pct_bps, 'override pct_bps', MAX_BPS);
+    if (ob.code) return ob;
+    const ea = oa.value === null ? abs : oa.value;
+    const eb = ob.value === null ? bps : ob.value;
+    const orp = ruleProblem(v.rule, ea, eb, 'override');
+    if (orp) return orp;
+    overrides.set(o.account_id, { abs: ea, bps: eb });
   }
   return {
     policy: {
-      version: v.version == null ? null : String(v.version),
+      version: v.version == null ? null : v.version,
       abs, bps, rule: v.rule, zero_prior_rule: v.zero_prior_rule, overrides,
     },
   };
@@ -261,6 +300,7 @@ function readThreshold(v) {
 
 function compute(pp) {
   pp = pp || {};
+  if (!isObj(pp) || hasUnknownKey(pp, PP_KEYS)) return refusal('UNKNOWN_KEY_REFUSED', 'policy_parameters carries a key outside the declared set');
 
   // ---- declared accounts
   const accIn = pp.accounts;
@@ -328,8 +368,8 @@ function compute(pp) {
     const zeroPrior = pv === 0;
 
     const bpsFloor = zeroPrior ? null : (absBig(BigInt(movement)) * 10000n) / absBig(BigInt(pv));
-    const absConfigured = tAbs > 0;
-    const pctConfigured = tBps > 0 && !zeroPrior;
+    const absConfigured = tAbs !== null;
+    const pctConfigured = tBps !== null && !zeroPrior;
     const absExceeded = absConfigured ? absMovement >= tAbs : null;
     // exact: |mov| * 10000 >= tBps * |prior|
     const pctExceeded = pctConfigured ? absBig(BigInt(movement)) * 10000n >= BigInt(tBps) * absBig(BigInt(pv)) : null;
@@ -345,6 +385,8 @@ function compute(pp) {
       else if (policy.rule === 'both') breach = tests.every((t) => t);
       else breach = tests.some((t) => t);
     }
+    // a non-zero movement on a zero-prior account with no evaluable test is named, never a silent pass
+    const notEvaluated = zeroPrior && movement !== 0 && !breach && !(policy.zero_prior_rule === 'any_movement') && !absConfigured;
 
     const ex = explByAccount.get(id);
     const explanationIds = ex ? [...ex].sort(cmp) : [];
@@ -360,6 +402,7 @@ function compute(pp) {
       abs_exceeded: absExceeded,
       pct_exceeded: pctExceeded,
       breach,
+      not_evaluated: notEvaluated,
       explanation_ids: explanationIds,
       explained: breach && explanationIds.length > 0,
     });
@@ -391,9 +434,12 @@ function compute(pp) {
   let gate_policy_equivalent = 'auto_pass';
   if (unexplained.length > 0) { gate_status = 'blocked'; gate_policy_equivalent = 'hold'; }
   else if (breaches.length > 0) { gate_status = 'review_required'; gate_policy_equivalent = 'review_required'; }
+  const notEvaluatedCount = rows.filter((r) => r.not_evaluated).length;
+  if (notEvaluatedCount > 0 && gate_status === 'clear') { gate_status = 'review_required'; gate_policy_equivalent = 'review_required'; }
 
   const compliance_flags = [];
   if (unexplained.length > 0) compliance_flags.push('FLUX_BREACH_UNEXPLAINED');
+  if (notEvaluatedCount > 0) compliance_flags.push('ZERO_PRIOR_NOT_EVALUATED');
   if (orphans.length > 0) compliance_flags.push('EXPLANATION_ORPHANED');
   const warnings = compliance_flags.slice();
 
@@ -411,6 +457,7 @@ function compute(pp) {
       account_count: rows.length,
       breach_count: breaches.length,
       unexplained_count: unexplained.length,
+      not_evaluated_count: notEvaluatedCount,
       orphan_explanation_count: orphans.length,
     },
     warnings,
@@ -423,7 +470,16 @@ function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp
 async function run(){
   const pp={accounts:parseJson('accounts_json',[]),prior_balances:parseJson('prior_json',[]),current_balances:parseJson('current_json',[]),threshold_policy:parseJson('policy_json',{}),reason_codes:parseJson('codes_json',[]),explanations:parseJson('explanations_json',[])};
   const r=compute(pp);const op=r.output_payload;const compliance_flags=r.compliance_flags;
-  const preimage=__ocgCanonStr({policy_parameters:pp,output_payload:op});
+  let preimage;
+  try{preimage=__ocgCanonStr({policy_parameters:pp,output_payload:op});}
+  catch(e){
+    document.getElementById('results').classList.add('show');
+    document.getElementById('memo').textContent='Input refused: a number is outside the safe integer range (2^53) or not a finite number. Use integer minor units within 1e15.';
+    document.querySelector('#fluxTable tbody').innerHTML='';
+    document.getElementById('hash').textContent='';
+    document.getElementById('artifact').textContent='';
+    return;
+  }
   const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(preimage));
   const hash=[...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');
   const generatedAt=new Date().toISOString();
@@ -435,7 +491,7 @@ async function run(){
   if(op.error){memo.textContent='Input refused: '+op.detail;tb.innerHTML='';}
   else{
     const s=op.summary;
-    memo.textContent='Gate: '+op.gate_status+' ('+op.gate_policy_equivalent+'). '+s.breach_count+' breach(es) out of '+s.account_count+' account(s), '+s.unexplained_count+' unexplained, '+s.orphan_explanation_count+' explanation(s) matching no breach.';
+    memo.textContent='Gate: '+op.gate_status+' ('+op.gate_policy_equivalent+'). '+s.breach_count+' breach(es) out of '+s.account_count+' account(s), '+s.unexplained_count+' unexplained, '+s.orphan_explanation_count+' explanation(s) matching no breach.'+(s.not_evaluated_count>0?' '+s.not_evaluated_count+' zero-prior account(s) moved with no absolute threshold to test against (ZERO_PRIOR_NOT_EVALUATED); route to review.':'');
     const byId={};op.accounts.forEach(function(a){byId[a.account_id]=a;});
     tb.innerHTML=op.breaches.map(function(b){const a=byId[b.account_id];return '<tr><td>'+b.rank+'</td><td>'+esc(b.account_id)+'</td><td>'+a.movement_minor_units+'</td><td>'+esc(a.movement_bps)+'</td><td><span class="pill fail">breach</span></td><td><span class="pill '+(b.explained?'pass':'fail')+'">'+(b.explained?esc(a.explanation_ids.join(', ')):'MISSING')+'</span></td></tr>';}).join('');
   }
