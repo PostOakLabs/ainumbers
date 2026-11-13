@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (741 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (744 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -8217,11 +8217,41 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-830-eip3009-spend-exposure-reconciler",
+    "display_name": "EIP-3009 Spend Exposure Reconciler",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-830-eip3009-spend-exposure-reconciler.html",
+    "description": "Reconciles a caller-pasted EIP-3009 (ERC-3009, Draft) authorization ledger against caller-pasted AuthorizationUsed and AuthorizationCanceled",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-831-receipt-export-envelopes",
     "display_name": "Receipt Export Envelopes",
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-831-receipt-export-envelopes.html",
     "description": "Deterministically re-expresses one caller-supplied execution receipt as two wire envelopes: a lineage RunEvent (eventType COMPLETE, eventTim",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-833-lint-pan-sad-exposure",
+    "display_name": "PAN and SAD Exposure Linter",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/833-lint-pan-sad-exposure.html",
+    "description": "Lints a caller-declared token-record schema against the published PCI DSS v4.0.1 account-data rules and reports which declared surfaces expo",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-834-asc606-transaction-price-allocator",
+    "display_name": "ASC 606 Transaction Price Allocator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-834-asc606-transaction-price-allocator.html",
+    "description": "Allocates a declared transaction price across declared performance obligations by relative standalone selling price, in integer minor units,",
     "consumes": [],
     "feeds": [],
     "status": "live"

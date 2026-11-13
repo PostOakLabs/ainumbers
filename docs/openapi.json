@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1296 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1299 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -1233,6 +1233,9 @@
       "name": "PAI"
     },
     {
+      "name": "PAN masking"
+    },
+    {
       "name": "PAR"
     },
     {
@@ -1438,6 +1441,9 @@
     },
     {
       "name": "SA-CCR"
+    },
+    {
+      "name": "SAD retention"
     },
     {
       "name": "SAID"
@@ -3325,6 +3331,9 @@
     },
     {
       "name": "displacement-risk"
+    },
+    {
+      "name": "display ceiling"
     },
     {
       "name": "disposition"
@@ -6378,6 +6387,9 @@
       "name": "senior officer"
     },
     {
+      "name": "sensitive authentication data"
+    },
+    {
       "name": "sensitivities-based method"
     },
     {
@@ -6823,6 +6835,9 @@
     },
     {
       "name": "token bucket"
+    },
+    {
+      "name": "token record schema"
     },
     {
       "name": "token-2022"
@@ -52903,6 +52918,128 @@
         },
         "x-mcp-tool-name": "analyse_treasury_payment_opportunity",
         "x-tool-url": "https://ainumbers.co/tools/83-treasury-decision-lab.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
+    "/v1/tools/lint_pan_sad_exposure": {
+      "post": {
+        "operationId": "lint_pan_sad_exposure",
+        "summary": "PAN and SAD Exposure Linter",
+        "description": "Vendor-neutral linter for a declared token-record schema: checks declared display mask expressions, alias template and search-index expressions, sensitive-authentication-data retention, and digest fields against the published PAN display-masking rule and account-data storage rules. The input is a schema declaration, never card data. Client-side. Works offline. Zero PII.\n\n**Tool URL:** https://ainumbers.co/tools/833-lint-pan-sad-exposure.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "PAN masking",
+          "sensitive authentication data",
+          "SAD retention",
+          "display ceiling",
+          "digest",
+          "token record schema",
+          "PCI DSS"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "record": {
+                    "description": "Declared record schema: record_type, fields, optional alias_template, optional search_index_expressions",
+                    "type": "object"
+                  },
+                  "stored_elements": {
+                    "description": "Declared stored data elements: name, sad_class, retention, storage_location_class, encrypted",
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "record",
+                  "stored_elements"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "alias_analysis": {
+                      "description": "Ceiling check over the declared alias template",
+                      "type": "object"
+                    },
+                    "ceilings": {
+                      "description": "The first-six and last-four digit ceilings applied",
+                      "type": "object"
+                    },
+                    "container_path": {
+                      "description": "Echoed declared container path",
+                      "type": "string"
+                    },
+                    "digest_verdicts": {
+                      "description": "Per-declared-digest target and keyed-construction verdicts",
+                      "type": "array"
+                    },
+                    "field_exposure": {
+                      "description": "Per-declared-field display exposure against the ceiling",
+                      "type": "array"
+                    },
+                    "findings": {
+                      "description": "Findings with the cited requirement paragraph per finding",
+                      "type": "array"
+                    },
+                    "findings_count": {
+                      "description": "Number of findings",
+                      "type": "number"
+                    },
+                    "issues": {
+                      "description": "Mirror of the compliance flags as human-readable issue lines",
+                      "type": "array"
+                    },
+                    "manual_review": {
+                      "description": "Named manual-review flags for carve-out conditions the caller owns",
+                      "type": "array"
+                    },
+                    "manual_review_count": {
+                      "description": "Number of manual-review flags",
+                      "type": "number"
+                    },
+                    "manual_review_required": {
+                      "description": "True when at least one manual-review flag or an unanalyzed display expression is present",
+                      "type": "boolean"
+                    },
+                    "record_type": {
+                      "description": "Echoed declared record kind",
+                      "type": "string"
+                    },
+                    "refusal_reasons": {
+                      "description": "Structured refusal reasons; present only when the call is refused",
+                      "type": "array"
+                    },
+                    "retention_verdicts": {
+                      "description": "Per-declared-element retention verdicts, encryption-independent",
+                      "type": "array"
+                    },
+                    "search_index_analysis": {
+                      "description": "Ceiling checks over each declared search-index expression",
+                      "type": "array"
+                    },
+                    "verdict": {
+                      "description": "input_refused, no_findings, manual_review_required, or findings_present",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "lint_pan_sad_exposure",
+        "x-tool-url": "https://ainumbers.co/tools/833-lint-pan-sad-exposure.html",
         "x-source": "manifest",
         "x-ap2-export": true
       }
@@ -143268,6 +143405,86 @@
         "x-ap2-export": true,
         "x-mandate-type": "compliance_mandate",
         "x-ocg-wave": 142
+      }
+    },
+    "/v1/tools/reconcile_eip3009_spend_exposure": {
+      "post": {
+        "operationId": "reconcile_eip3009_spend_exposure",
+        "summary": "EIP-3009 Spend Exposure Reconciler",
+        "description": "Reconciles a caller-pasted EIP-3009 (ERC-3009, Draft) authorization ledger against caller-pasted AuthorizationUsed and AuthorizationCanceled event rows on a caller-supplied clock, totaling outstanding spend exposure and listing every disagreement with the ledger's own status. Each entry is classified into exactly one class: settled (a used event row matches the identity), canceled (a canceled event row matches), not_yet_valid (no event row matches and the caller clock is at or before the entry's validAfter; excluded from total_outstanding and disclosed beside it), expired_unspent (no event row matches and the strict upper validity bound is at or before the caller clock), outstanding (window open, meaning validAfter is before the clock and the clock is before validBefore, value counted in total_outstanding), or not_evaluated (the identity carries both a used and a canceled row, the clock is absent for a signed entry, or the entry repeats the authorizer, token, chain and nonce of an earlier ledger entry and is flagged DUPLICATE_NONCE_LEDGER, so only the first in canonical order is counted). Event rows match ledger identities by authorizer and nonce, with optional per-row token and chain_id narrowing; an unscoped row spanning more than one token or chain identity is flagged AMBIGUOUS_EVENT_SCOPE and applied to none, a repeated identical row is flagged and applied once, and a row matching no ledger entry is flagged EVENT_WITHOUT_LEDGER_ENTRY. Every applied event row that contradicts the ledger's status claim is itemized under one of four LEDGER_SAYS discrepancy codes. A used and a canceled row on the same identity is EVENT_CONFLICT: the entry is not_evaluated, its value is excluded from the total and disclosed separately in unresolved_conflict_value. An absent event list or absent clock marks that aspect not_evaluated rather than treating it as empty, and total_outstanding is null whenever any signed entry lacks a clock verdict. Arithmetic is integer-only decimal-string uint256 with fixed scan bounds. Zero network calls, no chain reads, no signature recovery: all rows are caller-attested pasted evidence, the cited standard is a Draft, and the output is a reconciliation over pasted records, not a conformance verdict about any token implementation, not an authorization to move funds and not proof that funds moved.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-830-eip3009-spend-exposure-reconciler.html\n**Wave:** 143\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-830-eip3009-spend-exposure-reconciler.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "reconcile_eip3009_spend_exposure",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-830-eip3009-spend-exposure-reconciler.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 143
+      }
+    },
+    "/v1/tools/allocate_asc606_transaction_price": {
+      "post": {
+        "operationId": "allocate_asc606_transaction_price",
+        "summary": "ASC 606 Transaction Price Allocator",
+        "description": "Allocates a declared transaction price across declared performance obligations by relative standalone selling price, in integer minor units, under the discount handling (spread proportionally, or assigned to declared obligation ids), rounding rule (largest remainder, or round half up with the remainder to the largest obligation) and residual approach (off, or on for one declared obligation) that the caller declares. Returns the allocated amount per obligation, summing exactly to the price, the relative share in basis points, the discount allocated, and flags for a negative or zero residual, a missing standalone selling price, a price below the total with no discount rule, an allocation above a declared cap, and INDETERMINATE when a required fact is missing. It never guesses a standalone selling price. The residual_candidate flag is the caller's declaration that the residual-approach conditions of ASC 606-10-32-34 hold for that obligation, and discount handling assign takes caller-declared ids that assert the 32-37 conditions hold; the kernel checks neither. Re-running with a new price is a fresh allocation, not the change-in-transaction-price treatment of 32-42 to 32-45. Largest-remainder rounding is a kernel convention, not a paragraph rule, and ssp_share_bps truncates so shares can sum to 9999. It does not decide the standalone selling prices, does not identify the performance obligations in a contract, and is not an accounting conclusion. Ids and integers only, no free text. Allocated amounts could be consumed by art-265 (amortize_asc606_commissions); no adjacency is declared here.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-834-asc606-transaction-price-allocator.html\n**Wave:** 144\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-834-asc606-transaction-price-allocator.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "allocate_asc606_transaction_price",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-834-asc606-transaction-price-allocator.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 144
       }
     }
   },
