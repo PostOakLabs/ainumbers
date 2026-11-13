@@ -38,6 +38,8 @@ import * as t824      from './824-zip317-transfer-fee.kernel.mjs';
 import * as t825      from './825-reconcile-ucp-checkout-totals.kernel.mjs';
 import * as t827      from './827-agent-cred-class-matrix.kernel.mjs';
 import * as t829      from './829-safe-tx-hash-recompute.kernel.mjs';
+import * as t836      from './836-payment-services-activity-classifier.kernel.mjs';
+import * as t837      from './837-issuer-yield-share.kernel.mjs';
 import * as t838      from './838-control-frequency-sample.kernel.mjs';
 import * as art01     from './art-01-ap2-mandate-chain-validator.kernel.mjs';
 import * as art02     from './art-02-agent-spend-policy-simulator.kernel.mjs';
@@ -704,6 +706,7 @@ import * as art809    from './art-809-check-reserves-cover-outstanding-private.k
 import * as art81     from './art-81-allocation-affirmation-conformance.kernel.mjs';
 import * as art811    from './art-811-check-dti-within-policy-private.kernel.mjs';
 import * as art814    from './art-814-qf-pairwise-recompute.kernel.mjs';
+import * as art816    from './art-816-eip3009-agent-spend-gate.kernel.mjs';
 import * as art818    from './art-818-zcash-reg-classifier.kernel.mjs';
 import * as art819    from './art-819-ucp-request-constraints.kernel.mjs';
 import * as art82     from './art-82-securities-settlement-message-linter.kernel.mjs';
@@ -786,6 +789,8 @@ export const KERNELS = {
   '825-reconcile-ucp-checkout-totals':                          t825,
   '827-agent-cred-class-matrix':                                t827,
   '829-safe-tx-hash-recompute':                                 t829,
+  '836-payment-services-activity-classifier':                   t836,
+  '837-issuer-yield-share':                                     t837,
   '838-control-frequency-sample':                               t838,
   'art-01-ap2-mandate-chain-validator':                         art01,
   'art-02-agent-spend-policy-simulator':                        art02,
@@ -1452,6 +1457,7 @@ export const KERNELS = {
   'art-81-allocation-affirmation-conformance':                  art81,
   'art-811-check-dti-within-policy-private':                    art811,
   'art-814-qf-pairwise-recompute':                              art814,
+  'art-816-eip3009-agent-spend-gate':                           art816,
   'art-818-zcash-reg-classifier':                               art818,
   'art-819-ucp-request-constraints':                            art819,
   'art-82-securities-settlement-message-linter':                art82,

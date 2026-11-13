@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (746 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (749 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -364,6 +364,26 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/829-safe-tx-hash-recompute.html",
     "description": "Recomputes the hash and decodes known calls. It does not simulate execution and cannot tell you the destination contract is safe. From paste",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "836-payment-services-activity-classifier",
+    "display_name": "Payment Services Activity Classifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/836-payment-services-activity-classifier.html",
+    "description": "Reads a caller-declared business model as a closed set of boolean payment-activity facts and classifies it into the licence classes of one o",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "837-issuer-yield-share",
+    "display_name": "Issuer Reserve Yield Share Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/837-issuer-yield-share.html",
+    "description": "Recomputes a white-label stablecoin deal's reserve-income split (issuer, platform, distributor, custodian) from aggregate declared values, a",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -8143,6 +8163,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-814-qf-pairwise-recompute.html",
     "description": "Recomputes how a quadratic funding round splits a matching pool from contribution amounts you supply, in two modes. Plain mode gives each pr",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-816-eip3009-agent-spend-gate",
+    "display_name": "EIP-3009 Agent Spend Gate",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-816-eip3009-agent-spend-gate.html",
+    "description": "Pre-sign gate for one EIP-3009 (ERC-3009, Draft) transferWithAuthorization or receiveWithAuthorization intent, decided against a caller-decl",
     "consumes": [],
     "feeds": [],
     "status": "live"

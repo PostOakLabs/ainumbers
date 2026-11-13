@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1301 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1304 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -4725,6 +4725,9 @@
       "name": "mcp:classify_mla_charge_inclusion"
     },
     {
+      "name": "mcp:classify_payment_services"
+    },
+    {
       "name": "mcp:classify_rate_rec_5pct_threshold"
     },
     {
@@ -5412,6 +5415,9 @@
       "name": "payment-reconciliation"
     },
     {
+      "name": "payment-services"
+    },
+    {
       "name": "payment-verification"
     },
     {
@@ -5965,6 +5971,9 @@
     },
     {
       "name": "regulatory-change"
+    },
+    {
+      "name": "regulatory-perimeter"
     },
     {
       "name": "regulatory-reporting"
@@ -53055,6 +53064,175 @@
         },
         "x-mcp-tool-name": "lint_pan_sad_exposure",
         "x-tool-url": "https://ainumbers.co/tools/833-lint-pan-sad-exposure.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
+    "/v1/tools/classify_payment_services": {
+      "post": {
+        "operationId": "classify_payment_services",
+        "summary": "Payment Services Activity Classifier",
+        "description": "Classifies a declared business model, given as yes/no payment-activity facts, into the licence classes of one of three pinned payment-services regimes: Bermuda’s proposed Payment Services Act (consultation response; proposed, not enacted), EU PSD2 Article 3 and Annex I, and the UK Payment Services Regulations 2017 Schedule 1. Considers each regime’s exclusions, reports conflicts, emits transition notes. A structured reading of declared facts against pinned text, not legal advice.\n\n**Tool URL:** https://ainumbers.co/chaingraph/836-payment-services-activity-classifier.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "payment-services",
+          "licensing",
+          "regulatory-perimeter",
+          "mcp:classify_payment_services"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "profile",
+                  "activities"
+                ],
+                "properties": {
+                  "profile": {
+                    "type": "string",
+                    "enum": [
+                      "bermuda_psa",
+                      "eu_psd2",
+                      "uk_psrs"
+                    ],
+                    "description": "Pinned regime profile: bermuda_psa (proposed PSA consultation response), eu_psd2 (PSD2 Article 3 and Annex I), or uk_psrs (S.I. 2017/752 Schedule 1)."
+                  },
+                  "activities": {
+                    "type": "object",
+                    "description": "Closed-enum boolean facts declaring the business model. Absent facts read as false; non-boolean values are recorded as rejected inputs.",
+                    "properties": {
+                      "holds_customer_funds": {
+                        "type": "boolean",
+                        "description": "Holds customer funds. Declared fact about the business model. Absent is read as false."
+                      },
+                      "executes_transfers": {
+                        "type": "boolean",
+                        "description": "Executes payment transactions / transfers. Declared fact about the business model. Absent is read as false."
+                      },
+                      "issues_payment_instruments": {
+                        "type": "boolean",
+                        "description": "Issues payment instruments. Declared fact about the business model. Absent is read as false."
+                      },
+                      "acquires_transactions": {
+                        "type": "boolean",
+                        "description": "Acquires payment transactions. Declared fact about the business model. Absent is read as false."
+                      },
+                      "money_remittance": {
+                        "type": "boolean",
+                        "description": "Money remittance. Declared fact about the business model. Absent is read as false."
+                      },
+                      "initiates_payments_without_holding_funds": {
+                        "type": "boolean",
+                        "description": "Payment initiation without holding funds. Declared fact about the business model. Absent is read as false."
+                      },
+                      "provides_account_information": {
+                        "type": "boolean",
+                        "description": "Account information service. Declared fact about the business model. Absent is read as false."
+                      },
+                      "technical_service_only": {
+                        "type": "boolean",
+                        "description": "Technology / technical service only. Declared fact about the business model. Absent is read as false."
+                      },
+                      "operates_stored_value_wallet": {
+                        "type": "boolean",
+                        "description": "Operates a stored-value wallet. Declared fact about the business model. Absent is read as false."
+                      },
+                      "commercial_agent_for_one_side": {
+                        "type": "boolean",
+                        "description": "Commercial agent for one side only. Declared fact about the business model. Absent is read as false."
+                      },
+                      "limited_network": {
+                        "type": "boolean",
+                        "description": "Limited-network instrument. Declared fact about the business model. Absent is read as false."
+                      }
+                    }
+                  },
+                  "current_licence": {
+                    "type": "string",
+                    "enum": [
+                      "msb_2016",
+                      "none",
+                      "unknown"
+                    ],
+                    "description": "Optional: the firm’s current licence where it affects transition notes. msb_2016 = an existing Bermuda money service business."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "refused": {
+                      "type": "boolean"
+                    },
+                    "rejected_inputs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "profile": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "classes_triggered": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "exclusions_applied": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "conflicts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "transition_note": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "regime_status": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "not_legal_advice": {
+                      "type": "boolean"
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "classify_payment_services",
+        "x-tool-url": "https://ainumbers.co/chaingraph/836-payment-services-activity-classifier.html",
         "x-source": "manifest",
         "x-ap2-export": true
       }
@@ -142439,6 +142617,46 @@
         "x-ocg-wave": 142
       }
     },
+    "/v1/tools/check_issuer_reserve_yield_share": {
+      "post": {
+        "operationId": "check_issuer_reserve_yield_share",
+        "summary": "Issuer Reserve Yield Share Check",
+        "description": "Recomputes a white-label stablecoin deal's reserve-income split (issuer, platform, distributor, custodian) from aggregate declared values, a period of days with an average reserve value and an annual yield in basis points, or a declared reserve income, and each party's share in integer minor units, with a conservation check that the floored shares sum exactly to the income. Traces every declared holder-facing reward to its payer and funding source and flags any reward whose payer is an issuer class (issuer, permitted_issuer or foreign_issuer; any other payer role is refused) (enacted statutory profile: PL 119-27 § 4(a)(11) bars a permitted payment stablecoin issuer from paying a holder any form of interest or yield solely in connection with holding, using, or retaining the coin) or whose funding is an issuer flow (reserve income), returning NO_ISSUER_YIELD, REVIEW or ISSUER_YIELD_PRESENT. Adjacent: art-45's narrow genius_yield check inside the Arc xReserve linter flags a declared yield switch; reserve composition comes from art-06 and art-275. The node states facts about declared flows only; it never says a deal is lawful. Inputs are aggregate values and role labels only, no live addresses, no named counterparties, no real deal terms.\n\n**Tool URL:** https://ainumbers.co/chaingraph/837-issuer-yield-share.html\n**Wave:** 141\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/837-issuer-yield-share.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "check_issuer_reserve_yield_share",
+        "x-tool-url": "https://ainumbers.co/chaingraph/837-issuer-yield-share.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 141
+      }
+    },
     "/v1/tools/assess_ai_act_conformity": {
       "post": {
         "operationId": "assess_ai_act_conformity",
@@ -143513,6 +143731,46 @@
         },
         "x-mcp-tool-name": "recompute_quadratic_funding_round",
         "x-tool-url": "https://ainumbers.co/chaingraph/art-814-qf-pairwise-recompute.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 142
+      }
+    },
+    "/v1/tools/decide_eip3009_agent_spend": {
+      "post": {
+        "operationId": "decide_eip3009_agent_spend",
+        "summary": "EIP-3009 Agent Spend Gate",
+        "description": "Pre-sign gate for one EIP-3009 (ERC-3009, Draft) transferWithAuthorization or receiveWithAuthorization intent, decided against a caller-declared spend policy and a caller-pasted authorization ledger. Returns exactly one decision: SPEND (within the declared policy), DENY (outside the declared policy: structural authorization defects, signer mismatch, disallowed domain, zero or replayed nonce, invalid or expired validity window, denied or unlisted payee, missing receive-variant contract), OVER_LIMIT (per-transaction cap, window cap or velocity count exceeded, or a same-economics duplicate inside the declared duplicate window), or INDETERMINATE (the policy does not declare enough to decide, for example no per-transaction cap or no window caps, or a domain without verifying_contract or chain_id so the nonce-replay rule cannot run). SPEND requires the nonce-replay rule to have been evaluated. DENY outranks OVER_LIMIT, every failing rule is listed, and the first failing rule in the fixed thirteen-rule order is primary. Rules that cannot run because their policy input is absent are reported as not evaluated rather than guessed. Arithmetic is pure decimal-string uint256 with fixed scan bounds. Counting follows the ruled classes: settled entries count toward window totals from their signed_at, signed-unexpired entries count regardless of age, canceled entries never count in sums but still match the nonce-replay check. Zero network calls, no signature recovery, no digest recomputation, no chain reads: the nonce check runs against the pasted ledger only, and on-chain nonce uniqueness is enforced by the token contract at settlement time. SPEND means within the declared policy; it is not an authorization to move funds and is not proof that funds moved.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-816-eip3009-agent-spend-gate.html\n**Wave:** 142\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-816-eip3009-agent-spend-gate.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "decide_eip3009_agent_spend",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-816-eip3009-agent-spend-gate.html",
         "x-source": "chaingraph",
         "x-ap2-export": true,
         "x-mandate-type": "compliance_control",
