@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1297 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1298 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -1233,6 +1233,9 @@
       "name": "PAI"
     },
     {
+      "name": "PAN masking"
+    },
+    {
       "name": "PAR"
     },
     {
@@ -1438,6 +1441,9 @@
     },
     {
       "name": "SA-CCR"
+    },
+    {
+      "name": "SAD retention"
     },
     {
       "name": "SAID"
@@ -3325,6 +3331,9 @@
     },
     {
       "name": "displacement-risk"
+    },
+    {
+      "name": "display ceiling"
     },
     {
       "name": "disposition"
@@ -6378,6 +6387,9 @@
       "name": "senior officer"
     },
     {
+      "name": "sensitive authentication data"
+    },
+    {
       "name": "sensitivities-based method"
     },
     {
@@ -6823,6 +6835,9 @@
     },
     {
       "name": "token bucket"
+    },
+    {
+      "name": "token record schema"
     },
     {
       "name": "token-2022"
@@ -52903,6 +52918,128 @@
         },
         "x-mcp-tool-name": "analyse_treasury_payment_opportunity",
         "x-tool-url": "https://ainumbers.co/tools/83-treasury-decision-lab.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
+    "/v1/tools/lint_pan_sad_exposure": {
+      "post": {
+        "operationId": "lint_pan_sad_exposure",
+        "summary": "PAN and SAD Exposure Linter",
+        "description": "Vendor-neutral linter for a declared token-record schema: checks declared display mask expressions, alias template and search-index expressions, sensitive-authentication-data retention, and digest fields against the published PAN display-masking rule and account-data storage rules. The input is a schema declaration, never card data. Client-side. Works offline. Zero PII.\n\n**Tool URL:** https://ainumbers.co/tools/833-lint-pan-sad-exposure.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "PAN masking",
+          "sensitive authentication data",
+          "SAD retention",
+          "display ceiling",
+          "digest",
+          "token record schema",
+          "PCI DSS"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "record": {
+                    "description": "Declared record schema: record_type, fields, optional alias_template, optional search_index_expressions",
+                    "type": "object"
+                  },
+                  "stored_elements": {
+                    "description": "Declared stored data elements: name, sad_class, retention, storage_location_class, encrypted",
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "record",
+                  "stored_elements"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "alias_analysis": {
+                      "description": "Ceiling check over the declared alias template",
+                      "type": "object"
+                    },
+                    "ceilings": {
+                      "description": "The first-six and last-four digit ceilings applied",
+                      "type": "object"
+                    },
+                    "container_path": {
+                      "description": "Echoed declared container path",
+                      "type": "string"
+                    },
+                    "digest_verdicts": {
+                      "description": "Per-declared-digest target and keyed-construction verdicts",
+                      "type": "array"
+                    },
+                    "field_exposure": {
+                      "description": "Per-declared-field display exposure against the ceiling",
+                      "type": "array"
+                    },
+                    "findings": {
+                      "description": "Findings with the cited requirement paragraph per finding",
+                      "type": "array"
+                    },
+                    "findings_count": {
+                      "description": "Number of findings",
+                      "type": "number"
+                    },
+                    "issues": {
+                      "description": "Mirror of the compliance flags as human-readable issue lines",
+                      "type": "array"
+                    },
+                    "manual_review": {
+                      "description": "Named manual-review flags for carve-out conditions the caller owns",
+                      "type": "array"
+                    },
+                    "manual_review_count": {
+                      "description": "Number of manual-review flags",
+                      "type": "number"
+                    },
+                    "manual_review_required": {
+                      "description": "True when at least one manual-review flag or an unanalyzed display expression is present",
+                      "type": "boolean"
+                    },
+                    "record_type": {
+                      "description": "Echoed declared record kind",
+                      "type": "string"
+                    },
+                    "refusal_reasons": {
+                      "description": "Structured refusal reasons; present only when the call is refused",
+                      "type": "array"
+                    },
+                    "retention_verdicts": {
+                      "description": "Per-declared-element retention verdicts, encryption-independent",
+                      "type": "array"
+                    },
+                    "search_index_analysis": {
+                      "description": "Ceiling checks over each declared search-index expression",
+                      "type": "array"
+                    },
+                    "verdict": {
+                      "description": "input_refused, no_findings, manual_review_required, or findings_present",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "lint_pan_sad_exposure",
+        "x-tool-url": "https://ainumbers.co/tools/833-lint-pan-sad-exposure.html",
         "x-source": "manifest",
         "x-ap2-export": true
       }
