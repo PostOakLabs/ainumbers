@@ -1,5 +1,5 @@
 // art-124-content-credential-signature-verifier.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C3-1).
-// kernel_digest_at_authoring: sha256:4d94affd65e42394718260c88b921c6d47aee442cf49f0573fd5fc401c377bc2
+// kernel_digest_at_authoring: sha256:1f2ac9fc0bf1805a0c2c62100e68304919d4e0bb1771eca942d1557cf1220b70
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -10,6 +10,9 @@
 // allowlist is a fixed 4-entry table), differential re-derivation of chain_trusted/verdict from
 // the attested signature boolean and the trust-posture booleans, and a boundedness check that
 // verdict is always ACCEPT iff both the attested signature verification AND chain trust hold.
+// Since v1.2.0 the revocation attestation is an ALLOWLIST (only the exact string 'good' accepts)
+// and cert_not_expired must be the boolean true; compute refuses, never throws, on a null or
+// undefined input document (P4).
 // Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled).
 //
 // Run: node chaingraph/kernels/__proptests__/art-124-content-credential-signature-verifier.proptest.mjs
@@ -62,8 +65,8 @@ function randomPP(rng) {
     signed_bytes_b64: maybe(rng, Buffer.from(`msg-${Math.floor(rng() * 1e6)}`).toString('base64'), 0.8),
     signature_b64: maybe(rng, Buffer.from(`sig-${Math.floor(rng() * 1e6)}`).toString('base64'), 0.8),
     trust_anchor_match: pick(rng, [true, false, undefined]),
-    cert_not_expired: pick(rng, [true, false, undefined]),
-    revocation_status: pick(rng, ['good', 'revoked', 'unknown', undefined]),
+    cert_not_expired: pick(rng, [true, false, undefined, null, 0, 'false']),
+    revocation_status: pick(rng, ['good', 'revoked', 'REVOKED', 'unknown', '', 'constructor', undefined]),
   };
 }
 
@@ -91,8 +94,8 @@ function checkP2_verdict_differential() {
     const pp = randomPP(rand);
     const { output_payload } = compute(pp);
     checked++;
-    const expectedChainTrusted = pp.trust_anchor_match === true && pp.cert_not_expired !== false
-      && typeof pp.revocation_status === 'string' && pp.revocation_status !== 'revoked';
+    const expectedChainTrusted = pp.trust_anchor_match === true && pp.cert_not_expired === true
+      && pp.revocation_status === 'good';
     if (output_payload.chain_trusted !== expectedChainTrusted) violations++;
     const expectedVerified = pp.signature_verified === true;
     if (output_payload.signature_verified !== expectedVerified) violations++;
@@ -116,29 +119,41 @@ function checkP3_accept_iff_both() {
   return { name: 'P3_accept_iff_signature_and_chain', trials: checked, violations };
 }
 
-// ---------- P4: required inputs fail closed (missing-input cure) ----------
-// alg and revocation_status are required: absent, null or non-string revocation_status
-// is no caller statement at all and must REFUSE, never ACCEPT; an explicit 'unknown'
-// attestation is the caller's own statement and evaluates. An absent or unallowlisted
-// alg refuses because the verdict now requires alg_allowed. cert_not_expired is
-// optional; absent evaluates (no expiry problem attested), explicit false untrusts.
+// ---------- P4: required inputs fail closed, revocation allowlist, strict expiry ----------
+// alg and revocation_status are required, and the revocation attestation is an
+// ALLOWLIST: only the exact string 'good' accepts. Absent, null or non-string
+// revocation_status is no caller statement at all and must REFUSE; every other
+// string ('revoked', a case variant, 'unknown', empty, junk) must REFUSE with the
+// named flag REVOCATION_STATUS_NOT_GOOD. An absent or unallowlisted alg refuses
+// because the verdict requires alg_allowed. cert_not_expired accepts only the
+// boolean true: absent, null, 0 or a string is no expiry attestation and refuses.
+// compute must refuse, never throw, on a null or undefined input document.
 function checkP4_requiredInputsFailClosed() {
   const base = JSON.parse(readFileSync(path.join(__dirname, '..', 'fixtures', 'art-124-content-credential-signature-verifier.fixtures.json'), 'utf8')).vectors[0].policy_parameters;
   let violations = 0, checked = 0;
   for (const value of ['deleted', null, 42]) {
     const pp = { ...base, revocation_status: value };
     if (value === 'deleted') delete pp.revocation_status;
-    const { output_payload } = compute(pp);
+    const r = compute(pp);
     checked++;
-    if (output_payload.verdict !== 'REFUSE') violations++;
-    if (output_payload.chain_trusted !== false) violations++;
+    if (r.output_payload.verdict !== 'REFUSE') violations++;
+    if (r.output_payload.chain_trusted !== false) violations++;
+    if (!r.compliance_flags.includes('REVOCATION_STATUS_NOT_GOOD')) violations++;
   }
-  // An explicit unknown revocation state is a caller statement and evaluates.
-  const ppUnknown = { ...base, revocation_status: 'unknown' };
-  const outUnknown = compute(ppUnknown).output_payload;
+  // Allowlist: every string that is not the exact 'good' refuses with the named flag.
+  for (const value of ['revoked', 'REVOKED', 'unknown', '', 'constructor', 'Good', 'GOOD']) {
+    const pp = { ...base, revocation_status: value };
+    const r = compute(pp);
+    checked++;
+    if (r.output_payload.verdict !== 'REFUSE') violations++;
+    if (r.output_payload.chain_trusted !== false) violations++;
+    if (!r.compliance_flags.includes('REVOCATION_STATUS_NOT_GOOD')) violations++;
+  }
+  // The exact 'good' attestation still accepts (allowlist, not reject-everything).
+  const outGood = compute({ ...base, revocation_status: 'good' }).output_payload;
   checked++;
-  if (outUnknown.verdict !== 'ACCEPT') violations++;
-  if (outUnknown.chain_trusted !== true) violations++;
+  if (outGood.verdict !== 'ACCEPT') violations++;
+  if (outGood.chain_trusted !== true) violations++;
   for (const value of ['deleted', null, 42, 'RS512-BOGUS']) {
     const pp = { ...base, alg: value };
     if (value === 'deleted') delete pp.alg;
@@ -147,13 +162,24 @@ function checkP4_requiredInputsFailClosed() {
     if (output_payload.verdict !== 'REFUSE') violations++;
     if (output_payload.alg_allowed !== false) violations++;
   }
-  // Optional: cert_not_expired absent evaluates through the attested-boolean path.
-  const ppNoCert = { ...base };
-  delete ppNoCert.cert_not_expired;
-  const outNoCert = compute(ppNoCert).output_payload;
-  checked++;
-  if (outNoCert.verdict !== 'ACCEPT') violations++;
-  if (outNoCert.chain_trusted !== true) violations++;
+  // Strict expiry attestation: only the boolean true satisfies cert_not_expired.
+  for (const value of ['deleted', null, 0, 'false', 'true']) {
+    const pp = { ...base };
+    if (value === 'deleted') delete pp.cert_not_expired;
+    else pp.cert_not_expired = value;
+    const r = compute(pp);
+    checked++;
+    if (r.output_payload.verdict !== 'REFUSE') violations++;
+    if (r.output_payload.chain_trusted !== false) violations++;
+  }
+  // Null and undefined input documents refuse, never throw.
+  for (const bad of [null, undefined]) {
+    let r;
+    try { r = compute(bad); } catch { violations++; continue; }
+    checked++;
+    if (r.output_payload.verdict !== 'REFUSE') violations++;
+    if (r.output_payload.chain_trusted !== false) violations++;
+  }
   return { name: 'P4_required_inputs_fail_closed', trials: checked, violations };
 }
 
