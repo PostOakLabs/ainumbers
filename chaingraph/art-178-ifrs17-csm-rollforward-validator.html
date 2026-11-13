@@ -362,7 +362,7 @@ const MANIFEST = {
     inputSchema: {
       type: 'object',
       properties: {
-        rollforward: {
+        csm: {
           type: 'object',
           properties: {
             opening_csm: { type: 'number' },
@@ -380,45 +380,50 @@ const MANIFEST = {
 
 let _lastArtifact=null, _lastPP=null, _lastOP=null, _lastFlags=null;
 
+// IFRS 17 CSM roll-forward mechanics: opening + new business + interest accretion
+// + experience adjustments - coverage-unit release + FX = closing CSM.
+// No negative CSM allowed — if computed closing < 0, contract is onerous and the
+// shortfall becomes a loss component. NaN-safe on every numeric input.
 function compute(pp) {
-  const rf = (pp && pp.rollforward) ? pp.rollforward : {};
-  const g = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
-  const opening    = g(rf.opening_csm);
-  const new_biz    = g(rf.new_business_csm);
-  const interest   = g(rf.interest_accretion);
-  const exp_adj    = g(rf.experience_adjustments);
-  const release    = g(rf.release_to_profit);
-  const fx         = g(rf.fx_adjustments);
+  const { csm = {} } = pp;
 
-  const pre_release      = opening + new_biz + interest + exp_adj + fx;
-  const computed_closing = pre_release - release;
-  const onerous          = computed_closing < 0;
-  const loss_component   = onerous ? Math.abs(computed_closing) : 0;
-  const closing_csm      = onerous ? 0 : computed_closing;
-  const release_excess   = release > pre_release && pre_release >= 0;
-  const csm_valid        = !release_excess && !onerous;
+  const g = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
+  const opening     = g(csm.opening_csm);
+  const new_biz     = g(csm.new_business_csm);
+  const interest    = g(csm.interest_accretion);
+  const exp_adj     = g(csm.experience_adjustments);
+  const release     = g(csm.release_to_profit);
+  const fx          = g(csm.fx_adjustments);
+
+  const computed_closing = opening + new_biz + interest + exp_adj - release + fx;
+  const onerous = computed_closing < 0;
+  const loss_component = onerous ? Math.abs(computed_closing) : 0;
+  const closing_csm = onerous ? 0 : computed_closing;
+
+  // Release cannot exceed pre-release balance (when balance is positive)
+  const pre_release = opening + new_biz + interest + exp_adj + fx;
+  const release_excess = release > pre_release && pre_release >= 0;
+
+  const csm_valid = !release_excess && !onerous;
 
   const compliance_flags = [];
   compliance_flags.push('IFRS17_CSM_ROLLFORWARD_ASSESSED');
   if (csm_valid) compliance_flags.push('IFRS17_CSM_VALID');
-  if (onerous) compliance_flags.push('IFRS17_ONEROUS_CONTRACT_FLAG');
+  if (onerous)   compliance_flags.push('IFRS17_ONEROUS_CONTRACT_FLAG');
   if (release_excess) compliance_flags.push('IFRS17_CSM_RELEASE_EXCESS');
 
   return {
     output_payload: {
-      closing_csm: Math.round(closing_csm * 100) / 100,
-      computed_closing: Math.round(computed_closing * 100) / 100,
-      onerous,
-      loss_component: Math.round(loss_component * 100) / 100,
-      release_excess,
-      csm_valid,
-      pre_release: Math.round(pre_release * 100) / 100,
+      closing_csm,
       opening_csm: opening,
       new_business_csm: new_biz,
       interest_accretion: interest,
       experience_adjustments: exp_adj,
       release_to_profit: release,
       fx_adjustments: fx,
+      onerous,
+      loss_component,
+      csm_valid,
     },
     compliance_flags,
   };
@@ -437,8 +442,8 @@ function cgCanon(v) {
 }
 
 function getParams() {
-  return { rollforward: {
-    opening_csm:           Number(document.getElementById('opening_csm').value)||0,
+  return { csm: {
+    opening_csm:          Number(document.getElementById('opening_csm').value)||0,
     new_business_csm:      Number(document.getElementById('new_business_csm').value)||0,
     interest_accretion:    Number(document.getElementById('interest_accretion').value)||0,
     experience_adjustments:Number(document.getElementById('experience_adjustments').value)||0,
@@ -481,6 +486,11 @@ async function runValidator() {
 }
 
 function renderResults(op, flags, rawHash, artifact) {
+  // The kernel output carries the movement items and closing CSM; derive the two display subtotals from them.
+  op = Object.assign({}, op);
+  op.pre_release = op.opening_csm + op.new_business_csm + op.interest_accretion + op.experience_adjustments + op.fx_adjustments;
+  op.computed_closing = op.pre_release - op.release_to_profit;
+  op.release_excess = op.release_to_profit > op.pre_release && op.pre_release >= 0;
   const validColor = op.csm_valid ? 'var(--green)' : (op.onerous ? 'var(--red)' : 'var(--warn)');
   document.getElementById('heroRow').innerHTML = `
     <div class="hero-stat">
@@ -500,20 +510,20 @@ function renderResults(op, flags, rawHash, artifact) {
   let vHtml = '';
   if (op.csm_valid) vHtml = `<div class="verdict pass">✓ Roll-forward valid — closing CSM ${fmt(op.closing_csm)} is positive with no release excess.</div>`;
   else if (op.onerous) vHtml = `<div class="verdict fail">✗ Onerous contract detected — computed closing (${fmt(op.computed_closing)}) is negative. Loss component ${fmt(op.loss_component)} recognised; closing CSM reset to 0 (IFRS 17 para 48-50).</div>`;
-  if (op.release_excess) vHtml += `<div class="verdict warn">⚠ Release excess — release_to_profit (${fmt(pp_last.rollforward.release_to_profit)}) exceeds pre-release balance (${fmt(op.pre_release)}). Not permitted under IFRS 17 para 44.</div>`;
+  if (op.release_excess) vHtml += `<div class="verdict warn">⚠ Release excess — release_to_profit (${fmt(pp_last.csm.release_to_profit)}) exceeds pre-release balance (${fmt(op.pre_release)}). Not permitted under IFRS 17 para 44.</div>`;
   document.getElementById('verdictBox').innerHTML = vHtml;
 
   document.getElementById('breakdownBox').innerHTML = `
     <div class="form-label" style="margin-top:12px;margin-bottom:6px">Movement breakdown</div>
     <table style="font-family:'JetBrains Mono',monospace;font-size:.68rem;border-collapse:collapse;width:100%;max-width:460px">
       ${[
-        ['Opening CSM', pp_last.rollforward.opening_csm],
-        ['+ New business', pp_last.rollforward.new_business_csm],
-        ['+ Interest accretion', pp_last.rollforward.interest_accretion],
-        ['+ Experience adjustments', pp_last.rollforward.experience_adjustments],
-        ['+ FX adjustments', pp_last.rollforward.fx_adjustments],
+        ['Opening CSM', pp_last.csm.opening_csm],
+        ['+ New business', pp_last.csm.new_business_csm],
+        ['+ Interest accretion', pp_last.csm.interest_accretion],
+        ['+ Experience adjustments', pp_last.csm.experience_adjustments],
+        ['+ FX adjustments', pp_last.csm.fx_adjustments],
         ['= Pre-release balance', op.pre_release],
-        ['− Release to profit', pp_last.rollforward.release_to_profit],
+        ['− Release to profit', pp_last.csm.release_to_profit],
         ['= Computed closing', op.computed_closing],
         ['→ Closing CSM (per IFRS 17)', op.closing_csm],
       ].map(([l,v],i)=>`<tr style="${i>=6?'border-top:1px solid var(--border)':''}"><td style="padding:3px 8px 3px 0;color:var(--muted)">${l}</td><td style="padding:3px 0;color:var(--bright);text-align:right">${fmt(v)}</td></tr>`).join('')}
