@@ -181,6 +181,20 @@ function checkP4_forced_categorical_boundaries() {
     const r = compute({}).output_payload;
     if (typeof r !== 'object' || r === null) violations++;
   }
+  // null and undefined fall to the same empty-object refuse path and never throw
+  // (allowlist rule: compute(null) / compute(undefined) refuse, never accept)
+  checked++;
+  {
+    const r = compute(null).output_payload;
+    if (typeof r !== 'object' || r === null) violations++;
+    if (r.exceptions.length === 0) violations++;
+  }
+  checked++;
+  {
+    const r = compute(undefined).output_payload;
+    if (typeof r !== 'object' || r === null) violations++;
+    if (r.exceptions.length === 0) violations++;
+  }
   return { name: 'P4_forced_categorical_boundaries', trials: checked, violations };
 }
 
