@@ -133,7 +133,8 @@ export function compute(pp) {
 
   // ---- declared rules (required; never defaulted) ----
   const tol = toInt(pp.tolerance_minor);
-  if (tol === null || tol < 0n || tol > MAX_MINOR) add('TOLERANCE_INVALID_OR_MISSING');
+  if (tol !== null && tol > MAX_MINOR) add('TOLERANCE_EXCEEDS_LIMIT');
+  else if (tol === null || tol < 0n) add('TOLERANCE_INVALID_OR_MISSING');
   if (!SIGN_CONVENTIONS.includes(pp.sign_convention)) add('SIGN_CONVENTION_INVALID_OR_MISSING');
   const magnitude = pp.sign_convention === 'magnitude';
 
@@ -164,7 +165,8 @@ export function compute(pp) {
       else {
         for (const a of l.amounts_minor) {
           const v = toInt(a);
-          if (v === null || absBig(v) > MAX_MINOR) { add('LINE_AMOUNT_INVALID'); amts.push(0n); continue; }
+          if (v === null) { add('LINE_AMOUNT_INVALID'); amts.push(0n); continue; }
+          if (absBig(v) > MAX_MINOR) { add('LINE_AMOUNT_EXCEEDS_LIMIT'); amts.push(0n); continue; }
           if (magnitude && v < 0n) add('NEGATIVE_AMOUNT_UNDER_MAGNITUDE_CONVENTION');
           amts.push(v);
         }
@@ -236,7 +238,8 @@ export function compute(pp) {
         if (seenNotes.has(n.note_id)) add('DUPLICATE_NOTE_ID');
         seenNotes.add(n.note_id);
         const noted = toInt(n.noted_amount_minor);
-        if (noted === null || absBig(noted) > MAX_MINOR) add('NOTE_AMOUNT_INVALID');
+        if (noted === null) add('NOTE_AMOUNT_INVALID');
+        else if (absBig(noted) > MAX_MINOR) add('NOTE_AMOUNT_EXCEEDS_LIMIT');
         const ln = lines.get(n.line_id);
         if (!ln) add('REFERENCED_ID_MISSING'); else refd.add(ln.id);
         if (!colIndex.has(n.column_id)) add('REFERENCED_ID_MISSING');
@@ -289,23 +292,37 @@ export function compute(pp) {
     }
   }
 
-  const unreferenced_lines = [];
-  for (const l of lines.values()) if (!refd.has(l.id)) unreferenced_lines.push({ line_id: l.id, section_id: l.section });
+  // Completeness: a subtotal or total line that no total relation foots was never footed, and a
+  // multi-column statement with no cross-foot relation was never cross-footed. Neither may read as ties.
+  // Notes: note_refs may be omitted (the input declares no notes elsewhere), so no note rule applies.
+  const footed = new Set(totalRels.map((r) => r.total));
+  const unfooted = [];
+  for (const l of lines.values()) if ((l.role === 'total' || l.role === 'subtotal') && !footed.has(l.id)) unfooted.push(l.id);
+  const crossfootMissing = colIndex.size > 1 && crossRels.length === 0;
+  const incomplete = unfooted.length > 0 || crossfootMissing;
 
+  const unreferenced_lines = [];
+  for (const l of lines.values()) if (!refd.has(l.id) || unfooted.includes(l.id)) unreferenced_lines.push({ line_id: l.id, section_id: l.section });
+
+  const footing_checked = totalRels.length * colIndex.size;
   const compliance_flags = [];
   if (footing_breaks.length) compliance_flags.push('FOOTING_BREAK');
   if (crossfoot_breaks.length) compliance_flags.push('CROSSFOOT_BREAK');
   if (note_breaks.length) compliance_flags.push('NOTE_TIE_BREAK');
   if (unreferenced_lines.length) compliance_flags.push('UNREFERENCED_LINES');
+  if (unfooted.length) compliance_flags.push('TOTAL_LINE_NOT_FOOTED');
+  if (crossfootMissing) compliance_flags.push('CROSSFOOT_NOT_DECLARED');
+  if (footing_checked === 0) compliance_flags.push('NOTHING_FOOTED');
   const broke = footing_breaks.length + crossfoot_breaks.length + note_breaks.length > 0;
+  if (!broke && incomplete) compliance_flags.push('INDETERMINATE');
 
   const output_payload = {
-    verdict: broke ? 'breaks' : 'ties',
+    verdict: broke ? 'breaks' : incomplete ? 'indeterminate' : 'ties',
     refusal_code: null,
     sign_convention: pp.sign_convention,
     tolerance_minor: Number(T),
     column_ids: Array.from(colIndex.keys()),
-    footing_checked: totalRels.length * colIndex.size,
+    footing_checked,
     crossfoot_checked: crossRels.length,
     note_checked: noteRefs.length,
     footing_breaks,

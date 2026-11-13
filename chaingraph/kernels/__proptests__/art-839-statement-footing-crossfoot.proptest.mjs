@@ -1,5 +1,5 @@
 // art-839-statement-footing-crossfoot — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:eb1354bc1eeb65cc7d09b3c3fde494eaa32fd5f9599f0a0a59ec5d9a13f35ecf
+// kernel_digest_at_authoring: sha256:550d986913d180078e27e7c0fdd3b9369c307fdc8442fc3028359a85bbaf40be
 // spec: FOOTING-CROSSFOOT-NODE-1 board row (footing, cross-footing and note ties over declared integer values)
 // human_sign_off: PENDING
 //
@@ -185,6 +185,27 @@ function checkDeterminismAndWarningsMirror(rng) {
   return { name: 'deterministic_and_warnings_mirror_flags', checked: N_CASES, violations };
 }
 
+// A statement that declares a total or subtotal line must never tie unless a total relation foots it,
+// and a multi-column statement must never tie without a cross-foot relation.
+function checkIncompleteNeverTies(rng) {
+  let violations = 0;
+  for (let i = 0; i < N_CASES; i++) {
+    const pp = genStatement(rng);
+    const which = i % 4;
+    const dropId = rng() < 0.5 ? 'sub' : 'tot';
+    if (which === 0) pp.total_relations = pp.total_relations.filter((r) => r.total_line_id !== dropId);
+    else if (which === 1) delete pp.total_relations;
+    else if (which === 2) pp.total_relations = [];
+    else pp.crossfoot_relations = rng() < 0.5 ? [] : null;
+    const { output_payload: o, compliance_flags } = compute(pp);
+    if (o.verdict === 'ties' || !compliance_flags.includes('INDETERMINATE')) violations++;
+    if (which < 3 && !compliance_flags.includes('TOTAL_LINE_NOT_FOOTED')) violations++;
+    if (which === 3 && !compliance_flags.includes('CROSSFOOT_NOT_DECLARED')) violations++;
+    if (which === 1 && !compliance_flags.includes('NOTHING_FOOTED')) violations++;
+  }
+  return { name: 'unfooted_total_or_missing_crossfoot_never_ties', checked: N_CASES, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -199,6 +220,7 @@ const properties = [
   checkLineOrderInvariance(mulberry32(4)),
   checkRefusalsAndIndeterminate(mulberry32(5)),
   checkDeterminismAndWarningsMirror(mulberry32(6)),
+  checkIncompleteNeverTies(mulberry32(7)),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test`);
 const ok = summarize(KERNEL_ID, oracle, properties);

@@ -58,7 +58,7 @@ pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius
 footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
 </style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-839-statement-footing-crossfoot.kernel.mjs. -->
-<meta name="kernel-digest" content="sha256:eb1354bc1eeb65cc7d09b3c3fde494eaa32fd5f9599f0a0a59ec5d9a13f35ecf">
+<meta name="kernel-digest" content="sha256:550d986913d180078e27e7c0fdd3b9369c307fdc8442fc3028359a85bbaf40be">
 <style>
 /* OCG-CHROME-CSS:v1 */
 /* Canonical nav — derived from chaingraph-hub.html */
@@ -135,7 +135,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   <p class="hero-desc">Foots and cross-foots a financial statement you declare, and ties its note amounts to statement lines, in integer minor units. You declare the columns, the lines (an id, a section id, a role of detail, subtotal or total, and one amount per column), which line totals which signed lines, which line must equal the sum of which columns, which note should tie to which line and column, a tolerance and the sign convention. It returns every footing break, cross-foot break and note-to-statement break with the expected sum, the stated figure and the difference, plus the lines no relation references. It checks arithmetic and references among declared values. It does not read a document, does not verify that the figures are the real ones, and is not an audit procedure on its own. Ids and integers only: free-text labels, names and anything shaped like an account number are refused, never read.</p>
 </div></div>
 <div class="container">
-  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data , use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
 
   <div class="panel">
     <div class="panel-label">Inputs</div>
@@ -174,7 +174,8 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <div class="help">This node implements no published standard: footing is the sum identity of a declared statement, and cross-footing is the same identity across declared columns. Every figure is a value you declared; the node cannot tell whether it is the figure in a real document.</div>
     <div class="help" style="margin-top:8px">A footing break is the stated total less the signed sum of its members, per column. A cross-foot break is the stated total column less the sum of the declared member columns, for one line. A note break is the noted amount less the stated line amount. A difference at or inside the tolerance ties; one minor unit past it is a break.</div>
     <div class="help" style="margin-top:8px">Under the signed convention amounts carry their own sign and each member's declared sign of 1 or -1 is applied on top. Under the magnitude convention amounts are unsigned and a negative amount makes the result indeterminate.</div>
-    <div class="help" style="margin-top:8px">The verdict is indeterminate when a relation or note names a line or column that is not declared, or a required declaration (tolerance, sign convention) is missing or invalid; nothing is checked in that case. A line no relation references is listed and flagged, and does not by itself make the verdict a break.</div>
+    <div class="help" style="margin-top:8px">The verdict is indeterminate when a relation or note names a line or column that is not declared, or a required declaration (tolerance, sign convention) is missing or invalid; nothing is checked in that case. It is also indeterminate when no break is found but the statement was not fully footed: a subtotal or total line that no total relation foots is flagged TOTAL_LINE_NOT_FOOTED and listed with the unreferenced lines, and a statement with more than one column and no cross-foot relation is flagged CROSSFOOT_NOT_DECLARED. A statement with no subtotal or total lines may tie, with a NOTHING_FOOTED warning when footing_checked is 0. Note references are optional: omitting them is not incomplete. A line no relation references is listed and flagged, and does not by itself make the verdict a break.</div>
+    <div class="help" style="margin-top:8px">Limits: at most 200 lines, 8 columns, 200 relations and 200 members per relation, and every amount, noted amount and the tolerance within 10000000000000 minor units (1e13) in absolute value. Past a limit the verdict is indeterminate with a named flag (MAX_LINES_EXCEEDED, MAX_COLUMNS_EXCEEDED, LINE_AMOUNT_EXCEEDS_LIMIT, NOTE_AMOUNT_EXCEEDS_LIMIT, TOLERANCE_EXCEEDS_LIMIT), never a wrong tie.</div>
     <div class="help" style="margin-top:8px">It is distinct from art-526, which ties a reported figure to a general ledger figure by account. This node checks a statement against itself and against its own note references.</div>
   </div>
 </div>
@@ -386,7 +387,8 @@ function compute(pp) {
 
   // ---- declared rules (required; never defaulted) ----
   const tol = toInt(pp.tolerance_minor);
-  if (tol === null || tol < 0n || tol > MAX_MINOR) add('TOLERANCE_INVALID_OR_MISSING');
+  if (tol !== null && tol > MAX_MINOR) add('TOLERANCE_EXCEEDS_LIMIT');
+  else if (tol === null || tol < 0n) add('TOLERANCE_INVALID_OR_MISSING');
   if (!SIGN_CONVENTIONS.includes(pp.sign_convention)) add('SIGN_CONVENTION_INVALID_OR_MISSING');
   const magnitude = pp.sign_convention === 'magnitude';
 
@@ -417,7 +419,8 @@ function compute(pp) {
       else {
         for (const a of l.amounts_minor) {
           const v = toInt(a);
-          if (v === null || absBig(v) > MAX_MINOR) { add('LINE_AMOUNT_INVALID'); amts.push(0n); continue; }
+          if (v === null) { add('LINE_AMOUNT_INVALID'); amts.push(0n); continue; }
+          if (absBig(v) > MAX_MINOR) { add('LINE_AMOUNT_EXCEEDS_LIMIT'); amts.push(0n); continue; }
           if (magnitude && v < 0n) add('NEGATIVE_AMOUNT_UNDER_MAGNITUDE_CONVENTION');
           amts.push(v);
         }
@@ -489,7 +492,8 @@ function compute(pp) {
         if (seenNotes.has(n.note_id)) add('DUPLICATE_NOTE_ID');
         seenNotes.add(n.note_id);
         const noted = toInt(n.noted_amount_minor);
-        if (noted === null || absBig(noted) > MAX_MINOR) add('NOTE_AMOUNT_INVALID');
+        if (noted === null) add('NOTE_AMOUNT_INVALID');
+        else if (absBig(noted) > MAX_MINOR) add('NOTE_AMOUNT_EXCEEDS_LIMIT');
         const ln = lines.get(n.line_id);
         if (!ln) add('REFERENCED_ID_MISSING'); else refd.add(ln.id);
         if (!colIndex.has(n.column_id)) add('REFERENCED_ID_MISSING');
@@ -542,23 +546,37 @@ function compute(pp) {
     }
   }
 
-  const unreferenced_lines = [];
-  for (const l of lines.values()) if (!refd.has(l.id)) unreferenced_lines.push({ line_id: l.id, section_id: l.section });
+  // Completeness: a subtotal or total line that no total relation foots was never footed, and a
+  // multi-column statement with no cross-foot relation was never cross-footed. Neither may read as ties.
+  // Notes: note_refs may be omitted (the input declares no notes elsewhere), so no note rule applies.
+  const footed = new Set(totalRels.map((r) => r.total));
+  const unfooted = [];
+  for (const l of lines.values()) if ((l.role === 'total' || l.role === 'subtotal') && !footed.has(l.id)) unfooted.push(l.id);
+  const crossfootMissing = colIndex.size > 1 && crossRels.length === 0;
+  const incomplete = unfooted.length > 0 || crossfootMissing;
 
+  const unreferenced_lines = [];
+  for (const l of lines.values()) if (!refd.has(l.id) || unfooted.includes(l.id)) unreferenced_lines.push({ line_id: l.id, section_id: l.section });
+
+  const footing_checked = totalRels.length * colIndex.size;
   const compliance_flags = [];
   if (footing_breaks.length) compliance_flags.push('FOOTING_BREAK');
   if (crossfoot_breaks.length) compliance_flags.push('CROSSFOOT_BREAK');
   if (note_breaks.length) compliance_flags.push('NOTE_TIE_BREAK');
   if (unreferenced_lines.length) compliance_flags.push('UNREFERENCED_LINES');
+  if (unfooted.length) compliance_flags.push('TOTAL_LINE_NOT_FOOTED');
+  if (crossfootMissing) compliance_flags.push('CROSSFOOT_NOT_DECLARED');
+  if (footing_checked === 0) compliance_flags.push('NOTHING_FOOTED');
   const broke = footing_breaks.length + crossfoot_breaks.length + note_breaks.length > 0;
+  if (!broke && incomplete) compliance_flags.push('INDETERMINATE');
 
   const output_payload = {
-    verdict: broke ? 'breaks' : 'ties',
+    verdict: broke ? 'breaks' : incomplete ? 'indeterminate' : 'ties',
     refusal_code: null,
     sign_convention: pp.sign_convention,
     tolerance_minor: Number(T),
     column_ids: Array.from(colIndex.keys()),
-    footing_checked: totalRels.length * colIndex.size,
+    footing_checked,
     crossfoot_checked: crossRels.length,
     note_checked: noteRefs.length,
     footing_breaks,
@@ -686,7 +704,7 @@ async function runCheck() {
   if (o.verdict === 'ties') { v.className = 'verdict ok'; v.textContent = 'TIES , ' + o.footing_checked + ' footing, ' + o.crossfoot_checked + ' cross-foot and ' + o.note_checked + ' note check(s) all within tolerance.'; }
   else if (o.verdict === 'breaks') { v.className = 'verdict bad'; v.textContent = 'BREAKS , ' + o.footing_breaks.length + ' footing, ' + o.crossfoot_breaks.length + ' cross-foot and ' + o.note_breaks.length + ' note break(s).'; }
   else if (o.verdict === 'input_refused') { v.className = 'verdict bad'; v.textContent = 'INPUT REFUSED , ' + o.refusal_code + '; nothing checked.'; }
-  else { v.className = 'verdict bad'; v.textContent = 'INDETERMINATE , a referenced id or a required declaration is missing or invalid; nothing checked.'; }
+  else { v.className = 'verdict bad'; v.textContent = 'INDETERMINATE , a referenced id or a required declaration is missing or invalid, or a total line or the cross-foot was never declared; the statement is not shown to tie.'; }
   document.getElementById('flagRow').innerHTML = r.compliance_flags.map(function (f) { return '<span class="badge bad">' + esc(f) + '</span>'; }).join('');
   var kv = [['verdict', o.verdict], ['sign_convention', o.sign_convention], ['tolerance_minor', o.tolerance_minor], ['footing_checked', o.footing_checked], ['crossfoot_checked', o.crossfoot_checked], ['note_checked', o.note_checked]];
   document.getElementById('kvDiv').innerHTML = kv.map(function (x) { return '<div class="kv"><span class="kv-k">' + x[0] + '</span><span class="kv-v">' + esc(x[1]) + '</span></div>'; }).join('');
