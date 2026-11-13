@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (747 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (748 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -364,6 +364,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/829-safe-tx-hash-recompute.html",
     "description": "Recomputes the hash and decodes known calls. It does not simulate execution and cannot tell you the destination contract is safe. From paste",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "837-issuer-yield-share",
+    "display_name": "Issuer Reserve Yield Share Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/837-issuer-yield-share.html",
+    "description": "Recomputes a white-label stablecoin deal's reserve-income split (issuer, platform, distributor, custodian) from aggregate declared values, a",
     "consumes": [],
     "feeds": [],
     "status": "live"
