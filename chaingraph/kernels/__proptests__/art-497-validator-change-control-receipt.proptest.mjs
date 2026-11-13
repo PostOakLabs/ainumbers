@@ -1,5 +1,5 @@
 // art-497-validator-change-control-receipt.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C25-1).
-// kernel_digest_at_authoring: sha256:7c71bc18ddad620f1a96005b7c9eb2eb1e81938f83e0e2a14dcd4771cfef7440
+// kernel_digest_at_authoring: sha256:64d13da8da930b00c495a583b6e58e4f530a3ca3ea360c4b2ce3d70db8192630
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -12,8 +12,11 @@
 // display-only float ratio.
 // Checks: fixture-oracle gate, termination (authorization_chain bounded by input array length after
 // filter(Boolean)), differential re-derivation of weight_delta/quorum_status, permutation-invariance
-// of authorizing_identities order (only count/membership matter), and forced categorical boundary
-// cases around each change_type's exact-equality branches and the quorum threshold.
+// of authorizing_identities order (only count/membership matter), forced categorical boundary
+// cases around each change_type's exact-equality branches and the quorum threshold, and the strict
+// statedness matrix (P6): weights, total stake and quorum numbers are statements only as finite JSON
+// numbers or one strict decimal-string form; blanks, booleans, arrays, objects and junk refuse
+// NOT_STATED, negatives refuse NEGATIVE, quorum counts must be whole, nothing coerces or clamps.
 //
 // Run: node chaingraph/kernels/__proptests__/art-497-validator-change-control-receipt.proptest.mjs
 
@@ -238,6 +241,108 @@ function checkP5_requiredInputsFailClosed() {
   return { name: 'P5_required_inputs_fail_closed', trials: checked, violations };
 }
 
+// ---------- P6: strict statedness matrix (weight-statedness cure) ----------
+// A weight, total-stake or quorum number is a statement ONLY as a finite JSON
+// number or as one strict decimal-string form (a minus sign, digits, at most
+// one fractional part; quorum counts whole), because the page port sends DOM
+// input strings. Every other shape -- empty or blank string, boolean, array
+// (empty or singleton), object, null, NaN, ±Infinity, exponent/hex/plus/junk
+// strings -- must refuse NOT_STATED and never read as a coerced stated zero;
+// negatives must refuse NEGATIVE and never clamp; a refused field echoes null
+// (or its negative value), weight_delta/share_of_total_pct are never derived
+// from a refused statement, quorum verdicts go UNQUANTIFIED (never SHORT),
+// and every refusal escalates. String fields must be non-empty strings.
+function checkP6_statednessMatrix() {
+  let violations = 0, checked = 0;
+  const base = JSON.parse(readFileSync(path.join(__dirname, '..', 'fixtures', 'art-497-validator-change-control-receipt.fixtures.json'), 'utf8')).vectors[0].policy_parameters;
+  const NON_STATEMENTS = ['', '   ', false, true, [], ['5'], {}, 'junk', '1e3', '12,5', '+12', '0x10', '12.', '.5', null, NaN, Infinity, -Infinity, undefined];
+  const NEGATIVE_WEIGHTS = [-1, -9.5, '-9', '-0.5'];
+  const NEGATIVE_COUNTS = [-1, '-9'];
+  const WEXC = { prior_weight: 'PRIOR_WEIGHT', posterior_weight: 'POSTERIOR_WEIGHT', total_stake_weight: 'TOTAL_STAKE_WEIGHT' };
+
+  for (const f of ['prior_weight', 'posterior_weight', 'total_stake_weight']) {
+    for (const bad of NON_STATEMENTS) {
+      const { output_payload: op, compliance_flags } = compute({ ...base, [f]: bad });
+      checked++;
+      if (!op.exceptions.includes(WEXC[f] + '_NOT_STATED')) violations++;
+      if (op[f] !== null) violations++;
+      if (!compliance_flags.includes('ESCALATION_RAISED')) violations++;
+      if (op.share_of_total_pct !== null) violations++;
+      if (f !== 'total_stake_weight' && op.weight_delta !== null) violations++;
+    }
+    for (const neg of NEGATIVE_WEIGHTS) {
+      const { output_payload: op, compliance_flags } = compute({ ...base, [f]: neg });
+      checked++;
+      if (!op.exceptions.includes(WEXC[f] + '_NEGATIVE')) violations++;
+      if (!compliance_flags.includes('ESCALATION_RAISED')) violations++;
+      if (op.share_of_total_pct !== null) violations++;
+    }
+  }
+
+  const QEXC = { quorum_required: 'QUORUM_REQUIRED', quorum_achieved: 'QUORUM_ACHIEVED' };
+  for (const f of ['quorum_required', 'quorum_achieved']) {
+    for (const bad of NON_STATEMENTS) {
+      const { output_payload: op, compliance_flags } = compute({ ...base, [f]: bad });
+      checked++;
+      if (op.quorum_status !== 'UNQUANTIFIED') violations++;
+      if (op[f] !== null) violations++;
+      if (!op.exceptions.includes(QEXC[f] + '_NOT_STATED')) violations++;
+      if (!compliance_flags.includes('ESCALATION_RAISED')) violations++;
+    }
+    for (const frac of [2.5, '2.5', -1.5]) {
+      const { output_payload: op } = compute({ ...base, [f]: frac });
+      checked++;
+      if (op.quorum_status !== 'UNQUANTIFIED' || op[f] !== null) violations++;
+      if (!op.exceptions.includes(QEXC[f] + '_NOT_STATED')) violations++;
+    }
+    for (const neg of NEGATIVE_COUNTS) {
+      const { output_payload: op, compliance_flags } = compute({ ...base, [f]: neg });
+      checked++;
+      if (op.quorum_status !== 'UNQUANTIFIED') violations++;
+      if (!op.exceptions.includes(QEXC[f] + '_NEGATIVE')) violations++;
+      if (!compliance_flags.includes('ESCALATION_RAISED')) violations++;
+    }
+  }
+
+  for (const f of ['as_of', 'effective_epoch', 'validator_ref']) {
+    const want = f === 'as_of' ? 'AS_OF_MISSING' : f === 'effective_epoch' ? 'EFFECTIVE_EPOCH_MISSING' : 'VALIDATOR_REF_MISSING';
+    for (const bad of [0, 20260730, false, [], {}, null]) {
+      const { output_payload: op } = compute({ ...base, [f]: bad });
+      checked++;
+      if (op[f] !== null) violations++;
+      if (!op.exceptions.includes(want)) violations++;
+    }
+  }
+
+  // change_type stays an exact allowlist of strings: an array never coerces in.
+  {
+    const op = compute({ ...base, change_type: ['add'] }).output_payload;
+    checked++;
+    if (op.change_type_valid !== false || !op.exceptions.includes('UNKNOWN_CHANGE_TYPE')) violations++;
+  }
+
+  // The strict decimal-string form evaluates exactly like the numeric base.
+  {
+    const strForm = compute({ ...base, prior_weight: '1200', posterior_weight: '1500', total_stake_weight: '50000', quorum_required: '3', quorum_achieved: '3' }).output_payload;
+    const numForm = compute({ ...base }).output_payload;
+    checked++;
+    if (JSON.stringify(strForm) !== JSON.stringify(numForm)) violations++;
+  }
+  // Fractional weight strings are stated; a zero string is an explicit stated zero.
+  {
+    const op = compute({ ...base, prior_weight: '1200.5' }).output_payload;
+    checked++;
+    if (op.prior_weight !== 1200.5 || op.weight_delta !== 299.5) violations++;
+  }
+  {
+    const op = compute({ ...base, prior_weight: '0', posterior_weight: '0' }).output_payload;
+    checked++;
+    if (op.exceptions.includes('PRIOR_WEIGHT_NOT_STATED') || op.exceptions.includes('POSTERIOR_WEIGHT_NOT_STATED')) violations++;
+    if (!op.exceptions.includes('WEIGHT_CHANGE_WITH_NO_DELTA')) violations++;
+  }
+  return { name: 'P6_weight_quorum_statedness_matrix', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -250,6 +355,7 @@ results.properties.push(checkP2_differential());
 results.properties.push(checkP3_permutation_invariance());
 results.properties.push(checkP4_forced_categorical_boundaries());
 results.properties.push(checkP5_requiredInputsFailClosed());
+results.properties.push(checkP6_statednessMatrix());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 

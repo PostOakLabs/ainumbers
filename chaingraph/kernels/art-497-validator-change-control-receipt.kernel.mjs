@@ -41,47 +41,95 @@ export const meta = {
 // explicit 0 remains the caller's own statement and evaluates. The quorum and
 // identity fields were already fail-closed (UNQUANTIFIED quorum status plus
 // exceptions when either quorum number is missing).
+//
+// Statedness is strict (weight-statedness cure, 2026-11-13): a weight, the
+// total stake or a quorum number is a statement ONLY as a finite JSON number,
+// or as ONE strict decimal-string form (a minus sign, digits, at most one
+// fractional part; quorum counts whole), because the page port sends DOM
+// input strings. An empty string, a boolean, an array, an object, a blank or
+// junk string is NO statement -- Number() coercion of those to a stated zero
+// is exactly the silent from-zero add / slash-to-zero this kernel refuses --
+// and a negative statement is refused with its own NEGATIVE exception, never
+// clamped to zero. An unstated field echoes as null, never 0, and no derived
+// field (delta, share) is computed from a refused statement. as_of,
+// effective_epoch and validator_ref must be non-empty strings: a non-string
+// scalar is a missing statement, never String()-coerced into a present one.
 
 const CHANGE_TYPES = ['add', 'remove', 'weight_change'];
 const MAX_SAFE = 9007199254740991;
 
-function g(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
-function gz(v) { const n = Number(v); return Number.isFinite(n) ? Math.max(0, n) : 0; }
 function r2(v) { return Number.isFinite(v) ? Math.round(v * 100) / 100 : null; }
 function jnum(v) { return Number.isFinite(v) && Math.abs(v) > MAX_SAFE ? String(v) : (Number.isFinite(v) ? v : 0); }
+function jn(v) { return v == null ? null : jnum(v); }
 function str(v) { return String(v == null ? '' : v).trim(); }
-function stated(v) { return v != null && Number.isFinite(Number(v)); }
+function optStr(v) { return typeof v === 'string' && v.trim() !== '' ? v.trim() : null; }
+
+// Strict statedness readers. A weight is a statement ONLY as a finite JSON
+// number or as one strict decimal-string form (the page port sends DOM input
+// strings); a count must additionally be whole. status 'unstated' (empty
+// string, boolean, array, object, null, blank or junk string -- anything
+// Number() would coerce) and status 'negative' both refuse: the value is
+// carried for the echo only, never fed to a branch or a derived field.
+const DECIMAL_STRING = /^-?\d+(\.\d+)?$/;
+const INTEGER_STRING = /^-?\d+$/;
+
+function readWeight(v) {
+  let n;
+  if (typeof v === 'number') n = v;
+  else if (typeof v === 'string' && DECIMAL_STRING.test(v.trim())) n = Number(v.trim());
+  else return { status: 'unstated', value: null };
+  if (!Number.isFinite(n)) return { status: 'unstated', value: null };
+  return n < 0 ? { status: 'negative', value: n } : { status: 'stated', value: n };
+}
+
+function readCount(v) {
+  let n;
+  if (typeof v === 'number') n = v;
+  else if (typeof v === 'string' && INTEGER_STRING.test(v.trim())) n = Number(v.trim());
+  else return { status: 'unstated', value: null };
+  if (!Number.isInteger(n)) return { status: 'unstated', value: null };
+  return n < 0 ? { status: 'negative', value: n } : { status: 'stated', value: n };
+}
 
 export function compute(pp) {
   pp = pp || {};
   const exceptions = [];
   const compliance_flags = [];
 
-  const validator_ref = str(pp.validator_ref);
-  const rawType = str(pp.change_type);
+  const validator_ref = optStr(pp.validator_ref);
+  const rawType = typeof pp.change_type === 'string' ? pp.change_type.trim() : '';
   const change_type_valid = CHANGE_TYPES.indexOf(rawType) >= 0;
   const change_type = change_type_valid ? rawType : (rawType || 'unstated');
   if (!change_type_valid) exceptions.push('UNKNOWN_CHANGE_TYPE');
 
-  const prior_stated = stated(pp.prior_weight);
-  const posterior_stated = stated(pp.posterior_weight);
-  if (!prior_stated) exceptions.push('PRIOR_WEIGHT_NOT_STATED');
-  if (!posterior_stated) exceptions.push('POSTERIOR_WEIGHT_NOT_STATED');
-  const prior_weight = prior_stated ? gz(pp.prior_weight) : 0;
-  const posterior_weight = posterior_stated ? gz(pp.posterior_weight) : 0;
-  const weight_delta = posterior_weight - prior_weight;
-  const total_stake_weight = gz(pp.total_stake_weight);
-  const share_of_total_pct = total_stake_weight > 0 ? r2((weight_delta / total_stake_weight) * 100) : null;
-  if (total_stake_weight <= 0) exceptions.push('TOTAL_STAKE_WEIGHT_ZERO_OR_ABSENT');
+  const prior = readWeight(pp.prior_weight);
+  const posterior = readWeight(pp.posterior_weight);
+  if (prior.status === 'negative') exceptions.push('PRIOR_WEIGHT_NEGATIVE');
+  else if (prior.status === 'unstated') exceptions.push('PRIOR_WEIGHT_NOT_STATED');
+  if (posterior.status === 'negative') exceptions.push('POSTERIOR_WEIGHT_NEGATIVE');
+  else if (posterior.status === 'unstated') exceptions.push('POSTERIOR_WEIGHT_NOT_STATED');
+  const prior_weight = prior.value;
+  const posterior_weight = posterior.value;
+  const weight_delta = prior.status === 'stated' && posterior.status === 'stated'
+    ? posterior.value - prior.value : null;
+  const total = readWeight(pp.total_stake_weight);
+  if (total.status === 'negative') exceptions.push('TOTAL_STAKE_WEIGHT_NEGATIVE');
+  else if (total.status === 'unstated') exceptions.push('TOTAL_STAKE_WEIGHT_NOT_STATED');
+  else if (total.value === 0) exceptions.push('TOTAL_STAKE_WEIGHT_ZERO_OR_ABSENT');
+  const total_stake_weight = total.value;
+  const share_of_total_pct = total_stake_weight > 0 && weight_delta !== null
+    ? r2((weight_delta / total_stake_weight) * 100) : null;
 
   if (change_type === 'add') {
-    if (prior_weight !== 0) exceptions.push('ADD_WITH_NONZERO_PRIOR_WEIGHT');
-    if (posterior_weight <= 0) exceptions.push('ADD_WITH_NONPOSITIVE_POSTERIOR_WEIGHT');
+    if (prior.status === 'stated' && prior_weight !== 0) exceptions.push('ADD_WITH_NONZERO_PRIOR_WEIGHT');
+    if (posterior.status === 'stated' && posterior_weight <= 0) exceptions.push('ADD_WITH_NONPOSITIVE_POSTERIOR_WEIGHT');
   } else if (change_type === 'remove') {
-    if (posterior_weight !== 0) exceptions.push('REMOVE_WITH_NONZERO_POSTERIOR_WEIGHT');
-    if (prior_weight <= 0) exceptions.push('REMOVE_WITH_NONPOSITIVE_PRIOR_WEIGHT');
+    if (posterior.status === 'stated' && posterior_weight !== 0) exceptions.push('REMOVE_WITH_NONZERO_POSTERIOR_WEIGHT');
+    if (prior.status === 'stated' && prior_weight <= 0) exceptions.push('REMOVE_WITH_NONPOSITIVE_PRIOR_WEIGHT');
   } else if (change_type === 'weight_change') {
-    if (prior_weight === posterior_weight) exceptions.push('WEIGHT_CHANGE_WITH_NO_DELTA');
+    if (prior.status === 'stated' && posterior.status === 'stated' && prior_weight === posterior_weight) {
+      exceptions.push('WEIGHT_CHANGE_WITH_NO_DELTA');
+    }
   }
 
   const authorization_chain = Array.isArray(pp.authorizing_identities)
@@ -90,14 +138,22 @@ export function compute(pp) {
   const authorized = authorization_chain.length > 0;
   if (!authorized) exceptions.push('NO_AUTHORIZING_IDENTITY');
 
-  const quorum_required = g(pp.quorum_required);
-  const quorum_required_evaluable = quorum_required !== null && quorum_required > 0;
-  const quorum_achieved = g(pp.quorum_achieved);
+  const qr = readCount(pp.quorum_required);
+  const qa = readCount(pp.quorum_achieved);
+  const quorum_required = qr.value;
+  const quorum_achieved = qa.value;
+  const quorum_required_evaluable = qr.status === 'stated' && qr.value > 0;
   let quorum_status;
-  if (!quorum_required_evaluable) {
+  if (qr.status === 'negative') {
+    quorum_status = 'UNQUANTIFIED';
+    exceptions.push('QUORUM_REQUIRED_NEGATIVE');
+  } else if (!quorum_required_evaluable) {
     quorum_status = 'UNQUANTIFIED';
     exceptions.push('QUORUM_REQUIRED_NOT_STATED');
-  } else if (quorum_achieved === null) {
+  } else if (qa.status === 'negative') {
+    quorum_status = 'UNQUANTIFIED';
+    exceptions.push('QUORUM_ACHIEVED_NEGATIVE');
+  } else if (qa.status !== 'stated') {
     quorum_status = 'UNQUANTIFIED';
     exceptions.push('QUORUM_ACHIEVED_NOT_STATED');
   } else {
@@ -107,9 +163,9 @@ export function compute(pp) {
     }
   }
 
-  const effective_epoch = str(pp.effective_epoch) || null;
+  const effective_epoch = optStr(pp.effective_epoch);
   if (!effective_epoch) exceptions.push('EFFECTIVE_EPOCH_MISSING');
-  const as_of = str(pp.as_of) || null;
+  const as_of = optStr(pp.as_of);
   if (!as_of) exceptions.push('AS_OF_MISSING');
 
   if (validator_ref) {
@@ -130,10 +186,10 @@ export function compute(pp) {
       validator_ref: validator_ref || null,
       change_type,
       change_type_valid,
-      prior_weight: jnum(prior_weight),
-      posterior_weight: jnum(posterior_weight),
-      weight_delta: jnum(weight_delta),
-      total_stake_weight: jnum(total_stake_weight),
+      prior_weight: jn(prior_weight),
+      posterior_weight: jn(posterior_weight),
+      weight_delta: jn(weight_delta),
+      total_stake_weight: jn(total_stake_weight),
       share_of_total_pct,
       authorization_chain,
       authorized,

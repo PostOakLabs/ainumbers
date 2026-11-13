@@ -97,7 +97,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 </style>
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-497-validator-change-control-receipt.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:7c71bc18ddad620f1a96005b7c9eb2eb1e81938f83e0e2a14dcd4771cfef7440">
+<meta name="kernel-digest" content="sha256:64d13da8da930b00c495a583b6e58e4f530a3ca3ea360c4b2ce3d70db8192630">
 </head>
 <body>
 <nav>
@@ -350,46 +350,78 @@ async function computeExecHash(pp, op) {
   return 'sha256:' + hex;
 }
 
-function g(v) { var n = Number(v); return Number.isFinite(n) ? n : null; }
-function gz(v) { var n = Number(v); return Number.isFinite(n) ? Math.max(0, n) : 0; }
 function r2(v) { return Number.isFinite(v) ? Math.round(v * 100) / 100 : null; }
 function jnum(v) { return Number.isFinite(v) && Math.abs(v) > MAX_SAFE ? String(v) : (Number.isFinite(v) ? v : 0); }
+function jn(v) { return v == null ? null : jnum(v); }
 function str(v) { return String(v == null ? '' : v).trim(); }
+function optStr(v) { return typeof v === 'string' && v.trim() !== '' ? v.trim() : null; }
 // Required inputs fail closed: a missing or null weight is NO statement at all
 // (never a stated zero, which would silently encode a from-zero add or a
 // slash-to-zero), and a missing or blank as-of date never records undated
 // evidence. An explicit 0 remains the caller's own statement and evaluates.
-function stated(v) { return v != null && Number.isFinite(Number(v)); }
+// Statedness is strict: a weight, the total stake or a quorum number is a
+// statement ONLY as a finite JSON number or one strict decimal-string form
+// (this page sends DOM input strings); blanks, booleans, arrays, objects and
+// junk refuse NOT_STATED, negatives refuse NEGATIVE, nothing coerces or
+// clamps, and as_of, effective_epoch and validator_ref must be non-empty
+// strings.
+var DECIMAL_STRING = /^-?\d+(\.\d+)?$/;
+var INTEGER_STRING = /^-?\d+$/;
+function readWeight(v) {
+  var n;
+  if (typeof v === 'number') n = v;
+  else if (typeof v === 'string' && DECIMAL_STRING.test(v.trim())) n = Number(v.trim());
+  else return { status: 'unstated', value: null };
+  if (!Number.isFinite(n)) return { status: 'unstated', value: null };
+  return n < 0 ? { status: 'negative', value: n } : { status: 'stated', value: n };
+}
+function readCount(v) {
+  var n;
+  if (typeof v === 'number') n = v;
+  else if (typeof v === 'string' && INTEGER_STRING.test(v.trim())) n = Number(v.trim());
+  else return { status: 'unstated', value: null };
+  if (!Number.isInteger(n)) return { status: 'unstated', value: null };
+  return n < 0 ? { status: 'negative', value: n } : { status: 'stated', value: n };
+}
 
 function computeReceipt(pp) {
   var exceptions = [];
   var compliance_flags = [];
 
-  var validator_ref = str(pp.validator_ref);
-  var rawType = str(pp.change_type);
+  var validator_ref = optStr(pp.validator_ref);
+  var rawType = typeof pp.change_type === 'string' ? pp.change_type.trim() : '';
   var change_type_valid = CHANGE_TYPES.indexOf(rawType) >= 0;
   var change_type = change_type_valid ? rawType : (rawType || 'unstated');
   if (!change_type_valid) exceptions.push('UNKNOWN_CHANGE_TYPE');
 
-  var prior_stated = stated(pp.prior_weight);
-  var posterior_stated = stated(pp.posterior_weight);
-  if (!prior_stated) exceptions.push('PRIOR_WEIGHT_NOT_STATED');
-  if (!posterior_stated) exceptions.push('POSTERIOR_WEIGHT_NOT_STATED');
-  var prior_weight = prior_stated ? gz(pp.prior_weight) : 0;
-  var posterior_weight = posterior_stated ? gz(pp.posterior_weight) : 0;
-  var weight_delta = posterior_weight - prior_weight;
-  var total_stake_weight = gz(pp.total_stake_weight);
-  var share_of_total_pct = total_stake_weight > 0 ? r2((weight_delta / total_stake_weight) * 100) : null;
-  if (total_stake_weight <= 0) exceptions.push('TOTAL_STAKE_WEIGHT_ZERO_OR_ABSENT');
+  var prior = readWeight(pp.prior_weight);
+  var posterior = readWeight(pp.posterior_weight);
+  if (prior.status === 'negative') exceptions.push('PRIOR_WEIGHT_NEGATIVE');
+  else if (prior.status === 'unstated') exceptions.push('PRIOR_WEIGHT_NOT_STATED');
+  if (posterior.status === 'negative') exceptions.push('POSTERIOR_WEIGHT_NEGATIVE');
+  else if (posterior.status === 'unstated') exceptions.push('POSTERIOR_WEIGHT_NOT_STATED');
+  var prior_weight = prior.value;
+  var posterior_weight = posterior.value;
+  var weight_delta = prior.status === 'stated' && posterior.status === 'stated'
+    ? posterior.value - prior.value : null;
+  var total = readWeight(pp.total_stake_weight);
+  if (total.status === 'negative') exceptions.push('TOTAL_STAKE_WEIGHT_NEGATIVE');
+  else if (total.status === 'unstated') exceptions.push('TOTAL_STAKE_WEIGHT_NOT_STATED');
+  else if (total.value === 0) exceptions.push('TOTAL_STAKE_WEIGHT_ZERO_OR_ABSENT');
+  var total_stake_weight = total.value;
+  var share_of_total_pct = total_stake_weight > 0 && weight_delta !== null
+    ? r2((weight_delta / total_stake_weight) * 100) : null;
 
   if (change_type === 'add') {
-    if (prior_weight !== 0) exceptions.push('ADD_WITH_NONZERO_PRIOR_WEIGHT');
-    if (posterior_weight <= 0) exceptions.push('ADD_WITH_NONPOSITIVE_POSTERIOR_WEIGHT');
+    if (prior.status === 'stated' && prior_weight !== 0) exceptions.push('ADD_WITH_NONZERO_PRIOR_WEIGHT');
+    if (posterior.status === 'stated' && posterior_weight <= 0) exceptions.push('ADD_WITH_NONPOSITIVE_POSTERIOR_WEIGHT');
   } else if (change_type === 'remove') {
-    if (posterior_weight !== 0) exceptions.push('REMOVE_WITH_NONZERO_POSTERIOR_WEIGHT');
-    if (prior_weight <= 0) exceptions.push('REMOVE_WITH_NONPOSITIVE_PRIOR_WEIGHT');
+    if (posterior.status === 'stated' && posterior_weight !== 0) exceptions.push('REMOVE_WITH_NONZERO_POSTERIOR_WEIGHT');
+    if (prior.status === 'stated' && prior_weight <= 0) exceptions.push('REMOVE_WITH_NONPOSITIVE_PRIOR_WEIGHT');
   } else if (change_type === 'weight_change') {
-    if (prior_weight === posterior_weight) exceptions.push('WEIGHT_CHANGE_WITH_NO_DELTA');
+    if (prior.status === 'stated' && posterior.status === 'stated' && prior_weight === posterior_weight) {
+      exceptions.push('WEIGHT_CHANGE_WITH_NO_DELTA');
+    }
   }
 
   var authorization_chain = Array.isArray(pp.authorizing_identities)
@@ -398,14 +430,22 @@ function computeReceipt(pp) {
   var authorized = authorization_chain.length > 0;
   if (!authorized) exceptions.push('NO_AUTHORIZING_IDENTITY');
 
-  var quorum_required = g(pp.quorum_required);
-  var quorum_required_evaluable = quorum_required !== null && quorum_required > 0;
-  var quorum_achieved = g(pp.quorum_achieved);
+  var qr = readCount(pp.quorum_required);
+  var qa = readCount(pp.quorum_achieved);
+  var quorum_required = qr.value;
+  var quorum_achieved = qa.value;
+  var quorum_required_evaluable = qr.status === 'stated' && qr.value > 0;
   var quorum_status;
-  if (!quorum_required_evaluable) {
+  if (qr.status === 'negative') {
+    quorum_status = 'UNQUANTIFIED';
+    exceptions.push('QUORUM_REQUIRED_NEGATIVE');
+  } else if (!quorum_required_evaluable) {
     quorum_status = 'UNQUANTIFIED';
     exceptions.push('QUORUM_REQUIRED_NOT_STATED');
-  } else if (quorum_achieved === null) {
+  } else if (qa.status === 'negative') {
+    quorum_status = 'UNQUANTIFIED';
+    exceptions.push('QUORUM_ACHIEVED_NEGATIVE');
+  } else if (qa.status !== 'stated') {
     quorum_status = 'UNQUANTIFIED';
     exceptions.push('QUORUM_ACHIEVED_NOT_STATED');
   } else {
@@ -415,9 +455,9 @@ function computeReceipt(pp) {
     }
   }
 
-  var effective_epoch = str(pp.effective_epoch) || null;
+  var effective_epoch = optStr(pp.effective_epoch);
   if (!effective_epoch) exceptions.push('EFFECTIVE_EPOCH_MISSING');
-  var as_of = str(pp.as_of) || null;
+  var as_of = optStr(pp.as_of);
   if (!as_of) exceptions.push('AS_OF_MISSING');
 
   if (validator_ref) {
@@ -437,10 +477,10 @@ function computeReceipt(pp) {
     validator_ref: validator_ref || null,
     change_type: change_type,
     change_type_valid: change_type_valid,
-    prior_weight: jnum(prior_weight),
-    posterior_weight: jnum(posterior_weight),
-    weight_delta: jnum(weight_delta),
-    total_stake_weight: jnum(total_stake_weight),
+    prior_weight: jn(prior_weight),
+    posterior_weight: jn(posterior_weight),
+    weight_delta: jn(weight_delta),
+    total_stake_weight: jn(total_stake_weight),
     share_of_total_pct: share_of_total_pct,
     authorization_chain: authorization_chain,
     authorized: authorized,
@@ -480,7 +520,7 @@ function runCheck() {
   vBox.textContent = !recorded ? 'RECORD NOT RECORDED — VALIDATOR REF MISSING' : (hasEsc ? 'RECORDED — ESCALATION RAISED' : 'RECORDED — CLEAN');
 
   document.getElementById('statRow').innerHTML =
-    '<div class="stat"><span class="stat-val">' + (op.weight_delta >= 0 ? '+' : '') + op.weight_delta + '</span><span class="stat-key">Weight delta</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.weight_delta === null ? 'n/a' : (op.weight_delta >= 0 ? '+' : '') + op.weight_delta) + '</span><span class="stat-key">Weight delta</span></div>' +
     '<div class="stat"><span class="stat-val">' + (op.share_of_total_pct === null ? 'n/a' : op.share_of_total_pct + '%') + '</span><span class="stat-key">Share of total</span></div>' +
     '<div class="stat"><span class="stat-val">' + op.quorum_status + '</span><span class="stat-key">Quorum</span></div>' +
     '<div class="stat"><span class="stat-val">' + op.authorization_chain.length + '</span><span class="stat-key">Authorizers named</span></div>';
@@ -493,7 +533,7 @@ function runCheck() {
   document.getElementById('recordDiv').innerHTML =
     '<div class="kv"><span class="kv-k">Validator</span><span class="kv-v">' + (op.validator_ref || 'n/a') + '</span></div>' +
     '<div class="kv"><span class="kv-k">Change type</span><span class="kv-v">' + op.change_type + (op.change_type_valid ? '' : ' (invalid)') + '</span></div>' +
-    '<div class="kv"><span class="kv-k">Prior &rarr; posterior weight</span><span class="kv-v">' + op.prior_weight + ' &rarr; ' + op.posterior_weight + '</span></div>' +
+    '<div class="kv"><span class="kv-k">Prior &rarr; posterior weight</span><span class="kv-v">' + (op.prior_weight === null ? 'n/a' : op.prior_weight) + ' &rarr; ' + (op.posterior_weight === null ? 'n/a' : op.posterior_weight) + '</span></div>' +
     '<div class="kv"><span class="kv-k">Authorization chain</span><span class="kv-v">' + (op.authorization_chain.join(', ') || 'none named') + '</span></div>' +
     '<div class="kv"><span class="kv-k">Quorum</span><span class="kv-v">' + (op.quorum_achieved === null ? 'n/a' : op.quorum_achieved) + ' of ' + (op.quorum_required === null ? 'n/a' : op.quorum_required) + ' required &mdash; ' + op.quorum_status + '</span></div>' +
     '<div class="kv"><span class="kv-k">Effective epoch</span><span class="kv-v">' + (op.effective_epoch || 'n/a') + '</span></div>' +
