@@ -708,6 +708,7 @@ status: stable
 - [Allocation/Affirmation Conformance Checker](./art-81-allocation-affirmation-conformance.md)
 - [Private-Input Debt-to-Income Within Policy Check](./art-811-check-dti-within-policy-private.md)
 - [Quadratic Funding Round Recompute](./art-814-qf-pairwise-recompute.md)
+- [EIP-3009 Agent Spend Gate](./art-816-eip3009-agent-spend-gate.md)
 - [Privacy Coin Regulatory Classifier (MiCA and AMLR)](./art-818-zcash-reg-classifier.md)
 - [Ucp Request Constraints](./art-819-ucp-request-constraints.md)
 - [Securities-Settlement Message Linter (ISO 20022 sese/semt)](./art-82-securities-settlement-message-linter.md)
