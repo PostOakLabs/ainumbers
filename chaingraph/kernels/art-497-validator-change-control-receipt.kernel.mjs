@@ -29,6 +29,18 @@ export const meta = {
 // No clock: as_of and effective_epoch are caller-supplied opaque values,
 // echoed only. Zero PII: validator_ref and every identity in
 // authorizing_identities are opaque references.
+//
+// Required inputs are fail-closed (missing-input cure, 2026-10-17 policy):
+// every manifest-required field is either reconciled above or disclosed as
+// unstated. as_of is required, so a missing or blank as-of date raises
+// AS_OF_MISSING and escalates instead of recording undated evidence.
+// prior_weight and posterior_weight are required: absent, null or non-numeric
+// values are NO statement at all (a missing weight must never read as a stated
+// zero, which would silently encode a from-zero add or a slash-to-zero), so
+// PRIOR_WEIGHT_NOT_STATED / POSTERIOR_WEIGHT_NOT_STATED fire and escalate; an
+// explicit 0 remains the caller's own statement and evaluates. The quorum and
+// identity fields were already fail-closed (UNQUANTIFIED quorum status plus
+// exceptions when either quorum number is missing).
 
 const CHANGE_TYPES = ['add', 'remove', 'weight_change'];
 const MAX_SAFE = 9007199254740991;
@@ -38,6 +50,7 @@ function gz(v) { const n = Number(v); return Number.isFinite(n) ? Math.max(0, n)
 function r2(v) { return Number.isFinite(v) ? Math.round(v * 100) / 100 : null; }
 function jnum(v) { return Number.isFinite(v) && Math.abs(v) > MAX_SAFE ? String(v) : (Number.isFinite(v) ? v : 0); }
 function str(v) { return String(v == null ? '' : v).trim(); }
+function stated(v) { return v != null && Number.isFinite(Number(v)); }
 
 export function compute(pp) {
   pp = pp || {};
@@ -50,8 +63,12 @@ export function compute(pp) {
   const change_type = change_type_valid ? rawType : (rawType || 'unstated');
   if (!change_type_valid) exceptions.push('UNKNOWN_CHANGE_TYPE');
 
-  const prior_weight = gz(pp.prior_weight);
-  const posterior_weight = gz(pp.posterior_weight);
+  const prior_stated = stated(pp.prior_weight);
+  const posterior_stated = stated(pp.posterior_weight);
+  if (!prior_stated) exceptions.push('PRIOR_WEIGHT_NOT_STATED');
+  if (!posterior_stated) exceptions.push('POSTERIOR_WEIGHT_NOT_STATED');
+  const prior_weight = prior_stated ? gz(pp.prior_weight) : 0;
+  const posterior_weight = posterior_stated ? gz(pp.posterior_weight) : 0;
   const weight_delta = posterior_weight - prior_weight;
   const total_stake_weight = gz(pp.total_stake_weight);
   const share_of_total_pct = total_stake_weight > 0 ? r2((weight_delta / total_stake_weight) * 100) : null;
@@ -93,6 +110,7 @@ export function compute(pp) {
   const effective_epoch = str(pp.effective_epoch) || null;
   if (!effective_epoch) exceptions.push('EFFECTIVE_EPOCH_MISSING');
   const as_of = str(pp.as_of) || null;
+  if (!as_of) exceptions.push('AS_OF_MISSING');
 
   if (validator_ref) {
     compliance_flags.push('VCC_RECORDED');

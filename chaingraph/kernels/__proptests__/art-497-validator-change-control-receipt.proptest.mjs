@@ -1,5 +1,5 @@
 // art-497-validator-change-control-receipt.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C25-1).
-// kernel_digest_at_authoring: sha256:54af35dcf6e35f959764ddf334f63dafbdf57047a8f810e47e3f980586a861b3
+// kernel_digest_at_authoring: sha256:7c71bc18ddad620f1a96005b7c9eb2eb1e81938f83e0e2a14dcd4771cfef7440
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -184,6 +184,46 @@ function checkP4_forced_categorical_boundaries() {
   return { name: 'P4_forced_categorical_boundaries', trials: checked, violations };
 }
 
+// ---------- P5: required inputs fail closed (missing-input cure) ----------
+// All ten manifest-required fields: deleting any one of them from the positive
+// base vector must land the receipt in a non-positive state (an exception plus
+// ESCALATION_RAISED, or an UNQUANTIFIED quorum). The weight and as-of fields are
+// the cured ones (a missing weight used to read as a stated zero, a missing as_of
+// used to pass silently); the quorum/identity/ref fields were already fail-closed
+// and are pinned here so they stay that way. JSON null behaves like deleted for
+// the cured three; an explicit 0 stays the caller's own statement and evaluates.
+function checkP5_requiredInputsFailClosed() {
+  const base = JSON.parse(readFileSync(path.join(__dirname, '..', 'fixtures', 'art-497-validator-change-control-receipt.fixtures.json'), 'utf8')).vectors[0].policy_parameters;
+  const REQUIRED = ['as_of', 'authorizing_identities', 'change_type', 'effective_epoch', 'posterior_weight', 'prior_weight', 'quorum_achieved', 'quorum_required', 'total_stake_weight', 'validator_ref'];
+  let violations = 0, checked = 0;
+  for (const f of REQUIRED) {
+    const pp = { ...base };
+    delete pp[f];
+    const { output_payload: op, compliance_flags } = compute(pp);
+    checked++;
+    if (op.exceptions.length === 0) violations++;
+    if (!compliance_flags.includes('ESCALATION_RAISED')) violations++;
+    if (f === 'quorum_achieved' || f === 'quorum_required') {
+      if (op.quorum_status !== 'UNQUANTIFIED') violations++;
+    }
+  }
+  // JSON null for the three cured fields behaves like deletion (no statement).
+  for (const f of ['as_of', 'prior_weight', 'posterior_weight']) {
+    const pp = { ...base, [f]: null };
+    const { output_payload: op, compliance_flags } = compute(pp);
+    checked++;
+    if (!compliance_flags.includes('ESCALATION_RAISED')) violations++;
+    if (op.exceptions.length === 0) violations++;
+  }
+  // An explicit 0 weight is the caller's own statement and evaluates as such
+  // (here: a weight_change with no delta raises the no-delta exception, not NOT_STATED).
+  const r0 = compute({ ...base, prior_weight: 0, posterior_weight: 0 }).output_payload;
+  checked++;
+  if (r0.exceptions.includes('PRIOR_WEIGHT_NOT_STATED') || r0.exceptions.includes('POSTERIOR_WEIGHT_NOT_STATED')) violations++;
+  if (!r0.exceptions.includes('WEIGHT_CHANGE_WITH_NO_DELTA')) violations++;
+  return { name: 'P5_required_inputs_fail_closed', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -195,6 +235,7 @@ results.properties.push(checkP1_termination());
 results.properties.push(checkP2_differential());
 results.properties.push(checkP3_permutation_invariance());
 results.properties.push(checkP4_forced_categorical_boundaries());
+results.properties.push(checkP5_requiredInputsFailClosed());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 

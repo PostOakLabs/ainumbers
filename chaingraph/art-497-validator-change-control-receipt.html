@@ -97,7 +97,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 </style>
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-497-validator-change-control-receipt.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:54af35dcf6e35f959764ddf334f63dafbdf57047a8f810e47e3f980586a861b3">
+<meta name="kernel-digest" content="sha256:7c71bc18ddad620f1a96005b7c9eb2eb1e81938f83e0e2a14dcd4771cfef7440">
 </head>
 <body>
 <nav>
@@ -355,6 +355,11 @@ function gz(v) { var n = Number(v); return Number.isFinite(n) ? Math.max(0, n) :
 function r2(v) { return Number.isFinite(v) ? Math.round(v * 100) / 100 : null; }
 function jnum(v) { return Number.isFinite(v) && Math.abs(v) > MAX_SAFE ? String(v) : (Number.isFinite(v) ? v : 0); }
 function str(v) { return String(v == null ? '' : v).trim(); }
+// Required inputs fail closed: a missing or null weight is NO statement at all
+// (never a stated zero, which would silently encode a from-zero add or a
+// slash-to-zero), and a missing or blank as-of date never records undated
+// evidence. An explicit 0 remains the caller's own statement and evaluates.
+function stated(v) { return v != null && Number.isFinite(Number(v)); }
 
 function computeReceipt(pp) {
   var exceptions = [];
@@ -366,8 +371,12 @@ function computeReceipt(pp) {
   var change_type = change_type_valid ? rawType : (rawType || 'unstated');
   if (!change_type_valid) exceptions.push('UNKNOWN_CHANGE_TYPE');
 
-  var prior_weight = gz(pp.prior_weight);
-  var posterior_weight = gz(pp.posterior_weight);
+  var prior_stated = stated(pp.prior_weight);
+  var posterior_stated = stated(pp.posterior_weight);
+  if (!prior_stated) exceptions.push('PRIOR_WEIGHT_NOT_STATED');
+  if (!posterior_stated) exceptions.push('POSTERIOR_WEIGHT_NOT_STATED');
+  var prior_weight = prior_stated ? gz(pp.prior_weight) : 0;
+  var posterior_weight = posterior_stated ? gz(pp.posterior_weight) : 0;
   var weight_delta = posterior_weight - prior_weight;
   var total_stake_weight = gz(pp.total_stake_weight);
   var share_of_total_pct = total_stake_weight > 0 ? r2((weight_delta / total_stake_weight) * 100) : null;
@@ -409,6 +418,7 @@ function computeReceipt(pp) {
   var effective_epoch = str(pp.effective_epoch) || null;
   if (!effective_epoch) exceptions.push('EFFECTIVE_EPOCH_MISSING');
   var as_of = str(pp.as_of) || null;
+  if (!as_of) exceptions.push('AS_OF_MISSING');
 
   if (validator_ref) {
     compliance_flags.push('VCC_RECORDED');
