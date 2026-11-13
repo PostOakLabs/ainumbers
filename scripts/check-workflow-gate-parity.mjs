@@ -585,6 +585,18 @@ const PREFLIGHT_ONLY = new Map([
     "local git, so a named workflow step would re-run byte-for-byte the same check. Its paired " +
     "mutation control is check-trust-signals.test.mjs (its own GATES entry)."],
   ["check-trust-signals.test.mjs", SELF_TEST],
+  // ── VERIFYBINDING-DIGEST-DEFAULT-1 (2026-11-12) ─────────────────────────────
+  ["gen-kernel-digests.mjs",
+    "Published kernel-digest list freshness --check (VERIFYBINDING-DIGEST-DEFAULT-1): re-derives " +
+    "chaingraph/kernel-digests.json from the node shards' sha256-source compute_images entries " +
+    "and byte-compares. Hard in preflight; its CI route is scripts-verify.yml full preflight (the " +
+    "workflow runs `node scripts/preflight.mjs`), so a named workflow step would only duplicate " +
+    "the same suite. It is the COVERED gate of derived-artifacts.mjs id 'kernel-digests' " +
+    "(prAbsentOk advisory-on-PR, blocking-on-main via the generic downgrade), and the single " +
+    "writer is derived-artifacts-regen.yml, which regenerates it post-merge exactly like the " +
+    "trust-signals digest — a raw invocation anywhere PR-reachable would duplicate that writer. " +
+    "Reads only tracked repo files — no network, no CI-only input. The write half is a " +
+    "builder/main-side regen command, never a workflow step by name."],
   ["derived-context-detached.test.mjs", SELF_TEST],
   // ── EVREG-1 (2026-09-22) ────────────────────────────────────────────────────
   ["check-evidence-register.mjs",
@@ -1208,6 +1220,7 @@ const PREFLIGHT_ONLY = new Map([
   ["check-retired-mcp-toggle.mjs", VIA_PREFLIGHT],
   ["check-retired-ap2-version.mjs", VIA_PREFLIGHT],
   ["generate-node-manifest.mjs", VIA_PREFLIGHT],
+  ["generate-node-manifest.test.mjs", SELF_TEST],
   ["gen-input-schemas.mjs", VIA_PREFLIGHT],
   ["gen-input-schemas.selftest.mjs", VIA_PREFLIGHT],
   ["validate-evidence-profiles.mjs", VIA_PREFLIGHT],

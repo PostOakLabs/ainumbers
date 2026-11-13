@@ -1768,6 +1768,11 @@ const GATES = [
   ['MCP inputSchema description length (MCP-INPUTSCHEMA-DESC-TRIM-1)', 'node scripts/check-inputschema-desc-length.mjs'],
   ['MCP inputSchema description length controls (synthetic RED/GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-inputschema-desc-length.test.mjs'],
   ['Node-manifest generator dry-run (MFSTGEN-1)', 'node scripts/generate-node-manifest.mjs --all --check'],
+  // MANIFEST-OUTPUTSCHEMA-ALL-FIXTURES-1: the generator's output_schema derivation
+  // self-test (RED proof: the single-sample schema rejects a null refusal fixture —
+  // the #2964/#2974 merge-queue ejection class; GREEN: the all-fixture schema
+  // validates every payload it derived from).
+  ['Node-manifest generator output_schema self-test (RED/GREEN fixtures, GATE-SELFTEST-META-1 pair)', 'node scripts/generate-node-manifest.test.mjs'],
   // MANIFEST-SCHEMA-BACKFILL-1: derived input schemas carry
   // x_schema_provenance derived-from-kernel-reads <date>; any hand-edit to a
   // provenance-marked block drifts from a fresh derivation of the kernel's
@@ -1926,6 +1931,13 @@ const GATES = [
   ['Trust-signals digest freshness (single-writer main regen, TRUST-SIGNALS-WELLKNOWN-1)', 'node scripts/gen-trust-signals.mjs --check'],
   ['Trust-signals digest schema + commit anchor (TRUST-SIGNALS-WELLKNOWN-1)', 'node scripts/check-trust-signals.mjs'],
   ['Trust-signals gate controls (validator RED/GREEN + anchor quadrants, GATE-SELFTEST-META-1 pair)', 'node scripts/check-trust-signals.test.mjs'],
+  // VERIFYBINDING-DIGEST-DEFAULT-1 (2026-11-12): the PUBLISHED KERNEL-DIGEST LIST freshness
+  // gate, same single-writer shape as trust-signals above: derived-artifacts.mjs COVERED id
+  // 'kernel-digests' puts it in advisoryGates(), so the ADVISORY_ON_PR categorisation
+  // downgrades it on a PR checkout (the file is absent there until main's regen writes it,
+  // prAbsentOk) and it stays blocking on main. This GATES row is also what the generator
+  // coverage meta-gate (SSOT-GATES-1 §G2.5) requires: a --check generator must be wired here.
+  ['Published kernel-digest list freshness (single-writer main regen, VERIFYBINDING-DIGEST-DEFAULT-1)', 'node scripts/gen-kernel-digests.mjs --check'],
   ['OCG integrator profile freshness (OCG-INTEGRATOR-PROFILE-1)', 'node scripts/gen-integrator-profile.mjs --check'],
   ['Chain-builder catalog freshness (CHAINBUILDER-CATALOG-GEN-1)', 'node scripts/gen-chainbuilder-catalog.mjs --check'],
   ['Hub node-card coverage (HUB-GEN-1)', 'node scripts/gen-chaingraph-hub.mjs --check'],
