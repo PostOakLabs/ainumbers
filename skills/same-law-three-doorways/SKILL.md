@@ -7,7 +7,7 @@ metadata:
   source: "ainumbers.co/mcp/showcase-prompts.json"
   prompt_id: "same-law-three-doorways"
   verify_surface: "https://ledger.ainumbers.co/ https://ainumbers.co/chaingraph/chaingraph.json https://anchor.ainumbers.co/mcp"
-  version: "8770e0e5aba5"
+  version: "1e1ce005ada9"
 ---
 
 # One law through three doorways

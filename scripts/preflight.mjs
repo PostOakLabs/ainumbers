@@ -1412,8 +1412,9 @@ const GATES = [
   // fresh vm contexts, recomputes its execution_hash through _hash.mjs, asserts
   // it is stable, and resolves every chain step against the generator's
   // registered node set. Part 4 and run_chain presence are report columns.
-  // Advisory on a pull_request, blocking on merge_group and main; pre-existing
-  // failures are baselined WARN with a downward ratchet
+  // Same verdict on every event: a step present in the overlay monolith's
+  // mcp_name registry is registered, an absent one blocks on pull_request and
+  // merge_group alike; pre-existing failures are baselined WARN with a downward ratchet
   // (scripts/webmcp-chain-execute-baseline.json). About 30 s, so not in the
   // quick subset.
   ['WebMCP chain-execute (plan_chain stable hash + registered step nodes per chain)', 'node scripts/check-webmcp-chain-execute.mjs'],
@@ -1732,7 +1733,13 @@ const GATES = [
   ['SSOT no dead npm commands (CONTRACT-DEADCMD-FIX-1)', 'node scripts/check-ssot-no-npm.mjs'],
   ['Retired mcp-toggle tombstone (§1.2, RETIREMENT-TOMBSTONE-GATES-1)', 'node scripts/check-retired-mcp-toggle.mjs'],
   ['Retired mcp-toggle tombstone controls (RED+GREEN mutation)', 'node scripts/check-retired-mcp-toggle.test.mjs'],
-  ['Retired ap2_version tombstone (§3.1/A3.2, RETIREMENT-TOMBSTONE-GATES-1)', 'node scripts/check-retired-ap2-version.mjs'],
+  // KERNEL-MISSING-INPUT-FAILCLOSED-GATE-1 (stage 1): ADVISORY by construction, the checker always exits 0.
+  ['Kernel missing-input fail-closed sweep (stage 1 advisory, always exits 0)', 'node scripts/check-kernel-missing-input-failclosed.mjs'],
+  ['Kernel missing-input fail-closed controls (RED+GREEN planted kernels)', 'node scripts/check-kernel-missing-input-failclosed.selftest.mjs'],
+  // PAGE-KERNEL-PARITY-GATE-1 (stage 1): ADVISORY by construction, the checker always exits 0 (full estate about 50 s).
+  ['Page-versus-kernel parity sweep (stage 1 advisory, always exits 0)', 'node scripts/check-page-kernel-parity.mjs'],
+  ['Page-versus-kernel parity controls (RED+GREEN synthetic pages)', 'node scripts/check-page-kernel-parity.selftest.mjs'],
+  ['Retired ap2_version tombstone (§3.1/A3.2, RETIREMENT-TOMBSTONE-GATES-1)','node scripts/check-retired-ap2-version.mjs'],
   ['Retired ap2_version tombstone controls (RED+GREEN mutation)', 'node scripts/check-retired-ap2-version.test.mjs'],
   ['Credits registry coverage (vendored-code license gate)', 'node scripts/check-credits-coverage.mjs repo'],
   ['Credits page freshness (generated from registry)', 'node scripts/gen-credits.mjs repo --check'],
@@ -1931,6 +1938,13 @@ const GATES = [
   ['Trust-signals digest freshness (single-writer main regen, TRUST-SIGNALS-WELLKNOWN-1)', 'node scripts/gen-trust-signals.mjs --check'],
   ['Trust-signals digest schema + commit anchor (TRUST-SIGNALS-WELLKNOWN-1)', 'node scripts/check-trust-signals.mjs'],
   ['Trust-signals gate controls (validator RED/GREEN + anchor quadrants, GATE-SELFTEST-META-1 pair)', 'node scripts/check-trust-signals.test.mjs'],
+  // VERIFYBINDING-DIGEST-DEFAULT-1 (2026-11-12): the PUBLISHED KERNEL-DIGEST LIST freshness
+  // gate, same single-writer shape as trust-signals above: derived-artifacts.mjs COVERED id
+  // 'kernel-digests' puts it in advisoryGates(), so the ADVISORY_ON_PR categorisation
+  // downgrades it on a PR checkout (the file is absent there until main's regen writes it,
+  // prAbsentOk) and it stays blocking on main. This GATES row is also what the generator
+  // coverage meta-gate (SSOT-GATES-1 §G2.5) requires: a --check generator must be wired here.
+  ['Published kernel-digest list freshness (single-writer main regen, VERIFYBINDING-DIGEST-DEFAULT-1)', 'node scripts/gen-kernel-digests.mjs --check'],
   ['OCG integrator profile freshness (OCG-INTEGRATOR-PROFILE-1)', 'node scripts/gen-integrator-profile.mjs --check'],
   ['Chain-builder catalog freshness (CHAINBUILDER-CATALOG-GEN-1)', 'node scripts/gen-chainbuilder-catalog.mjs --check'],
   ['Hub node-card coverage (HUB-GEN-1)', 'node scripts/gen-chaingraph-hub.mjs --check'],
@@ -1987,6 +2001,15 @@ const GATES = [
   // (bad signature / wrong typ / malformed); absence, age and drift are advisory.
   ['WebMCP signed snapshot (WEBMCP-SIGNED-SNAPSHOT-1)', 'node scripts/check-webmcp-signed-snapshot.mjs'],
   ['WebMCP signed snapshot fixture proof (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-webmcp-signed-snapshot.mjs --self-test'],
+  // WEBMCP-SIGNED-EXPIRY-1: the snapshot now carries expires (generated_at + 30d) and a
+  // monotonic version. Hard on main/merge_group when the published snapshot sits inside
+  // the 7-day renewal window (or is expired), so the expiry cannot lapse silently;
+  // advisory on PRs — the branch cannot re-sign (the key never leaves the key-holding
+  // desk; derived-artifacts.mjs EXCLUDED entry). The split lives INSIDE the gate
+  // (isMainContext()), mirroring check-kernel-coverage.mjs. A snapshot with no expires
+  // (pre-EXPIRY legacy) has nothing to lapse: reported, never failing, everywhere.
+  ['WebMCP snapshot expiry freshness (WEBMCP-SIGNED-EXPIRY-1, hard on main)', 'node scripts/check-webmcp-snapshot-fresh.mjs'],
+  ['WebMCP snapshot expiry fixture proof (RED/GREEN, WEBMCP-SIGNED-EXPIRY-1)', 'node scripts/check-webmcp-snapshot-fresh.mjs --self-test'],
   // MCPCARD-SCHEMA-1: the hand-maintained MCP server card conforms to the
   // authored schema (chaingraph/standard/mcp-server-card.schema.json), its
   // tool_count equals the counts-engine mcp.live value, and the served schema
