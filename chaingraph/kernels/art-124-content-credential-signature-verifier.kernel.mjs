@@ -37,8 +37,8 @@ const ALG_ALLOW = {
 // attestation and untrusts the chain. compute refuses, never throws, on a null or
 // undefined input document.
 export function compute(pp) {
-  const src = (pp === null || pp === undefined) ? {} : pp;
-  const { alg, signature_verified, trust_anchor_match, cert_not_expired, revocation_status } = src;
+  if (pp === null || pp === undefined) pp = {};
+  const { alg, signature_verified, trust_anchor_match, cert_not_expired, revocation_status } = pp;
 
   const alg_allowed = typeof alg === 'string' && Object.prototype.hasOwnProperty.call(ALG_ALLOW, alg);
   const revocation_good = revocation_status === 'good';
