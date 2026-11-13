@@ -1676,9 +1676,9 @@ export function adjudicateTool(toolId, repoRoot, manifestIndex, mcpNameByTool) {
 }
 
 /** Live sweep over every kernel; returns the CLEARED tool ids plus the indexes. */
-export function deriveTargets(repoRoot) {
+export function deriveTargets(repoRoot, monolithPath) {
   const manifestIndex = loadManifestIndex(repoRoot);
-  const mcpNameByTool = loadMcpNameIndex(repoRoot);
+  const mcpNameByTool = loadMcpNameIndex(repoRoot, monolithPath);
   const cleared = [];
   for (const kernelFile of listKernels(repoRoot)) {
     const rec = sweepKernel(repoRoot, kernelFile, manifestIndex, mcpNameByTool);

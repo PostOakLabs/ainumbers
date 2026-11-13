@@ -1,5 +1,5 @@
 // art-593-webbotauth-nonce-replay-check property-test floor (ADJACENT-HOOKS-ASSEMBLE-LAND-2).
-// kernel_digest_at_authoring: sha256:4d4491d75002a02d8a1448ca25e0aa851ccd4ea646dccde0afdd5d745f48967b
+// kernel_digest_at_authoring: sha256:138c2f487a173ef2bd8b97435481bbacafd2c216a9a9a9663f7526c835d8f57c
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- cheap invariant subset over the DECLARED domain,
@@ -98,6 +98,28 @@ async function checkP4_outputShapeInvariant() {
   return { name: 'P4_output_shape_invariant', trials: checked, violations };
 }
 
+// P5: fail-closed on required inputs -- deleting or nulling a required field
+// (nonce, created, expires, now_unix) never yields ACCEPT; an untestable spread
+// (expires absent, null or non-numeric) never reads as satisfied.
+async function checkP5_requiredInputsFailClosed() {
+  let violations = 0, checked = 0;
+  for (const field of ['nonce', 'created', 'expires', 'now_unix']) {
+    for (const mode of ['delete', 'null']) {
+      const pp = { ...BASE_PP };
+      if (mode === 'delete') delete pp[field]; else pp[field] = null;
+      const { output_payload } = await compute(pp);
+      checked++;
+      if (output_payload.verdict !== 'REFUSE') violations++;
+    }
+  }
+  for (const junk of ['abc', -1, NaN]) {
+    const { output_payload } = await compute({ ...BASE_PP, expires: junk });
+    checked++;
+    if (output_payload.verdict !== 'REFUSE') violations++;
+  }
+  return { name: 'P5_required_inputs_fail_closed', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = await runFixtureOracle();
 if (!oracleOk) {
@@ -115,6 +137,7 @@ results.properties.push(await checkP1_determinism());
 results.properties.push(await checkP2_replaySuspectedAlwaysRefuses());
 results.properties.push(await checkP3_wideSpreadForcesRefuse());
 results.properties.push(await checkP4_outputShapeInvariant());
+results.properties.push(await checkP5_requiredInputsFailClosed());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 

@@ -200,6 +200,74 @@ export function baselineCeilingBreach(baselineObj) {
     : null;
 }
 
+// ── numeric-named node pages (PAGE-KERNEL-DIGEST-NUMERIC-SCOPE-1) ────────────────────────────────
+// `chaingraph/[0-9]*.html` pages follow the same filename-to-kernel convention as `art-*` but were
+// never scanned. They get the same two-list ratchet in a SEPARATE baseline file: `unstamped`
+// (absence-only shield, ceiling `max_unstamped`) and `stale` (known-bad declarations, ceiling
+// `max_stale`). A stale entry records the exact failing state, so a page that gets worse or
+// changes to a different failing state stops matching its entry and is red again.
+export const ART_PAGE_RE = /^art-.*\.html$/;
+export const NUMERIC_PAGE_RE = /^[0-9].*\.html$/;
+export const STALE_ELIGIBLE_STATES = new Set(['MISMATCH', 'MALFORMED', 'DUPLICATE', 'NO_KERNEL']);
+
+/** The part of a verdict a stale baseline entry pins. */
+export function staleEntryFor(rel, v) {
+  return { page: rel, state: v.state, declared: v.declared ?? null, recomputed: v.recomputed ?? null };
+}
+
+const sameStaleEntry = (a, b) =>
+  !!a && !!b && a.state === b.state && (a.declared ?? null) === (b.declared ?? null) && (a.recomputed ?? null) === (b.recomputed ?? null);
+
+/**
+ * Numeric-scope classifier: classifyPage, then the stale shield. A failing verdict that exactly
+ * matches its baseline entry becomes STALE_SHIELDED (not failing); a differing one stays red.
+ */
+export function classifyNumericPage({ rel, html, recomputedDigest = null, unstampedBaselined = false, staleEntry = null }) {
+  const v = classifyPage({ html, recomputedDigest, baselined: unstampedBaselined });
+  if (!STALE_ELIGIBLE_STATES.has(v.state) || !staleEntry) return v;
+  if (sameStaleEntry(staleEntryFor(rel, v), staleEntry)) {
+    return { ...v, state: 'STALE_SHIELDED',
+      detail: `baselined stale debt (${v.state}); burns down as the page is rebuilt and restamped` };
+  }
+  return { ...v, detail: `${v.detail}; baselined as ${staleEntry.state} (declared ${staleEntry.declared}, kernel ${staleEntry.recomputed}) but now differs, so the shield no longer applies` };
+}
+
+/**
+ * Shrink-only stale updater. currentFailing: stale-eligible entries measured now. additions are
+ * entries the baseline does not carry byte-for-byte (new page, or a changed state/digest).
+ */
+export function planStaleUpdate(currentFailing, baselineStale) {
+  const base = new Map(baselineStale.map((e) => [e.page, e]));
+  const cur = [...currentFailing].sort((a, b) => a.page.localeCompare(b.page));
+  const additions = cur.filter((e) => !sameStaleEntry(e, base.get(e.page))).map((e) => e.page);
+  const curPages = new Set(cur.map((e) => e.page));
+  const removals = [...base.keys()].filter((p) => !curPages.has(p)).sort();
+  return { ok: additions.length === 0, additions, removals, next: cur };
+}
+
+export function loadNumericBaseline(path) {
+  if (!existsSync(path)) return null;
+  return JSON.parse(readFileSync(path, 'utf8'));
+}
+
+/** Lock 2 for the numeric file: both lists bounded by their own ceilings. */
+export function numericCeilingBreaches(obj) {
+  const out = [];
+  if (typeof obj?.max_unstamped === 'number' && (obj.unstamped ?? []).length > obj.max_unstamped) {
+    out.push(`numeric baseline holds ${obj.unstamped.length} shielded unstamped page(s) but its max_unstamped ceiling is ${obj.max_unstamped}`);
+  }
+  if (typeof obj?.max_stale === 'number' && (obj.stale ?? []).length > obj.max_stale) {
+    out.push(`numeric baseline holds ${obj.stale.length} stale page(s) but its max_stale ceiling is ${obj.max_stale}`);
+  }
+  return out;
+}
+
+const NUMERIC_BASELINE_COMMENT =
+  'Ratchet shield for numeric-named node pages (chaingraph/[0-9]*.html), same rules as page-kernel-digest-baseline.json. ' +
+  '`unstamped` shields absence only; `stale` records pages whose declared digest is known wrong, pinned to the exact failing state. ' +
+  'Counts only go DOWN: `--update` refuses to ADD or change an entry, and max_unstamped / max_stale are ceilings the strict gate enforces. ' +
+  'Written by `--init-numeric` once, pruned by `--update`; never hand-edited.';
+
 const BASELINE_COMMENT =
   'Ratchet shield for PAGE-KERNEL-DIGEST-SENTINEL-1: node pages that carry no <!--KERNEL-DIGEST--> sentinel yet. ' +
   'Counts only go DOWN under two locks: `--update` refuses to ADD an entry (so a NEW page can never be shielded), ' +
@@ -230,41 +298,85 @@ if (DIGEST_OF) {
   process.exit(0);
 }
 
-const pages = readdirSync(PAGE_DIR).filter((f) => /^art-.*\.html$/.test(f)).sort();
-const baselineObj = loadBaseline();
+// --root <dir> points the scan at another tree (the selftest's synthetic pages); default is this repo.
+const ROOT = process.argv.includes('--root') ? resolve(process.argv[process.argv.indexOf('--root') + 1]) : REPO;
+const R_PAGE_DIR = resolve(ROOT, 'chaingraph');
+const R_KERNEL_DIR = resolve(ROOT, 'chaingraph', 'kernels');
+const R_BASELINE = resolve(ROOT, 'scripts', 'page-kernel-digest-baseline.json');
+const R_NUMERIC_BASELINE = resolve(ROOT, 'scripts', 'page-kernel-digest-numeric-baseline.json');
+const INIT_NUMERIC = process.argv.includes('--init-numeric');
+
+const readRecomputed = async (file) => {
+  const kPath = resolve(R_KERNEL_DIR, kernelFileForPage(file));
+  return existsSync(kPath) ? await sourceDigest(readFileSync(kPath, 'utf8')) : null;
+};
+
+const allFiles = readdirSync(R_PAGE_DIR);
+const pages = allFiles.filter((f) => ART_PAGE_RE.test(f)).sort();
+const numericPages = allFiles.filter((f) => NUMERIC_PAGE_RE.test(f)).sort();
+const baselineObj = loadBaseline(R_BASELINE);
 const baselineSet = new Set(baselineObj.unstamped ?? []);
+const numericObj = loadNumericBaseline(R_NUMERIC_BASELINE);
+const numUnstampedSet = new Set(numericObj?.unstamped ?? []);
+const numStaleMap = new Map((numericObj?.stale ?? []).map((e) => [e.page, e]));
 
 const findings = [];
 for (const file of pages) {
   const rel = `chaingraph/${file}`;
-  const html = readFileSync(resolve(PAGE_DIR, file), 'utf8');
-  const kPath = resolve(KERNEL_DIR, kernelFileForPage(file));
-  const recomputed = existsSync(kPath) ? await sourceDigest(readFileSync(kPath, 'utf8')) : null;
+  const html = readFileSync(resolve(R_PAGE_DIR, file), 'utf8');
+  const recomputed = await readRecomputed(file);
   const verdict = classifyPage({ html, recomputedDigest: recomputed, baselined: baselineSet.has(rel) });
   findings.push({ rel, ...verdict });
+}
+const numericFindings = [];
+for (const file of numericPages) {
+  const rel = `chaingraph/${file}`;
+  const html = readFileSync(resolve(R_PAGE_DIR, file), 'utf8');
+  const recomputed = await readRecomputed(file);
+  const verdict = classifyNumericPage({ rel, html, recomputedDigest: recomputed,
+    unstampedBaselined: numUnstampedSet.has(rel), staleEntry: numStaleMap.get(rel) ?? null });
+  numericFindings.push({ rel, ...verdict });
 }
 
 const by = (s) => findings.filter((f) => f.state === s);
 const stamped = findings.filter((f) => f.declared !== null);
 const legacyPages = findings.filter((f) => f.format === 'legacy');
-const failures = findings.filter((f) => FAILING_STATES.has(f.state));
+const failures = [...findings, ...numericFindings].filter((f) => FAILING_STATES.has(f.state));
 const unstampedNow = findings.filter((f) => f.declared === null && f.state !== 'DUPLICATE').map((f) => f.rel);
+const numUnstampedNow = numericFindings.filter((f) => f.declared === null && f.state !== 'DUPLICATE').map((f) => f.rel);
+const numStaleNow = numericFindings.filter((f) => STALE_ELIGIBLE_STATES.has(f.state) || f.state === 'STALE_SHIELDED').map((f) => staleEntryFor(f.rel, f));
+const nby = (s) => numericFindings.filter((f) => f.state === s);
 
 const trunc = (d) => (d ? d.slice(0, 14) + '…' + d.slice(-6) : '(none)');
-const headline = `page↔kernel digest: ${pages.length} node page(s) | stamped ${stamped.length} (ok ${by('OK').length}, legacy-format ${legacyPages.length}) | unstamped: ${by('SHIELDED').length} shielded, ${by('UNSTAMPED_NEW').length} unbaselined`;
+const headline = `page↔kernel digest: ${pages.length} node page(s) | stamped ${stamped.length} (ok ${by('OK').length}, legacy-format ${legacyPages.length}) | unstamped: ${by('SHIELDED').length} shielded, ${by('UNSTAMPED_NEW').length} unbaselined` +
+  ` | numeric: ${numericPages.length} page(s), ok ${nby('OK').length}, stale baselined ${nby('STALE_SHIELDED').length}, unstamped shielded ${nby('SHIELDED').length}, unbaselined ${nby('UNSTAMPED_NEW').length}`;
+
+if (INIT_NUMERIC) {
+  if (existsSync(R_NUMERIC_BASELINE)) {
+    console.error('\n✗ --init-numeric REFUSED — scripts/page-kernel-digest-numeric-baseline.json already exists.');
+    console.error('  The numeric shield is bootstrapped exactly once. It shrinks with --update and never regrows.');
+    process.exit(1);
+  }
+  const unstamped = [...numUnstampedNow].sort();
+  const stale = numStaleNow.sort((a, b) => a.page.localeCompare(b.page));
+  writeFileSync(R_NUMERIC_BASELINE, JSON.stringify({ _comment: NUMERIC_BASELINE_COMMENT,
+    max_unstamped: unstamped.length, unstamped, max_stale: stale.length, stale }, null, 2) + '\n');
+  console.log(`✓ numeric baseline bootstrapped: ${unstamped.length} unstamped (ceiling ${unstamped.length}), ${stale.length} stale (ceiling ${stale.length})`);
+  process.exit(0);
+}
 const deprecationNotes = legacyPages.map(
   (f) => `  ⚠ ${f.rel}: LEGACY comment-format stamp (renders the hash as visible text) — migrate to ${metaLineFor(f.declared)}`
 );
 
 if (INIT) {
-  if (existsSync(BASELINE_PATH)) {
+  if (existsSync(R_BASELINE)) {
     console.error('\n✗ --init REFUSED — scripts/page-kernel-digest-baseline.json already exists.');
     console.error('  The shield is bootstrapped exactly once. It shrinks with --update and never regrows.');
     process.exit(1);
   }
   const list = [...unstampedNow].sort();
-  writeFileSync(BASELINE_PATH, JSON.stringify({ _comment: BASELINE_COMMENT, max_unstamped: list.length, unstamped: list }, null, 2) + '\n');
-  console.log(`✓ baseline bootstrapped: ${list.length} unstamped page(s), ceiling ${list.length} → ${BASELINE_PATH}`);
+  writeFileSync(R_BASELINE, JSON.stringify({ _comment: BASELINE_COMMENT, max_unstamped: list.length, unstamped: list }, null, 2) + '\n');
+  console.log(`✓ baseline bootstrapped: ${list.length} unstamped page(s), ceiling ${list.length} → ${R_BASELINE}`);
   process.exit(0);
 }
 
@@ -284,16 +396,38 @@ if (UPDATE) {
     max_unstamped: Math.min(prevCeiling, plan.next.length), // lowered, never raised
     unstamped: plan.next,
   };
-  writeFileSync(BASELINE_PATH, JSON.stringify(next, null, 2) + '\n');
+  writeFileSync(R_BASELINE, JSON.stringify(next, null, 2) + '\n');
   console.log(`✓ baseline pruned: ${baselineSet.size} → ${plan.next.length} unstamped page(s) (${plan.removals.length} removed).`);
   if (plan.removals.length) for (const f of plan.removals) console.log(`    − ${f}`);
+  if (numericObj) {
+    const uPlan = planBaselineUpdate(numUnstampedNow, [...numUnstampedSet]);
+    const sPlan = planStaleUpdate(numStaleNow, numericObj.stale ?? []);
+    if (!uPlan.ok || !sPlan.ok) {
+      console.error('\n✗ numeric baseline update REFUSED — counts only go DOWN.');
+      for (const f of uPlan.additions) console.error(`    • ${f} carries no sentinel and is not baselined`);
+      for (const f of sPlan.additions) console.error(`    • ${f} fails and is not baselined as that exact failing state`);
+      console.error('  Stamp or rebuild these pages instead of shielding them.');
+      process.exit(1);
+    }
+    const nextNumeric = {
+      _comment: NUMERIC_BASELINE_COMMENT,
+      max_unstamped: Math.min(typeof numericObj.max_unstamped === 'number' ? numericObj.max_unstamped : uPlan.next.length, uPlan.next.length),
+      unstamped: uPlan.next,
+      max_stale: Math.min(typeof numericObj.max_stale === 'number' ? numericObj.max_stale : sPlan.next.length, sPlan.next.length),
+      stale: sPlan.next,
+    };
+    writeFileSync(R_NUMERIC_BASELINE, JSON.stringify(nextNumeric, null, 2) + '\n');
+    console.log(`✓ numeric baseline pruned: unstamped ${numUnstampedSet.size} → ${uPlan.next.length}, stale ${numStaleMap.size} → ${sPlan.next.length}.`);
+    for (const f of uPlan.removals) console.log(`    − ${f} (stamped)`);
+    for (const f of sPlan.removals) console.log(`    − ${f} (stale entry fixed)`);
+  }
   process.exit(0);
 }
 
 if (SUMMARY || LIST) {
   console.log(headline);
   for (const n of deprecationNotes) console.log(n);
-  if (LIST) for (const f of findings) console.log(`  ${f.state.padEnd(14)} ${f.rel}  declared=${trunc(f.declared)} recomputed=${trunc(f.recomputed)}`);
+  if (LIST) for (const f of [...findings, ...numericFindings]) console.log(`  ${f.state.padEnd(14)} ${f.rel}  declared=${trunc(f.declared)} recomputed=${trunc(f.recomputed)}`);
   process.exit(0);
 }
 
@@ -309,6 +443,12 @@ const breach = baselineCeilingBreach(baselineObj);
 if (breach) {
   console.error(`\n✗ page-kernel digest baseline REGREW — ${breach}.`);
   console.error('  Entries are removed as pages are stamped; they are never added back. Stamp the page instead.');
+  process.exit(1);
+}
+
+const numericBreaches = numericCeilingBreaches(numericObj);
+if (numericBreaches.length) {
+  for (const b of numericBreaches) console.error(`\n✗ page-kernel digest numeric baseline REGREW — ${b} (counts only go DOWN).`);
   process.exit(1);
 }
 
