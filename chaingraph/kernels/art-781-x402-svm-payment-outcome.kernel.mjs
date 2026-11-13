@@ -53,11 +53,11 @@
 //        L837-844 accepts the same net delta across both token programs.
 //   3. Kora advisories (GitHub advisory records, fetched 2026-10-29):
 //        GHSA-725g-w329-g7qr "kora-lib: Token-2022 Transfer Fee Not Deducted During Payment
-//              Verification", severity field medium, published 2026-03-12, patched_versions
-//              null on the record (no fixed-version field);
+//              Verification", severity field medium, published 2026-03-12, first_patched_version
+//              2.0.5 on the record (vulnerable below 2.0.5);
 //        GHSA-x442-m7cc-hr92 "kora-lib: Unrecognized Instruction Types Create Empty Stubs
 //              That Bypass Fee Payer Policy", severity field medium, published 2026-03-12,
-//              patched_versions null on the record.
+//              first_patched_version 2.0.5 on the record (vulnerable below 2.0.5).
 //      Both advisories hit exactly the seams this node exposes (fee deduction and fee-payer
 //      policy); the node cites them as facts, it does not rate them.
 //   4. ATA derivation and the off-curve test are the pinned functions copied from
@@ -261,7 +261,7 @@ function transferFee(amount, bps, maxFee) {
 
 const SPEC_PIN = 'x402-foundation/x402 at commit e4a086819f419e9395acbbdc1679fe6627029ff7 (canonical repo), specs/schemes/exact/scheme_exact_svm.md';
 const REF_PIN = 'typescript/packages/mechanisms/svm/src/exact/facilitator/{scheme.ts,smartWalletVerification.ts} at the same commit';
-const GHSA_PIN = 'GHSA-725g-w329-g7qr and GHSA-x442-m7cc-hr92, severity field medium on both records, patched_versions null on both (GitHub advisory API, 2026-10-29)';
+const GHSA_PIN = 'GHSA-725g-w329-g7qr and GHSA-x442-m7cc-hr92, severity field medium on both records, first_patched_version 2.0.5, vulnerable below 2.0.5, on both (GitHub advisory API, 2026-10-29)';
 
 const REFUSAL_FIELDS = () => ({
   requirements_echo: null, transaction_version: null, instruction_summary: null,
@@ -276,7 +276,7 @@ function refusal(code, detail) {
   };
 }
 
-const VALID_INSTRUCTION_KINDS = ['transfer_checked', 'memo', 'compute_unit_limit', 'compute_unit_price', 'other'];
+const VALID_INSTRUCTION_KINDS = ['transfer_checked', 'memo', 'compute_unit_limit', 'compute_unit_price', 'create_idempotent', 'other'];
 const VALID_TOKEN_PROGRAMS = ['spl-token', 'token-2022'];
 function tokenProgramAddress(tp) {
   if (tp === 'spl-token') return CLASSIC_TOKEN_PROGRAM_ID;
@@ -306,6 +306,7 @@ function tokenProgramAddress(tp) {
  *                   | { kind: 'memo', text: string }
  *                   | { kind: 'compute_unit_limit', units: number }
  *                   | { kind: 'compute_unit_price', micro_lamports: string }
+ *                   | { kind: 'create_idempotent', accounts: [string] }  // top-level AssociatedTokenProgram CreateIdempotent
  *                   | { kind: 'other', program_id: string, accounts: [string] } ]
  *   },
  *   mint: {
@@ -419,6 +420,11 @@ export function compute(pp) {
       const m = parseU64Decimal(raw.micro_lamports);
       if (m === null) return refusal('INSTRUCTION_MALFORMED', 'transaction.instructions[' + i + '].micro_lamports must be a decimal string in u64 range.');
       ins.micro_lamports = m;
+    } else if (raw.kind === 'create_idempotent') {
+      if (!Array.isArray(raw.accounts) || raw.accounts.some(a => parseAddress(a) === null)) {
+        return refusal('INSTRUCTION_MALFORMED', 'transaction.instructions[' + i + '].accounts must be an array of base58 32-byte addresses (funding payer, ATA, wallet owner, mint, system program, token program) for a "create_idempotent" instruction.');
+      }
+      ins.accounts_s = raw.accounts.slice();
     } else { // other
       const pid = parseAddress(raw.program_id);
       if (pid === null) return refusal('INSTRUCTION_MALFORMED', 'transaction.instructions[' + i + '].program_id must be a base58 32-byte address for an "other" instruction.');
@@ -613,8 +619,17 @@ export function compute(pp) {
       if (t.authority_s === feePayer) violations.push('instruction ' + t.index + ' lists the fee payer as transfer authority');
       if (t.destination_s === feePayer && !(feePayer === rq.pay_to)) violations.push('instruction ' + t.index + ' lists the fee payer as transfer destination while fee_payer != pay_to');
     }
+    const ataExceptionUsed = [];
     for (const t of instructions) {
-      if (t.kind === 'other') {
+      if (t.kind === 'create_idempotent') {
+        const createsRecipientAta = t.is_inner !== true && t.accounts_s[2] === rq.pay_to && t.accounts_s[3] === rq.asset
+          && [ataDeclared, ataClassic].some(a => a !== null && a.address === t.accounts_s[1]);
+        for (let k = 0; k < t.accounts_s.length; k++) {
+          if (t.accounts_s[k] !== feePayer) continue;
+          if (createsRecipientAta && (k === 0 || k === 2)) ataExceptionUsed.push('instruction ' + t.index + ' account[' + k + ']');
+          else violations.push('instruction ' + t.index + ' account[' + k + '] is the fee payer');
+        }
+      } else if (t.kind === 'other') {
         if (t.program_id_s === feePayer) violations.push('instruction ' + t.index + ' invokes the fee payer as a program');
         for (let k = 0; k < t.accounts_s.length; k++) {
           if (t.accounts_s[k] === feePayer) violations.push('instruction ' + t.index + ' account[' + k + '] is the fee payer');
@@ -624,7 +639,7 @@ export function compute(pp) {
     let verdict, evidence;
     if (violations.length === 0) {
       verdict = 'PASS';
-      evidence = 'the fee payer ' + feePayer + ' appears in no pasted instruction account, is no transfer source or authority, and is invoked as no program' + (feePayer === rq.pay_to ? '; the fee payer equals pay_to, the recipient exception the spec allows' : '');
+      evidence = 'the fee payer ' + feePayer + ' appears in no pasted instruction account, is no transfer source or authority, and is invoked as no program' + (feePayer === rq.pay_to ? '; the fee payer equals pay_to, the recipient exception the spec allows' : '') + (ataExceptionUsed.length > 0 ? '; the fee payer appears only in the permitted CreateIdempotent positions (' + ataExceptionUsed.join(', ') + ') of a top-level creation of the declared recipient ATA for the declared asset' : '');
     } else {
       verdict = 'FAIL';
       evidence = violations.join('; ');
@@ -667,7 +682,7 @@ export function compute(pp) {
   {
     const specReading = SPEC_PIN + ' L410-L411 (Path 1: when extra.memo is present the facilitator MUST verify exactly one Memo instruction exists and its data matches extra.memo encoded UTF-8)';
     const refReading = REF_PIN + ': the memo count and byte match run on the static layout (scheme.ts memoInstructions filter) and mirror on Path 2 (smartWalletVerification memo enforcement)';
-    const memoInstructions = instructions.filter(t => t.kind === 'memo');
+    const memoInstructions = instructions.filter(t => t.kind === 'memo' && t.is_inner !== true);
     let verdict, evidence;
     if (ex.memo === undefined) {
       verdict = 'PASS';
@@ -743,6 +758,8 @@ export function compute(pp) {
       row.program_id = 'ComputeBudget111111111111111111111111111111'; row.units = t.units;
     } else if (t.kind === 'compute_unit_price') {
       row.program_id = 'ComputeBudget111111111111111111111111111111'; row.micro_lamports = t.micro_lamports.toString();
+    } else if (t.kind === 'create_idempotent') {
+      row.program_id = ATA_PROGRAM_ID; row.account_count = t.accounts_s.length;
     } else {
       row.program_id = t.program_id_s; row.account_count = t.accounts_s.length;
     }
