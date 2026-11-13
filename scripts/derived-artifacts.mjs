@@ -186,6 +186,24 @@ export const COVERED = [
     share: '8%',
   },
   {
+    // VERIFYBINDING-DIGEST-DEFAULT-1 (2026-11-12): the PUBLISHED KERNEL-DIGEST LIST --
+    // every live node's current kernel identity digest, derived from the node SHARDS'
+    // compute_images (system sha256-source; the kernel-identity publication), written to
+    // chaingraph/kernel-digests.json. The kernel_digest leg of verifyBinding engages by
+    // DEFAULT against this list (browser verifiers load and arm it), so a receipt from
+    // one tool can no longer pass against another tool's page. Reads only the committed
+    // shards -- no after: edge on chaingraph-assemble (they share an input, not a
+    // producer/consumer link). prAbsentOk per webmcp-manifest/ai-catalog: main's regen
+    // writes the file after merge and a PR is forbidden to commit it (SO #35).
+    id: 'kernel-digests',
+    regen: 'node scripts/gen-kernel-digests.mjs',
+    gate: 'node scripts/gen-kernel-digests.mjs --check',
+    writes: ['chaingraph/kernel-digests.json'],
+    artifacts: ['chaingraph/kernel-digests.json'],
+    prAbsentOk: true,
+    share: 'n/a (new 2026-11-12, VERIFYBINDING-DIGEST-DEFAULT-1)',
+  },
+  {
     // PROVE-BASELINE-SINGLE-WRITER-1 (2026-10-19): the §18 deferred ratchet
     // baseline joins the single-writer set. Every prove PR and node PR used to
     // edit scripts/compute-proof-baseline.json (count + deferred_nodes), so
@@ -1795,6 +1813,18 @@ export const DERIVED_ROOT_GATES = new Set([
   // fixture proofs that never overlay, so they stay out of the set).
   'node scripts/check-ask-agent-block.mjs',                  // ask-agent block freshness (registry, pages, manifests overlay)
   'node scripts/check-output-schema-coverage.mjs',           // output-schema coverage (registry, manifests overlay)
+  // VERIFYBINDING-DIGEST-DEFAULT-1 (2026-11-12): check-ledger-hermetic.mjs NAMES the published
+  // kernel-digest list (chaingraph/kernel-digests.json) in its fetch allowlist, so the derived-reader
+  // text-match classifies it as reading main-regen derived bytes (DERIVED-READER-COVERAGE-1). It
+  // never opens that file — it greps the LEDGER PAGE SOURCE for allowlist tokens — and it must stay
+  // hard in every context. Membership here is classification-only: the gate is not COVERED, so
+  // runVerifyGates never runs it and never skips it for non-awareness.
+  'node scripts/check-ledger-hermetic.mjs',                  // ledger hermetic (names kernel-digests.json; reads page source only)
+  // WEBMCP-SIGNED-EXPIRY-1 (DERIVED-READER-COVERAGE-1): the snapshot freshness gate reads
+  // .well-known/webmcp-signed.json through derivedResolve, so a merge_group overlay judges the
+  // assembled tree. The file itself is hand-signed (EXCLUDED, never regen-written); the gate is not
+  // COVERED, so membership is awareness classification only.
+  'node scripts/check-webmcp-snapshot-fresh.mjs',            // snapshot expiry freshness (overlay-reads the signed snapshot)
 ]);
 
 // S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1 (2026-10-31): derivedRoot/derivedResolve moved VERBATIM

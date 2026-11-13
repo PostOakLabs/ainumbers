@@ -2,10 +2,10 @@
   "schema_version": "mcp-catalog-v1",
   "server_id": "ainumbers-fintech-suite",
   "name": "AINumbers Fintech Intelligence Suite",
-  "description": "1251 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
+  "description": "1260 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
   "base_url": "https://ainumbers.co",
-  "generated": "2026-11-10",
-  "tool_count": 1250,
+  "generated": "2026-11-13",
+  "tool_count": 1259,
   "tools": [
     {
       "name": "calculate_a2a_fee_route",
@@ -25593,6 +25593,174 @@
       }
     },
     {
+      "name": "recompute_event_contract_fee",
+      "description": "Recomputes event-contract trading fees per fill and per order from an effective-dated venue fee profile (Kalshi with the pinned rounding accumulator, Polymarket global category rates, Polymarket US CFTC 40.6(d) history, or caller-declared generic) and diffs against a reported fee: MATCH, OVERCHARGE or UNDERCHARGE. Integer BigInt arithmetic; no float in any fee path.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "profile",
+          "as_of",
+          "orders"
+        ],
+        "properties": {
+          "profile": {
+            "type": "string",
+            "enum": [
+              "kalshi",
+              "polymarket_global",
+              "polymarket_us",
+              "generic"
+            ],
+            "description": "Shipped profile id, or generic to declare every parameter from the caller. Any other string is refused."
+          },
+          "as_of": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "ISO calendar date selecting the effective profile row."
+          },
+          "category": {
+            "type": "string",
+            "description": "polymarket_global only: market category (crypto, sports, politics, other, combos and more). Defaults to other."
+          },
+          "balance_precision_micro": {
+            "type": "integer",
+            "enum": [
+              100,
+              10000
+            ],
+            "description": "kalshi only: the member balance grid in micro-dollars. 10000 = non-direct ($0.01, default), 100 = direct ($0.0001)."
+          },
+          "params": {
+            "type": "object",
+            "description": "Opaque synthetic label. Identifier-like values (hashes, addresses, long ids) are refused and never echoed."
+          },
+          "orders": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "required": [
+                "order_label",
+                "role"
+              ],
+              "properties": {
+                "order_label": {
+                  "type": "string",
+                  "maxLength": 64,
+                  "description": "Opaque synthetic label. Values that look like an account id, order id, address or hash are refused and never echoed."
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "taker",
+                    "maker"
+                  ]
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "standard",
+                    "combo"
+                  ],
+                  "description": "Defaults to standard. Combo orders carry legs[]."
+                },
+                "outcomes": {
+                  "type": "array",
+                  "minItems": 2,
+                  "items": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "description": "Two or more opaque outcome labels declaring a multi-outcome market."
+                },
+                "fills": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "contracts",
+                      "price_micro"
+                    ],
+                    "properties": {
+                      "contracts": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000000000
+                      },
+                      "price_micro": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 999999,
+                        "description": "Integer price in micro-dollars of par (1e-6 USD)."
+                      }
+                    }
+                  },
+                  "description": "Standard-order fills."
+                },
+                "legs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "fills": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "contracts": {
+                              "type": "integer",
+                              "minimum": 1
+                            },
+                            "price_micro": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 999999,
+                              "description": "Integer price in micro-dollars of par (1e-6 USD)."
+                            }
+                          },
+                          "required": [
+                            "contracts",
+                            "price_micro"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "fills"
+                    ]
+                  },
+                  "description": "Combo-order legs, each with its own fills."
+                },
+                "reported_fee_minor": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Optional caller-reported order fee in micro-dollars; the diff verdict MATCH | OVERCHARGE | UNDERCHARGE is returned per order."
+                }
+              }
+            },
+            "description": "Orders to recompute. At most 500 fills total. Aggregate only: no account or order identifiers."
+          }
+        },
+        "description": "Profile selection with as_of, plus at least one order of synthetic labelled fills."
+      },
+      "metadata": {
+        "tool_id": "794-event-fee-recompute",
+        "category": "chaingraph",
+        "tags": [
+          "event-contracts",
+          "trading-fees",
+          "fee-recompute",
+          "effective-dated-profiles",
+          "mcp:recompute_event_contract_fee"
+        ],
+        "url": "https://ainumbers.co/chaingraph/794-event-fee-recompute.html",
+        "ap2_export": false,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
       "name": "check_stablecoin_refunds",
       "description": "Recomputes the expected refund and dispute outcome of escrowed stablecoin payments (lock period, arbiter refund, early-withdrawal fee, partial refunds) and flags breaks against the merchant reported state. Aggregate-only: identifier-like payment references are refused with no echo.",
       "inputSchema": {
@@ -25974,6 +26142,49 @@
       }
     },
     {
+      "name": "reconcile_ucp_checkout_totals",
+      "description": "Recomputes a pasted UCP cart, checkout or order totals block in integer minor units: price x quantity per line, line-subtotal roll-up, breakdown identity, sign rules, and in order mode the refund bound over adjustments. Returns RECONCILED, MISMATCH or INDETERMINATE with per-finding JSON paths; malformed input refuses with INPUT_REFUSED. Arithmetic consistency only: UCP publishes no tax or rounding algorithm, so no amount is judged correct or incorrect. Verify-only, zero network calls, zero PII.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "document"
+        ],
+        "properties": {
+          "document": {
+            "description": "The pasted UCP cart, checkout or order document",
+            "type": "object"
+          },
+          "mode": {
+            "description": "\"checkout\" (default) or \"order\"",
+            "type": "string"
+          },
+          "rounding": {
+            "description": "Line rounding policy, default half_even",
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "825-reconcile-ucp-checkout-totals",
+        "category": "agentic-checkout-and-multi-rail-protocol-comparison",
+        "tags": [
+          "UCP",
+          "Universal Commerce Protocol",
+          "checkout",
+          "totals",
+          "reconciliation",
+          "minor units",
+          "agentic commerce",
+          "order adjustments"
+        ],
+        "url": "https://ainumbers.co/chaingraph/825-reconcile-ucp-checkout-totals.html",
+        "ap2_export": false,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": true
+      }
+    },
+    {
       "name": "compute_agent_cred_matrix",
       "description": "Builds the agent credential class matrix: one row per credential class across scope, expiry, replay protection, revocability and what the agent can learn, chaining to sibling verdicts and flagging every refusal or unpinned column for review.",
       "inputSchema": {
@@ -26005,6 +26216,106 @@
         ],
         "url": "https://ainumbers.co/chaingraph/827-agent-cred-class-matrix.html",
         "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "recompute_safe_tx_hash",
+      "description": "Recomputes the domain hash, message hash and safeTxHash of a Safe transaction (versions 1.3.0, 1.4.1, 1.5.0) from pasted fields and decodes known calls from a fixed selector table. Flags delegatecall, admin calls, approvals and multiSend. Does not simulate execution and cannot tell you the destination contract is safe. Zero network.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "version",
+          "chainId",
+          "safe",
+          "to",
+          "value",
+          "operation",
+          "safeTxGas",
+          "baseGas",
+          "gasPrice",
+          "gasToken",
+          "refundReceiver",
+          "nonce"
+        ],
+        "properties": {
+          "version": {
+            "type": "string",
+            "enum": [
+              "1.3.0",
+              "1.4.1",
+              "1.5.0"
+            ],
+            "description": "Safe contract version (the VERSION constant). Versions before 1.3.0 are refused."
+          },
+          "chainId": {
+            "type": "string",
+            "description": "Chain id the Safe is deployed on (uint256, decimal or 0x-hex)."
+          },
+          "safe": {
+            "type": "string",
+            "description": "Address of the Safe that will execute the transaction (the EIP-712 verifyingContract), 20-byte hex."
+          },
+          "to": {
+            "type": "string",
+            "description": "Destination address, 20-byte hex."
+          },
+          "value": {
+            "type": "string",
+            "description": "Ether value in wei (uint256)."
+          },
+          "data": {
+            "type": "string",
+            "description": "Call data as hex (0x-prefixed or bare). Empty or 0x for a plain ether transfer. Up to 32768 bytes."
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "0",
+              "1"
+            ],
+            "description": "0 = call, 1 = delegatecall."
+          },
+          "safeTxGas": {
+            "type": "string",
+            "description": "safeTxGas (uint256)."
+          },
+          "baseGas": {
+            "type": "string",
+            "description": "baseGas (uint256)."
+          },
+          "gasPrice": {
+            "type": "string",
+            "description": "gasPrice (uint256)."
+          },
+          "gasToken": {
+            "type": "string",
+            "description": "gasToken address; the zero address for ether."
+          },
+          "refundReceiver": {
+            "type": "string",
+            "description": "refundReceiver address; the zero address for tx.origin."
+          },
+          "nonce": {
+            "type": "string",
+            "description": "Safe nonce (uint256)."
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "829-safe-tx-hash-recompute",
+        "category": "chaingraph",
+        "tags": [
+          "safe",
+          "multisig",
+          "eip-712",
+          "transaction-hash",
+          "mcp:recompute_safe_tx_hash"
+        ],
+        "url": "https://ainumbers.co/chaingraph/829-safe-tx-hash-recompute.html",
+        "ap2_export": false,
         "execution_type": "browser-reference",
         "version": "1.0.0",
         "prefill": false
@@ -52974,6 +53285,118 @@
       }
     },
     {
+      "name": "compute_sha256_hmac_digest",
+      "description": "Computes SHA-256 or HMAC-SHA256 over a UTF-8 string or hex bytes (at most 64 KiB) and echoes the algorithm id. Rejects bad input with a closed reason code and no digest.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string"
+          },
+          "input": {
+            "type": "string"
+          },
+          "input_encoding": {
+            "type": "string"
+          },
+          "key_hex": {
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-751-sha256-hmac-digest-demonstrator",
+        "category": "regulatory-compliance",
+        "tags": [
+          "compliance_control",
+          "sha-256",
+          "hmac",
+          "digest",
+          "shared-infrastructure",
+          "mcp:compute_sha256_hmac_digest"
+        ],
+        "ap2_export": false,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "estimate_quarterly_tax",
+      "description": "Quarterly IRS estimated tax for self-employed income: net SE income, SE tax (SS + Medicare), federal income tax on the 2026 brackets, an elective state bucket, equal quarterly installments with the 2026 due dates, and the 90%/100% safe-harbor amount. 2026 IRS constants. Full provenance in the manifest description.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "gross_income",
+          "business_expenses",
+          "other_income",
+          "filing_status",
+          "state",
+          "prior_year_tax",
+          "ytd_paid"
+        ],
+        "properties": {
+          "gross_income": {
+            "type": "number",
+            "description": "Annual gross freelance / self-employment income in USD (Apex input grossIncome, default 120000, min 1000, max 2000000)."
+          },
+          "business_expenses": {
+            "type": "number",
+            "description": "Business expenses in USD (Apex input expenses, default 15000, min 0, max 500000). Software, home office, equipment, professional fees, etc."
+          },
+          "other_income": {
+            "type": "number",
+            "description": "Other income in USD \u2014 W-2 wages, interest, dividends (Apex input otherIncome, default 0, min 0)."
+          },
+          "filing_status": {
+            "type": "string",
+            "enum": [
+              "single",
+              "mfj"
+            ],
+            "description": "Filing status (Apex select filingStatus). 'single' = Single / Married Filing Separately; 'mfj' = Married Filing Jointly."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "none",
+              "low",
+              "mid",
+              "high"
+            ],
+            "description": "State tax bucket (Apex select state). Illustrative elective rates: none=0, low=0.03, mid=0.05, high=0.093. An assumption, not a jurisdiction lookup."
+          },
+          "prior_year_tax": {
+            "type": "number",
+            "description": "Prior-year federal tax in USD (Form 1040 line 24; Apex priorYearTax, default 0). Drives the safe harbor; 0 selects the 90%-of-current fallback."
+          },
+          "ytd_paid": {
+            "type": "number",
+            "description": "Year-to-date estimated payments already made in USD (Apex input ytdPaid, default 0, min 0)."
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-752-freelance-quarterly-estimated-tax",
+        "category": "personal-finance",
+        "tags": [
+          "freelance",
+          "self-employed",
+          "estimated-tax",
+          "quarterly",
+          "se-tax",
+          "safe-harbor",
+          "2026",
+          "mcp:estimate_quarterly_tax"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-752-freelance-quarterly-estimated-tax.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
       "name": "calc_equity_exit_waterfall",
       "description": "Model equity exit proceeds after liquidation preference waterfalls for startup employees and founders (NVCA model term sheet conventions; IRC \u00a71001 for the gain computation): the preference stack, non-participating conversion or capped participation, the common pool, your gross and net proceeds, taxable gain and the break-even exit. Deterministic, client-side, zero PII.",
       "inputSchema": {
@@ -53947,6 +54370,167 @@
       }
     },
     {
+      "name": "money_primitives_demo",
+      "description": "Rounds a caller-supplied exact-decimal amount to the currency exponent with one required named rounding mode from a closed six-token set, allocates the rounded amount across integer weights by largest remainder (parts sum exactly), and echoes the mode and matched currency-slice entry. Currency exponents are caller data; malformed input yields a named refusal, never a silent zero or fallback.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "string"
+          },
+          "ccy": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "half_up",
+              "half_down",
+              "half_even",
+              "truncate",
+              "floor",
+              "ceiling"
+            ]
+          },
+          "weights": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "currency_slice": {
+            "type": "object"
+          },
+          "places": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 38
+          },
+          "truncate_excess": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "amount",
+          "ccy",
+          "mode",
+          "weights",
+          "currency_slice"
+        ]
+      },
+      "metadata": {
+        "tool_id": "art-772-money-primitives-demonstrator",
+        "category": "chaingraph",
+        "tags": [
+          "compliance_mandate",
+          "money",
+          "decimal-arithmetic",
+          "rounding-modes",
+          "largest-remainder-allocation",
+          "iso-4217",
+          "minor-units",
+          "mcp:money_primitives_demo"
+        ],
+        "ap2_export": false,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "compute_daycount_year_fraction",
+      "description": "Day-count year fraction and business-day rolls for one date pair: exact rational {num, den} under one of nine closed modes (the seven ISDA 2006 Sec 4.16 / UNIT_PERIOD modes plus ACT_ACT_ICMA per ICMA Rule 251 and BUS_252), with following / modified following / preceding rolls over a caller-supplied holiday calendar. Structured refusals, never silent defaults.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "mode",
+          "start",
+          "end"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "UNIT_PERIOD",
+              "30_360_US",
+              "30E_360",
+              "30E_360_ISDA",
+              "ACT_360",
+              "ACT_365F",
+              "ACT_ACT_ISDA",
+              "ACT_ACT_ICMA",
+              "BUS_252"
+            ]
+          },
+          "start": {
+            "type": "string"
+          },
+          "end": {
+            "type": "string"
+          },
+          "is_termination": {
+            "type": "boolean"
+          },
+          "unit_fraction": {
+            "type": "number"
+          },
+          "frequency": {
+            "type": "integer"
+          },
+          "schedule": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "start": {
+                  "type": "string"
+                },
+                "end": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "calendar": {
+            "type": "object",
+            "properties": {
+              "weekend": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                }
+              },
+              "holidays": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-773-daycount-year-fraction",
+        "category": "chaingraph",
+        "tags": [
+          "compliance_control",
+          "day-count",
+          "year-fraction",
+          "act-act-icma",
+          "bus-252",
+          "business-day-roll",
+          "isda-416",
+          "mcp:compute_daycount_year_fraction"
+        ],
+        "ap2_export": false,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
       "name": "derive_beacon_fair_sample_v2",
       "description": "Derives a deterministic audit sample from a public randomness beacon pulse and a pre-committed item-manifest hash over the same HMAC-DRBG (SHA-256) stream as version 1, with exactly unbiased threshold-rejection draws, a partial Fisher-Yates walk that needs exactly sample_size accepted draws and no draw cap (full samples to 1,000,000 items), and strict 64-lowercase-hex input validation. Emits selected indices, the seed, and a per-draw transcript for offline replay.",
       "inputSchema": {
@@ -54738,6 +55322,94 @@
         ],
         "url": "https://ainumbers.co/chaingraph/art-826-authenticator-assurance-level.html",
         "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "reconcile_omnibus_position",
+      "description": "Reconciles a declared tokenized-securities omnibus token position against the sum of declared registered-wallet balances and a declared custodian book-entry position: exact integer deltas per leg, an inclusive tolerance, a SHA-256 chained head over declared mint, burn, forced-transfer and transfer events, and a RECONCILED / MISMATCH / UNDECIDABLE verdict. An unregistered wallet holding a balance forces MISMATCH under the DTS profile. Arithmetic only: reads no ledger, proves no balance real.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "profile": {
+            "type": "string",
+            "description": "dtc_dts applies the registered-wallet rule from the pinned no-action letter; generic_omnibus omits it. Absent defaults to generic_omnibus with a flag."
+          },
+          "as_of": {
+            "type": "string",
+            "description": "Caller-declared snapshot date label, YYYY-MM-DD. No clock is read."
+          },
+          "omnibus_balance": {
+            "type": "string",
+            "description": "The omnibus token position in integer base units as a decimal string. Numbers, fractional, signed, or malformed values are refused, never coerced."
+          },
+          "book_entry_position": {
+            "type": "string",
+            "description": "The custodian's book-entry position, integer base units as a decimal string, same refusal domain as omnibus_balance."
+          },
+          "tolerance_units": {
+            "type": "number",
+            "description": "Inclusive tolerance band in integer base units applied to both legs; 0 when absent. Negative or fractional values are refused."
+          },
+          "wallets": {
+            "type": "array",
+            "description": "Per-wallet declared balances under opaque labels: wallet_label (opaque, unique, PII-shaped refused), balance (decimal string), registered (boolean)."
+          },
+          "events": {
+            "type": "array",
+            "description": "Declared log entries chained in seq order: seq (unique integer), kind (mint, burn, forced_transfer, transfer), amount (decimal string), wallet_label."
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-828-reconcile-omnibus-token-position",
+        "category": "chaingraph",
+        "tags": [
+          "tokenization",
+          "omnibus-account",
+          "reconciliation",
+          "dtc",
+          "mcp:reconcile_omnibus_position"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-828-reconcile-omnibus-token-position.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "export_receipt_lineage_events",
+      "description": "Exports one caller-supplied execution receipt as a deterministic lineage RunEvent plus a structured-mode event envelope (type co.ainumbers.ocg.receipt.v1); fail-closed on any missing or malformed hash, timestamp or URI-reference.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "receipt": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "receipt"
+        ]
+      },
+      "metadata": {
+        "tool_id": "art-831-receipt-export-envelopes",
+        "category": "Evidence Envelope Receipt Verification",
+        "tags": [
+          "compliance_control",
+          "openlineage",
+          "cloudevents",
+          "receipt-export",
+          "lineage",
+          "event-envelope",
+          "deterministic",
+          "zero-network",
+          "mcp:export_receipt_lineage_events"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-831-receipt-export-envelopes.html",
+        "ap2_export": false,
         "execution_type": "browser-reference",
         "version": "1.0.0",
         "prefill": false
