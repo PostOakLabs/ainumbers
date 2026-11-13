@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-130"]
+tags: ["compliance_control", "count-133"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-130 tool(s) in this mandate-type group:
+133 tool(s) in this mandate-type group:
 
 - [Corridor Cost Averages](../tools/787-corridor-cost-averages.md)
 - [Curator Vault Cap Auditor](../tools/792-curator-vault-cap-auditor.md)
@@ -133,6 +133,7 @@ status: stable
 - [SHA-256 and HMAC-SHA256 Digest Demonstrator](../tools/art-751-sha256-hmac-digest-demonstrator.md)
 - [HDHP vs. PPO Break-Even](../tools/art-758-hdhp-ppo-break-even.md)
 - [Money Primitives Demonstrator](../tools/art-772-money-primitives-demonstrator.md)
+- [Daycount Year Fraction](../tools/art-773-daycount-year-fraction.md)
 - [Beacon-Seeded Fair-Sampling Deriver V2](../tools/art-774-beacon-seeded-fair-sampling-v2.md)
 - [Government Stablecoin Acceptance Audit](../tools/art-793-government-stablecoin-acceptance.md)
 - [Open-Source Agent-Governance Audit-Chain Verifier](../tools/art-805-agt-audit-chain-verifier.md)
@@ -142,3 +143,5 @@ status: stable
 - [Ucp Request Constraints](../tools/art-819-ucp-request-constraints.md)
 - [Authenticator Assurance Level Evaluator](../tools/art-826-authenticator-assurance-level.md)
 - [Omnibus Token Position Reconciliation](../tools/art-828-reconcile-omnibus-token-position.md)
+- [EIP-3009 Spend Exposure Reconciler](../tools/art-830-eip3009-spend-exposure-reconciler.md)
+- [Receipt Export Envelopes](../tools/art-831-receipt-export-envelopes.md)

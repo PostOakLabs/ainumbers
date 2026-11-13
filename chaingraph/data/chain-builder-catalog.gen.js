@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (739 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (742 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7924,6 +7924,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-773-daycount-year-fraction",
+    "display_name": "Daycount Year Fraction",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/mcp.html",
+    "description": "Demonstrator node for the shared _daycount.bundle.mjs kernel: prices ONE caller-supplied date pair under ONE declared day-count mode and rol",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-774-beacon-seeded-fair-sampling-v2",
     "display_name": "Beacon-Seeded Fair-Sampling Deriver V2",
     "mandate_type": "compliance_control",
@@ -8204,6 +8214,26 @@ window.CHAINBUILDER_CATALOG = [
     "feeds": [
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-830-eip3009-spend-exposure-reconciler",
+    "display_name": "EIP-3009 Spend Exposure Reconciler",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-830-eip3009-spend-exposure-reconciler.html",
+    "description": "Reconciles a caller-pasted EIP-3009 (ERC-3009, Draft) authorization ledger against caller-pasted AuthorizationUsed and AuthorizationCanceled",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-831-receipt-export-envelopes",
+    "display_name": "Receipt Export Envelopes",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-831-receipt-export-envelopes.html",
+    "description": "Deterministically re-expresses one caller-supplied execution receipt as two wire envelopes: a lineage RunEvent (eventType COMPLETE, eventTim",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

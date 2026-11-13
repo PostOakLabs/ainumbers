@@ -137,3 +137,13 @@ Generated from the shared credits registry (`data/credits-registry.json`, source
 - **Path(s) in this repo:**
   - `chaingraph/exporters/qr.mjs`
   - `chaingraph/exporters/fixtures/qr-reference/vectors.json`
+
+## OpenLineage RunEvent schema (OpenLineage.json)
+
+- **Version:** 1.55.0
+- **License:** Apache-2.0
+- **Upstream:** https://github.com/OpenLineage/OpenLineage
+- **Upstream ships a NOTICE file:** no (checked upstream root — no NOTICE file)
+- **Note:** Vendored unmodified (OpenLineage.json + LICENSE, no NOTICE file at the 1.55.0 release) for art-831-receipt-export-envelopes: the kernel proptest validates the exported lineage RunEvent against the pinned upstream schema. Directory-path entry; the coverage gate keys on the vendored fixture paths.
+- **Path(s) in this repo:**
+  - `chaingraph/kernels/fixtures/vendor/openlineage-1.55.0/`
