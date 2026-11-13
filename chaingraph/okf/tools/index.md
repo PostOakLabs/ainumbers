@@ -41,6 +41,7 @@ status: stable
 - [Reconcile UCP Checkout Totals](./825-reconcile-ucp-checkout-totals.md) — `reconcile_ucp_checkout_totals`
 - [Agent Cred Class Matrix](./827-agent-cred-class-matrix.md) — `compute_agent_cred_matrix`
 - [Safe Transaction Hash Recompute](./829-safe-tx-hash-recompute.md) — `recompute_safe_tx_hash`
+- [Control Frequency Sample](./838-control-frequency-sample.md) — `plan_control_frequency_sample`
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md) — `validate_ap2_mandate_chain`
 - [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md) — `simulate_spend_policy`
 - [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md) — `model_x402_settlement`
@@ -714,6 +715,7 @@ status: stable
 - [Buy-In Exposure Modeler](./art-83-buy-in-exposure-modeler.md) — `model_buy_in_exposure`
 - [EIP-3009 Spend Exposure Reconciler](./art-830-eip3009-spend-exposure-reconciler.md) — `reconcile_eip3009_spend_exposure`
 - [Receipt Export Envelopes](./art-831-receipt-export-envelopes.md) — `export_receipt_lineage_events`
+- [Card Data Flow Worksheet](./art-832-card-data-flow-scope.md) — `map_card_data_flow_scope`
 - [PAN and SAD Exposure Linter](./art-833-lint-pan-sad-exposure.md) — `lint_pan_sad_exposure`
 - [ASC 606 Transaction Price Allocator](./art-834-asc606-transaction-price-allocator.md) — `allocate_asc606_transaction_price`
 - [Settlement Efficiency KPI Engine](./art-84-settlement-efficiency-kpi.md) — `compute_settlement_efficiency_kpi`

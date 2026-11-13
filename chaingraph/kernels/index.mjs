@@ -38,6 +38,7 @@ import * as t824      from './824-zip317-transfer-fee.kernel.mjs';
 import * as t825      from './825-reconcile-ucp-checkout-totals.kernel.mjs';
 import * as t827      from './827-agent-cred-class-matrix.kernel.mjs';
 import * as t829      from './829-safe-tx-hash-recompute.kernel.mjs';
+import * as t838      from './838-control-frequency-sample.kernel.mjs';
 import * as art01     from './art-01-ap2-mandate-chain-validator.kernel.mjs';
 import * as art02     from './art-02-agent-spend-policy-simulator.kernel.mjs';
 import * as art03     from './art-03-x402-settlement-modeler.kernel.mjs';
@@ -712,6 +713,7 @@ import * as art828    from './art-828-reconcile-omnibus-token-position.kernel.mj
 import * as art83     from './art-83-buy-in-exposure-modeler.kernel.mjs';
 import * as art830    from './art-830-eip3009-spend-exposure-reconciler.kernel.mjs';
 import * as art831    from './art-831-receipt-export-envelopes.kernel.mjs';
+import * as art832    from './art-832-card-data-flow-scope.kernel.mjs';
 import * as art833    from './art-833-lint-pan-sad-exposure.kernel.mjs';
 import * as art834    from './art-834-asc606-transaction-price-allocator.kernel.mjs';
 import * as art84     from './art-84-settlement-efficiency-kpi.kernel.mjs';
@@ -784,6 +786,7 @@ export const KERNELS = {
   '825-reconcile-ucp-checkout-totals':                          t825,
   '827-agent-cred-class-matrix':                                t827,
   '829-safe-tx-hash-recompute':                                 t829,
+  '838-control-frequency-sample':                               t838,
   'art-01-ap2-mandate-chain-validator':                         art01,
   'art-02-agent-spend-policy-simulator':                        art02,
   'art-03-x402-settlement-modeler':                             art03,
@@ -1458,6 +1461,7 @@ export const KERNELS = {
   'art-83-buy-in-exposure-modeler':                             art83,
   'art-830-eip3009-spend-exposure-reconciler':                  art830,
   'art-831-receipt-export-envelopes':                           art831,
+  'art-832-card-data-flow-scope':                               art832,
   'art-833-lint-pan-sad-exposure':                              art833,
   'art-834-asc606-transaction-price-allocator':                 art834,
   'art-84-settlement-efficiency-kpi':                           art84,
