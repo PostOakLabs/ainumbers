@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1305 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1306 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -619,6 +619,9 @@
     },
     {
       "name": "ERA"
+    },
+    {
+      "name": "ERC-3009"
     },
     {
       "name": "ESG"
@@ -1872,6 +1875,9 @@
       "name": "agent identity"
     },
     {
+      "name": "agent payments"
+    },
+    {
       "name": "agent recognition"
     },
     {
@@ -2179,6 +2185,9 @@
     },
     {
       "name": "authorization"
+    },
+    {
+      "name": "authorization ledger"
     },
     {
       "name": "authorization-api"
@@ -5602,6 +5611,9 @@
     },
     {
       "name": "pre-payment"
+    },
+    {
+      "name": "pre-sign gate"
     },
     {
       "name": "pre_sign_lint"
@@ -53082,6 +53094,119 @@
         },
         "x-mcp-tool-name": "lint_pan_sad_exposure",
         "x-tool-url": "https://ainumbers.co/tools/833-lint-pan-sad-exposure.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
+    "/v1/tools/run_eip3009_agent_spend_gate": {
+      "post": {
+        "operationId": "run_eip3009_agent_spend_gate",
+        "summary": "EIP-3009 Agent Spend Gate",
+        "description": "Pre-sign gate for one EIP-3009 (ERC-3009, Draft) transferWithAuthorization or receiveWithAuthorization intent, decided against a caller-declared spend policy and a caller-pasted authorization ledger. Returns exactly one decision: SPEND, DENY, OVER_LIMIT or INDETERMINATE, with per-rule reason codes and window headroom. The gate reads declared inputs only: no digest recomputation, no signature recovery, no chain reads, no network calls. Client-side. Works offline. Zero PII.\n\n**Tool URL:** https://ainumbers.co/tools/834-eip3009-agent-spend-gate.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "EIP-3009",
+          "ERC-3009",
+          "x402",
+          "spend policy",
+          "pre-sign gate",
+          "agent payments",
+          "authorization ledger"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "authorization": {
+                    "description": "The authorization under decision: variant, from, to, value, validAfter, validBefore, nonce",
+                    "type": "object"
+                  },
+                  "domain": {
+                    "description": "EIP-712 domain as signed: name, version, chain_id, verifying_contract",
+                    "type": "object"
+                  },
+                  "ledger": {
+                    "description": "Past authorization entries with status signed, settled or canceled",
+                    "type": "array"
+                  },
+                  "now_unix": {
+                    "description": "Caller clock, unix epoch seconds",
+                    "type": "number"
+                  },
+                  "policy": {
+                    "description": "Caller-declared spend policy: agent_address, payee lists, caps, windows, velocity, ceilings",
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "authorization"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "authorization_echo": {
+                      "description": "Normalized authorization and domain fields the decision read",
+                      "type": "object"
+                    },
+                    "authorization_meta": {
+                      "description": "Variant and the optional authorization_intent_ref",
+                      "type": "object"
+                    },
+                    "decision": {
+                      "description": "SPEND, DENY, OVER_LIMIT or INDETERMINATE",
+                      "type": "string"
+                    },
+                    "exposure": {
+                      "description": "Outstanding signed-unexpired total and settled total inside the declared duplicate window",
+                      "type": "object"
+                    },
+                    "headroom": {
+                      "description": "Per-transaction, per-window and velocity headroom against the declared caps",
+                      "type": "object"
+                    },
+                    "not_evaluated": {
+                      "description": "Rules that could not run because their policy input was absent",
+                      "type": "array"
+                    },
+                    "primary_reason": {
+                      "description": "The first failing rule in the fixed thirteen-rule order",
+                      "type": "object"
+                    },
+                    "reasons": {
+                      "description": "Every failing rule with observed and declared values",
+                      "type": "array"
+                    },
+                    "receipt": {
+                      "description": "Gate identifier, decision, rule counts, caller clock and scope note",
+                      "type": "object"
+                    },
+                    "refusals": {
+                      "description": "Structured refusal reasons; present only when the call is refused",
+                      "type": "array"
+                    },
+                    "warn_count": {
+                      "description": "Number of caveat flags raised by the run",
+                      "type": "number"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "run_eip3009_agent_spend_gate",
+        "x-tool-url": "https://ainumbers.co/tools/834-eip3009-agent-spend-gate.html",
         "x-source": "manifest",
         "x-ap2-export": true
       }
