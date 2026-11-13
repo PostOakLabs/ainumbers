@@ -78,7 +78,11 @@ plant('syn-i-conserved', { required: ['m'], pp: { m: 1 }, payload: { conserved: 
 plant('syn-j-eligibility', { required: ['m'], pp: { m: 1 }, payload: { eligibility: 'ELIGIBLE' }, kernelSrc: openKernel(`{ eligibility: 'ELIGIBLE' }`) });
 plant('syn-k-profile', { required: ['m'], pp: { m: 1 }, payload: { profile_status: 'READY' }, kernelSrc: openKernel(`{ profile_status: 'READY' }`) });
 
+// (m) two required fields; the baseline below will list only `a`, so `b` is an ADDED pair.
+plant('syn-m-two', { required: ['a', 'b'], pp: { a: 1, b: 2 }, payload: { verdict: 'READY' }, kernelSrc: `export function compute(pp) { if (pp.a === undefined || pp.a === null) return { output_payload: { verdict: 'NOT_EVALUATED' } }; return { output_payload: { verdict: 'READY' } }; }\n` });
+
 const EXPECT = {
+  'syn-m-two': 'FAIL',
   'syn-f-optional': 'PASS',
   'syn-g-suspect': 'UNDECLARED',
   'syn-h-mandate': 'FAIL',
@@ -115,6 +119,50 @@ function runChecker(script, tag) {
   return { crashed: false, wrong };
 }
 
+// Stage 2 controls: --enforce <baseline> and --only <ids>, driven through the real CLI.
+function enforceControls(script, tag) {
+  const wrong = [];
+  const base = join(tmp, `${tag}.full-baseline.json`);
+  const gen = spawnSync(process.execPath, [REAL, '--root', tmp, '--write-baseline', base], { encoding: 'utf8' });
+  if (gen.status !== 0) return [`could not generate the control baseline: ${(gen.stderr || '').slice(0, 200)}`];
+  const full = JSON.parse(readFileSync(base, 'utf8'));
+  const writeBl = (name, mutate) => { const d = JSON.parse(JSON.stringify(full)); mutate(d); const p = join(tmp, `${tag}.${name}.json`); writeFileSync(p, JSON.stringify(d)); return p; };
+  const go = (args) => spawnSync(process.execPath, [script, '--root', tmp, ...args], { encoding: 'utf8' });
+
+  // GREEN: the current FAIL pairs are all in the baseline, so nothing is refused.
+  let r = go(['--enforce', base]);
+  if (r.status !== 0) wrong.push(`enforce(current baseline) exited ${r.status}, expected 0`);
+  // A baseline that lists MORE than is failing (a cured kernel) is a shrink: still exit 0.
+  const superset = writeBl('superset', (d) => { d.nodes['syn-cured'] = { fields: ['z'], count: 1 }; });
+  r = go(['--enforce', superset]);
+  if (r.status !== 0) wrong.push(`enforce(baseline with a cured entry) exited ${r.status}, expected 0`);
+  // RED: a NEW kernel (absent from the baseline) with a FAIL pair is refused, and the message is complete.
+  const noA = writeBl('no-a', (d) => { delete d.nodes['syn-a-spend']; });
+  r = go(['--enforce', noA]);
+  const msg = r.stderr || '';
+  if (r.status !== 1) wrong.push(`enforce(new fail-open kernel) exited ${r.status}, expected 1`);
+  for (const needle of ['syn-a-spend', '"domain"', 'SPEND', 'Refuse or return a non-positive verdict when this input is missing']) {
+    if (r.status === 1 && !msg.includes(needle)) wrong.push(`enforce message lacks ${needle}`);
+  }
+  // RED: the baseline never grows. A pair ADDED to a known kernel (b on syn-m-two) is refused.
+  const noB = writeBl('no-b', (d) => { d.nodes['syn-m-two'].fields = d.nodes['syn-m-two'].fields.filter((f) => f !== 'b'); });
+  r = go(['--enforce', noB]);
+  if (r.status !== 1 || !(r.stderr || '').includes('syn-m-two') || !(r.stderr || '').includes('"b"')) wrong.push(`enforce(added pair syn-m-two/b) exited ${r.status}, expected 1 naming syn-m-two and b`);
+  // Unreadable baseline: usage error (2), never a silent pass.
+  r = go(['--enforce', join(tmp, 'does-not-exist.json')]);
+  if (r.status !== 2) wrong.push(`enforce(missing baseline file) exited ${r.status}, expected 2`);
+  // --only: sweeps just the named kernels.
+  r = go(['--only', 'syn-d-closed', '--enforce', noA]);
+  if (r.status !== 0 || !/kernels examined: 1 /.test(r.stdout || '')) wrong.push(`--only syn-d-closed should examine 1 kernel and pass (exit ${r.status})`);
+  r = go(['--only', 'syn-a-spend', '--enforce', noA]);
+  if (r.status !== 1) wrong.push(`--only syn-a-spend against a baseline without it exited ${r.status}, expected 1`);
+  r = go(['--only', 'syn-a-spend']);
+  if (r.status !== 0) wrong.push(`--only without --enforce must stay advisory (exit ${r.status})`);
+  r = go(['--only', 'syn-no-such-kernel']);
+  if (r.status !== 2) wrong.push(`--only unknown id exited ${r.status}, expected 2`);
+  return wrong;
+}
+
 let failed = 0;
 try {
   // RED: a deliberately broken checker (never records a fail-open case) must be caught.
@@ -129,6 +177,20 @@ try {
     failed++;
   } else {
     console.log(`RED  ok: broken checker detected (${red.wrong.length} control(s) failed as they must)`);
+  }
+  const redEnf = enforceControls(brokenPath, 'redenf');
+  if (redEnf.length === 0) {
+    console.error('RED control did not go red: the broken checker passed every enforce-mode control.');
+    failed++;
+  } else {
+    console.log(`RED  ok: broken checker detected by enforce-mode controls (${redEnf.length} failed as they must)`);
+  }
+  const greenEnf = enforceControls(REAL, 'greenenf');
+  if (greenEnf.length) {
+    console.error('GREEN enforce-mode controls failed:', greenEnf.join('; '));
+    failed++;
+  } else {
+    console.log('GREEN ok: enforce refuses a new fail-open kernel and an added pair, accepts the current baseline and a shrunk one; --only scopes the sweep');
   }
   // GREEN: the real checker satisfies every control.
   const green = runChecker(REAL, 'green');
