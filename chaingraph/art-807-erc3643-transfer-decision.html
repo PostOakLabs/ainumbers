@@ -103,7 +103,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <style>textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.6rem .7rem;outline:none;line-height:1.5}textarea:focus{border-color:var(--teal)}.gate-list{margin:6px 0}</style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-807-erc3643-transfer-decision.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:a13bb6fb2360995f8dd6eb7293320ae993dba46132cca39716e58ea13c783ed1">
+<meta name="kernel-digest" content="sha256:8414998d60f89bb7841e516b0d9fedf7aa8038973a47ecf91876fc8105c6f899">
 </head>
 <body>
 <nav>
@@ -429,6 +429,11 @@ const meta = {
 // trusted issuer, and at least one claim on that topic from a trusted issuer
 // that the caller declares valid. Claim validity itself is caller-declared.
 //
+// Required inputs are fail-closed: an absent or null required_claim_topics,
+// trusted_issuers or compliance_modules refuses (INPUT_REFUSED, no decision);
+// an explicit empty list is the caller's own statement that nothing is
+// required, trusted or bound, and evaluates as such.
+//
 // Modules re-implemented as pure rules over declared params:
 //   max_balance          deny if amount > max, or receiver identity balance
 //                        (params.identity_balance, else balances[to]) plus
@@ -546,6 +551,9 @@ function parseInputs(pp, refuse) {
     else if (amount === 0n) refuse('AMOUNT_ZERO');
   }
 
+  // Required claim topics are a required input: absence or null refuses
+  // (fail-closed); an explicit empty list is the caller's statement.
+  if (pp.required_claim_topics === undefined) refuse('REQUIRED_CLAIM_TOPICS_MISSING');
   const rawTopics = pp.required_claim_topics === undefined ? [] : pp.required_claim_topics;
   const topics = [];
   if (!Array.isArray(rawTopics) || rawTopics.length > CAP_TOPICS) {
@@ -588,6 +596,8 @@ function parseInputs(pp, refuse) {
     }
   }
 
+  // Trusted issuers are a required input: absence or null refuses (fail-closed).
+  if (pp.trusted_issuers === undefined) refuse('TRUSTED_ISSUERS_MISSING');
   const trusted = {};
   if (pp.trusted_issuers !== undefined) {
     if (!isObj(pp.trusted_issuers) || Object.keys(pp.trusted_issuers).length > CAP_TOPICS) {
@@ -625,6 +635,10 @@ function parseInputs(pp, refuse) {
   }
 
   const modules = [];
+  // Bound compliance modules are a required input: absence or null refuses
+  // (fail-closed); an explicit empty list binds zero modules by the caller's
+  // own statement.
+  if (pp.compliance_modules === undefined) refuse('COMPLIANCE_MODULES_MISSING');
   const rawModules = pp.compliance_modules === undefined ? [] : pp.compliance_modules;
   if (!Array.isArray(rawModules) || rawModules.length > CAP_MODULES) {
     refuse('COMPLIANCE_MODULES_MALFORMED');
