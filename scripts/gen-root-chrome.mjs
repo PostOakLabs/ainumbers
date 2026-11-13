@@ -41,6 +41,9 @@ const PAGES = [
   // real design divergence, not staleness, and out of this row's scope to rewrite;
   // see board/done/HUB-CHROME-GATE-1.md for the full 12-file breakdown.
   'about.html', 'mcp.html', 'helm-openclaw.html',
+  // FRONT-TO-BACK-PAGE-1 (2026-11-13): the front-to-back prompts page, born on
+  // the canonical footer.
+  'front-to-back.html',
 ];
 
 // Regions: [openMarker, closeMarker, payload]. Markers matched loosely so the
