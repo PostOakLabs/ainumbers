@@ -613,16 +613,23 @@ function buildIntakeUI(){
   z.appendChild(lbl);z.appendChild(row);z.appendChild(pasteRow);
   a.parentNode.insertBefore(z,a);
 }
-/* ── SHARE LINK (BRIDGE-SHARE-FLAG-1, 2026-09-29) — off by default ───────────
+/* ── SHARE LINK (BRIDGE-SHARE-FLAG-1, 2026-09-29; PREFILL-SHARE-SCRUB-1,
+   2026-11-12) — off by default ───────────────────────────────────────────────
    Behind CFG.share===true. The button rebuilds this page's address with #in=
    from the tool's current inputs: fragment only, clipboard only. Everything
-   after # never reaches a server, ours included; the button never calls
-   history.replaceState or pushState, never stores anything, and never makes a
-   network call. The collected field set is exactly what applyFields can write
-   back (same tag gate, keyed by id), minus file, password and hidden inputs,
-   so a shared link can only ever carry values this page's own prefill path
-   accepts. makeLink carries the encoding, so share and prefill can never
-   diverge on the wire shape. */
+   after # never reaches a server, ours included. A shared link is nonetheless
+   a full copy of the inputs: whoever holds the link can read every field it
+   carries, in a chat message, in an email, in browser history and in synced
+   history, so the button's confirmation says so in plain words before
+   anything is sent. The button itself calls neither history.replaceState nor
+   pushState, stores nothing, and makes no network call; the PAGE
+   strips the #in= fragment from the address bar once a shared link has been
+   applied (stripSharedFragment, called from initPrefill), so the inputs do
+   not linger in the URL box or in a later copy-paste. The collected field
+   set is exactly what applyFields can write back (same tag gate, keyed by
+   id), minus file, password and hidden inputs, so a shared link can only
+   ever carry values this page's own prefill path accepts. makeLink carries
+   the encoding, so share and prefill can never diverge on the wire shape. */
 function writableFields(){
   var out={};var els=document.querySelectorAll('input[id],select[id],textarea[id]');
   for(var i=0;i<els.length;i++){var el=els[i];
@@ -647,7 +654,7 @@ function copyShareLink(){
   var link=window.AINBridge.makeLink(writableFields(),false);
   if(link.length>HANDOFF_MAX_CHARS){notice('⚠ Too large to share ('+link.length+' chars).','warn');return;}
   var report=function(ok){
-    if(ok){notice('🔗 Link copied. It reopens this tool with the same inputs. Share synthetic values only.','ok');return;}
+    if(ok){notice('🔗 Link copied. This link contains every input on this page. Anyone you send it to can read them. Share synthetic values only.','ok');return;}
     notice('⚠ Copy failed. Select the link below and copy it.','warn');
     var z=document.getElementById('ainShareZone');
     if(!z)return;
@@ -670,6 +677,9 @@ function buildShareUI(){
   var z=document.createElement('div');z.id='ainShareZone';
   z.setAttribute('style','margin:0 0 1.25rem;font-family:\'JetBrains Mono\',monospace');
   var b=document.createElement('button');b.type='button';b.id='ainShareBtn';b.textContent='🔗 Copy share link';
+  /* PREFILL-SHARE-SCRUB-1: the warning also lives on the button's title, so it
+     is readable before the first copy, not only in the confirmation after. */
+  b.title='This link contains every input on this page. Anyone you send it to can read them.';
   b.setAttribute('style','background:transparent;border:1px solid #263855;color:#A8C4DE;border-radius:6px;padding:.3rem .7rem;font-family:inherit;font-size:.62rem;cursor:pointer');
   b.addEventListener('click',copyShareLink);
   z.appendChild(b);
@@ -684,6 +694,22 @@ function intakeFieldObject(obj){
   var fields=(obj&&obj.fields&&typeof obj.fields==='object')?obj.fields:obj;
   return applyFields(fields);
 }
+/* PREFILL-SHARE-SCRUB-1 (2026-11-12): a shared #in= link is a copy of the
+   inputs, and the address bar keeps that copy after the page has read it —
+   in the URL box, in a later copy-paste, in browser and synced history. Once
+   the fields are applied the fragment has served its purpose, so the page
+   rewrites its own address down to the bare path and drops the fragment.
+   The query string is never read on this estate (TOOLPAGE-DEEPLINK-1 §3.1
+   grep gate; QUERYSTRING-PRIVACY-1), so the strip drops any query alongside
+   the fragment rather than preserve it. No storage, no network: replaceState
+   touches the address bar only. Guarded try/catch so headless harnesses and
+   file:// contexts without history degrade to the pre-row behaviour. */
+function stripSharedFragment(){
+  try{
+    if(!window.history||typeof window.history.replaceState!=='function')return;
+    window.history.replaceState(null,'',location.pathname);
+  }catch(e){}
+}
 function initPrefill(){
   var h=location.hash||'';var m=h.match(/[#&]in=([A-Za-z0-9_\-]+)/);if(!m)return;
   var obj;try{obj=JSON.parse(b64uDec(m[1]));}catch(e){return;}
@@ -691,6 +717,7 @@ function initPrefill(){
   if(n>0){
     if(/[#&]run=1/.test(h)&&runTool())notice('⚡ '+t('ran')+' ('+n+' '+t('fields')+')','ok');
     else notice('🔗 '+t('pf')+' ('+n+' '+t('fields')+')','ok');
+    stripSharedFragment();
   }
   /* BRIDGE-SHARE-FLAG-1: a link that parsed but matches no field here must say
      so — silence reads as "this tool accepted the link" to whoever shared it. */
