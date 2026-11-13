@@ -375,13 +375,14 @@ function maskExposure(parsed) {
 function analyzeDisplayExpression(raw) {
   var text = String(raw == null ? '' : raw);
   var re = /(prefix|suffix):(\d+)|\bplain\b/gi;
-  var prefix = 0, suffix = 0, hits = 0, m;
+  var prefix = 0, suffix = 0, hits = 0, full = false, m;
   while ((m = re.exec(text)) !== null) {
     hits += 1;
+    if (!m[1]) full = true;
     if (m[1] === 'prefix') prefix += parseInt(m[2], 10);
     if (m[1] === 'suffix') suffix += parseInt(m[2], 10);
   }
-  return { expression:text, recognized_directives:hits, prefix_digits:prefix, suffix_digits:suffix, analyzable:hits > 0 };
+  return { expression:text, recognized_directives:hits, prefix_digits:prefix, suffix_digits:suffix, full:full, analyzable:hits > 0 };
 }
 
 function isPlainObject(v) { return v != null && typeof v === 'object' && !Array.isArray(v); }
@@ -478,7 +479,14 @@ function lintCompute(pp) {
       findings.push({ code:'SEARCH_INDEX_DISPLAY_EXCEEDS_CEILING', subject:'search_index_expressions', message:'search index expression reveals prefix=' + si.prefix_digits + ' suffix=' + si.suffix_digits + ' digits, above the display ceiling', paragraph:'Requirement 3.4.1' });
     }
   }
-  var aliasUnanalyzed = (hasAlias && !aliasAnalysis.analyzable) || searchIndexAnalysis.some(function (x) { return !x.analyzable; });
+  var fullSurfaces = [{ a:aliasAnalysis, subject:'alias_template' }]
+    .concat(searchIndexAnalysis.map(function (x) { return { a:x, subject:'search_index_expressions' }; }));
+  for (i = 0; i < fullSurfaces.length; i++) {
+    if (fullSurfaces[i].a.full) {
+      findings.push({ code:'MASK_DISPLAY_FULL_PAN', subject:fullSurfaces[i].subject, message:'the expression declares plain display: it shows the full PAN', paragraph:'Requirement 3.4.1' });
+    }
+  }
+  var aliasUnanalyzed = (hasAlias &&!aliasAnalysis.analyzable) || searchIndexAnalysis.some(function (x) { return !x.analyzable; });
 
   /* Rule pack B: sensitive authentication data retention. */
   var retentionVerdicts = [];
