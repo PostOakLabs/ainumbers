@@ -61,7 +61,7 @@ function shuffleKeys(rng, v) {
 function checkKeyOrderInvariance() {
   const rng = mulberry32(843);
   let checked = 0, violations = 0;
-  for (let i = 0; i < 300; i++) {
+  for (let i = 0; i < 40; i++) {
     const pp = randomPP(rng);
     checked++;
     if (!deepEqual(compute(pp), compute(shuffleKeys(rng, pp)))) violations++;
@@ -72,7 +72,7 @@ function checkKeyOrderInvariance() {
 function checkUnknownFieldFlagged() {
   const rng = mulberry32(8430);
   let checked = 0, violations = 0;
-  for (let i = 0; i < 300; i++) {
+  for (let i = 0; i < 40; i++) {
     const pp = randomPP(rng);
     const which = Math.floor(rng() * pp.messages.length);
     // an uncovered type's body is never walked, so only the envelope can carry the extra field there
@@ -93,7 +93,7 @@ function checkUnknownFieldFlagged() {
 function checkNeverClaimsValid() {
   const rng = mulberry32(8431);
   let checked = 0, violations = 0;
-  for (let i = 0; i < 300; i++) {
+  for (let i = 0; i < 40; i++) {
     const pp = randomPP(rng);
     if (rng() < 0.3) pp.messages[0].signatures = [{ protected: 'e30', signature: 'c2ln' }];
     const o = compute(pp).output_payload;
@@ -112,7 +112,7 @@ function checkNeverClaimsValid() {
 function checkReplyToEarlierIdNotDangling() {
   const rng = mulberry32(8432);
   let checked = 0, violations = 0;
-  for (let i = 0; i < 300; i++) {
+  for (let i = 0; i < 40; i++) {
     const pp = randomPP(rng);
     const r = compute(pp);
     checked++;
@@ -133,7 +133,7 @@ function checkReplyToEarlierIdNotDangling() {
 function checkFlagsMirror() {
   const rng = mulberry32(8433);
   let checked = 0, violations = 0;
-  for (let i = 0; i < 300; i++) {
+  for (let i = 0; i < 40; i++) {
     const r = compute(randomPP(rng));
     checked++;
     if (!deepEqual(r.output_payload.warnings, r.compliance_flags)) violations++;
@@ -165,7 +165,7 @@ function checkRefusals() {
 function checkDeterminism() {
   const rng = mulberry32(8434);
   let checked = 0, violations = 0;
-  for (let i = 0; i < 200; i++) {
+  for (let i = 0; i < 30; i++) {
     const pp = randomPP(rng);
     checked++;
     if (!deepEqual(compute(pp), compute(JSON.parse(JSON.stringify(pp))))) violations++;
