@@ -1,6 +1,6 @@
 import { executionHash } from './_hash.mjs';
 
-// 789-issuer-yield-share — recomputes a white-label stablecoin deal's reserve-income
+// 837-issuer-yield-share — recomputes a white-label stablecoin deal's reserve-income
 // split (issuer, platform, distributor, custodian) from aggregate declared values and
 // traces every holder-facing reward to its payer and funding source, flagging any
 // reward whose payer is the issuer or whose funding is an issuer flow. KERNEL SOURCE
@@ -27,7 +27,7 @@ import { executionHash } from './_hash.mjs';
 // network, no filesystem, no TextEncoder/atob/btoa/URL inside compute(). No UTF-8
 // encoding is needed, so no pure-JS encoder is carried (scaffold hygiene rule).
 
-const TOOL_ID = '789-issuer-yield-share';
+const TOOL_ID = '837-issuer-yield-share';
 const TOOL_VERSION = '1.0.0';
 
 export const meta = {

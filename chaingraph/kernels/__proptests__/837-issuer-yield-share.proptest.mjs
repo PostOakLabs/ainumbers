@@ -1,16 +1,16 @@
-// 789-issuer-yield-share — class-K property-test floor. Authored per FV-PBT-FLOOR-BUILD-SPEC.md.
-// kernel_digest_at_authoring: sha256:1b264cd3f3357e855df6188ba39e68a97025932eda97349ed04d2c80e3dcdb8e
+// 837-issuer-yield-share — class-K property-test floor. Authored per FV-PBT-FLOOR-BUILD-SPEC.md.
+// kernel_digest_at_authoring: sha256:ba72a85e8dbe6f7ff01d2fa7b344229806924fad74641786bf21702e6e639c3f
 // spec: board/queued/ISSUER-YIELD-SHARE-CHECK-1.md (aggregate split recompute + issuer-yield trace)
 // human_sign_off: PENDING (node lands deferred)
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
-// Run: node chaingraph/kernels/__proptests__/789-issuer-yield-share.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/837-issuer-yield-share.proptest.mjs
 
-import { compute } from '../789-issuer-yield-share.kernel.mjs';
+import { compute } from '../837-issuer-yield-share.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, deepEqual, pick } from './_pbt-common.mjs';
 
-const KERNEL_ID = '789-issuer-yield-share';
+const KERNEL_ID = '837-issuer-yield-share';
 
 function basePP(over) {
   return Object.assign({
