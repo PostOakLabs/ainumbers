@@ -2000,6 +2000,15 @@ const GATES = [
   // (bad signature / wrong typ / malformed); absence, age and drift are advisory.
   ['WebMCP signed snapshot (WEBMCP-SIGNED-SNAPSHOT-1)', 'node scripts/check-webmcp-signed-snapshot.mjs'],
   ['WebMCP signed snapshot fixture proof (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-webmcp-signed-snapshot.mjs --self-test'],
+  // WEBMCP-SIGNED-EXPIRY-1: the snapshot now carries expires (generated_at + 30d) and a
+  // monotonic version. Hard on main/merge_group when the published snapshot sits inside
+  // the 7-day renewal window (or is expired), so the expiry cannot lapse silently;
+  // advisory on PRs — the branch cannot re-sign (the key never leaves the key-holding
+  // desk; derived-artifacts.mjs EXCLUDED entry). The split lives INSIDE the gate
+  // (isMainContext()), mirroring check-kernel-coverage.mjs. A snapshot with no expires
+  // (pre-EXPIRY legacy) has nothing to lapse: reported, never failing, everywhere.
+  ['WebMCP snapshot expiry freshness (WEBMCP-SIGNED-EXPIRY-1, hard on main)', 'node scripts/check-webmcp-snapshot-fresh.mjs'],
+  ['WebMCP snapshot expiry fixture proof (RED/GREEN, WEBMCP-SIGNED-EXPIRY-1)', 'node scripts/check-webmcp-snapshot-fresh.mjs --self-test'],
   // MCPCARD-SCHEMA-1: the hand-maintained MCP server card conforms to the
   // authored schema (chaingraph/standard/mcp-server-card.schema.json), its
   // tool_count equals the counts-engine mcp.live value, and the served schema
