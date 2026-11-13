@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (744 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (746 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -364,6 +364,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/829-safe-tx-hash-recompute.html",
     "description": "Recomputes the hash and decodes known calls. It does not simulate execution and cannot tell you the destination contract is safe. From paste",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "838-control-frequency-sample",
+    "display_name": "Control Frequency Sample",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/838-control-frequency-sample.html",
+    "description": "Applies a table you declare. It ships no table, and is not guidance from any audit firm or standard-setter. The sample size is only as defen",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -8232,6 +8242,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-831-receipt-export-envelopes.html",
     "description": "Deterministically re-expresses one caller-supplied execution receipt as two wire envelopes: a lineage RunEvent (eventType COMPLETE, eventTim",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-832-card-data-flow-scope",
+    "display_name": "Card Data Flow Worksheet",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-832-card-data-flow-scope.html",
+    "description": "A worksheet over declared inputs rather than a scope determination. You list system nodes (front end, back end, logs, analytics, a browser-a",
     "consumes": [],
     "feeds": [],
     "status": "live"
