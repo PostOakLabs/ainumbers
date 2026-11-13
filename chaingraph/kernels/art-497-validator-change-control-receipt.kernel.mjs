@@ -63,6 +63,7 @@ function jnum(v) { return Number.isFinite(v) && Math.abs(v) > MAX_SAFE ? String(
 function jn(v) { return v == null ? null : jnum(v); }
 function str(v) { return String(v == null ? '' : v).trim(); }
 function optStr(v) { return typeof v === 'string' && v.trim() !== '' ? v.trim() : null; }
+function trimmedStr(v) { return typeof v === 'string' ? v.trim() : ''; }
 
 // Strict statedness readers. A weight is a statement ONLY as a finite JSON
 // number or as one strict decimal-string form (the page port sends DOM input
@@ -97,7 +98,7 @@ export function compute(pp) {
   const compliance_flags = [];
 
   const validator_ref = optStr(pp.validator_ref);
-  const rawType = typeof pp.change_type === 'string' ? pp.change_type.trim() : '';
+  const rawType = trimmedStr(pp.change_type);
   const change_type_valid = CHANGE_TYPES.indexOf(rawType) >= 0;
   const change_type = change_type_valid ? rawType : (rawType || 'unstated');
   if (!change_type_valid) exceptions.push('UNKNOWN_CHANGE_TYPE');

@@ -1,5 +1,5 @@
 // art-497-validator-change-control-receipt.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C25-1).
-// kernel_digest_at_authoring: sha256:64d13da8da930b00c495a583b6e58e4f530a3ca3ea360c4b2ce3d70db8192630
+// kernel_digest_at_authoring: sha256:d745895b64457c7cbf8fad911133919012cef31aa4e629cc5f5d0cf6e300a64b
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
