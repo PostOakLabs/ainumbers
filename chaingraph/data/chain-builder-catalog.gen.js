@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (750 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (752 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -8317,6 +8317,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-839-statement-footing-crossfoot",
+    "display_name": "Statement Footing and Cross-Footing Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-839-statement-footing-crossfoot.html",
+    "description": "Foots and cross-foots declared financial statement lines and ties declared note amounts to declared statement lines, in integer minor units,",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-84-settlement-efficiency-kpi",
     "display_name": "Settlement Efficiency KPI Engine",
     "mandate_type": "model_governance",
@@ -8330,6 +8340,16 @@ window.CHAINBUILDER_CATALOG = [
     "feeds": [
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-842-soc-report-coverage-gap",
+    "display_name": "SOC Report Coverage and Bridge Gap",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-842-soc-report-coverage-gap.html",
+    "description": "Recomputes coverage and gap arithmetic from declared values. It does not read the SOC report, does not assess whether any control is effecti",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
