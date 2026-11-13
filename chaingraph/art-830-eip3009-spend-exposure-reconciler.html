@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>EIP-3009 Spend Exposure Reconciler &middot; ART-830 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Reconcile a pasted EIP-3009 (ERC-3009, Draft) authorization ledger against pasted AuthorizationUsed and AuthorizationCanceled event rows on a clock you supply. Entries classified settled, canceled, not-yet-valid, expired-unspent or outstanding, outstanding exposure totaled, discrepancies listed. Zero network. Provable ChainGraph node.">
+<meta name="ain:category" content="run">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-830-eip3009-spend-exposure-reconciler.html">
+<link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-830-eip3009-spend-exposure-reconciler.md">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+select:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:90px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all;text-align:right;max-width:70%}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.gate-list{margin:6px 0}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .15s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+<style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
+<style>textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.6rem .7rem;outline:none;line-height:1.5}textarea:focus{border-color:var(--teal)}</style>
+<!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-830-eip3009-spend-exposure-reconciler.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
+<meta name="kernel-digest" content="sha256:58a966726c983f28bd710045aaf468720f70737a1fd0e102bd0753a2d884e3a8">
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>&rsaquo;</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>&rsaquo;</span>
+      <span style="color:var(--gold)">ART-830 · EIP-3009 Spend Exposure Reconciler</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-830 &middot; ERC-3009 Spend Exposure Reconciliation</div>
+  <h1>EIP-3009 Spend Exposure Reconciler</h1>
+  <p class="sub">Reconcile a pasted EIP-3009 (ERC-3009, Draft) authorization ledger against pasted <code>AuthorizationUsed</code> and <code>AuthorizationCanceled</code> event rows on a clock you supply. Every entry is classified settled, canceled, expired-unspent, outstanding or not_evaluated, the outstanding exposure is totaled, and every disagreement with the ledger's own status is listed.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">ERC-3009 (Draft)</span>
+    <span class="flag">Caller-attested inputs</span>
+    <span class="flag">Decimal-string uint256 arithmetic</span>
+    <span class="flag">Ambiguity refused, not guessed</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice">&#9888; This reconciler sees only the rows you paste. It does not verify signatures, recompute digests or read any chain; the event rows and the ledger are caller-attested and may be incomplete, and on-chain nonce enforcement stays with the token contract. The classification is not a conformance verdict about any token implementation, not an authorization to move funds and not proof that funds moved.</div>
+
+  <div class="card">
+    <div class="section-head">Inputs</div>
+    <div class="q">
+      <label class="q-label" for="preset">Sample scenario</label>
+      <div class="q-help">Each sample is one of the node's conformance fixtures. Pick one to load it, then edit the JSON below.</div>
+      <select id="preset" onchange="loadPreset()">
+          <option value="0">One signed entry, window open on both bounds (outstanding 500)</option>
+          <option value="1">validBefore exactly at the clock (expired_unspent)</option>
+          <option value="2">Used event settles an entry the ledger still calls signed</option>
+          <option value="3">Canceled event on an entry the ledger calls settled</option>
+          <option value="4">Used and canceled rows on the same identity (conflict)</option>
+          <option value="5">Event row matching no ledger entry</option>
+          <option value="6">Unscoped event across two tokens (ambiguous)</option>
+          <option value="7">No clock pasted (not_evaluated, total null)</option>
+      </select>
+    </div>
+    <div class="q">
+      <label class="q-label" for="ppJson">Declared inputs (policy_parameters JSON)</label>
+      <div class="q-help">Keys: ledger (entries with from, token, chain_id, nonce, to, value, validAfter, validBefore, signed_at, optional intent_ref, status of signed, settled or canceled); used_events (rows with authorizer, nonce, optional token and chain_id scope); canceled_events (same row shape); now_unix (integer caller clock). Absent event lists or clock leave their aspects not evaluated; an empty list is positive emptiness. Unknown fields are refused.</div>
+      <textarea id="ppJson" rows="20" spellcheck="false">{
+  "ledger": [
+    {
+      "from": "0x1111111111111111111111111111111111111111",
+      "token": "0x31c8eacbff8e47cfbefd98d63ab04cbaff51c9cc",
+      "chain_id": "84532",
+      "nonce": "0xabababababababababababababababababababababababababababababababab",
+      "to": "0x2222222222222222222222222222222222222222",
+      "value": "500",
+      "validAfter": "1700000000",
+      "validBefore": "1700007200",
+      "signed_at": 1700000100,
+      "status": "signed"
+    }
+  ],
+  "now_unix": 1700001000
+}</textarea>
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="runReconcile()">&#9654; Run Reconciliation</button>
+    </div>
+  </div>
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+      <div class="section-head" style="margin-top:14px">Classified entries</div>
+      <div id="entriesDiv" class="gate-list"></div>
+      <div class="section-head" style="margin-top:14px">Discrepancies against the ledger's own status</div>
+      <div id="discDiv" class="gate-list"></div>
+      <div class="section-head" style="margin-top:14px">Aspects not evaluated (absent inputs)</div>
+      <div id="neDiv" class="gate-list"></div>
+      <div class="section-head" style="margin-top:14px">Exposure</div>
+      <div id="expDiv" class="gate-list"></div>
+      <div class="section-head" style="margin-top:14px">Receipt</div>
+      <div id="kvDiv"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="../helm.html">Helm</a>
+        <a href="../convert.html">Conversion Suite</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Hubs</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="../guides/web3-hub.html">Web3 Hub</a>
+        <a href="../guides/solana-hub.html">Solana</a>
+        <a href="../guides/ethereum-hub.html">Ethereum</a>
+        <a href="../guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
+        <a href="../guides/token-standards-hub.html">Token Standards</a>
+        <a href="../guides/tradetech-hub.html">TradeTech</a>
+        <a href="../guides/capital-markets-settlement-hub.html">Capital Markets Settlement</a>
+        <a href="../guides/broker-dealer-ops-hub.html">Broker-Dealer Ops</a>
+        <a href="../guides/treasury-liquidity-hub.html">Treasury and Strategy</a>
+        <a href="../guides/wealthtech-hub.html">WealthTech</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Developers</div>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">About</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+<script>
+var MANIFEST = {
+  "tool_id": "art-830-eip3009-spend-exposure-reconciler",
+  "version": "1.0.0",
+  "mcp_name": "reconcile_eip3009_spend_exposure",
+  "title": "EIP-3009 Spend Exposure Reconciler",
+  "description": "Reconcile a pasted EIP-3009 (ERC-3009, Draft) authorization ledger against pasted AuthorizationUsed and AuthorizationCanceled event rows on a caller clock. Entries classified settled, canceled, not-yet-valid, expired-unspent or outstanding, outstanding exposure totaled, discrepancies listed. Zero network. Provable ChainGraph node.",
+  "spec_version": "0.8.0",
+  "chaingraph_version": "0.4.0",
+  "mcp_tool_definition": {
+    "name": "reconcile_eip3009_spend_exposure",
+    "description": "Reconcile a pasted EIP-3009 (ERC-3009, Draft) authorization ledger against pasted AuthorizationUsed and AuthorizationCanceled event rows on a caller clock. Entries classified settled, canceled, not-yet-valid, expired-unspent or outstanding, outstanding exposure totaled, discrepancies listed. Zero network. Provable ChainGraph node.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "ledger"
+      ],
+      "properties": {
+        "ledger": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "used_events": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "canceled_events": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "now_unix": { "type": "integer" }
+      }
+    }
+  }
+};
+var PRESETS = [
+  {"ledger":[{"from":"0x1111111111111111111111111111111111111111","token":"0x31c8eacbff8e47cfbefd98d63ab04cbaff51c9cc","chain_id":"84532","nonce":"0xabababababababababababababababababababababababababababababababab","to":"0x2222222222222222222222222222222222222222","value":"500","validAfter":"1700000000","validBefore":"1700007200","signed_at":1700000100,"status":"signed"}],"now_unix":1700001000},
+  {"ledger":[{"from":"0x1111111111111111111111111111111111111111","token":"0x31c8eacbff8e47cfbefd98d63ab04cbaff51c9cc","chain_id":"84532","nonce":"0xabababababababababababababababababababababababababababababababab","to":"0x2222222222222222222222222222222222222222","value":"500","validAfter":"1700000000","validBefore":"1700001000","signed_at":1700000100,"status":"signed"}],"now_unix":1700001000},
+  {"ledger":[{"from":"0x1111111111111111111111111111111111111111","token":"0x31c8eacbff8e47cfbefd98d63ab04cbaff51c9cc","chain_id":"84532","nonce":"0xabababababababababababababababababababababababababababababababab","to":"0x2222222222222222222222222222222222222222","value":"500","validAfter":"0","validBefore":"1700007200","signed_at":1700000100,"status":"signed"}],"used_events":[{"authorizer":"0x1111111111111111111111111111111111111111","nonce":"0xabababababababababababababababababababababababababababababababab"}],"now_unix":1700001000},
+  {"ledger":[{"from":"0x1111111111111111111111111111111111111111","token":"0x31c8eacbff8e47cfbefd98d63ab04cbaff51c9cc","chain_id":"84532","nonce":"0xabababababababababababababababababababababababababababababababab","to":"0x2222222222222222222222222222222222222222","value":"500","validAfter":"0","validBefore":"1700007200","signed_at":1700000100,"status":"settled"}],"canceled_events":[{"authorizer":"0x1111111111111111111111111111111111111111","nonce":"0xabababababababababababababababababababababababababababababababab"}],"now_unix":1700001000},
+  {"ledger":[{"from":"0x1111111111111111111111111111111111111111","token":"0x31c8eacbff8e47cfbefd98d63ab04cbaff51c9cc","chain_id":"84532","nonce":"0xabababababababababababababababababababababababababababababababab","to":"0x2222222222222222222222222222222222222222","value":"500","validAfter":"0","validBefore":"1700007200","signed_at":1700000100,"status":"signed"}],"used_events":[{"authorizer":"0x1111111111111111111111111111111111111111","nonce":"0xabababababababababababababababababababababababababababababababab"}],"canceled_events":[{"authorizer":"0x1111111111111111111111111111111111111111","nonce":"0xabababababababababababababababababababababababababababababababab"}],"now_unix":1700001000},
+  {"ledger":[{"from":"0x1111111111111111111111111111111111111111","token":"0x31c8eacbff8e47cfbefd98d63ab04cbaff51c9cc","chain_id":"84532","nonce":"0xabababababababababababababababababababababababababababababababab","to":"0x2222222222222222222222222222222222222222","value":"500","validAfter":"0","validBefore":"1700007200","signed_at":1700000100,"status":"signed"}],"used_events":[{"authorizer":"0x1111111111111111111111111111111111111111","nonce":"0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"}],"now_unix":1700001000},
+  {"ledger":[{"from":"0x1111111111111111111111111111111111111111","token":"0x31c8eacbff8e47cfbefd98d63ab04cbaff51c9cc","chain_id":"84532","nonce":"0xabababababababababababababababababababababababababababababababab","to":"0x2222222222222222222222222222222222222222","value":"500","validAfter":"0","validBefore":"1700007200","signed_at":1700000100,"status":"signed"},{"from":"0x1111111111111111111111111111111111111111","token":"0x9999999999999999999999999999999999999999","chain_id":"84532","nonce":"0xabababababababababababababababababababababababababababababababab","to":"0x2222222222222222222222222222222222222222","value":"300","validAfter":"0","validBefore":"1700007200","signed_at":1700000200,"status":"signed"}],"used_events":[{"authorizer":"0x1111111111111111111111111111111111111111","nonce":"0xabababababababababababababababababababababababababababababababab"}],"now_unix":1700001000},
+  {"ledger":[{"from":"0x1111111111111111111111111111111111111111","token":"0x31c8eacbff8e47cfbefd98d63ab04cbaff51c9cc","chain_id":"84532","nonce":"0xabababababababababababababababababababababababababababababababab","to":"0x2222222222222222222222222222222222222222","value":"500","validAfter":"0","validBefore":"1700007200","signed_at":1700000100,"status":"signed"}]}
+];
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+// ---- inline compute(): byte-for-byte the kernel's logic (module syntax removed) ----
+
+
+// art-830-eip3009-spend-exposure-reconciler: reconciles a caller-pasted EIP-3009 authorization
+// ledger (the sibling spend gate's ledger shape, parsing logic shared by copy, never by import)
+// against caller-pasted AuthorizationUsed and AuthorizationCanceled event rows, on a caller
+// clock. Each ledger entry is classified settled, canceled, not-yet-valid, expired-unspent or outstanding;
+// the outstanding exposure is totaled; disagreements between the pasted events and the ledger's
+// own status claims are listed as discrepancies.
+//
+// THE FIVE CLASSES (closed enum; a sixth sentinel not_evaluated marks entries the declared
+// inputs cannot classify):
+//   settled          a pasted use event applies to the entry, or (with no applying event) the
+//                    ledger itself claims settled
+//   canceled         a pasted cancel event applies to the entry, or (with no applying event)
+//                    the ledger itself claims canceled
+//   not_yet_valid    ledger says signed, no applying event, and the clock has not passed the
+//                    entry's validAfter (now <= validAfter): the token contract would reject it
+//                    today, so it is excluded from total_outstanding and disclosed beside it
+//   expired_unspent  ledger says signed, no applying event, and on the caller clock the entry's
+//                    validBefore has passed
+//   outstanding      ledger says signed, no applying event, and the clock is strictly inside the
+//                    open window validAfter < now < validBefore (the reference implementation's
+//                    rule, both bounds strict): live money the token contract can still move
+//   not_evaluated    either the caller clock is absent (a signed entry cannot be split between
+//                    outstanding and expired-unspent), or pasted rows carry BOTH a use event and
+//                    a cancel event for the entry identity, which the pasted rows cannot order
+//
+// THE DISCREPANCY CODES (closed set):
+//   LEDGER_SAYS_SIGNED_EVENTS_SETTLED      use event applies, ledger status signed
+//   LEDGER_SAYS_CANCELED_EVENTS_SETTLED    use event applies, ledger status canceled
+//   LEDGER_SAYS_SIGNED_EVENTS_CANCELED     cancel event applies, ledger status signed
+//   LEDGER_SAYS_SETTLED_EVENTS_CANCELED    cancel event applies, ledger status settled
+//   EVENT_CONFLICT                         use and cancel events both apply to one identity;
+//                                          class not_evaluated, value excluded from every total
+//                                          and disclosed separately
+//   EVENT_WITHOUT_LEDGER_ENTRY             a pasted event matches no ledger entry
+//   AMBIGUOUS_EVENT_SCOPE                  an event without a declared token or chain scope
+//                                          matches entries spanning more than one token and
+//                                          chain pair, so it is applied to none of them
+//   DUPLICATE_NONCE_LEDGER                 two or more ledger entries share authorizer, token, chain
+//                                          and nonce; only one authorization per identity can ever
+//                                          settle, so the FIRST entry in canonical sort order is
+//                                          evaluated and counted and every extra is classed
+//                                          not_evaluated, excluded from every total (the ledger is
+//                                          flagged, not refused)
+//   DUPLICATE_EVENT_ROW                    the same event row (identity plus scope) is pasted
+//                                          twice into one list; the second row is not applied
+//
+// EVENT SCOPE: an event row is authorizer plus nonce (the two indexed fields of the pasted
+// event shape), with OPTIONAL token and chain_id narrowing. Without the narrowing fields an
+// event applies to every entry sharing authorizer and nonce within a single token and chain
+// pair; when such an unscoped event spans several pairs it is not applied at all. Events never
+// cross tokens silently.
+//
+// EXPOSURE ARITHMETIC: total_outstanding sums the values of entries classified outstanding,
+// decimal-string uint256, and is null whenever a clock-absent not_evaluated entry exists (an
+// unclassifiable signed entry could be live money, so a partial total would understate
+// exposure). Not-yet-valid entries are never inside that total either; their count and summed
+// value are disclosed as not_yet_valid_entries and not_yet_valid_value, and duplicate-nonce
+// extras are counted in duplicate_nonce_entries. Entries unresolved by an event conflict are never inside that total; their count
+// and summed value are disclosed next to it. Canceled and expired-unspent entries never count.
+//
+// DETERMINISM: compute() is a PURE function of pp. No clock, no network, no filesystem, no
+// TextEncoder/atob/URL in compute (the QuickJS guest lacks them), no Date, no float, no
+// BigInt. uint256 values are decimal strings throughout, compared and summed by the pure
+// string-integer helpers below. Timestamps are integer epoch seconds in Number space. Entries
+// and discrepancies are emitted in a canonical sort order, so the output does not depend on
+// the caller's array ordering.
+//
+// FIXED INPUT BOUNDS (the kernel envelope): ledger at most 256 entries; each event list at
+// most 256 rows; unknown-key scans walk at most 64 keys per object. A declared input that
+// exceeds a bound or carries a malformed ledger, event or clock shape is refused INPUT_REFUSED
+// rather than guessed at. There are no thresholds and no defaults: the caller clock is the
+// only caller-declared temporal input, and absent inputs leave their aspect NOT_EVALUATED.
+//
+// This kernel performs no chain reads, no signature recovery and no digest recomputation; the
+// event rows and the ledger are caller-attested and may be incomplete. It hashes nothing
+// inside compute(); the artifact execution_hash is computed by the shared _hash.mjs outside
+// compute() (buildArtifact), the only permitted path.
+
+const TOOL_ID = 'art-830-eip3009-spend-exposure-reconciler';
+const TOOL_VERSION = '1.0.0';
+
+const meta = {
+  tool_id: TOOL_ID, tool_version: TOOL_VERSION,
+  mcp_name: 'reconcile_eip3009_spend_exposure',
+  mandate_type: 'compliance_control', gpu: false,
+};
+
+// ---- fixed bounds (kernel envelope; see header) ----
+const LEDGER_MAX = 256;
+const EVENTS_MAX = 256;
+const KEY_SCAN_MAX = 64;
+const TEXT_MAX = 128;
+
+const U256_MAX = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
+
+const STATUSES = ['signed', 'settled', 'canceled'];
+
+const LEDGER_KEYS = ['from', 'token', 'chain_id', 'nonce', 'to', 'value', 'validAfter', 'validBefore', 'signed_at', 'intent_ref', 'status'];
+const EVENT_KEYS = ['authorizer', 'nonce', 'token', 'chain_id'];
+const TOP_KEYS = ['ledger', 'used_events', 'canceled_events', 'now_unix'];
+
+const SCOPE_NOTE = 'Reconciles a caller-pasted EIP-3009 authorization ledger against caller-pasted AuthorizationUsed and AuthorizationCanceled event rows on a caller clock: each entry is classified settled, canceled, not-yet-valid, expired-unspent or outstanding, the outstanding exposure is totaled (an entry is outstanding only while validAfter < now < validBefore), and disagreements between the pasted events and the ledger status are listed as discrepancies. All inputs are caller-attested and may be incomplete; the reconciler performs no chain reads, no signature recovery and no digest recomputation, and only the token contract enforces nonce uniqueness on chain. ERC-3009 is a Draft. The classification is not a conformance verdict about any token implementation, not an authorization to move funds and not proof that funds moved.';
+
+// ---- decimal-string uint256 arithmetic (no BigInt anywhere) ----
+
+function stripZeros(s) {
+  let i = 0;
+  while (i < s.length - 1 && s.charCodeAt(i) === 48) i++;
+  return s.slice(i);
+}
+
+function canonicalDec(s) { return stripZeros(s); }
+
+function isDecString(s) {
+  if (typeof s !== 'string' || s.length === 0) return false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c < 48 || c > 57) return false;
+  }
+  return true;
+}
+
+// Accepts a canonical-ready decimal string or a non-negative safe integer; returns the
+// canonical decimal string, or null when the value is not a uint256.
+function toUint256String(v) {
+  if (typeof v === 'number') {
+    if (!Number.isSafeInteger(v) || v < 0) return null;
+    return String(v);
+  }
+  if (!isDecString(v)) return null;
+  const c = canonicalDec(v);
+  if (c.length > U256_MAX.length) return null;
+  if (c.length === U256_MAX.length && c > U256_MAX) return null;
+  return c;
+}
+
+// Compare two canonical decimal strings: -1, 0 or 1.
+function cmpDec(a, b) {
+  if (a.length !== b.length) return a.length < b.length ? -1 : 1;
+  if (a === b) return 0;
+  return a < b ? -1 : 1;
+}
+
+// Sum of two canonical decimal strings, canonical result.
+function addDec(a, b) {
+  const A = a, B = b;
+  let i = A.length - 1, j = B.length - 1, carry = 0;
+  const out = [];
+  while (i >= 0 || j >= 0 || carry > 0) {
+    const x = i >= 0 ? A.charCodeAt(i) - 48 : 0;
+    const y = j >= 0 ? B.charCodeAt(j) - 48 : 0;
+    const t = x + y + carry;
+    out.push(t % 10);
+    carry = t > 9 ? 1 : 0;
+    i--; j--;
+  }
+  let s = '';
+  for (let k = out.length - 1; k >= 0; k--) s += String(out[k]);
+  return stripZeros(s);
+}
+
+// ---- field shapes (same acceptance as the sibling gate node's ledger parsing) ----
+
+function stripHexPrefix(s) {
+  return (s.startsWith('0x') || s.startsWith('0X')) ? s.slice(2) : s;
+}
+
+function normalizeAddress(v) {
+  if (typeof v !== 'string') return null;
+  const s = stripHexPrefix(v.trim());
+  if (!/^[0-9a-fA-F]{40}$/.test(s)) return null;
+  return '0x' + s.toLowerCase();
+}
+
+function normalizeBytes32(v) {
+  if (typeof v !== 'string') return null;
+  const s = stripHexPrefix(v.trim());
+  if (!/^[0-9a-fA-F]{64}$/.test(s)) return null;
+  return '0x' + s.toLowerCase();
+}
+
+// ---- small pure helpers ----
+
+function isObj(x) { return x !== null && typeof x === 'object' && !Array.isArray(x); }
+
+function isText(v, max) {
+  if (typeof v !== 'string' || v.length < 1 || v.length > max) return false;
+  for (let i = 0; i < v.length; i++) {
+    const c = v.charCodeAt(i);
+    if (c < 32 || c === 127) return false;
+  }
+  return true;
+}
+
+function isSafeNonNegativeInt(v) {
+  return typeof v === 'number' && Number.isSafeInteger(v) && v >= 0;
+}
+
+function unknownKeys(o, allowed) {
+  const out = [];
+  const ks = Object.keys(o);
+  for (let i = 0; i < ks.length && i < KEY_SCAN_MAX; i++) {
+    if (allowed.indexOf(ks[i]) < 0) out.push(ks[i]);
+  }
+  return out;
+}
+
+function refusal(code, field, detail) { return { code, field, detail }; }
+
+// Canonical member order for emitted ledger entries: sorting by this tuple makes the whole
+// output independent of the caller's ledger array order.
+function entryLess(x, y) {
+  if (x.nonce !== y.nonce) return x.nonce < y.nonce ? -1 : 1;
+  if (x.from !== y.from) return x.from < y.from ? -1 : 1;
+  if (x.token !== y.token) return x.token < y.token ? -1 : 1;
+  if (x.chain_id !== y.chain_id) return x.chain_id < y.chain_id ? -1 : 1;
+  if (x.to !== y.to) return x.to < y.to ? -1 : 1;
+  const cv = cmpDec(x.value, y.value);
+  if (cv !== 0) return cv;
+  const ca = cmpDec(x.validAfter, y.validAfter);
+  if (ca !== 0) return ca;
+  const cb = cmpDec(x.validBefore, y.validBefore);
+  if (cb !== 0) return cb;
+  if (x.signed_at !== y.signed_at) return x.signed_at < y.signed_at ? -1 : 1;
+  if (x.status !== y.status) return x.status < y.status ? -1 : 1;
+  const xi = x.intent_ref == null ? '' : x.intent_ref;
+  const yi = y.intent_ref == null ? '' : y.intent_ref;
+  if (xi !== yi) return xi < yi ? -1 : 1;
+  return 0;
+}
+
+function sortEntries(entries) {
+  const out = entries.slice();
+  for (let i = 1; i < out.length; i++) {
+    const cur = out[i];
+    let j = i - 1;
+    while (j >= 0 && entryLess(cur, out[j]) < 0) { out[j + 1] = out[j]; j--; }
+    out[j + 1] = cur;
+  }
+  return out;
+}
+
+// Canonical member order for emitted discrepancy rows.
+function discLess(x, y) {
+  if (x.code !== y.code) return x.code < y.code ? -1 : 1;
+  if (x.authorizer !== y.authorizer) return x.authorizer < y.authorizer ? -1 : 1;
+  if (x.nonce !== y.nonce) return x.nonce < y.nonce ? -1 : 1;
+  const xt = x.token == null ? '' : x.token;
+  const yt = y.token == null ? '' : y.token;
+  if (xt !== yt) return xt < yt ? -1 : 1;
+  const xc = x.chain_id == null ? '' : x.chain_id;
+  const yc = y.chain_id == null ? '' : y.chain_id;
+  if (xc !== yc) return xc < yc ? -1 : 1;
+  return 0;
+}
+
+function sortDiscs(list) {
+  const out = list.slice();
+  for (let i = 1; i < out.length; i++) {
+    const cur = out[i];
+    let j = i - 1;
+    while (j >= 0 && discLess(cur, out[j]) < 0) { out[j + 1] = out[j]; j--; }
+    out[j + 1] = cur;
+  }
+  return out;
+}
+
+// ---- structural validation: wrong shapes are refused, absent inputs are not ----
+// Absent event lists and clock are legal and leave their aspects NOT_EVALUATED; present but
+// malformed ledger, event or clock shapes are refused INPUT_REFUSED. An explicit null is
+// read as absent everywhere an input is optional (null-as-absent), so the two pasted forms
+// of "no value" can never diverge.
+
+function validateLedger(pp, r) {
+  if (pp.ledger != null && !Array.isArray(pp.ledger)) {
+    r.push(refusal('NOT_AN_ARRAY', 'ledger', 'ledger must be an array when present'));
+    return;
+  }
+  if (!Array.isArray(pp.ledger)) return;
+  if (pp.ledger.length > LEDGER_MAX) {
+    r.push(refusal('BOUND_EXCEEDED', 'ledger', 'the ledger carries at most ' + LEDGER_MAX + ' entries'));
+  }
+  for (let i = 0; i < pp.ledger.length && i < LEDGER_MAX; i++) {
+    const e = pp.ledger[i];
+    const at = 'ledger[' + i + ']';
+    if (!isObj(e)) { r.push(refusal('NOT_AN_OBJECT', at, 'each ledger entry must be an object')); continue; }
+    const ek = unknownKeys(e, LEDGER_KEYS);
+    for (let k = 0; k < ek.length; k++) r.push(refusal('UNKNOWN_FIELD', at + '.' + ek[k], 'field is not part of the input schema'));
+    if (normalizeAddress(e.from) === null) r.push(refusal('BAD_ADDRESS', at + '.from', 'entry from must be a 20-byte hex address'));
+    if (normalizeAddress(e.to) === null) r.push(refusal('BAD_ADDRESS', at + '.to', 'entry to must be a 20-byte hex address'));
+    if (normalizeAddress(e.token) === null) r.push(refusal('BAD_ADDRESS', at + '.token', 'entry token must be a 20-byte hex address'));
+    if (normalizeBytes32(e.nonce) === null) r.push(refusal('BAD_NONCE', at + '.nonce', 'entry nonce must be a 32-byte hex value'));
+    if (toUint256String(e.value) === null) r.push(refusal('BAD_AMOUNT', at + '.value', 'entry value must be a uint256 decimal string'));
+    if (toUint256String(e.validAfter) === null) r.push(refusal('BAD_AMOUNT', at + '.validAfter', 'entry validAfter must be a uint256 decimal string'));
+    if (toUint256String(e.validBefore) === null) r.push(refusal('BAD_AMOUNT', at + '.validBefore', 'entry validBefore must be a uint256 decimal string'));
+    if (toUint256String(e.chain_id) === null) r.push(refusal('BAD_CHAIN_ID', at + '.chain_id', 'entry chain_id must be a uint256 decimal string'));
+    if (!isSafeNonNegativeInt(e.signed_at)) r.push(refusal('BAD_CLOCK', at + '.signed_at', 'entry signed_at must be a non-negative integer epoch second'));
+    if (STATUSES.indexOf(e.status) < 0) r.push(refusal('BAD_STATUS', at + '.status', 'entry status must be signed, settled or canceled'));
+    if (e.intent_ref != null && !isText(e.intent_ref, TEXT_MAX)) r.push(refusal('BAD_TEXT', at + '.intent_ref', 'entry intent_ref must be a 1 to 128 character string without control characters when present'));
+  }
+}
+
+function validateEvents(pp, name, r) {
+  const list = pp[name];
+  if (list != null && !Array.isArray(list)) {
+    r.push(refusal('NOT_AN_ARRAY', name, name + ' must be an array when present'));
+    return;
+  }
+  if (!Array.isArray(list)) return;
+  if (list.length > EVENTS_MAX) {
+    r.push(refusal('BOUND_EXCEEDED', name, name + ' carries at most ' + EVENTS_MAX + ' rows'));
+  }
+  for (let i = 0; i < list.length && i < EVENTS_MAX; i++) {
+    const e = list[i];
+    const at = name + '[' + i + ']';
+    if (!isObj(e)) { r.push(refusal('NOT_AN_OBJECT', at, 'each event row must be an object')); continue; }
+    const ek = unknownKeys(e, EVENT_KEYS);
+    for (let k = 0; k < ek.length; k++) r.push(refusal('UNKNOWN_FIELD', at + '.' + ek[k], 'field is not part of the input schema'));
+    if (normalizeAddress(e.authorizer) === null) r.push(refusal('BAD_ADDRESS', at + '.authorizer', 'event authorizer must be a 20-byte hex address'));
+    if (normalizeBytes32(e.nonce) === null) r.push(refusal('BAD_NONCE', at + '.nonce', 'event nonce must be a 32-byte hex value'));
+    if (e.token != null && normalizeAddress(e.token) === null) r.push(refusal('BAD_ADDRESS', at + '.token', 'event token must be a 20-byte hex address when present'));
+    if (e.chain_id != null && toUint256String(e.chain_id) === null) r.push(refusal('BAD_CHAIN_ID', at + '.chain_id', 'event chain_id must be a uint256 decimal string when present'));
+  }
+}
+
+function validate(pp) {
+  const r = [];
+  if (!isObj(pp)) return [refusal('NOT_AN_OBJECT', 'policy_parameters', 'policy_parameters must be an object')];
+  const uk = unknownKeys(pp, TOP_KEYS);
+  for (let i = 0; i < uk.length; i++) r.push(refusal('UNKNOWN_FIELD', uk[i], 'field is not part of the input schema'));
+  if (pp.now_unix != null && !isSafeNonNegativeInt(pp.now_unix)) {
+    r.push(refusal('BAD_CLOCK', 'now_unix', 'now_unix must be a non-negative integer epoch second'));
+  }
+  validateLedger(pp, r);
+  validateEvents(pp, 'used_events', r);
+  validateEvents(pp, 'canceled_events', r);
+  return r;
+}
+
+// ---- event application ----
+
+// Returns { hit: boolean[] } over the normalized ledger: which entries the event applies to,
+// plus a scope verdict for the discrepancy path.
+function resolveEvent(ev, ledger) {
+  const matches = [];
+  for (let i = 0; i < ledger.length; i++) {
+    const e = ledger[i];
+    if (e.from !== ev.authorizer) continue;
+    if (e.nonce !== ev.nonce) continue;
+    if (ev.token !== null && e.token !== ev.token) continue;
+    if (ev.chain_id !== null && e.chain_id !== ev.chain_id) continue;
+    matches.push(i);
+  }
+  if (matches.length === 0) return { kind: 'no_entry', matches };
+  const pairs = {};
+  let distinct = 0;
+  for (let m = 0; m < matches.length; m++) {
+    const key = ledger[matches[m]].token + '|' + ledger[matches[m]].chain_id;
+    if (!pairs[key]) { pairs[key] = true; distinct++; }
+  }
+  if (distinct > 1) return { kind: 'ambiguous', matches };
+  return { kind: 'applied', matches };
+}
+
+function eventKey(ev) {
+  return ev.authorizer + '|' + ev.nonce + '|' + (ev.token == null ? '' : ev.token) + '|' + (ev.chain_id == null ? '' : ev.chain_id);
+}
+
+// ---- compute ----
+
+/**
+ * compute(pp) pure exposure-reconciler kernel.
+ * pp: {
+ *   ledger?:         [ { from, token, chain_id, nonce, to, value, validAfter, validBefore, signed_at,
+ *                        intent_ref?, status } ],
+ *   used_events?:    [ { authorizer, nonce, token?, chain_id? } ],
+ *   canceled_events?: [ { authorizer, nonce, token?, chain_id? } ],
+ *   now_unix?:       integer epoch seconds,
+ * }
+ * @param {object} pp policy_parameters
+ * @returns {{ output_payload: object, compliance_flags: string[] }}
+ */
+function compute(pp) {
+  const refusals = validate(pp);
+  if (refusals.length > 0) {
+    return {
+      output_payload: {
+        entries: [],
+        class_counts: { settled: 0, canceled: 0, expired_unspent: 0, outstanding: 0, not_yet_valid: 0, not_evaluated: 0 },
+        exposure: { total_outstanding: null, entries_in_total: null, unresolved_conflict_value: null, unresolved_conflict_entries: 0, not_yet_valid_value: null, not_yet_valid_entries: null, duplicate_nonce_entries: null },
+        discrepancies: [],
+        not_evaluated: [],
+        warnings: ['INPUT_REFUSED'],
+        receipt: {
+          reconciler: TOOL_ID, ledger_entries: 0, used_events_pasted: 0, canceled_events_pasted: 0,
+          used_events_applied: 0, canceled_events_applied: 0, discrepancies_total: 0,
+          now_unix: null, scope_note: SCOPE_NOTE,
+        },
+        refusals,
+      },
+      compliance_flags: ['INPUT_REFUSED'],
+    };
+  }
+
+  const hasClock = isSafeNonNegativeInt(pp.now_unix);
+  const nowStr = hasClock ? String(pp.now_unix) : null;
+  const hasUsed = pp.used_events != null;
+  const hasCanceled = pp.canceled_events != null;
+
+  // normalized ledger (same acceptance and canonical forms as the sibling gate)
+  const ledgerRaw = Array.isArray(pp.ledger) ? pp.ledger : [];
+  const ledger = ledgerRaw.map((e) => ({
+    from: normalizeAddress(e.from),
+    token: normalizeAddress(e.token),
+    chain_id: canonicalDec(toUint256String(e.chain_id)),
+    nonce: normalizeBytes32(e.nonce),
+    to: normalizeAddress(e.to),
+    value: toUint256String(e.value),
+    validAfter: toUint256String(e.validAfter),
+    validBefore: toUint256String(e.validBefore),
+    signed_at: e.signed_at,
+    intent_ref: typeof e.intent_ref === 'string' ? e.intent_ref : null,
+    status: e.status,
+  }));
+
+  const normalizeEvent = (e) => ({
+    authorizer: normalizeAddress(e.authorizer),
+    nonce: normalizeBytes32(e.nonce),
+    token: e.token == null ? null : normalizeAddress(e.token),
+    chain_id: e.chain_id == null ? null : canonicalDec(toUint256String(e.chain_id)),
+  });
+  const usedRaw = Array.isArray(pp.used_events) ? pp.used_events : [];
+  const canceledRaw = Array.isArray(pp.canceled_events) ? pp.canceled_events : [];
+  const usedEvents = usedRaw.map(normalizeEvent);
+  const canceledEvents = canceledRaw.map(normalizeEvent);
+
+  const discrepancies = [];
+  const usedHit = ledger.map(() => false);
+  const canceledHit = ledger.map(() => false);
+  let usedApplied = 0;
+  let canceledApplied = 0;
+
+  // apply one event list; duplicates inside a list are flagged and not re-applied
+  function applyList(events, hitArr, code, isUsed) {
+    const seen = {};
+    for (let i = 0; i < events.length; i++) {
+      const ev = events[i];
+      const key = eventKey(ev);
+      if (seen[key]) {
+        discrepancies.push({
+          code: 'DUPLICATE_EVENT_ROW', authorizer: ev.authorizer, nonce: ev.nonce,
+          token: ev.token, chain_id: ev.chain_id, ledger_status: null,
+          observed: 'the same ' + code + ' row is pasted more than once; only the first row is applied',
+        });
+        continue;
+      }
+      seen[key] = true;
+      const res = resolveEvent(ev, ledger);
+      if (res.kind === 'no_entry') {
+        discrepancies.push({
+          code: 'EVENT_WITHOUT_LEDGER_ENTRY', authorizer: ev.authorizer, nonce: ev.nonce,
+          token: ev.token, chain_id: ev.chain_id, ledger_status: null,
+          observed: code + ' row matches no ledger entry with this authorizer and nonce',
+        });
+      } else if (res.kind === 'ambiguous') {
+        discrepancies.push({
+          code: 'AMBIGUOUS_EVENT_SCOPE', authorizer: ev.authorizer, nonce: ev.nonce,
+          token: ev.token, chain_id: ev.chain_id, ledger_status: null,
+          observed: 'event row without a declared token or chain scope matches ledger entries spanning more than one token and chain pair, so it is applied to none of them',
+        });
+      } else {
+        let fresh = false;
+        for (let m = 0; m < res.matches.length; m++) {
+          if (!hitArr[res.matches[m]]) { hitArr[res.matches[m]] = true; fresh = true; }
+        }
+        if (fresh) { if (isUsed) usedApplied++; else canceledApplied++; }
+      }
+    }
+  }
+
+  applyList(usedEvents, usedHit, 'AuthorizationUsed', true);
+  applyList(canceledEvents, canceledHit, 'AuthorizationCanceled', false);
+
+  // duplicate ledger identity: only one authorization per (authorizer, token, chain, nonce) can
+  // ever settle, so the first entry in canonical sort order is evaluated and the extras are not
+  const order = ledger.map((_, i) => i);
+  for (let a = 1; a < order.length; a++) {
+    const cur = order[a];
+    let b = a - 1;
+    while (b >= 0 && entryLess(ledger[cur], ledger[order[b]]) < 0) { order[b + 1] = order[b]; b--; }
+    order[b + 1] = cur;
+  }
+  const dupExtra = ledger.map(() => false);
+  const seenIdentity = {};
+  for (let a = 0; a < order.length; a++) {
+    const e = ledger[order[a]];
+    const k = e.from + '|' + e.token + '|' + e.chain_id + '|' + e.nonce;
+    if (seenIdentity[k]) dupExtra[order[a]] = true; else seenIdentity[k] = true;
+  }
+
+  // per-entry classification (caller order; sorted for emission below)
+  const classOf = [];
+  const entryDiscs = [];
+  const notEvaluatedBecause = [];
+  for (let i = 0; i < ledger.length; i++) {
+    const e = ledger[i];
+    const discs = [];
+    let cls;
+    let because = null;
+    if (dupExtra[i]) {
+      cls = 'not_evaluated';
+      because = 'another ledger entry with the same authorizer, token, chain and nonce sorts first and is the only one counted';
+      discs.push('DUPLICATE_NONCE_LEDGER');
+    } else if (usedHit[i] && canceledHit[i]) {
+      cls = 'not_evaluated';
+      because = 'pasted rows carry both a use event and a cancel event for this identity, and the pasted rows cannot be ordered';
+      discs.push('EVENT_CONFLICT');
+    } else if (usedHit[i]) {
+      cls = 'settled';
+      if (e.status === 'signed') discs.push('LEDGER_SAYS_SIGNED_EVENTS_SETTLED');
+      else if (e.status === 'canceled') discs.push('LEDGER_SAYS_CANCELED_EVENTS_SETTLED');
+    } else if (canceledHit[i]) {
+      cls = 'canceled';
+      if (e.status === 'signed') discs.push('LEDGER_SAYS_SIGNED_EVENTS_CANCELED');
+      else if (e.status === 'settled') discs.push('LEDGER_SAYS_SETTLED_EVENTS_CANCELED');
+    } else if (e.status === 'settled') {
+      cls = 'settled';
+    } else if (e.status === 'canceled') {
+      cls = 'canceled';
+    } else {
+      // ledger says signed and no event applies: the caller clock splits outstanding from
+      // expired-unspent (strict window rule: live only while the clock is below validBefore)
+      if (nowStr === null) {
+        cls = 'not_evaluated';
+        because = 'caller clock absent: a signed entry cannot be split between outstanding and expired-unspent';
+      } else if (cmpDec(e.validAfter, nowStr) >= 0) {
+        cls = 'not_yet_valid';
+      } else if (cmpDec(e.validBefore, nowStr) > 0) {
+        cls = 'outstanding';
+      } else {
+        cls = 'expired_unspent';
+      }
+    }
+    classOf.push(cls);
+    entryDiscs.push(discs);
+    notEvaluatedBecause.push(because);
+    for (let d = 0; d < discs.length; d++) {
+      discrepancies.push({
+        code: discs[d], authorizer: e.from, nonce: e.nonce,
+        token: e.token, chain_id: e.chain_id, ledger_status: e.status,
+        observed: discs[d] === 'DUPLICATE_NONCE_LEDGER'
+          ? 'this entry repeats the authorizer, token, chain and nonce of an earlier entry in canonical order; only that first entry is evaluated and counted'
+          : discs[d] === 'EVENT_CONFLICT'
+          ? 'pasted rows carry both a use event and a cancel event for this identity, so the terminal state cannot be reconciled'
+          : 'reconciled class ' + cls + ' disagrees with the ledger status ' + e.status,
+      });
+    }
+  }
+
+  // class counts and exposure totals
+  const classCounts = { settled: 0, canceled: 0, expired_unspent: 0, outstanding: 0, not_yet_valid: 0, not_evaluated: 0 };
+  let nyvSum = '0';
+  let nyvCount = 0;
+  let dupCount = 0;
+  let outstandingSum = '0';
+  let outstandingCount = 0;
+  let conflictSum = '0';
+  let conflictCount = 0;
+  let clockBlocked = false;
+  for (let i = 0; i < ledger.length; i++) {
+    classCounts[classOf[i]]++;
+    if (classOf[i] === 'outstanding') {
+      outstandingSum = addDec(outstandingSum, ledger[i].value);
+      outstandingCount++;
+    } else if (classOf[i] === 'not_yet_valid') {
+      nyvSum = addDec(nyvSum, ledger[i].value);
+      nyvCount++;
+    } else if (classOf[i] === 'not_evaluated') {
+      if (dupExtra[i]) {
+        dupCount++;
+      } else if (usedHit[i] && canceledHit[i]) {
+        conflictSum = addDec(conflictSum, ledger[i].value);
+        conflictCount++;
+      } else {
+        clockBlocked = true;
+      }
+    }
+  }
+  const exposure = {
+    total_outstanding: clockBlocked ? null : outstandingSum,
+    entries_in_total: clockBlocked ? null : outstandingCount,
+    unresolved_conflict_value: conflictCount > 0 ? conflictSum : '0',
+    unresolved_conflict_entries: conflictCount,
+    not_yet_valid_value: nyvSum,
+    not_yet_valid_entries: nyvCount,
+    duplicate_nonce_entries: dupCount,
+  };
+
+  // top-level NOT_EVALUATED aspects, fixed order
+  const notEvaluated = [];
+  if (!hasUsed) notEvaluated.push({ aspect: 'used_events', because: 'input absent: no use event rows were supplied, so use-event reconciliation is not evaluated' });
+  if (!hasCanceled) notEvaluated.push({ aspect: 'canceled_events', because: 'input absent: no cancel event rows were supplied, so cancel-event reconciliation is not evaluated' });
+  if (!hasClock) notEvaluated.push({ aspect: 'now_unix', because: 'input absent: caller clock missing, so expiry classification and the outstanding total are not evaluated' });
+
+  // emitted entries in canonical order
+  const emitted = [];
+  for (let i = 0; i < ledger.length; i++) {
+    emitted.push({
+      from: ledger[i].from,
+      token: ledger[i].token,
+      chain_id: ledger[i].chain_id,
+      nonce: ledger[i].nonce,
+      to: ledger[i].to,
+      value: ledger[i].value,
+      validAfter: ledger[i].validAfter,
+      validBefore: ledger[i].validBefore,
+      signed_at: ledger[i].signed_at,
+      intent_ref: ledger[i].intent_ref,
+      ledger_status: ledger[i].status,
+      class: classOf[i],
+      used_event_applied: usedHit[i],
+      canceled_event_applied: canceledHit[i],
+      discrepancies: entryDiscs[i],
+      not_evaluated_because: notEvaluatedBecause[i],
+    });
+  }
+  const sortedEntries = sortEntries(emitted);
+  const sortedDiscs = sortDiscs(discrepancies);
+
+  // conditional flags (computed, never literal) and the warnings mirror
+  const compliance_flags = [];
+  if (sortedDiscs.length > 0) compliance_flags.push('LEDGER_EVENT_DISCREPANCY');
+  if (conflictCount > 0) compliance_flags.push('EVENT_DATA_CONFLICT');
+  if (notEvaluated.length > 0 || classCounts.not_evaluated > 0) compliance_flags.push('INPUT_ASPECT_NOT_EVALUATED');
+  if (exposure.total_outstanding !== null && exposure.total_outstanding !== '0') compliance_flags.push('OUTSTANDING_EXPOSURE_PRESENT');
+  const warnings = compliance_flags.slice();
+
+  const receipt = {
+    reconciler: TOOL_ID,
+    ledger_entries: ledger.length,
+    used_events_pasted: usedEvents.length,
+    canceled_events_pasted: canceledEvents.length,
+    used_events_applied: usedApplied,
+    canceled_events_applied: canceledApplied,
+    discrepancies_total: sortedDiscs.length,
+    now_unix: hasClock ? pp.now_unix : null,
+    scope_note: SCOPE_NOTE,
+  };
+
+  return {
+    output_payload: {
+      entries: sortedEntries,
+      class_counts: classCounts,
+      exposure,
+      discrepancies: sortedDiscs,
+      not_evaluated: notEvaluated,
+      warnings,
+      receipt,
+      refusals: [],
+    },
+    compliance_flags,
+  };
+}
+
+
+// ---- page glue ----
+function loadPreset() {
+  var i = parseInt(document.getElementById('preset').value, 10);
+  document.getElementById('ppJson').value = JSON.stringify(PRESETS[i], null, 2);
+  document.getElementById('resultsPanel').classList.remove('show');
+}
+
+function kvRow(k, v) {
+  return '<div class="kv"><span class="kv-k">' + k + '</span><span class="kv-v">' + v + '</span></div>';
+}
+
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function tailOf(s, n) {
+  s = String(s);
+  return s.length <= n ? s : s.slice(0, n) + '&hellip;';
+}
+
+async function runReconcile() {
+  var pp;
+  try { pp = JSON.parse(document.getElementById('ppJson').value); }
+  catch (e) {
+    document.getElementById('verdictBox').style.cssText = 'background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.3)';
+    document.getElementById('verdictBox').textContent = 'POLICY_PARAMETERS JSON PARSE ERROR';
+    document.getElementById('resultsPanel').classList.add('show');
+    return;
+  }
+  var r = compute(pp);
+  _lastResult = { pp: pp, output_payload: r.output_payload, compliance_flags: r.compliance_flags };
+  var op = r.output_payload;
+  var box = document.getElementById('verdictBox');
+  if (op.refusals.length > 0) {
+    box.style.cssText = 'background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.3)';
+    box.textContent = 'INPUT REFUSED &middot; ' + op.refusals[0].code;
+  } else if (op.exposure.total_outstanding === null) {
+    box.style.cssText = 'background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.3)';
+    box.textContent = 'TOTAL OUTSTANDING: NOT EVALUATED (clock absent for a signed entry)';
+  } else if (op.exposure.total_outstanding === '0') {
+    box.style.cssText = 'background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.3)';
+    box.textContent = 'TOTAL OUTSTANDING 0';
+  } else {
+    box.style.cssText = 'background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.3)';
+    box.textContent = 'TOTAL OUTSTANDING ' + op.exposure.total_outstanding + ' across ' + op.exposure.entries_in_total + ' entr' + (op.exposure.entries_in_total === 1 ? 'y' : 'ies');
+  }
+  // disclosed beside the total: value that is signed but not yet inside its window, and repeated nonces
+  if (op.refusals.length === 0) {
+    if (op.exposure.not_yet_valid_entries > 0) box.textContent += ' | NOT YET VALID (excluded) ' + op.exposure.not_yet_valid_value + ' across ' + op.exposure.not_yet_valid_entries;
+    if (op.exposure.duplicate_nonce_entries > 0) box.textContent += ' | DUPLICATE NONCE ENTRIES (excluded) ' + op.exposure.duplicate_nonce_entries;
+  }
+  // stats
+  document.getElementById('statRow').innerHTML =
+    '<div class="stat"><span class="stat-val">' + op.class_counts.settled + '</span><span class="stat-key">settled</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.class_counts.canceled + '</span><span class="stat-key">canceled</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.class_counts.expired_unspent + '</span><span class="stat-key">expired-unspent</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.class_counts.outstanding + '</span><span class="stat-key">outstanding</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.class_counts.not_yet_valid + '</span><span class="stat-key">not yet valid</span></div>' +
+    '<div class="stat"><span class="stat-val">' + op.class_counts.not_evaluated + '</span><span class="stat-key">not evaluated</span></div>' +
+    '<div class="stat"><span class="stat-val">' + (op.receipt.now_unix === null ? 'none' : op.receipt.now_unix) + '</span><span class="stat-key">now_unix</span></div>';
+  // flags
+  document.getElementById('flagRow').innerHTML = r.compliance_flags.map(function(f) {
+    var cls = f === 'INPUT_REFUSED' || f === 'EVENT_DATA_CONFLICT' ? 'fail' : (f === 'INPUT_ASPECT_NOT_EVALUATED' ? 'info' : 'warn');
+    return '<span class="badge ' + cls + '">' + f + '</span>';
+  }).join('');
+  // entries
+  document.getElementById('entriesDiv').innerHTML = op.entries.map(function(e) {
+    var k = esc(tailOf(e.nonce, 12)) + ' @ ' + esc(tailOf(e.token, 10)) + ' / ' + esc(e.chain_id);
+    var v = '<span style="color:var(--teal-lt)">' + esc(e.class) + '</span> ' + esc(e.value) + ' &middot; ledger ' + esc(e.ledger_status);
+    if (e.used_event_applied) v += ' &middot; use event applied';
+    if (e.canceled_event_applied) v += ' &middot; cancel event applied';
+    if (e.intent_ref !== null) v += ' &middot; ' + esc(e.intent_ref);
+    if (e.not_evaluated_because !== null) v += '<br><span style="color:var(--muted)">' + esc(e.not_evaluated_because) + '</span>';
+    return '<div class="kv"><span class="kv-k">' + k + '</span><span class="kv-v" style="max-width:78%">' + v + '</span></div>';
+  }).join('') || '<div class="kv"><span class="kv-k">none</span><span class="kv-v">empty ledger</span></div>';
+  // discrepancies
+  document.getElementById('discDiv').innerHTML = op.discrepancies.map(function(d) {
+    return '<div class="kv"><span class="kv-k">' + esc(d.code) + '</span><span class="kv-v">' + esc(tailOf(d.nonce, 12)) + (d.ledger_status ? ' &middot; ledger ' + esc(d.ledger_status) : '') + '<br><span style="color:var(--muted)">' + esc(d.observed) + '</span></span></div>';
+  }).join('') || '<div class="kv"><span class="kv-k">none</span><span class="kv-v">pasted events and ledger claims agree</span></div>';
+  // not-evaluated aspects
+  document.getElementById('neDiv').innerHTML = op.not_evaluated.map(function(n) {
+    return '<div class="kv"><span class="kv-k">' + esc(n.aspect) + '</span><span class="kv-v">' + esc(n.because) + '</span></div>';
+  }).join('') || '<div class="kv"><span class="kv-k">none</span><span class="kv-v">every aspect was evaluated</span></div>';
+  // exposure
+  var ex = op.exposure;
+  document.getElementById('expDiv').innerHTML =
+    kvRow('total_outstanding', ex.total_outstanding === null ? 'null (not evaluated: clock absent)' : esc(ex.total_outstanding)) +
+    kvRow('entries_in_total', ex.entries_in_total === null ? 'null' : String(ex.entries_in_total)) +
+    kvRow('unresolved_conflict_value', esc(ex.unresolved_conflict_value)) +
+    kvRow('unresolved_conflict_entries', String(ex.unresolved_conflict_entries));
+  // receipt (refusals displace nothing here; the receipt is always shown)
+  var rc = op.receipt;
+  document.getElementById('kvDiv').innerHTML =
+    kvRow('reconciler', esc(rc.reconciler)) +
+    kvRow('ledger_entries', String(rc.ledger_entries)) +
+    kvRow('used_events pasted / applied', rc.used_events_pasted + ' / ' + rc.used_events_applied) +
+    kvRow('canceled_events pasted / applied', rc.canceled_events_pasted + ' / ' + rc.canceled_events_applied) +
+    kvRow('discrepancies_total', String(rc.discrepancies_total)) +
+    kvRow('now_unix', rc.now_unix === null ? 'none' : String(rc.now_unix)) +
+    kvRow('scope_note', '<span style="white-space:normal">' + esc(rc.scope_note) + '</span>');
+  if (op.refusals.length > 0) {
+    document.getElementById('entriesDiv').innerHTML = op.refusals.map(function(x) {
+      return '<div class="kv"><span class="kv-k">' + esc(x.code) + '</span><span class="kv-v">' + esc(x.field) + ': ' + esc(x.detail) + '</span></div>';
+    }).join('');
+  }
+  document.getElementById('resultsPanel').classList.add('show');
+  var hash = await computeExecHash(pp, op);
+  document.getElementById('execHashBox').textContent = hash;
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('artifactPre').style.display = 'none';
+  document.getElementById('anchorBtn').style.display = 'none';
+}
+
+function verifyHash() {
+  if (!_lastResult) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hash = document.getElementById('execHashBox').textContent || 'pending';
+  const __generatedAtCapture = new Date().toISOString();
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_control',
+    tool_id: 'art-830-eip3009-spend-exposure-reconciler',
+    tool_version: '1.0.0',
+    generated_at: __generatedAtCapture,
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp,
+    output_payload: _lastResult.output_payload,
+    compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  document.getElementById('generatedAt').textContent='generated_at '+__generatedAtCapture;
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = 'art-830-eip3009-spend-exposure-reconciler.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>
