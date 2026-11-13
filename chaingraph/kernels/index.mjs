@@ -38,6 +38,9 @@ import * as t824      from './824-zip317-transfer-fee.kernel.mjs';
 import * as t825      from './825-reconcile-ucp-checkout-totals.kernel.mjs';
 import * as t827      from './827-agent-cred-class-matrix.kernel.mjs';
 import * as t829      from './829-safe-tx-hash-recompute.kernel.mjs';
+import * as t836      from './836-payment-services-activity-classifier.kernel.mjs';
+import * as t837      from './837-issuer-yield-share.kernel.mjs';
+import * as t838      from './838-control-frequency-sample.kernel.mjs';
 import * as art01     from './art-01-ap2-mandate-chain-validator.kernel.mjs';
 import * as art02     from './art-02-agent-spend-policy-simulator.kernel.mjs';
 import * as art03     from './art-03-x402-settlement-modeler.kernel.mjs';
@@ -680,6 +683,7 @@ import * as art761    from './art-761-caregiver-income-impact.kernel.mjs';
 import * as art763    from './art-763-ai-displacement-risk-screener.kernel.mjs';
 import * as art764    from './art-764-solo-401k-vs-sep-ira.kernel.mjs';
 import * as art765    from './art-765-dependent-care-fsa-cdctc-optimizer.kernel.mjs';
+import * as art766    from './art-766-parental-leave-income-gap.kernel.mjs';
 import * as art77     from './art-77-t1-settlement-readiness-diagnostic.kernel.mjs';
 import * as art770    from './art-770-total-cost-of-homeownership.kernel.mjs';
 import * as art771    from './art-771-automation-payback.kernel.mjs';
@@ -703,6 +707,7 @@ import * as art809    from './art-809-check-reserves-cover-outstanding-private.k
 import * as art81     from './art-81-allocation-affirmation-conformance.kernel.mjs';
 import * as art811    from './art-811-check-dti-within-policy-private.kernel.mjs';
 import * as art814    from './art-814-qf-pairwise-recompute.kernel.mjs';
+import * as art816    from './art-816-eip3009-agent-spend-gate.kernel.mjs';
 import * as art818    from './art-818-zcash-reg-classifier.kernel.mjs';
 import * as art819    from './art-819-ucp-request-constraints.kernel.mjs';
 import * as art82     from './art-82-securities-settlement-message-linter.kernel.mjs';
@@ -712,7 +717,9 @@ import * as art828    from './art-828-reconcile-omnibus-token-position.kernel.mj
 import * as art83     from './art-83-buy-in-exposure-modeler.kernel.mjs';
 import * as art830    from './art-830-eip3009-spend-exposure-reconciler.kernel.mjs';
 import * as art831    from './art-831-receipt-export-envelopes.kernel.mjs';
+import * as art832    from './art-832-card-data-flow-scope.kernel.mjs';
 import * as art833    from './art-833-lint-pan-sad-exposure.kernel.mjs';
+import * as art834    from './art-834-asc606-transaction-price-allocator.kernel.mjs';
 import * as art84     from './art-84-settlement-efficiency-kpi.kernel.mjs';
 import * as art85     from './art-85-pqc-timeline-fit-diagnostic.kernel.mjs';
 import * as art86     from './art-86-tls-pki-migration-planner.kernel.mjs';
@@ -783,6 +790,9 @@ export const KERNELS = {
   '825-reconcile-ucp-checkout-totals':                          t825,
   '827-agent-cred-class-matrix':                                t827,
   '829-safe-tx-hash-recompute':                                 t829,
+  '836-payment-services-activity-classifier':                   t836,
+  '837-issuer-yield-share':                                     t837,
+  '838-control-frequency-sample':                               t838,
   'art-01-ap2-mandate-chain-validator':                         art01,
   'art-02-agent-spend-policy-simulator':                        art02,
   'art-03-x402-settlement-modeler':                             art03,
@@ -1425,6 +1435,7 @@ export const KERNELS = {
   'art-763-ai-displacement-risk-screener':                      art763,
   'art-764-solo-401k-vs-sep-ira':                               art764,
   'art-765-dependent-care-fsa-cdctc-optimizer':                 art765,
+  'art-766-parental-leave-income-gap':                          art766,
   'art-77-t1-settlement-readiness-diagnostic':                  art77,
   'art-770-total-cost-of-homeownership':                        art770,
   'art-771-automation-payback':                                 art771,
@@ -1448,6 +1459,7 @@ export const KERNELS = {
   'art-81-allocation-affirmation-conformance':                  art81,
   'art-811-check-dti-within-policy-private':                    art811,
   'art-814-qf-pairwise-recompute':                              art814,
+  'art-816-eip3009-agent-spend-gate':                           art816,
   'art-818-zcash-reg-classifier':                               art818,
   'art-819-ucp-request-constraints':                            art819,
   'art-82-securities-settlement-message-linter':                art82,
@@ -1457,7 +1469,9 @@ export const KERNELS = {
   'art-83-buy-in-exposure-modeler':                             art83,
   'art-830-eip3009-spend-exposure-reconciler':                  art830,
   'art-831-receipt-export-envelopes':                           art831,
+  'art-832-card-data-flow-scope':                               art832,
   'art-833-lint-pan-sad-exposure':                              art833,
+  'art-834-asc606-transaction-price-allocator':                 art834,
   'art-84-settlement-efficiency-kpi':                           art84,
   'art-85-pqc-timeline-fit-diagnostic':                         art85,
   'art-86-tls-pki-migration-planner':                           art86,
