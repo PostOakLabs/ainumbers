@@ -1713,6 +1713,8 @@ const GATES = [
   ['Helm-OpenClaw page markers + structure (HELM-OPENCLAW-PAGE-1)', 'node scripts/check-helm-openclaw-page.mjs'],
   ['Helm-OpenClaw page gate controls (RED/GREEN mutations, GATE-SELFTEST-META-1 pair)', 'node scripts/check-helm-openclaw-page.test.mjs'],
   ['Helm-OpenClaw snippet freshness (generator --check, required by the Generator coverage meta-gate)', 'node scripts/gen-helm-openclaw-snippets.mjs --check'],
+  ['Stamp-writers freshness (STALE-STAMP-WRITERS-1, generator --check)', 'node scripts/stamp-writers.mjs --check'],
+  ['Stamp-writers controls (RED/GREEN/proptest-fail, GATE-SELFTEST-META-1 pair)', 'node scripts/stamp-writers.test.mjs'],
   ['Showcase call-shape gate self-test (RED mutations, GATE-SELFTEST-META-1 pair)', 'node scripts/check-showcase-callshape.mjs --self-test'],
   ['Showcase call shape: policy_parameters wrapper + GPU in-page route (SHOWCASE-CALLSHAPE-1)', 'node scripts/check-showcase-callshape.mjs'],
   ['Showcase call-shape gate self-test (RED mutations, GATE-SELFTEST-META-1 pair)', 'node scripts/check-showcase-callshape.mjs --self-test'],
