@@ -1,5 +1,5 @@
 // art-843-tap-message-validator — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:35a4efe832dbdbe3b3d7369c118ac4cd0ab8e2fc330600f057f250829b0d1b8d
+// kernel_digest_at_authoring: sha256:21620c0d82bb37b194635a5398d98a2657501776390cf37fdc29f661fa5dd81e
 // spec: board/claimed/TAP-MESSAGE-VALIDATOR-NODE-1.md
 // human_sign_off: PENDING
 //
@@ -7,7 +7,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-843-tap-message-validator.proptest.mjs
 
-import { compute } from '../art-843-tap-message-validator.kernel.mjs';
+import { compute, buildArtifact } from '../art-843-tap-message-validator.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, pick, deepEqual } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-843-tap-message-validator';
@@ -284,6 +284,61 @@ function checkUnsafeNumbersRefused() {
   return { name: 'unsafe_or_non_finite_number_refused_named', checked, violations };
 }
 
+// D6: buildArtifact never throws on an input compute accepts or refuses. An unhashable
+// shape (unsafe or non-finite number anywhere, or a document past the canonicalizer's
+// depth or size ceilings) mints a refusal artifact: null execution_hash, the same named
+// reason compute() returned echoed in hash_refusal, and the hostile value itself never
+// echoed in the output_payload or the marker. The nearest passing shapes report and hash.
+async function checkBuildArtifactNeverThrows() {
+  const rng = mulberry32(8440);
+  const HOSTILE = [9007199254740992, 1e300, -9007199254740992, JSON.parse('1e999')];
+  let checked = 0, violations = 0;
+  for (let i = 0; i < 20; i++) {
+    const pp = randomPP(rng);
+    const m = pp.messages[0];
+    const where = Math.floor(rng() * 3);
+    if (where === 0) m.body = Object.assign({}, m.body, { exchangeRate: { rate: pick(rng, HOSTILE), from: 'USD', to: 'EUR' } });
+    else if (where === 1) m.zz_amount = pick(rng, HOSTILE);
+    else pp.zz_junk = pick(rng, HOSTILE);
+    let art = null, threw = false;
+    try { art = await buildArtifact(pp, { now: null }); } catch (e) { threw = true; }
+    checked++;
+    if (threw) violations++;
+    else {
+      const r = art.output_payload;
+      if (r.status !== 'refused' || r.reason !== 'unsafe_number_refused') violations++;
+      if (art.execution_hash !== null || art.hash_refusal === null || art.hash_refusal.reason !== r.reason || art.hash_refusal.detail !== r.detail) violations++;
+      if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r) + JSON.stringify(art.hash_refusal))) violations++;
+    }
+  }
+  // past the canonicalizer's depth ceiling: refused with the named limit reason, no throw
+  {
+    const pp = randomPP(rng);
+    let cur = {};
+    pp.zz_deep = cur;
+    for (let i = 0; i < 600; i++) { cur.n = {}; cur = cur.n; }
+    let art = null, threw = false;
+    try { art = await buildArtifact(pp, { now: null }); } catch (e) { threw = true; }
+    checked++;
+    if (threw || art.execution_hash !== null || art.output_payload.reason !== 'input_hash_limit_refused' || !String(art.output_payload.detail).endsWith(': too_deep')) violations++;
+  }
+  // nearest passing shapes: the largest safe integer and an ordinary float report and hash
+  const okPP = { messages: [Object.assign(randomMessage(mulberry32(2), uu(1), null), {
+    type: H + 'Transfer',
+    body: { asset: 'eip155:1/slip44:60', amount: '1.5', settlementAddress: ETH, agents: [{ '@id': ORIG, role: 'Originator' }], exchangeRate: { rate: 9007199254740991, from: 'USD', to: 'EUR' } },
+  })] };
+  for (const rate of [9007199254740991, 1.5]) {
+    const pp = JSON.parse(JSON.stringify(okPP));
+    pp.messages[0].body.exchangeRate.rate = rate;
+    let art = null, threw = false;
+    try { art = await buildArtifact(pp, { now: null }); } catch (e) { threw = true; }
+    checked++;
+    if (threw) violations++;
+    else if (art.output_payload.status !== 'report' || art.execution_hash === null || !/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) violations++;
+  }
+  return { name: 'buildArtifact_never_throws_refusal_artifact_on_unhashable', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -292,7 +347,7 @@ try {
   oracle = { total: 1, failures: [{ name: 'fixture-oracle-load', expected: '(compute() implemented)', got: String((e && e.message) || e) }] };
 }
 const properties = [checkKeyOrderInvariance(), checkUnknownFieldFlagged(), checkNeverClaimsValid(), checkReplyToEarlierIdNotDangling(), checkFlagsMirror(), checkRefusals(), checkDeterminism(),
-  checkPrototypeNamesNeverThrow(), checkCalendarDates(), checkPresentNullIsFinding(), checkFreeTextAnywhereRefused(), checkUnsafeNumbersRefused()];
+  checkPrototypeNamesNeverThrow(), checkCalendarDates(), checkPresentNullIsFinding(), checkFreeTextAnywhereRefused(), checkUnsafeNumbersRefused(), await checkBuildArtifactNeverThrows()];
 console.log(`[${KERNEL_ID}] class-K floor property test.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
 process.exit(ok ? 0 : 1);

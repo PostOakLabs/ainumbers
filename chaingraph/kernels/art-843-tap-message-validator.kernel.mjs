@@ -181,20 +181,34 @@ function skeletonOk(node, key, depth) {
   return skeletonLeaf(key, node);
 }
 
-// First number the shared _hash.mjs refuses before canonicalizing (a non-finite value, or an
-// integer outside the 2^53 safe range: RFC 8785 3.2.2.3 / RFC 7493), with its path and kind;
-// null when every number in the document is safe to hash. Depth-capped at 512 like _hash.mjs,
-// so anything nested deeper is the canonicalizer's own structural refusal, not this walk's.
-function findUnsafeNumber(v, path, depth) {
-  if (depth > 512) return null;
+// Hashability walk: the first value the shared _hash.mjs refuses before canonicalizing,
+// mirroring the classes of its assertIJson() exactly (a non-finite value or an integer
+// outside the 2^53 safe range: RFC 8785 3.2.2.3 / RFC 7493; nesting past its MAX_DEPTH;
+// more values than its MAX_ELEMENTS), reported as { reason, detail } with the path and kind
+// only, never the value; null when the whole subtree is safe to hash. compute() refuses a
+// hit with the named reason before any artifact is built, and buildArtifact() re-runs the
+// walk over the exact execution_hash preimage so it mints a refusal artifact instead of
+// letting the hash throw. The shared _hash.mjs itself stays untouched.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+// pp alone is held to tighter margins than the preimage limits: the {policy_parameters,
+// output_payload} envelope wraps pp two levels deeper, and a report output_payload can
+// carry several values per input value (findings, unexpected_fields), so a pp inside these
+// margins keeps every envelope this kernel can build inside the canonicalizer limits.
+const PP_MAX_DEPTH = HASH_MAX_DEPTH - 8;
+const PP_MAX_ELEMENTS = 199000;
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'input_hash_limit_refused', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'input_hash_limit_refused', detail: path + ': too_many_values' };
   if (typeof v === 'number') {
-    if (!Number.isFinite(v)) return path + ': non_finite';
-    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return path + ': unsafe_integer';
+    if (!Number.isFinite(v)) return { reason: 'unsafe_number_refused', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'unsafe_number_refused', detail: path + ': unsafe_integer' };
     return null;
   }
   if (Array.isArray(v)) {
     for (let i = 0; i < v.length; i++) {
-      const r = findUnsafeNumber(v[i], path + '[' + i + ']', depth + 1);
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
       if (r !== null) return r;
     }
     return null;
@@ -202,7 +216,7 @@ function findUnsafeNumber(v, path, depth) {
   if (isObj(v)) {
     const ks = sortedKeys(v);
     for (let i = 0; i < ks.length; i++) {
-      const r = findUnsafeNumber(v[ks[i]], path + '.' + seg(ks[i]), depth + 1);
+      const r = findHashRefusal(v[ks[i]], path + '.' + seg(ks[i]), depth + 1, budget);
       if (r !== null) return r;
     }
     return null;
@@ -226,7 +240,7 @@ function add(ctx, path, code) { ctx.findings.push({ path, code }); }
 
 function checkFormat(ctx, fmt, v, path) {
   if (typeof v !== 'string') { add(ctx, path, 'WRONG_TYPE'); return; }
-  if (!FORMAT[fmt](v)) add(ctx, path, 'BAD_FORMAT');
+  if (!Object.hasOwn(FORMAT, fmt) || !FORMAT[fmt](v)) add(ctx, path, 'BAD_FORMAT');
 }
 
 function checkFree(ctx, v, path) {
@@ -426,16 +440,18 @@ function checkMessage(msg, index) {
  */
 export function compute(pp) {
   pp = pp || {};
+  // Hashability first, before any other refusal: an unsafe integer or a non-finite number
+  // anywhere in pp (exchangeRate.rate takes any finite number, and JSON 1e999 parses to
+  // Infinity), or a shape past the canonicalizer's depth or size limits, sails through the
+  // schema walk while the artifact hash refuses it. Refusing it at the very top means the
+  // same named refusal fires whatever else is wrong with pp (a missing messages array
+  // would otherwise shadow an unhashable value elsewhere in the document); only the path
+  // and kind are echoed, never the value.
+  const unhashable = findHashRefusal(pp, 'pp', 1, { maxDepth: PP_MAX_DEPTH, maxElements: PP_MAX_ELEMENTS, n: 0 });
+  if (unhashable !== null) return refuse(unhashable.reason, unhashable.detail);
   const msgs = pp.messages;
   if (!Array.isArray(msgs) || msgs.length === 0) return refuse('messages_missing', 'messages must be a non-empty array');
   if (msgs.length > MAX_MESSAGES) return refuse('messages_too_many', 'at most ' + MAX_MESSAGES + ' messages');
-  // An unsafe integer or a non-finite number anywhere in pp (exchangeRate.rate takes any
-  // finite number, and JSON 1e999 parses to Infinity) sails through the schema walk while
-  // the artifact hash refuses it, so compute would report exactly where buildArtifact
-  // throws. Refuse it first, with a named reason; only the path and kind are echoed, never
-  // the value.
-  const unsafe = findUnsafeNumber(pp, 'pp', 0);
-  if (unsafe !== null) return refuse('unsafe_number_refused', unsafe);
   const records = [];
   for (let i = 0; i < msgs.length; i++) {
     if (!isObj(msgs[i])) return refuse('message_not_object', 'message ' + i);
@@ -500,8 +516,14 @@ export function compute(pp) {
 
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // The object below is the exact execution_hash preimage. When the shared canonicalizer
+  // would refuse it (compute() already refused the same input with the same named reason),
+  // mint the refusal artifact with a null execution_hash and the reason echoed beside it
+  // instead of letting the hash throw: buildArtifact never throws on an input compute
+  // accepts or refuses. The shared _hash.mjs stays untouched.
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const hash = unhashable === null ? await executionHash(pp, output_payload) : null;
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -517,4 +539,14 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) {
+    // Echo the refusal compute() already returned (same named reason, same pp-rooted path).
+    // The envelope walk supplies the marker itself only if compute() somehow did not refuse
+    // (the pp margins in compute() keep that from happening): the artifact then still
+    // explains its null hash instead of throwing.
+    artifact.hash_refusal = output_payload.status === 'refused' && output_payload.reason === unhashable.reason
+      ? { reason: output_payload.reason, detail: output_payload.detail }
+      : { reason: unhashable.reason, detail: unhashable.detail };
+  }
+  return artifact;
 }
