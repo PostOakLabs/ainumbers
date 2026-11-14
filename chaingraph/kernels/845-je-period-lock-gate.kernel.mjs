@@ -242,7 +242,7 @@ export function compute(pp) {
   }
 
   if (entries.length > 0) compliance_flags.push('PERIOD_LOCK_RAN');
-  for (const p of periods) totals_by_period[p.period_id] = { allow: 0, allow_exempt: 0, refuse: 0 };
+  for (const p of periods) if (!Object.hasOwn(totals_by_period, p.period_id)) totals_by_period[p.period_id] = { allow: 0, allow_exempt: 0, refuse: 0 };
 
   const out_entries = [];
   for (const e of entries) {
