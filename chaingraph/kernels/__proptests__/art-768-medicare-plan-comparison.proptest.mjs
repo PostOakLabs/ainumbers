@@ -22,7 +22,8 @@
 // and lower_cost_path follows its sign;
 // P5 the Part D deductible clamp: applied == min(declared, 615) and clamped is
 // exactly (declared > 615), with the matching flag;
-// P6 the Part D cap: Path A drug cost sharing never exceeds the $2,100 threshold.
+// P6 the Part D cap: Path A drug cost sharing never exceeds the $2,100 threshold;
+// P7 the adjudicated literals pinned: HDG Plan G deductible 2950, clamp to 615, MOOP flag above 9250.
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
@@ -159,6 +160,30 @@ function checkP6PartDCap() {
   return { name: 'P6 Path A drug cost sharing never exceeds the 2026 Part D out-of-pocket threshold', checked, violations };
 }
 
+// P7 — adjudicated literals pinned (shepherd-seat 2026-11-13): D1 the official 2026 HDG Plan G
+// deductible is 2950 (the Apex 2900 is reachable only as a declared override); D5 a 900
+// deductible clamps to 615; D11 a MOOP above 9250 is flagged and never clamped.
+function checkP7AdjudicatedLiterals() {
+  let checked = 0, violations = 0;
+  const off = compute(basePP({ medigap_plan_type: 'HDG' })).output_payload;
+  checked++;
+  if (off.constants_used.high_deductible_plan_g_deductible_usd !== 2950) { violations++; console.log('P7 violation: HDG deductible default is not 2950'); }
+  const ovr = compute(basePP({ medigap_plan_type: 'HDG', high_deductible_plan_g_deductible_usd: 2900 }));
+  checked++;
+  if (ovr.output_payload.constants_used.high_deductible_plan_g_deductible_usd !== 2900 || !ovr.compliance_flags.includes('ART768_CONSTANT_OVERRIDE')) { violations++; console.log('P7 violation: 2900 override not honoured and flagged'); }
+  const clamp = compute(basePP({ part_d_deductible_a_usd: 900 })).output_payload;
+  checked++;
+  if (clamp.part_d_deductible_a_applied_usd !== 615) { violations++; console.log('P7 violation: 900 deductible did not clamp to 615'); }
+  const moop = compute(basePP({ ma_moop_usd: 9300 }));
+  checked += 2;
+  if (!moop.compliance_flags.includes('ART768_MA_MOOP_ABOVE_2026_IN_NETWORK_MAXIMUM')) { violations++; console.log('P7 violation: MOOP 9300 not flagged'); }
+  if (moop.output_payload.comparison.path_b_worst_case_ceiling_usd < 9300) { violations++; console.log('P7 violation: MOOP 9300 was clamped'); }
+  const at = compute(basePP({ ma_moop_usd: 9250 }));
+  checked++;
+  if (at.compliance_flags.includes('ART768_MA_MOOP_ABOVE_2026_IN_NETWORK_MAXIMUM')) { violations++; console.log('P7 violation: MOOP exactly 9250 flagged'); }
+  return { name: 'P7 adjudicated literals: HDG 2950 default (2900 only by override), 900 clamps to 615, MOOP flag above 9250 without clamping', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -173,6 +198,7 @@ const properties = [
   checkP4ComparisonIdentity(),
   checkP5DeductibleClamp(),
   checkP6PartDCap(),
+  checkP7AdjudicatedLiterals(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test`);
 const ok = summarize(KERNEL_ID, oracle, properties);
