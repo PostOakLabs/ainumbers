@@ -7,9 +7,54 @@
   "wave": 99,
   "gpu": false,
   "url": "https://ainumbers.co/chaingraph/art-613-erc4337-userop-math.html",
-  "description": "Recomputes the ERC-4337 account-abstraction userOpHash from a caller-supplied UserOperation, computes the EntryPoint's required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against a charge recomputed from declared inputs. The EntryPoint version is a mandatory declared parameter and is never inferred: v0.6 hashes a 10-word UserOperation pack while v0.7 hashes an 8-word PackedUserOperation in which verificationGasLimit and callGasLimit pack into accountGasLimits and maxPriorityFeePerGas and maxFeePerGas pack into gasFees, so guessing the version would silently produce a wrong hash. The two versions also differ in the prefund formula: v0.6 multiplies verificationGasLimit by three when a paymaster is present, because that same limit also caps postOp, while v0.7 instead adds the paymaster's own verification and postOp gas limits, parsed from the fixed offsets inside paymasterAndData. Both are supported and an unrecognised version is refused rather than approximated. L1 data and blob fees are never derived: after EIP-4844 they depend on the inclusion-time L1 basefee and blob basefee, which are not derivable offline, so an L1 data fee enters reconciliation only when the caller declares it and its absence is reported as a named gap rather than absorbed into a residual. block.basefee is likewise never fetched, so when the two fee caps differ the effective gas price is reported as null with the reason unless a basefee is declared; when the caps are equal the EntryPoint's own legacy shortcut makes the price derivable with no basefee at all. keccak256 comes from the already-vendored, pinned noble-hashes bundle, copied byte-identically from the sibling x402 digest node, and the ABI encoding scheme is implemented directly as public-spec arithmetic on top of it. Zero network calls and zero chain reads: deposits, stakes, nonce-sequence validity and prior spend are never consulted, and every field is caller-declared and echoed back. This node recomputes and reconciles; it makes no claim that any operation was settled, accepted, included, or final, and no claim about signature validity, since the ERC-4337 spec excludes the signature from the hashed struct. Golden vectors are cross-checked against an independent from-spec Keccak-256 and ABI encoder, itself anchored on externally published Keccak-256 constants, not round-trip self-tests alone.",
+  "description": "Recomputes the ERC-4337 account-abstraction userOpHash from a caller-supplied UserOperation, computes the EntryPoint's required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against a charge recomputed from declared inputs. The EntryPoint version is a mandatory declared parameter and is never inferred: v0.6 hashes a 10-word UserOperation pack, v0.7 hashes an 8-word PackedUserOperation in which verificationGasLimit and callGasLimit pack into accountGasLimits and maxPriorityFeePerGas and maxFeePerGas pack into gasFees, and v0.8 and v0.9 hash that same packed struct as an EIP-712 typed hash over the ERC4337 domain (name ERC4337, version 1, the declared chainId and entryPoint), so guessing the version would silently produce a wrong hash. Under v0.8 and v0.9 an initCode that carries the EIP-7702 marker (first 20 bytes of 0x7702 zero-padded) applies the Eip7702Support initCodeHash override: the delegate address is folded into the hash from the DECLARED eip7702Delegate input, because the real EntryPoint reads it from the sender's deployed code and this node never fetches. v0.9 differs from v0.8 in exactly one pinned rule: an appended paymaster signature at the end of paymasterAndData is excluded from the hashed bytes, so changing that signature moves the v0.8 hash but not the v0.9 hash. The signing authority can be declared as eip7702Authority and is compared against sender, reported as a fact and never fetched. The prefund formulas differ between v0.6 and the packed layouts: v0.6 multiplies verificationGasLimit by three when a paymaster is present, because that same limit also caps postOp, while the packed layouts add the paymaster's own verification and postOp gas limits, parsed from the fixed offsets inside paymasterAndData. All four versions are supported and an unrecognised version is refused rather than approximated. L1 data and blob fees are never derived: after EIP-4844 they depend on the inclusion-time L1 basefee and blob basefee, which are not derivable offline, so an L1 data fee enters reconciliation only when the caller declares it and its absence is reported as a named gap rather than absorbed into a residual. block.basefee is likewise never fetched, so when the two fee caps differ the effective gas price is reported as null with the reason unless a basefee is declared; when the caps are equal the EntryPoint's own legacy shortcut makes the price derivable with no basefee at all. keccak256 comes from the already-vendored, pinned noble-hashes bundle, copied byte-identically from the sibling x402 digest node, and the ABI encoding scheme is implemented directly as public-spec arithmetic on top of it. Zero network calls and zero chain reads: deposits, stakes, nonce-sequence validity and prior spend are never consulted, and every field is caller-declared and echoed back. This node recomputes and reconciles; it makes no claim that any operation was settled, accepted, included, or final, and no claim about signature validity, since the ERC-4337 spec excludes the signature from the hashed struct. Golden vectors are cross-checked against an independent from-spec Keccak-256 and ABI encoder, itself anchored on externally published Keccak-256 constants, not round-trip self-tests alone.",
+  "standards_basis": "implements_standard",
+  "cited_clause_digest": [
+    {
+      "digest": "sha256:58c99ca17380a5ad4fbaeb4e8b8f7f4e925dc4ac82342057965c768ef50d1661",
+      "source_url": "https://raw.githubusercontent.com/eth-infinitism/account-abstraction/v0.8.0/contracts/core/EntryPoint.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "DOMAIN_NAME/VERSION constants; getUserOpHash; getDomainSeparatorV4",
+      "scheme": "solidity-source",
+      "id": "ERC-4337 EntryPoint v0.8 getUserOpHash and ERC4337 domain"
+    },
+    {
+      "digest": "sha256:23fc7c8de68d29ff973abf76bcc7f58c2ff4822c780b22dd235cf17e9ddfc696",
+      "source_url": "https://raw.githubusercontent.com/eth-infinitism/account-abstraction/v0.8.0/contracts/core/UserOperationLib.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "PACKED_USEROP_TYPEHASH constant; encode(); hash()",
+      "scheme": "solidity-source",
+      "id": "ERC-4337 EntryPoint v0.8 PACKED_USEROP_TYPEHASH"
+    },
+    {
+      "digest": "sha256:aa7cdb6202d9ddea7636d73065ffdde62c1eeeab4d5f7b1b3671776241da7368",
+      "source_url": "https://raw.githubusercontent.com/eth-infinitism/account-abstraction/v0.8.0/contracts/core/Eip7702Support.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "library Eip7702Support (marker 0x7702, delegate from 0xef0100 code prefix, initCodeHash override)",
+      "scheme": "solidity-source",
+      "id": "ERC-4337 EntryPoint v0.8 Eip7702Support"
+    },
+    {
+      "digest": "sha256:d69e2cceb59cb8597c765a32729af881a550fbbfdba161d40c7685f332cfebef",
+      "source_url": "https://raw.githubusercontent.com/eth-infinitism/account-abstraction/v0.9.0/contracts/core/UserOperationLib.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "PACKED_USEROP_TYPEHASH (identical); encode() via paymasterDataKeccak; hash()",
+      "scheme": "solidity-source",
+      "id": "ERC-4337 EntryPoint v0.9 encode delta"
+    },
+    {
+      "digest": "sha256:c2baa199466aaebe5998162638bcb5a6030d60b7eb93354e07a16c54cefdd125",
+      "source_url": "https://raw.githubusercontent.com/eth-infinitism/account-abstraction/v0.9.0/contracts/core/Helpers.sol",
+      "retrieved_at": "2026-09-28",
+      "clause_path": "paymasterDataKeccak (excludes appended paymaster signature from the hash)",
+      "scheme": "solidity-source",
+      "id": "ERC-4337 EntryPoint v0.9 paymasterDataKeccak"
+    }
+  ],
   "input_schema_ref": "chaingraph/art-613-erc4337-userop-math.html#manifest",
-  "consumes": [],
+  "consumes": [
+    "art-614-eip7702-authorization-tuple-decoder"
+  ],
   "feeds": [],
   "status": "live",
   "conformance_fixtures": true,
@@ -17,8 +62,8 @@
   "compute_images": [
     {
       "system": "sha256-source",
-      "image_id": "sha256:5590e940c1c036d108e0bfb8662b88bdfec6c275cc55843ac2a9f14cd0c78ba9",
-      "valid_from": "2026-08-13"
+      "image_id": "sha256:f9f81bb9ed732da90bba7f2150eee8203a2994eeb6cd701c4b896520122049fe",
+      "valid_from": "2026-10-06"
     },
     {
       "system": "risc0",
@@ -30,43 +75,44 @@
     "json"
   ],
   "compute_proof_ready": "ready",
-  "deferred_reason": "New shard; awaiting the async GPU proving queue (S18 steady-state).",
+  "deferred_reason": "Re-proved in the same push as the v0.8/v0.9 amendment (ZZ-EIP7702-USEROP-CHAIN-1, SO #36): vector 13 (v09-eip7702-override-paymaster-signature), 1,270 s wall, MAX user_cycles 128,078,513 across all 18 vectors.",
   "compute_proof": {
     "type": "ZkVmReceipt",
     "system": "risc0",
     "receiptFormat": "groth16-bn254",
     "imageId": "sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6",
-    "seal": "EkUFKQ7Zelu/tv9T4LnWTWO9ogmfRe8tiIoKzjSIY0sihjZAtWEaU9Vc7kCq9cPXkFGZ46+JXt0dLe2OC97nWiFgJus7viYehYp+Tx74mte4kwwm2aSdPqpEm8QazSU+Hqyy+cd5n7vG8isnemK9z3f/WBt9hmjp3RBhLYZT0xMn9aVpShfA15qCYishSafo72Fhaa0HIr+IuKK8M0NdmgSi2cdUV8ib2BJQKlmTqDu3JdHPpt9HFSmq36H9w6wrI/xYsD0aFtEpxrxya6QKOmYRWPpJ2d8/k/rieedxHjEKcmGg8UlI1VqL4nOGO8t+h0D41yOCqD7+YkrgmneWMQ==",
+    "seal": "LVI3m0sXDei1/ZjqpyRYj/sKTeyFATIKbpoEOwATItYnPOsYjEpMIG54m4wIIYxqzTWw/LtPWggO2zYFq8HlNhgOysBUjtfU52/rmtB7GHAdLGqXpwKgKL6I21yl5zxuGyMYNfGdEMmXXqn3mX15GXaV5DYoJJjuPe3R2ovnNe4dpZWzl7YvkDl/gU3NP6kjlNu6k+gR+T50Cq6y/xoGxShgzmQjBJQTwT9Xv8F1YPKhSbA75r4MuW9xGeqwdZ/dCFPJK2QHd56IuZ2R5+Of2f49PHfRVAWbw7NI9kgqTFsWr9hw7IqPmAV+eOJEruSQgk/mNwgIq0madE2QmKWRkw==",
     "journal": {
       "chaingraph_version": "0.4.0",
-      "kernel_digest": "sha256:5590e940c1c036d108e0bfb8662b88bdfec6c275cc55843ac2a9f14cd0c78ba9",
+      "kernel_digest": "sha256:f9f81bb9ed732da90bba7f2150eee8203a2994eeb6cd701c4b896520122049fe",
       "output": {
-        "chain_id": "1",
+        "chain_id": "8453",
+        "eip7702_delegate_bound": "0x0101010101010101010101010101010101010101",
         "entry_point": {
-          "address": "0x5ff137d4b0fdcd49dca30c7cf57e578a026d2789",
-          "address_matches_canonical": true,
-          "canonical_address_for_declared_version": "0x5ff137d4b0fdcd49dca30c7cf57e578a026d2789",
-          "declared_version": "0.6"
+          "address": "0x4337084d9e255ff0702461cf8895ce9e3b5ff108",
+          "address_matches_canonical": null,
+          "canonical_address_for_declared_version": null,
+          "declared_version": "0.9"
         },
         "field_hashes": {
-          "call_data_hash": "0x8f54361c53196a7fbccb94b6951e30560cd56ed2372519e43070080b38f6f453",
-          "init_code_hash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
-          "paymaster_and_data_hash": "0x36d2122e1bfd3419690d0aeaf5131561065b8fe2c4eb07bad7c36e924076362d"
+          "call_data_hash": "0x87a5217f6148b960f454515ddc72193fc69288c3e47def396f40231ef38f7ce1",
+          "init_code_hash": "0xe05e233e41203dddfcda58a63162b24bf76959cb57a47f39c7badf78fab63e9d",
+          "paymaster_and_data_hash": "0x0dd6ed073926d2e8289d62707b8af2226683a1eb1ea312d125e58212c1ade1ca"
         },
         "gas_accounting": {
           "declared_base_fee_per_gas": null,
           "effective_gas_price_basis": "requires_declared_base_fee -- the fee caps differ, so the price depends on block.basefee, which this kernel never fetches. Supply declaredBaseFeePerGas.",
           "effective_gas_price_wei": null,
-          "entry_point_version": "0.6",
+          "entry_point_version": "0.9",
           "paymaster_address": "0x1234567890abcdef1234567890abcdef12345678",
           "paymaster_fields_note": null,
-          "paymaster_multiplier_applied": "3",
-          "paymaster_post_op_gas_limit": null,
+          "paymaster_multiplier_applied": null,
+          "paymaster_post_op_gas_limit": "50000",
           "paymaster_present": true,
-          "paymaster_verification_gas_limit": null,
-          "prefund_formula": "v0.6: (callGasLimit + verificationGasLimit * paymasterMultiplier + preVerificationGas) * maxFeePerGas",
-          "required_gas": "571000",
-          "required_prefund_wei": "1142000000000000"
+          "paymaster_verification_gas_limit": "100000",
+          "prefund_formula": "v0.9: (verificationGasLimit + callGasLimit + preVerificationGas + paymasterVerificationGasLimit + paymasterPostOpGasLimit) * maxFeePerGas",
+          "required_gas": "675000",
+          "required_prefund_wei": "1687500000000000"
         },
         "never_fetched": [
           "L1 data fee / blob fee: never derived. Post-EIP-4844 it depends on the inclusion-time L1 basefee and blob basefee, neither of which is offline-derivable. Supply declaredL1DataFeeWei to include it in reconciliation.",
@@ -74,12 +120,12 @@
           "EntryPoint contract state: never read. Deposits, stakes, nonce-sequence validity, and prior spend are not consulted.",
           "Chain state of any kind: no RPC, no indexer, no receipt lookup. actualGasUsed and actualGasCost are reconciled only as caller-declared values."
         ],
-        "packed_user_op_hash": "0x25d4eeb27d24d9b4899bb7a22ea8dddeca31d86ce7c8e916b63623dedc0329f1",
+        "packed_user_op_hash": "0x53e6e9b096b00db7bb3257edfaa88bf4a8b560a8b97ca75263f5bc34c6eae51a",
         "packed_words": {
-          "account_gas_limits": null,
-          "gas_fees": null,
-          "layout": "v0.6 UserOperation -- abi.encode(address sender, uint256 nonce, bytes32 keccak(initCode), bytes32 keccak(callData), uint256 callGasLimit, uint256 verificationGasLimit, uint256 preVerificationGas, uint256 maxFeePerGas, uint256 maxPriorityFeePerGas, bytes32 keccak(paymasterAndData))",
-          "word_count": 10
+          "account_gas_limits": "0x00000000000000000000000000030d40000000000000000000000000000493e0",
+          "gas_fees": "0x00000000000000000000000059682f000000000000000000000000009502f900",
+          "layout": "v0.9 PackedUserOperation -- EIP-712 struct abi.encode(PACKED_USEROP_TYPEHASH, address sender, uint256 nonce, bytes32 initCodeHash (the Eip7702Support override when initCode carries the 0x7702 marker), bytes32 keccak(callData), bytes32 accountGasLimits, uint256 preVerificationGas, bytes32 gasFees, bytes32 paymasterDataKeccak(paymasterAndData), which excludes an appended paymaster signature from the hashed bytes); userOpHash = keccak256(0x1901 ++ keccak256(EIP712Domain(string name,string version,uint256 chainId,address verifyingContract) with name \"ERC4337\" version \"1\" chainId verifyingContract entryPoint) ++ structHash)",
+          "word_count": 9
         },
         "paymaster_reconciliation": {
           "declared_actual_gas_cost_wei": null,
@@ -100,20 +146,21 @@
           "tolerance_wei": "0"
         },
         "reasons": [],
-        "scope_note": "Recomputes the ERC-4337 userOpHash from a caller-supplied UserOperation under a DECLARED EntryPoint version (v0.6 or v0.7), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against a charge recomputed from declared inputs. Zero network calls and zero chain reads: every field is caller-declared and echoed back, never independently resolved. L1 data and blob fees are NEVER derived -- post-EIP-4844 they depend on the inclusion-time L1 basefee, which is not offline-derivable, so they participate only when the caller declares them and their absence is reported as a named gap. block.basefee is likewise never fetched: absent a declared value the effective gas price is reported as null with the reason. This node recomputes and reconciles; it makes no claim that any operation was settled, accepted, included, or final, and no claim about signature validity (the signature field is excluded from the hashed struct by the ERC-4337 spec itself).",
+        "scope_note": "Recomputes the ERC-4337 userOpHash from a caller-supplied UserOperation under a DECLARED EntryPoint version (v0.6, v0.7, v0.8 or v0.9), computes the required prefund from caller-supplied gas limits, and reconciles a declared paymaster charge against a charge recomputed from declared inputs. v0.8 and v0.9 hash the PackedUserOperation as an EIP-712 typed hash over the ERC4337 domain; when initCode carries the EIP-7702 marker the initCode hash is replaced by the Eip7702Support override built from the DECLARED eip7702Delegate, and v0.9 excludes an appended paymaster signature from the hashed paymasterAndData bytes. The delegate and the signing authority are DECLARED inputs, never fetched: supply eip7702Delegate and eip7702Authority. Zero network calls and zero chain reads: every field is caller-declared and echoed back, never independently resolved. L1 data and blob fees are NEVER derived -- post-EIP-4844 they depend on the inclusion-time L1 basefee, which is not offline-derivable, so they participate only when the caller declares them and their absence is reported as a named gap. block.basefee is likewise never fetched: absent a declared value the effective gas price is reported as null with the reason. This node recomputes and reconciles; it makes no claim that any operation was settled, accepted, included, or final, and no claim about signature validity (the signature field is excluded from the hashed struct by the ERC-4337 spec itself).",
+        "sender_matches_declared_authority": true,
         "user_op": {
-          "call_data": "0xb61d27f60000000000000000000000005ff137d4b0fdcd49dca30c7cf57e578a026d2789",
-          "call_gas_limit": "100000",
-          "init_code": "0x",
-          "max_fee_per_gas": "2000000000",
-          "max_priority_fee_per_gas": "1000000000",
-          "nonce": "0",
-          "paymaster_and_data": "0x1234567890abcdef1234567890abcdef12345678000000000000000000000000000138800000000000000000000000000000c350deadbeef",
-          "pre_verification_gas": "21000",
+          "call_data": "0xb61d27f60000000000000000000000004337084d9e255ff0702461cf8895ce9e3b5ff108",
+          "call_gas_limit": "300000",
+          "init_code": "0x770200000000000000000000000000000000000000deadbeef",
+          "max_fee_per_gas": "2500000000",
+          "max_priority_fee_per_gas": "1500000000",
+          "nonce": "7",
+          "paymaster_and_data": "0x1234567890abcdef1234567890abcdef12345678000000000000000000000000000186a00000000000000000000000000000c350cafebabeababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab004122e325a297439656",
+          "pre_verification_gas": "25000",
           "sender": "0x2a1530c4c41db0b0b2bb646cb5eb1a67b7158667",
-          "verification_gas_limit": "150000"
+          "verification_gas_limit": "200000"
         },
-        "user_op_hash": "0x45ab83d646f4aaad28e0d2987bcdacd64d6b2ead0b56520d1d1119f2d942671b",
+        "user_op_hash": "0x4c07a343fa3b22c03fd47cc4ab4ec9c240e9155d4eef55c689c492163bf42098",
         "verdict": "USEROP_RECOMPUTED"
       }
     }
