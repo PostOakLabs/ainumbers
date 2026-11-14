@@ -605,6 +605,18 @@ function summarize(rows) {
 const MAX_FILES = 2000;
 const MAX_BYTES = 20 * 1024 * 1024;
 
+/**
+ * Node id gate. A receipt's tool_id is holder-supplied, so it never picks a module path on its own:
+ * it must be a plain id AND a key of the site's kernel registry (kernels/index.mjs, loaded from a fixed address).
+ * Returns null when the id may be used, else the refusal reason.
+ */
+function nodeIdRefusal(id, known) {
+  if (typeof id !== 'string' || id === '') return 'refused: tool_id is missing or not a string';
+  if (!/^[a-z0-9-]+$/.test(id)) return 'refused: tool_id is not a plain node id';
+  if (!known || !Object.prototype.hasOwnProperty.call(known, id)) return 'refused: tool_id names no node on this site';
+  return null;
+}
+
 /** Selection caps. files: [{ name, size }]. Checked before any file is read. */
 function checkCaps(files) {
   if (files.length > MAX_FILES) {
@@ -703,13 +715,14 @@ function buildMandate(report, nowIso) {
     n.textContent = 'This copy was opened from a file. Browsers refuse to load the kernel modules from a file address, so every node would report unresolved. Serve the site folder from a local static server (for example, python -m http.server in the site folder) and open this page from there; it still needs no connection.';
   }
 
-  const kernelCache = new Map();
+  // The registry is imported from one fixed address; a receipt id only selects a key in it, never a path.
+  let registry;
   async function loadKernel(id) {
-    if (kernelCache.has(id)) return kernelCache.get(id);
-    let mod = null;
-    try { mod = await import('./kernels/' + id + '.kernel.mjs'); } catch (e) { mod = null; }
-    kernelCache.set(id, mod);
-    return mod;
+    if (registry === undefined) {
+      try { registry = (await import('./kernels/index.mjs')).KERNELS || null; } catch (e) { registry = null; }
+    }
+    if (nodeIdRefusal(id, registry) !== null) return null;
+    return registry[id];
   }
 
   function onPick(list) {

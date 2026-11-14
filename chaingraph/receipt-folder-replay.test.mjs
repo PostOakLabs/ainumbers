@@ -64,7 +64,7 @@ const HASH_URL = pathToFileURL(resolve(HERE, 'kernels', '_hash.mjs')).href;
 async function loadPageModule(libText, helpersText, tag) {
   const dir = mkdtempSync(join(tmpdir(), 'rfr-'));
   const f = join(dir, `${tag}.mjs`);
-  writeFileSync(f, `import { executionHash, jcsStringify } from '${HASH_URL}';\n${libText}\n${helpersText}\nexport { replayFile, replayReceipt, parseReceipt, summarize, checkCaps, toCsv, csvCell, buildMandate, AP2Schema, leafPointers, MAX_FILES, MAX_BYTES };\n`);
+  writeFileSync(f, `import { executionHash, jcsStringify } from '${HASH_URL}';\n${libText}\n${helpersText}\nexport { nodeIdRefusal, replayFile, replayReceipt, parseReceipt, summarize, checkCaps, toCsv, csvCell, buildMandate, AP2Schema, leafPointers, MAX_FILES, MAX_BYTES };\n`);
   return import(pathToFileURL(f).href);
 }
 const pageLib = block(pageHtml, 'replay-lib').body;
@@ -110,6 +110,22 @@ red('R2 fetch', egressProblems(pageHtml + "\nfetch('https://example.invalid/x')"
 red('R2 storage', egressProblems(pageHtml + '\nlocalStorage.setItem("a","b")'));
 red('R2 worker', egressProblems(pageHtml + '\nnew Worker("w.js")'));
 red('R2 csp', cspProblems(pageHtml.replace("connect-src 'none'", 'connect-src *')));
+
+// ---- D1: a receipt's tool_id never chooses a module path ---------------------------------
+const { KERNELS: REGISTRY } = await import(pathToFileURL(resolve(HERE, 'kernels', 'index.mjs')).href);
+const realId = 'art-04-agent-identity-attestation-checker';
+check(M.nodeIdRefusal(realId, REGISTRY) === null, 'D1: a real node id was refused');
+check(Object.keys(REGISTRY).every((k) => M.nodeIdRefusal(k, REGISTRY) === null), 'D1: a registry key fails the id gate: ' + Object.keys(REGISTRY).filter((k) => M.nodeIdRefusal(k, REGISTRY) !== null).slice(0, 5).join(', '));
+const refusalAsProblem = (id) => { const r = M.nodeIdRefusal(id, REGISTRY); return r !== null && /^refused: /.test(r) ? [r] : []; };
+red('D1 traversal ../x', refusalAsProblem('../x'));
+red('D1 path a/b', refusalAsProblem('a/b'));
+red('D1 absolute url', refusalAsProblem('https://example.invalid/m'));
+red('D1 empty id', refusalAsProblem(''));
+red('D1 non-string id', refusalAsProblem(42));
+red('D1 unknown plain id', refusalAsProblem('no-such-node-id'));
+red('D1 inherited key', refusalAsProblem('constructor'));
+check(!/import\(\s*['"`]\.\/kernels\/['"`]\s*\+/.test(pageHtml), "D1: the page builds an import path from a receipt id");
+red('D1 path-built import', /import\(\s*['"`]\.\/kernels\/['"`]\s*\+/.test(pageHtml + "\nawait import('./kernels/' + id + '.kernel.mjs')") ? ['path-built import'] : []);
 
 // ---- R5: caps ---------------------------------------------------------------------------
 const many = (n, size) => Array.from({ length: n }, (_, i) => ({ name: `r${i}.json`, size }));
