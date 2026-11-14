@@ -727,6 +727,7 @@ status: stable
 - [Settlement Efficiency KPI Engine](./art-84-settlement-efficiency-kpi.md) — `compute_settlement_efficiency_kpi`
 - [GL Flux Explainer with Gate](./art-840-gl-flux-explainer.md) — `explain_gl_flux_with_gate`
 - [SOC Report Coverage and Bridge Gap](./art-842-soc-report-coverage-gap.md) — `compute_soc_report_coverage_gap`
+- [TAP Message Structure Check](./art-843-tap-message-validator.md) — `validate_tap_message`
 - [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md) — `run_pqc_timeline_fit`
 - [TLS / X.509 PKI Migration Planner](./art-86-tls-pki-migration-planner.md) — `plan_tls_pki_migration`
 - [SWIFT / ISO 20022 PQC Readiness Checker](./art-87-iso20022-pqc-readiness-checker.md) — `check_iso20022_pqc_readiness`

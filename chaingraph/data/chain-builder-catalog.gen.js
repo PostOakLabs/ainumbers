@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (754 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (755 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -8368,6 +8368,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-842-soc-report-coverage-gap.html",
     "description": "Recomputes coverage and gap arithmetic from declared values. It does not read the SOC report, does not assess whether any control is effecti",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-843-tap-message-validator",
+    "display_name": "TAP Message Structure Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-843-tap-message-validator.html",
+    "description": "Checks that a pasted Transaction Authorization Protocol message, or a short thread of them, has the structure the published TAIPs JSON Schem",
     "consumes": [],
     "feeds": [],
     "status": "live"
