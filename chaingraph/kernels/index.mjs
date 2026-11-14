@@ -685,6 +685,7 @@ import * as art763    from './art-763-ai-displacement-risk-screener.kernel.mjs';
 import * as art764    from './art-764-solo-401k-vs-sep-ira.kernel.mjs';
 import * as art765    from './art-765-dependent-care-fsa-cdctc-optimizer.kernel.mjs';
 import * as art766    from './art-766-parental-leave-income-gap.kernel.mjs';
+import * as art769    from './art-769-medicare-oop-exposure.kernel.mjs';
 import * as art77     from './art-77-t1-settlement-readiness-diagnostic.kernel.mjs';
 import * as art770    from './art-770-total-cost-of-homeownership.kernel.mjs';
 import * as art771    from './art-771-automation-payback.kernel.mjs';
@@ -1442,6 +1443,7 @@ export const KERNELS = {
   'art-764-solo-401k-vs-sep-ira':                               art764,
   'art-765-dependent-care-fsa-cdctc-optimizer':                 art765,
   'art-766-parental-leave-income-gap':                          art766,
+  'art-769-medicare-oop-exposure':                              art769,
   'art-77-t1-settlement-readiness-diagnostic':                  art77,
   'art-770-total-cost-of-homeownership':                        art770,
   'art-771-automation-payback':                                 art771,
