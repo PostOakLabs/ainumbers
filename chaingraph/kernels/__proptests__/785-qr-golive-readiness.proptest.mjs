@@ -1,5 +1,5 @@
 // 785-qr-golive-readiness — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:d683a9f51b611dcf47d82643fd3d20fa1a74afe108992151d69bbc49bb7fb1df
+// kernel_digest_at_authoring: sha256:0d33ee528eed1240fe67b4ac1957d4216b9d8370a0c040d4ad5b2a9f3a6dfcf9
 // spec: research/QR-GOLIVE-PIN-2026-10-29.md (gate catalogue + Level One principles)
 // human_sign_off: PENDING
 //
@@ -7,7 +7,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/785-qr-golive-readiness.proptest.mjs
 
-import { compute } from '../785-qr-golive-readiness.kernel.mjs';
+import { compute, buildArtifact } from '../785-qr-golive-readiness.kernel.mjs';
 import { runFixtureOracle, summarize } from './_pbt-common.mjs';
 
 const KERNEL_ID = '785-qr-golive-readiness';
@@ -81,6 +81,16 @@ function checkRefusals() {
     { pp: { phase: 'pilot', gates: metGates(), weights: { communications: -5 } }, flag: 'REFUSED_WEIGHTS_OUT_OF_BOUNDS' },
     { pp: { phase: 'pilot', gates: metGates(), uat_summary: { mandatory_cases: 10 } }, flag: 'REFUSED_INVALID_UAT_SUMMARY' },
     { pp: { phase: 'pilot', gates: metGates(), principles: [{ principle_id: 'x', status: 'maybe' }] }, flag: 'REFUSED_INVALID_PRINCIPLES' },
+    // null is a present-but-invalid value, never read as absent
+    { pp: { phase: 'pilot', gates: metGates(), uat_summary: null }, flag: 'REFUSED_INVALID_UAT_SUMMARY' },
+    { pp: { phase: 'pilot', gates: metGates(), weights: null }, flag: 'REFUSED_WEIGHTS_OUT_OF_BOUNDS' },
+    { pp: { phase: 'pilot', gates: metGates(), principles: null }, flag: 'REFUSED_INVALID_PRINCIPLES' },
+    // fractional, negative and unsafe counts on every uat_summary field
+    ...['mandatory_cases', 'passed', 'open_sev1'].flatMap(k => [1.5, -1, 9007199254740993, 1000001].map(bad => (
+      { pp: { phase: 'pilot', gates: metGates(), uat_summary: { mandatory_cases: 48, passed: 48, open_sev1: 0, [k]: bad } }, flag: 'REFUSED_INVALID_UAT_SUMMARY' }))),
+    // fractional and unsafe weights
+    ...[1999.5, 9007199254740993, NaN].map(bad => (
+      { pp: { phase: 'pilot', gates: metGates(), weights: { participant_certification: bad } }, flag: 'REFUSED_WEIGHTS_OUT_OF_BOUNDS' })),
   ];
   for (const c of cases) {
     const r = compute(c.pp);
@@ -125,6 +135,40 @@ function checkDeterminism() {
   return { name: 'deterministic', checked: 1, violations: a !== b ? 1 : 0 };
 }
 
+// Class K — buildArtifact never throws: unhashable policy parameters (unsafe or non-finite
+// numbers, nesting past the canonicalizer depth, past its value budget) mint an artifact
+// with execution_hash null plus hash_refusal; a hashable input still gets a hash.
+async function checkBuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  /** @param {number} n @returns {any} */
+  const deep = (n) => { let v = /** @type {any} */ (1); for (let i = 0; i < n; i++) v = [v]; return v; };
+  const base = { phase: 'pilot', gates: metGates() };
+  const bad = [
+    { ...base, extra: 1e300 },
+    { ...base, extra: 9007199254740993 },
+    { ...base, extra: NaN },
+    { ...base, extra: deep(511) },
+    { ...base, extra: new Array(1000001).fill(0) },
+    { ...base, uat_summary: { mandatory_cases: 1e300, passed: 1, open_sev1: 0 } },
+    { phase: 1e300, gates: [] },
+    null, undefined, 5, 'x', [],
+  ];
+  for (const pp of bad) {
+    checked++;
+    try {
+      const a = await buildArtifact(pp);
+      const unhashable = a.execution_hash === null;
+      if (unhashable !== (a.hash_refusal !== undefined)) violations++;
+    } catch (e) { violations++; }
+  }
+  checked++;
+  try {
+    const ok = await buildArtifact(base);
+    if (typeof ok.execution_hash !== 'string' || ok.hash_refusal !== undefined) violations++;
+  } catch (e) { violations++; }
+  return { name: 'buildArtifact_never_throws', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -140,6 +184,7 @@ const properties = [
   checkUatOverride(),
   checkWeightsOverride(),
   checkDeterminism(),
+  await checkBuildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test.`);
 const ok = summarize(KERNEL_ID, oracle, properties);

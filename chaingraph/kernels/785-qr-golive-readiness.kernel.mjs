@@ -35,6 +35,8 @@ const CATALOGUE = [
 
 const WEIGHT_MIN_BP = 0;
 const WEIGHT_MAX_BP = 5000;
+const UAT_COUNT_MAX = 1000000;  // explicit upper bound on every uat_summary count
+const PRINCIPLES_MAX = 1000;    // explicit upper bound on the principles checklist length
 const GO_THRESHOLD_BP = 9750; // GO at or above, GO_WITH_CONDITIONS below (when no blocking failure)
 const STATUS_FACTOR = { met: 1, partially_met: 0.5, not_met: 0, not_applicable: 0 };
 
@@ -63,15 +65,15 @@ export function compute(pp) {
   // through Object.prototype (KERNEL-CALLER-KEY-LOOKUP-LINT-1).
   let weights = Object.create(null);
   for (const g of CATALOGUE) weights[g.gate_id] = g.weight;
-  if (pp.weights !== undefined && pp.weights !== null) {
-    if (typeof pp.weights !== 'object' || Array.isArray(pp.weights)) {
+  if (pp.weights !== undefined) {
+    if (pp.weights === null || typeof pp.weights !== 'object' || Array.isArray(pp.weights)) {
       return refused('weights must be an object of {gate_id: weight_bp}', 'REFUSED_WEIGHTS_OUT_OF_BOUNDS');
     }
     const merged = Object.create(null);
     let sum = 0;
     for (const g of CATALOGUE) {
-      const w = pp.weights[g.gate_id] !== undefined ? pp.weights[g.gate_id] : g.weight;
-      if (typeof w !== 'number' || !isFinite(w) || w < WEIGHT_MIN_BP || w > WEIGHT_MAX_BP) {
+      const w = Object.hasOwn(pp.weights, g.gate_id) ? pp.weights[g.gate_id] : g.weight;
+      if (!Number.isSafeInteger(w) || w < WEIGHT_MIN_BP || w > WEIGHT_MAX_BP) {
         return refused('weight for ' + g.gate_id + ' outside pinned bounds [' + WEIGHT_MIN_BP + ', ' + WEIGHT_MAX_BP + '] bp', 'REFUSED_WEIGHTS_OUT_OF_BOUNDS');
       }
       merged[g.gate_id] = w;
@@ -99,10 +101,13 @@ export function compute(pp) {
   // submitted uat_completion status when present.
   const compliance_flags = [];
   let uat = submitted['uat_completion'];
-  if (pp.uat_summary !== undefined && pp.uat_summary !== null) {
+  if (pp.uat_summary !== undefined) {
     const u = pp.uat_summary;
-    if (typeof u !== 'object' || typeof u.mandatory_cases !== 'number' || typeof u.passed !== 'number' || typeof u.open_sev1 !== 'number') {
-      return refused('uat_summary must be {mandatory_cases, passed, open_sev1} numbers', 'REFUSED_INVALID_UAT_SUMMARY');
+    const isCount = v => Number.isSafeInteger(v) && v >= 0 && v <= UAT_COUNT_MAX;
+    if (u === null || typeof u !== 'object' || Array.isArray(u)
+      || !Object.hasOwn(u, 'mandatory_cases') || !Object.hasOwn(u, 'passed') || !Object.hasOwn(u, 'open_sev1')
+      || !isCount(u.mandatory_cases) || !isCount(u.passed) || !isCount(u.open_sev1)) {
+      return refused('uat_summary must be {mandatory_cases, passed, open_sev1} non-negative safe integers up to ' + UAT_COUNT_MAX, 'REFUSED_INVALID_UAT_SUMMARY');
     }
     const uatFailed = u.open_sev1 > 0 || u.passed < u.mandatory_cases;
     if (uatFailed) {
@@ -166,8 +171,8 @@ export function compute(pp) {
 
   // Level One principles checklist — advisory only, never changes the verdict.
   const principles_summary = [];
-  if (pp.principles !== undefined && pp.principles !== null) {
-    if (!Array.isArray(pp.principles)) {
+  if (pp.principles !== undefined) {
+    if (!Array.isArray(pp.principles) || pp.principles.length > PRINCIPLES_MAX) {
       return refused('principles must be an array of {principle_id, status}', 'REFUSED_INVALID_PRINCIPLES');
     }
     for (const p of pp.principles) {
@@ -196,10 +201,54 @@ export function compute(pp) {
   return { output_payload, compliance_flags };
 }
 
+// Hashability walk: mirrors the classes _hash.mjs refuses before canonicalizing (a
+// non-finite number, an integer outside the 2^53 safe range, nesting past MAX_DEPTH, more
+// values than MAX_ELEMENTS). Reports { reason, detail } with path and kind only, never the
+// value; null when the subtree is safe to hash.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // The walked object is the exact execution_hash preimage. When the shared canonicalizer
+  // would refuse it, mint the artifact with a null execution_hash and the reason beside it
+  // instead of letting the hash throw: buildArtifact never throws on any input.
+  let output_payload, compliance_flags, unhashable;
+  const ppWalk = findHashRefusal(pp, 'pp', 1, { maxDepth: HASH_MAX_DEPTH - 8, maxElements: 199000, n: 0 });
+  if (ppWalk !== null) {
+    // pp itself is unhashable or oversized: do not run compute() over it.
+    ({ output_payload, compliance_flags } = refused('policy parameters cannot be hashed: ' + ppWalk.detail, ppWalk.reason));
+    unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 }) || ppWalk;
+  } else {
+    ({ output_payload, compliance_flags } = compute(pp));
+    unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  }
+  const hash = unhashable === null ? await executionHash(pp, output_payload) : null;
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -215,4 +264,6 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }
