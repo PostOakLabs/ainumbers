@@ -97,7 +97,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 </style>
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-497-validator-change-control-receipt.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:d745895b64457c7cbf8fad911133919012cef31aa4e629cc5f5d0cf6e300a64b">
+<meta name="kernel-digest" content="sha256:dfef53295b89af694ed57e55043ee81c65e7febdd10103696750306af87bd4b6">
 </head>
 <body>
 <nav>
@@ -355,7 +355,22 @@ function jnum(v) { return Number.isFinite(v) && Math.abs(v) > MAX_SAFE ? String(
 function jn(v) { return v == null ? null : jnum(v); }
 function str(v) { return String(v == null ? '' : v).trim(); }
 function optStr(v) { return typeof v === 'string' && v.trim() !== '' ? v.trim() : null; }
-function trimmedStr(v) { return typeof v === 'string' ? v.trim() : ''; }
+function rawStr(v) { return typeof v === 'string' ? v : ''; }
+function realId(v) { return typeof v === 'string' && v.trim() !== ''; }
+function notStr(v) { return typeof v !== 'string'; }
+// A real calendar date in exact YYYY-MM-DD form: new Date() is deliberately
+// not used -- it silently normalizes 2026-02-31 into March and would call an
+// impossible date clean.
+var ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+function realCalendarDate(s) {
+  var m = ISO_DATE.exec(s || '');
+  if (!m) return false;
+  var y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+  if (mo < 1 || mo > 12 || d < 1) return false;
+  var leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  var dim = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return d <= dim[mo - 1];
+}
 // Required inputs fail closed: a missing or null weight is NO statement at all
 // (never a stated zero, which would silently encode a from-zero add or a
 // slash-to-zero), and a missing or blank as-of date never records undated
@@ -365,7 +380,11 @@ function trimmedStr(v) { return typeof v === 'string' ? v.trim() : ''; }
 // (this page sends DOM input strings); blanks, booleans, arrays, objects and
 // junk refuse NOT_STATED, negatives refuse NEGATIVE, nothing coerces or
 // clamps, and as_of, effective_epoch and validator_ref must be non-empty
-// strings.
+// strings. Input truthfulness: an impossible as_of date refuses
+// AS_OF_INVALID_DATE, an integer beyond 2^53 refuses UNSAFE_INTEGER (its JSON
+// round-trip already prints a different number), only real non-empty strings
+// are authorizing identities, and change_type is an exact allowlist match
+// (padding is a different value, not a tolerated one).
 var DECIMAL_STRING = /^-?\d+(\.\d+)?$/;
 var INTEGER_STRING = /^-?\d+$/;
 function readWeight(v) {
@@ -374,6 +393,7 @@ function readWeight(v) {
   else if (typeof v === 'string' && DECIMAL_STRING.test(v.trim())) n = Number(v.trim());
   else return { status: 'unstated', value: null };
   if (!Number.isFinite(n)) return { status: 'unstated', value: null };
+  if (Number.isInteger(n) && !Number.isSafeInteger(n)) return { status: 'unsafe', value: null };
   return n < 0 ? { status: 'negative', value: n } : { status: 'stated', value: n };
 }
 function readCount(v) {
@@ -382,6 +402,7 @@ function readCount(v) {
   else if (typeof v === 'string' && INTEGER_STRING.test(v.trim())) n = Number(v.trim());
   else return { status: 'unstated', value: null };
   if (!Number.isInteger(n)) return { status: 'unstated', value: null };
+  if (!Number.isSafeInteger(n)) return { status: 'unsafe', value: null };
   return n < 0 ? { status: 'negative', value: n } : { status: 'stated', value: n };
 }
 
@@ -390,23 +411,26 @@ function computeReceipt(pp) {
   var compliance_flags = [];
 
   var validator_ref = optStr(pp.validator_ref);
-  var rawType = trimmedStr(pp.change_type);
+  var rawType = rawStr(pp.change_type);
   var change_type_valid = CHANGE_TYPES.indexOf(rawType) >= 0;
   var change_type = change_type_valid ? rawType : (rawType || 'unstated');
   if (!change_type_valid) exceptions.push('UNKNOWN_CHANGE_TYPE');
 
   var prior = readWeight(pp.prior_weight);
   var posterior = readWeight(pp.posterior_weight);
-  if (prior.status === 'negative') exceptions.push('PRIOR_WEIGHT_NEGATIVE');
+  if (prior.status === 'unsafe') exceptions.push('PRIOR_WEIGHT_UNSAFE_INTEGER');
+  else if (prior.status === 'negative') exceptions.push('PRIOR_WEIGHT_NEGATIVE');
   else if (prior.status === 'unstated') exceptions.push('PRIOR_WEIGHT_NOT_STATED');
-  if (posterior.status === 'negative') exceptions.push('POSTERIOR_WEIGHT_NEGATIVE');
+  if (posterior.status === 'unsafe') exceptions.push('POSTERIOR_WEIGHT_UNSAFE_INTEGER');
+  else if (posterior.status === 'negative') exceptions.push('POSTERIOR_WEIGHT_NEGATIVE');
   else if (posterior.status === 'unstated') exceptions.push('POSTERIOR_WEIGHT_NOT_STATED');
   var prior_weight = prior.value;
   var posterior_weight = posterior.value;
   var weight_delta = prior.status === 'stated' && posterior.status === 'stated'
     ? posterior.value - prior.value : null;
   var total = readWeight(pp.total_stake_weight);
-  if (total.status === 'negative') exceptions.push('TOTAL_STAKE_WEIGHT_NEGATIVE');
+  if (total.status === 'unsafe') exceptions.push('TOTAL_STAKE_WEIGHT_UNSAFE_INTEGER');
+  else if (total.status === 'negative') exceptions.push('TOTAL_STAKE_WEIGHT_NEGATIVE');
   else if (total.status === 'unstated') exceptions.push('TOTAL_STAKE_WEIGHT_NOT_STATED');
   else if (total.value === 0) exceptions.push('TOTAL_STAKE_WEIGHT_ZERO_OR_ABSENT');
   var total_stake_weight = total.value;
@@ -425,9 +449,12 @@ function computeReceipt(pp) {
     }
   }
 
-  var authorization_chain = Array.isArray(pp.authorizing_identities)
-    ? pp.authorizing_identities.map(str).filter(function(x){return x;})
-    : [];
+  // Only real non-empty strings are authorizing identities: a number, boolean,
+  // object or array entry is refused by type, never String()-coerced into the
+  // chain or counted toward quorum.
+  var identities = Array.isArray(pp.authorizing_identities) ? pp.authorizing_identities : [];
+  var authorization_chain = identities.filter(realId).map(str);
+  if (identities.some(notStr)) exceptions.push('AUTHORIZING_IDENTITY_NOT_A_STRING');
   var authorized = authorization_chain.length > 0;
   if (!authorized) exceptions.push('NO_AUTHORIZING_IDENTITY');
 
@@ -437,12 +464,18 @@ function computeReceipt(pp) {
   var quorum_achieved = qa.value;
   var quorum_required_evaluable = qr.status === 'stated' && qr.value > 0;
   var quorum_status;
-  if (qr.status === 'negative') {
+  if (qr.status === 'unsafe') {
+    quorum_status = 'UNQUANTIFIED';
+    exceptions.push('QUORUM_REQUIRED_UNSAFE_INTEGER');
+  } else if (qr.status === 'negative') {
     quorum_status = 'UNQUANTIFIED';
     exceptions.push('QUORUM_REQUIRED_NEGATIVE');
   } else if (!quorum_required_evaluable) {
     quorum_status = 'UNQUANTIFIED';
     exceptions.push('QUORUM_REQUIRED_NOT_STATED');
+  } else if (qa.status === 'unsafe') {
+    quorum_status = 'UNQUANTIFIED';
+    exceptions.push('QUORUM_ACHIEVED_UNSAFE_INTEGER');
   } else if (qa.status === 'negative') {
     quorum_status = 'UNQUANTIFIED';
     exceptions.push('QUORUM_ACHIEVED_NEGATIVE');
@@ -458,8 +491,11 @@ function computeReceipt(pp) {
 
   var effective_epoch = optStr(pp.effective_epoch);
   if (!effective_epoch) exceptions.push('EFFECTIVE_EPOCH_MISSING');
-  var as_of = optStr(pp.as_of);
-  if (!as_of) exceptions.push('AS_OF_MISSING');
+  var as_of_stated = optStr(pp.as_of);
+  var as_of_valid = as_of_stated !== null && realCalendarDate(as_of_stated);
+  var as_of = as_of_valid ? as_of_stated : null;
+  if (!as_of_stated) exceptions.push('AS_OF_MISSING');
+  else if (!as_of_valid) exceptions.push('AS_OF_INVALID_DATE');
 
   if (validator_ref) {
     compliance_flags.push('VCC_RECORDED');

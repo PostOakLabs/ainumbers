@@ -54,6 +54,20 @@ export const meta = {
 // field (delta, share) is computed from a refused statement. as_of,
 // effective_epoch and validator_ref must be non-empty strings: a non-string
 // scalar is a missing statement, never String()-coerced into a present one.
+//
+// Input truthfulness cure (Muse-lane audit, 2026-11-14): an as_of that is not
+// a real calendar date in exact YYYY-MM-DD form (an impossible day, month or
+// zero date, or any other shape) refuses AS_OF_INVALID_DATE and is never
+// recorded as the receipt date. An integer magnitude beyond 2^53 can never be
+// a faithful statement -- the JSON round-trip already prints a different
+// number -- so a weight, the total stake or a quorum count in that class
+// refuses UNSAFE_INTEGER, echoes null, and is carried as null in the artifact
+// preimage so the canonicalizer is never handed a value it must lie about
+// (buildArtifact never throws on input the kernel itself refuses). Only real
+// non-empty strings are authorizing identities: a number, boolean, object or
+// array entry is refused AUTHORIZING_IDENTITY_NOT_A_STRING, never
+// String()-coerced into the chain or counted toward quorum. change_type is an
+// exact allowlist match -- padding is not tolerance, it is a different value.
 
 const CHANGE_TYPES = ['add', 'remove', 'weight_change'];
 const MAX_SAFE = 9007199254740991;
@@ -63,7 +77,24 @@ function jnum(v) { return Number.isFinite(v) && Math.abs(v) > MAX_SAFE ? String(
 function jn(v) { return v == null ? null : jnum(v); }
 function str(v) { return String(v == null ? '' : v).trim(); }
 function optStr(v) { return typeof v === 'string' && v.trim() !== '' ? v.trim() : null; }
-function trimmedStr(v) { return typeof v === 'string' ? v.trim() : ''; }
+function rawStr(v) { return typeof v === 'string' ? v : ''; }
+function realId(v) { return typeof v === 'string' && v.trim() !== ''; }
+function notStr(v) { return typeof v !== 'string'; }
+
+// A real calendar date in exact YYYY-MM-DD form: padded digits, a real month,
+// and a day that exists in that month (leap years included). new Date() is
+// deliberately not used -- it silently normalizes 2026-02-31 into March and
+// would hand back a "clean" verdict on an impossible date.
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+function realCalendarDate(s) {
+  const m = ISO_DATE.exec(s || '');
+  if (!m) return false;
+  const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+  if (mo < 1 || mo > 12 || d < 1) return false;
+  const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  const dim = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return d <= dim[mo - 1];
+}
 
 // Strict statedness readers. A weight is a statement ONLY as a finite JSON
 // number or as one strict decimal-string form (the page port sends DOM input
@@ -71,6 +102,11 @@ function trimmedStr(v) { return typeof v === 'string' ? v.trim() : ''; }
 // string, boolean, array, object, null, blank or junk string -- anything
 // Number() would coerce) and status 'negative' both refuse: the value is
 // carried for the echo only, never fed to a branch or a derived field.
+// status 'unsafe' refuses an integer magnitude beyond 2^53 BEFORE the
+// negative/stated split: such a number cannot round-trip (RFC 7493), so
+// echoing it would print a different value than the caller sent and feeding
+// it to the canonicalizer would throw -- it refuses with its own named
+// exception and echoes null instead.
 const DECIMAL_STRING = /^-?\d+(\.\d+)?$/;
 const INTEGER_STRING = /^-?\d+$/;
 
@@ -80,6 +116,7 @@ function readWeight(v) {
   else if (typeof v === 'string' && DECIMAL_STRING.test(v.trim())) n = Number(v.trim());
   else return { status: 'unstated', value: null };
   if (!Number.isFinite(n)) return { status: 'unstated', value: null };
+  if (Number.isInteger(n) && !Number.isSafeInteger(n)) return { status: 'unsafe', value: null };
   return n < 0 ? { status: 'negative', value: n } : { status: 'stated', value: n };
 }
 
@@ -89,6 +126,7 @@ function readCount(v) {
   else if (typeof v === 'string' && INTEGER_STRING.test(v.trim())) n = Number(v.trim());
   else return { status: 'unstated', value: null };
   if (!Number.isInteger(n)) return { status: 'unstated', value: null };
+  if (!Number.isSafeInteger(n)) return { status: 'unsafe', value: null };
   return n < 0 ? { status: 'negative', value: n } : { status: 'stated', value: n };
 }
 
@@ -98,23 +136,26 @@ export function compute(pp) {
   const compliance_flags = [];
 
   const validator_ref = optStr(pp.validator_ref);
-  const rawType = trimmedStr(pp.change_type);
+  const rawType = rawStr(pp.change_type);
   const change_type_valid = CHANGE_TYPES.indexOf(rawType) >= 0;
   const change_type = change_type_valid ? rawType : (rawType || 'unstated');
   if (!change_type_valid) exceptions.push('UNKNOWN_CHANGE_TYPE');
 
   const prior = readWeight(pp.prior_weight);
   const posterior = readWeight(pp.posterior_weight);
-  if (prior.status === 'negative') exceptions.push('PRIOR_WEIGHT_NEGATIVE');
+  if (prior.status === 'unsafe') exceptions.push('PRIOR_WEIGHT_UNSAFE_INTEGER');
+  else if (prior.status === 'negative') exceptions.push('PRIOR_WEIGHT_NEGATIVE');
   else if (prior.status === 'unstated') exceptions.push('PRIOR_WEIGHT_NOT_STATED');
-  if (posterior.status === 'negative') exceptions.push('POSTERIOR_WEIGHT_NEGATIVE');
+  if (posterior.status === 'unsafe') exceptions.push('POSTERIOR_WEIGHT_UNSAFE_INTEGER');
+  else if (posterior.status === 'negative') exceptions.push('POSTERIOR_WEIGHT_NEGATIVE');
   else if (posterior.status === 'unstated') exceptions.push('POSTERIOR_WEIGHT_NOT_STATED');
   const prior_weight = prior.value;
   const posterior_weight = posterior.value;
   const weight_delta = prior.status === 'stated' && posterior.status === 'stated'
     ? posterior.value - prior.value : null;
   const total = readWeight(pp.total_stake_weight);
-  if (total.status === 'negative') exceptions.push('TOTAL_STAKE_WEIGHT_NEGATIVE');
+  if (total.status === 'unsafe') exceptions.push('TOTAL_STAKE_WEIGHT_UNSAFE_INTEGER');
+  else if (total.status === 'negative') exceptions.push('TOTAL_STAKE_WEIGHT_NEGATIVE');
   else if (total.status === 'unstated') exceptions.push('TOTAL_STAKE_WEIGHT_NOT_STATED');
   else if (total.value === 0) exceptions.push('TOTAL_STAKE_WEIGHT_ZERO_OR_ABSENT');
   const total_stake_weight = total.value;
@@ -133,9 +174,13 @@ export function compute(pp) {
     }
   }
 
-  const authorization_chain = Array.isArray(pp.authorizing_identities)
-    ? pp.authorizing_identities.map(str).filter(Boolean)
-    : [];
+  // Only real non-empty strings are authorizing identities: a number, boolean,
+  // object or array entry is refused by type and never String()-coerced into
+  // the chain or counted toward quorum (a coerced "0" or "false" would name an
+  // identity the caller never named).
+  const identities = Array.isArray(pp.authorizing_identities) ? pp.authorizing_identities : [];
+  const authorization_chain = identities.filter(realId).map(str);
+  if (identities.some(notStr)) exceptions.push('AUTHORIZING_IDENTITY_NOT_A_STRING');
   const authorized = authorization_chain.length > 0;
   if (!authorized) exceptions.push('NO_AUTHORIZING_IDENTITY');
 
@@ -145,12 +190,18 @@ export function compute(pp) {
   const quorum_achieved = qa.value;
   const quorum_required_evaluable = qr.status === 'stated' && qr.value > 0;
   let quorum_status;
-  if (qr.status === 'negative') {
+  if (qr.status === 'unsafe') {
+    quorum_status = 'UNQUANTIFIED';
+    exceptions.push('QUORUM_REQUIRED_UNSAFE_INTEGER');
+  } else if (qr.status === 'negative') {
     quorum_status = 'UNQUANTIFIED';
     exceptions.push('QUORUM_REQUIRED_NEGATIVE');
   } else if (!quorum_required_evaluable) {
     quorum_status = 'UNQUANTIFIED';
     exceptions.push('QUORUM_REQUIRED_NOT_STATED');
+  } else if (qa.status === 'unsafe') {
+    quorum_status = 'UNQUANTIFIED';
+    exceptions.push('QUORUM_ACHIEVED_UNSAFE_INTEGER');
   } else if (qa.status === 'negative') {
     quorum_status = 'UNQUANTIFIED';
     exceptions.push('QUORUM_ACHIEVED_NEGATIVE');
@@ -166,8 +217,11 @@ export function compute(pp) {
 
   const effective_epoch = optStr(pp.effective_epoch);
   if (!effective_epoch) exceptions.push('EFFECTIVE_EPOCH_MISSING');
-  const as_of = optStr(pp.as_of);
-  if (!as_of) exceptions.push('AS_OF_MISSING');
+  const as_of_stated = optStr(pp.as_of);
+  const as_of_valid = as_of_stated !== null && realCalendarDate(as_of_stated);
+  const as_of = as_of_valid ? as_of_stated : null;
+  if (!as_of_stated) exceptions.push('AS_OF_MISSING');
+  else if (!as_of_valid) exceptions.push('AS_OF_INVALID_DATE');
 
   if (validator_ref) {
     compliance_flags.push('VCC_RECORDED');
@@ -205,9 +259,30 @@ export function compute(pp) {
   };
 }
 
+// An integer magnitude beyond 2^53 cannot round-trip as I-JSON (RFC 7493);
+// compute() refuses such a value with a named UNSAFE_INTEGER exception and
+// echoes null. The artifact preimage carries the refused value the same way,
+// as null, so the canonicalizer is never handed a number it must lie about
+// and buildArtifact never throws on input the kernel itself refuses. Every
+// safe input is passed through unchanged, byte for byte.
+function sanitizeUnsafeIntegers(v) {
+  if (typeof v === 'number') return Number.isInteger(v) && !Number.isSafeInteger(v) ? null : v;
+  if (Array.isArray(v)) return v.map(sanitizeUnsafeIntegers);
+  if (v && typeof v === 'object') {
+    // null-prototype accumulator: a caller key literally named __proto__ must
+    // land as an ordinary own key (the same trap _hash.mjs's cgCanon guards),
+    // never set the accumulator's prototype.
+    const o = Object.create(null);
+    for (const k of Object.keys(v)) o[k] = sanitizeUnsafeIntegers(v[k]);
+    return o;
+  }
+  return v;
+}
+
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
+  const safePP = sanitizeUnsafeIntegers(pp);
+  const hash = await executionHash(safePP, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
@@ -217,7 +292,7 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
     generated_at: now ?? null,
     execution_hash: hash,
     chain: { parent_hashes, parent_tool_ids, chain_depth },
-    policy_parameters: pp,
+    policy_parameters: safePP,
     output_payload,
     compliance_flags,
     compute_mode: 'server',
