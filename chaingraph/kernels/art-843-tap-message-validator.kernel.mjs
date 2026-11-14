@@ -181,6 +181,35 @@ function skeletonOk(node, key, depth) {
   return skeletonLeaf(key, node);
 }
 
+// First number the shared _hash.mjs refuses before canonicalizing (a non-finite value, or an
+// integer outside the 2^53 safe range: RFC 8785 3.2.2.3 / RFC 7493), with its path and kind;
+// null when every number in the document is safe to hash. Depth-capped at 512 like _hash.mjs,
+// so anything nested deeper is the canonicalizer's own structural refusal, not this walk's.
+function findUnsafeNumber(v, path, depth) {
+  if (depth > 512) return null;
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return path + ': non_finite';
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return path + ': unsafe_integer';
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findUnsafeNumber(v[i], path + '[' + i + ']', depth + 1);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (isObj(v)) {
+    const ks = sortedKeys(v);
+    for (let i = 0; i < ks.length; i++) {
+      const r = findUnsafeNumber(v[ks[i]], path + '.' + seg(ks[i]), depth + 1);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 function refuse(reason, detail) {
   // Flag earned by a stated refusal reason (conditional emission).
   const compliance_flags = [];
@@ -400,6 +429,13 @@ export function compute(pp) {
   const msgs = pp.messages;
   if (!Array.isArray(msgs) || msgs.length === 0) return refuse('messages_missing', 'messages must be a non-empty array');
   if (msgs.length > MAX_MESSAGES) return refuse('messages_too_many', 'at most ' + MAX_MESSAGES + ' messages');
+  // An unsafe integer or a non-finite number anywhere in pp (exchangeRate.rate takes any
+  // finite number, and JSON 1e999 parses to Infinity) sails through the schema walk while
+  // the artifact hash refuses it, so compute would report exactly where buildArtifact
+  // throws. Refuse it first, with a named reason; only the path and kind are echoed, never
+  // the value.
+  const unsafe = findUnsafeNumber(pp, 'pp', 0);
+  if (unsafe !== null) return refuse('unsafe_number_refused', unsafe);
   const records = [];
   for (let i = 0; i < msgs.length; i++) {
     if (!isObj(msgs[i])) return refuse('message_not_object', 'message ' + i);

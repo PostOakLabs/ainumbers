@@ -1,5 +1,5 @@
 // art-843-tap-message-validator — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:9dde88ef9a9c89ed07fd72c1078d4d8f0dd6b0323185cfcc671c7bec4e955003
+// kernel_digest_at_authoring: sha256:35a4efe832dbdbe3b3d7369c118ac4cd0ab8e2fc330600f057f250829b0d1b8d
 // spec: board/claimed/TAP-MESSAGE-VALIDATOR-NODE-1.md
 // human_sign_off: PENDING
 //
@@ -247,6 +247,43 @@ function checkFreeTextAnywhereRefused() {
   return { name: 'free_text_under_unchecked_locations_refused', checked, violations };
 }
 
+// an unsafe integer or a non-finite number anywhere in pp is refused with the named reason
+// BEFORE the artifact hash would throw on it, whatever location carries it, and the value
+// itself is never echoed (only the path and the kind are)
+function checkUnsafeNumbersRefused() {
+  const rng = mulberry32(8439);
+  const HOSTILE = [9007199254740992, 1e300, -9007199254740992, -1e300, JSON.parse('1e999')];
+  let checked = 0, violations = 0;
+  for (let i = 0; i < 40; i++) {
+    const pp = randomPP(rng);
+    const m = pp.messages[0];
+    const where = Math.floor(rng() * 3);
+    if (where === 0) m.body = Object.assign({}, m.body, { exchangeRate: { rate: pick(rng, HOSTILE), from: 'USD', to: 'EUR' } });
+    else if (where === 1) m.zz_amount = pick(rng, HOSTILE);
+    else m.body = Object.assign({}, m.body, { transactionValue: { amount: '1', currency: 'USD', zz_n: pick(rng, HOSTILE) } });
+    const r = compute(pp);
+    checked++;
+    if (r.output_payload.status !== 'refused' || r.output_payload.reason !== 'unsafe_number_refused') violations++;
+    if (r.compliance_flags.join() !== 'INPUT_REFUSED') violations++;
+    if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r.output_payload))) violations++;
+  }
+  // nearest passing shapes: the largest safe integer and an ordinary float stay report-shaped
+  // (on a Transfer body exchangeRate is a format-checked field, so the numbers are legal there)
+  const okPP = { messages: [Object.assign(randomMessage(mulberry32(2), uu(1), null), {
+    type: H + 'Transfer',
+    body: { asset: 'eip155:1/slip44:60', amount: '1.5', settlementAddress: ETH, agents: [{ '@id': ORIG, role: 'Originator' }], exchangeRate: { rate: 9007199254740991, from: 'USD', to: 'EUR' } },
+  })] };
+  const okR = compute(okPP);
+  checked++;
+  if (okR.output_payload.status !== 'report' || okR.output_payload.reason !== undefined) violations++;
+  const floatPP = JSON.parse(JSON.stringify(okPP));
+  floatPP.messages[0].body.exchangeRate.rate = 1.5;
+  const floatR = compute(floatPP);
+  checked++;
+  if (floatR.output_payload.status !== 'report' || floatR.output_payload.reason !== undefined) violations++;
+  return { name: 'unsafe_or_non_finite_number_refused_named', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -255,7 +292,7 @@ try {
   oracle = { total: 1, failures: [{ name: 'fixture-oracle-load', expected: '(compute() implemented)', got: String((e && e.message) || e) }] };
 }
 const properties = [checkKeyOrderInvariance(), checkUnknownFieldFlagged(), checkNeverClaimsValid(), checkReplyToEarlierIdNotDangling(), checkFlagsMirror(), checkRefusals(), checkDeterminism(),
-  checkPrototypeNamesNeverThrow(), checkCalendarDates(), checkPresentNullIsFinding(), checkFreeTextAnywhereRefused()];
+  checkPrototypeNamesNeverThrow(), checkCalendarDates(), checkPresentNullIsFinding(), checkFreeTextAnywhereRefused(), checkUnsafeNumbersRefused()];
 console.log(`[${KERNEL_ID}] class-K floor property test.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
 process.exit(ok ? 0 : 1);
