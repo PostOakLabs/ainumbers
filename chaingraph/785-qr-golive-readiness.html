@@ -121,7 +121,7 @@ button{cursor:pointer;font-family:inherit}
 @media(max-width:680px){.hero h1{font-size:1.5rem}}
 </style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/785-qr-golive-readiness.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:d683a9f51b611dcf47d82643fd3d20fa1a74afe108992151d69bbc49bb7fb1df">
+<meta name="kernel-digest" content="sha256:0d33ee528eed1240fe67b4ac1957d4216b9d8370a0c040d4ad5b2a9f3a6dfcf9">
 <meta name="ai-tool" content="assess_qr_golive_readiness">
 </head>
 <body>
@@ -349,7 +349,7 @@ const CATALOGUE = [
 ];
 const PHASES = ['pilot', 'production', 'cross_border'];
 const STATUSES = ['met', 'partially_met', 'not_met', 'not_applicable'];
-const WEIGHT_MIN_BP = 0, WEIGHT_MAX_BP = 5000, GO_THRESHOLD_BP = 9750;
+const WEIGHT_MIN_BP = 0, WEIGHT_MAX_BP = 5000, GO_THRESHOLD_BP = 9750, UAT_COUNT_MAX = 1000000, PRINCIPLES_MAX = 1000;
 const STATUS_FACTOR = { met: 1, partially_met: 0.5, not_met: 0, not_applicable: 0 };
 const PHASE_NEXT = { pilot: 'production', production: 'cross_border', cross_border: null };
 
@@ -364,12 +364,12 @@ function compute(pp) {
   if (!Array.isArray(pp.gates) || pp.gates.length === 0) return refused('gates must be a non-empty array of {gate_id, status, evidence_ref?}', 'REFUSED_MISSING_GATES');
   let weights = {};
   for (const g of CATALOGUE) weights[g.gate_id] = g.weight;
-  if (pp.weights !== undefined && pp.weights !== null) {
-    if (typeof pp.weights !== 'object' || Array.isArray(pp.weights)) return refused('weights must be an object of {gate_id: weight_bp}', 'REFUSED_WEIGHTS_OUT_OF_BOUNDS');
+  if (pp.weights !== undefined) {
+    if (pp.weights === null || typeof pp.weights !== 'object' || Array.isArray(pp.weights)) return refused('weights must be an object of {gate_id: weight_bp}', 'REFUSED_WEIGHTS_OUT_OF_BOUNDS');
     const merged = {}; let sum = 0;
     for (const g of CATALOGUE) {
-      const w = pp.weights[g.gate_id] !== undefined ? pp.weights[g.gate_id] : g.weight;
-      if (typeof w !== 'number' || !isFinite(w) || w < WEIGHT_MIN_BP || w > WEIGHT_MAX_BP) return refused('weight for ' + g.gate_id + ' outside pinned bounds [' + WEIGHT_MIN_BP + ', ' + WEIGHT_MAX_BP + '] bp', 'REFUSED_WEIGHTS_OUT_OF_BOUNDS');
+      const w = Object.hasOwn(pp.weights, g.gate_id) ? pp.weights[g.gate_id] : g.weight;
+      if (!Number.isSafeInteger(w) || w < WEIGHT_MIN_BP || w > WEIGHT_MAX_BP) return refused('weight for ' + g.gate_id + ' outside pinned bounds [' + WEIGHT_MIN_BP + ', ' + WEIGHT_MAX_BP + '] bp', 'REFUSED_WEIGHTS_OUT_OF_BOUNDS');
       merged[g.gate_id] = w; sum += w;
     }
     if (sum !== 10000) return refused('applicable gate weights must sum to 10000 bp, got ' + sum, 'REFUSED_WEIGHTS_OUT_OF_BOUNDS');
@@ -383,9 +383,10 @@ function compute(pp) {
   }
   const compliance_flags = [];
   let uat = submitted['uat_completion'];
-  if (pp.uat_summary !== undefined && pp.uat_summary !== null) {
+  if (pp.uat_summary !== undefined) {
     const u = pp.uat_summary;
-    if (typeof u !== 'object' || typeof u.mandatory_cases !== 'number' || typeof u.passed !== 'number' || typeof u.open_sev1 !== 'number') return refused('uat_summary must be {mandatory_cases, passed, open_sev1} numbers', 'REFUSED_INVALID_UAT_SUMMARY');
+    const isCount = v => Number.isSafeInteger(v) && v >= 0 && v <= UAT_COUNT_MAX;
+    if (u === null || typeof u !== 'object' || Array.isArray(u) || !Object.hasOwn(u, 'mandatory_cases') || !Object.hasOwn(u, 'passed') || !Object.hasOwn(u, 'open_sev1') || !isCount(u.mandatory_cases) || !isCount(u.passed) || !isCount(u.open_sev1)) return refused('uat_summary must be {mandatory_cases, passed, open_sev1} non-negative safe integers up to ' + UAT_COUNT_MAX, 'REFUSED_INVALID_UAT_SUMMARY');
     if (u.open_sev1 > 0 || u.passed < u.mandatory_cases) {
       uat = { gate_id: 'uat_completion', status: 'not_met', evidence_ref: uat && uat.evidence_ref };
       compliance_flags.push('UAT_EXIT_CRITERIA_FAILED');
@@ -415,8 +416,8 @@ function compute(pp) {
     }
   }
   const principles_summary = [];
-  if (pp.principles !== undefined && pp.principles !== null) {
-    if (!Array.isArray(pp.principles)) return refused('principles must be an array of {principle_id, status}', 'REFUSED_INVALID_PRINCIPLES');
+  if (pp.principles !== undefined) {
+    if (!Array.isArray(pp.principles) || pp.principles.length > PRINCIPLES_MAX) return refused('principles must be an array of {principle_id, status}', 'REFUSED_INVALID_PRINCIPLES');
     for (const p of pp.principles) {
       if (!p || typeof p !== 'object' || typeof p.principle_id !== 'string' || !STATUSES.includes(p.status)) return refused('each principle needs a principle_id and a status from met, partially_met, not_met, not_applicable', 'REFUSED_INVALID_PRINCIPLES');
       principles_summary.push({ principle_id: p.principle_id, status: p.status });
