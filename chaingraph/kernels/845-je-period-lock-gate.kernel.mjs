@@ -128,8 +128,11 @@ function findHashRefusal(v, path, depth, budget) {
 // ---- typed input contract (no coercion, no truthiness tests on caller values) ----
 function isPlainObject(v) {
   if (v === null || typeof v !== 'object' || Array.isArray(v)) return false;
+  // Realm-independent: a plain object's prototype is null or a root prototype (its own
+  // prototype is null), so an object parsed in another realm (an iframe, a sandboxed
+  // host) is still plain while a Date, Map or class instance is not.
   const proto = Object.getPrototypeOf(v);
-  return proto === Object.prototype || proto === null;
+  return proto === null || Object.getPrototypeOf(proto) === null;
 }
 function isStr(v) { return typeof v === 'string'; }
 
