@@ -31,6 +31,7 @@ status: stable
 - [event_market_pnl](./event_market_pnl.md) (2)
 - [forecast_accuracy_score](./forecast_accuracy_score.md) (1)
 - [governance_mandate](./governance_mandate.md) (2)
+- [home_office_augusta_record](./home_office_augusta_record.md) (1)
 - [infrastructure_mandate](./infrastructure_mandate.md) (6)
 - [liquidity_mandate](./liquidity_mandate.md) (2)
 - [model_governance](./model_governance.md) (10)
