@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (753 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (754 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -394,6 +394,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/838-control-frequency-sample.html",
     "description": "Applies a table you declare. It ships no table, and is not guidance from any audit firm or standard-setter. The sample size is only as defen",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "844-workload-identity-claims",
+    "display_name": "Workload Identity Claims Lint",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/844-workload-identity-claims.html",
+    "description": "Lints the DECODED claims of a workload-identity token and, optionally, of a token produced by an exchange, against a policy you declare: a m",
     "consumes": [],
     "feeds": [],
     "status": "live"
