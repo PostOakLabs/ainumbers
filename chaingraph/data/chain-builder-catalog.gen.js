@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (757 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (758 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7816,6 +7816,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "consumer_finance",
     "url": "https://ainumbers.co/chaingraph/art-752-freelance-quarterly-estimated-tax.html",
     "description": "Quarterly IRS estimated-tax calculator for self-employed income, ported from ApexLogics Apex #116 (AL-123). From gross freelance income, bus",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-753-home-office-augusta",
+    "display_name": "Home Office and Augusta Rule",
+    "mandate_type": "home_office_augusta_record",
+    "url": "https://ainumbers.co/chaingraph/art-753-home-office-augusta.html",
+    "description": "Home-office deduction and IRC 280A(g) Augusta-rule rental exclusion calculator ported from ApexLogics Apex #139 (AL-146). From a square-foot",
     "consumes": [],
     "feeds": [],
     "status": "live"
