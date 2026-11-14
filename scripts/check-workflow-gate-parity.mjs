@@ -380,6 +380,15 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── STALE-STAMP-WRITERS-1 (2026-11-14) ──────────────────────────────────────
+  ["stamp-writers.mjs",
+    "Repo-only stamp-writer classification check, run as `stamp-writers.mjs --check` in preflight. " +
+    "scripts-verify.yml runs the full preflight on every PR that touches scripts/, so a separate " +
+    "workflow step would only duplicate that call."],
+  ["stamp-writers.test.mjs",
+    "Self-test for stamp-writers.mjs over in-memory fixtures; it can only be reddened by a change " +
+    "to that checker, which scripts-verify.yml's path-scoped full preflight already runs, so a " +
+    "separate workflow step would only duplicate it."],
   // ── Interpolated-markup ratchet (2026-11-07) ───────────────────────────────
   ["check-innerhtml-ratchet.mjs",
     "Advisory-first interpolated-markup ratchet over tools/*.html: preflight wires " +
