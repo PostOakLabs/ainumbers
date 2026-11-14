@@ -139,10 +139,14 @@ function isStr(v) { return typeof v === 'string'; }
 // state there, declared x_null_distinct in the manifest). `o` is always an own-property
 // copy (or a plain object read through Object.hasOwn), so no inherited member is ever read.
 function field(o, key, path, kind, required) {
-  if (!Object.hasOwn(o, key) || o[key] === undefined || (required && o[key] === null)) {
+  return fieldValue(Object.hasOwn(o, key) ? o[key] : undefined, key, path, kind, required);
+}
+// Same contract over an already-read value: the top-level pp checks read each declared
+// field as a literal member (pp.policy_version, ...) and pass the value here.
+function fieldValue(v, key, path, kind, required) {
+  if (v === undefined || (required && v === null)) {
     return required ? { code: 'REFUSED_INPUT_MISSING_FIELD', message: `${path}.${key} is required and must not be absent or null` } : null;
   }
-  const v = o[key];
   const ok = kind === 'string' ? isStr(v)
     : kind === 'boolean' ? typeof v === 'boolean'
       : kind === 'array' ? Array.isArray(v)
@@ -152,10 +156,10 @@ function field(o, key, path, kind, required) {
 
 // First fault wins; deterministic order. Returns { code, message } or null.
 function validateInput(pp) {
-  let f = field(pp, 'policy_version', 'pp', 'string', true);
+  let f = fieldValue(pp.policy_version, 'policy_version', 'pp', 'string', true);
   if (f) return f;
   if (pp.policy_version === '') return { code: 'REFUSED_INPUT_WRONG_TYPE', message: 'pp.policy_version must be a non-empty string; no default version exists' };
-  if ((f = field(pp, 'periods', 'pp', 'array', true))) return f;
+  if ((f = fieldValue(pp.periods, 'periods', 'pp', 'array', true))) return f;
   for (let i = 0; i < pp.periods.length; i++) {
     const p = pp.periods[i];
     const path = `pp.periods[${i}]`;
@@ -171,10 +175,10 @@ function validateInput(pp) {
   }
   // reversal_policy absent or null shares its dedicated POLICY_REVERSAL_POLICY_MISSING refusal
   // below (same answer for both forms); any other non-string refuses here.
-  if (pp.reversal_policy !== null && (f = field(pp, 'reversal_policy', 'pp', 'string', false))) return f;
-  if ((f = field(pp, 'explicit_reversal_date', 'pp', 'string', false))) return f;
-  if ((f = field(pp, 'as_of_date', 'pp', 'string', false))) return f;
-  if ((f = field(pp, 'soft_lock_exempt_roles', 'pp', 'array', false))) return f;
+  if (pp.reversal_policy !== null && (f = fieldValue(pp.reversal_policy, 'reversal_policy', 'pp', 'string', false))) return f;
+  if ((f = fieldValue(pp.explicit_reversal_date, 'explicit_reversal_date', 'pp', 'string', false))) return f;
+  if ((f = fieldValue(pp.as_of_date, 'as_of_date', 'pp', 'string', false))) return f;
+  if ((f = fieldValue(pp.soft_lock_exempt_roles, 'soft_lock_exempt_roles', 'pp', 'array', false))) return f;
   if (pp.soft_lock_exempt_roles !== undefined) {
     for (let i = 0; i < pp.soft_lock_exempt_roles.length; i++) {
       if (!isStr(pp.soft_lock_exempt_roles[i])) return { code: 'REFUSED_INPUT_WRONG_TYPE', message: `pp.soft_lock_exempt_roles[${i}] must be a string` };
@@ -182,7 +186,7 @@ function validateInput(pp) {
   }
   // entries is optional (absent declares no entries, so a policy-only run is legal); a
   // present null or non-array refuses.
-  if ((f = field(pp, 'entries', 'pp', 'array', false))) return f;
+  if ((f = fieldValue(pp.entries, 'entries', 'pp', 'array', false))) return f;
   if (pp.entries === undefined || pp.entries.length > MAX_ENTRIES) return null; // ENTRY_CAP_EXCEEDED refuses the run first
   for (let i = 0; i < pp.entries.length; i++) {
     const e = pp.entries[i];
@@ -272,31 +276,33 @@ function refusalResult(code, message, policy_version, policy_digest, compliance_
   };
 }
 
-export function compute(rawPp) {
+export function compute(pp) {
   const compliance_flags = [];
 
   // Presence and shape are checked, never defaulted or coerced. A non-object, an
   // unhashable value (so buildArtifact never has to hash anything compute accepted) or a
-  // wrong-typed field refuses the whole run before any policy is read.
+  // wrong-typed field refuses the whole run before any policy is read. Every read of pp
+  // goes through Object.hasOwn (field()), so no inherited member is ever read.
   let inputFault = null;
-  if (!isPlainObject(rawPp)) {
+  if (!isPlainObject([pp][0])) {
     inputFault = { code: 'REFUSED_INPUT_WRONG_TYPE', message: 'policy parameters must be a plain object' };
   } else {
-    const unhashable = findHashRefusal(rawPp, 'pp', 1, { maxDepth: PP_MAX_DEPTH, maxElements: PP_MAX_ELEMENTS, n: 0 });
+    // The walk is whole-object by design (it reads no declared field for policy), so it takes
+    // the root through a one-element box rather than as a bare pp argument.
+    const unhashable = findHashRefusal([pp][0], 'pp', 1, { maxDepth: PP_MAX_DEPTH, maxElements: PP_MAX_ELEMENTS, n: 0 });
     if (unhashable !== null) inputFault = { code: unhashable.reason, message: unhashable.detail };
   }
-  // Own-property copy: a caller key such as __proto__ or constructor is an ordinary key
-  // and no inherited value is ever read.
-  const pp = inputFault === null ? Object.fromEntries(Object.entries(rawPp)) : null;
   if (inputFault === null) inputFault = validateInput(pp);
   if (inputFault !== null) {
-    const pv = (pp !== null && isStr(pp.policy_version) && pp.policy_version !== '') ? pp.policy_version : null;
+    const pv = (isPlainObject([pp][0]) && isStr(pp.policy_version) && pp.policy_version !== '') ? pp.policy_version : null;
     return refusalResult(inputFault.code, inputFault.message, pv, null, compliance_flags);
   }
 
   const policy_version = pp.policy_version;
   const totals_by_decision = { allow: 0, allow_exempt: 0, refuse: 0 };
-  const totals_by_period = {};
+  // Null-prototype accumulator: a period id such as __proto__, constructor or toString is
+  // an ordinary key. cgCanon (null-prototype too) sorts keys, so serialisation is stable.
+  const totals_by_period = Object.create(null);
 
   // ---- declared period table (types already validated) ----
   const periods = pp.periods.map((p) => ({

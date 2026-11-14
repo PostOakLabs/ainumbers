@@ -1,6 +1,6 @@
 // 845-je-period-lock-gate.proptest.mjs — class-K property-test FLOOR
 // (FV-PBT-FLOOR-BUILD-SPEC.md), authored in-row by JE-PERIOD-LOCK-GATE-1.
-// kernel_digest_at_authoring: sha256:8bbd687c595f4fb6d45a57aa19b94a16811fcdd090c90483713f6fd5687d2cd1
+// kernel_digest_at_authoring: sha256:23745b4c89b39d87896b866c15fda0a06e3780ea3e18c7e961ddf7556e672841
 // spec: board/queued/JE-PERIOD-LOCK-GATE-1.md (fixed contract)
 // human_sign_off: PENDING
 //
@@ -308,6 +308,27 @@ function checkP9_input_contract() {
   return { name: 'P9_typed_input_contract', trials, violations };
 }
 
+// ---------- P10: period ids named like Object.prototype members stay ordinary keys ----------
+function checkP10_prototype_name_period_ids() {
+  let violations = 0, trials = 0;
+  const names = ['__proto__', 'constructor', 'toString', 'hasOwnProperty', 'valueOf', 'prototype'];
+  for (let i = 0; i < 300; i++) {
+    const picked = names.filter(() => rand() < 0.6);
+    if (picked.length === 0) continue;
+    const periods = picked.map((id, j) => ({ period_id: id, start_date: `2025-${String(j + 1).padStart(2, '0')}-01`, end_date: `2025-${String(j + 1).padStart(2, '0')}-28`, lock_events: [] }));
+    const entries = picked.map((id, j) => ({ entry_id: `E${j}`, effective_date: `2025-${String(j + 1).padStart(2, '0')}-10`, entered_on: `2025-${String(j + 1).padStart(2, '0')}-10`, roles: [] }));
+    const o = compute({ ...basePolicy, periods, entries }).output_payload;
+    trials++;
+    const keys = Object.keys(o.totals_by_period);
+    if (o.execution_state !== 'ran' || keys.length !== picked.length) { violations++; continue; }
+    for (const id of picked) {
+      const t = o.totals_by_period[id];
+      if (!Object.hasOwn(o.totals_by_period, id) || !t || t.allow !== 1) violations++;
+    }
+  }
+  return { name: 'P10_prototype_name_period_ids', trials, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -324,6 +345,7 @@ results.properties.push(checkP6_entry_cap_boundary());
 results.properties.push(checkP7_strict_leap_calendar());
 results.properties.push(await checkP8_buildArtifact_never_throws());
 results.properties.push(checkP9_input_contract());
+results.properties.push(checkP10_prototype_name_period_ids());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
