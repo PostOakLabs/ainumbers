@@ -41,6 +41,7 @@ status: stable
 - [prompt_template](./prompt_template.md) (1)
 - [readiness_diagnostic](./readiness_diagnostic.md) (2)
 - [regulatory_reporting](./regulatory_reporting.md) (13)
+- [retirement_projection](./retirement_projection.md) (1)
 - [risk_control](./risk_control.md) (5)
 - [risk_parameter](./risk_parameter.md) (8)
 - [routing_policy](./routing_policy.md) (2)
