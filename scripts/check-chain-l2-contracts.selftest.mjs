@@ -14,8 +14,12 @@ import {
   measuredL2Precision, ADJUDICATED_L2_EDGES,
   checkSharedInputField, checkSharedInputs, checkProvenanceThreading, gateAuthoringInstruction,
   resolveSchemaPointer, manifestSidecarDisagreements, chooseOutputContract,
+  buildReport,
 } from './check-chain-l2-contracts.mjs';
 import { deriveField, deriveSidecar } from './gen-output-schema.mjs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 let failures = 0;
 function check(name, cond) {
@@ -974,6 +978,99 @@ console.log('── PRECEDENCE-1 guard primitives: enum- and type-kind omissions
   // Trivial cases: fewer than two sources is not this guard's question.
   check('guard: no manifest properties -> no disagreement', manifestSidecarDisagreements({ type: 'object' }, { type: 'object', properties: {} }).length === 0);
   check('guard: no sidecar at all -> no disagreement (the block just decides)', manifestSidecarDisagreements({ type: 'object', properties: { v: { type: 'string' } } }, null).length === 0);
+}
+
+/* ═══════════ MUSE52-CHAIN-L2-FRESH-SHARD-1: the estate judges chains from ON-DISK SHARDS ═══════════ */
+// The assembled monolith (chaingraph/chaingraph.json) is re-assembled on main by a single writer,
+// so on a PR its chain entries are stale by construction: a PR that fixes an L2-fail edge in its
+// shard (chaingraph/graph/chains/<name>.json) was still judged on the stale monolith copy, and the
+// hard leg exited 1 on a chain the PR had already healed. loadEstate must therefore overlay the
+// monolith's chains with the shard bytes before any verdict is computed — in a PR checkout AND on
+// merge_group alike (the shards are present in both; the hard leg keeps its teeth in both).
+// These controls are estate-level: a synthetic root on disk + a synthetic l1Report (the route the
+// loader's own docstring blesses), hermetic — no live chaingraph file, manifest, or kernel is read.
+console.log('── MUSE52-CHAIN-L2-FRESH-SHARD-1 estate controls: shard overlay over the monolith ──');
+{
+  // producer emits `score` in [0,100] and `score_safe` in [0,50]; consumer accepts `score` in [0,50].
+  // A mapping of /score is interval-not-contained (the L2-fail edge); /score_safe composes cleanly.
+  const manifests = {
+    p: { output_schema: { properties: {
+      score: { type: 'integer', minimum: 0, maximum: 100, 'x-unit': '1', 'x-source': MANIFEST_SRC() },
+      score_safe: { type: 'integer', minimum: 0, maximum: 50, 'x-unit': '1', 'x-source': MANIFEST_SRC() },
+    } } },
+    c: { input_schema: { properties: { score: { type: 'integer', minimum: 0, maximum: 50, 'x-unit': '1', 'x-source': MANIFEST_SRC() } } } },
+  };
+  const chainWith = (from) => ({
+    name: 'c-shape', domain: 'd', title: 't', description: 'synthetic',
+    steps: [{ tool_id: 'p' }, { tool_id: 'c', consumes_from: [{ from_step: 'p', from, to: 'score' }] }],
+  });
+  const l1 = { l2_readiness: { ranking: [
+    { chain: 'c-shape', spec_fraction: 1 },
+    { chain: 'd-shape', spec_fraction: 1 },
+  ] } };
+
+  function writeEstate(root, { monolithChains, shards }) {
+    mkdirSync(join(root, 'chaingraph', 'graph', 'chains'), { recursive: true });
+    mkdirSync(join(root, 'manifests'), { recursive: true });
+    writeFileSync(join(root, 'chaingraph', 'chaingraph.json'), JSON.stringify({ version: 1, chains: monolithChains }));
+    for (const [name, chain] of Object.entries(shards)) {
+      writeFileSync(join(root, 'chaingraph', 'graph', 'chains', `${name}.json`), JSON.stringify(chain));
+    }
+    for (const [id, m] of Object.entries(manifests)) {
+      writeFileSync(join(root, 'manifests', `${id}.manifest.json`), JSON.stringify(m));
+    }
+  }
+
+  // E1 — the Muse #52 defect itself: the PR FIXES the failing edge in its shard; the monolith on
+  // the PR branch still carries the stale failing entry. The verdict must come from the shard.
+  {
+    const root = mkdtempSync(join(tmpdir(), 'l2-estate-e1-'));
+    try {
+      writeEstate(root, { monolithChains: [chainWith('/score')], shards: { 'c-shape': chainWith('/score_safe') } });
+      const rep = buildReport(root, l1);
+      const c = rep.chains.find((x) => x.name === 'c-shape');
+      check('E1: a PR-fixed shard verdicts L2-pass even though the monolith entry still fails',
+        !!c && c.verdict === 'L2-pass');
+      check('E1: the report names the shard source of its chains', !!rep.chains_source);
+      check('E1: the report pins a digest over the shard bytes it judged', !!rep.chains_shards_digest);
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  }
+
+  // E2 — the hard leg keeps its teeth: the shard STILL carries the failing edge (the monolith was
+  // assembled from an older fixed state). The verdict must be L2-fail — this is exactly what the
+  // preflight hard leg blocks on, in a PR checkout and on merge_group where DERIVED_ROOT is mounted.
+  {
+    const root = mkdtempSync(join(tmpdir(), 'l2-estate-e2-'));
+    try {
+      writeEstate(root, { monolithChains: [chainWith('/score_safe')], shards: { 'c-shape': chainWith('/score') } });
+      const rep = buildReport(root, l1);
+      const c = rep.chains.find((x) => x.name === 'c-shape');
+      check('E2: a still-failing shard verdicts L2-fail even though the monolith entry passes',
+        !!c && c.verdict === 'L2-fail');
+      check('E2: the finding is interval-not-contained with witness 75',
+        !!c && c.edges.some((e) => e.findings.some((f) => f.code === 'interval-not-contained' && f.witness === '75')));
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  }
+
+  // E3 — a brand-new chain shard absent from the monolith is ASSESSED from the shard (the old
+  // reader saw no chain at all and preflight could only report CHECKED-INCOMPLETE).
+  {
+    const root = mkdtempSync(join(tmpdir(), 'l2-estate-e3-'));
+    try {
+      writeEstate(root, { monolithChains: [], shards: { 'd-shape': { ...chainWith('/score_safe'), name: 'd-shape' } } });
+      let rep = buildReport(root, l1);
+      const d = rep.chains.find((x) => x.name === 'd-shape');
+      check('E3: a shard-only new chain is assessed (L2-pass), not missing from the report',
+        !!d && d.verdict === 'L2-pass');
+      // MUTATION: flip the shard's mapping to the failing one — the verdict must move to L2-fail,
+      // which is what makes the preflight hard leg fire on an additive chain PR (spec §6.1).
+      writeFileSync(join(root, 'chaingraph', 'graph', 'chains', 'd-shape.json'), JSON.stringify({ ...chainWith('/score'), name: 'd-shape' }));
+      rep = buildReport(root, l1);
+      const dm = rep.chains.find((x) => x.name === 'd-shape');
+      check('E3-MUTATION: flipping the shard mapping to the failing edge moves the verdict to L2-fail',
+        !!dm && dm.verdict === 'L2-fail');
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  }
 }
 
 console.log(failures === 0 ? '\n✓ chain L2 contract-composition selftest: all controls passed' : `\n✗ ${failures} control(s) FAILED`);
