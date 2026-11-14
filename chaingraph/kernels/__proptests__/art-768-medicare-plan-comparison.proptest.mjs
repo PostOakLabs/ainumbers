@@ -3,7 +3,7 @@
 // (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES PASS-PENDING-XV
 // 2026-10-18; builder-verifies-at-land: all payload vectors re-executed through the
 // landed kernel compute() with zero mismatches, 2026-11-13).
-// kernel_digest_at_authoring: sha256:61bbd8f70d073a58b9ffbd3bed7380b9890c7bed053f69618cf0825278f7f549
+// kernel_digest_at_authoring: sha256:08cdd18ffabe5fb17b6919f0eb636de99e010cbb3070ebd2f1fdb30da4b4a396
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.
@@ -30,7 +30,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-768-medicare-plan-comparison.proptest.mjs
 
-import { compute } from '../art-768-medicare-plan-comparison.kernel.mjs';
+import { compute, buildArtifact } from '../art-768-medicare-plan-comparison.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, pick, findShapeViolations } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-768-medicare-plan-comparison';
@@ -185,6 +185,54 @@ function checkP7AdjudicatedLiterals() {
   return { name: 'P7 adjudicated literals: HDG 2950 default (2900 only by override), 900 clamps to 615, MOOP flag above 9250 without clamping', checked, violations };
 }
 
+// P8 — input contract (KERNEL-INPUT-CONTRACT-1): D1 I-JSON parity (nothing compute() accepts may make
+// buildArtifact() throw), D2 presence (a present null refuses), D3 integer domain (counts are safe
+// integers), plus prototype names and an unknown key. Every case must refuse by name.
+async function checkP8InputContract() {
+  let checked = 0, violations = 0;
+  const cases = [
+    ['D1 outpatient 1e300', { outpatient_charges_usd: 1e300 }],
+    ['D1 outpatient 1e17', { outpatient_charges_usd: 1e17 }],
+    ['D1 outpatient 2^53+1', { outpatient_charges_usd: 9007199254740993 }],
+    ['D1 drug 1e200 x multiplier 1e200', { annual_drug_cost_usd: 1e200, bad_year_charge_multiplier: 1e200 }],
+    ['D1 multiplier 1e300', { bad_year_charge_multiplier: 1e300 }],
+    ['D1 override part_a_deductible 1e300', { part_a_deductible_usd: 1e300 }],
+    ['D1 tier array holding 1e300', { part_b_premium_by_irmaa_tier_usd: [1, 1, 1, 1, 1, 1e300] }],
+    ['D1 unknown key junk 1e300', { junk: 1e300 }],
+    ['D1 unsafe integer count', { primary_visits_per_year: Number.MAX_SAFE_INTEGER + 2 }],
+    ['D2 bad_year_admissions null', { bad_year_admissions: null }],
+    ['D2 part_b_deductible_usd null', { part_b_deductible_usd: null }],
+    ['D2 bad_year_charge_multiplier null', { bad_year_charge_multiplier: null }],
+    ['D3 admissions 1.5', { admissions_per_year: 1.5 }],
+    ['D3 primary visits 2.5', { primary_visits_per_year: 2.5 }],
+    ['D3 length of stay 0.25', { length_of_stay_days: 0.25 }],
+    ['proto plan type __proto__', { medigap_plan_type: '__proto__' }],
+    ['proto plan type constructor', { medigap_plan_type: 'constructor' }],
+    ['proto unknown key', { toString: 1 }],
+  ];
+  for (const [label, over] of cases) {
+    const pp = basePP(over);
+    const r = compute(pp);
+    let threw = false;
+    try { await buildArtifact(pp); } catch { threw = true; }
+    checked++;
+    const refused = r.output_payload.valid_input === false && r.output_payload.domain_errors.length > 0
+      && r.compliance_flags.includes('ART768_INPUT_OUT_OF_DECLARED_DOMAIN');
+    // parity: a valid compute must never be followed by a throwing buildArtifact
+    if (!refused || (r.output_payload.valid_input && threw)) { violations++; console.log(`P8 violation: ${label} was not refused`); }
+  }
+  // deleted required field, and a non-object pp, refuse too
+  const del = basePP(); delete del.admissions_per_year;
+  for (const pp of [del, null, 0, '', 'str', [], 42]) {
+    checked++;
+    if (compute(pp).output_payload.valid_input !== false) { violations++; console.log(`P8 violation: ${JSON.stringify(pp)} was accepted`); }
+  }
+  // valid input still hashes (parity in the accepting direction)
+  checked++;
+  try { await buildArtifact(basePP()); } catch { violations++; console.log('P8 violation: valid input did not hash'); }
+  return { name: 'P8 input contract: I-JSON parity, present null refuses, counts are safe integers, prototype names refuse', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -200,6 +248,7 @@ const properties = [
   checkP5DeductibleClamp(),
   checkP6PartDCap(),
   checkP7AdjudicatedLiterals(),
+  await checkP8InputContract(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test`);
 const ok = summarize(KERNEL_ID, oracle, properties);

@@ -191,6 +191,35 @@ function money(n) { return Math.round(n * 100) / 100; }
 function isNum(v) { return typeof v === 'number' && Number.isFinite(v); }
 function isNonNeg(v) { return isNum(v) && v >= 0; }
 
+// Explicit finite ceilings (KERNEL-INPUT-CONTRACT-1). They keep every intermediate and every
+// echoed input inside I-JSON, so compute() never accepts what buildArtifact() would throw on.
+const MAX_USD = 1e9;
+const MAX_MULTIPLIER = 1000;
+const MAX_ADMISSIONS = 1000;
+const MAX_VISITS = 10000;
+const MAX_STAY_DAYS = 3650;
+const isUsd = (v) => isNum(v) && v >= 0 && v <= MAX_USD;
+
+// Own-key read: a caller object never reaches an inherited property.
+const own = (o, k) => (Object.hasOwn(o, k) ? o[k] : undefined);
+
+const REQUIRED_KEYS = [
+  'irmaa_tier', 'admissions_per_year', 'primary_visits_per_year', 'specialist_visits_per_year',
+  'length_of_stay_days', 'outpatient_charges_usd', 'annual_drug_cost_usd', 'medigap_premium_monthly_usd',
+  'medigap_plan_type', 'part_d_premium_monthly_usd', 'part_d_deductible_a_usd', 'ma_premium_monthly_usd',
+  'part_b_giveback_monthly_usd', 'ma_primary_copay_usd', 'ma_specialist_copay_usd',
+  'ma_inpatient_copay_per_day_usd', 'ma_inpatient_copay_days', 'ma_outpatient_coinsurance_pct',
+  'ma_moop_usd', 'ma_drug_coverage_included', 'ma_plan_drug_deductible_usd',
+];
+const OPTIONAL_KEYS = [
+  'bad_year_admissions', 'bad_year_length_of_stay_days', 'bad_year_charge_multiplier',
+  'part_b_premium_by_irmaa_tier_usd', 'part_d_irmaa_surcharge_by_tier_usd', 'part_b_deductible_usd',
+  'part_a_deductible_usd', 'part_a_days_61_to_90_coinsurance_usd', 'part_a_lifetime_reserve_coinsurance_usd',
+  'part_d_max_deductible_usd', 'part_d_out_of_pocket_cap_usd', 'plan_n_office_visit_copay_usd',
+  'high_deductible_plan_g_deductible_usd',
+];
+const KNOWN_KEYS = new Set([...REQUIRED_KEYS, ...OPTIONAL_KEYS]);
+
 // ── the standard Part D phase function (Apex lines 498-504) ─────────────────
 // Enrollee pays 100% of covered drug cost up to the plan deductible, then the
 // standard 25% coinsurance, and owes nothing more once the annual out-of-pocket
@@ -364,13 +393,18 @@ function runPaths(p, C) {
 function validate(pp, C) {
   const errors = [];
 
-  const reqNum = (key, { min = 0, max = null, integer = false } = {}) => {
-    const v = pp[key];
+  // Unknown keys are refused: they would be echoed into policy_parameters and the hash preimage.
+  for (const key of Object.keys(pp)) {
+    if (!KNOWN_KEYS.has(key)) errors.push(`unknown policy parameter ${JSON.stringify(key)}`);
+  }
+
+  const reqNum = (key, { min = 0, max = MAX_USD, integer = false } = {}) => {
+    const v = own(pp, key);
     // A blank (null) and an omitted (undefined) field are the same refusal (R4: absent equals null).
     if (!isNum(v)) { errors.push(`${key} must be a finite number (got ${v === undefined || v === null ? 'missing' : JSON.stringify(v)})`); return false; }
     if (v < min) { errors.push(`${key} must be >= ${min} (got ${v})`); return false; }
-    if (max !== null && v > max) { errors.push(`${key} must be <= ${max} (got ${v})`); return false; }
-    if (integer && !Number.isInteger(v)) { errors.push(`${key} must be an integer (got ${v})`); return false; }
+    if (v > max) { errors.push(`${key} must be <= ${max} (got ${v})`); return false; }
+    if (integer && !Number.isSafeInteger(v)) { errors.push(`${key} must be a safe integer (got ${v})`); return false; }
     return true;
   };
 
@@ -379,10 +413,10 @@ function validate(pp, C) {
   // every downstream money figure (D2).
   reqNum('irmaa_tier', { min: 0, max: C.part_b_premium_by_irmaa_tier_usd.length - 1, integer: true });
 
-  reqNum('admissions_per_year');
-  reqNum('primary_visits_per_year');
-  reqNum('specialist_visits_per_year');
-  reqNum('length_of_stay_days');
+  reqNum('admissions_per_year', { max: MAX_ADMISSIONS, integer: true });
+  reqNum('primary_visits_per_year', { max: MAX_VISITS, integer: true });
+  reqNum('specialist_visits_per_year', { max: MAX_VISITS, integer: true });
+  reqNum('length_of_stay_days', { max: MAX_STAY_DAYS, integer: true });
   reqNum('outpatient_charges_usd');
   reqNum('annual_drug_cost_usd');
   reqNum('medigap_premium_monthly_usd');
@@ -393,24 +427,33 @@ function validate(pp, C) {
   reqNum('ma_primary_copay_usd');
   reqNum('ma_specialist_copay_usd');
   reqNum('ma_inpatient_copay_per_day_usd');
-  reqNum('ma_inpatient_copay_days');
+  reqNum('ma_inpatient_copay_days', { max: MAX_STAY_DAYS, integer: true });
   reqNum('ma_outpatient_coinsurance_pct', { min: 0, max: 100 });
   reqNum('ma_moop_usd');
   reqNum('ma_plan_drug_deductible_usd');
 
-  if (!MEDIGAP_PLAN_TYPES.includes(pp.medigap_plan_type)) {
-    errors.push(`medigap_plan_type must be one of ${MEDIGAP_PLAN_TYPES.join('|')} (got ${pp.medigap_plan_type === undefined || pp.medigap_plan_type === null ? 'missing' : JSON.stringify(pp.medigap_plan_type)})`);
+  const plan = own(pp, 'medigap_plan_type');
+  if (typeof plan !== 'string' || !MEDIGAP_PLAN_TYPES.includes(plan)) {
+    errors.push(`medigap_plan_type must be one of ${MEDIGAP_PLAN_TYPES.join('|')} (got ${plan === undefined || plan === null ? 'missing' : JSON.stringify(plan)})`);
   }
-  if (typeof pp.ma_drug_coverage_included !== 'boolean') {
-    errors.push(`ma_drug_coverage_included must be a boolean (got ${pp.ma_drug_coverage_included === undefined || pp.ma_drug_coverage_included === null ? 'missing' : JSON.stringify(pp.ma_drug_coverage_included)})`);
+  const drugCover = own(pp, 'ma_drug_coverage_included');
+  if (typeof drugCover !== 'boolean') {
+    errors.push(`ma_drug_coverage_included must be a boolean (got ${drugCover === undefined || drugCover === null ? 'missing' : JSON.stringify(drugCover)})`);
   }
 
-  // Bad-year knobs: optional, defaulting to the Apex page's shipped values (2 / 7 /
-  // 3). The default is reported in bad_year_scenario.defaults_applied, never silent.
-  for (const key of ['bad_year_admissions', 'bad_year_length_of_stay_days', 'bad_year_charge_multiplier']) {
-    if (pp[key] === undefined || pp[key] === null) continue;
-    if (!isNonNeg(pp[key])) errors.push(`${key} must be a finite number >= 0 (got ${JSON.stringify(pp[key])})`);
-  }
+  // Bad-year knobs: optional (absent = undefined), defaulting to the Apex page's shipped values
+  // (2 / 7 / 3). A present null or wrong type is a refusal. The default is reported in
+  // bad_year_scenario.defaults_applied, never silent.
+  const optNum = (key, max, integer) => {
+    const v = own(pp, key);
+    if (v === undefined) return;
+    if (!isNum(v) || v < 0 || v > max || (integer && !Number.isSafeInteger(v))) {
+      errors.push(`${key} must be a ${integer ? 'safe integer' : 'finite number'} between 0 and ${max} (got ${JSON.stringify(v)})`);
+    }
+  };
+  optNum('bad_year_admissions', MAX_ADMISSIONS, true);
+  optNum('bad_year_length_of_stay_days', MAX_STAY_DAYS, true);
+  optNum('bad_year_charge_multiplier', MAX_MULTIPLIER, false);
 
   return errors;
 }
@@ -439,33 +482,30 @@ function resolveConstants(pp) {
 
   const takeNumber = (name, v) => {
     if (!Object.hasOwn(C, name)) return;
-    if (v === undefined || v === null) return;
-    if (!isNonNeg(v)) { errors.push(`${name} must be a finite number >= 0 (got ${JSON.stringify(v)})`); return; }
+    if (v === undefined) return;
+    if (!isUsd(v)) { errors.push(`${name} must be a finite number between 0 and ${MAX_USD} (got ${JSON.stringify(v)})`); return; }
     if (v !== C[name]) overrides.push({ constant: name, used: v, official_2026: C[name] });
     C[name] = v;
   };
 
   const takeTierArray = (name, v) => {
     if (!Object.hasOwn(C, name)) return;
-    if (v === undefined || v === null) return;
-    if (!Array.isArray(v) || v.length !== 6 || v.some(x => !isNonNeg(x))) {
-      errors.push(`${name} must be an array of exactly 6 finite numbers >= 0 (got ${JSON.stringify(v)})`);
+    if (v === undefined) return;
+    if (!Array.isArray(v) || v.length !== 6 || v.some(x => !isUsd(x))) {
+      errors.push(`${name} must be an array of exactly 6 finite numbers between 0 and ${MAX_USD} (got ${JSON.stringify(v)})`);
       return;
     }
     if (JSON.stringify(v) !== JSON.stringify(C[name])) overrides.push({ constant: name, used: v.slice(), official_2026: C[name].slice() });
     C[name] = v;
   };
 
-  takeTierArray('part_b_premium_by_irmaa_tier_usd', pp.part_b_premium_by_irmaa_tier_usd);
-  takeTierArray('part_d_irmaa_surcharge_by_tier_usd', pp.part_d_irmaa_surcharge_by_tier_usd);
-  takeNumber('part_b_deductible_usd', pp.part_b_deductible_usd);
-  takeNumber('part_a_deductible_usd', pp.part_a_deductible_usd);
-  takeNumber('part_a_days_61_to_90_coinsurance_usd', pp.part_a_days_61_to_90_coinsurance_usd);
-  takeNumber('part_a_lifetime_reserve_coinsurance_usd', pp.part_a_lifetime_reserve_coinsurance_usd);
-  takeNumber('part_d_max_deductible_usd', pp.part_d_max_deductible_usd);
-  takeNumber('part_d_out_of_pocket_cap_usd', pp.part_d_out_of_pocket_cap_usd);
-  takeNumber('plan_n_office_visit_copay_usd', pp.plan_n_office_visit_copay_usd);
-  takeNumber('high_deductible_plan_g_deductible_usd', pp.high_deductible_plan_g_deductible_usd);
+  takeTierArray('part_b_premium_by_irmaa_tier_usd', own(pp, 'part_b_premium_by_irmaa_tier_usd'));
+  takeTierArray('part_d_irmaa_surcharge_by_tier_usd', own(pp, 'part_d_irmaa_surcharge_by_tier_usd'));
+  for (const name of ['part_b_deductible_usd', 'part_a_deductible_usd', 'part_a_days_61_to_90_coinsurance_usd',
+    'part_a_lifetime_reserve_coinsurance_usd', 'part_d_max_deductible_usd', 'part_d_out_of_pocket_cap_usd',
+    'plan_n_office_visit_copay_usd', 'high_deductible_plan_g_deductible_usd']) {
+    takeNumber(name, own(pp, name));
+  }
 
   return { C, overrides, errors };
 }
@@ -479,22 +519,26 @@ function applyPartDDeductible(deductible, maxDeductible) {
 }
 
 export function compute(pp) {
-  pp = pp || {};
+  // policy_parameters must be a plain object: absent (undefined) reads as an empty object and then
+  // refuses on every required field; null, an array or any other type is refused outright.
+  const isPlain = typeof pp === 'object' && pp !== null && !Array.isArray(pp);
+  const shapeErrors = (pp === undefined || isPlain) ? [] : ['policy_parameters must be an object'];
+  pp = isPlain ? pp : {};
   const { C, overrides, errors: constantErrors } = resolveConstants(pp);
-  const errors = constantErrors.concat(validate(pp, C));
+  const errors = shapeErrors.concat(constantErrors, validate(pp, C));
   const valid_input = errors.length === 0;
 
-  const bad_year_admissions = (pp.bad_year_admissions === undefined || pp.bad_year_admissions === null)
+  const bad_year_admissions = own(pp, 'bad_year_admissions') === undefined
     ? DEFAULT_BAD_YEAR_ADMISSIONS : pp.bad_year_admissions;
-  const bad_year_length_of_stay_days = (pp.bad_year_length_of_stay_days === undefined || pp.bad_year_length_of_stay_days === null)
+  const bad_year_length_of_stay_days = own(pp, 'bad_year_length_of_stay_days') === undefined
     ? DEFAULT_BAD_YEAR_LENGTH_OF_STAY_DAYS : pp.bad_year_length_of_stay_days;
-  const bad_year_charge_multiplier = (pp.bad_year_charge_multiplier === undefined || pp.bad_year_charge_multiplier === null)
+  const bad_year_charge_multiplier = own(pp, 'bad_year_charge_multiplier') === undefined
     ? DEFAULT_BAD_YEAR_CHARGE_MULTIPLIER : pp.bad_year_charge_multiplier;
-  const bad_year_defaults_applied = [pp.bad_year_admissions, pp.bad_year_length_of_stay_days, pp.bad_year_charge_multiplier]
-    .some(v => v === undefined || v === null);
+  const bad_year_defaults_applied = ['bad_year_admissions', 'bad_year_length_of_stay_days', 'bad_year_charge_multiplier']
+    .some(k => own(pp, k) === undefined);
 
-  const partDA = applyPartDDeductible(isNonNeg(pp.part_d_deductible_a_usd) ? pp.part_d_deductible_a_usd : 0, C.part_d_max_deductible_usd);
-  const partDB = applyPartDDeductible(isNonNeg(pp.ma_plan_drug_deductible_usd) ? pp.ma_plan_drug_deductible_usd : 0, C.part_d_max_deductible_usd);
+  const partDA = applyPartDDeductible(isUsd(own(pp, 'part_d_deductible_a_usd')) ? pp.part_d_deductible_a_usd : 0, C.part_d_max_deductible_usd);
+  const partDB = applyPartDDeductible(isUsd(own(pp, 'ma_plan_drug_deductible_usd')) ? pp.ma_plan_drug_deductible_usd : 0, C.part_d_max_deductible_usd);
 
   const base = {
     irmaa_tier: valid_input ? pp.irmaa_tier : 0,
