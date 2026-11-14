@@ -107,6 +107,9 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
     <div class="footer-cols">
       <div class="footer-col">
         <div class="footer-col-label">Platform</div>
+        <a href="${root}start.html">Start Here</a>
+        <a href="${root}front-to-back.html">Front-to-Back Prompts</a>
+        <a href="${root}prompts.html">Prompt Library</a>
         <a href="${cg}chaingraph-hub.html">ChainGraph Hub</a>
         <a href="${cg}rfp-evidence-desk.html">RFP Evidence Desk</a>
         <a href="${cg}openchain-graph-spec.html">Spec v${SPEC_VERSION}</a>
@@ -122,6 +125,8 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
       <div class="footer-col">
         <div class="footer-col-label">Hubs</div>
         <a href="${root}hub-for-hubs.html">Hubs and Guides</a>
+        <a href="${cg}visual-explainers-hub.html">Visual Explainers</a>
+        <a href="${cg}education-hub.html">Learn OpenChainGraph</a>
         <a href="${root}guides/web3-hub.html">Web3 Hub</a>
         <a href="${root}guides/solana-hub.html">Solana</a>
         <a href="${root}guides/ethereum-hub.html">Ethereum</a>
@@ -137,6 +142,8 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
         <div class="footer-col-label">Developers</div>
         <a href="${root}mcp.html">MCP Docs</a>
         <a href="${root}mcp-playground.html">MCP Playground</a>
+        <a href="${root}webmcp.html">WebMCP</a>
+        <a href="${root}mcp-benchmark.html">MCP Benchmark</a>
         <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
         <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
         <a href="${root}openapi.json" target="_blank">openapi.json</a>
@@ -144,6 +151,7 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
         <a href="${cg}okf/index.md" target="_blank">OKF bundle</a>
         <a href="${cg}standard/SPEC.md" target="_blank">OCG SPEC.md</a>
         <a href="${root}llms.txt" target="_blank">llms.txt</a>
+        <a href="${root}verification-desk.html">Verification Desk</a>
         <a href="${cg}verify.html">Artifact Verifier</a>
         <a href="${root}ledger/index.html">Receipt Ledger</a>
       </div>
@@ -156,6 +164,8 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
         <a href="${root}fv-explainer.html">FV Process Explainer</a>
         <a href="${root}errata.html">FV Errata</a>
         <a href="${root}suggest.html">Suggest</a>
+        <a href="${root}security.html">Security</a>
+        <a href="${root}privacy.html">Privacy</a>
         <a href="${root}contact.html">Contact</a>
         <a href="${root}sitemap.html">Sitemap</a>
         <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>

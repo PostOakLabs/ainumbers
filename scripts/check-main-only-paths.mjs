@@ -78,6 +78,7 @@ export const SENTINEL_WRITER_IDS = new Set(['counts', 'stats']);
 export const REGION_WRITER_IDS = new Set([
   'chain-ask-agent',    // ask-agent block on chaingraph/chains/*.html (pr-autofix writes node-page blocks per PR)
   'hub-scenes',         // scene region on chaingraph/guide-*.html hub pages
+  'root-page-footers',  // ROOT-FOOTER region on the root pages in gen-root-chrome.mjs (FOOTER-LINKS-REFRESH-1)
   'node-page-footers',  // footer region on chaingraph/<n>-*.html node pages (a node PR authors its page)
   'mcp-activity-embed', // one HTML comment in index.html (index.html is whole-file via 'catalog' anyway)
 ]);
