@@ -58,8 +58,8 @@ for (const file of files) {
   const node = nodesByToolId.get(toolId);
   if (!node) {
     // PENDING-ASSEMBLE (as check-shard-assembly.mjs classifies it): the node is on disk as a shard and
-    // not yet in the monolith. A new-node PR cannot edit chaingraph.json, so this is skipped, not failed;
-    // check-shard-assembly owns the unassembled-shard verdict. Once assembled, the badge is asserted below.
+    // absent from the monolith. A new-node PR cannot edit chaingraph.json, so this is skipped, not failed;
+    // check-shard-assembly owns the unassembled-shard verdict. A node in the monolith is asserted below.
     if (existsSync(resolve(SHARD_DIR, `${toolId}.json`))) {
       pending.push(file);
       continue;
