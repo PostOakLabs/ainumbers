@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (756 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (757 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -239,6 +239,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/797-stablecoin-cash-equivalent-test.html",
     "description": "Applies the FASB proposed Update of 2026-08-18 (Statement of Cash Flows (Topic 230): Cash Equivalents-Disclosure Enhancement and Evaluation ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "798-assess-sandbox-application-readiness",
+    "display_name": "Assess Sandbox Application Readiness",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/798-assess-sandbox-application-readiness.html",
+    "description": "Assesses a regulatory sandbox application against a declared regulator profile's eligibility criteria and test-parameter limits: the applica",
     "consumes": [],
     "feeds": [],
     "status": "live"
