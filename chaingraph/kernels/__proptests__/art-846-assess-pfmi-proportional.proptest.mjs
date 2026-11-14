@@ -1,5 +1,5 @@
 // art-846-assess-pfmi-proportional — class-K property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
-// kernel_digest_at_authoring: sha256:de9d2e7d1c2fab912ec733142be0425f138f4d9b1cc6114a7dede268526ab1ff
+// kernel_digest_at_authoring: sha256:5cfcd3cc7d2da7510a781775b7aff9f84c7dee69601df0ae7d44cf84cf387df6
 // human_sign_off: builder-authored 2026-10-29 — synthetic inputs only.
 //
 // SCOPE: floor tier only. NOT a proof.
@@ -11,7 +11,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-846-assess-pfmi-proportional.proptest.mjs
 
-import { compute, buildTierMap } from '../art-846-assess-pfmi-proportional.kernel.mjs';
+import { compute, buildArtifact, buildTierMap } from '../art-846-assess-pfmi-proportional.kernel.mjs';
 import { runFixtureOracle, summarize } from './_pbt-common.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -168,6 +168,45 @@ function checkP6_determinism() {
   return { name: 'P6_determinism', trials: checked, violations };
 }
 
+// ---------- P7: buildArtifact_never_throws + linked_system input contract ----------
+// Unhashable input mints a null execution_hash with a hash_refusal beside it; a clean input gets a
+// 64-hex hash. linked_system present but not a boolean refuses; only an absent key defaults.
+async function checkP7_buildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  const base = () => ({ role: 'operator', tier: 'small', system_type: 'rtgs', ratings: [{ id: 'p01', rating: 'observed' }] });
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const hostile = [{ zzz: 1e300 }, { zzz: Infinity }, { zzz: NaN }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } }, { zzz: deep }, { zzz: wide }];
+  for (const delta of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...base(), ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) violations++;
+      if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) violations++;
+      if (!art.compliance_flags.includes('INPUT_REFUSED')) violations++;
+    } catch (e) { violations++; console.log('P7 violation: buildArtifact threw: ' + String(e.message).slice(0, 80)); }
+  }
+  for (const v of [null, '', 0, {}, 'true', 1, []]) {
+    checked++;
+    const { output_payload, compliance_flags } = compute({ ...base(), linked_system: v });
+    if (output_payload.error !== 'linked_system_invalid' || !compliance_flags.includes('INPUT_REFUSED')) violations++;
+  }
+  for (const v of [true, false, undefined]) {
+    checked++;
+    const { compliance_flags } = compute({ ...base(), linked_system: v });
+    if (compliance_flags.includes('INPUT_REFUSED')) violations++;
+  }
+  for (const pp of [base(), null, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) violations++;
+    } catch (e) { violations++; console.log('P7 violation: threw on clean input: ' + String(e.message).slice(0, 80)); }
+  }
+  return { name: 'P7_buildArtifact_never_throws_and_linked_system_contract', trials: checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -182,6 +221,7 @@ const properties = [
   checkP4_downgradeMonotone(),
   checkP5_refusalsReachable(),
   checkP6_determinism(),
+  await checkP7_buildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — authored 2026-10-29 (PFMI-PROPORTIONAL-SA-1).`);
 const ok = summarize(KERNEL_ID, oracle, properties);
