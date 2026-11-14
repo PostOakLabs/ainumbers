@@ -1,5 +1,5 @@
 // art-497-validator-change-control-receipt.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C25-1).
-// kernel_digest_at_authoring: sha256:54af35dcf6e35f959764ddf334f63dafbdf57047a8f810e47e3f980586a861b3
+// kernel_digest_at_authoring: sha256:638918e4e58649908892dbbe69894f92db286f9170b68d7d46ce5f0ef4c5ebc1
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -12,8 +12,17 @@
 // display-only float ratio.
 // Checks: fixture-oracle gate, termination (authorization_chain bounded by input array length after
 // filter(Boolean)), differential re-derivation of weight_delta/quorum_status, permutation-invariance
-// of authorizing_identities order (only count/membership matter), and forced categorical boundary
-// cases around each change_type's exact-equality branches and the quorum threshold.
+// of authorizing_identities order (only count/membership matter), forced categorical boundary
+// cases around each change_type's exact-equality branches and the quorum threshold, and the strict
+// statedness matrix (P6): weights, total stake and quorum numbers are statements only as finite JSON
+// numbers or one strict decimal-string form; blanks, booleans, arrays, objects and junk refuse
+// NOT_STATED, negatives refuse NEGATIVE, quorum counts must be whole, nothing coerces or clamps.
+// P7 pins the input-truthfulness cure (Muse-lane audit): an as_of that is not
+// a real calendar date in exact YYYY-MM-DD form refuses AS_OF_INVALID_DATE and
+// echoes null (a real leap day and the base date stay clean); an integer
+// magnitude beyond 2^53 refuses UNSAFE_INTEGER, echoes null and never derives
+// a delta or share; a non-string authorizing identity is refused by type and
+// never coerced into the chain; a padded change_type is a different value.
 //
 // Run: node chaingraph/kernels/__proptests__/art-497-validator-change-control-receipt.proptest.mjs
 
@@ -181,7 +190,263 @@ function checkP4_forced_categorical_boundaries() {
     const r = compute({}).output_payload;
     if (typeof r !== 'object' || r === null) violations++;
   }
+  // null and undefined fall to the same empty-object refuse path and never throw
+  // (allowlist rule: compute(null) / compute(undefined) refuse, never accept)
+  checked++;
+  {
+    const r = compute(null).output_payload;
+    if (typeof r !== 'object' || r === null) violations++;
+    if (r.exceptions.length === 0) violations++;
+  }
+  checked++;
+  {
+    const r = compute(undefined).output_payload;
+    if (typeof r !== 'object' || r === null) violations++;
+    if (r.exceptions.length === 0) violations++;
+  }
   return { name: 'P4_forced_categorical_boundaries', trials: checked, violations };
+}
+
+// ---------- P5: required inputs fail closed (missing-input cure) ----------
+// All ten manifest-required fields: deleting any one of them from the positive
+// base vector must land the receipt in a non-positive state (an exception plus
+// ESCALATION_RAISED, or an UNQUANTIFIED quorum). The weight and as-of fields are
+// the cured ones (a missing weight used to read as a stated zero, a missing as_of
+// used to pass silently); the quorum/identity/ref fields were already fail-closed
+// and are pinned here so they stay that way. JSON null behaves like deleted for
+// the cured three; an explicit 0 stays the caller's own statement and evaluates.
+function checkP5_requiredInputsFailClosed() {
+  const base = JSON.parse(readFileSync(path.join(__dirname, '..', 'fixtures', 'art-497-validator-change-control-receipt.fixtures.json'), 'utf8')).vectors[0].policy_parameters;
+  const REQUIRED = ['as_of', 'authorizing_identities', 'change_type', 'effective_epoch', 'posterior_weight', 'prior_weight', 'quorum_achieved', 'quorum_required', 'total_stake_weight', 'validator_ref'];
+  let violations = 0, checked = 0;
+  for (const f of REQUIRED) {
+    const pp = { ...base };
+    delete pp[f];
+    const { output_payload: op, compliance_flags } = compute(pp);
+    checked++;
+    if (op.exceptions.length === 0) violations++;
+    if (!compliance_flags.includes('ESCALATION_RAISED')) violations++;
+    if (f === 'quorum_achieved' || f === 'quorum_required') {
+      if (op.quorum_status !== 'UNQUANTIFIED') violations++;
+    }
+  }
+  // JSON null for the three cured fields behaves like deletion (no statement).
+  for (const f of ['as_of', 'prior_weight', 'posterior_weight']) {
+    const pp = { ...base, [f]: null };
+    const { output_payload: op, compliance_flags } = compute(pp);
+    checked++;
+    if (!compliance_flags.includes('ESCALATION_RAISED')) violations++;
+    if (op.exceptions.length === 0) violations++;
+  }
+  // An explicit 0 weight is the caller's own statement and evaluates as such
+  // (here: a weight_change with no delta raises the no-delta exception, not NOT_STATED).
+  const r0 = compute({ ...base, prior_weight: 0, posterior_weight: 0 }).output_payload;
+  checked++;
+  if (r0.exceptions.includes('PRIOR_WEIGHT_NOT_STATED') || r0.exceptions.includes('POSTERIOR_WEIGHT_NOT_STATED')) violations++;
+  if (!r0.exceptions.includes('WEIGHT_CHANGE_WITH_NO_DELTA')) violations++;
+  return { name: 'P5_required_inputs_fail_closed', trials: checked, violations };
+}
+
+// ---------- P6: strict statedness matrix (weight-statedness cure) ----------
+// A weight, total-stake or quorum number is a statement ONLY as a finite JSON
+// number or as one strict decimal-string form (a minus sign, digits, at most
+// one fractional part; quorum counts whole), because the page port sends DOM
+// input strings. Every other shape -- empty or blank string, boolean, array
+// (empty or singleton), object, null, NaN, ±Infinity, exponent/hex/plus/junk
+// strings -- must refuse NOT_STATED and never read as a coerced stated zero;
+// negatives must refuse NEGATIVE and never clamp; a refused field echoes null
+// (or its negative value), weight_delta/share_of_total_pct are never derived
+// from a refused statement, quorum verdicts go UNQUANTIFIED (never SHORT),
+// and every refusal escalates. String fields must be non-empty strings.
+function checkP6_statednessMatrix() {
+  let violations = 0, checked = 0;
+  const base = JSON.parse(readFileSync(path.join(__dirname, '..', 'fixtures', 'art-497-validator-change-control-receipt.fixtures.json'), 'utf8')).vectors[0].policy_parameters;
+  const NON_STATEMENTS = ['', '   ', false, true, [], ['5'], {}, 'junk', '1e3', '12,5', '+12', '0x10', '12.', '.5', null, NaN, Infinity, -Infinity, undefined];
+  const NEGATIVE_WEIGHTS = [-1, -9.5, '-9', '-0.5'];
+  const NEGATIVE_COUNTS = [-1, '-9'];
+  const WEXC = { prior_weight: 'PRIOR_WEIGHT', posterior_weight: 'POSTERIOR_WEIGHT', total_stake_weight: 'TOTAL_STAKE_WEIGHT' };
+
+  for (const f of ['prior_weight', 'posterior_weight', 'total_stake_weight']) {
+    for (const bad of NON_STATEMENTS) {
+      const { output_payload: op, compliance_flags } = compute({ ...base, [f]: bad });
+      checked++;
+      if (!op.exceptions.includes(WEXC[f] + '_NOT_STATED')) violations++;
+      if (op[f] !== null) violations++;
+      if (!compliance_flags.includes('ESCALATION_RAISED')) violations++;
+      if (op.share_of_total_pct !== null) violations++;
+      if (f !== 'total_stake_weight' && op.weight_delta !== null) violations++;
+    }
+    for (const neg of NEGATIVE_WEIGHTS) {
+      const { output_payload: op, compliance_flags } = compute({ ...base, [f]: neg });
+      checked++;
+      if (!op.exceptions.includes(WEXC[f] + '_NEGATIVE')) violations++;
+      if (!compliance_flags.includes('ESCALATION_RAISED')) violations++;
+      if (op.share_of_total_pct !== null) violations++;
+    }
+  }
+
+  const QEXC = { quorum_required: 'QUORUM_REQUIRED', quorum_achieved: 'QUORUM_ACHIEVED' };
+  for (const f of ['quorum_required', 'quorum_achieved']) {
+    for (const bad of NON_STATEMENTS) {
+      const { output_payload: op, compliance_flags } = compute({ ...base, [f]: bad });
+      checked++;
+      if (op.quorum_status !== 'UNQUANTIFIED') violations++;
+      if (op[f] !== null) violations++;
+      if (!op.exceptions.includes(QEXC[f] + '_NOT_STATED')) violations++;
+      if (!compliance_flags.includes('ESCALATION_RAISED')) violations++;
+    }
+    for (const frac of [2.5, '2.5', -1.5]) {
+      const { output_payload: op } = compute({ ...base, [f]: frac });
+      checked++;
+      if (op.quorum_status !== 'UNQUANTIFIED' || op[f] !== null) violations++;
+      if (!op.exceptions.includes(QEXC[f] + '_NOT_STATED')) violations++;
+    }
+    for (const neg of NEGATIVE_COUNTS) {
+      const { output_payload: op, compliance_flags } = compute({ ...base, [f]: neg });
+      checked++;
+      if (op.quorum_status !== 'UNQUANTIFIED') violations++;
+      if (!op.exceptions.includes(QEXC[f] + '_NEGATIVE')) violations++;
+      if (!compliance_flags.includes('ESCALATION_RAISED')) violations++;
+    }
+  }
+
+  for (const f of ['as_of', 'effective_epoch', 'validator_ref']) {
+    const want = f === 'as_of' ? 'AS_OF_MISSING' : f === 'effective_epoch' ? 'EFFECTIVE_EPOCH_MISSING' : 'VALIDATOR_REF_MISSING';
+    for (const bad of [0, 20260730, false, [], {}, null]) {
+      const { output_payload: op } = compute({ ...base, [f]: bad });
+      checked++;
+      if (op[f] !== null) violations++;
+      if (!op.exceptions.includes(want)) violations++;
+    }
+  }
+
+  // change_type stays an exact allowlist of strings: an array never coerces in.
+  {
+    const op = compute({ ...base, change_type: ['add'] }).output_payload;
+    checked++;
+    if (op.change_type_valid !== false || !op.exceptions.includes('UNKNOWN_CHANGE_TYPE')) violations++;
+  }
+
+  // The strict decimal-string form evaluates exactly like the numeric base.
+  {
+    const strForm = compute({ ...base, prior_weight: '1200', posterior_weight: '1500', total_stake_weight: '50000', quorum_required: '3', quorum_achieved: '3' }).output_payload;
+    const numForm = compute({ ...base }).output_payload;
+    checked++;
+    if (JSON.stringify(strForm) !== JSON.stringify(numForm)) violations++;
+  }
+  // Fractional weight strings are stated; a zero string is an explicit stated zero.
+  {
+    const op = compute({ ...base, prior_weight: '1200.5' }).output_payload;
+    checked++;
+    if (op.prior_weight !== 1200.5 || op.weight_delta !== 299.5) violations++;
+  }
+  {
+    const op = compute({ ...base, prior_weight: '0', posterior_weight: '0' }).output_payload;
+    checked++;
+    if (op.exceptions.includes('PRIOR_WEIGHT_NOT_STATED') || op.exceptions.includes('POSTERIOR_WEIGHT_NOT_STATED')) violations++;
+    if (!op.exceptions.includes('WEIGHT_CHANGE_WITH_NO_DELTA')) violations++;
+  }
+  return { name: 'P6_weight_quorum_statedness_matrix', trials: checked, violations };
+}
+
+// ---------- P7: input truthfulness (impossible dates, unsafe integers, identity types, padding) ----------
+function checkP7_inputTruthfulness() {
+  let violations = 0, checked = 0;
+  const base = JSON.parse(readFileSync(path.join(__dirname, '..', 'fixtures', 'art-497-validator-change-control-receipt.fixtures.json'), 'utf8')).vectors[0].policy_parameters;
+
+  // Impossible or malformed as_of dates refuse AS_OF_INVALID_DATE, echo null, escalate.
+  // (Surrounding whitespace is trimmed first per the statedness cure's
+  // non-empty-after-trim rule for string fields, so padded-but-real dates are
+  // NOT in this list; only impossible or non-YYYY-MM-DD shapes refuse.)
+  const BAD_DATES = ['2026-02-31', '2026-13-45', '0000-00-00', '2026-04-31', '2023-02-29', '2026-1-30', '2026-7-3', '26-07-30', '2026/07/30', '2026-07-30T00:00:00Z', '2026-07-3', 'x'];
+  for (const bad of BAD_DATES) {
+    const { output_payload: op, compliance_flags } = compute({ ...base, as_of: bad });
+    checked++;
+    if (!op.exceptions.includes('AS_OF_INVALID_DATE')) violations++;
+    if (op.as_of !== null) violations++;
+    if (!compliance_flags.includes('ESCALATION_RAISED')) violations++;
+  }
+  // Real calendar dates (leap day included) stay clean receipt dates.
+  for (const good of ['2024-02-29', '2000-02-29', '2026-07-30', '1900-02-28']) {
+    const { output_payload: op } = compute({ ...base, as_of: good });
+    checked++;
+    if (op.as_of !== good || op.exceptions.includes('AS_OF_INVALID_DATE')) violations++;
+  }
+  // 1900 is NOT a leap year (century rule): 1900-02-29 must refuse.
+  {
+    const op = compute({ ...base, as_of: '1900-02-29' }).output_payload;
+    checked++;
+    if (!op.exceptions.includes('AS_OF_INVALID_DATE') || op.as_of !== null) violations++;
+  }
+
+  // Unsafe integer magnitudes (number and strict-string form) refuse, echo null, derive nothing.
+  const UNSAFE = [9007199254740992, 9007199254740993, 1e300, '9007199254740992', '9007199254740993', '99999999999999999999'];
+  const WEXC = { prior_weight: 'PRIOR_WEIGHT', posterior_weight: 'POSTERIOR_WEIGHT', total_stake_weight: 'TOTAL_STAKE_WEIGHT' };
+  for (const f of ['prior_weight', 'posterior_weight', 'total_stake_weight']) {
+    for (const bad of UNSAFE) {
+      const { output_payload: op, compliance_flags } = compute({ ...base, [f]: bad });
+      checked++;
+      if (!op.exceptions.includes(WEXC[f] + '_UNSAFE_INTEGER')) violations++;
+      if (op[f] !== null) violations++;
+      if (op.share_of_total_pct !== null) violations++;
+      if (f !== 'total_stake_weight' && op.weight_delta !== null) violations++;
+      if (!compliance_flags.includes('ESCALATION_RAISED')) violations++;
+    }
+  }
+  // Unsafe quorum counts go UNQUANTIFIED with their own named exception.
+  for (const bad of UNSAFE) {
+    const op = compute({ ...base, quorum_achieved: bad }).output_payload;
+    checked++;
+    if (op.quorum_status !== 'UNQUANTIFIED' || op.quorum_achieved !== null) violations++;
+    if (!op.exceptions.includes('QUORUM_ACHIEVED_UNSAFE_INTEGER')) violations++;
+    const op2 = compute({ ...base, quorum_required: bad }).output_payload;
+    checked++;
+    if (op2.quorum_status !== 'UNQUANTIFIED' || op2.quorum_required !== null) violations++;
+    if (!op2.exceptions.includes('QUORUM_REQUIRED_UNSAFE_INTEGER')) violations++;
+  }
+  // A huge but SAFE integer (2^53-1) is still a valid statement.
+  {
+    const op = compute({ ...base, prior_weight: 9007199254740991 }).output_payload;
+    checked++;
+    if (op.prior_weight !== 9007199254740991 || op.exceptions.includes('PRIOR_WEIGHT_UNSAFE_INTEGER')) violations++;
+  }
+
+  // Non-string authorizing identities are refused by type, never coerced, never counted.
+  for (const bad of [0, false, {}, [], null]) {
+    const { output_payload: op, compliance_flags } = compute({ ...base, authorizing_identities: ['ID-A', bad, 'ID-B'] });
+    checked++;
+    if (!op.exceptions.includes('AUTHORIZING_IDENTITY_NOT_A_STRING')) violations++;
+    if (JSON.stringify(op.authorization_chain) !== JSON.stringify(['ID-A', 'ID-B'])) violations++;
+    if (!compliance_flags.includes('ESCALATION_RAISED')) violations++;
+  }
+  // The whole array non-string leaves the chain empty (NO_AUTHORIZING_IDENTITY too).
+  {
+    const op = compute({ ...base, authorizing_identities: [0, false] }).output_payload;
+    checked++;
+    if (op.authorization_chain.length !== 0 || !op.exceptions.includes('NO_AUTHORIZING_IDENTITY')) violations++;
+    if (!op.exceptions.includes('AUTHORIZING_IDENTITY_NOT_A_STRING')) violations++;
+  }
+  // Quorum reconciliation counts only the real string identities (2 named, quorum 3 declared achieved -> EXCEEDS).
+  {
+    const op = compute({ ...base, authorizing_identities: ['ID-A', 0, 'ID-B'], quorum_achieved: 3 }).output_payload;
+    checked++;
+    if (!op.exceptions.includes('QUORUM_ACHIEVED_EXCEEDS_NAMED_AUTHORIZERS') || op.authorized !== true) violations++;
+  }
+
+  // Padded change_type is a different value: exact allowlist, no trim.
+  for (const bad of [' weight_change', 'weight_change ', ' add', 'add ', '  remove  ']) {
+    const op = compute({ ...base, change_type: bad }).output_payload;
+    checked++;
+    if (op.change_type_valid !== false || !op.exceptions.includes('UNKNOWN_CHANGE_TYPE')) violations++;
+  }
+  // The exact values still validate.
+  for (const good of ['add', 'remove', 'weight_change']) {
+    const op = compute({ ...base, change_type: good }).output_payload;
+    checked++;
+    if (op.change_type_valid !== true || op.exceptions.includes('UNKNOWN_CHANGE_TYPE')) violations++;
+  }
+
+  return { name: 'P7_input_truthfulness_matrix', trials: checked, violations };
 }
 
 // ---------- run ----------
@@ -195,6 +460,9 @@ results.properties.push(checkP1_termination());
 results.properties.push(checkP2_differential());
 results.properties.push(checkP3_permutation_invariance());
 results.properties.push(checkP4_forced_categorical_boundaries());
+results.properties.push(checkP5_requiredInputsFailClosed());
+results.properties.push(checkP6_statednessMatrix());
+results.properties.push(checkP7_inputTruthfulness());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 

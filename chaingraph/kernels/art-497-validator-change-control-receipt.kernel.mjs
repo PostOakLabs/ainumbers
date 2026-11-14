@@ -29,58 +29,183 @@ export const meta = {
 // No clock: as_of and effective_epoch are caller-supplied opaque values,
 // echoed only. Zero PII: validator_ref and every identity in
 // authorizing_identities are opaque references.
+//
+// Required inputs are fail-closed (missing-input cure, 2026-10-17 policy):
+// every manifest-required field is either reconciled above or disclosed as
+// unstated. as_of is required, so a missing or blank as-of date raises
+// AS_OF_MISSING and escalates instead of recording undated evidence.
+// prior_weight and posterior_weight are required: absent, null or non-numeric
+// values are NO statement at all (a missing weight must never read as a stated
+// zero, which would silently encode a from-zero add or a slash-to-zero), so
+// PRIOR_WEIGHT_NOT_STATED / POSTERIOR_WEIGHT_NOT_STATED fire and escalate; an
+// explicit 0 remains the caller's own statement and evaluates. The quorum and
+// identity fields were already fail-closed (UNQUANTIFIED quorum status plus
+// exceptions when either quorum number is missing).
+//
+// Statedness is strict (weight-statedness cure, 2026-11-13): a weight, the
+// total stake or a quorum number is a statement ONLY as a finite JSON number,
+// or as ONE strict decimal-string form (a minus sign, digits, at most one
+// fractional part; quorum counts whole), because the page port sends DOM
+// input strings. An empty string, a boolean, an array, an object, a blank or
+// junk string is NO statement -- Number() coercion of those to a stated zero
+// is exactly the silent from-zero add / slash-to-zero this kernel refuses --
+// and a negative statement is refused with its own NEGATIVE exception, never
+// clamped to zero. An unstated field echoes as null, never 0, and no derived
+// field (delta, share) is computed from a refused statement. as_of,
+// effective_epoch and validator_ref must be non-empty strings: a non-string
+// scalar is a missing statement, never String()-coerced into a present one.
+//
+// Input truthfulness cure (Muse-lane audit, 2026-11-14): an as_of that is not
+// a real calendar date in exact YYYY-MM-DD form (an impossible day, month or
+// zero date, or any other shape) refuses AS_OF_INVALID_DATE and is never
+// recorded as the receipt date. An integer magnitude beyond 2^53 can never be
+// a faithful statement -- the JSON round-trip already prints a different
+// number -- so a weight, the total stake or a quorum count in that class
+// refuses UNSAFE_INTEGER, echoes null, and is carried as null in the artifact
+// preimage so the canonicalizer is never handed a value it must lie about
+// (buildArtifact never throws on input the kernel itself refuses). Only real
+// non-empty strings are authorizing identities: a number, boolean, object or
+// array entry is refused AUTHORIZING_IDENTITY_NOT_A_STRING, never
+// String()-coerced into the chain or counted toward quorum. change_type is an
+// exact allowlist match -- padding is not tolerance, it is a different value.
 
 const CHANGE_TYPES = ['add', 'remove', 'weight_change'];
 const MAX_SAFE = 9007199254740991;
 
-function g(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
-function gz(v) { const n = Number(v); return Number.isFinite(n) ? Math.max(0, n) : 0; }
 function r2(v) { return Number.isFinite(v) ? Math.round(v * 100) / 100 : null; }
 function jnum(v) { return Number.isFinite(v) && Math.abs(v) > MAX_SAFE ? String(v) : (Number.isFinite(v) ? v : 0); }
+function jn(v) { return v == null ? null : jnum(v); }
 function str(v) { return String(v == null ? '' : v).trim(); }
+function optStr(v) { return typeof v === 'string' && v.trim() !== '' ? v.trim() : null; }
+function rawStr(v) { return typeof v === 'string' ? v : ''; }
+function realId(v) { return typeof v === 'string' && v.trim() !== ''; }
+function notStr(v) { return typeof v !== 'string'; }
+
+// A real calendar date in exact YYYY-MM-DD form: padded digits, a real month,
+// and a day that exists in that month (leap years included). new Date() is
+// deliberately not used -- it silently normalizes 2026-02-31 into March and
+// would hand back a "clean" verdict on an impossible date.
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+function realCalendarDate(s) {
+  const m = ISO_DATE.exec(s || '');
+  if (!m) return false;
+  const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+  if (mo < 1 || mo > 12 || d < 1) return false;
+  const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  const dim = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return d <= dim[mo - 1];
+}
+
+// Strict statedness readers. A weight is a statement ONLY as a finite JSON
+// number or as one strict decimal-string form (the page port sends DOM input
+// strings); a count must additionally be whole. status 'unstated' (empty
+// string, boolean, array, object, null, blank or junk string -- anything
+// Number() would coerce) and status 'negative' both refuse: the value is
+// carried for the echo only, never fed to a branch or a derived field.
+// status 'unsafe' refuses an integer magnitude beyond 2^53 BEFORE the
+// negative/stated split: such a number cannot round-trip (RFC 7493), so
+// echoing it would print a different value than the caller sent and feeding
+// it to the canonicalizer would throw -- it refuses with its own named
+// exception and echoes null instead.
+const DECIMAL_STRING = /^-?\d+(\.\d+)?$/;
+const INTEGER_STRING = /^-?\d+$/;
+
+function readWeight(v) {
+  let n;
+  if (typeof v === 'number') n = v;
+  else if (typeof v === 'string' && DECIMAL_STRING.test(v.trim())) n = Number(v.trim());
+  else return { status: 'unstated', value: null };
+  if (!Number.isFinite(n)) return { status: 'unstated', value: null };
+  if (Number.isInteger(n) && !Number.isSafeInteger(n)) return { status: 'unsafe', value: null };
+  return n < 0 ? { status: 'negative', value: n } : { status: 'stated', value: n };
+}
+
+function readCount(v) {
+  let n;
+  if (typeof v === 'number') n = v;
+  else if (typeof v === 'string' && INTEGER_STRING.test(v.trim())) n = Number(v.trim());
+  else return { status: 'unstated', value: null };
+  if (!Number.isInteger(n)) return { status: 'unstated', value: null };
+  if (!Number.isSafeInteger(n)) return { status: 'unsafe', value: null };
+  return n < 0 ? { status: 'negative', value: n } : { status: 'stated', value: n };
+}
 
 export function compute(pp) {
   pp = pp || {};
   const exceptions = [];
   const compliance_flags = [];
 
-  const validator_ref = str(pp.validator_ref);
-  const rawType = str(pp.change_type);
+  const validator_ref = optStr(pp.validator_ref);
+  const rawType = rawStr(pp.change_type);
   const change_type_valid = CHANGE_TYPES.indexOf(rawType) >= 0;
   const change_type = change_type_valid ? rawType : (rawType || 'unstated');
   if (!change_type_valid) exceptions.push('UNKNOWN_CHANGE_TYPE');
 
-  const prior_weight = gz(pp.prior_weight);
-  const posterior_weight = gz(pp.posterior_weight);
-  const weight_delta = posterior_weight - prior_weight;
-  const total_stake_weight = gz(pp.total_stake_weight);
-  const share_of_total_pct = total_stake_weight > 0 ? r2((weight_delta / total_stake_weight) * 100) : null;
-  if (total_stake_weight <= 0) exceptions.push('TOTAL_STAKE_WEIGHT_ZERO_OR_ABSENT');
+  const prior = readWeight(pp.prior_weight);
+  const posterior = readWeight(pp.posterior_weight);
+  if (prior.status === 'unsafe') exceptions.push('PRIOR_WEIGHT_UNSAFE_INTEGER');
+  else if (prior.status === 'negative') exceptions.push('PRIOR_WEIGHT_NEGATIVE');
+  else if (prior.status === 'unstated') exceptions.push('PRIOR_WEIGHT_NOT_STATED');
+  if (posterior.status === 'unsafe') exceptions.push('POSTERIOR_WEIGHT_UNSAFE_INTEGER');
+  else if (posterior.status === 'negative') exceptions.push('POSTERIOR_WEIGHT_NEGATIVE');
+  else if (posterior.status === 'unstated') exceptions.push('POSTERIOR_WEIGHT_NOT_STATED');
+  const prior_weight = prior.value;
+  const posterior_weight = posterior.value;
+  const weight_delta = prior.status === 'stated' && posterior.status === 'stated'
+    ? posterior.value - prior.value : null;
+  const total = readWeight(pp.total_stake_weight);
+  if (total.status === 'unsafe') exceptions.push('TOTAL_STAKE_WEIGHT_UNSAFE_INTEGER');
+  else if (total.status === 'negative') exceptions.push('TOTAL_STAKE_WEIGHT_NEGATIVE');
+  else if (total.status === 'unstated') exceptions.push('TOTAL_STAKE_WEIGHT_NOT_STATED');
+  else if (total.value === 0) exceptions.push('TOTAL_STAKE_WEIGHT_ZERO_OR_ABSENT');
+  const total_stake_weight = total.value;
+  const share_of_total_pct = total_stake_weight > 0 && weight_delta !== null
+    ? r2((weight_delta / total_stake_weight) * 100) : null;
 
   if (change_type === 'add') {
-    if (prior_weight !== 0) exceptions.push('ADD_WITH_NONZERO_PRIOR_WEIGHT');
-    if (posterior_weight <= 0) exceptions.push('ADD_WITH_NONPOSITIVE_POSTERIOR_WEIGHT');
+    if (prior.status === 'stated' && prior_weight !== 0) exceptions.push('ADD_WITH_NONZERO_PRIOR_WEIGHT');
+    if (posterior.status === 'stated' && posterior_weight <= 0) exceptions.push('ADD_WITH_NONPOSITIVE_POSTERIOR_WEIGHT');
   } else if (change_type === 'remove') {
-    if (posterior_weight !== 0) exceptions.push('REMOVE_WITH_NONZERO_POSTERIOR_WEIGHT');
-    if (prior_weight <= 0) exceptions.push('REMOVE_WITH_NONPOSITIVE_PRIOR_WEIGHT');
+    if (posterior.status === 'stated' && posterior_weight !== 0) exceptions.push('REMOVE_WITH_NONZERO_POSTERIOR_WEIGHT');
+    if (prior.status === 'stated' && prior_weight <= 0) exceptions.push('REMOVE_WITH_NONPOSITIVE_PRIOR_WEIGHT');
   } else if (change_type === 'weight_change') {
-    if (prior_weight === posterior_weight) exceptions.push('WEIGHT_CHANGE_WITH_NO_DELTA');
+    if (prior.status === 'stated' && posterior.status === 'stated' && prior_weight === posterior_weight) {
+      exceptions.push('WEIGHT_CHANGE_WITH_NO_DELTA');
+    }
   }
 
-  const authorization_chain = Array.isArray(pp.authorizing_identities)
-    ? pp.authorizing_identities.map(str).filter(Boolean)
-    : [];
+  // Only real non-empty strings are authorizing identities: a number, boolean,
+  // object or array entry is refused by type and never String()-coerced into
+  // the chain or counted toward quorum (a coerced "0" or "false" would name an
+  // identity the caller never named).
+  const identities = Array.isArray(pp.authorizing_identities) ? pp.authorizing_identities : [];
+  const authorization_chain = identities.filter(realId).map(str);
+  if (identities.some(notStr)) exceptions.push('AUTHORIZING_IDENTITY_NOT_A_STRING');
   const authorized = authorization_chain.length > 0;
   if (!authorized) exceptions.push('NO_AUTHORIZING_IDENTITY');
 
-  const quorum_required = g(pp.quorum_required);
-  const quorum_required_evaluable = quorum_required !== null && quorum_required > 0;
-  const quorum_achieved = g(pp.quorum_achieved);
+  const qr = readCount(pp.quorum_required);
+  const qa = readCount(pp.quorum_achieved);
+  const quorum_required = qr.value;
+  const quorum_achieved = qa.value;
+  const quorum_required_evaluable = qr.status === 'stated' && qr.value > 0;
   let quorum_status;
-  if (!quorum_required_evaluable) {
+  if (qr.status === 'unsafe') {
+    quorum_status = 'UNQUANTIFIED';
+    exceptions.push('QUORUM_REQUIRED_UNSAFE_INTEGER');
+  } else if (qr.status === 'negative') {
+    quorum_status = 'UNQUANTIFIED';
+    exceptions.push('QUORUM_REQUIRED_NEGATIVE');
+  } else if (!quorum_required_evaluable) {
     quorum_status = 'UNQUANTIFIED';
     exceptions.push('QUORUM_REQUIRED_NOT_STATED');
-  } else if (quorum_achieved === null) {
+  } else if (qa.status === 'unsafe') {
+    quorum_status = 'UNQUANTIFIED';
+    exceptions.push('QUORUM_ACHIEVED_UNSAFE_INTEGER');
+  } else if (qa.status === 'negative') {
+    quorum_status = 'UNQUANTIFIED';
+    exceptions.push('QUORUM_ACHIEVED_NEGATIVE');
+  } else if (qa.status !== 'stated') {
     quorum_status = 'UNQUANTIFIED';
     exceptions.push('QUORUM_ACHIEVED_NOT_STATED');
   } else {
@@ -90,9 +215,13 @@ export function compute(pp) {
     }
   }
 
-  const effective_epoch = str(pp.effective_epoch) || null;
+  const effective_epoch = optStr(pp.effective_epoch);
   if (!effective_epoch) exceptions.push('EFFECTIVE_EPOCH_MISSING');
-  const as_of = str(pp.as_of) || null;
+  const as_of_stated = optStr(pp.as_of);
+  const as_of_valid = as_of_stated !== null && realCalendarDate(as_of_stated);
+  const as_of = as_of_valid ? as_of_stated : null;
+  if (!as_of_stated) exceptions.push('AS_OF_MISSING');
+  else if (!as_of_valid) exceptions.push('AS_OF_INVALID_DATE');
 
   if (validator_ref) {
     compliance_flags.push('VCC_RECORDED');
@@ -112,10 +241,10 @@ export function compute(pp) {
       validator_ref: validator_ref || null,
       change_type,
       change_type_valid,
-      prior_weight: jnum(prior_weight),
-      posterior_weight: jnum(posterior_weight),
-      weight_delta: jnum(weight_delta),
-      total_stake_weight: jnum(total_stake_weight),
+      prior_weight: jn(prior_weight),
+      posterior_weight: jn(posterior_weight),
+      weight_delta: jn(weight_delta),
+      total_stake_weight: jn(total_stake_weight),
       share_of_total_pct,
       authorization_chain,
       authorized,
@@ -130,9 +259,30 @@ export function compute(pp) {
   };
 }
 
+// An integer magnitude beyond 2^53 cannot round-trip as I-JSON (RFC 7493);
+// compute() refuses such a value with a named UNSAFE_INTEGER exception and
+// echoes null. The artifact preimage carries the refused value the same way,
+// as null, so the canonicalizer is never handed a number it must lie about
+// and buildArtifact never throws on input the kernel itself refuses. Every
+// safe input passes through byte for byte.
+function sanitizeUnsafeIntegers(v) {
+  if (typeof v === 'number') return Number.isInteger(v) && !Number.isSafeInteger(v) ? null : v;
+  if (Array.isArray(v)) return v.map(sanitizeUnsafeIntegers);
+  if (v && typeof v === 'object') {
+    // null-prototype accumulator: a caller key literally named __proto__ must
+    // land as an ordinary own key (the same trap _hash.mjs's cgCanon guards),
+    // never set the accumulator's prototype.
+    const o = Object.create(null);
+    for (const k of Object.keys(v)) o[k] = sanitizeUnsafeIntegers(v[k]);
+    return o;
+  }
+  return v;
+}
+
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
+  const safePP = sanitizeUnsafeIntegers(pp);
+  const hash = await executionHash(safePP, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
@@ -142,7 +292,7 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
     generated_at: now ?? null,
     execution_hash: hash,
     chain: { parent_hashes, parent_tool_ids, chain_depth },
-    policy_parameters: pp,
+    policy_parameters: safePP,
     output_payload,
     compliance_flags,
     compute_mode: 'server',
