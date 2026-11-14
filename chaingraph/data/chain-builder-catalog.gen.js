@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (755 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (756 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -7921,6 +7921,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "career_workforce",
     "url": "https://ainumbers.co/chaingraph/art-766-parental-leave-income-gap.html",
     "description": "Parental-leave income gap planner ported from ApexLogics Apex #131 (AL-138). From an annual base salary, an effective tax rate, monthly hous",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-769-medicare-oop-exposure",
+    "display_name": "Medicare Out-of-Pocket Exposure",
+    "mandate_type": "retirement_projection",
+    "url": "https://ainumbers.co/chaingraph/art-769-medicare-oop-exposure.html",
+    "description": "Medicare out-of-pocket exposure modeler ported from ApexLogics Apex #152 (AL-166). For a declared plan year it walks a modelled year of util",
     "consumes": [],
     "feeds": [],
     "status": "live"
