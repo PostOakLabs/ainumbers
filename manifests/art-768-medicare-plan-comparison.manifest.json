@@ -1,0 +1,961 @@
+{
+  "tool_id": "art-768-medicare-plan-comparison",
+  "version": "1.0.0",
+  "title": "Medicare Plan Comparison",
+  "description": "Prices two caller-declared Medicare enrollment paths for a full year, Path A (Original Medicare plus Medigap plus stand-alone Part D) and Path B (Medicare Advantage), for a typical year and a bad-year stress test on 2026 CMS parameters. Returns both totals, the annual and bad-year differences and both worst-case ceilings, or a named refusal. Verify-only: it does not quote plans or compare networks.",
+  "category": "chaingraph",
+  "tags": [
+    "Medicare",
+    "Medigap",
+    "Medicare Advantage",
+    "Part D",
+    "MOOP",
+    "IRMAA",
+    "out-of-pocket",
+    "annual cost projection",
+    "CMS",
+    "2026",
+    "mcp:compare_medicare_plans"
+  ],
+  "audience": [
+    "consumer",
+    "healthcare",
+    "compliance"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "irmaa_tier",
+      "admissions_per_year",
+      "primary_visits_per_year",
+      "specialist_visits_per_year",
+      "length_of_stay_days",
+      "outpatient_charges_usd",
+      "annual_drug_cost_usd",
+      "medigap_premium_monthly_usd",
+      "medigap_plan_type",
+      "part_d_premium_monthly_usd",
+      "part_d_deductible_a_usd",
+      "ma_premium_monthly_usd",
+      "part_b_giveback_monthly_usd",
+      "ma_primary_copay_usd",
+      "ma_specialist_copay_usd",
+      "ma_inpatient_copay_per_day_usd",
+      "ma_inpatient_copay_days",
+      "ma_outpatient_coinsurance_pct",
+      "ma_moop_usd",
+      "ma_drug_coverage_included",
+      "ma_plan_drug_deductible_usd"
+    ],
+    "properties": {
+      "irmaa_tier": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 5,
+        "description": "IRMAA income band, 0 (base premium) to 5. Drives both the monthly Part B premium and the monthly Part D surcharge, on BOTH paths."
+      },
+      "admissions_per_year": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Expected inpatient admissions per year. Each admission opens one Part A benefit period and is charged the Part A deductible, the day coinsurance.",
+        "maximum": 1000
+      },
+      "primary_visits_per_year": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Expected primary care visits per year. Charged at ma_primary_copay_usd on Path B.",
+        "maximum": 10000
+      },
+      "specialist_visits_per_year": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Expected specialist visits per year. Charged at ma_specialist_copay_usd on Path B.",
+        "maximum": 10000
+      },
+      "length_of_stay_days": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Average inpatient length of stay in days. Days 61-90 cost the Part A days 61-90 rate and days 91-150 the lifetime reserve day rate.",
+        "maximum": 3650
+      },
+      "outpatient_charges_usd": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Expected annual outpatient and diagnostic charges, Medicare-approved amount.",
+        "maximum": 1000000000
+      },
+      "annual_drug_cost_usd": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Expected annual plan-negotiated retail drug cost. Priced through the standard Part D phase function on both paths (deductible, then 25% coinsurance.",
+        "maximum": 1000000000
+      },
+      "medigap_premium_monthly_usd": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Path A Medigap supplement premium per month. Quote from your county; varies widely by plan letter, age and state.",
+        "maximum": 1000000000
+      },
+      "medigap_plan_type": {
+        "type": "string",
+        "enum": [
+          "PlanG",
+          "PlanN",
+          "HDG",
+          "None"
+        ],
+        "description": "Medigap plan letter. PlanG leaves the enrollee the Part B deductible and nothing else; PlanN adds the Plan N office visit copay."
+      },
+      "part_d_premium_monthly_usd": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Path A stand-alone Part D premium per month. Page pre-fills $35.09, the CMS 2026 Part D base beneficiary premium.",
+        "maximum": 1000000000
+      },
+      "part_d_deductible_a_usd": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Path A Part D plan deductible in dollars. A plan deductible cannot exceed the 2026 standard maximum ($615).",
+        "maximum": 1000000000
+      },
+      "ma_premium_monthly_usd": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Path B Medicare Advantage plan premium per month, above the Part B premium every Medicare beneficiary pays.",
+        "maximum": 1000000000
+      },
+      "part_b_giveback_monthly_usd": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Monthly rebate of the Part B premium offered by the Advantage plan. Path B premiums are floored at zero when the giveback exceeds them.",
+        "maximum": 1000000000
+      },
+      "ma_primary_copay_usd": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Path B primary care copay per visit.",
+        "maximum": 1000000000
+      },
+      "ma_specialist_copay_usd": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Path B specialist copay per visit.",
+        "maximum": 1000000000
+      },
+      "ma_inpatient_copay_per_day_usd": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Path B inpatient copay per day.",
+        "maximum": 1000000000
+      },
+      "ma_inpatient_copay_days": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Number of days the Path B inpatient copay applies to per admission; days beyond it are not charged by this model.",
+        "maximum": 3650
+      },
+      "ma_outpatient_coinsurance_pct": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Path B outpatient coinsurance as a percentage of outpatient charges. 20% is the Original Medicare rate for comparison."
+      },
+      "ma_moop_usd": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Path B in-network maximum out-of-pocket limit in dollars, covering Part A and B services only (Part D has its own $2,100 limit).",
+        "maximum": 1000000000
+      },
+      "ma_drug_coverage_included": {
+        "type": "boolean",
+        "description": "True when the Advantage plan bundles Part D. False means Path B charges the full retail drug cost and the Part D out-of-pocket cap does not protect."
+      },
+      "ma_plan_drug_deductible_usd": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Path B plan drug deductible in dollars, clamped to the 2026 standard maximum the same way part_d_deductible_a_usd is and flagged.",
+        "maximum": 1000000000
+      },
+      "bad_year_admissions": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Admissions in the stress-test year. Optional; defaults to 2 (the Apex page's shipped default).",
+        "x_null_distinct": true,
+        "maximum": 1000
+      },
+      "bad_year_length_of_stay_days": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Length of stay in the stress-test year. Optional; defaults to 7.",
+        "x_null_distinct": true,
+        "maximum": 3650
+      },
+      "bad_year_charge_multiplier": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Multiplier applied to outpatient charges and drug cost in the stress-test year. Optional; defaults to 3.",
+        "x_null_distinct": true,
+        "maximum": 1000
+      },
+      "part_b_premium_by_irmaa_tier_usd": {
+        "type": "array",
+        "items": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "minItems": 6,
+        "maxItems": 6,
+        "description": "Optional override of the six monthly Part B premiums by IRMAA tier. Defaults to the 2026 CMS figures [202.90, 284.10, 405.80, 527.50, 649.20.",
+        "x_null_distinct": true
+      },
+      "part_d_irmaa_surcharge_by_tier_usd": {
+        "type": "array",
+        "items": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "minItems": 6,
+        "maxItems": 6,
+        "description": "Optional override of the six monthly Part D income-related adjustments. Defaults to the 2026 CMS figures [0, 14.50, 37.50, 60.40, 83.30, 91.00].",
+        "x_null_distinct": true
+      },
+      "part_b_deductible_usd": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Optional override. 2026 Part B annual deductible. Default 283.",
+        "x_null_distinct": true,
+        "maximum": 1000000000
+      },
+      "part_a_deductible_usd": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Optional override. 2026 Part A inpatient hospital deductible per benefit period. Default 1736.",
+        "x_null_distinct": true,
+        "maximum": 1000000000
+      },
+      "part_a_days_61_to_90_coinsurance_usd": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Optional override. 2026 Part A daily coinsurance for days 61-90 of a benefit period. Default 434.",
+        "x_null_distinct": true,
+        "maximum": 1000000000
+      },
+      "part_a_lifetime_reserve_coinsurance_usd": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Optional override. 2026 Part A daily coinsurance for lifetime reserve days. Default 868.",
+        "x_null_distinct": true,
+        "maximum": 1000000000
+      },
+      "part_d_max_deductible_usd": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Optional override. Maximum Part D plan deductible for the vintage, used to clamp both plan deductibles. Default 615.",
+        "x_null_distinct": true,
+        "maximum": 1000000000
+      },
+      "part_d_out_of_pocket_cap_usd": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Optional override. Annual Part D out-of-pocket threshold for the vintage. Default 2100 (the same figure art-617 carries as 210000 cents).",
+        "x_null_distinct": true,
+        "maximum": 1000000000
+      },
+      "plan_n_office_visit_copay_usd": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Optional override. Medigap Plan N copay per office visit. Default 20.",
+        "x_null_distinct": true,
+        "maximum": 1000000000
+      },
+      "high_deductible_plan_g_deductible_usd": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Optional override. High-deductible Plan G annual deductible. Default 2950, the official 2026 figure.",
+        "x_null_distinct": true,
+        "maximum": 1000000000
+      }
+    },
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "data_vintage": {
+        "type": "string",
+        "description": "Benefit-parameter vintage used. Currently 2026."
+      },
+      "valid_input": {
+        "type": "boolean",
+        "description": "False when any input fell outside the declared domain; no money figure is produced in that case."
+      },
+      "domain_errors": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "maximum": 1000000000
+        },
+        "description": "Named reasons the input was refused."
+      },
+      "medigap_plan_type": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "irmaa_tier": {
+        "type": [
+          "integer",
+          "null"
+        ]
+      },
+      "typical_year": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "description": "Both paths priced for the declared scenario.",
+        "properties": {
+          "part_b_annual_premium_usd": {
+            "type": "number"
+          },
+          "part_d_irmaa_surcharge_annual_usd": {
+            "type": "number"
+          },
+          "path_a": {
+            "type": "object",
+            "properties": {
+              "premiums_usd": {
+                "type": "number"
+              },
+              "medical_usd": {
+                "type": "number"
+              },
+              "drugs_usd": {
+                "type": "number"
+              },
+              "total_usd": {
+                "type": "number"
+              },
+              "lifetime_reserve_days_exhausted": {
+                "type": "boolean"
+              }
+            }
+          },
+          "path_b": {
+            "type": "object",
+            "properties": {
+              "premiums_usd": {
+                "type": "number"
+              },
+              "premiums_before_zero_floor_usd": {
+                "type": "number"
+              },
+              "premiums_floored_at_zero": {
+                "type": "boolean"
+              },
+              "medical_before_moop_usd": {
+                "type": "number"
+              },
+              "medical_usd": {
+                "type": "number"
+              },
+              "moop_reached": {
+                "type": "boolean"
+              },
+              "ma_moop_not_entered": {
+                "type": "boolean"
+              },
+              "drugs_usd": {
+                "type": "number"
+              },
+              "drugs_uncovered": {
+                "type": "boolean"
+              },
+              "total_usd": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      },
+      "bad_year": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "description": "The same shape as typical_year, priced with the stress-test scenario."
+      },
+      "bad_year_scenario": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "description": "The resolved stress-test assumptions actually used, including whether defaults were applied."
+      },
+      "comparison": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "annual_difference_usd": {
+            "type": "number",
+            "description": "Path A total minus Path B total."
+          },
+          "lower_cost_path": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "tie"
+            ]
+          },
+          "bad_year_difference_usd": {
+            "type": "number"
+          },
+          "bad_year_lower_cost_path": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "tie"
+            ]
+          },
+          "path_a_worst_case_ceiling_usd": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Null means no annual maximum (Original Medicare with no supplement)."
+          },
+          "path_a_worst_case_ceiling_basis": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "path_b_worst_case_ceiling_usd": {
+            "type": "number"
+          }
+        }
+      },
+      "constants_used": {
+        "type": "object",
+        "description": "Every 2026 parameter the run actually used."
+      },
+      "constant_overrides": {
+        "type": "array",
+        "description": "Caller-declared constant overrides with the official 2026 value beside each one."
+      },
+      "part_d_deductible_a_applied_usd": {
+        "type": "number",
+        "maximum": 1000000000
+      },
+      "part_d_deductible_a_clamped": {
+        "type": "boolean"
+      },
+      "ma_plan_drug_deductible_applied_usd": {
+        "type": "number",
+        "maximum": 1000000000
+      },
+      "ma_plan_drug_deductible_clamped": {
+        "type": "boolean"
+      },
+      "regulatory_basis": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "maximum": 1000000000
+        }
+      },
+      "rounding_mode": {
+        "type": "string"
+      },
+      "scope_note": {
+        "type": "string"
+      },
+      "cites": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "maximum": 1000000000
+        },
+        "description": "CITES.md ids grounding every premise in this run."
+      }
+    },
+    "additionalProperties": false
+  },
+  "compliance_flags": [
+    "ART768_COMPARISON_COMPUTED",
+    "ART768_INPUT_OUT_OF_DECLARED_DOMAIN",
+    "ART768_CONSTANT_OVERRIDE",
+    "ART768_PART_D_DEDUCTIBLE_A_CLAMPED",
+    "ART768_PART_D_DEDUCTIBLE_B_CLAMPED",
+    "ART768_MA_MOOP_NOT_ENTERED",
+    "ART768_MA_MOOP_REACHED",
+    "ART768_MA_MOOP_ABOVE_2026_IN_NETWORK_MAXIMUM",
+    "ART768_MA_DRUGS_UNCOVERED",
+    "ART768_PATH_B_PREMIUM_FLOORED_AT_ZERO",
+    "ART768_PATH_A_CEILING_IS_PROXY",
+    "ART768_ORIGINAL_MEDICARE_NO_ANNUAL_CAP",
+    "ART768_LIFETIME_RESERVE_DAYS_EXHAUSTED"
+  ],
+  "mcp_tool_definition": {
+    "name": "compare_medicare_plans",
+    "description": "Prices two caller-declared Medicare enrollment paths for a full year, Path A (Original Medicare plus Medigap plus stand-alone Part D) and Path B (Medicare Advantage), for a typical year and a bad-year stress test on 2026 CMS parameters. Returns both totals, the annual and bad-year differences and both worst-case ceilings, or a named refusal. Verify-only: it does not quote plans or compare networks.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "irmaa_tier",
+        "admissions_per_year",
+        "primary_visits_per_year",
+        "specialist_visits_per_year",
+        "length_of_stay_days",
+        "outpatient_charges_usd",
+        "annual_drug_cost_usd",
+        "medigap_premium_monthly_usd",
+        "medigap_plan_type",
+        "part_d_premium_monthly_usd",
+        "part_d_deductible_a_usd",
+        "ma_premium_monthly_usd",
+        "part_b_giveback_monthly_usd",
+        "ma_primary_copay_usd",
+        "ma_specialist_copay_usd",
+        "ma_inpatient_copay_per_day_usd",
+        "ma_inpatient_copay_days",
+        "ma_outpatient_coinsurance_pct",
+        "ma_moop_usd",
+        "ma_drug_coverage_included",
+        "ma_plan_drug_deductible_usd"
+      ],
+      "properties": {
+        "irmaa_tier": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "admissions_per_year": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "primary_visits_per_year": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "specialist_visits_per_year": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "length_of_stay_days": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3650
+        },
+        "outpatient_charges_usd": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "annual_drug_cost_usd": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "medigap_premium_monthly_usd": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "medigap_plan_type": {
+          "type": "string",
+          "enum": [
+            "PlanG",
+            "PlanN",
+            "HDG",
+            "None"
+          ]
+        },
+        "part_d_premium_monthly_usd": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "part_d_deductible_a_usd": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "ma_premium_monthly_usd": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "part_b_giveback_monthly_usd": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "ma_primary_copay_usd": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "ma_specialist_copay_usd": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "ma_inpatient_copay_per_day_usd": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "ma_inpatient_copay_days": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3650
+        },
+        "ma_outpatient_coinsurance_pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "ma_moop_usd": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "ma_drug_coverage_included": {
+          "type": "boolean"
+        },
+        "ma_plan_drug_deductible_usd": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "bad_year_admissions": {
+          "type": "integer",
+          "minimum": 0,
+          "x_null_distinct": true,
+          "maximum": 1000
+        },
+        "bad_year_length_of_stay_days": {
+          "type": "integer",
+          "minimum": 0,
+          "x_null_distinct": true,
+          "maximum": 3650
+        },
+        "bad_year_charge_multiplier": {
+          "type": "number",
+          "minimum": 0,
+          "x_null_distinct": true,
+          "maximum": 1000
+        },
+        "part_b_premium_by_irmaa_tier_usd": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "minItems": 6,
+          "maxItems": 6,
+          "x_null_distinct": true
+        },
+        "part_d_irmaa_surcharge_by_tier_usd": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "minItems": 6,
+          "maxItems": 6,
+          "x_null_distinct": true
+        },
+        "part_b_deductible_usd": {
+          "type": "number",
+          "minimum": 0,
+          "x_null_distinct": true,
+          "maximum": 1000000000
+        },
+        "part_a_deductible_usd": {
+          "type": "number",
+          "minimum": 0,
+          "x_null_distinct": true,
+          "maximum": 1000000000
+        },
+        "part_a_days_61_to_90_coinsurance_usd": {
+          "type": "number",
+          "minimum": 0,
+          "x_null_distinct": true,
+          "maximum": 1000000000
+        },
+        "part_a_lifetime_reserve_coinsurance_usd": {
+          "type": "number",
+          "minimum": 0,
+          "x_null_distinct": true,
+          "maximum": 1000000000
+        },
+        "part_d_max_deductible_usd": {
+          "type": "number",
+          "minimum": 0,
+          "x_null_distinct": true,
+          "maximum": 1000000000
+        },
+        "part_d_out_of_pocket_cap_usd": {
+          "type": "number",
+          "minimum": 0,
+          "x_null_distinct": true,
+          "maximum": 1000000000
+        },
+        "plan_n_office_visit_copay_usd": {
+          "type": "number",
+          "minimum": 0,
+          "x_null_distinct": true,
+          "maximum": 1000000000
+        },
+        "high_deductible_plan_g_deductible_usd": {
+          "type": "number",
+          "minimum": 0,
+          "x_null_distinct": true,
+          "maximum": 1000000000
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-768-medicare-plan-comparison.html",
+    "function_name": "compute",
+    "timeout_ms": 3000
+  },
+  "ap2_export": true,
+  "prefill": true,
+  "bridge_version": "1.0",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "source": "chaingraph/kernels/art-768-medicare-plan-comparison.kernel.mjs",
+  "input_example": {
+    "irmaa_tier": 0,
+    "admissions_per_year": 0,
+    "primary_visits_per_year": 4,
+    "specialist_visits_per_year": 4,
+    "length_of_stay_days": 4,
+    "outpatient_charges_usd": 4000,
+    "annual_drug_cost_usd": 2500,
+    "medigap_premium_monthly_usd": 165,
+    "medigap_plan_type": "PlanG",
+    "part_d_premium_monthly_usd": 34.5,
+    "part_d_deductible_a_usd": 615,
+    "ma_premium_monthly_usd": 0,
+    "part_b_giveback_monthly_usd": 0,
+    "ma_primary_copay_usd": 10,
+    "ma_specialist_copay_usd": 45,
+    "ma_inpatient_copay_per_day_usd": 325,
+    "ma_inpatient_copay_days": 5,
+    "ma_outpatient_coinsurance_pct": 20,
+    "ma_moop_usd": 5500,
+    "ma_drug_coverage_included": true,
+    "ma_plan_drug_deductible_usd": 615,
+    "part_b_premium_by_irmaa_tier_usd": [
+      202.9,
+      284.1,
+      405.8,
+      527.5,
+      649.2,
+      689.9
+    ],
+    "part_d_irmaa_surcharge_by_tier_usd": [
+      0,
+      14.5,
+      37.5,
+      60.4,
+      83.3,
+      91
+    ],
+    "part_b_deductible_usd": 283,
+    "part_a_deductible_usd": 1736,
+    "part_a_days_61_to_90_coinsurance_usd": 434,
+    "part_a_lifetime_reserve_coinsurance_usd": 868,
+    "part_d_max_deductible_usd": 615,
+    "part_d_out_of_pocket_cap_usd": 2100,
+    "plan_n_office_visit_copay_usd": 20,
+    "high_deductible_plan_g_deductible_usd": 2900,
+    "bad_year_admissions": 2,
+    "bad_year_length_of_stay_days": 7,
+    "bad_year_charge_multiplier": 3
+  },
+  "output_example": {
+    "data_vintage": "2026",
+    "valid_input": true,
+    "domain_errors": [],
+    "medigap_plan_type": "PlanG",
+    "irmaa_tier": 0,
+    "typical_year": {
+      "part_b_annual_premium_usd": 2434.8,
+      "part_d_irmaa_surcharge_annual_usd": 0,
+      "path_a": {
+        "premiums_usd": 4828.8,
+        "medical_usd": 283,
+        "drugs_usd": 1086.25,
+        "drug_phase": {
+          "deductible_paid_usd": 615,
+          "coinsurance_paid_usd": 471.25,
+          "out_of_pocket_before_cap_usd": 1086.25,
+          "out_of_pocket_after_cap_usd": 1086.25,
+          "out_of_pocket_cap_reached": false
+        },
+        "total_usd": 6198.05,
+        "part_a_day_coinsurance": null,
+        "lifetime_reserve_days_exhausted": false
+      },
+      "path_b": {
+        "premiums_usd": 2434.8,
+        "premiums_before_zero_floor_usd": 2434.8,
+        "premiums_floored_at_zero": false,
+        "visits_usd": 220,
+        "inpatient_usd": 0,
+        "outpatient_usd": 800,
+        "medical_before_moop_usd": 1020,
+        "medical_usd": 1020,
+        "moop_reached": false,
+        "ma_moop_not_entered": false,
+        "drugs_usd": 1086.25,
+        "drug_phase": {
+          "deductible_paid_usd": 615,
+          "coinsurance_paid_usd": 471.25,
+          "out_of_pocket_before_cap_usd": 1086.25,
+          "out_of_pocket_after_cap_usd": 1086.25,
+          "out_of_pocket_cap_reached": false
+        },
+        "drugs_uncovered": false,
+        "total_usd": 4541.05
+      }
+    },
+    "bad_year": {
+      "part_b_annual_premium_usd": 2434.8,
+      "part_d_irmaa_surcharge_annual_usd": 0,
+      "path_a": {
+        "premiums_usd": 4828.8,
+        "medical_usd": 283,
+        "drugs_usd": 2100,
+        "drug_phase": {
+          "deductible_paid_usd": 615,
+          "coinsurance_paid_usd": 1721.25,
+          "out_of_pocket_before_cap_usd": 2336.25,
+          "out_of_pocket_after_cap_usd": 2100,
+          "out_of_pocket_cap_reached": true
+        },
+        "total_usd": 7211.8,
+        "part_a_day_coinsurance": null,
+        "lifetime_reserve_days_exhausted": false
+      },
+      "path_b": {
+        "premiums_usd": 2434.8,
+        "premiums_before_zero_floor_usd": 2434.8,
+        "premiums_floored_at_zero": false,
+        "visits_usd": 220,
+        "inpatient_usd": 3250,
+        "outpatient_usd": 2400,
+        "medical_before_moop_usd": 5870,
+        "medical_usd": 5500,
+        "moop_reached": true,
+        "ma_moop_not_entered": false,
+        "drugs_usd": 2100,
+        "drug_phase": {
+          "deductible_paid_usd": 615,
+          "coinsurance_paid_usd": 1721.25,
+          "out_of_pocket_before_cap_usd": 2336.25,
+          "out_of_pocket_after_cap_usd": 2100,
+          "out_of_pocket_cap_reached": true
+        },
+        "drugs_uncovered": false,
+        "total_usd": 10034.8
+      }
+    },
+    "bad_year_scenario": {
+      "admissions_per_year": 2,
+      "length_of_stay_days": 7,
+      "charge_multiplier": 3,
+      "outpatient_charges_usd": 12000,
+      "annual_drug_cost_usd": 7500,
+      "defaults_applied": false
+    },
+    "comparison": {
+      "annual_difference_usd": 1657,
+      "lower_cost_path": "B",
+      "bad_year_difference_usd": -2823,
+      "bad_year_lower_cost_path": "A",
+      "path_a_worst_case_ceiling_usd": 7211.8,
+      "path_a_worst_case_ceiling_basis": "premiums + Part B deductible + 2026 Part D out-of-pocket cap",
+      "path_b_worst_case_ceiling_usd": 10034.8
+    },
+    "constants_used": {
+      "part_b_premium_by_irmaa_tier_usd": [
+        202.9,
+        284.1,
+        405.8,
+        527.5,
+        649.2,
+        689.9
+      ],
+      "part_d_irmaa_surcharge_by_tier_usd": [
+        0,
+        14.5,
+        37.5,
+        60.4,
+        83.3,
+        91
+      ],
+      "part_b_deductible_usd": 283,
+      "part_a_deductible_usd": 1736,
+      "part_a_days_61_to_90_coinsurance_usd": 434,
+      "part_a_lifetime_reserve_coinsurance_usd": 868,
+      "part_d_max_deductible_usd": 615,
+      "part_d_out_of_pocket_cap_usd": 2100,
+      "plan_n_office_visit_copay_usd": 20,
+      "high_deductible_plan_g_deductible_usd": 2900
+    },
+    "constant_overrides": [
+      {
+        "constant": "high_deductible_plan_g_deductible_usd",
+        "used": 2900,
+        "official_2026": 2950
+      }
+    ],
+    "part_d_deductible_a_applied_usd": 615,
+    "part_d_deductible_a_clamped": false,
+    "ma_plan_drug_deductible_applied_usd": 615,
+    "ma_plan_drug_deductible_clamped": false,
+    "regulatory_basis": [
+      "2026 Part A inpatient hospital deductible $1,736; days 61-90 $434/day; lifetime reserve days $868/day (CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet; medicare.gov inpatient hospital coverage).",
+      "2026 Part B deductible $283; enrollee pays 20% of the Medicare-approved amount above it (same fact sheet).",
+      "Medigap Plan G and Plan N do not cover the Part B deductible; Plan N charges up to $20 per office visit; high-deductible F/G is $2,950 in 2026 (medicare.gov Medigap plan benefit comparison).",
+      "2026 Part D deductible $615, 25% standard coinsurance, $2,100 annual out-of-pocket threshold, $0 cost sharing in the catastrophic phase (CMS Final CY 2026 Part D Redesign Program Instructions; CMS 2026 MA and Part D Rate Announcement).",
+      "2026 Medicare Advantage in-network out-of-pocket limit may not exceed $9,250 and excludes Part D spending (KFF analysis of the CMS MA enrollment and benefit landscape)."
+    ],
+    "rounding_mode": "half_up_to_cent_on_every_intermediate_money_amount",
+    "scope_note": "Verify-only annual-cost projection of two caller-declared enrollment paths from published 2026 benefit parameters. It does not compare provider networks, formularies, prior-authorization rules or plan availability, it does not price any specific plan or county, and it does not assert that any actual bill is correct. Estimate only -- not an official CMS, plan or SHIP communication, and not financial, tax or legal advice.",
+    "cites": [
+      "G1",
+      "G2",
+      "G3",
+      "G4",
+      "G5",
+      "G6",
+      "G7",
+      "G8",
+      "G9",
+      "G11"
+    ]
+  },
+  "example_execution_hash": "613935a5b815494184374c78eb29bcce958b05161c2f41f1c631a44aca108641"
+}
