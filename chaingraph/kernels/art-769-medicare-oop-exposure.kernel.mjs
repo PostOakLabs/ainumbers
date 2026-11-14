@@ -198,7 +198,7 @@ export const WORST_CASE_MULTIPLIER_MAX = 100;
 export const COVERAGE_STRUCTURES = ['OriginalOnly', 'PlanG', 'PlanN', 'Advantage'];
 
 // ── integer helpers ──────────────────────────────────────────────────────────────
-function isInt(v) { return typeof v === 'number' && Number.isFinite(v) && Number.isInteger(v); }
+function isSafeInt(v) { return typeof v === 'number' && Number.isSafeInteger(v); }
 
 /** round_half_up(numerator, denominator) for numerator >= 0, denominator > 0.
  *  Exact integer floor + remainder compare; no floating-point division in the
@@ -335,14 +335,73 @@ function runScenario(p, y, a) {
   };
 }
 
+// ── input bounds ─────────────────────────────────────────────────────────────────
+// Finite upper bounds chosen so every product in runScenario (cents x basis points, cents x
+// worst-case multiplier, periods x per-period cost) stays below 2^53 and so buildArtifact
+// can always hash the result. Largest chain: 1e10 cents x 100 (multiplier) x 2500 bp
+// = 2.5e15 < 9.007e15.
+export const MAX_COUNT_PERIODS = 100;
+export const MAX_COUNT_DAYS = 366;
+export const MAX_CENTS = 10000000000;
+
+// ── hashability walk (D6) ────────────────────────────────────────────────────────
+// Mirrors the classes _hash.mjs assertIJson() refuses before canonicalizing: a non-finite
+// number or an integer outside the 2^53 safe range, nesting past its MAX_DEPTH, more values
+// than its MAX_ELEMENTS. Reports { reason, detail } with the path and kind only, never the
+// value; null when the subtree is safe to hash. The shared _hash.mjs stays untouched.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+// pp alone is held to tighter margins than the full preimage: the {policy_parameters,
+// output_payload} envelope wraps pp two levels deeper and output_payload carries values too.
+const PP_MAX_DEPTH = HASH_MAX_DEPTH - 8;
+const PP_MAX_ELEMENTS = 199000;
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
+function isPlainObject(v) {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
+
 // ── domain validation (P3: name the violated bound, never coerce) ─────────────────
+// `pp` here is an own-property copy of the caller's object, so no inherited key is read.
+// Presence: absent (undefined) takes the declared default only for plan_year and
+// worst_case_spend_multiplier; a present null or wrong type always refuses.
 function validate(pp) {
   const errors = [];
 
-  const planYear = (pp.plan_year === undefined || pp.plan_year === null) ? DEFAULT_PLAN_YEAR : pp.plan_year;
-  const y = Object.hasOwn(PLAN_YEAR_PARAMS, planYear) ? PLAN_YEAR_PARAMS[planYear] : undefined;
+  const planYear = pp.plan_year === undefined ? DEFAULT_PLAN_YEAR : pp.plan_year;
+  const y = (typeof planYear === 'number' && Number.isSafeInteger(planYear) && Object.hasOwn(PLAN_YEAR_PARAMS, planYear))
+    ? PLAN_YEAR_PARAMS[planYear] : undefined;
   if (!y) {
-    errors.push(`plan_year ${JSON.stringify(planYear)} has no declared parameter entry; add one to PLAN_YEAR_PARAMS, never fall back`);
+    errors.push(typeof planYear === 'number'
+      ? `plan_year ${JSON.stringify(planYear)} has no declared parameter entry; add one to PLAN_YEAR_PARAMS, never fall back`
+      : `plan_year must be a number naming a declared plan year, got ${planYear === null ? 'null' : typeof planYear}; never coerced`);
   }
 
   if (!COVERAGE_STRUCTURES.includes(pp.coverage_structure)) {
@@ -350,29 +409,29 @@ function validate(pp) {
   }
 
   const tier = pp.irmaa_tier;
-  if (!isInt(tier) || tier < 0 || tier >= y?.part_b_premium_by_tier_cents.length) {
+  if (!isSafeInt(tier) || tier < 0 || tier >= (y?.part_b_premium_by_tier_cents.length ?? Infinity)) {
     errors.push(`irmaa_tier must be an integer in [0, ${(y?.part_b_premium_by_tier_cents.length ?? 6) - 1}] indexing the plan-year IRMAA tables`);
   }
 
-  for (const k of ['benefit_periods', 'days_per_period', 'snf_days']) {
-    if (!isInt(pp[k]) || pp[k] < 0) errors.push(`${k} must be a non-negative integer count of days or periods`);
+  for (const [k, max] of [['benefit_periods', MAX_COUNT_PERIODS], ['days_per_period', MAX_COUNT_DAYS], ['snf_days', MAX_COUNT_DAYS]]) {
+    if (!isSafeInt(pp[k]) || pp[k] < 0) errors.push(`${k} must be a non-negative integer count of days or periods`);
+    else if (pp[k] > max) errors.push(`${k} must not exceed ${max}`);
   }
 
   for (const k of ['part_b_approved_charges_cents', 'annual_drug_cost_cents', 'part_d_deductible_cents',
     'supplemental_monthly_premium_cents', 'advantage_moop_cents']) {
-    if (!isInt(pp[k]) || pp[k] < 0 || !Number.isSafeInteger(pp[k])) {
-      errors.push(`${k} must be a non-negative integer number of CENTS`);
-    }
+    if (!isSafeInt(pp[k]) || pp[k] < 0) errors.push(`${k} must be a non-negative integer number of CENTS`);
+    else if (pp[k] > MAX_CENTS) errors.push(`${k} must not exceed ${MAX_CENTS} cents`);
   }
 
-  if (!isInt(pp.advantage_coinsurance_pct) || pp.advantage_coinsurance_pct < 0 || pp.advantage_coinsurance_pct > 100) {
+  if (!isSafeInt(pp.advantage_coinsurance_pct) || pp.advantage_coinsurance_pct < 0 || pp.advantage_coinsurance_pct > 100) {
     errors.push('advantage_coinsurance_pct must be an integer in [0, 100]');
   }
 
-  // Optional input (A2): absent or null takes the declared default; anything else must be
-  // an integer in [1, WORST_CASE_MULTIPLIER_MAX].
-  if (pp.worst_case_spend_multiplier != null
-    && (!isInt(pp.worst_case_spend_multiplier) || pp.worst_case_spend_multiplier < 1
+  // Optional input (A2): absent (undefined) takes the declared default; a present null or
+  // wrong type refuses; otherwise an integer in [1, WORST_CASE_MULTIPLIER_MAX].
+  if (pp.worst_case_spend_multiplier !== undefined
+    && (!isSafeInt(pp.worst_case_spend_multiplier) || pp.worst_case_spend_multiplier < 1
       || pp.worst_case_spend_multiplier > WORST_CASE_MULTIPLIER_MAX)) {
     errors.push(`worst_case_spend_multiplier must be an integer in [1, ${WORST_CASE_MULTIPLIER_MAX}] when given`);
   }
@@ -381,15 +440,27 @@ function validate(pp) {
 }
 
 // ── compute ──────────────────────────────────────────────────────────────────────
-export function compute(pp) {
-  pp = pp || {};
-  const { errors, planYear, y } = validate(pp);
+export function compute(rawPp) {
+  // Presence and shape are checked, never defaulted: a non-object or an unhashable input
+  // (D6) refuses here, so buildArtifact never has to hash anything compute accepted.
+  const shapeErrors = [];
+  if (!isPlainObject(rawPp)) {
+    shapeErrors.push('REFUSED_INPUT_WRONG_TYPE: policy parameters must be a plain object');
+  } else {
+    const unhashable = findHashRefusal(rawPp, 'pp', 1, { maxDepth: PP_MAX_DEPTH, maxElements: PP_MAX_ELEMENTS, n: 0 });
+    if (unhashable !== null) shapeErrors.push(`${unhashable.reason}: ${unhashable.detail}`);
+  }
+  // Own-property copy: a caller key such as __proto__ or constructor is an ordinary key and
+  // no inherited value is ever read.
+  const pp = shapeErrors.length === 0 ? Object.fromEntries(Object.entries(rawPp)) : {};
+  const checked = shapeErrors.length === 0 ? validate(pp) : { errors: shapeErrors, planYear: DEFAULT_PLAN_YEAR, y: undefined };
+  const { errors, planYear, y } = checked;
   const valid_input = errors.length === 0;
 
   const output_payload = {
-    plan_year: planYear,
+    plan_year: typeof planYear === 'number' ? planYear : null,
     coverage_structure: COVERAGE_STRUCTURES.includes(pp.coverage_structure) ? pp.coverage_structure : null,
-    irmaa_tier: isInt(pp.irmaa_tier) ? pp.irmaa_tier : null,
+    irmaa_tier: isSafeInt(pp.irmaa_tier) ? pp.irmaa_tier : null,
     valid_input,
     domain_errors: errors,
 
@@ -399,7 +470,7 @@ export function compute(pp) {
     exposure_spread_cents: null,
     unlimited_exposure: null,
 
-    part_d_deductible_input_cents: isInt(pp.part_d_deductible_cents) ? pp.part_d_deductible_cents : null,
+    part_d_deductible_input_cents: isSafeInt(pp.part_d_deductible_cents) ? pp.part_d_deductible_cents : null,
     // A plan deductible above the plan-year maximum is not a real plan; the statutory
     // maximum binds. Clamped, and the clamp is reported, never silent. [C3]
     part_d_deductible_effective_cents: (valid_input && y)
@@ -412,9 +483,11 @@ export function compute(pp) {
     parameters_used: valid_input ? { ...y } : null,
     model_assumptions_used: {
       ...MODEL_ASSUMPTIONS,
-      worst_case_spend_multiplier: pp.worst_case_spend_multiplier == null
-        ? MODEL_ASSUMPTIONS.worst_case_spend_multiplier
-        : pp.worst_case_spend_multiplier,
+      // A refused number is echoed as given (it is hashable: the shape walk already ran);
+      // absent, null or a non-number reports the declared default.
+      worst_case_spend_multiplier: typeof pp.worst_case_spend_multiplier === 'number'
+        ? pp.worst_case_spend_multiplier
+        : MODEL_ASSUMPTIONS.worst_case_spend_multiplier,
     },
 
     regulatory_basis: 'SSA 1813(a)(1)(A) Part A deductible; 1813(a)(1)(A) one-fourth coinsurance days 61-90; 1813(a)(1)(B) one-half coinsurance lifetime reserve days; 1813(a)(3) one-eighth SNF coinsurance days 21-100; SMA 1853(b)(1) Part B 20 percent after the annual deductible; SSA 1860D-2(b)(1) Part D deductible; 1860D-2(b)(4)(B) Part D annual out-of-pocket threshold; 42 CFR 422.100(f)(4) Medicare Advantage in-network MOOP; NAIC Model Regulation 651 sec. 9.1E(11) Plan N copayments.',
@@ -502,14 +575,19 @@ export function compute(pp) {
 // artifact. execution_hash comes from the shared RFC 8785 path in _hash.mjs.
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  return {
+  // The object walked below is the exact execution_hash preimage. When the shared
+  // canonicalizer would refuse it, mint the artifact with a null execution_hash and the
+  // reason beside it instead of letting the hash throw (D6). compute() already refuses the
+  // same input, so this is the backstop: buildArtifact never throws on any input.
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
     tool_id: TOOL_ID,
     tool_version: TOOL_VERSION,
     generated_at: now,
-    execution_hash: await executionHash(pp, output_payload),
+    execution_hash: unhashable === null ? await executionHash(pp, output_payload) : null,
     chain: { parent_hashes, parent_tool_ids, chain_depth },
     policy_parameters: pp,
     output_payload,
@@ -518,4 +596,6 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }
