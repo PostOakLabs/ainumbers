@@ -2,7 +2,7 @@
 // (FV-PBT-FLOOR-BUILD-SPEC.md). Authored against the pinned CBOB Guidance Note
 // for Participation in the Regulatory Sandbox Framework (issued 8 Oct 2026;
 // sha256 and paragraph map in research/SANDBOX-READINESS-PIN-2026-10-30.md).
-// kernel_digest_at_authoring: sha256:056771e7b8e8fb4baa13e33a8993986e7f02b7f097d3da964b67240ccbcb0948
+// kernel_digest_at_authoring: sha256:65fa57bfa6142bcc6b203fd93f106485a730a8cc36ce7b26316ab3dcdd1c25a4
 // spec: research/SANDBOX-READINESS-PIN-2026-10-30.md — assess a firm's sandbox
 //   application against a declared regulator profile's eligibility criteria and
 //   test-parameter limits (profiles generic + cbob; BMA dropped at claim time).

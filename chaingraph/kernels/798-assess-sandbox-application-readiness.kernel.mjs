@@ -143,6 +143,7 @@ export function compute(pp) {
           detail: "profile must be one of " + Object.keys(PROFILES).map(function (k) { return "'" + k + "'"; }).join(' | ') + "; got " + JSON.stringify(profileName ?? null),
         },
         gaps: [], parameter_breaches: [], safeguards_missing: [], profile_cites: {},
+        warnings: flags.slice(),
       },
       compliance_flags: flags,
     };
@@ -172,6 +173,7 @@ export function compute(pp) {
           detail: 'every criterion_id must be one of the profile criteria and every status one of met | partially_met | not_met; the node never guesses',
         },
         gaps: [], parameter_breaches: [], safeguards_missing: [], profile_cites: {},
+        warnings: flags.slice(),
       },
       compliance_flags: flags,
     };
@@ -250,6 +252,7 @@ export function compute(pp) {
       parameter_breaches,
       safeguards_missing,
       profile_cites,
+      warnings: flags.slice(),
     },
     compliance_flags: flags,
   };
