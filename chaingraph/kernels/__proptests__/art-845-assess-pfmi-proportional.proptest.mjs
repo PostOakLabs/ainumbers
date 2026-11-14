@@ -1,5 +1,5 @@
 // art-845-assess-pfmi-proportional — class-K property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
-// kernel_digest_at_authoring: sha256:16a29d099ec05cdbf70ab440ba9d09b078b3c9c44017717e29f92c0e0a53f919
+// kernel_digest_at_authoring: sha256:915e6e1eab3480359610114b34e868dd9bba394b31fe855609dcc231922d4b22
 // human_sign_off: builder-authored 2026-10-29 — synthetic inputs only.
 //
 // SCOPE: floor tier only. NOT a proof.

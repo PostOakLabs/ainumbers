@@ -60,9 +60,12 @@ const LINKED_FPS = {
 
 function tierCell(id, systemType, tier) {
   const n = Number(id.slice(1));
+  if (!Object.hasOwn(PRINCIPLE_TITLES, id) || !Object.hasOwn(PRINCIPLE_PAGE, id)) {
+    throw new Error('tierCell: unknown principle id ' + id);
+  }
   const title = PRINCIPLE_TITLES[id];
   const value = NOT_APPLICABLE_BY_SYSTEM.includes(id) ? 'not_applicable'
-    : (REQUIRED_FOR_TIERS[id].includes(tier) ? 'required' : 'proportional');
+    : (Object.hasOwn(REQUIRED_FOR_TIERS, id) && REQUIRED_FOR_TIERS[id].includes(tier) ? 'required' : 'proportional');
   const sourceCite = 'PFMI Principle ' + n + ' (' + title + ', Apr 2012 overview, report p. '
     + PRINCIPLE_PAGE[id] + '); applicability scoping per assessment methodology s3.21; tier cell is '
     + 'this tool\u2019s illustrative proportional design, not a CPMI-IOSCO classification '
@@ -232,15 +235,19 @@ export function compute(pp) {
       continue;
     }
     if (entry.rating === 'not_applicable') { summary.not_applicable += 1; continue; }
+    if (!Object.hasOwn(summary, entry.rating)) { summary.unrated += 1; continue; }
     rated += 1;
     summary[entry.rating] += 1;
-    const severity = GAP_SEVERITY[entry.rating];
-    if (severity) {
+    const severity = Object.hasOwn(GAP_SEVERITY, entry.rating) ? GAP_SEVERITY[entry.rating] : undefined;
+    if (severity && Object.hasOwn(GAP_REASON, entry.rating)) {
       gapRegister.push({ id, rating: entry.rating, severity, reason: GAP_REASON[entry.rating] + ' Source: ' + cell.source_cite });
     }
   }
 
-  gapRegister.sort((a, b) => (SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  gapRegister.sort((a, b) => {
+    if (!Object.hasOwn(SEVERITY_RANK, a.severity) || !Object.hasOwn(SEVERITY_RANK, b.severity)) return 0;
+    return (SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  });
 
   const actionPlan = gapRegister
     .filter((g) => {
@@ -251,7 +258,11 @@ export function compute(pp) {
       const entry = ratingById.get(g.id);
       return { id: g.id, severity: g.severity, target_date: entry.target_date, action: 'Remediate to at least broadly_observed per the action-plan duty of assessment methodology s3.23-s3.26.' };
     })
-    .sort((a, b) => (a.target_date < b.target_date ? -1 : a.target_date > b.target_date ? 1 : (SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]) || (a.id < b.id ? -1 : 1)));
+    .sort((a, b) => {
+      if (!Object.hasOwn(SEVERITY_RANK, a.severity) || !Object.hasOwn(SEVERITY_RANK, b.severity)) return 0;
+      return (a.target_date < b.target_date ? -1 : a.target_date > b.target_date ? 1
+        : (SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]) || (a.id < b.id ? -1 : 1));
+    });
 
   const coveragePct = inScopeIds.length === 0 ? 0
     : Math.round((rated / inScopeIds.length) * 1000) / 10;
