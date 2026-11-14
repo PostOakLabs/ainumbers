@@ -1,5 +1,5 @@
 // art-816-eip3009-agent-spend-gate property-test floor (EIP3009-SPEND-GATE-NODE-1).
-// kernel_digest_at_authoring: sha256:a96bcfa53a25a1e7d3c5d9c42e36ad0f20f2a6fe6b965a4efde311f66ad290e5
+// kernel_digest_at_authoring: sha256:293c629322d68219dd18b8bff66afcffb4684ff1c4f64b159fe8e25414c0b10a
 // spec: research/EIP3009-AGENT-SPEND-GATE-BUILD-SPEC-2026-11.md (workspace-root research dir), section 10
 // human_sign_off: PENDING
 //
