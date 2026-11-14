@@ -264,7 +264,7 @@ export function compute(pp) {
 // echoes null. The artifact preimage carries the refused value the same way,
 // as null, so the canonicalizer is never handed a number it must lie about
 // and buildArtifact never throws on input the kernel itself refuses. Every
-// safe input is passed through unchanged, byte for byte.
+// safe input passes through byte for byte.
 function sanitizeUnsafeIntegers(v) {
   if (typeof v === 'number') return Number.isInteger(v) && !Number.isSafeInteger(v) ? null : v;
   if (Array.isArray(v)) return v.map(sanitizeUnsafeIntegers);
