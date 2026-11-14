@@ -1744,6 +1744,9 @@ const GATES = [
   // (and every pair of a kernel absent from it) exits 1. Label says "Kernel" so --affected picks it for kernel diffs.
   ['Kernel missing-input fail-closed enforce (stage 2, blocking, shrink-only baseline)', 'node scripts/check-kernel-missing-input-failclosed.mjs --enforce scripts/kernel-missing-input-failclosed.baseline.json'],
   ['Kernel missing-input fail-closed controls (RED+GREEN planted kernels)', 'node scripts/check-kernel-missing-input-failclosed.selftest.mjs'],
+  // HEADROOM-LIB-1: distance to the nearest verdict change found on a declared grid. ADVISORY by construction:
+  // the runner prints the base-point report, gates H1/H2/H3/H5/H6 and their planted controls, and always exits 0.
+  ['Kernel headroom search (advisory, always exits 0)', 'node chaingraph/kernels/__headroom__/run-headroom.mjs --advisory'],
   // PAGE-KERNEL-PARITY-GATE-1 (stage 1): ADVISORY by construction, the checker always exits 0 (full estate about 50 s).
   ['Page-versus-kernel parity sweep (stage 1 advisory, always exits 0)', 'node scripts/check-page-kernel-parity.mjs'],
   ['Page-versus-kernel parity controls (RED+GREEN synthetic pages)', 'node scripts/check-page-kernel-parity.selftest.mjs'],
