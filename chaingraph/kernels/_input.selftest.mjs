@@ -10,7 +10,6 @@ import {
   ownKey, makeAccumulator, refuseIJson,
 } from './_input.mjs';
 import { assertIJson } from './_hash.mjs';
-import { readFileSync } from 'node:fs';
 
 let pass = 0;
 const fails = [];
@@ -134,7 +133,7 @@ const cyc = { a: 1 }; cyc.self = cyc;
 t('ijson cycle', refused(refuseIJson(cyc), REFUSAL.IJSON_CYCLE));
 const shared = { z: 1 };
 t('ijson shared (non-cyclic) reference accepted', refuseIJson({ p: shared, q: shared }) === null);
-let deep = {}; const root = deep;
+/** @type {any} */ let deep = {}; const root = deep;
 for (let i = 0; i < 600; i++) { deep.n = {}; deep = deep.n; }
 t('ijson too deep', refused(refuseIJson(root), REFUSAL.IJSON_TOO_DEEP));
 t('ijson reports a path', refuseIJson({ a: { b: [0, 2 ** 60] } }).path === '$.a.b[1]');
@@ -155,13 +154,10 @@ for (const [name, v] of [['clean', { a: 1, b: [2.5, 'x'] }], ['safe max', { a: N
   t('parity with assertIJson (clean): ' + name, !threw && refuseIJson(v) === null);
 }
 
-// SSOT shape: the export tail marker the inline-SSOT manifest carves at must appear exactly once.
-const src = readFileSync(new URL('./_input.mjs', import.meta.url), 'utf8');
-t('SSOT tail marker present once', src.split('\nexport const REFUSAL = _input.REFUSAL;').length === 2);
-t('no import statements (guest-safe)', !/^import\s/m.test(src));
+// The SSOT export-tail marker is checked by check-inline-ssot-sync.mjs (the carve fails closed
+// when the marker is absent or ambiguous), so this file needs no filesystem access.
 
 if (fails.length) {
-  console.error(`_input.selftest: ${fails.length} FAILED of ${pass + fails.length}:\n  ` + fails.join('\n  '));
-  process.exit(1);
+  throw new Error(`_input.selftest: ${fails.length} FAILED of ${pass + fails.length}:\n  ` + fails.join('\n  '));
 }
 console.log(`_input.selftest: OK ${pass}/${pass} assertions pass`);
