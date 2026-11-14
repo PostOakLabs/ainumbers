@@ -157,6 +157,11 @@ function runHook(dir, envOverrides, input = '') {
       MOCK_ARGV_LOG: join(dir, 'argv-log.jsonl'),
       MOCK_ENV_LOG: join(dir, 'env-log.txt'),
       PR_ID_COLLISION_PR: '',
+      // PREPUSH-PR-FROM-PUSH-TARGET-1: the hook now EXPORTS this var, so a run
+      // inside a real pre-push invocation (the push-safety leg) has it set in
+      // the outer environment. A leaked value must never reach a scenario that
+      // expects it absent — same defence as the four vars below.
+      ID_COLLISION_PUSH_BRANCH: '',
       AINUM_GUARDRAIL_METRICS_PATH: metricsFile,
       // Explicitly unset — a leaked value from the outer shell must never
       // leak into a scenario that expects it absent (the no-persistence check).
