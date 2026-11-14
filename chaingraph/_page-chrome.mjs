@@ -128,7 +128,7 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
         <a href="${cg}visual-explainers-hub.html">Visual Explainers</a>
         <a href="${cg}education-hub.html">Learn OpenChainGraph</a>
         <a href="${root}guides/web3-hub.html">Web3 Hub</a>
-        <a href="${root}guides/solana-hub.html">Solana</a>
+        <a href="${root}guides/canton-tmf-hub.html">Canton</a>
         <a href="${root}guides/ethereum-hub.html">Ethereum</a>
         <a href="${root}guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
         <a href="${root}guides/token-standards-hub.html">Token Standards</a>
@@ -164,7 +164,7 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
         <a href="${root}fv-explainer.html">FV Process Explainer</a>
         <a href="${root}errata.html">FV Errata</a>
         <a href="${root}suggest.html">Suggest</a>
-        <a href="${root}security.html">Security</a>
+        <a href="${cg}agent-staircase-explainer.html">Agent Staircase</a>
         <a href="${root}privacy.html">Privacy</a>
         <a href="${root}contact.html">Contact</a>
         <a href="${root}sitemap.html">Sitemap</a>
