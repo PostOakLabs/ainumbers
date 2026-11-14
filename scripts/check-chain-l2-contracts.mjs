@@ -1042,6 +1042,43 @@ function loadEstate(root) {
   const raw = readFileSync(cgPath, 'utf8');
   const cg = JSON.parse(raw);
 
+  // MUSE52-CHAIN-L2-FRESH-SHARD-1 (2026-11-14): chains are overlaid from the ON-DISK SHARDS at
+  // chaingraph/graph/chains/<name>.json before any verdict is computed. The assembled monolith is
+  // re-assembled on main by a single writer (SO #35), so on a PR its chain entries are stale by
+  // construction: a PR that fixes an L2-fail edge in its shard was still judged on the stale
+  // monolith copy, and preflight's hard leg exited 1 on a chain the PR had already healed. The
+  // shards are the authoring surface — assemble-chaingraph.mjs builds the monolith FROM them,
+  // byte-for-byte — so a shard copy is authoritative wherever one exists. Monolith-only entries
+  // survive as-is, and a root with no chains dir at all (e.g. a scratch tree carrying just the
+  // assembled monolith, as counts.mjs builds for DERIVED_ROOT) keeps every chain from the
+  // monolith, exactly the pre-row behavior there. A shard that fails to parse fails the whole
+  // estate read on purpose: with a touched chain that surfaces as preflight's
+  // BLOCKED-COULD-NOT-RUN (an unrun hard leg is an absent result, never a pass), not as a
+  // silently smaller estate. The shards are present in a PR checkout and in a merge_group tree
+  // alike, so the verdict is fresh — and the hard leg keeps its teeth — in both.
+  const chainsDir = resolve(root, 'chaingraph/graph/chains');
+  const shardRaw = new Map();
+  if (existsSync(chainsDir)) {
+    for (const ent of readdirSync(chainsDir, { withFileTypes: true })) {
+      if (!ent.isFile() || !ent.name.endsWith('.json')) continue; // _fixtures/ and stray files are not chain shards
+      shardRaw.set(ent.name.slice(0, -'.json'.length), readFileSync(resolve(chainsDir, ent.name), 'utf8'));
+    }
+  }
+  const shardChains = new Map();
+  for (const [fileName, rawShard] of shardRaw) {
+    const c = JSON.parse(rawShard);
+    shardChains.set(c && typeof c === 'object' && c.name ? c.name : fileName, c);
+  }
+  const monolithChains = Array.isArray(cg.chains) ? cg.chains : [];
+  const monolithNames = new Set(monolithChains.map((c) => c.name));
+  const chains = [
+    ...monolithChains.map((c) => shardChains.get(c.name) || c),
+    ...[...shardChains.entries()].filter(([n]) => !monolithNames.has(n)).sort((a, b) => a[0].localeCompare(b[0])).map(([, c]) => c),
+  ];
+  const chainsShardsDigest = 'sha256:' + createHash('sha256')
+    .update([...shardRaw.keys()].sort().map((n) => `${n}:${shardRaw.get(n)}`).join('\n'))
+    .digest('hex');
+
   const manDir = resolve(root, 'manifests');
   const fixDir = resolve(root, 'chaingraph/kernels/fixtures');
   // ⛔⛔ RESCOPE-3 (2026-08-18): the DERIVED OUTPUT-CONTRACT SIDECAR author site. 63 of 65 L2-G gate
@@ -1195,8 +1232,10 @@ function loadEstate(root) {
   }
 
   return {
-    chaingraph: cg,
+    chaingraph: { ...cg, chains },
     sourceDigest: 'sha256:' + createHash('sha256').update(raw).digest('hex'),
+    chainsSource: 'chaingraph/graph/chains shards (fresh overlay; the monolith still owns every other top-level field)',
+    chainsShardsDigest,
     ctx: {
       outSchema, inSchema, outConstraint, inConstraint, consumerRequired,
       pointerResolvesInFixturesOnly, fixtureObservedValues, verifySource, authorSite, outSchemaIsDerived,
@@ -1210,7 +1249,7 @@ function loadEstate(root) {
 // the selftest drives this function without touching live chaingraph.json.
 export function buildReport(root = ROOT, l1Report) {
   if (!l1Report) throw new Error('buildReport(root, l1Report): l1Report is required — derive it fresh from check-chain-edge-contracts.mjs buildReport(), never omit it (spec §4 item 2)');
-  const { chaingraph, sourceDigest, ctx } = loadEstate(root);
+  const { chaingraph, sourceDigest, chainsSource, chainsShardsDigest, ctx } = loadEstate(root);
   const chains = chaingraph.chains || [];
   const targetNames = computeTargetSet(l1Report);
 
@@ -1300,6 +1339,10 @@ export function buildReport(root = ROOT, l1Report) {
     advisory: true,
     chaingraph_version: chaingraph.version || null,
     chaingraph_source_digest: sourceDigest,
+    // MUSE52-CHAIN-L2-FRESH-SHARD-1: where the judged chains came from — the on-disk shards
+    // (fresh on a PR), with a digest over the exact shard bytes so a verdict is reproducible.
+    chains_source: chainsSource,
+    chains_shards_digest: chainsShardsDigest,
     target_set_size: targetChains.length,
     precision: {
       note: 'a red is a LEAD, not a defect — SO #25 confirm/deny pair before any fix. Zero L2 edges adjudicated as of this row (spec §5.2: 7 leads recorded, all L2-indeterminate).',
