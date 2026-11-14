@@ -26,6 +26,7 @@ import * as t792      from './792-curator-vault-cap-auditor.kernel.mjs';
 import * as t794      from './794-event-fee-recompute.kernel.mjs';
 import * as t795      from './795-stablecoin-refund-dispute.kernel.mjs';
 import * as t797      from './797-stablecoin-cash-equivalent-test.kernel.mjs';
+import * as t798      from './798-assess-sandbox-application-readiness.kernel.mjs';
 import * as t806      from './806-event-contract-terms-lint.kernel.mjs';
 import * as t808      from './808-lst-share-rate-reconciler.kernel.mjs';
 import * as t810      from './810-contract-bytecode-identity-verifier.kernel.mjs';
@@ -674,6 +675,7 @@ import * as art75     from './art-75-eugb-factsheet-validator.kernel.mjs';
 import * as art750    from './art-750-diff-evidence-bundles.kernel.mjs';
 import * as art751    from './art-751-sha256-hmac-digest-demonstrator.kernel.mjs';
 import * as art752    from './art-752-freelance-quarterly-estimated-tax.kernel.mjs';
+import * as art753    from './art-753-home-office-augusta.kernel.mjs';
 import * as art754    from './art-754-equity-exit-waterfall.kernel.mjs';
 import * as art756    from './art-756-sales-ote-commission-analyzer.kernel.mjs';
 import * as art758    from './art-758-hdhp-ppo-break-even.kernel.mjs';
@@ -784,6 +786,7 @@ export const KERNELS = {
   '794-event-fee-recompute':                                    t794,
   '795-stablecoin-refund-dispute':                              t795,
   '797-stablecoin-cash-equivalent-test':                        t797,
+  '798-assess-sandbox-application-readiness':                   t798,
   '806-event-contract-terms-lint':                              t806,
   '808-lst-share-rate-reconciler':                              t808,
   '810-contract-bytecode-identity-verifier':                    t810,
@@ -1432,6 +1435,7 @@ export const KERNELS = {
   'art-750-diff-evidence-bundles':                              art750,
   'art-751-sha256-hmac-digest-demonstrator':                    art751,
   'art-752-freelance-quarterly-estimated-tax':                  art752,
+  'art-753-home-office-augusta':                                art753,
   'art-754-equity-exit-waterfall':                              art754,
   'art-756-sales-ote-commission-analyzer':                      art756,
   'art-758-hdhp-ppo-break-even':                                art758,
