@@ -1,0 +1,369 @@
+{
+  "tool_id": "art-769-medicare-oop-exposure",
+  "version": "1.0.0",
+  "title": "Medicare Out-of-Pocket Exposure",
+  "description": "Medicare out-of-pocket exposure modeler for a declared plan year: walks a modelled year of utilisation through the Part A benefit-period cost-sharing rules, the Part B deductible and coinsurance and the Part D deductible-then-coinsurance walk, then reports the residual left after a coverage structure (Original Medicare only, Medigap Plan G, Medigap Plan N, or Medicare Advantage), annual premiums including the Part B IRMAA tier and the Part D income-related adjustment, and a routine / rough / worst-case spread. Integer US cents throughout with exact round-half-up basis-point division; the plan year is an input and the node reads no clock. Rejects out-of-domain inputs, including an income tier outside 0-5, with named errors rather than clamping; Plan G and Plan N carry no annual ceiling; the worst-case spend multiplier is an optional input (default 4). Verify-only: it does not price any actual plan and does not assert that any real enrollee's bill is correct.",
+  "category": "chaingraph",
+  "tags": [
+    "compliance_mandate",
+    "medicare",
+    "out-of-pocket",
+    "part-a-deductible",
+    "benefit-period",
+    "part-b-deductible",
+    "part-d-out-of-pocket-threshold",
+    "irmaa",
+    "medigap",
+    "medicare-advantage",
+    "retirement",
+    "integer-minor-units",
+    "mcp:compute_medicare_oop_exposure"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "plan_year",
+      "coverage_structure",
+      "irmaa_tier",
+      "benefit_periods",
+      "days_per_period",
+      "snf_days",
+      "part_b_approved_charges_cents",
+      "annual_drug_cost_cents",
+      "part_d_deductible_cents",
+      "supplemental_monthly_premium_cents",
+      "advantage_moop_cents",
+      "advantage_coinsurance_pct"
+    ],
+    "properties": {
+      "plan_year": {
+        "type": "integer",
+        "description": "Plan year whose published parameters apply (2026 declared). Must be a number; a string, null or undeclared year is a named error."
+      },
+      "coverage_structure": {
+        "type": "string",
+        "enum": [
+          "OriginalOnly",
+          "PlanG",
+          "PlanN",
+          "Advantage"
+        ],
+        "description": "Coverage the residual is measured against: OriginalOnly, PlanG, PlanN (no annual ceiling) or Advantage (plan MOOP)."
+      },
+      "irmaa_tier": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 5,
+        "description": "Income-related tier 0-5 (six CMS 2026 Part B bands). Sets Part B premium and Part D adjustment. Any other value is refused."
+      },
+      "benefit_periods": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Non-negative integer count of Part A benefit periods in the year. Zero means no admission and no Part A deductible."
+      },
+      "days_per_period": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 366,
+        "description": "Non-negative integer inpatient days per benefit period: 1-60 deductible, 61-90 quarter, 91-150 half; after 150 not costed."
+      },
+      "snf_days": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 366,
+        "description": "Non-negative integer SNF days per benefit period: 1-20 in full, 21-100 coinsurance, 101+ not covered and not costed."
+      },
+      "part_b_approved_charges_cents": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 10000000000,
+        "description": "Non-negative integer cents: Medicare-approved Part B charges for the year. Deductible first, then 20 percent."
+      },
+      "annual_drug_cost_cents": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 10000000000,
+        "description": "Non-negative integer cents: annual gross covered Part D drug cost; the walk is capped at the plan-year threshold."
+      },
+      "part_d_deductible_cents": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 10000000000,
+        "description": "Non-negative integer cents: plan Part D deductible; above the plan-year maximum it is clamped and the clamp is reported."
+      },
+      "supplemental_monthly_premium_cents": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 10000000000,
+        "description": "Non-negative integer cents: Medigap or Advantage monthly premium, charged for twelve months. Zero means none."
+      },
+      "advantage_moop_cents": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 10000000000,
+        "description": "Non-negative integer cents: Advantage in-network maximum out-of-pocket for Part A and B. Zero means not entered."
+      },
+      "advantage_coinsurance_pct": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Integer 0-100: Advantage medical coinsurance percent, applied to Part A cost sharing plus post-deductible Part B."
+      },
+      "worst_case_spend_multiplier": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100,
+        "description": "Optional integer 1-100, default 4: worst-case multiplier on Part B and drug spend. A modelling assumption, not a CMS figure."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_medicare_oop_exposure",
+    "description": "Medicare out-of-pocket exposure modeler for a declared plan year: Part A benefit-period cost sharing, Part B deductible and coinsurance, Part D cost sharing after the plan-year cap, the residual left after a coverage structure, annual premiums including IRMAA, and a routine / rough / worst-case spread. Integer US cents, no clock, named refusals, optional worst-case multiplier.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "plan_year",
+        "coverage_structure",
+        "irmaa_tier",
+        "benefit_periods",
+        "days_per_period",
+        "snf_days",
+        "part_b_approved_charges_cents",
+        "annual_drug_cost_cents",
+        "part_d_deductible_cents",
+        "supplemental_monthly_premium_cents",
+        "advantage_moop_cents",
+        "advantage_coinsurance_pct"
+      ],
+      "properties": {
+        "plan_year": {
+          "type": "integer",
+          "description": "Plan year whose published parameters apply (2026 declared). Must be a number; a string, null or undeclared year is a named error."
+        },
+        "coverage_structure": {
+          "type": "string",
+          "enum": [
+            "OriginalOnly",
+            "PlanG",
+            "PlanN",
+            "Advantage"
+          ],
+          "description": "Coverage the residual is measured against: OriginalOnly, PlanG, PlanN (no annual ceiling) or Advantage (plan MOOP)."
+        },
+        "irmaa_tier": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5,
+          "description": "Income-related tier 0-5 (six CMS 2026 Part B bands). Sets Part B premium and Part D adjustment. Any other value is refused."
+        },
+        "benefit_periods": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Non-negative integer count of Part A benefit periods in the year. Zero means no admission and no Part A deductible."
+        },
+        "days_per_period": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 366,
+          "description": "Non-negative integer inpatient days per benefit period: 1-60 deductible, 61-90 quarter, 91-150 half; after 150 not costed."
+        },
+        "snf_days": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 366,
+          "description": "Non-negative integer SNF days per benefit period: 1-20 in full, 21-100 coinsurance, 101+ not covered and not costed."
+        },
+        "part_b_approved_charges_cents": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000000000,
+          "description": "Non-negative integer cents: Medicare-approved Part B charges for the year. Deductible first, then 20 percent."
+        },
+        "annual_drug_cost_cents": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000000000,
+          "description": "Non-negative integer cents: annual gross covered Part D drug cost; the walk is capped at the plan-year threshold."
+        },
+        "part_d_deductible_cents": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000000000,
+          "description": "Non-negative integer cents: plan Part D deductible; above the plan-year maximum it is clamped and the clamp is reported."
+        },
+        "supplemental_monthly_premium_cents": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000000000,
+          "description": "Non-negative integer cents: Medigap or Advantage monthly premium, charged for twelve months. Zero means none."
+        },
+        "advantage_moop_cents": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000000000,
+          "description": "Non-negative integer cents: Advantage in-network maximum out-of-pocket for Part A and B. Zero means not entered."
+        },
+        "advantage_coinsurance_pct": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Integer 0-100: Advantage medical coinsurance percent, applied to Part A cost sharing plus post-deductible Part B."
+        },
+        "worst_case_spend_multiplier": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Optional integer 1-100, default 4: worst-case multiplier on Part B and drug spend. A modelling assumption, not a CMS figure."
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-769-medicare-oop-exposure.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "output_schema": {
+    "type": "object",
+    "description": "output_payload: plan_year, coverage_structure, irmaa_tier, valid_input, domain_errors[], routine/rough/worst each {part_a_inpatient_cents, part_a_snf_cents, part_b_total_cents, part_d_total_cents, medical_oop_cents, annual_ceiling_cents (number|null), premiums_cents, total_oop_excluding_premiums_cents, total_with_premiums_cents, monthly_budget_cents, reserve_days_consumed, reserve_days_beyond_pool, unlimited_days_flag, snf_beyond_max_flag, moop_fallback_flag}, exposure_spread_cents, unlimited_exposure, part_d_deductible_input_cents, part_d_deductible_effective_cents, part_d_deductible_clamped, parameters_used (the plan-year parameter block actually applied), model_assumptions_used, regulatory_basis, scope_note, and warnings[] (mirror of compliance flags), usd_view{...} for display. All *_cents members are integer US cents."
+  },
+  "source": "chaingraph/kernels/art-769-medicare-oop-exposure.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: plan_year, coverage_structure, irmaa_tier, benefit_periods, days_per_period, snf_days, part_b_approved_charges_cents, annual_drug_cost_cents, part_d_deductible_cents, supplemental_monthly_premium_cents, advantage_moop_cents, advantage_coinsurance_pct. Every property carries a real JSON Schema type read off the kernel's validation path. All twelve are listed required because the kernel dereferences every one of them unconditionally in validate() (an absent member produces a named domain error rather than a default), plus the optional worst_case_spend_multiplier (absent takes the declared default; a present null or wrong type is refused; not required), and advantage_moop_cents / advantage_coinsurance_pct are required for the same reason even though only the Advantage branch consumes their values. mcp_tool_definition.inputSchema is byte-identical to input_schema, as in art-704.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "coverage_structure": "OriginalOnly",
+    "irmaa_tier": 0,
+    "benefit_periods": 1,
+    "days_per_period": 5,
+    "snf_days": 0,
+    "part_b_approved_charges_cents": 600000,
+    "annual_drug_cost_cents": 250000,
+    "part_d_deductible_cents": 61500,
+    "supplemental_monthly_premium_cents": 16500,
+    "advantage_moop_cents": 550000,
+    "advantage_coinsurance_pct": 20,
+    "plan_year": 2026
+  },
+  "output_example": {
+    "plan_year": 2026,
+    "coverage_structure": "OriginalOnly",
+    "irmaa_tier": 0,
+    "valid_input": true,
+    "domain_errors": [],
+    "routine": {
+      "part_a_inpatient_cents": 0,
+      "part_a_snf_cents": 0,
+      "part_b_total_cents": 142640,
+      "part_d_total_cents": 108625,
+      "medical_oop_cents": 142640,
+      "annual_ceiling_cents": null,
+      "premiums_cents": 441480,
+      "total_oop_excluding_premiums_cents": 251265,
+      "total_with_premiums_cents": 692745,
+      "monthly_budget_cents": 57729,
+      "reserve_days_consumed": 0,
+      "reserve_days_beyond_pool": 0,
+      "unlimited_days_flag": false,
+      "snf_beyond_max_flag": false,
+      "moop_fallback_flag": false
+    },
+    "rough": {
+      "part_a_inpatient_cents": 173600,
+      "part_a_snf_cents": 0,
+      "part_b_total_cents": 142640,
+      "part_d_total_cents": 108625,
+      "medical_oop_cents": 316240,
+      "annual_ceiling_cents": null,
+      "premiums_cents": 441480,
+      "total_oop_excluding_premiums_cents": 424865,
+      "total_with_premiums_cents": 866345,
+      "monthly_budget_cents": 72195,
+      "reserve_days_consumed": 0,
+      "reserve_days_beyond_pool": 0,
+      "unlimited_days_flag": false,
+      "snf_beyond_max_flag": false,
+      "moop_fallback_flag": false
+    },
+    "worst": {
+      "part_a_inpatient_cents": 347200,
+      "part_a_snf_cents": 1736000,
+      "part_b_total_cents": 502640,
+      "part_d_total_cents": 210000,
+      "medical_oop_cents": 2585840,
+      "annual_ceiling_cents": null,
+      "premiums_cents": 441480,
+      "total_oop_excluding_premiums_cents": 2795840,
+      "total_with_premiums_cents": 3237320,
+      "monthly_budget_cents": 269777,
+      "reserve_days_consumed": 0,
+      "reserve_days_beyond_pool": 0,
+      "unlimited_days_flag": false,
+      "snf_beyond_max_flag": false,
+      "moop_fallback_flag": false
+    },
+    "exposure_spread_cents": 2544575,
+    "unlimited_exposure": true,
+    "part_d_deductible_input_cents": 61500,
+    "part_d_deductible_effective_cents": 61500,
+    "part_d_deductible_clamped": false,
+    "parameters_used": {
+      "part_a_deductible_cents": 173600,
+      "part_a_coinsurance_days_61_90_cents": 43400,
+      "part_a_lifetime_reserve_day_cents": 86800,
+      "lifetime_reserve_days": 60,
+      "snf_daily_coinsurance_cents": 21700,
+      "snf_days_covered_in_full": 20,
+      "snf_days_covered_per_period": 100,
+      "part_b_deductible_cents": 28300,
+      "part_b_coinsurance_bp": 2000,
+      "part_d_max_deductible_cents": 61500,
+      "part_d_oop_cap_cents": 210000,
+      "part_d_standard_coinsurance_bp": 2500,
+      "part_b_premium_by_tier_cents": [
+        20290,
+        28410,
+        40580,
+        52750,
+        64920,
+        68990
+      ],
+      "part_d_irmaa_by_tier_cents": [
+        0,
+        1450,
+        3750,
+        6040,
+        8330,
+        9100
+      ]
+    },
+    "model_assumptions_used": {
+      "plan_n_visit_copay_cents": 2000,
+      "average_visit_charge_cents": 25000,
+      "worst_case_benefit_periods": 2,
+      "worst_case_days_per_period": 30,
+      "worst_case_snf_days": 60,
+      "worst_case_spend_multiplier": 4
+    },
+    "regulatory_basis": "SSA 1813(a)(1)(A) Part A deductible; 1813(a)(1)(A) one-fourth coinsurance days 61-90; 1813(a)(1)(B) one-half coinsurance lifetime reserve days; 1813(a)(3) one-eighth SNF coinsurance days 21-100; SMA 1853(b)(1) Part B 20 percent after the annual deductible; SSA 1860D-2(b)(1) Part D deductible; 1860D-2(b)(4)(B) Part D annual out-of-pocket threshold; 42 CFR 422.100(f)(4) Medicare Advantage in-network MOOP; NAIC Model Regulation 651 sec. 9.1E(11) Plan N copayments.",
+    "scope_note": "Verify-only recomputation of Medicare cost sharing for a modelled year of utilisation. It does not track a real enrollee, does not price any actual plan, does not decide enrollment, and does not model Part B excess charges above the Medicare-approved amount, non-covered services, premiums other than Part B, Part D base premium, or any cost beyond day 150 / day 100 of SNF care. Estimate only -- not an official CMS, SSA or plan communication, and not financial, legal or tax advice.",
+    "usd_view": {
+      "routine_total": "6927.45",
+      "rough_total": "8663.45",
+      "worst_total": "32373.20",
+      "monthly_budget": "721.95",
+      "medical_oop": "3162.40",
+      "annual_ceiling": null,
+      "exposure_spread": "25445.75"
+    },
+    "warnings": [
+      "NO_ANNUAL_MEDICAL_CEILING"
+    ]
+  },
+  "example_execution_hash": "2a676d3e093a67a6f4eaca44c776e1a6138f5bfe07d252321b9ac21ca96ea218"
+}
