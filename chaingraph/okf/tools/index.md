@@ -29,6 +29,7 @@ status: stable
 - [Event Fee Recompute](./794-event-fee-recompute.md) — `recompute_event_contract_fee`
 - [Stablecoin Refund Dispute Check](./795-stablecoin-refund-dispute.md) — `check_stablecoin_refunds`
 - [Stablecoin Cash Equivalent Test (FASB Proposed 2026-08)](./797-stablecoin-cash-equivalent-test.md) — `check_stablecoin_cash_equiv`
+- [Assess Sandbox Application Readiness](./798-assess-sandbox-application-readiness.md) — `assess_sandbox_readiness`
 - [Event Contract Terms Lint](./806-event-contract-terms-lint.md) — `lint_event_contract_terms`
 - [Liquid-Staking Share Rate Reconciler](./808-lst-share-rate-reconciler.md) — `reconcile_lst_share_rate`
 - [Contract Bytecode Identity Verifier](./810-contract-bytecode-identity-verifier.md) — `verify_contract_bytecode_identity`
