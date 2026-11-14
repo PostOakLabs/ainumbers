@@ -362,7 +362,7 @@ function selfTest() {
   const toy = classify([
     { id: 'counts', artifacts: ['a.html', 'b.html'] }, { id: 'stats', artifacts: [] },
     { id: 'catalog', artifacts: ['b.html'] }, { id: 'chain-ask-agent', artifacts: ['c.html'] },
-    { id: 'hub-scenes', artifacts: [] }, { id: 'node-page-footers', artifacts: [] }, { id: 'mcp-activity-embed', artifacts: [] },
+    { id: 'hub-scenes', artifacts: [] }, { id: 'node-page-footers', artifacts: [] }, { id: 'root-page-footers', artifacts: [] }, { id: 'mcp-activity-embed', artifacts: [] },
     { id: 'tree', artifacts: ['dir/'] },
   ], (p) => p.endsWith('/'), []);
   check('toy: sentinel-only file is sentinel', toy.sentinel.has('a.html') && !toy.whole.has('a.html'));
