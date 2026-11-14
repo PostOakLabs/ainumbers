@@ -1,0 +1,32 @@
+{
+      "name": "eip3009-agent-spend-decision",
+      "domain": "Digital-Asset Rails",
+      "title": "EIP-3009 Agent Spend Decision",
+      "description": "Gated three-step check run before an agent signs an EIP-3009 (ERC-3009, a Draft) authorization: payload lint, then the spend gate against a declared policy and a pasted ledger, then the EIP-712 digest the wallet would sign. Any decision other than SPEND halts the chain after the gate. Before signing, this chain asks whether the authorization is within the declared policy; after signing, the x402-spend-evidence workflow checks the signature and replay signals.",
+      "composer_url": "https://ainumbers.co/chaingraph/chains/eip3009-agent-spend-decision.html",
+      "steps": [
+        {
+          "tool_id": "art-700-authorization-payload-linter",
+          "handoff": "the lint result echoes the authorization in the shape the spend gate reads"
+        },
+        {
+          "tool_id": "art-816-eip3009-agent-spend-gate",
+          "handoff": "decision feeds the digest step; any decision other than SPEND (DENY, OVER_LIMIT, INDETERMINATE) stops the chain here, outside the declared policy",
+          "gate": {
+            "input": "/decision",
+            "rules": [
+              {
+                "op": "eq",
+                "value": "SPEND",
+                "next": "art-590-x402-eip712-digest-recomputer"
+              }
+            ],
+            "default": "end"
+          }
+        },
+        {
+          "tool_id": "art-590-x402-eip712-digest-recomputer",
+          "handoff": "recomputes the exact EIP-712 digest the wallet would sign; continue with x402-spend-evidence once a signature exists -- final stage"
+        }
+      ]
+    }
