@@ -129,7 +129,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 </style>
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/845-je-period-lock-gate.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:55f2aa40a22c16c9e94d70febf7e4c9fecf6241927d953967779dc567d8843df">
+<meta name="kernel-digest" content="sha256:8bbd687c595f4fb6d45a57aa19b94a16811fcdd090c90483713f6fd5687d2cd1">
 <meta name="ai-tool" content="gate_je_period_lock">
 </head>
 <body>
@@ -418,8 +418,116 @@ const MAX_ENTRIES = 500;
 const LOCK_STATES = ['open', 'soft_locked', 'hard_closed'];
 const REVERSAL_POLICIES = ['original_date', 'first_open_period', 'explicit_date'];
 
-function s(v) { return String(v == null ? '' : v).trim(); }
-function arr(v) { return Array.isArray(v) ? v : []; }
+// Typed input contract (mirrors the kernel): no coercion, no truthiness tests on caller
+// values; a present null or wrong type refuses the whole run with a stated code.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+const PP_MAX_DEPTH = HASH_MAX_DEPTH - 8;
+const PP_MAX_ELEMENTS = 199000;
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+function isPlainObject(v) {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
+function isStr(v) { return typeof v === 'string'; }
+function field(o, key, path, kind, required) {
+  if (!Object.hasOwn(o, key) || o[key] === undefined || (required && o[key] === null)) {
+    return required ? { code: 'REFUSED_INPUT_MISSING_FIELD', message: path + '.' + key + ' is required and must not be absent or null' } : null;
+  }
+  const v = o[key];
+  const ok = kind === 'string' ? isStr(v)
+    : kind === 'boolean' ? typeof v === 'boolean'
+      : kind === 'array' ? Array.isArray(v)
+        : isPlainObject(v);
+  return ok ? null : { code: 'REFUSED_INPUT_WRONG_TYPE', message: path + '.' + key + ' must be ' + (kind === 'array' ? 'an array' : kind === 'object' ? 'a plain object' : 'a ' + kind) + ', never coerced' };
+}
+function validateInput(pp) {
+  let f = field(pp, 'policy_version', 'pp', 'string', true);
+  if (f) return f;
+  if (pp.policy_version === '') return { code: 'REFUSED_INPUT_WRONG_TYPE', message: 'pp.policy_version must be a non-empty string; no default version exists' };
+  if ((f = field(pp, 'periods', 'pp', 'array', true))) return f;
+  for (let i = 0; i < pp.periods.length; i++) {
+    const p = pp.periods[i];
+    const path = 'pp.periods[' + i + ']';
+    if (!isPlainObject(p)) return { code: 'REFUSED_INPUT_WRONG_TYPE', message: path + ' must be a plain object' };
+    for (const k of ['period_id', 'start_date', 'end_date']) if ((f = field(p, k, path, 'string', true))) return f;
+    if ((f = field(p, 'lock_events', path, 'array', true))) return f;
+    for (let j = 0; j < p.lock_events.length; j++) {
+      const ev = p.lock_events[j];
+      const epath = path + '.lock_events[' + j + ']';
+      if (!isPlainObject(ev)) return { code: 'REFUSED_INPUT_WRONG_TYPE', message: epath + ' must be a plain object' };
+      for (const k of ['from_date', 'state']) if ((f = field(ev, k, epath, 'string', true))) return f;
+    }
+  }
+  if (pp.reversal_policy !== null && (f = field(pp, 'reversal_policy', 'pp', 'string', false))) return f;
+  if ((f = field(pp, 'explicit_reversal_date', 'pp', 'string', false))) return f;
+  if ((f = field(pp, 'as_of_date', 'pp', 'string', false))) return f;
+  if ((f = field(pp, 'soft_lock_exempt_roles', 'pp', 'array', false))) return f;
+  if (pp.soft_lock_exempt_roles !== undefined) {
+    for (let i = 0; i < pp.soft_lock_exempt_roles.length; i++) {
+      if (!isStr(pp.soft_lock_exempt_roles[i])) return { code: 'REFUSED_INPUT_WRONG_TYPE', message: 'pp.soft_lock_exempt_roles[' + i + '] must be a string' };
+    }
+  }
+  if ((f = field(pp, 'entries', 'pp', 'array', false))) return f;
+  if (pp.entries === undefined || pp.entries.length > MAX_ENTRIES) return null;
+  for (let i = 0; i < pp.entries.length; i++) {
+    const e = pp.entries[i];
+    const path = 'pp.entries[' + i + ']';
+    if (!isPlainObject(e)) return { code: 'REFUSED_INPUT_WRONG_TYPE', message: path + ' must be a plain object' };
+    if ((f = field(e, 'entry_id', path, 'string', true))) return f;
+    for (const k of ['entered_on', 'effective_date', 'original_effective_date', 'prepared_by', 'approved_by']) if ((f = field(e, k, path, 'string', false))) return f;
+    if ((f = field(e, 'is_reversal', path, 'boolean', false))) return f;
+    if ((f = field(e, 'roles', path, 'array', false))) return f;
+    if (e.roles !== undefined) {
+      for (let j = 0; j < e.roles.length; j++) {
+        if (!isStr(e.roles[j])) return { code: 'REFUSED_INPUT_WRONG_TYPE', message: path + '.roles[' + j + '] must be a string' };
+      }
+    }
+  }
+  return null;
+}
+function refusalResult(code, message, policy_version, policy_digest, compliance_flags) {
+  return {
+    output_payload: {
+      policy_version: policy_version,
+      policy_digest: policy_digest,
+      execution_state: 'did_not_run',
+      reason: code + ': ' + message,
+      entry_count: 0,
+      entries: [],
+      totals_by_decision: { allow: 0, allow_exempt: 0, refuse: 0 },
+      totals_by_period: {},
+      warnings: ['PERIOD_LOCK_POLICY_FAULT'],
+    },
+    compliance_flags: compliance_flags.concat('PERIOD_LOCK_POLICY_FAULT'),
+  };
+}
 
 // Days since 1970-01-01 (proleptic Gregorian), pure integer arithmetic (Howard Hinnant).
 function daysFromCivil(y, m, d) {
@@ -447,7 +555,8 @@ function isoOf(days) {
   return String(c.y).padStart(4, '0') + '-' + String(c.m).padStart(2, '0') + '-' + String(c.d).padStart(2, '0');
 }
 function parseISOStrict(str) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s(str));
+  if (typeof str !== 'string') return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str);
   if (!m) return null;
   const y = Number(m[1]); const mo = Number(m[2]); const d = Number(m[3]);
   if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
@@ -492,21 +601,33 @@ function cgCanon(v) {
       : v;
 }
 
-function compute(pp) {
-  pp = pp || {};
-  const policy_version = s(pp.policy_version) || 'unversioned';
+function compute(rawPp) {
   const compliance_flags = [];
+  let inputFault = null;
+  if (!isPlainObject(rawPp)) {
+    inputFault = { code: 'REFUSED_INPUT_WRONG_TYPE', message: 'policy parameters must be a plain object' };
+  } else {
+    const unhashable = findHashRefusal(rawPp, 'pp', 1, { maxDepth: PP_MAX_DEPTH, maxElements: PP_MAX_ELEMENTS, n: 0 });
+    if (unhashable !== null) inputFault = { code: unhashable.reason, message: unhashable.detail };
+  }
+  const pp = inputFault === null ? Object.fromEntries(Object.entries(rawPp)) : null;
+  if (inputFault === null) inputFault = validateInput(pp);
+  if (inputFault !== null) {
+    const pv = (pp !== null && isStr(pp.policy_version) && pp.policy_version !== '') ? pp.policy_version : null;
+    return refusalResult(inputFault.code, inputFault.message, pv, null, compliance_flags);
+  }
+
+  const policy_version = pp.policy_version;
   const totals_by_decision = { allow: 0, allow_exempt: 0, refuse: 0 };
   const totals_by_period = {};
 
-  const declared = arr(pp.periods);
-  const periods = declared.map(function (p) {
+  const periods = pp.periods.map(function (p) {
     return {
-      period_id: s(p && p.period_id),
-      start_date: s(p && p.start_date),
-      end_date: s(p && p.end_date),
-      lock_events: arr(p && p.lock_events).map(function (e) {
-        return { from_date: s(e && e.from_date), state: s(e && e.state) };
+      period_id: p.period_id,
+      start_date: p.start_date,
+      end_date: p.end_date,
+      lock_events: p.lock_events.map(function (e) {
+        return { from_date: e.from_date, state: e.state };
       }),
     };
   });
@@ -520,20 +641,7 @@ function compute(pp) {
   };
 
   const refusePolicy = function (code, message) {
-    return {
-      output_payload: {
-        policy_version: policy_version,
-        policy_digest: policy_digest,
-        execution_state: 'did_not_run',
-        reason: code + ': ' + message,
-        entry_count: 0,
-        entries: [],
-        totals_by_decision: { allow: 0, allow_exempt: 0, refuse: 0 },
-        totals_by_period: {},
-        warnings: ['PERIOD_LOCK_POLICY_FAULT'],
-      },
-      compliance_flags: compliance_flags,
-    };
+    return refusalResult(code, message, policy_version, policy_digest, compliance_flags);
   };
 
   const sorted = sortedPeriods();
@@ -570,7 +678,7 @@ function compute(pp) {
   const fault = policyFault;
   if (fault !== null) return refusePolicy(fault.code, fault.message);
 
-  const reversal_policy = s(pp.reversal_policy);
+  const reversal_policy = pp.reversal_policy;
   if (REVERSAL_POLICIES.indexOf(reversal_policy) === -1) {
     return refusePolicy('POLICY_REVERSAL_POLICY_MISSING', 'reversal_policy must be one of ' + REVERSAL_POLICIES.join(' | '));
   }
@@ -583,9 +691,13 @@ function compute(pp) {
   }
 
   const exemptSet = {};
-  arr(pp.soft_lock_exempt_roles).map(s).filter(Boolean).forEach(function (r) { exemptSet[r] = true; });
-  const as_of_days = parseISOStrict(pp.as_of_date);
-  const entries = arr(pp.entries);
+  (pp.soft_lock_exempt_roles === undefined ? [] : pp.soft_lock_exempt_roles).filter(function (r) { return r !== ''; }).forEach(function (r) { exemptSet[r] = true; });
+  let as_of_days = null;
+  if (pp.as_of_date !== undefined) {
+    as_of_days = parseISOStrict(pp.as_of_date);
+    if (as_of_days === null) return refusePolicy('POLICY_AS_OF_DATE_INVALID', 'as_of_date must be a calendar-valid YYYY-MM-DD date when given');
+  }
+  const entries = pp.entries === undefined ? [] : pp.entries;
 
   if (entries.length > MAX_ENTRIES) {
     return refusePolicy('ENTRY_CAP_EXCEEDED', entries.length + ' entries declared; the cap is ' + MAX_ENTRIES);
@@ -596,11 +708,11 @@ function compute(pp) {
 
   const out_entries = [];
   for (const e of entries) {
-    const entry_id = s(e && e.entry_id);
-    const roles = arr(e && e.roles).map(s);
-    const prepared_by = s(e && e.prepared_by) || null;
-    const approved_by = s(e && e.approved_by) || null;
-    const is_reversal = (e && e.is_reversal) === true;
+    const entry_id = e.entry_id;
+    const roles = e.roles === undefined ? [] : e.roles;
+    const prepared_by = (e.prepared_by === undefined || e.prepared_by === '') ? null : e.prepared_by;
+    const approved_by = (e.approved_by === undefined || e.approved_by === '') ? null : e.approved_by;
+    const is_reversal = e.is_reversal === true;
     const rec = {
       entry_id: entry_id,
       decision: null,
@@ -614,7 +726,7 @@ function compute(pp) {
     const refuse = function (code) { rec.decision = 'refuse'; rec.refusal_code = code; };
 
     let entered_days = null;
-    if (e && e.entered_on != null && s(e.entered_on) !== '') {
+    if (e.entered_on !== undefined && e.entered_on !== '') {
       entered_days = parseISOStrict(e.entered_on);
       if (entered_days === null) refuse('BAD_DATE');
     } else if (as_of_days !== null) {
@@ -626,13 +738,13 @@ function compute(pp) {
     let eval_days = null;
     if (rec.refusal_code === null) {
       if (!is_reversal) {
-        eval_days = parseISOStrict(e && e.effective_date);
+        eval_days = parseISOStrict(e.effective_date);
         if (eval_days === null) refuse('BAD_DATE');
       } else if (reversal_policy === 'explicit_date') {
         eval_days = explicit_reversal_days;
         rec.resolved_effective_date = isoOf(eval_days);
       } else {
-        const orig_days = parseISOStrict(e && e.original_effective_date);
+        const orig_days = parseISOStrict(e.original_effective_date);
         if (orig_days === null) {
           refuse('BAD_DATE');
         } else if (reversal_policy === 'original_date') {
@@ -758,7 +870,7 @@ function paintResult() {
 function readInputs() {
   function jsonOf(id) {
     let parsed;
-    try { parsed = JSON.parse(String(document.getElementById(id).value || '').trim() || '[]'); } catch (e) { parsed = []; }
+    try { parsed = JSON.parse(String(document.getElementById(id).value || '').trim() || '[]'); } catch (e) { parsed = null; } // unparseable JSON reaches compute() as null and refuses, never as []
     return parsed;
   }
   const pp = {
@@ -768,7 +880,7 @@ function readInputs() {
     reversal_policy: document.getElementById('reversal_policy').value,
   };
   const roles = jsonOf('soft_lock_exempt_roles');
-  if (Array.isArray(roles) && roles.length) pp.soft_lock_exempt_roles = roles;
+  if (roles === null || !Array.isArray(roles) || roles.length) pp.soft_lock_exempt_roles = roles;
   const asOf = String(document.getElementById('as_of_date').value || '').trim();
   if (asOf !== '') pp.as_of_date = asOf;
   const erd = String(document.getElementById('explicit_reversal_date').value || '').trim();

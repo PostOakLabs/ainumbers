@@ -1,6 +1,6 @@
 // 845-je-period-lock-gate.proptest.mjs — class-K property-test FLOOR
 // (FV-PBT-FLOOR-BUILD-SPEC.md), authored in-row by JE-PERIOD-LOCK-GATE-1.
-// kernel_digest_at_authoring: sha256:55f2aa40a22c16c9e94d70febf7e4c9fecf6241927d953967779dc567d8843df
+// kernel_digest_at_authoring: sha256:8bbd687c595f4fb6d45a57aa19b94a16811fcdd090c90483713f6fd5687d2cd1
 // spec: board/queued/JE-PERIOD-LOCK-GATE-1.md (fixed contract)
 // human_sign_off: PENDING
 //
@@ -13,7 +13,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/845-je-period-lock-gate.proptest.mjs
 
-import { compute } from '../845-je-period-lock-gate.kernel.mjs';
+import { compute, buildArtifact } from '../845-je-period-lock-gate.kernel.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -238,6 +238,76 @@ function checkP7_strict_leap_calendar() {
   return { name: 'P7_strict_leap_calendar', trials, violations };
 }
 
+// ---------- P8: buildArtifact_never_throws — unhashable input mints a null hash + hash_refusal ----------
+async function checkP8_buildArtifact_never_throws() {
+  let violations = 0, trials = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const hostile = [
+    { zzz: 1e300 }, { zzz: Infinity }, { zzz: NaN }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } },
+    { policy_version: 1e300 }, { zzz: deep }, { zzz: wide },
+  ];
+  for (const delta of hostile) {
+    trials++;
+    try {
+      const art = await buildArtifact({ ...basePolicy, entries: [], ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) violations++;
+      if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) violations++; // value never echoed
+      if (art.output_payload.execution_state !== 'did_not_run') violations++;
+    } catch (e) { violations++; }
+  }
+  for (const pp of [{ ...basePolicy, entries: [] }, null, 0, '', [], 5, { ...basePolicy, periods: null }]) {
+    trials++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) violations++;
+    } catch (e) { violations++; }
+  }
+  return { name: 'P8_buildArtifact_never_throws', trials, violations };
+}
+
+// ---------- P9: typed input contract — wrong type or null refuses with a stated code, never coerced ----------
+function checkP9_input_contract() {
+  let violations = 0, trials = 0;
+  const entry = { entry_id: 'E1', effective_date: '2024-02-15', entered_on: '2024-02-15', roles: [] };
+  const refuses = (pp, code) => {
+    trials++;
+    const o = compute(pp).output_payload;
+    if (o.execution_state !== 'did_not_run' || !String(o.reason).startsWith(code) || o.entries.length !== 0) violations++;
+  };
+  for (const bad of [null, 0, '', [], 5, 'x', false, true]) refuses(bad, 'REFUSED_INPUT_WRONG_TYPE');
+  for (const v of [7, {}, [], true]) refuses({ ...basePolicy, policy_version: v }, 'REFUSED_INPUT_WRONG_TYPE');
+  refuses({ ...basePolicy, policy_version: '' }, 'REFUSED_INPUT_WRONG_TYPE');
+  // R4: a required field answers null exactly as it answers absent
+  for (const v of [undefined, null]) refuses({ ...basePolicy, policy_version: v }, 'REFUSED_INPUT_MISSING_FIELD');
+  for (const v of [{}, 'x', 5]) refuses({ ...basePolicy, periods: v }, 'REFUSED_INPUT_WRONG_TYPE');
+  for (const v of [undefined, null]) refuses({ ...basePolicy, periods: v }, 'REFUSED_INPUT_MISSING_FIELD');
+  for (const v of [null, {}, 'x', 5]) refuses({ ...basePolicy, entries: v }, 'REFUSED_INPUT_WRONG_TYPE');
+  for (const v of [null, 5, 'x', []]) refuses({ ...basePolicy, entries: [v] }, 'REFUSED_INPUT_WRONG_TYPE');
+  for (const k of ['entered_on', 'effective_date', 'prepared_by', 'approved_by']) {
+    for (const v of [null, 5, {}, []]) refuses({ ...basePolicy, entries: [{ ...entry, [k]: v }] }, 'REFUSED_INPUT_WRONG_TYPE');
+  }
+  for (const v of [5, {}, []]) refuses({ ...basePolicy, entries: [{ ...entry, entry_id: v }] }, 'REFUSED_INPUT_WRONG_TYPE');
+  for (const v of [undefined, null]) refuses({ ...basePolicy, entries: [{ ...entry, entry_id: v }] }, 'REFUSED_INPUT_MISSING_FIELD');
+  for (const v of [null, 1, 'true', {}]) refuses({ ...basePolicy, entries: [{ ...entry, is_reversal: v }] }, 'REFUSED_INPUT_WRONG_TYPE');
+  for (const v of [null, 'controller', {}, [5]]) refuses({ ...basePolicy, entries: [{ ...entry, roles: v }] }, 'REFUSED_INPUT_WRONG_TYPE');
+  for (const v of [null, 'controller', [7]]) refuses({ ...basePolicy, soft_lock_exempt_roles: v, entries: [entry] }, 'REFUSED_INPUT_WRONG_TYPE');
+  for (const v of [5, {}]) refuses({ ...basePolicy, reversal_policy: v, entries: [entry] }, 'REFUSED_INPUT_WRONG_TYPE');
+  for (const v of [undefined, null]) refuses({ ...basePolicy, reversal_policy: v, entries: [entry] }, 'POLICY_REVERSAL_POLICY_MISSING');
+  for (const v of [null, 20240101, {}]) refuses({ ...basePolicy, as_of_date: v, entries: [entry] }, 'REFUSED_INPUT_WRONG_TYPE');
+  refuses({ ...basePolicy, as_of_date: '2024-02-30', entries: [entry] }, 'POLICY_AS_OF_DATE_INVALID');
+  refuses({ ...basePolicy, periods: [{ period_id: 'P', start_date: '2024-01-01', end_date: '2024-12-31' }] }, 'REFUSED_INPUT_MISSING_FIELD');
+  refuses({ ...basePolicy, periods: [{ period_id: 7, start_date: '2024-01-01', end_date: '2024-12-31', lock_events: [] }] }, 'REFUSED_INPUT_WRONG_TYPE');
+  // a caller key literally named __proto__ is an ordinary key and changes nothing
+  trials++;
+  const withProto = JSON.parse('{"__proto__": {"reversal_policy": "explicit_date"}}');
+  const a = JSON.stringify(compute({ ...basePolicy, entries: [entry], ...withProto }).output_payload);
+  const b = JSON.stringify(compute({ ...basePolicy, entries: [entry] }).output_payload);
+  if (a !== b) violations++;
+  return { name: 'P9_typed_input_contract', trials, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -252,6 +322,8 @@ results.properties.push(checkP4_fail_closed_on_policy_fault());
 results.properties.push(checkP5_permutation_invariance());
 results.properties.push(checkP6_entry_cap_boundary());
 results.properties.push(checkP7_strict_leap_calendar());
+results.properties.push(await checkP8_buildArtifact_never_throws());
+results.properties.push(checkP9_input_contract());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 

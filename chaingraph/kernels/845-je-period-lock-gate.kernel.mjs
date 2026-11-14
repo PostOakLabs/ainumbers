@@ -86,8 +86,120 @@ function cgCanon(v) {
       : v;
 }
 
-function s(v) { return String(v == null ? '' : v).trim(); }
-function arr(v) { return Array.isArray(v) ? v : []; }
+// ---- hashability walk (D6 class) ----
+// Mirrors the classes _hash.mjs assertIJson() refuses before canonicalizing: a
+// non-finite number or an integer outside the 2^53 safe range, nesting past its
+// MAX_DEPTH, more values than its MAX_ELEMENTS. Reports { reason, detail } with the
+// path and kind only, never the value; null when the subtree is safe to hash.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+// pp alone is held to tighter margins than the full preimage: the
+// {policy_parameters, output_payload} envelope wraps pp two levels deeper and
+// output_payload carries values too.
+const PP_MAX_DEPTH = HASH_MAX_DEPTH - 8;
+const PP_MAX_ELEMENTS = 199000;
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
+// ---- typed input contract (no coercion, no truthiness tests on caller values) ----
+function isPlainObject(v) {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
+function isStr(v) { return typeof v === 'string'; }
+
+// Presence: a key whose value is undefined is absent. A REQUIRED field that is absent or null
+// refuses with one and the same code (R4: the null form answers exactly as the absent form);
+// an OPTIONAL field that is present but null or the wrong type refuses (null is a third
+// state there, declared x_null_distinct in the manifest). `o` is always an own-property
+// copy (or a plain object read through Object.hasOwn), so no inherited member is ever read.
+function field(o, key, path, kind, required) {
+  if (!Object.hasOwn(o, key) || o[key] === undefined || (required && o[key] === null)) {
+    return required ? { code: 'REFUSED_INPUT_MISSING_FIELD', message: `${path}.${key} is required and must not be absent or null` } : null;
+  }
+  const v = o[key];
+  const ok = kind === 'string' ? isStr(v)
+    : kind === 'boolean' ? typeof v === 'boolean'
+      : kind === 'array' ? Array.isArray(v)
+        : isPlainObject(v);
+  return ok ? null : { code: 'REFUSED_INPUT_WRONG_TYPE', message: `${path}.${key} must be ${kind === 'array' ? 'an array' : kind === 'object' ? 'a plain object' : 'a ' + kind}, never coerced` };
+}
+
+// First fault wins; deterministic order. Returns { code, message } or null.
+function validateInput(pp) {
+  let f = field(pp, 'policy_version', 'pp', 'string', true);
+  if (f) return f;
+  if (pp.policy_version === '') return { code: 'REFUSED_INPUT_WRONG_TYPE', message: 'pp.policy_version must be a non-empty string; no default version exists' };
+  if ((f = field(pp, 'periods', 'pp', 'array', true))) return f;
+  for (let i = 0; i < pp.periods.length; i++) {
+    const p = pp.periods[i];
+    const path = `pp.periods[${i}]`;
+    if (!isPlainObject(p)) return { code: 'REFUSED_INPUT_WRONG_TYPE', message: `${path} must be a plain object` };
+    for (const k of ['period_id', 'start_date', 'end_date']) if ((f = field(p, k, path, 'string', true))) return f;
+    if ((f = field(p, 'lock_events', path, 'array', true))) return f;
+    for (let j = 0; j < p.lock_events.length; j++) {
+      const ev = p.lock_events[j];
+      const epath = `${path}.lock_events[${j}]`;
+      if (!isPlainObject(ev)) return { code: 'REFUSED_INPUT_WRONG_TYPE', message: `${epath} must be a plain object` };
+      for (const k of ['from_date', 'state']) if ((f = field(ev, k, epath, 'string', true))) return f;
+    }
+  }
+  // reversal_policy absent or null shares its dedicated POLICY_REVERSAL_POLICY_MISSING refusal
+  // below (same answer for both forms); any other non-string refuses here.
+  if (pp.reversal_policy !== null && (f = field(pp, 'reversal_policy', 'pp', 'string', false))) return f;
+  if ((f = field(pp, 'explicit_reversal_date', 'pp', 'string', false))) return f;
+  if ((f = field(pp, 'as_of_date', 'pp', 'string', false))) return f;
+  if ((f = field(pp, 'soft_lock_exempt_roles', 'pp', 'array', false))) return f;
+  if (pp.soft_lock_exempt_roles !== undefined) {
+    for (let i = 0; i < pp.soft_lock_exempt_roles.length; i++) {
+      if (!isStr(pp.soft_lock_exempt_roles[i])) return { code: 'REFUSED_INPUT_WRONG_TYPE', message: `pp.soft_lock_exempt_roles[${i}] must be a string` };
+    }
+  }
+  // entries is optional (absent declares no entries, so a policy-only run is legal); a
+  // present null or non-array refuses.
+  if ((f = field(pp, 'entries', 'pp', 'array', false))) return f;
+  if (pp.entries === undefined || pp.entries.length > MAX_ENTRIES) return null; // ENTRY_CAP_EXCEEDED refuses the run first
+  for (let i = 0; i < pp.entries.length; i++) {
+    const e = pp.entries[i];
+    const path = `pp.entries[${i}]`;
+    if (!isPlainObject(e)) return { code: 'REFUSED_INPUT_WRONG_TYPE', message: `${path} must be a plain object` };
+    if ((f = field(e, 'entry_id', path, 'string', true))) return f;
+    for (const k of ['entered_on', 'effective_date', 'original_effective_date', 'prepared_by', 'approved_by']) if ((f = field(e, k, path, 'string', false))) return f;
+    if ((f = field(e, 'is_reversal', path, 'boolean', false))) return f;
+    if ((f = field(e, 'roles', path, 'array', false))) return f;
+    if (e.roles !== undefined) {
+      for (let j = 0; j < e.roles.length; j++) {
+        if (!isStr(e.roles[j])) return { code: 'REFUSED_INPUT_WRONG_TYPE', message: `${path}.roles[${j}] must be a string` };
+      }
+    }
+  }
+  return null;
+}
 
 // Day number relative to the common epoch (proleptic Gregorian), pure integer arithmetic (Howard Hinnant).
 function daysFromCivil(y, m, d) {
@@ -120,7 +232,8 @@ function isoOf(days) {
 // round-trip to the same y/m/d, so 2026-02-29 and 2026-02-31 refuse and
 // 2028-02-29 passes (art-462's parser accepts any day up to 31 — this gate does not).
 function parseISOStrict(str) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s(str));
+  if (typeof str !== 'string') return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str);
   if (!m) return null;
   const y = Number(m[1]); const mo = Number(m[2]); const d = Number(m[3]);
   if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
@@ -140,24 +253,57 @@ function lockStateAt(events, days) {
   return state;
 }
 
-export function compute(pp) {
-  pp = pp || {};
-  const policy_version = s(pp.policy_version) || 'unversioned';
+// Whole-run refusal shared by the input contract and the policy checks: no per-entry
+// decisions, execution_state "did_not_run", a stated code (fail closed).
+function refusalResult(code, message, policy_version, policy_digest, compliance_flags) {
+  return {
+    output_payload: {
+      policy_version,
+      policy_digest,
+      execution_state: 'did_not_run',
+      reason: `${code}: ${message}`,
+      entry_count: 0,
+      entries: [],
+      totals_by_decision: { allow: 0, allow_exempt: 0, refuse: 0 },
+      totals_by_period: {},
+      warnings: ['PERIOD_LOCK_POLICY_FAULT'],
+    },
+    compliance_flags: compliance_flags.concat('PERIOD_LOCK_POLICY_FAULT'),
+  };
+}
 
+export function compute(rawPp) {
   const compliance_flags = [];
+
+  // Presence and shape are checked, never defaulted or coerced. A non-object, an
+  // unhashable value (so buildArtifact never has to hash anything compute accepted) or a
+  // wrong-typed field refuses the whole run before any policy is read.
+  let inputFault = null;
+  if (!isPlainObject(rawPp)) {
+    inputFault = { code: 'REFUSED_INPUT_WRONG_TYPE', message: 'policy parameters must be a plain object' };
+  } else {
+    const unhashable = findHashRefusal(rawPp, 'pp', 1, { maxDepth: PP_MAX_DEPTH, maxElements: PP_MAX_ELEMENTS, n: 0 });
+    if (unhashable !== null) inputFault = { code: unhashable.reason, message: unhashable.detail };
+  }
+  // Own-property copy: a caller key such as __proto__ or constructor is an ordinary key
+  // and no inherited value is ever read.
+  const pp = inputFault === null ? Object.fromEntries(Object.entries(rawPp)) : null;
+  if (inputFault === null) inputFault = validateInput(pp);
+  if (inputFault !== null) {
+    const pv = (pp !== null && isStr(pp.policy_version) && pp.policy_version !== '') ? pp.policy_version : null;
+    return refusalResult(inputFault.code, inputFault.message, pv, null, compliance_flags);
+  }
+
+  const policy_version = pp.policy_version;
   const totals_by_decision = { allow: 0, allow_exempt: 0, refuse: 0 };
   const totals_by_period = {};
 
-  // ---- declared period table, normalized AFTER validation ----
-  const declared = arr(pp.periods);
-  const periods = declared.map((p) => ({
-    period_id: s(p && p.period_id),
-    start_date: s(p && p.start_date),
-    end_date: s(p && p.end_date),
-    lock_events: arr(p && p.lock_events).map((e) => ({
-      from_date: s(e && e.from_date),
-      state: s(e && e.state),
-    })),
+  // ---- declared period table (types already validated) ----
+  const periods = pp.periods.map((p) => ({
+    period_id: p.period_id,
+    start_date: p.start_date,
+    end_date: p.end_date,
+    lock_events: p.lock_events.map((e) => ({ from_date: e.from_date, state: e.state })),
   }));
 
   // policy_digest: canonical digest of the declared period table, via the
@@ -169,22 +315,7 @@ export function compute(pp) {
     .sort((a, b) => (a.start - b.start) || (a.end - b.end) || (a.p.period_id < b.p.period_id ? -1 : 1));
 
   // ---- policy validation: a bad policy never yields a silent allow ----
-  const refusePolicy = (code, message) => {
-    return {
-      output_payload: {
-        policy_version,
-        policy_digest,
-        execution_state: 'did_not_run',
-        reason: `${code}: ${message}`,
-        entry_count: 0,
-        entries: [],
-        totals_by_decision: { allow: 0, allow_exempt: 0, refuse: 0 },
-        totals_by_period: {},
-        warnings: ['PERIOD_LOCK_POLICY_FAULT'],
-      },
-      compliance_flags: compliance_flags.concat('PERIOD_LOCK_POLICY_FAULT'),
-    };
-  };
+  const refusePolicy = (code, message) => refusalResult(code, message, policy_version, policy_digest, compliance_flags);
 
   const sorted = sortedPeriods();
   for (const sp of sorted) {
@@ -221,7 +352,7 @@ export function compute(pp) {
   });
   const fault = policyFault;
   if (fault !== null) return refusePolicy(fault.code, fault.message);
-  const reversal_policy = s(pp.reversal_policy);
+  const reversal_policy = pp.reversal_policy;
   if (!REVERSAL_POLICIES.includes(reversal_policy)) {
     return refusePolicy('POLICY_REVERSAL_POLICY_MISSING', `reversal_policy must be one of ${REVERSAL_POLICIES.join(' | ')}`);
   }
@@ -233,9 +364,14 @@ export function compute(pp) {
     }
   }
 
-  const exempt = new Set(arr(pp.soft_lock_exempt_roles).map(s).filter(Boolean));
-  const as_of_days = parseISOStrict(pp.as_of_date); // null when absent/invalid
-  const entries = arr(pp.entries);
+  const exempt = new Set((pp.soft_lock_exempt_roles ?? []).filter((r) => r !== ''));
+  // as_of_date is optional: absent stays null, present but not a calendar date refuses.
+  let as_of_days = null;
+  if (pp.as_of_date !== undefined) {
+    as_of_days = parseISOStrict(pp.as_of_date);
+    if (as_of_days === null) return refusePolicy('POLICY_AS_OF_DATE_INVALID', 'as_of_date must be a calendar-valid YYYY-MM-DD date when given');
+  }
+  const entries = pp.entries === undefined ? [] : pp.entries;
 
   if (entries.length > MAX_ENTRIES) {
     return refusePolicy('ENTRY_CAP_EXCEEDED', `${entries.length} entries declared; the cap is ${MAX_ENTRIES}`);
@@ -246,11 +382,11 @@ export function compute(pp) {
 
   const out_entries = [];
   for (const e of entries) {
-    const entry_id = s(e && e.entry_id);
-    const roles = arr(e && e.roles).map(s);
-    const prepared_by = s(e && e.prepared_by) || null;
-    const approved_by = s(e && e.approved_by) || null;
-    const is_reversal = (e && e.is_reversal) === true;
+    const entry_id = e.entry_id;
+    const roles = e.roles ?? [];
+    const prepared_by = (e.prepared_by === undefined || e.prepared_by === '') ? null : e.prepared_by;
+    const approved_by = (e.approved_by === undefined || e.approved_by === '') ? null : e.approved_by;
+    const is_reversal = e.is_reversal === true;
     const record = {
       entry_id,
       decision: null,
@@ -266,7 +402,7 @@ export function compute(pp) {
 
     // entered_on, else as_of_date, else MISSING_ENTERED_ON_AND_AS_OF.
     let entered_days = null;
-    if (e && e.entered_on != null && s(e.entered_on) !== '') {
+    if (e.entered_on !== undefined && e.entered_on !== '') {
       entered_days = parseISOStrict(e.entered_on);
       if (entered_days === null) refuse('BAD_DATE');
     } else if (as_of_days !== null) {
@@ -279,13 +415,13 @@ export function compute(pp) {
     let eval_days = null;
     if (record.refusal_code === null) {
       if (!is_reversal) {
-        eval_days = parseISOStrict(e && e.effective_date);
+        eval_days = parseISOStrict(e.effective_date);
         if (eval_days === null) refuse('BAD_DATE');
       } else if (reversal_policy === 'explicit_date') {
         eval_days = explicit_reversal_days;
         record.resolved_effective_date = isoOf(eval_days);
       } else {
-        const orig_days = parseISOStrict(e && e.original_effective_date);
+        const orig_days = parseISOStrict(e.original_effective_date);
         if (orig_days === null) {
           refuse('BAD_DATE');
         } else if (reversal_policy === 'original_date') {
@@ -362,15 +498,19 @@ export function compute(pp) {
 
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // The object walked below is the exact execution_hash preimage. When the shared
+  // canonicalizer would refuse it, mint the artifact with a null execution_hash and the
+  // reason beside it instead of letting the hash throw. compute() already refuses the
+  // same input, so this is the backstop: buildArtifact never throws on any input.
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
     tool_id: TOOL_ID,
     tool_version: TOOL_VERSION,
     generated_at: now ?? null,
-    execution_hash: hash,
+    execution_hash: unhashable === null ? await executionHash(pp, output_payload) : null,
     chain: { parent_hashes, parent_tool_ids, chain_depth },
     policy_parameters: pp,
     output_payload,
@@ -379,4 +519,6 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }
