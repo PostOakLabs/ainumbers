@@ -14,13 +14,19 @@
 //
 // Copy: "distance to the nearest verdict change found on the declared grid".
 
-import { readdirSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { runDeclaration, loadDeclaration, loadFailOpen, runControls } from './headroom-gates.mjs';
 
+// Node builtins by computed specifier (no @types/node in this repo, SO #10; see headroom-gates.mjs).
+/** @type {(name: string) => Promise<any>} */
+const nodeBuiltin = (name) => import('node:' + name);
+const { readdirSync } = await nodeBuiltin('fs');
+const { resolve, dirname } = await nodeBuiltin('path');
+const { fileURLToPath } = await nodeBuiltin('url');
+/** @type {any} */
+const proc = globalThis.process;
+
 const HERE = dirname(fileURLToPath(import.meta.url));
-const argv = process.argv.slice(2);
+const argv = proc.argv.slice(2);
 const json = argv.includes('--json');
 
 async function realPass() {
@@ -75,4 +81,4 @@ async function main() {
   return real.findings.some((f) => !f.ok) ? 1 : 0;
 }
 
-main().then((code) => process.exit(code), (e) => { console.error(e && e.stack || e); process.exit(2); });
+main().then((code) => proc.exit(code), (e) => { console.error(e && e.stack || e); proc.exit(2); });

@@ -15,9 +15,13 @@
 // Witness hashes come from executionHash / policyParametersHash in _hash.mjs and nowhere else.
 // Node only: reads declarations, fixtures and kernels from disk.
 
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+// Node builtins are loaded by computed specifier: the repo installs no @types/node (SO #10), so a
+// literal 'node:fs' import is a TS2307 under the checkJs gate, and the allowlist covers __proptests__ only.
+/** @type {(name: string) => Promise<any>} */
+const nodeBuiltin = (name) => import('node:' + name);
+const { readFileSync } = await nodeBuiltin('fs');
+const { resolve, dirname } = await nodeBuiltin('path');
+const { fileURLToPath, pathToFileURL } = await nodeBuiltin('url');
 import { executionHash, policyParametersHash } from '../_hash.mjs';
 import { sourceDigest } from '../_buildid.mjs';
 import { readVerdict } from '../../../scripts/lib/verdict-read.mjs';
@@ -87,7 +91,13 @@ export async function loadCompute(decl) {
  * Run one declaration over its fixture base points. `compute` overrides the real kernel
  * (the H4 control passes a perturbed scratch copy). Returns { reports, findings }.
  */
-export async function runDeclaration(decl, { compute, failOpen, privateInputs } = {}) {
+/**
+ * @param {any} decl
+ * @param {{ compute?: any, failOpen?: any, privateInputs?: any }} [opts]
+ * @returns {Promise<{ reports: any[], findings: any[], skipped: number }>}
+ */
+export async function runDeclaration(decl, opts = {}) {
+  const { compute, failOpen, privateInputs } = opts;
   const run = compute || await loadCompute(decl);
   const classify = classifierFor(decl);
   const fixture = readJson(resolve(KERNELS, decl.fixture));
@@ -127,6 +137,7 @@ export async function runDeclaration(decl, { compute, failOpen, privateInputs } 
         continue;
       }
       for (const dir of ['+', '-']) {
+        /** @type {any} */
         const e = await probeHeadroom({ compute: run, pp, probe, dir, classify, base });
         report.evaluations += e.evaluations || 0;
         if (e.status === 'flip' || e.status === 'domain_edge') {
@@ -187,7 +198,12 @@ export function gateH1(decl, report, basePayload) {
 }
 
 /** H2: the witness pair is one grid step apart and its classes differ, recomputed from scratch. */
-export async function gateH2(e, { compute, pp, probe, classify }) {
+/**
+ * @param {any} e
+ * @param {{ compute: any, pp: any, probe: any, classify: any }} ctx
+ */
+export async function gateH2(e, ctx) {
+  const { compute, pp, probe, classify } = ctx;
   const a = e.witness.last_same.value;
   const b = e.witness.first_other.value;
   const apart = stepsBetween(String(a), String(b), probe.step);

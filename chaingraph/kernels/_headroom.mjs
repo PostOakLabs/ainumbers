@@ -94,7 +94,12 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
  *   status 'flip' | 'domain_edge' | 'no_flip_within_range'
  *   lo = last grid index with the base verdict class, hi = lo + 1 = first index that differs.
  */
-export async function searchHeadroom({ evaluate, maxSteps, scanCap = SCAN_CAP, evalCap = EVAL_CAP }) {
+/**
+ * @param {{ evaluate: (n: number) => any, maxSteps: number, scanCap?: number, evalCap?: number }} args
+ * @returns {Promise<any>}
+ */
+export async function searchHeadroom(args) {
+  const { evaluate, maxSteps, scanCap = SCAN_CAP, evalCap = EVAL_CAP } = args;
   const memo = new Map();
   let evaluations = 0;
   const ev = async (n) => {
@@ -109,7 +114,9 @@ export async function searchHeadroom({ evaluate, maxSteps, scanCap = SCAN_CAP, e
   if (!(maxSteps >= 1)) return none('range', 0);
 
   let lo = 0;
+  /** @type {any} */
   let hi = null;
+  /** @type {any} */
   let kind = null;
   let n = 1;
   for (;;) {
@@ -172,7 +179,12 @@ export function maxStepsFor(probe, baseValue, dir) {
  * Headroom of one probe in one direction. Returns a plain entry (no hashes: the runner adds
  * those through executionHash in _hash.mjs and nowhere else).
  */
-export async function probeHeadroom({ compute, pp, probe, dir, classify, base, scanCap, evalCap }) {
+/**
+ * @param {{ compute: any, pp: any, probe: any, dir: string, classify: any, base?: any, scanCap?: number, evalCap?: number }} args
+ * @returns {Promise<any>}
+ */
+export async function probeHeadroom(args) {
+  const { compute, pp, probe, dir, classify, base, scanCap, evalCap } = args;
   const baseValue = getPointer(pp, probe.pointer);
   const entry = { pointer: probe.pointer, direction: dir, step: probe.step };
   if (typeof baseValue !== 'number' && typeof baseValue !== 'string') return { ...entry, status: 'skipped', reason: 'no-numeric-base-value' };
