@@ -11,7 +11,7 @@
 <link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-768-medicare-plan-comparison.md">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-768-medicare-plan-comparison.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:4d9d03bd5878c0cdb01ece490fd58c19a0dfbaadce6f448c0b828c07eda42e17">
+<meta name="kernel-digest" content="sha256:61bbd8f70d073a58b9ffbd3bed7380b9890c7bed053f69618cf0825278f7f549">
 <style>
 :root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -631,8 +631,12 @@ function partADayCoinsurance(lengthOfStayDays, admissions, days61to90RateUsd, re
 
 // ── one full pricing of both paths for a given scenario (Apex runPaths) ─────
 function runPaths(p, C) {
-  const partBAnnual = money(C.part_b_premium_by_irmaa_tier_usd[p.irmaa_tier] * 12);
-  const partDSurchargeAnnual = money(C.part_d_irmaa_surcharge_by_tier_usd[p.irmaa_tier] * 12);
+  // irmaa_tier is validated as an integer in [0, 5] before runPaths is reached; the own-key
+  // guard keeps the table lookup safe on its own (an unreachable miss is NaN, never a silent 0).
+  const partBAnnual = Object.hasOwn(C.part_b_premium_by_irmaa_tier_usd, p.irmaa_tier)
+    ? money(C.part_b_premium_by_irmaa_tier_usd[p.irmaa_tier] * 12) : NaN;
+  const partDSurchargeAnnual = Object.hasOwn(C.part_d_irmaa_surcharge_by_tier_usd, p.irmaa_tier)
+    ? money(C.part_d_irmaa_surcharge_by_tier_usd[p.irmaa_tier] * 12) : NaN;
 
   // Path A premiums: the Part B premium every Medicare beneficiary pays, plus the
   // Medigap premium, plus the stand-alone Part D premium, plus the Part D IRMAA
@@ -835,6 +839,7 @@ function resolveConstants(pp) {
   const errors = [];
 
   const takeNumber = (name, v) => {
+    if (!Object.hasOwn(C, name)) return;
     if (v === undefined || v === null) return;
     if (!isNonNeg(v)) { errors.push(`${name} must be a finite number >= 0 (got ${JSON.stringify(v)})`); return; }
     if (v !== C[name]) overrides.push({ constant: name, used: v, official_2026: C[name] });
@@ -842,6 +847,7 @@ function resolveConstants(pp) {
   };
 
   const takeTierArray = (name, v) => {
+    if (!Object.hasOwn(C, name)) return;
     if (v === undefined || v === null) return;
     if (!Array.isArray(v) || v.length !== 6 || v.some(x => !isNonNeg(x))) {
       errors.push(`${name} must be an array of exactly 6 finite numbers >= 0 (got ${JSON.stringify(v)})`);

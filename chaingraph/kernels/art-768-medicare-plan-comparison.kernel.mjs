@@ -230,8 +230,12 @@ function partADayCoinsurance(lengthOfStayDays, admissions, days61to90RateUsd, re
 
 // ── one full pricing of both paths for a given scenario (Apex runPaths) ─────
 function runPaths(p, C) {
-  const partBAnnual = money(C.part_b_premium_by_irmaa_tier_usd[p.irmaa_tier] * 12);
-  const partDSurchargeAnnual = money(C.part_d_irmaa_surcharge_by_tier_usd[p.irmaa_tier] * 12);
+  // irmaa_tier is validated as an integer in [0, 5] before runPaths is reached; the own-key
+  // guard keeps the table lookup safe on its own (an unreachable miss is NaN, never a silent 0).
+  const partBAnnual = Object.hasOwn(C.part_b_premium_by_irmaa_tier_usd, p.irmaa_tier)
+    ? money(C.part_b_premium_by_irmaa_tier_usd[p.irmaa_tier] * 12) : NaN;
+  const partDSurchargeAnnual = Object.hasOwn(C.part_d_irmaa_surcharge_by_tier_usd, p.irmaa_tier)
+    ? money(C.part_d_irmaa_surcharge_by_tier_usd[p.irmaa_tier] * 12) : NaN;
 
   // Path A premiums: the Part B premium every Medicare beneficiary pays, plus the
   // Medigap premium, plus the stand-alone Part D premium, plus the Part D IRMAA
@@ -434,6 +438,7 @@ function resolveConstants(pp) {
   const errors = [];
 
   const takeNumber = (name, v) => {
+    if (!Object.hasOwn(C, name)) return;
     if (v === undefined || v === null) return;
     if (!isNonNeg(v)) { errors.push(`${name} must be a finite number >= 0 (got ${JSON.stringify(v)})`); return; }
     if (v !== C[name]) overrides.push({ constant: name, used: v, official_2026: C[name] });
@@ -441,6 +446,7 @@ function resolveConstants(pp) {
   };
 
   const takeTierArray = (name, v) => {
+    if (!Object.hasOwn(C, name)) return;
     if (v === undefined || v === null) return;
     if (!Array.isArray(v) || v.length !== 6 || v.some(x => !isNonNeg(x))) {
       errors.push(`${name} must be an array of exactly 6 finite numbers >= 0 (got ${JSON.stringify(v)})`);
