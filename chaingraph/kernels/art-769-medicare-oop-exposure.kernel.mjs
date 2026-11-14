@@ -272,7 +272,7 @@ function runScenario(p, y, a) {
   // for Plan N, the per-visit copays. Plan G carries no out-of-pocket limit [C7]
   // "Out-of-pocket limit ... N/A" -- see .d/DIFFERS.md for the Plan G ceiling.
   // Advantage: the plan sets its own coinsurance and its own in-network MOOP, and CMS
-  // caps how high that MOOP may be [C9] 42 CFR 422.100(f)(4). The Part D amount is NOT
+  // caps how high that MOOP may be [C9] (see regulatory_basis). The Part D amount is NOT
   // inside the MOOP: [C10] "These out-of-pocket limits apply to Part A and B services
   // only, and do not apply to Part D spending, which has a separate out-of-pocket limit
   // of $2,100 in 2026."
@@ -340,7 +340,7 @@ function validate(pp) {
   const errors = [];
 
   const planYear = (pp.plan_year === undefined || pp.plan_year === null) ? DEFAULT_PLAN_YEAR : pp.plan_year;
-  const y = PLAN_YEAR_PARAMS[planYear];
+  const y = Object.hasOwn(PLAN_YEAR_PARAMS, planYear) ? PLAN_YEAR_PARAMS[planYear] : undefined;
   if (!y) {
     errors.push(`plan_year ${JSON.stringify(planYear)} has no declared parameter entry; add one to PLAN_YEAR_PARAMS, never fall back`);
   }

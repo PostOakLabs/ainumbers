@@ -2,7 +2,7 @@
 // Authored against the APEXPORT-152 porting payload (GRADES PASS-PENDING-XV 2026-10-18,
 // builder-verifies-at-land 50/50) and the 2026-11-13 adjudication (Plan G ceiling null,
 // worst_case_spend_multiplier input, tier-6 refusal kept).
-// kernel_digest_at_authoring: sha256:4c8abc2449624a3ce4d4def30c8f52c3a3933ee73ac8d7b985ffe465504fe308
+// kernel_digest_at_authoring: sha256:d833d1bd4b2f8d678c5339c273783e71bad2db975dfe1d2e36f1cd1ba4ec6c8a
 // spec: board/claimed/APEX-PORT-152-LAND-RESUME-1.md (SPEC.md §12 compute binding, §17 kernel identity)
 // human_sign_off: PENDING
 //
