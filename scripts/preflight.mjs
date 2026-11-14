@@ -3000,6 +3000,15 @@ async function runPushSafetySuite(selfTest) {
     }
     const probe = psSecretScan(['nonexistent-file-xyz']); // deleted/absent path must not crash the scan
     if (!Array.isArray(probe)) failures.push('secret scan not resilient to absent paths');
+    // PREFLIGHT-AFFECTED-GATE-PARITY-1: a gate-machinery diff can move CI<->preflight
+    // parity only through preflight.mjs, the parity checker itself, or a workflow file;
+    // when one of those is in the changed set the leg must carry the parity gate.
+    const psTouchesParityInput = (f) => f === 'scripts/preflight.mjs'
+      || f === 'scripts/check-workflow-gate-parity.mjs'
+      || /^\.github\/workflows\//.test(f);
+    if (files.some(psTouchesParityInput) && !labels.some((l) => l.includes('Workflow gate parity'))) {
+      failures.push('push-safety is missing the workflow gate parity gate for a gate-machinery diff');
+    }
     if (failures.length) {
       for (const f of failures) console.error(`   ✗ ${f}`);
       console.error('❌ --push-safety --self-test FAILED.');
