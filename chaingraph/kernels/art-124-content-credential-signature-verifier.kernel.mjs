@@ -1,7 +1,7 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-124-content-credential-signature-verifier';
-const TOOL_VERSION = '1.1.0';
+const TOOL_VERSION = '1.2.0';
 
 export const meta = {
   tool_id: TOOL_ID,
@@ -26,19 +26,32 @@ const ALG_ALLOW = {
 // no async primitive, and is therefore sync end to end — which is what makes
 // the policy zkVM-provable in the FAST cycle class. Trust-list + OCSP/CRL stay
 // policy inputs, never fetched: NO network.
+// Required inputs are fail-closed and allowlisted: alg and revocation_status are
+// required, and the revocation attestation is an ALLOWLIST, not a denylist. Only
+// the exact string 'good' accepts: 'revoked', 'unknown', a case variant, an empty
+// or junk string, an absent, null or non-string value is not attested good, never
+// reads as trusted, and the refusal names REVOCATION_STATUS_NOT_GOOD. The verdict
+// also requires the declared alg to be allowlisted: a signature over an unallowed
+// algorithm is never accepted, only flagged. cert_not_expired must be the boolean
+// true for chain trust: absent, null, 0, a string or any other value is no expiry
+// attestation and untrusts the chain. compute refuses, never throws, on a null or
+// undefined input document.
 export function compute(pp) {
+  if (pp === null || pp === undefined) pp = {};
   const { alg, signature_verified, trust_anchor_match, cert_not_expired, revocation_status } = pp;
 
   const alg_allowed = typeof alg === 'string' && Object.prototype.hasOwnProperty.call(ALG_ALLOW, alg);
+  const revocation_good = revocation_status === 'good';
   const chain_trusted = trust_anchor_match === true
-    && cert_not_expired !== false
-    && revocation_status !== 'revoked';
-  const verdict = (signature_verified === true && chain_trusted) ? 'ACCEPT' : 'REFUSE';
+    && cert_not_expired === true
+    && revocation_good;
+  const verdict = (signature_verified === true && alg_allowed && chain_trusted) ? 'ACCEPT' : 'REFUSE';
 
   const compliance_flags = [];
   compliance_flags.push('CONTENT_CREDENTIAL_SIGNATURE_ASSESSED');
   compliance_flags.push(verdict === 'ACCEPT' ? 'SIGNATURE_VERIFIED' : 'SIGNATURE_REFUSED');
   if (!alg_allowed) compliance_flags.push('ALGORITHM_NOT_ALLOWED');
+  if (!revocation_good) compliance_flags.push('REVOCATION_STATUS_NOT_GOOD');
   if (!chain_trusted) compliance_flags.push('CHAIN_NOT_TRUSTED');
 
   // Flag-mirror doctrine (AUTHORING-STANDARD): the caveat channel rides inside
@@ -46,6 +59,7 @@ export function compute(pp) {
   // refusal reasons append exactly when their conditional flags fire.
   const caveats = ['signature verification is caller-attested'];
   if (!alg_allowed) caveats.push('requested alg is outside the declared allowlist');
+  if (!revocation_good) caveats.push('revocation status is not attested good');
   if (!chain_trusted) caveats.push('trust chain untrusted');
 
   return {
