@@ -174,7 +174,7 @@ function scratchCompute(input) {
 }
 
 if (fails.length) {
-  console.error('FAIL ' + fails.length + ' of ' + (pass + fails.length) + ':\n  ' + fails.join('\n  '));
-  process.exit(1);
+  // A thrown error exits non-zero without naming the Node global the CheckJS gate cannot type.
+  throw new Error('FAIL ' + fails.length + ' of ' + (pass + fails.length) + ':\n  ' + fails.join('\n  '));
 }
 console.log('PASS _vintage.selftest: ' + pass + ' checks');
