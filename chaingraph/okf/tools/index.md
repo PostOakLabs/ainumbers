@@ -26,13 +26,25 @@ status: stable
 - [CBR Data Return Validator](./784-cbr-data-return-validator.md) — `validate_cbr_data_return`
 - [Corridor Cost Averages](./787-corridor-cost-averages.md) — `compute_corridor_cost_averages`
 - [Curator Vault Cap Auditor](./792-curator-vault-cap-auditor.md) — `audit_curator_vault_caps`
+- [Event Fee Recompute](./794-event-fee-recompute.md) — `recompute_event_contract_fee`
 - [Stablecoin Refund Dispute Check](./795-stablecoin-refund-dispute.md) — `check_stablecoin_refunds`
+- [Stablecoin Cash Equivalent Test (FASB Proposed 2026-08)](./797-stablecoin-cash-equivalent-test.md) — `check_stablecoin_cash_equiv`
 - [Event Contract Terms Lint](./806-event-contract-terms-lint.md) — `lint_event_contract_terms`
+- [Liquid-Staking Share Rate Reconciler](./808-lst-share-rate-reconciler.md) — `reconcile_lst_share_rate`
+- [Contract Bytecode Identity Verifier](./810-contract-bytecode-identity-verifier.md) — `verify_contract_bytecode_identity`
+- [Ethereum Validator Queue and Sweep Wait](./812-eth-staking-queue.md) — `project_eth_validator_queue_wait`
 - [Ethereum Epoch Accounting Recompute](./813-eth-staking-accounting.md) — `recompute_eth_epoch_accounting`
 - [Ethereum Base Fee and Blob Base Fee Recompute](./815-eth-fee-market.md) — `recompute_eth_fee_market`
+- [Ethereum L2 Stage Criteria Classifier](./817-eth-l2-stage-classifier.md) — `classify_l2_stage_criteria`
 - [Zcash Supply Check](./822-zcash-supply-check.md) — `audit_zcash_pool_supply`
 - [ZIP-317 Transfer Fee](./824-zip317-transfer-fee.md) — `recompute_zip317_transfer_fee`
+- [Reconcile UCP Checkout Totals](./825-reconcile-ucp-checkout-totals.md) — `reconcile_ucp_checkout_totals`
 - [Agent Cred Class Matrix](./827-agent-cred-class-matrix.md) — `compute_agent_cred_matrix`
+- [Safe Transaction Hash Recompute](./829-safe-tx-hash-recompute.md) — `recompute_safe_tx_hash`
+- [Payment Services Activity Classifier](./836-payment-services-activity-classifier.md) — `classify_payment_services`
+- [Issuer Reserve Yield Share Check](./837-issuer-yield-share.md) — `check_issuer_reserve_yield_share`
+- [Control Frequency Sample](./838-control-frequency-sample.md) — `plan_control_frequency_sample`
+- [Workload Identity Claims Lint](./844-workload-identity-claims.md) — `lint_workload_identity_token_claims`
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md) — `validate_ap2_mandate_chain`
 - [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md) — `simulate_spend_policy`
 - [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md) — `model_x402_settlement`
@@ -662,17 +674,25 @@ status: stable
 - [Solana Paychan Voucher Verifier](./art-749-solana-paychan-voucher-verifier.md) — `verify_solana_paychan_voucher`
 - [EU Green Bond Factsheet & Allocation Validator](./art-75-eugb-factsheet-validator.md) — `validate_eugb_factsheet`
 - [Diff Evidence Bundles](./art-750-diff-evidence-bundles.md) — `compute_diff_evidence_bundles`
+- [SHA-256 and HMAC-SHA256 Digest Demonstrator](./art-751-sha256-hmac-digest-demonstrator.md) — `compute_sha256_hmac_digest`
+- [Freelance Quarterly Estimated Tax Calculator](./art-752-freelance-quarterly-estimated-tax.md) — `estimate_quarterly_tax`
 - [Equity Exit Waterfall Modeler](./art-754-equity-exit-waterfall.md) — `calc_equity_exit_waterfall`
 - [Sales OTE & Commission Analyzer](./art-756-sales-ote-commission-analyzer.md) — `analyze_sales_ote_commission`
 - [HDHP vs. PPO Break-Even](./art-758-hdhp-ppo-break-even.md) — `estimate_hdhp_ppo_breakeven`
 - [ISO AMT Exposure Modeler](./art-759-iso-amt-exposure-modeler.md) — `estimate_iso_amt_exposure`
 - [Climate Scenario Applicator (NGFS / Fit-for-55)](./art-76-climate-scenario-applicator.md) — `apply_climate_scenario`
 - [ESPP Break-Even & Optimal Sell](./art-760-espp-break-even-optimal-sell.md) — `analyze_espp_disposition`
+- [Caregiver Income Impact & Lost Earnings Estimator](./art-761-caregiver-income-impact.md) — `caregiver_income_impact`
 - [AI Displacement Risk Screener](./art-763-ai-displacement-risk-screener.md) — `ai_displacement_risk_screener`
 - [Solo 401(k) vs. SEP-IRA Optimizer](./art-764-solo-401k-vs-sep-ira.md) — `compare_solo401k_sep_simple`
+- [Dependent Care FSA vs. CDCTC Optimizer](./art-765-dependent-care-fsa-cdctc-optimizer.md) — `estimate_dc_fsa_cdctc_split`
+- [Parental Leave Income Gap](./art-766-parental-leave-income-gap.md) — `parental_leave_income_gap`
+- [Medicare Out-of-Pocket Exposure](./art-769-medicare-oop-exposure.md) — `compute_medicare_oop_exposure`
 - [T+1 Settlement Readiness Diagnostic](./art-77-t1-settlement-readiness-diagnostic.md) — `run_t1_readiness_diagnostic`
 - [Total Cost of Homeownership](./art-770-total-cost-of-homeownership.md) — `total_cost_of_homeownership`
 - [Automation Payback](./art-771-automation-payback.md) — `compute_automation_payback`
+- [Money Primitives Demonstrator](./art-772-money-primitives-demonstrator.md) — `money_primitives_demo`
+- [Daycount Year Fraction](./art-773-daycount-year-fraction.md) — `compute_daycount_year_fraction`
 - [Beacon-Seeded Fair-Sampling Deriver V2](./art-774-beacon-seeded-fair-sampling-v2.md) — `derive_beacon_fair_sample_v2`
 - [PayPal Dispute Deadline & Evidence](./art-776-paypal-dispute-deadline-evidence.md) — `compute_paypal_response`
 - [PSP Dispute Reason Crosswalk](./art-777-psp-dispute-reason-crosswalk.md) — `crosswalk_psp_dispute_reasons`
@@ -683,16 +703,32 @@ status: stable
 - [Modified Premium Calculator](./art-782-modified-premium.md) — `compute_modified_premium`
 - [RFC 4180 CSV Parser](./art-788-csv-rfc4180-parser.md) — `parse_csv_table`
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md) — `predict_settlement_fail`
+- [Government Stablecoin Acceptance Audit](./art-793-government-stablecoin-acceptance.md) — `assess_gov_stablecoin_accept`
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md) — `check_ssi_conformance`
+- [Open-Source Agent-Governance Audit-Chain Verifier](./art-805-agt-audit-chain-verifier.md) — `verify_agent_governance_audit_chain`
 - [ERC-3643 Transfer Decision Recompute](./art-807-erc3643-transfer-decision.md) — `recompute_erc3643_transfer_decision`
+- [Private-Input Reserves Cover Outstanding Check](./art-809-check-reserves-cover-outstanding-private.md) — `check_reserves_cover_private`
 - [Allocation/Affirmation Conformance Checker](./art-81-allocation-affirmation-conformance.md) — `check_allocation_affirmation`
+- [Private-Input Debt-to-Income Within Policy Check](./art-811-check-dti-within-policy-private.md) — `check_dti_within_policy_private`
 - [Quadratic Funding Round Recompute](./art-814-qf-pairwise-recompute.md) — `recompute_quadratic_funding_round`
+- [EIP-3009 Agent Spend Gate](./art-816-eip3009-agent-spend-gate.md) — `decide_eip3009_agent_spend`
 - [Privacy Coin Regulatory Classifier (MiCA and AMLR)](./art-818-zcash-reg-classifier.md) — `classify_privacy_coin_regulatory_treatment`
 - [Ucp Request Constraints](./art-819-ucp-request-constraints.md) — `eval_ucp_request_constraints`
 - [Securities-Settlement Message Linter (ISO 20022 sese/semt)](./art-82-securities-settlement-message-linter.md) — `lint_securities_settlement_message`
+- [UCP Capability Negotiation](./art-820-negotiate-ucp-capabilities.md) — `negotiate_ucp_capabilities`
 - [Authenticator Assurance Level Evaluator](./art-826-authenticator-assurance-level.md) — `compute_authn_assurance_level`
+- [Omnibus Token Position Reconciliation](./art-828-reconcile-omnibus-token-position.md) — `reconcile_omnibus_position`
 - [Buy-In Exposure Modeler](./art-83-buy-in-exposure-modeler.md) — `model_buy_in_exposure`
+- [EIP-3009 Spend Exposure Reconciler](./art-830-eip3009-spend-exposure-reconciler.md) — `reconcile_eip3009_spend_exposure`
+- [Receipt Export Envelopes](./art-831-receipt-export-envelopes.md) — `export_receipt_lineage_events`
+- [Card Data Flow Worksheet](./art-832-card-data-flow-scope.md) — `map_card_data_flow_scope`
+- [PAN and SAD Exposure Linter](./art-833-lint-pan-sad-exposure.md) — `lint_pan_sad_exposure`
+- [ASC 606 Transaction Price Allocator](./art-834-asc606-transaction-price-allocator.md) — `allocate_asc606_transaction_price`
+- [Statement Footing and Cross-Footing Check](./art-839-statement-footing-crossfoot.md) — `check_statement_footing_crossfoot`
 - [Settlement Efficiency KPI Engine](./art-84-settlement-efficiency-kpi.md) — `compute_settlement_efficiency_kpi`
+- [GL Flux Explainer with Gate](./art-840-gl-flux-explainer.md) — `explain_gl_flux_with_gate`
+- [SOC Report Coverage and Bridge Gap](./art-842-soc-report-coverage-gap.md) — `compute_soc_report_coverage_gap`
+- [TAP Message Structure Check](./art-843-tap-message-validator.md) — `validate_tap_message`
 - [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md) — `run_pqc_timeline_fit`
 - [TLS / X.509 PKI Migration Planner](./art-86-tls-pki-migration-planner.md) — `plan_tls_pki_migration`
 - [SWIFT / ISO 20022 PQC Readiness Checker](./art-87-iso20022-pqc-readiness-checker.md) — `check_iso20022_pqc_readiness`

@@ -18,6 +18,11 @@ function nonceFormatOk(nonce) {
   return approxBytes >= 16;
 }
 
+// Fail-closed on required inputs: nonce, created, expires and now_unix are
+// required (manifest input schema). A null derived value never passes: when
+// the created/expires spread cannot be evaluated (expires absent, null or
+// non-numeric) the spread does not read as satisfied, so freshness fails and
+// the nonce is REFUSED instead of bypassing the 8-minute spread rule.
 export function compute(pp) {
   const {
     nonce, created, expires, now_unix, max_age_s = 3600,
@@ -32,7 +37,7 @@ export function compute(pp) {
     : null;
 
   const fresh = (typeof created === 'number' && typeof now_unix === 'number')
-    ? (now_unix - created) <= max_age_s && (now_unix - created) >= -300 && spread_ok !== false
+    ? (now_unix - created) <= max_age_s && (now_unix - created) >= -300 && spread_ok === true
     : null;
 
   const already_used = nonce_already_used === true

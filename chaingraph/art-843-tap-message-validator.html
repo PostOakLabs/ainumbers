@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>TAP Message Structure Check · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Paste a Transaction Authorization Protocol message or a short thread and see whether it has the structure the published schemas describe. Not a signature check and not a compliance statement.">
+<meta name="robots" content="index, follow">
+<meta name="ain:category" content="run">
+<meta name="kernel-digest" content="sha256:21620c0d82bb37b194635a5398d98a2657501776390cf37fdc29f661fa5dd81e">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-843-tap-message-validator.html">
+<link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-843-tap-message-validator.md">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script>
+/* PolicyMandate validator (AP2Schema internal name retained, CONTRACT 3.1) */
+if (typeof window.AP2Schema === 'undefined') window.AP2Schema = {};
+var AP2Schema = window.AP2Schema;
+AP2Schema.validate = function(m) {
+  var RE_ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+  var RE_VER = /^\d+\.\d+(\.\d+)?(-[\w.]+)?$/;
+  function _fail(msg){throw new Error('AP2Schema: '+msg);}
+  if (!m || typeof m !== 'object' || Array.isArray(m)) _fail('mandate must be a plain object');
+  if (typeof m.tool_id !== 'string') _fail('missing identity field tool_id');
+  if (typeof m.mandate_type !== 'string' || !m.mandate_type) _fail('missing required field: mandate_type');
+  if ('tool_version' in m && (typeof m.tool_version !== 'string' || !RE_VER.test(m.tool_version))) _fail('"tool_version" must be semver');
+  ['regulatory_citations','agent_instructions'].forEach(function(k){
+    if (k in m) {
+      if (!Array.isArray(m[k])) _fail('"'+k+'" must be an array');
+      m[k].forEach(function(item,i){ if (typeof item !== 'string') _fail('"'+k+'['+i+']" must be a string'); });
+    }
+  });
+  ['policy_parameters','output_payload'].forEach(function(k){
+    if (k in m && (typeof m[k] !== 'object' || Array.isArray(m[k]) || m[k] === null)) _fail('"'+k+'" must be an object');
+  });
+  if ('summary' in m && (typeof m.summary !== 'string' || !m.summary)) _fail('"summary" must be a non-empty string');
+  ['issued_at','generated_at','valid_from'].forEach(function(k){
+    if (k in m && (typeof m[k] !== 'string' || !RE_ISO.test(m[k]))) _fail('"'+k+'" must be ISO-8601');
+  });
+  return true;
+};
+</script>
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--amber:#E0A93B;
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.85rem;color:var(--body);max-width:720px;line-height:1.8}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:1.5rem 0}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem}
+.note{font-size:.78rem;color:var(--body);margin-bottom:.8rem;max-width:760px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.74rem}
+th,td{border-bottom:1px solid var(--border);padding:.35rem .4rem;text-align:left;vertical-align:middle}
+th{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);font-weight:400;letter-spacing:.04em}
+td.c{text-align:center}
+input[type=text],select{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);border-radius:4px;padding:.25rem .4rem;font:inherit;font-size:.74rem;max-width:150px}
+input[type=checkbox]{accent-color:var(--teal);width:15px;height:15px}
+button{background:var(--bg-3);border:1px solid var(--border);color:var(--bright);border-radius:var(--radius);padding:.4rem .8rem;font-family:'JetBrains Mono',monospace;font-size:.68rem;cursor:pointer}
+button:hover{border-color:var(--teal);color:var(--teal)}
+button.primary{background:var(--teal-dim);border-color:var(--teal);color:var(--teal)}
+.row-actions{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.9rem}
+.set{margin-bottom:.8rem}
+.set h3{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--bright);font-weight:500}
+.set p{font-size:.72rem;color:var(--body)}
+.tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.66rem;border:1px solid var(--border);border-radius:4px;padding:.1rem .45rem;margin:.15rem .25rem .15rem 0;color:var(--text)}
+.tag.leak{border-color:var(--amber);color:var(--amber)}
+.cite{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:.4rem}
+.results-export-row{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem;padding-top:.9rem;border-top:1px solid var(--border)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted)}
+textarea{width:100%;min-height:15rem;background:var(--bg-3);color:var(--bright);border:1px solid var(--border);border-radius:4px;padding:.6rem;font-family:'JetBrains Mono',monospace;font-size:.72rem}
+.fnd{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--body);margin:.1rem 0}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-843 · TAP Message Structure Check</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="page-main" role="main">
+<div class="hero"><div class="container">
+  <h1>TAP Message Structure Check</h1>
+  <p class="hero-desc">Paste one Transaction Authorization Protocol message, or a short thread as a JSON array, and see whether it has the structure the published schemas describe: the type it matched, missing required fields, wrong field types, party and agent shape problems, and whether each reply points at an earlier message in the paste. It does not verify signatures, does not resolve identifiers, does not contact any counterparty and is not a statement that a transfer is compliant. Covered types: Transfer, Payment, Authorize, Reject, Settle, Cancel and Revert. Every other type is listed as not covered.</p>
+</div></div>
+<div class="container">
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only. Free-text fields must hold the literal SYNTHETIC or a length marker such as [len:12]; anything else is refused.</div>
+
+  <div class="panel">
+    <div class="panel-label">Pasted message or thread</div>
+    <p class="note">A single message object, or an array of messages in the order they arrived. At most 32 messages.</p>
+    <textarea id="msgInput" spellcheck="false" aria-label="Pasted TAP message or thread as JSON"></textarea>
+    <div class="row-actions">
+      <button type="button" id="loadExample">Load example</button>
+      <button type="button" class="primary" id="runBtn">Check structure</button>
+    </div>
+  </div>
+
+  <div class="panel" id="results" aria-live="polite" hidden>
+    <div class="panel-label">Structure report</div>
+    <div id="resultBody"></div>
+    <div class="results-export-row">
+      <button type="button" class="primary" id="ap2ExportBtn">Export Policy Mandate JSON</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">Basis</div>
+    <p class="note">The walk follows copies of the public TAIPs JSON Schemas for the seven covered types, pinned at one commit of the TAIPs repository (CC0-1.0). Signature or JWS material is reported as present and not verified. Where the published test vectors and the published schemas disagree, the schemas are followed.</p>
+    <p class="cite">Source: TransactionAuthorizationProtocol/TAIPs, commit c160ae573a981828b5f8d589cda0493b04bdda95, schemas/messages and schemas/common, as pinned in the node's cited clause digests.</p>
+  </div>
+</div>
+</div>
+<script type="application/json" id="manifest">{"tool_id":"art-843-tap-message-validator","version":"1.0.0","inputs":{"messages":"array of 1 to 32 TAP messages (JSON objects), in arrival order"}}</script>
+<script>
+/* Inline copy of the node's compute(); the page never imports the kernel. */
+
+// art-843-tap-message-validator: structural check of pasted Transaction Authorization Protocol messages
+// against hand-walked copies of the public TAIPs JSON Schemas (commit-pinned, see the node shard).
+// Pure function of pp: no clock, no network, no filesystem, no schema library, no signature maths.
+
+const TOOL_ID = 'art-843-tap-message-validator';
+const TOOL_VERSION = '1.0.0';
+const TAIPS_COMMIT = 'c160ae573a981828b5f8d589cda0493b04bdda95';
+
+const meta = {
+  tool_id: TOOL_ID, tool_version: TOOL_VERSION,
+  mcp_name: 'validate_tap_message',
+  mandate_type: 'compliance_control', gpu: false,
+};
+
+const MAX_MESSAGES = 32;
+const MAX_DEPTH = 8;
+
+// ---- primitive formats (patterns copied from schemas/common at the pinned commit) ----
+const RE = {
+  uuid: /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
+  did: /^did:[a-z0-9]+:.+$/,
+  iri: /^[a-zA-Z][a-zA-Z0-9+.-]*:.+$/,
+  amount: /^[0-9]+(\.[0-9]+)?$/,
+  ccy: /^[A-Z]{3}$/,
+  lei: /^[A-Z0-9]{20}$/,
+  base64: /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/,
+  caip10: /^[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[a-zA-Z0-9]{1,64}$/,
+  caip19: /^[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}\/[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,64}$/,
+  caip220: /^[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[a-zA-Z0-9]{1,64}@[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}\/[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,64}$/,
+  payto: /^payto:\/\/[a-z0-9]+\/[^?#]+(\?[^#]*)?(#.*)?$/,
+  settleId: /^[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:(tx|txn)\/[-%a-zA-Z0-9]{1,128}$/,
+  uri: /^[A-Za-z][A-Za-z0-9+.-]*:[^\s]+$/,
+  mcc: /^[0-9]{4}$/,
+  role: /^[A-Z][a-zA-Z]*$/,
+  code4: /^[A-Z0-9]{4}$/,
+  typeUri: /^https:\/\/tap\.rsvp\/schema\/[0-9]+\.[0-9]+#[A-Za-z]+$/,
+  dateTime: /^([0-9]{4})-([0-9]{2})-([0-9]{2})[Tt]([0-9]{2}):([0-9]{2}):([0-9]{2})(\.[0-9]+)?([Zz]|[+-]([0-9]{2}):([0-9]{2}))$/,
+  syntheticMarker: /^\[len:[0-9]{1,6}\]$/,
+  safeKey: /^[A-Za-z0-9_@:.-]{1,40}$/,
+};
+
+function isObj(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
+function seg(k) { return RE.safeKey.test(k) ? k : '(key)'; }
+function sortedKeys(o) { return Object.keys(o).sort(); }
+
+// Gregorian calendar: leap year when divisible by 4, except centuries not divisible by 400.
+function daysInMonth(y, mo) {
+  if (mo === 2) return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0 ? 29 : 28;
+  return mo === 4 || mo === 6 || mo === 9 || mo === 11 ? 30 : 31;
+}
+
+function okDateTime(s) {
+  const m = RE.dateTime.exec(s);
+  if (m === null) return false;
+  const mo = +m[2], d = +m[3], h = +m[4], mi = +m[5], se = +m[6];
+  if (mo < 1 || mo > 12 || d < 1 || h > 23 || mi > 59 || se > 60) return false;
+  if (d > daysInMonth(+m[1], mo)) return false;
+  if (m[9] !== undefined && (+m[9] > 23 || +m[10] > 59)) return false;
+  return true;
+}
+
+const FORMAT = {
+  uuid: (s) => RE.uuid.test(s),
+  did: (s) => RE.did.test(s),
+  didOrIri: (s) => RE.did.test(s) || (RE.iri.test(s) && s.slice(0, 4) !== 'did:'),
+  amount: (s) => RE.amount.test(s),
+  ccy: (s) => RE.ccy.test(s),
+  lei: (s) => RE.lei.test(s),
+  base64: (s) => RE.base64.test(s),
+  caip19: (s) => RE.caip19.test(s),
+  caip220: (s) => RE.caip220.test(s),
+  settlementAddress: (s) => RE.caip10.test(s) || RE.payto.test(s),
+  settleId: (s) => RE.settleId.test(s),
+  uri: (s) => RE.uri.test(s),
+  mcc: (s) => RE.mcc.test(s),
+  role: (s) => RE.role.test(s),
+  code4: (s) => RE.code4.test(s),
+  dateTime: okDateTime,
+};
+
+// ---- message type registry: the seven types whose schemas are pinned ----
+const HDR = 'https://tap.rsvp/schema/1.0#';
+const LEGACY = 'https://taprsvp.com/034.56.789/protocols/transaction-authorization-protocol/1.0/';
+const CTX = 'https://tap.rsvp/schema/1.0';
+
+// Field spec: a format name string, or { t: kind, ... }.
+const PARTY = { t: 'party' };
+const AGENTS = { t: 'agents' };
+const jsonLd = (name) => ({ '@context': { t: 'const', v: CTX }, '@type': { t: 'const', v: HDR + name } });
+
+const TYPES = {
+  Transfer: {
+    schema: 'schemas/messages/transfer.json', taip: 'TAIP-3', uris: [HDR + 'Transfer', LEGACY + 'transfer'],
+    open: true,
+    required: ['asset', 'amount', 'settlementAddress', 'agents'],
+    props: {
+      '@context': { t: 'any' }, '@type': { t: 'any' },
+      asset: 'caip19', assetId: 'caip220', amount: 'amount', settlementAddress: 'settlementAddress',
+      originator: PARTY, beneficiary: PARTY, agents: AGENTS, constraints: { t: 'uncovered' },
+      purpose: { t: 'string' }, memo: { t: 'free' },
+      exchangeRate: { t: 'exchangeRate' }, transactionValue: { t: 'transactionValue' },
+    },
+  },
+  Payment: {
+    schema: 'schemas/messages/payment.json', taip: 'TAIP-14', uris: [HDR + 'Payment'],
+    open: false,
+    required: ['@context', '@type', 'amount', 'merchant', 'agents'],
+    oneOf: ['asset', 'currency'],
+    props: Object.assign(jsonLd('Payment'), {
+      asset: 'caip19', currency: 'ccy', supportedAssets: { t: 'list', of: 'caip19' },
+      fallbackSettlementAddresses: { t: 'list', of: 'settlementAddress' }, expiry: 'dateTime', amount: 'amount',
+      invoice: { t: 'invoice' }, policies: { t: 'uncovered' }, customer: PARTY, merchant: PARTY, agents: AGENTS,
+    }),
+  },
+  Authorize: {
+    schema: 'schemas/messages/authorize.json', taip: 'TAIP-4', uris: [HDR + 'Authorize'],
+    open: false, required: ['@context', '@type'],
+    props: Object.assign(jsonLd('Authorize'), {
+      settlementAddress: 'settlementAddress', settlementAsset: 'caip19', amount: 'amount', expiry: 'dateTime',
+    }),
+  },
+  Reject: {
+    schema: 'schemas/messages/reject.json', taip: 'TAIP-4', uris: [HDR + 'Reject'],
+    open: false, required: ['@context', '@type'],
+    props: Object.assign(jsonLd('Reject'), { reason: { t: 'free' }, code: 'code4' }),
+  },
+  Settle: {
+    schema: 'schemas/messages/settle.json', taip: 'TAIP-4', uris: [HDR + 'Settle'],
+    open: false, required: ['@context', '@type', 'settlementAddress'],
+    props: Object.assign(jsonLd('Settle'), { settlementAddress: 'settlementAddress', settlementId: 'settleId', amount: 'amount' }),
+  },
+  Cancel: {
+    schema: 'schemas/messages/cancel.json', taip: 'TAIP-4', uris: [HDR + 'Cancel', LEGACY + 'cancel'],
+    open: true, required: ['reason', 'by'],
+    props: {
+      '@context': { t: 'any' }, '@type': { t: 'any' },
+      reason: { t: 'free' }, reasonCode: { t: 'string' }, by: 'did', details: { t: 'freeobj' }, timestamp: 'dateTime',
+    },
+  },
+  Revert: {
+    schema: 'schemas/messages/revert.json', taip: 'TAIP-4', uris: [HDR + 'Revert'],
+    open: false, required: ['@context', '@type', 'settlementAddress', 'reason'],
+    props: Object.assign(jsonLd('Revert'), { settlementAddress: 'settlementAddress', reason: { t: 'free' } }),
+  },
+};
+const TYPE_NAMES = Object.keys(TYPES);
+
+// didcommHeader (schemas/common/didcomm-base.json): keys the schema names; all others are open extras.
+const HEADER_KEYS = ['@context', 'id', 'type', 'thid', 'from', 'to', 'created_time', 'expires_time', 'please_ack', 'ack', 'body', 'attachments'];
+const SIGNATURE_KEYS = ['signature', 'signatures', 'protected', 'jws'];
+
+// IVMS101 zero-PII skeleton contract (same rule as the Travel Rule skeleton node): a string leaf is allowed
+// only as a code-list value for a known code key, the literal "SYNTHETIC", or a length marker "[len:N]".
+const IVMS_CODES = {
+  nameIdentifierType: /^(ALIAS|BIRT|MAID|LEGL|SHRT|TRAD|LGNM|MISC)$/,
+  addressType: /^(HOME|BIZZ|GEOG)$/,
+  country: /^[A-Z]{2}$/, countryOfResidence: /^[A-Z]{2}$/, countryOfRegistration: /^[A-Z]{2}$/, issuingCountry: /^[A-Z]{2}$/,
+  customerIdentificationType: /^(ARNU|CCPT|RAID|DRLC|FIIN|TXID|SOCS|IDCD|LEIX|MISC)$/,
+};
+
+function skeletonLeaf(key, v) {
+  if (typeof v !== 'string') return false;
+  if (v === 'SYNTHETIC' || RE.syntheticMarker.test(v)) return true;
+  return Object.hasOwn(IVMS_CODES, key) && IVMS_CODES[key].test(v);
+}
+
+// Returns true when every leaf under node satisfies the skeleton rule; false otherwise (depth capped).
+function skeletonOk(node, key, depth) {
+  if (depth > MAX_DEPTH) return false;
+  if (Array.isArray(node)) {
+    for (let i = 0; i < node.length; i++) if (!skeletonOk(node[i], key, depth + 1)) return false;
+    return true;
+  }
+  if (isObj(node)) {
+    const ks = sortedKeys(node);
+    for (let i = 0; i < ks.length; i++) if (!skeletonOk(node[ks[i]], ks[i], depth + 1)) return false;
+    return true;
+  }
+  return skeletonLeaf(key, node);
+}
+
+// Hashability walk: the first value the shared _hash.mjs refuses before canonicalizing,
+// mirroring the classes of its assertIJson() exactly (a non-finite value or an integer
+// outside the 2^53 safe range: RFC 8785 3.2.2.3 / RFC 7493; nesting past its MAX_DEPTH;
+// more values than its MAX_ELEMENTS), reported as { reason, detail } with the path and kind
+// only, never the value; null when the whole subtree is safe to hash. compute() refuses a
+// hit with the named reason before any artifact is built, and buildArtifact() re-runs the
+// walk over the exact execution_hash preimage so it mints a refusal artifact instead of
+// letting the hash throw. The shared _hash.mjs itself stays untouched.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+// pp alone is held to tighter margins than the preimage limits: the {policy_parameters,
+// output_payload} envelope wraps pp two levels deeper, and a report output_payload can
+// carry several values per input value (findings, unexpected_fields), so a pp inside these
+// margins keeps every envelope this kernel can build inside the canonicalizer limits.
+const PP_MAX_DEPTH = HASH_MAX_DEPTH - 8;
+const PP_MAX_ELEMENTS = 199000;
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'input_hash_limit_refused', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'input_hash_limit_refused', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'unsafe_number_refused', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'unsafe_number_refused', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (isObj(v)) {
+    const ks = sortedKeys(v);
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + seg(ks[i]), depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
+function refuse(reason, detail) {
+  // Flag earned by a stated refusal reason (conditional emission).
+  const compliance_flags = [];
+  if (reason) compliance_flags.push('INPUT_REFUSED');
+  return {
+    output_payload: { status: 'refused', reason, detail, warnings: compliance_flags.slice() },
+    compliance_flags,
+  };
+}
+
+// ---- walker ----
+// ctx: { findings, unexpected, nameHashes, refusal }
+function add(ctx, path, code) { ctx.findings.push({ path, code }); }
+
+function checkFormat(ctx, fmt, v, path) {
+  if (typeof v !== 'string') { add(ctx, path, 'WRONG_TYPE'); return; }
+  if (!Object.hasOwn(FORMAT, fmt) || !FORMAT[fmt](v)) add(ctx, path, 'BAD_FORMAT');
+}
+
+function checkFree(ctx, v, path) {
+  if (typeof v !== 'string') { add(ctx, path, 'WRONG_TYPE'); return; }
+  if (v !== 'SYNTHETIC' && !RE.syntheticMarker.test(v) && ctx.refusal === null) ctx.refusal = { reason: 'free_text_leaf_refused', detail: path };
+}
+
+function checkObjectKeys(ctx, obj, known, path, forbidExtras) {
+  const ks = sortedKeys(obj);
+  for (let i = 0; i < ks.length; i++) {
+    if (known.indexOf(ks[i]) === -1) {
+      ctx.unexpected.push({ path: path + '.' + seg(ks[i]), schema_forbids: forbidExtras });
+      checkSkeleton(ctx, obj[ks[i]], ks[i], path + '.' + seg(ks[i]));
+    }
+  }
+}
+
+// Zero-PII rule for a value the schema walk does not format-check: every string leaf must satisfy the skeleton rule.
+function checkSkeleton(ctx, v, key, path) {
+  if (!skeletonOk(v, key, 0) && ctx.refusal === null) ctx.refusal = { reason: 'free_text_leaf_refused', detail: path };
+}
+
+function checkParty(ctx, v, path, isAgent) {
+  if (!isObj(v)) { add(ctx, path, 'WRONG_TYPE'); return; }
+  const known = ['@id', '@type', 'lei:leiCode', 'name', 'nameHash', 'ivms101', 'mcc', 'url', 'logo', 'description', 'email', 'telephone'];
+  if (isAgent) known.push('role', 'for', 'policies');
+  if (v['@id'] == null) add(ctx, path + '.@id', 'MISSING_REQUIRED');
+  else checkFormat(ctx, isAgent ? 'did' : 'didOrIri', v['@id'], path + '.@id');
+  if (v['@type'] !== undefined) {
+    const want = isAgent ? 'Agent' : 'Party';
+    if (typeof v['@type'] !== 'string') add(ctx, path + '.@type', 'WRONG_TYPE');
+    else if (v['@type'] !== want && !FORMAT.uri(v['@type'])) add(ctx, path + '.@type', 'BAD_FORMAT');
+  }
+  if (v['lei:leiCode'] !== undefined) checkFormat(ctx, 'lei', v['lei:leiCode'], path + '.lei:leiCode');
+  if (v.nameHash !== undefined) {
+    checkFormat(ctx, 'base64', v.nameHash, path + '.nameHash');
+    if (typeof v.nameHash === 'string' && FORMAT.base64(v.nameHash)) {
+      const pad = v.nameHash.endsWith('==') ? 2 : v.nameHash.endsWith('=') ? 1 : 0;
+      ctx.nameHashes.push({ path: path + '.nameHash', decoded_bytes: (v.nameHash.length / 4) * 3 - pad });
+    }
+  }
+  if (v.mcc !== undefined) checkFormat(ctx, 'mcc', v.mcc, path + '.mcc');
+  if (v.url !== undefined) checkFormat(ctx, 'uri', v.url, path + '.url');
+  if (v.logo !== undefined) checkFormat(ctx, 'uri', v.logo, path + '.logo');
+  for (const k of ['name', 'description', 'email', 'telephone']) if (v[k] !== undefined) checkFree(ctx, v[k], path + '.' + k);
+  if (v.ivms101 !== undefined) {
+    if (!isObj(v.ivms101)) add(ctx, path + '.ivms101', 'WRONG_TYPE');
+    else if (!skeletonOk(v.ivms101, 'ivms101', 0) && ctx.refusal === null) ctx.refusal = { reason: 'ivms101_non_skeleton_leaf_refused', detail: path + '.ivms101' };
+  }
+  if (isAgent) {
+    if (v.role !== undefined) checkFormat(ctx, 'role', v.role, path + '.role');
+    if (v['for'] !== undefined) {
+      if (Array.isArray(v['for'])) {
+        if (v['for'].length < 1) add(ctx, path + '.for', 'MIN_ITEMS');
+        for (let i = 0; i < v['for'].length; i++) checkFormat(ctx, 'did', v['for'][i], path + '.for[' + i + ']');
+      } else checkFormat(ctx, 'did', v['for'], path + '.for');
+    }
+    if (v.policies !== undefined && ctx.refusal === null) ctx.refusal = { reason: 'uncovered_subtree_refused', detail: path + '.policies' };
+  }
+  checkObjectKeys(ctx, v, known, path, false);
+}
+
+function checkField(ctx, spec, v, path) {
+  if (typeof spec === 'string') { checkFormat(ctx, spec, v, path); return; }
+  switch (spec.t) {
+    case 'any':
+      // JSON-LD @context / @type: a URI-shaped string passes, anything else must satisfy the skeleton rule.
+      if (!(typeof v === 'string' && FORMAT.uri(v))) checkSkeleton(ctx, v, path, path);
+      return;
+    case 'string':
+      if (typeof v !== 'string') add(ctx, path, 'WRONG_TYPE');
+      else checkFree(ctx, v, path);
+      return;
+    case 'free': checkFree(ctx, v, path); return;
+    case 'const':
+      if (typeof v !== 'string') add(ctx, path, 'WRONG_TYPE');
+      else if (v !== spec.v) add(ctx, path, 'BAD_CONST');
+      return;
+    case 'party': checkParty(ctx, v, path, false); return;
+    case 'agents':
+      if (!Array.isArray(v)) { add(ctx, path, 'WRONG_TYPE'); return; }
+      if (v.length < 1) add(ctx, path, 'MIN_ITEMS');
+      for (let i = 0; i < v.length; i++) checkParty(ctx, v[i], path + '[' + i + ']', true);
+      return;
+    case 'list':
+      if (!Array.isArray(v)) { add(ctx, path, 'WRONG_TYPE'); return; }
+      for (let i = 0; i < v.length; i++) checkFormat(ctx, spec.of, v[i], path + '[' + i + ']');
+      return;
+    case 'freeobj':
+      if (!isObj(v)) add(ctx, path, 'WRONG_TYPE');
+      else if (!skeletonOk(v, 'details', 0) && ctx.refusal === null) ctx.refusal = { reason: 'free_text_leaf_refused', detail: path };
+      return;
+    case 'uncovered':
+      if (ctx.refusal === null) ctx.refusal = { reason: 'uncovered_subtree_refused', detail: path };
+      return;
+    case 'invoice':
+      if (typeof v === 'string') { if (!FORMAT.uri(v)) add(ctx, path, 'BAD_FORMAT'); }
+      else if (ctx.refusal === null) ctx.refusal = { reason: 'uncovered_subtree_refused', detail: path };
+      return;
+    case 'exchangeRate':
+      if (!isObj(v)) { add(ctx, path, 'WRONG_TYPE'); return; }
+      if (v.rate !== undefined && (typeof v.rate !== 'number' || !(v.rate > 0))) add(ctx, path + '.rate', typeof v.rate !== 'number' ? 'WRONG_TYPE' : 'BAD_FORMAT');
+      if (v.from !== undefined) checkFormat(ctx, 'ccy', v.from, path + '.from');
+      if (v.to !== undefined) checkFormat(ctx, 'ccy', v.to, path + '.to');
+      checkObjectKeys(ctx, v, ['rate', 'from', 'to'], path, false);
+      return;
+    case 'transactionValue':
+      if (!isObj(v)) { add(ctx, path, 'WRONG_TYPE'); return; }
+      if (v.amount == null) add(ctx, path + '.amount', 'MISSING_REQUIRED'); else checkFormat(ctx, 'amount', v.amount, path + '.amount');
+      if (v.currency == null) add(ctx, path + '.currency', 'MISSING_REQUIRED'); else checkFormat(ctx, 'ccy', v.currency, path + '.currency');
+      checkObjectKeys(ctx, v, ['amount', 'currency'], path, false);
+      return;
+    default: add(ctx, path, 'WRONG_TYPE');
+  }
+}
+
+function checkBody(ctx, def, body) {
+  if (!isObj(body)) { add(ctx, 'body', 'WRONG_TYPE'); return; }
+  for (let i = 0; i < def.required.length; i++) if (body[def.required[i]] == null) add(ctx, 'body.' + def.required[i], 'MISSING_REQUIRED');
+  if (def.oneOf) {
+    let n = 0;
+    for (let i = 0; i < def.oneOf.length; i++) if (body[def.oneOf[i]] !== undefined) n++;
+    if (n !== 1) add(ctx, 'body', 'ONE_OF_VIOLATION');
+  }
+  const ks = sortedKeys(body);
+  for (let i = 0; i < ks.length; i++) {
+    if (Object.hasOwn(def.props, ks[i])) checkField(ctx, def.props[ks[i]], body[ks[i]], 'body.' + seg(ks[i]));
+  }
+  checkObjectKeys(ctx, body, Object.keys(def.props), 'body', !def.open);
+}
+
+function checkMessage(msg, index) {
+  const ctx = { findings: [], unexpected: [], nameHashes: [], refusal: null };
+  const rec = {
+    index, message_type: null, type_uri_form: null, coverage: 'not_covered', schema: null, taip: null,
+    findings: [], unexpected_fields: [], name_hash_checks: [], signature_material: 'absent',
+  };
+  // header
+  if (msg.id == null) add(ctx, 'id', 'MISSING_REQUIRED'); else checkFormat(ctx, 'uuid', msg.id, 'id');
+  if (msg.type == null) add(ctx, 'type', 'MISSING_REQUIRED');
+  if (msg.thid !== undefined) checkFormat(ctx, 'uuid', msg.thid, 'thid');
+  if (msg.from !== undefined) checkFormat(ctx, 'did', msg.from, 'from');
+  if (msg.to !== undefined) {
+    if (!Array.isArray(msg.to)) add(ctx, 'to', 'WRONG_TYPE');
+    else {
+      if (msg.to.length < 1) add(ctx, 'to', 'MIN_ITEMS');
+      for (let i = 0; i < msg.to.length; i++) checkFormat(ctx, 'did', msg.to[i], 'to[' + i + ']');
+    }
+  }
+  if (msg.created_time !== undefined) checkFormat(ctx, 'dateTime', msg.created_time, 'created_time');
+  if (msg.expires_time !== undefined) checkFormat(ctx, 'dateTime', msg.expires_time, 'expires_time');
+  if (msg.please_ack !== undefined && typeof msg.please_ack !== 'boolean') add(ctx, 'please_ack', 'WRONG_TYPE');
+  if (msg.ack !== undefined) {
+    if (!Array.isArray(msg.ack)) add(ctx, 'ack', 'WRONG_TYPE');
+    else for (let i = 0; i < msg.ack.length; i++) checkFormat(ctx, 'uuid', msg.ack[i], 'ack[' + i + ']');
+  }
+  if (msg.attachments !== undefined) {
+    if (!Array.isArray(msg.attachments)) add(ctx, 'attachments', 'WRONG_TYPE');
+    else if (msg.attachments.length > 0 && ctx.refusal === null) ctx.refusal = { reason: 'uncovered_subtree_refused', detail: 'attachments' };
+  }
+  const topKeys = sortedKeys(msg);
+  for (let i = 0; i < topKeys.length; i++) {
+    if (SIGNATURE_KEYS.indexOf(topKeys[i]) !== -1) rec.signature_material = 'present_not_verified';
+    else if (HEADER_KEYS.indexOf(topKeys[i]) === -1) {
+      ctx.unexpected.push({ path: seg(topKeys[i]), schema_forbids: false });
+      checkSkeleton(ctx, msg[topKeys[i]], topKeys[i], seg(topKeys[i]));
+    }
+  }
+  // type dispatch
+  let def = null;
+  if (typeof msg.type === 'string') {
+    for (let i = 0; i < TYPE_NAMES.length && def === null; i++) {
+      const t = TYPES[TYPE_NAMES[i]];
+      const u = t.uris.indexOf(msg.type);
+      if (u !== -1) { def = t; rec.message_type = TYPE_NAMES[i]; rec.type_uri_form = u === 0 ? 'header_pattern' : 'schema_const'; }
+    }
+    if (def === null && !RE.typeUri.test(msg.type)) add(ctx, 'type', 'BAD_FORMAT');
+  } else if (msg.type != null) add(ctx, 'type', 'WRONG_TYPE');
+  if (def !== null) {
+    rec.coverage = 'covered'; rec.schema = def.schema; rec.taip = def.taip;
+    if (msg.body == null) add(ctx, 'body', 'MISSING_REQUIRED'); else checkBody(ctx, def, msg.body);
+  } else if (msg.body !== undefined) {
+    // body of an uncovered type is never walked; its leaves are not inspected, so refuse anything with strings in it
+    if (!skeletonOk(msg.body, 'body', 0) && ctx.refusal === null) {
+      ctx.refusal = { reason: 'uncovered_subtree_refused', detail: 'body' };
+    }
+  }
+  const byPath = (a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : a.code < b.code ? -1 : a.code > b.code ? 1 : 0);
+  rec.findings = ctx.findings.sort(byPath);
+  rec.unexpected_fields = ctx.unexpected.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  rec.name_hash_checks = ctx.nameHashes.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  return { rec, refusal: ctx.refusal };
+}
+
+/**
+ * compute(pp): pp.messages is an array (1..32) of pasted TAP messages, in arrival order.
+ */
+function compute(pp) {
+  pp = pp || {};
+  // Hashability first, before any other refusal: an unsafe integer or a non-finite number
+  // anywhere in pp (exchangeRate.rate takes any finite number, and JSON 1e999 parses to
+  // Infinity), or a shape past the canonicalizer's depth or size limits, sails through the
+  // schema walk while the artifact hash refuses it. Refusing it at the very top means the
+  // same named refusal fires whatever else is wrong with pp (a missing messages array
+  // would otherwise shadow an unhashable value elsewhere in the document); only the path
+  // and kind are echoed, never the value.
+  const unhashable = findHashRefusal(pp, 'pp', 1, { maxDepth: PP_MAX_DEPTH, maxElements: PP_MAX_ELEMENTS, n: 0 });
+  if (unhashable !== null) return refuse(unhashable.reason, unhashable.detail);
+  const msgs = pp.messages;
+  if (!Array.isArray(msgs) || msgs.length === 0) return refuse('messages_missing', 'messages must be a non-empty array');
+  if (msgs.length > MAX_MESSAGES) return refuse('messages_too_many', 'at most ' + MAX_MESSAGES + ' messages');
+  const records = [];
+  for (let i = 0; i < msgs.length; i++) {
+    if (!isObj(msgs[i])) return refuse('message_not_object', 'message ' + i);
+    const r = checkMessage(msgs[i], i);
+    if (r.refusal !== null) return refuse(r.refusal.reason, 'message ' + i + ' at ' + r.refusal.detail);
+    records.push(r.rec);
+  }
+
+  // thread walk: a reply names (thid) an id carried by an EARLIER message in the pasted set
+  const idsSeen = [];
+  const dangling = [];
+  const missing_thid = [];
+  const duplicate_ids = [];
+  for (let i = 0; i < msgs.length; i++) {
+    const m = msgs[i];
+    const name = records[i].message_type;
+    const replyType = name !== null && name !== 'Transfer' && name !== 'Payment';
+    if (typeof m.id === 'string' && idsSeen.indexOf(m.id) !== -1) duplicate_ids.push(i);
+    if (m.thid != null) {
+      if (typeof m.thid === 'string' && idsSeen.indexOf(m.thid) === -1 && m.thid !== m.id) dangling.push(i);
+    } else if (replyType) missing_thid.push(i);
+    if (typeof m.id === 'string') idsSeen.push(m.id);
+  }
+  const thread = {
+    checked: msgs.length > 1,
+    dangling_reply_indexes: msgs.length > 1 ? dangling : [],
+    missing_thid_indexes: msgs.length > 1 ? missing_thid : [],
+    duplicate_id_indexes: duplicate_ids,
+  };
+
+  const compliance_flags = [];
+  const withFindings = records.filter((r) => r.findings.length > 0).length;
+  const notCovered = records.filter((r) => r.coverage === 'not_covered').length;
+  const withExtras = records.filter((r) => r.unexpected_fields.length > 0).length;
+  const sigs = records.filter((r) => r.signature_material === 'present_not_verified').length;
+  if (withFindings > 0) compliance_flags.push('TAP_STRUCTURE_FINDINGS');
+  if (thread.dangling_reply_indexes.length > 0) compliance_flags.push('TAP_THREAD_DANGLING_REPLY');
+  if (thread.missing_thid_indexes.length > 0) compliance_flags.push('TAP_THREAD_REPLY_WITHOUT_THID');
+  if (thread.duplicate_id_indexes.length > 0) compliance_flags.push('TAP_DUPLICATE_MESSAGE_ID');
+  if (notCovered > 0) compliance_flags.push('TAP_TYPE_NOT_COVERED');
+  if (withExtras > 0) compliance_flags.push('TAP_UNEXPECTED_FIELDS');
+  if (sigs > 0) compliance_flags.push('TAP_SIGNATURE_NOT_VERIFIED');
+  const warnings = compliance_flags.slice();
+
+  return {
+    output_payload: {
+      status: 'report',
+      taips_commit: TAIPS_COMMIT,
+      message_count: msgs.length,
+      messages: records.map((r) => Object.assign({}, r, { status: r.coverage === 'not_covered' ? 'not_covered' : (r.findings.length === 0 ? 'no_findings' : 'findings') })),
+      thread,
+      covered_types: TYPE_NAMES,
+      signatures_verified: false,
+      identifiers_resolved: false,
+      counterparty_contacted: false,
+      compliance_determination: false,
+      warnings,
+    },
+    compliance_flags,
+  };
+}
+
+
+/* ---- page ---- */
+var U = function (n) { return '00000000-0000-4000-8000-' + ('000000000000' + n).slice(-12); };
+var EXAMPLE = [
+  { id: U(1), type: 'https://tap.rsvp/schema/1.0#Transfer', from: 'did:web:originator.vasp', to: ['did:web:beneficiary.vasp'],
+    body: { asset: 'eip155:1/slip44:60', amount: '1.23', settlementAddress: 'eip155:1:0x1234a96D359eC26a11e2C2b3d8f8B8942d5Bfcdb',
+      agents: [{ '@id': 'did:web:originator.vasp', role: 'Originator' }] } },
+  { id: U(2), type: 'https://tap.rsvp/schema/1.0#Authorize', thid: U(1), from: 'did:web:beneficiary.vasp', to: ['did:web:originator.vasp'],
+    body: { '@context': 'https://tap.rsvp/schema/1.0', '@type': 'https://tap.rsvp/schema/1.0#Authorize' } },
+  { id: U(3), type: 'https://tap.rsvp/schema/1.0#Settle', thid: U(9), from: 'did:web:originator.vasp', to: ['did:web:beneficiary.vasp'],
+    body: { '@context': 'https://tap.rsvp/schema/1.0', '@type': 'https://tap.rsvp/schema/1.0#Settle', settlementAddress: 'eip155:1:0x1234a96D359eC26a11e2C2b3d8f8B8942d5Bfcdb' } }
+];
+var lastPP = null, lastResult = null;
+
+function el(tag, attrs, text) {
+  var n = document.createElement(tag);
+  for (var k in attrs) { if (Object.prototype.hasOwnProperty.call(attrs, k)) n.setAttribute(k, attrs[k]); }
+  if (text != null) n.textContent = text;
+  return n;
+}
+
+function block(parent, title, lines, leak) {
+  var d = el('div', { 'class': 'set' });
+  d.appendChild(el('h3', {}, title));
+  lines.forEach(function (x) { d.appendChild(el('div', { 'class': 'fnd' }, x)); });
+  parent.appendChild(d);
+}
+
+function run() {
+  var parsed;
+  var body = document.getElementById('resultBody');
+  while (body.firstChild) body.removeChild(body.firstChild);
+  try { parsed = JSON.parse(document.getElementById('msgInput').value); } catch (e) {
+    body.appendChild(el('p', { 'class': 'note' }, 'The pasted text is not valid JSON, so nothing was checked.'));
+    document.getElementById('results').hidden = false; lastResult = null; return;
+  }
+  lastPP = { messages: Array.isArray(parsed) ? parsed : [parsed] };
+  lastResult = compute(lastPP);
+  var o = lastResult.output_payload;
+  if (o.status === 'refused') {
+    body.appendChild(el('p', { 'class': 'note' }, 'The input was refused: ' + o.reason + ' (' + o.detail + '). No value from the paste is shown.'));
+  } else {
+    o.messages.forEach(function (m) {
+      var title = 'Message ' + (m.index + 1) + ': ' + (m.message_type || 'type not covered') + ' (' + m.status.replace(/_/g, ' ') + ')';
+      var lines = [];
+      if (m.schema) lines.push('schema ' + m.schema + ' (' + m.taip + '), type URI form: ' + m.type_uri_form.replace(/_/g, ' '));
+      m.findings.forEach(function (f) { lines.push(f.path + ': ' + f.code); });
+      m.unexpected_fields.forEach(function (u) { lines.push(u.path + ': field not in schema' + (u.schema_forbids ? ' (schema forbids extra fields)' : '')); });
+      m.name_hash_checks.forEach(function (h) { lines.push(h.path + ': decodes to ' + h.decoded_bytes + ' bytes'); });
+      if (m.signature_material === 'present_not_verified') lines.push('signature material present, not verified');
+      if (!lines.length) lines.push('no findings against the pinned schema');
+      block(body, title, lines);
+    });
+    var t = o.thread, tl = [];
+    if (!t.checked) tl.push('one message pasted, thread not checked');
+    else {
+      tl.push('replies pointing at an id not present earlier in the paste: ' + (t.dangling_reply_indexes.map(function (i) { return i + 1; }).join(', ') || 'none'));
+      tl.push('reply-type messages without thid: ' + (t.missing_thid_indexes.map(function (i) { return i + 1; }).join(', ') || 'none'));
+    }
+    tl.push('repeated message ids: ' + (t.duplicate_id_indexes.map(function (i) { return i + 1; }).join(', ') || 'none'));
+    block(body, 'Thread', tl);
+    body.appendChild(el('p', { 'class': 'cite' }, 'Signatures are not verified, identifiers are not resolved, no counterparty is contacted, and nothing here is a compliance statement.'));
+  }
+  document.getElementById('results').hidden = false;
+}
+
+function exportMandate() {
+  if (!lastResult) return;
+  var m = {
+    tool_id: 'art-843-tap-message-validator',
+    tool_version: '1.0.0',
+    mandate_type: 'compliance_control',
+    generated_at: new Date().toISOString(),
+    policy_parameters: lastPP,
+    output_payload: lastResult.output_payload,
+    compliance_flags: lastResult.compliance_flags,
+    summary: 'Structure check of ' + lastPP.messages.length + ' pasted TAP message(s) against pinned public schemas. Signatures not verified; not a compliance statement.',
+    agent_instructions: [
+      'Treat this as a structural report only. Signatures were not verified and identifiers were not resolved.',
+      'A message type listed as not covered was not checked at all.'
+    ],
+    regulatory_citations: [
+      'TAIPs schemas/messages and schemas/common at commit c160ae573a981828b5f8d589cda0493b04bdda95 (CC0-1.0)'
+    ]
+  };
+  AP2Schema.validate(m);
+  var fn = 'policy-tap-message-structure.policy.json';
+  var a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([JSON.stringify(m, null, 2)], { type: 'application/json' })), download: fn });
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
+}
+
+document.getElementById('loadExample').addEventListener('click', function () { document.getElementById('msgInput').value = JSON.stringify(EXAMPLE, null, 2); });
+document.getElementById('runBtn').addEventListener('click', run);
+document.getElementById('ap2ExportBtn').addEventListener('click', exportMandate);
+document.getElementById('msgInput').value = JSON.stringify(EXAMPLE, null, 2);
+</script>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="../start.html">Start Here</a>
+        <a href="../front-to-back.html">Front-to-Back Prompts</a>
+        <a href="../prompts.html">Prompt Library</a>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="../helm.html">Helm</a>
+        <a href="../convert.html">Conversion Suite</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Hubs</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="visual-explainers-hub.html">Visual Explainers</a>
+        <a href="education-hub.html">Learn OpenChainGraph</a>
+        <a href="../guides/web3-hub.html">Web3 Hub</a>
+        <a href="../guides/canton-tmf-hub.html">Canton</a>
+        <a href="../guides/ethereum-hub.html">Ethereum</a>
+        <a href="../guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
+        <a href="../guides/token-standards-hub.html">Token Standards</a>
+        <a href="../guides/tradetech-hub.html">TradeTech</a>
+        <a href="../guides/capital-markets-settlement-hub.html">Capital Markets Settlement</a>
+        <a href="../guides/broker-dealer-ops-hub.html">Broker-Dealer Ops</a>
+        <a href="../guides/treasury-liquidity-hub.html">Treasury and Strategy</a>
+        <a href="../guides/wealthtech-hub.html">WealthTech</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Developers</div>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../webmcp.html">WebMCP</a>
+        <a href="../mcp-benchmark.html">MCP Benchmark</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../verification-desk.html">Verification Desk</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">About</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="../privacy.html">Privacy</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
