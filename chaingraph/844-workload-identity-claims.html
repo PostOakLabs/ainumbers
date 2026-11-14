@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Workload Identity Claims · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Lint decoded workload-identity and token-exchange claims against a policy you declare: lifetime, actor depth, audience, trust domain, scope narrowing.">
+<meta name="robots" content="index, follow">
+<meta name="ain:category" content="run">
+<meta name="kernel-digest" content="sha256:e4313b344850b2c7040ae269adb56f5cbdd1c8a9007d44b071c872a31bd3837d">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/844-workload-identity-claims.html">
+<link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/844-workload-identity-claims.md">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:1.5rem 0}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+.mfst-btn{background:none;border:1px solid var(--border);border-radius:6px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .8rem;cursor:pointer;margin-bottom:.6rem}
+.mfst-body{display:none}
+.mfst-body pre{white-space:pre-wrap;word-break:break-word;font-family:'JetBrains Mono',monospace;font-size:.62rem;line-height:1.6;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.7rem;max-height:420px;overflow:auto}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">Workload Identity Claims · OpenChainGraph</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="page-main" role="main" aria-description="Lints decoded workload-identity token claims and an optional exchanged token against a policy you declare. Paste claims as JSON; no signature is verified.">
+<div class="hero"><div class="container">
+  <h1>Workload Identity Claims</h1>
+  <p class="hero-desc">Lints claims you paste against a policy you declare. It does not verify signatures, does not contact an identity provider and does not prove the token is genuine. Paste decoded claims only: anything shaped like a compact signed token is refused.</p>
+</div></div>
+<div class="container">
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="panel">
+    <div class="panel-label">Decoded claims and policy (JSON)</div>
+    <label for="wi_input" style="display:block;margin-bottom:.5rem">Policy, subject claims and optional exchanged claims. Synthetic values only; never paste a real token.</label>
+    <textarea id="wi_input" rows="22" aria-label="Policy and decoded claims JSON" style="width:100%;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem;font-family:'JetBrains Mono',monospace;font-size:.7rem">{
+  "policy": {
+    "max_lifetime_seconds": 3600,
+    "max_actor_depth": 2,
+    "required_audiences": [
+      "svc-a"
+    ],
+    "allowed_trust_domains": [
+      "example.org"
+    ],
+    "scope_must_narrow": true,
+    "clock_now_epoch_seconds": 1700000100
+  },
+  "subject_claims": {
+    "sub": "spiffe://example.org/ns/prod/sa/api",
+    "aud": [
+      "svc-a"
+    ],
+    "iat": 1700000000,
+    "exp": 1700003000,
+    "scope": "read write"
+  },
+  "exchanged_claims": {
+    "sub": "spiffe://example.org/ns/prod/sa/db",
+    "aud": [
+      "svc-a"
+    ],
+    "iat": 1700000050,
+    "exp": 1700001050,
+    "scope": "read",
+    "act": {
+      "sub": "spiffe://example.org/ns/prod/sa/api"
+    }
+  }
+}</textarea>
+    <p style="margin-top:.8rem"><button type="button" id="wi_run" aria-label="Lint the claims" style="background:var(--teal-dim);color:var(--bright);border:1px solid var(--teal);border-radius:var(--radius);padding:.5rem 1rem;cursor:pointer">Lint claims</button></p>
+  </div>
+  <div class="panel">
+    <div class="panel-label">Result</div>
+    <p id="wi_verdict" role="status" aria-live="polite" style="color:var(--bright);font-family:'JetBrains Mono',monospace">Run the lint to see a verdict.</p>
+    <pre id="wi_out" style="white-space:pre-wrap;word-break:break-word;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text)"></pre>
+  </div>
+  <div class="panel">
+    <div class="panel-label">What it checks</div>
+    <p>Subject is a well-formed workload identifier in an allowed trust domain; audience present and matching; expiry present and within your declared lifetime; issued-at and not-before sane against the clock you supply; actor chain depth and each actor an identifier; authorized-actor consistency; for an exchange, scope a subset of the subject scope and audience or resource not wider. Claim values must be the type the claim expects: expiry, issued-at and not-before are whole seconds since epoch, audience, scope and resource are strings or lists of strings, and may-act is one actor object with a subject string; anything else, and any present-but-malformed scope, is refused or flagged with an explicit code. A claim the policy needs but the input lacks gives INDETERMINATE, never a guess.</p>
+  </div>
+  <div class="panel">
+    <div class="panel-label">Manifest</div>
+    <button type="button" class="mfst-btn" id="mfstToggle" aria-expanded="false" onclick="toggleMfst()"><span id="mfstArrow">&#9660;</span> Show manifest</button>
+    <div class="mfst-body" id="manifest"><pre id="mfstCode"></pre></div>
+  </div>
+</div>
+</div>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="../helm.html">Helm</a>
+        <a href="../convert.html">Conversion Suite</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Hubs</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="../guides/web3-hub.html">Web3 Hub</a>
+        <a href="../guides/solana-hub.html">Solana</a>
+        <a href="../guides/ethereum-hub.html">Ethereum</a>
+        <a href="../guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
+        <a href="../guides/token-standards-hub.html">Token Standards</a>
+        <a href="../guides/tradetech-hub.html">TradeTech</a>
+        <a href="../guides/capital-markets-settlement-hub.html">Capital Markets Settlement</a>
+        <a href="../guides/broker-dealer-ops-hub.html">Broker-Dealer Ops</a>
+        <a href="../guides/treasury-liquidity-hub.html">Treasury and Strategy</a>
+        <a href="../guides/wealthtech-hub.html">WealthTech</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Developers</div>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">About</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+<script>
+// 844-workload-identity-claims: lints DECODED claims of a workload-identity token and of an
+// exchanged token against a caller-declared policy. Values only. No signature is verified,
+// no identity provider is contacted, and any compact-JWS-shaped or signature-bearing input
+// is refused. compute() is a pure function of pp (no clock, no network, no TextEncoder).
+
+
+
+const CLAIM_KEYS = ['sub', 'aud', 'exp', 'iat', 'nbf', 'scope', 'act', 'may_act', 'resource'];
+// Per-claim value typing: exp/iat/nbf are integer epoch seconds (NumericDate), aud/scope/resource
+// are a string or a list of strings, sub is a string, act/may_act are actor objects whose sub is
+// a required string. Any other value shape is refused with a named code before the lint runs,
+// so string dates, negative epochs, numeric scope or resource entries, and may_act values that
+// are not one well-formed actor object can never reach a WITHIN_POLICY verdict.
+const NUMERIC_DATE_KEYS = ['exp', 'iat', 'nbf'];
+const STRING_LIST_KEYS = ['aud', 'scope', 'resource'];
+const SIG_KEY = /sig|header|jws|jwt|token|proof|secret|key/i;
+const JWS_HEAD = /^eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*$/;
+const JWS_ANY = /^[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]*$/;
+const TRUST_DOMAIN = /^[a-z0-9._-]+$/;
+const PATH_SEG = /^[A-Za-z0-9._-]+$/;
+const SCOPE_TOKEN = /^[\x21\x23-\x5b\x5d-\x7e]+$/;
+const MAX_STRING = 256;
+const MAX_ITEMS = 64;
+const MAX_ACT_WALK = 32;
+
+function isObj(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
+function isInt(v) { return typeof v === 'number' && Number.isInteger(v) && Math.abs(v) <= 9007199254740991; }
+
+function refuseString(s, out) {
+  if (s.length > MAX_STRING) out.push('FREE_TEXT_REFUSED');
+  if (s.indexOf('@') >= 0) out.push('IDENTITY_TEXT_REFUSED');
+  const parts = s.split(/\s+/);
+  for (let i = 0; i < parts.length; i++) {
+    if (JWS_HEAD.test(parts[i]) || JWS_ANY.test(parts[i])) { out.push('COMPACT_JWS_REFUSED'); break; }
+  }
+}
+
+function scanClaims(c, label, out, depth) {
+  if (!isObj(c)) { out.push('CLAIMS_NOT_OBJECT'); return; }
+  const keys = Object.keys(c);
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i];
+    if (SIG_KEY.test(k)) { out.push('SIGNATURE_MATERIAL_REFUSED'); continue; }
+    if (CLAIM_KEYS.indexOf(k) < 0) { out.push('UNKNOWN_CLAIM_REFUSED'); continue; }
+    const v = c[k];
+    if (k === 'act' || k === 'may_act') {
+      if (depth > MAX_ACT_WALK) out.push('ACT_NESTING_REFUSED');
+      else if (isObj(v)) {
+        const ak = Object.keys(v);
+        for (let j = 0; j < ak.length; j++) {
+          if (SIG_KEY.test(ak[j])) out.push('SIGNATURE_MATERIAL_REFUSED');
+          else if (ak[j] !== 'sub' && !(k === 'act' && ak[j] === 'act')) out.push('UNKNOWN_CLAIM_REFUSED');
+        }
+        if (typeof v.sub !== 'string') out.push('CLAIM_TYPE_REFUSED');
+        else refuseString(v.sub, out);
+        if (k === 'act' && v.act !== undefined) scanClaims({ act: v.act }, label, out, depth + 1);
+      } else out.push('CLAIM_TYPE_REFUSED');
+    } else if (NUMERIC_DATE_KEYS.indexOf(k) >= 0) {
+      if (!isInt(v)) out.push('CLAIM_TYPE_REFUSED');
+      else if (v < 0) out.push('NUMERIC_DATE_OUT_OF_RANGE');
+    } else if (STRING_LIST_KEYS.indexOf(k) >= 0) {
+      if (typeof v === 'string') refuseString(v, out);
+      else if (Array.isArray(v)) {
+        if (v.length > MAX_ITEMS) out.push('TOO_MANY_ITEMS_REFUSED');
+        for (let j = 0; j < v.length && j < MAX_ITEMS; j++) {
+          if (typeof v[j] === 'string') refuseString(v[j], out); else out.push('CLAIM_TYPE_REFUSED');
+        }
+      } else out.push('CLAIM_TYPE_REFUSED');
+    } else if (k === 'sub') {
+      if (typeof v !== 'string') out.push('CLAIM_TYPE_REFUSED');
+      else refuseString(v, out);
+    }
+  }
+}
+
+function parseSpiffe(id) {
+  if (typeof id !== 'string' || id.indexOf('spiffe://') !== 0) return null;
+  const rest = id.slice(9);
+  const slash = rest.indexOf('/');
+  if (slash <= 0) return null;
+  const td = rest.slice(0, slash);
+  const path = rest.slice(slash + 1);
+  if (!TRUST_DOMAIN.test(td)) return null;
+  if (path.length === 0) return null;
+  const segs = path.split('/');
+  for (let i = 0; i < segs.length; i++) {
+    if (!PATH_SEG.test(segs[i]) || segs[i] === '.' || segs[i] === '..') return null;
+  }
+  return td;
+}
+
+function toList(v) {
+  if (v === undefined || v === null) return null;
+  return Array.isArray(v) ? v.slice() : [v];
+}
+
+function scopeSet(v) {
+  if (typeof v === 'string') {
+    const parts = v.split(' ');
+    for (let i = 0; i < parts.length; i++) if (!SCOPE_TOKEN.test(parts[i])) return undefined;
+    return parts;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) if (!SCOPE_TOKEN.test(v[i])) return undefined;
+    return v.slice();
+  }
+  return null;
+}
+
+function actorChain(act) {
+  const subs = [];
+  let node = act;
+  let bad = false;
+  while (node !== undefined && node !== null && subs.length <= MAX_ACT_WALK) {
+    if (!isObj(node) || parseSpiffe(node.sub) === null) { bad = true; subs.push(null); } else subs.push(node.sub);
+    node = isObj(node) ? node.act : undefined;
+  }
+  return { depth: subs.length, subs, bad };
+}
+
+function lintToken(c, p, label, out, indet) {
+  const out_ = (code) => out.push(label + ':' + code);
+  const ind_ = (code) => indet.push(label + ':' + code);
+  const td = c.sub === undefined ? undefined : parseSpiffe(c.sub);
+  if (c.sub === undefined) ind_('SUB_ABSENT');
+  else if (td === null) out_('SUB_NOT_SPIFFE_ID');
+  else if (p.allowed_trust_domains.indexOf(td) < 0) out_('TRUST_DOMAIN_NOT_ALLOWED');
+
+  const aud = toList(c.aud);
+  if (aud === null || aud.length === 0) ind_('AUD_ABSENT');
+  else if (label === 'subject') {
+    for (let i = 0; i < p.required_audiences.length; i++) {
+      if (aud.indexOf(p.required_audiences[i]) < 0) { out_('REQUIRED_AUDIENCE_MISSING'); break; }
+    }
+  }
+
+  if (c.exp === undefined) ind_('EXP_ABSENT');
+  if (c.iat === undefined) ind_('IAT_ABSENT');
+  if (c.exp !== undefined) {
+    if (c.exp <= p.clock_now_epoch_seconds) out_('EXPIRED_AT_CLOCK');
+    if (c.iat !== undefined) {
+      const life = c.exp - c.iat;
+      if (life < 0) out_('EXP_BEFORE_IAT');
+      else if (life > p.max_lifetime_seconds) out_('LIFETIME_EXCEEDS_POLICY');
+    }
+  }
+  if (c.iat !== undefined && c.iat > p.clock_now_epoch_seconds) out_('IAT_IN_FUTURE');
+  if (c.nbf !== undefined) {
+    if (c.nbf > p.clock_now_epoch_seconds) out_('NBF_IN_FUTURE');
+    if (c.exp !== undefined && c.nbf > c.exp) out_('NBF_AFTER_EXP');
+  }
+
+  // A present scope is judged by the same scope-token vocabulary whether or not an exchange
+  // accompanies the request: present-but-malformed (an empty token in the list, a bad
+  // character) is SCOPE_MALFORMED here for this token, and absent stays indeterminate in the
+  // exchange narrowing check below. Consistency rule: the same code both request shapes.
+  if (p.scope_must_narrow && c.scope !== undefined && scopeSet(c.scope) === undefined) out_('SCOPE_MALFORMED');
+
+  if (c.act !== undefined) {
+    const ch = actorChain(c.act);
+    if (ch.depth > p.max_actor_depth) out_('ACTOR_CHAIN_TOO_DEEP');
+    if (ch.bad) out_('ACTOR_NOT_SPIFFE_ID');
+  }
+}
+
+function compute(pp) {
+  pp = pp || {};
+  const refusals = [];
+  const policy = pp.policy;
+  if (!isObj(policy)) refusals.push('POLICY_INCOMPLETE');
+  else {
+    const okList = (l) => Array.isArray(l) && l.length > 0 && l.length <= MAX_ITEMS && l.every((x) => typeof x === 'string' && x.length <= MAX_STRING);
+    if (!isInt(policy.max_lifetime_seconds) || policy.max_lifetime_seconds <= 0) refusals.push('POLICY_INCOMPLETE');
+    else if (!isInt(policy.max_actor_depth) || policy.max_actor_depth < 0) refusals.push('POLICY_INCOMPLETE');
+    else if (!okList(policy.required_audiences) || !okList(policy.allowed_trust_domains)) refusals.push('POLICY_INCOMPLETE');
+    else if (typeof policy.scope_must_narrow !== 'boolean') refusals.push('POLICY_INCOMPLETE');
+    else if (!isInt(policy.clock_now_epoch_seconds)) refusals.push('POLICY_INCOMPLETE');
+  }
+  scanClaims(pp.subject_claims, 'subject', refusals, 0);
+  const hasExchange = pp.exchanged_claims !== undefined && pp.exchanged_claims !== null;
+  if (hasExchange) scanClaims(pp.exchanged_claims, 'exchanged', refusals, 0);
+  const seen = [];
+  for (let i = 0; i < refusals.length; i++) if (seen.indexOf(refusals[i]) < 0) seen.push(refusals[i]);
+  const code = seen.length > 0;
+
+  if (code) {
+    const compliance_flags = code ? ['INPUT_REFUSED'] : [];
+    return {
+      output_payload: {
+        verdict: 'INPUT_REFUSED', refusal_codes: seen.slice().sort(), outside_findings: [], indeterminate_findings: [],
+        signature_verified: false, warnings: compliance_flags.slice(),
+      },
+      compliance_flags,
+    };
+  }
+
+  const out = [];
+  const indet = [];
+  const s = pp.subject_claims;
+  lintToken(s, policy, 'subject', out, indet);
+  if (hasExchange) {
+    const x = pp.exchanged_claims;
+    lintToken(x, policy, 'exchanged', out, indet);
+
+    const xa = toList(x.aud);
+    const sa = toList(s.aud);
+    if (xa !== null && xa.length > 0) {
+      let wider = false;
+      for (let i = 0; i < xa.length; i++) if (policy.required_audiences.indexOf(xa[i]) < 0) wider = true;
+      if (wider) out.push('exchanged:AUDIENCE_OUTSIDE_POLICY');
+      if (sa !== null && xa.length > sa.length) out.push('exchanged:AUDIENCE_WIDER_THAN_SUBJECT');
+    }
+    const xr = toList(x.resource);
+    const sr = toList(s.resource);
+    // An exchanged resource is checked against the subject resource set whether or not the
+    // subject carries one: with no subject resource every exchanged resource is wider, so the
+    // exchange can never gain a resource the subject never had.
+    if (xr !== null) {
+      const srList = sr === null ? [] : sr;
+      for (let i = 0; i < xr.length; i++) if (srList.indexOf(xr[i]) < 0) { out.push('exchanged:RESOURCE_WIDER_THAN_SUBJECT'); break; }
+    }
+
+    if (policy.scope_must_narrow) {
+      const ss = scopeSet(s.scope);
+      const xs = scopeSet(x.scope);
+      // Malformed scopes were already flagged per token in lintToken; absent stays indeterminate.
+      if (ss === null || xs === null) indet.push('exchanged:SCOPE_ABSENT');
+      else if (ss !== undefined && xs !== undefined) {
+        for (let i = 0; i < xs.length; i++) if (ss.indexOf(xs[i]) < 0) { out.push('exchanged:SCOPE_WIDENED'); break; }
+      }
+    }
+
+    // scanClaims guarantees a present may_act is one well-formed actor object with a string
+    // sub, and a present act is the same, so the consistency check is a direct comparison.
+    if (s.may_act !== undefined && x.act !== undefined) {
+      if (x.act.sub !== s.may_act.sub) out.push('exchanged:MAY_ACT_MISMATCH');
+    }
+  }
+
+  const verdict = out.length > 0 ? 'OUTSIDE_POLICY' : (indet.length > 0 ? 'INDETERMINATE' : 'WITHIN_POLICY');
+  const compliance_flags = [];
+  if (verdict === 'OUTSIDE_POLICY') compliance_flags.push('OUTSIDE_POLICY');
+  if (verdict === 'INDETERMINATE') compliance_flags.push('INDETERMINATE');
+  const warnings = compliance_flags.slice();
+  return {
+    output_payload: {
+      verdict,
+      refusal_codes: [],
+      outside_findings: out.slice().sort(),
+      indeterminate_findings: indet.slice().sort(),
+      exchange_checked: hasExchange,
+      signature_verified: false,
+      warnings,
+    },
+    compliance_flags,
+  };
+}
+const MANIFEST = {"tool_id":"844-workload-identity-claims","version":"1.0.0","title":"Workload Identity Claims Lint","description":"Lints decoded workload-identity and token-exchange claims against a caller-declared policy: lifetime bound, actor-chain depth, required audiences, allowed trust domains, scope narrowing. Values only; no signature is verified and no identity provider is contacted. Claim values of the wrong type, negative numeric dates, and a may-act claim that is not one well-formed actor object are refused with an explicit code.","category":"chaingraph","tags":["workload-identity","spiffe","token-exchange","rfc-8693","mcp:lint_workload_identity_token_claims"],"input_schema":{"type":"object","properties":{"policy":{"type":"object","description":"max_lifetime_seconds positive integer, max_actor_depth non-negative integer, required_audiences and allowed_trust_domains non-empty string lists, scope_must_narrow boolean, clock_now_epoch_seconds integer."},"subject_claims":{"type":"object","description":"Decoded subject token claims from the closed set sub, aud, exp, iat, nbf, scope, act, may_act, resource. exp, iat and nbf are integer epoch seconds; aud, scope and resource are a string or list of strings; sub is a string; act and may_act are actor objects whose sub is a required string."},"exchanged_claims":{"type":"object","description":"Optional decoded exchanged-token claims, same typing as subject_claims; act names the actor of the exchange and is checked against the subject may_act when both are present."}}},"mcp_tool_definition":{"name":"lint_workload_identity_token_claims","description":"Lints the decoded claims of a workload-identity token and an optional exchanged token against a caller-declared policy, refusing values-only violations with explicit codes.","inputSchema":{"type":"object","properties":{"policy":{"type":"object"},"subject_claims":{"type":"object"},"exchanged_claims":{"type":"object"}}}},"execution":{"type":"browser-javascript","entry":"chaingraph/844-workload-identity-claims.html","function_name":"compute","timeout_ms":5000},"ap2_export":true,"source":"chaingraph/kernels/844-workload-identity-claims.kernel.mjs","input_schema_provenance":"Top-level properties are exactly the policy_parameters members the kernel reads: policy, subject_claims, exchanged_claims.","author":"PostOakLabs","license":"CC-BY-4.0","input_example":{"policy":{"max_lifetime_seconds":3600,"max_actor_depth":2,"required_audiences":["svc-a"],"allowed_trust_domains":["example.org"],"scope_must_narrow":true,"clock_now_epoch_seconds":1700000100},"subject_claims":{"sub":"spiffe://example.org/ns/prod/sa/api","aud":["svc-a"],"iat":1700000000,"exp":1700003000,"scope":"read write"},"exchanged_claims":{"sub":"spiffe://example.org/ns/prod/sa/db","aud":["svc-a"],"iat":1700000050,"exp":1700001050,"scope":"read","act":{"sub":"spiffe://example.org/ns/prod/sa/api"}}},"output_example":{"verdict":"WITHIN_POLICY","refusal_codes":[],"outside_findings":[],"indeterminate_findings":[],"exchange_checked":true,"signature_verified":false,"warnings":[]},"example_execution_hash":"51e301e0dd8f647a395038e6ee3790b0c5be25b7d742b92e2c7f9dc434c62bf4","output_schema":{"type":"object","properties":{"verdict":{"type":"string","description":"WITHIN_POLICY, OUTSIDE_POLICY, INDETERMINATE or INPUT_REFUSED."},"refusal_codes":{"type":"array","description":"Named codes for refused input shapes; empty otherwise."},"outside_findings":{"type":"array"},"indeterminate_findings":{"type":"array"},"exchange_checked":{"type":"boolean"},"signature_verified":{"type":"boolean"},"warnings":{"type":"array"}}}};
+function toggleMfst(){
+  var body = document.getElementById('manifest'), arrow = document.getElementById('mfstArrow'), btn = document.getElementById('mfstToggle');
+  var open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  arrow.innerHTML = open ? '&#9660;' : '&#9650;';
+  btn.setAttribute('aria-expanded', String(!open));
+  if (!open && !document.getElementById('mfstCode').textContent) document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+}
+document.getElementById('wi_run').addEventListener('click', function () {
+  var v = document.getElementById('wi_verdict');
+  var o = document.getElementById('wi_out');
+  var pp;
+  try { pp = JSON.parse(document.getElementById('wi_input').value); }
+  catch (e) { v.textContent = 'INPUT_REFUSED: not valid JSON'; o.textContent = ''; return; }
+  var r = compute(pp);
+  v.textContent = r.output_payload.verdict;
+  o.textContent = JSON.stringify(r.output_payload, null, 2);
+});
+</script>
+</body>
+</html>
