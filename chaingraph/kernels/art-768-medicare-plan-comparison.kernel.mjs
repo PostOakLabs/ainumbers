@@ -499,13 +499,18 @@ function resolveConstants(pp) {
     C[name] = v;
   };
 
-  takeTierArray('part_b_premium_by_irmaa_tier_usd', own(pp, 'part_b_premium_by_irmaa_tier_usd'));
-  takeTierArray('part_d_irmaa_surcharge_by_tier_usd', own(pp, 'part_d_irmaa_surcharge_by_tier_usd'));
-  for (const name of ['part_b_deductible_usd', 'part_a_deductible_usd', 'part_a_days_61_to_90_coinsurance_usd',
-    'part_a_lifetime_reserve_coinsurance_usd', 'part_d_max_deductible_usd', 'part_d_out_of_pocket_cap_usd',
-    'plan_n_office_visit_copay_usd', 'high_deductible_plan_g_deductible_usd']) {
-    takeNumber(name, own(pp, name));
-  }
+  // pp is a plain object here and unknown keys are refused by validate(), so a constant-name read
+  // can only see an own member.
+  takeTierArray('part_b_premium_by_irmaa_tier_usd', pp.part_b_premium_by_irmaa_tier_usd);
+  takeTierArray('part_d_irmaa_surcharge_by_tier_usd', pp.part_d_irmaa_surcharge_by_tier_usd);
+  takeNumber('part_b_deductible_usd', pp.part_b_deductible_usd);
+  takeNumber('part_a_deductible_usd', pp.part_a_deductible_usd);
+  takeNumber('part_a_days_61_to_90_coinsurance_usd', pp.part_a_days_61_to_90_coinsurance_usd);
+  takeNumber('part_a_lifetime_reserve_coinsurance_usd', pp.part_a_lifetime_reserve_coinsurance_usd);
+  takeNumber('part_d_max_deductible_usd', pp.part_d_max_deductible_usd);
+  takeNumber('part_d_out_of_pocket_cap_usd', pp.part_d_out_of_pocket_cap_usd);
+  takeNumber('plan_n_office_visit_copay_usd', pp.plan_n_office_visit_copay_usd);
+  takeNumber('high_deductible_plan_g_deductible_usd', pp.high_deductible_plan_g_deductible_usd);
 
   return { C, overrides, errors };
 }

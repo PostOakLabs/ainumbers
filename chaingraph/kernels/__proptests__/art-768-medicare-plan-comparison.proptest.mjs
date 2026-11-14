@@ -3,7 +3,7 @@
 // (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES PASS-PENDING-XV
 // 2026-10-18; builder-verifies-at-land: all payload vectors re-executed through the
 // landed kernel compute() with zero mismatches, 2026-11-13).
-// kernel_digest_at_authoring: sha256:08cdd18ffabe5fb17b6919f0eb636de99e010cbb3070ebd2f1fdb30da4b4a396
+// kernel_digest_at_authoring: sha256:803cd25278c1e101175204b9fda2fc474859e9e78aaf2ba4f7cdfe43d5d18dda
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.
