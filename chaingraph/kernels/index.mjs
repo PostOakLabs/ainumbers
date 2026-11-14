@@ -675,6 +675,7 @@ import * as art75     from './art-75-eugb-factsheet-validator.kernel.mjs';
 import * as art750    from './art-750-diff-evidence-bundles.kernel.mjs';
 import * as art751    from './art-751-sha256-hmac-digest-demonstrator.kernel.mjs';
 import * as art752    from './art-752-freelance-quarterly-estimated-tax.kernel.mjs';
+import * as art753    from './art-753-home-office-augusta.kernel.mjs';
 import * as art754    from './art-754-equity-exit-waterfall.kernel.mjs';
 import * as art756    from './art-756-sales-ote-commission-analyzer.kernel.mjs';
 import * as art758    from './art-758-hdhp-ppo-break-even.kernel.mjs';
@@ -1434,6 +1435,7 @@ export const KERNELS = {
   'art-750-diff-evidence-bundles':                              art750,
   'art-751-sha256-hmac-digest-demonstrator':                    art751,
   'art-752-freelance-quarterly-estimated-tax':                  art752,
+  'art-753-home-office-augusta':                                art753,
   'art-754-equity-exit-waterfall':                              art754,
   'art-756-sales-ote-commission-analyzer':                      art756,
   'art-758-hdhp-ppo-break-even':                                art758,
