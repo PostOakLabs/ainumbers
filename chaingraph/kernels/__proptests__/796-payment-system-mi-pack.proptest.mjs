@@ -1,12 +1,12 @@
 // 796-payment-system-mi-pack — class-K property-test FLOOR.
 //
 // CLASS K — the declared domain is bounded (aggregate scalars only, closed
-// four-value profile set, closed three-refusal set enumerated in the sibling
+// four-value profile set, closed refusal set enumerated in the sibling
 // reachability fixtures), but the declared VALUES axis is continuous, so no
 // totality claim is made over it. Properties below run over a committed
 // mulberry32 seed (deterministic) plus a fixed corpus of structural cases.
 //
-// kernel_digest_at_authoring: sha256:061df5f33af21145fa2b3107299b6a46a8b2621972a6336502360a045ca850a0
+// kernel_digest_at_authoring: sha256:1edf9b8af2109b7ec5315e78771f357eec4d214173dc49d38dcf19afd07d5f49
 // spec: PAYMENT-SYSTEM-MI-PACK-1 — compute a payment system's management-information
 //   pack (speed, availability, failure, fraud, complaints, adoption, cost,
 //   transparency KPIs) from declared aggregate counts, against the pinned FSB
@@ -21,7 +21,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { compute } from '../796-payment-system-mi-pack.kernel.mjs';
+import { compute, buildArtifact } from '../796-payment-system-mi-pack.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32 } from './_pbt-common.mjs';
 
 const KERNEL_ID = '796-payment-system-mi-pack';
@@ -29,12 +29,15 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = JSON.parse(
   fs.readFileSync(path.join(HERE, '..', 'fixtures', KERNEL_ID + '.fixtures.json'), 'utf8'),
 );
+const REACH = JSON.parse(
+  fs.readFileSync(path.join(HERE, '..', 'fixtures', KERNEL_ID + '.reachability.json'), 'utf8'),
+);
 
 const SEED = 20261031;
 const N = 200;
 
 const PROFILES = ['generic', 'g20_retail', 'fast_payment_scheme', 'gov_payments'];
-const REASON_CODES = new Set(['NOT_DECLARED', 'ZERO_DENOMINATOR', 'NEGATIVE_INPUT', 'MISSING_DENOMINATOR']);
+const REASON_CODES = new Set(['NOT_DECLARED', 'ZERO_DENOMINATOR', 'NEGATIVE_INPUT', 'MISSING_DENOMINATOR', 'IMPOSSIBLE_INPUT']);
 
 // Closed output vocabulary per KPI: unit and definition_ref are fixed per kpi_id
 // across every branch (value, null-with-reason, refusal). Asserted exactly.
@@ -351,13 +354,15 @@ function checkBranchCensus() {
   out = compute({ profile: 'generic', transactions: { count: 100 }, availability: { scheduled_minutes: 100 } });
   expectReason(out, 'availability_pct', 'NOT_DECLARED');
 
-  // zero complaints denominator; non-finite resolved value is NOT_DECLARED, never a NaN output
+  // zero complaints denominator; a non-finite declared value is refused at
+  // entry (I-JSON scan), never read as a missing value, never a NaN output
   checked++;
   out = compute({ profile: 'generic', transactions: { count: 100 }, complaints: { received: 0, resolved_within_sla: 0 } });
   expectReason(out, 'complaints_resolution_pct', 'ZERO_DENOMINATOR');
   checked++;
   out = compute({ profile: 'generic', transactions: { count: 100 }, complaints: { received: 5, resolved_within_sla: NaN } });
-  expectReason(out, 'complaints_resolution_pct', 'NOT_DECLARED');
+  if (out.output_payload.verdict !== 'refused' || out.output_payload.refused_because !== 'non_finite_number_in_declared_field') violations++;
+  if (out.compliance_flags.indexOf('IJSON_UNSAFE_INPUT_REFUSED') === -1) violations++;
 
   // zero transparency / adoption denominators
   checked++;
@@ -425,18 +430,188 @@ function checkBranchCensus() {
   if (out.output_payload.data_quality.length !== 1 || out.output_payload.data_quality[0].flag !== 'PRIOR_PERIOD_NOT_COMPUTABLE' || JSON.stringify(out.output_payload.data_quality[0].detail) !== '{}') violations++;
   if (JSON.stringify(out.output_payload.deltas) !== '[]') violations++;
 
-  // period echo: object echoed with only start/end (falsy members nulled); non-object -> null
+  // period echo: object echoed with only start/end (falsy members nulled);
+  // a wrong-typed member or a non-object period is a REFUSAL (D4/D6), never a
+  // silent null
   checked++;
   out = compute({ profile: 'generic', transactions: { count: 100 }, period: { start: '2026-01-01', end: '2026-03-31' } });
   if (JSON.stringify(out.output_payload.period) !== '{"start":"2026-01-01","end":"2026-03-31"}') violations++;
   checked++;
-  out = compute({ profile: 'generic', transactions: { count: 100 }, period: { start: '', end: 0 } });
+  out = compute({ profile: 'generic', transactions: { count: 100 }, period: { start: '', end: '' } });
   if (JSON.stringify(out.output_payload.period) !== '{"start":null,"end":null}') violations++;
   checked++;
+  out = compute({ profile: 'generic', transactions: { count: 100 }, period: { start: '', end: 0 } });
+  if (out.output_payload.verdict !== 'refused' || out.output_payload.refused_because !== 'period_member_wrong_type' || out.output_payload.refused_field !== 'period.end') violations++;
+  checked++;
   out = compute({ profile: 'generic', transactions: { count: 100 }, period: 'x' });
-  if (out.output_payload.period !== null) violations++;
+  if (out.output_payload.verdict !== 'refused' || out.output_payload.refused_because !== 'period_wrong_type') violations++;
 
   return { name: 'P9_branch_census_reasons_units_paths_period', checked, violations };
+}
+
+/** P10 I-JSON ENTRY REFUSAL (D1): any value the shared canonicalizer would reject
+ *  (unsafe integer, non-finite number) is refused at entry with a per-class
+ *  because code and a dotted refused_field path, wherever it sits in the declared
+ *  input (declared field, container entry, prior_period, undeclared extra key);
+ *  buildArtifact() then returns a refused artifact with a null execution_hash
+ *  instead of throwing, and a well-formed input still hashes. */
+async function checkIjsonRefusals() {
+  let checked = 0, violations = 0;
+  const unsafe = 9007199254740992; // 2^53, the first unsafe integer
+  const cases = [
+    [{ profile: 'generic', transactions: { count: unsafe } }, 'policy_parameters.transactions.count', 'unsafe_integer_in_declared_field'],
+    [{ profile: 'generic', transactions: { count: 10 }, fraud: { count: 1, value: 1152921504606846976 } }, 'policy_parameters.fraud.value', 'unsafe_integer_in_declared_field'],
+    [{ profile: 'generic', transactions: { count: 10, by_channel: [{ channel: 'web', count: 5, value: 18014398509481984 }] } }, 'policy_parameters.transactions.by_channel[0].value', 'unsafe_integer_in_declared_field'],
+    [{ profile: 'generic', transactions: { count: 10 }, prior_period: { transactions: { count: unsafe } } }, 'policy_parameters.prior_period.transactions.count', 'unsafe_integer_in_declared_field'],
+    [{ profile: 'generic', transactions: { count: 10 }, notes_from_caller: { tally: unsafe } }, 'policy_parameters.notes_from_caller.tally', 'unsafe_integer_in_declared_field'],
+    [{ profile: 'generic', transactions: { count: 10 }, complaints: { received: 5, resolved_within_sla: Infinity } }, 'policy_parameters.complaints.resolved_within_sla', 'non_finite_number_in_declared_field'],
+  ];
+  for (const [pp, field, because] of cases) {
+    checked++;
+    const { output_payload, compliance_flags } = compute(pp);
+    if (output_payload.verdict !== 'refused' || output_payload.refused_because !== because) violations++;
+    if (compliance_flags.indexOf('IJSON_UNSAFE_INPUT_REFUSED') === -1) violations++;
+    if (output_payload.refused_field !== field) violations++;
+  }
+  // the artifact path never throws on the refused class: refusal echoed, null hash
+  checked++;
+  const art = await buildArtifact({ profile: 'generic', transactions: { count: unsafe } }, {});
+  if (!art.output_payload || art.output_payload.verdict !== 'refused') violations++;
+  if (art.execution_hash !== null) violations++;
+  // the guard never weakens the happy path: a well-formed input still hashes
+  checked++;
+  const okArt = await buildArtifact({ profile: 'generic', transactions: { count: 10 } }, {});
+  if (typeof okArt.execution_hash !== 'string' || !/^[0-9a-f]{64}$/.test(okArt.execution_hash)) violations++;
+  return { name: 'P10_ijson_entry_refusal_and_null_hash_artifact', checked, violations };
+}
+
+/** P11 CONTAINER REFUSALS (D2/D3): by_channel / failures present but not an
+ *  array, or an entry that is not an object, has a non-integer or non-safe
+ *  count, or a non-number value, refuse with a named flag and the offending
+ *  entry path; well-typed entries still compute. */
+function checkContainerRefusals() {
+  let checked = 0, violations = 0;
+  const cases = [
+    [{ profile: 'generic', transactions: { count: 10, by_channel: 'x' } }, 'BY_CHANNEL_MALFORMED_REFUSED', 'by_channel_not_an_array', 'transactions.by_channel'],
+    [{ profile: 'generic', transactions: { count: 10, by_channel: [{ channel: 'web', count: '600', value: 1 }] } }, 'BY_CHANNEL_MALFORMED_REFUSED', 'malformed_channel_entry', 'by_channel[0].count'],
+    [{ profile: 'generic', transactions: { count: 10, by_channel: [{ channel: 'web', count: 5, value: '3000' }] } }, 'BY_CHANNEL_MALFORMED_REFUSED', 'malformed_channel_entry', 'by_channel[0].value'],
+    [{ profile: 'generic', transactions: { count: 10, by_channel: [{ channel: 'web', count: 1.5, value: 1 }] } }, 'BY_CHANNEL_MALFORMED_REFUSED', 'malformed_channel_entry', 'by_channel[0].count'],
+    [{ profile: 'generic', transactions: { count: 10, by_channel: ['web'] } }, 'BY_CHANNEL_MALFORMED_REFUSED', 'malformed_channel_entry', 'by_channel[0]'],
+    [{ profile: 'generic', transactions: { count: 10 }, failures: 'x' }, 'FAILURES_MALFORMED_REFUSED', 'failures_not_an_array', 'failures'],
+    [{ profile: 'generic', transactions: { count: 10 }, failures: [{ reason_class: 'timeout', count: '5' }] }, 'FAILURES_MALFORMED_REFUSED', 'malformed_failure_entry', 'failures[0].count'],
+    [{ profile: 'generic', transactions: { count: 10 }, failures: [{ reason_class: 'timeout', count: 3, value: false }] }, 'FAILURES_MALFORMED_REFUSED', 'malformed_failure_entry', 'failures[0].value'],
+    [{ profile: 'generic', transactions: { count: 10 }, failures: [{ reason_class: 'timeout', count: 2.5 }] }, 'FAILURES_MALFORMED_REFUSED', 'malformed_failure_entry', 'failures[0].count'],
+  ];
+  for (const [pp, flag, because, field] of cases) {
+    checked++;
+    const { output_payload, compliance_flags } = compute(pp);
+    if (output_payload.verdict !== 'refused' || output_payload.refused_because !== because) violations++;
+    if (compliance_flags.indexOf(flag) === -1) violations++;
+    if (output_payload.refused_field !== field) violations++;
+  }
+  // control: well-typed entries still compute (5 failures per 100 transactions = 500 bps)
+  checked++;
+  const out = compute({ profile: 'generic', transactions: { count: 100 }, failures: [{ reason_class: 'timeout', count: 5 }], by_channel: [{ channel: 'web', count: 100, value: 50 }] });
+  const fr = out.output_payload.kpis.find((k) => k.kpi_id === 'failure_rate_bps');
+  if (out.output_payload.verdict !== 'completed' || !fr || fr.value !== 500) violations++;
+  if (out.output_payload.data_quality.length !== 0) violations++;
+  return { name: 'P11_container_refusals_by_channel_and_failures', checked, violations };
+}
+
+/** P12 PERIOD VALIDATION (D4/D6): wrong-typed period / prior_period and dates
+ *  that are not real calendar dates (day past the month length, month outside
+ *  1-12, Feb 29 on a non-leap year, non-zero-padded shape) refuse with the
+ *  offending member named; real dates, including Feb 29 on a leap year, pass
+ *  and echo. */
+function checkPeriodDates() {
+  let checked = 0, violations = 0;
+  const cases = [
+    [{ period: 'x' }, 'PERIOD_MALFORMED_REFUSED', 'period_wrong_type', 'period'],
+    [{ period: { start: '2026-02-31', end: '2026-03-31' } }, 'PERIOD_MALFORMED_REFUSED', 'period_date_not_a_real_calendar_date', 'period.start'],
+    [{ period: { start: '2026-01-01', end: '2026-13-45' } }, 'PERIOD_MALFORMED_REFUSED', 'period_date_not_a_real_calendar_date', 'period.end'],
+    [{ period: { start: '2026-02-29' } }, 'PERIOD_MALFORMED_REFUSED', 'period_date_not_a_real_calendar_date', 'period.start'],
+    [{ period: { start: '2026-4-05' } }, 'PERIOD_MALFORMED_REFUSED', 'period_date_not_a_real_calendar_date', 'period.start'],
+    [{ period: { start: 20260101 } }, 'PERIOD_MALFORMED_REFUSED', 'period_member_wrong_type', 'period.start'],
+    [{ prior_period: 'x' }, 'PRIOR_PERIOD_MALFORMED_REFUSED', 'prior_period_wrong_type', 'prior_period'],
+    [{ prior_period: ['2026-01-01'] }, 'PRIOR_PERIOD_MALFORMED_REFUSED', 'prior_period_wrong_type', 'prior_period'],
+  ];
+  for (const [extra, flag, because, field] of cases) {
+    checked++;
+    const { output_payload, compliance_flags } = compute(Object.assign({ profile: 'generic', transactions: { count: 10 } }, extra));
+    if (output_payload.verdict !== 'refused' || output_payload.refused_because !== because) violations++;
+    if (compliance_flags.indexOf(flag) === -1) violations++;
+    if (output_payload.refused_field !== field) violations++;
+  }
+  // controls: real calendar dates pass and echo, leap-year aware
+  const okCases = [
+    [{ period: { start: '2024-02-29', end: '2026-12-31' } }, '{"start":"2024-02-29","end":"2026-12-31"}'],
+    [{ period: { start: '2023-02-28', end: '2026-11-30' } }, '{"start":"2023-02-28","end":"2026-11-30"}'],
+    [{ period: { start: '2026-01-01' } }, '{"start":"2026-01-01","end":null}'],
+  ];
+  for (const [extra, echo] of okCases) {
+    checked++;
+    const { output_payload } = compute(Object.assign({ profile: 'generic', transactions: { count: 10 } }, extra));
+    if (output_payload.verdict !== 'completed' || JSON.stringify(output_payload.period) !== echo) violations++;
+  }
+  return { name: 'P12_period_and_prior_period_real_calendar_dates', checked, violations };
+}
+
+/** P13 IMPOSSIBLE-KPI FLAGS (D5): impossible declared relations (a part above
+ *  its whole) and fractional declared count fields raise a named data-quality
+ *  flag mirrored into compliance_flags, null the affected KPI with
+ *  IMPOSSIBLE_INPUT, and demand manual review; zero-denominator inputs keep
+ *  ZERO_DENOMINATOR; valid relations still compute a value. */
+function checkImpossibleRelations() {
+  let checked = 0, violations = 0;
+  const cases = [
+    [{ availability: { scheduled_minutes: 10000, unplanned_downtime_minutes: 11574 } }, 'DOWNTIME_ABOVE_SCHEDULED_MINUTES', 'availability_pct'],
+    [{ complaints: { received: 100, resolved_within_sla: 150 } }, 'COMPLAINTS_RESOLVED_ABOVE_RECEIVED', 'complaints_resolution_pct'],
+    [{ adoption: { active_users: 2000000, eligible_population: 1000000 } }, 'ADOPTION_ACTIVE_USERS_ABOVE_ELIGIBLE', 'adoption_users_per_1000_eligible'],
+    [{ transparency: { services_disclosing_cost_and_speed: 12, services_total: 10 } }, 'TRANSPARENCY_DISCLOSING_ABOVE_TOTAL', 'transparency_disclosure_pct'],
+    [{ availability: { scheduled_minutes: 1.5, unplanned_downtime_minutes: 60 } }, 'FRACTIONAL_DECLARED_COUNT', 'availability_pct'],
+  ];
+  for (const [extra, flag, kpiId] of cases) {
+    checked++;
+    const { output_payload, compliance_flags } = compute(Object.assign({ profile: 'generic', transactions: { count: 1000 } }, extra));
+    if (output_payload.verdict !== 'completed') violations++;
+    if (!output_payload.data_quality.some((d) => d.flag === flag)) violations++;
+    if (compliance_flags.indexOf(flag) === -1) violations++;
+    if (!output_payload.manual_review_required) violations++;
+    const k = output_payload.kpis.find((x) => x.kpi_id === kpiId);
+    if (!k || k.value !== null || k.reason_code !== 'IMPOSSIBLE_INPUT') violations++;
+  }
+  // controls: zero denominators keep ZERO_DENOMINATOR (never the impossible flag)
+  checked++;
+  let out = compute({ profile: 'generic', transactions: { count: 100 }, adoption: { active_users: 5, eligible_population: 0 } });
+  if (!out.output_payload.kpis.find((k) => k.kpi_id === 'adoption_users_per_1000_eligible' && k.reason_code === 'ZERO_DENOMINATOR')) violations++;
+  if (out.compliance_flags.indexOf('ADOPTION_ACTIVE_USERS_ABOVE_ELIGIBLE') !== -1) violations++;
+  checked++;
+  out = compute({ profile: 'generic', transactions: { count: 100 }, transparency: { services_disclosing_cost_and_speed: 0, services_total: 0 } });
+  if (!out.output_payload.kpis.find((k) => k.kpi_id === 'transparency_disclosure_pct' && k.reason_code === 'ZERO_DENOMINATOR')) violations++;
+  // control: valid relations still compute a value with no flag
+  checked++;
+  out = compute({ profile: 'generic', transactions: { count: 100 }, complaints: { received: 100, resolved_within_sla: 90 }, availability: { scheduled_minutes: 43200, unplanned_downtime_minutes: 60 } });
+  if (out.output_payload.data_quality.length !== 0 || out.output_payload.manual_review_required) violations++;
+  if (!out.output_payload.kpis.every((k) => k.value !== null || k.reason_code === 'NOT_DECLARED')) violations++;
+  return { name: 'P13_impossible_relations_flagged_kpi_null_with_reason', checked, violations };
+}
+
+/** P14 COMMITTED REACHABILITY VECTORS REFIRE: every refusal path recorded in
+ *  the sibling reachability fixtures fires today with the observed flags,
+ *  because and field (the corpus is evidence, not history). */
+function checkReachabilityRefire() {
+  let checked = 0, violations = 0;
+  for (const v of REACH.vectors) {
+    checked++;
+    const { output_payload, compliance_flags } = compute(v.policy_parameters);
+    if (output_payload.verdict !== v.observed.verdict) violations++;
+    if (output_payload.refused_because !== v.observed.refused_because) violations++;
+    const field = output_payload.refused_field === undefined ? null : output_payload.refused_field;
+    if (field !== v.observed.refused_field) violations++;
+    if (output_payload.manual_review_required !== v.observed.manual_review_required) violations++;
+    for (const f of v.observed_flags) if (compliance_flags.indexOf(f) === -1) violations++;
+  }
+  return { name: 'P14_committed_reachability_vectors_refire', checked, violations };
 }
 
 // ---------- run ----------
@@ -447,6 +622,7 @@ try {
   oracle = { total: 1, failures: [{ name: 'fixture-oracle-load', expected: '(golden vectors match compute())', got: String((e && e.message) || e) }] };
 }
 const rng = mulberry32(SEED);
+const p10 = await checkIjsonRefusals(); // top-level await: P10 exercises the async artifact path
 const properties = [
   checkDeterminism(rng),
   checkShapeAndRounding(rng),
@@ -457,6 +633,11 @@ const properties = [
   checkProfileTargets(),
   checkRefusalFieldSweep(),
   checkBranchCensus(),
+  p10,
+  checkContainerRefusals(),
+  checkPeriodDates(),
+  checkImpossibleRelations(),
+  checkReachabilityRefire(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — seed ${SEED}.`);
 const ok = summarize(KERNEL_ID, oracle, properties);

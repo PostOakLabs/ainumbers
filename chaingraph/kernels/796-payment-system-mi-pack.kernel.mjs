@@ -17,17 +17,24 @@ export const meta = {
 // METHOD:
 //   1. Validate the declared shape. The profile must be one of the closed
 //      four-value set. Every declared numeric field must be numeric; declared
-//      count fields must be non-negative integers.
+//      count fields must be non-negative integers. by_channel and failures
+//      must be arrays of well-typed entries; period and prior_period must be
+//      objects whose non-empty members are real YYYY-MM-DD calendar dates.
 //   2. Compute each KPI from the aggregates in basis-point arithmetic. ONE
 //      rounding rule everywhere: round half-up at the final step only, to
 //      integer basis points; percent values are basis points divided by 100
 //      (2 decimal places).
 //   3. A KPI whose inputs are missing is null with a reason code
-//      (NOT_DECLARED / ZERO_DENOMINATOR / NEGATIVE_INPUT / MISSING_DENOMINATOR)
-//      -- never zero.
+//      (NOT_DECLARED / ZERO_DENOMINATOR / NEGATIVE_INPUT / MISSING_DENOMINATOR
+//      / IMPOSSIBLE_INPUT) -- never zero, and never an impossible value: a
+//      part above its whole (downtime above scheduled minutes, resolved above
+//      received, active users above the eligible population, disclosing
+//      services above total services) or a fractional declared count field is
+//      flagged and the affected KPI is null with IMPOSSIBLE_INPUT.
 //   4. Data-quality flags: channel totals that do not sum to the declared
 //      total; a credited-within-one-hour (or one-business-day) count above the
-//      transaction total; negative declared values.
+//      transaction total; negative declared values; fractional declared count
+//      fields; impossible declared relations (a part above its whole).
 //   5. Where prior_period is declared, emit absolute and percentage deltas for
 //      every KPI that is non-null on both sides.
 //
@@ -38,6 +45,21 @@ export const meta = {
 //     rate denominates on it).
 //   - a string value in a declared numeric field: refused (identifier-like or
 //     free text by construction; never echoed).
+//   - any value the shared canonicalizer would reject (an unsafe integer
+//     beyond 2^53, a non-finite number, an unsupported type, a structure past
+//     the canonicalizer's own depth bound, or more values than its element
+//     bound): refused at entry with one stable code per class, so the
+//     artifact path never fails mid-build (the shared _hash.mjs stays
+//     untouched; a refused input never claims an execution_hash over input
+//     the canonicalizer rejects).
+//   - by_channel or failures present but not an array, or an entry that is
+//     not an object, whose count is not a non-negative integer, or whose
+//     value is not a finite number: refused (never silently skipped or
+//     reconciled around).
+//   - period or prior_period present but not an object, a non-string
+//     non-empty member, or a member that is not a real calendar date
+//     (month 1-12, day within the month, leap-year aware): refused (never
+//     silently ignored, never echoed).
 //
 // Domain exclusions (declared, not computed): aggregate counts only -- no
 // transaction-level records, no personal data, no interpolation or
@@ -65,6 +87,70 @@ function firstStringField(obj, fields) {
   for (let i = 0; i < fields.length; i++) {
     const f = fields[i];
     if (typeof obj[f] === 'string') return f;
+  }
+  return null;
+}
+
+// Strict real-calendar-date check (pure arithmetic, no Date object per the
+// ECMA-262-only rule below): exactly YYYY-MM-DD, month 1-12, day within the
+// real month length for that year, leap-year aware.
+function isRealCalendarDate(s) {
+  if (typeof s !== 'string' || s.length !== 10 || s.charAt(4) !== '-' || s.charAt(7) !== '-') return false;
+  for (let i = 0; i < 10; i++) {
+    if (i === 4 || i === 7) continue;
+    const c = s.charCodeAt(i);
+    if (c < 48 || c > 57) return false;
+  }
+  const y = Number(s.slice(0, 4));
+  const mo = Number(s.slice(5, 7));
+  const d = Number(s.slice(8, 10));
+  if (mo < 1 || mo > 12 || d < 1) return false;
+  const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  const dim = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return d <= dim[mo - 1];
+}
+
+// D4/D6: a declared period must be an object whose non-empty members are real
+// calendar dates; anything else (wrong type, non-string member, impossible
+// date) is a named violation, never a silently-ignored or echoed value.
+function periodViolation(prefix, pv) {
+  if (pv === undefined || pv === null) return null;
+  if (typeof pv !== 'object' || Array.isArray(pv)) return { field: prefix, because: prefix + '_wrong_type' };
+  const members = ['start', 'end'];
+  for (let i = 0; i < members.length; i++) {
+    const m = pv[members[i]];
+    if (m === undefined || m === null || m === '') continue; // absent or empty echoes as null
+    if (typeof m !== 'string') return { field: prefix + '.' + members[i], because: prefix + '_member_wrong_type' };
+    if (!isRealCalendarDate(m)) return { field: prefix + '.' + members[i], because: prefix + '_date_not_a_real_calendar_date' };
+  }
+  return null;
+}
+
+// I-JSON refusal scan: anything the shared canonicalizer (_hash.mjs) would
+// REJECT -- an unsafe integer beyond 2^53, a non-finite number, a bigint, a
+// structure deeper than the canonicalizer's own depth bound, or more values
+// than its element bound -- is refused here, at compute() entry, with one
+// stable code per class, so buildArtifact() never fails mid-build on declared
+// input it cannot hash. Mirrors the canonicalizer's own MAX_DEPTH (512) and
+// MAX_ELEMENTS (1000000); the depth bound also terminates cyclic input.
+const SCAN_DEPTH_MAX = 512;
+const SCAN_ELEMENTS_MAX = 1000000;
+function ijsonViolation(v, path, depth, counter) {
+  if (depth > SCAN_DEPTH_MAX) return { path: path, because: 'input_structure_too_deep' };
+  if (++counter.n > SCAN_ELEMENTS_MAX) return { path: path, because: 'input_too_many_values' };
+  const t = typeof v;
+  if (t === 'number') {
+    if (!Number.isFinite(v)) return { path: path, because: 'non_finite_number_in_declared_field' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { path: path, because: 'unsafe_integer_in_declared_field' };
+  } else if (t === 'bigint') {
+    return { path: path, because: 'unsupported_value_type_in_declared_field' };
+  } else if (v !== null && t === 'object') {
+    const keys = Object.keys(v);
+    for (let i = 0; i < keys.length; i++) {
+      const seg = Array.isArray(v) ? '[' + i + ']' : '.' + keys[i];
+      const hit = ijsonViolation(v[keys[i]], path + seg, depth + 1, counter);
+      if (hit) return hit;
+    }
   }
   return null;
 }
@@ -124,7 +210,59 @@ export function compute(pp) {
     return refused('identifier_or_free_text_value_in_declared_field', null, compliance_flags, refusalField);
   }
 
-  // -- Refusal 3: transactions.count must be a non-negative integer.
+  // -- Refusal 3: anything the shared canonicalizer would reject (unsafe
+  //    integers, non-finite numbers, unsupported types, runaway depth) is
+  //    refused at entry; the artifact path hashes the declared input as-is.
+  const ijsonHit = ijsonViolation(pp, 'policy_parameters', 1, { n: 0 });
+  if (ijsonHit) {
+    compliance_flags.push('IJSON_UNSAFE_INPUT_REFUSED');
+    return refused(ijsonHit.because, null, compliance_flags, ijsonHit.path);
+  }
+
+  // -- Refusal 4: by_channel present but not an array, or a malformed entry.
+  if (tx.by_channel !== undefined && tx.by_channel !== null && !Array.isArray(tx.by_channel)) {
+    compliance_flags.push('BY_CHANNEL_MALFORMED_REFUSED');
+    return refused('by_channel_not_an_array', null, compliance_flags, 'transactions.by_channel');
+  }
+  const channelList = Array.isArray(tx.by_channel) ? tx.by_channel : [];
+  for (let ci = 0; ci < channelList.length; ci++) {
+    const che = channelList[ci];
+    let badEntry = null;
+    if (!che || typeof che !== 'object' || Array.isArray(che)) badEntry = 'by_channel[' + ci + ']';
+    else if (!isCount(che.count)) badEntry = 'by_channel[' + ci + '].count';
+    else if (che.value !== undefined && che.value !== null && (typeof che.value !== 'number' || !Number.isFinite(che.value))) badEntry = 'by_channel[' + ci + '].value';
+    if (badEntry) {
+      compliance_flags.push('BY_CHANNEL_MALFORMED_REFUSED');
+      return refused('malformed_channel_entry', null, compliance_flags, badEntry);
+    }
+  }
+
+  // -- Refusal 5: failures present but not an array, or a malformed entry.
+  if (pp.failures !== undefined && pp.failures !== null && !Array.isArray(pp.failures)) {
+    compliance_flags.push('FAILURES_MALFORMED_REFUSED');
+    return refused('failures_not_an_array', null, compliance_flags, 'failures');
+  }
+  const failureList = Array.isArray(pp.failures) ? pp.failures : [];
+  for (let fi = 0; fi < failureList.length; fi++) {
+    const fe = failureList[fi];
+    let badEntry = null;
+    if (!fe || typeof fe !== 'object' || Array.isArray(fe)) badEntry = 'failures[' + fi + ']';
+    else if (!isCount(fe.count)) badEntry = 'failures[' + fi + '].count';
+    else if (fe.value !== undefined && fe.value !== null && (typeof fe.value !== 'number' || !Number.isFinite(fe.value))) badEntry = 'failures[' + fi + '].value';
+    if (badEntry) {
+      compliance_flags.push('FAILURES_MALFORMED_REFUSED');
+      return refused('malformed_failure_entry', null, compliance_flags, badEntry);
+    }
+  }
+
+  // -- Refusal 6: period / prior_period wrong-typed or impossible dates.
+  const periodHit = periodViolation('period', pp.period) || periodViolation('prior_period', pp.prior_period);
+  if (periodHit) {
+    compliance_flags.push(periodHit.field.indexOf('prior_period') === 0 ? 'PRIOR_PERIOD_MALFORMED_REFUSED' : 'PERIOD_MALFORMED_REFUSED');
+    return refused(periodHit.because, null, compliance_flags, periodHit.field);
+  }
+
+  // -- Refusal 7: transactions.count must be a non-negative integer.
   if (!isCount(tx.count)) {
     compliance_flags.push('TRANSACTION_TOTAL_MISSING_OR_INVALID_REFUSED');
     return refused('transactions_count_missing_or_not_nonnegative_integer', null, compliance_flags);
@@ -201,6 +339,52 @@ export function compute(pp) {
   const neg = {};
   for (let i = 0; i < negatives.length; i++) neg[negatives[i]] = true;
 
+  // -- Data quality: fractional declared count fields (METHOD 1: declared
+  //    count fields must be non-negative integers) and impossible declared
+  //    relations (a part above its whole). Each raises a named flag; the KPIs
+  //    they make impossible are null with reason IMPOSSIBLE_INPUT, never an
+  //    impossible value.
+  const fractional = [];
+  function fracBad(v) {
+    return typeof v === 'number' && Number.isFinite(v) && !Number.isInteger(v);
+  }
+  function fracTrack(section, field, v) {
+    if (fracBad(v)) fractional.push(section + '.' + field);
+  }
+  fracTrack('availability', 'scheduled_minutes', avail.scheduled_minutes);
+  fracTrack('availability', 'unplanned_downtime_minutes', avail.unplanned_downtime_minutes);
+  fracTrack('availability', 'incidents', avail.incidents);
+  if (fractional.length > 0) {
+    dq.push({ flag: 'FRACTIONAL_DECLARED_COUNT', detail: { fields: fractional } });
+    compliance_flags.push('FRACTIONAL_DECLARED_COUNT');
+  }
+  const fracAvail = fracBad(avail.scheduled_minutes) || fracBad(avail.unplanned_downtime_minutes);
+
+  let downtimeAboveScheduled = false;
+  if (isCount(avail.scheduled_minutes) && avail.scheduled_minutes > 0 && isCount(avail.unplanned_downtime_minutes) && avail.unplanned_downtime_minutes > avail.scheduled_minutes) {
+    downtimeAboveScheduled = true;
+    dq.push({ flag: 'DOWNTIME_ABOVE_SCHEDULED_MINUTES', detail: { unplanned_downtime_minutes: avail.unplanned_downtime_minutes, scheduled_minutes: avail.scheduled_minutes } });
+    compliance_flags.push('DOWNTIME_ABOVE_SCHEDULED_MINUTES');
+  }
+  let resolvedAboveReceived = false;
+  if (isCount(complaints.received) && complaints.received > 0 && typeof complaints.resolved_within_sla === 'number' && Number.isFinite(complaints.resolved_within_sla) && complaints.resolved_within_sla > complaints.received) {
+    resolvedAboveReceived = true;
+    dq.push({ flag: 'COMPLAINTS_RESOLVED_ABOVE_RECEIVED', detail: { resolved_within_sla: complaints.resolved_within_sla, received: complaints.received } });
+    compliance_flags.push('COMPLAINTS_RESOLVED_ABOVE_RECEIVED');
+  }
+  let activeAboveEligible = false;
+  if (isCount(adoption.active_users) && isCount(adoption.eligible_population) && adoption.eligible_population > 0 && adoption.active_users > adoption.eligible_population) {
+    activeAboveEligible = true;
+    dq.push({ flag: 'ADOPTION_ACTIVE_USERS_ABOVE_ELIGIBLE', detail: { active_users: adoption.active_users, eligible_population: adoption.eligible_population } });
+    compliance_flags.push('ADOPTION_ACTIVE_USERS_ABOVE_ELIGIBLE');
+  }
+  let disclosingAboveTotal = false;
+  if (isCount(transparency.services_disclosing_cost_and_speed) && isCount(transparency.services_total) && transparency.services_total > 0 && transparency.services_disclosing_cost_and_speed > transparency.services_total) {
+    disclosingAboveTotal = true;
+    dq.push({ flag: 'TRANSPARENCY_DISCLOSING_ABOVE_TOTAL', detail: { services_disclosing_cost_and_speed: transparency.services_disclosing_cost_and_speed, services_total: transparency.services_total } });
+    compliance_flags.push('TRANSPARENCY_DISCLOSING_ABOVE_TOTAL');
+  }
+
   // -- KPI construction. value:null carries a reason_code, never zero.
   const kpis = [];
   function kpi(id, value, unit, defRef, reasonCode, target) {
@@ -263,6 +447,8 @@ export function compute(pp) {
   const down = typeof avail.unplanned_downtime_minutes === 'number' && Number.isFinite(avail.unplanned_downtime_minutes) ? avail.unplanned_downtime_minutes : null;
   if (neg['availability.scheduled_minutes'] || neg['availability.unplanned_downtime_minutes']) {
     kpi('availability_pct', null, 'percent', 'pfmi_p17_anchor_design_convention', 'NEGATIVE_INPUT', availTarget);
+  } else if (fracAvail || downtimeAboveScheduled) {
+    kpi('availability_pct', null, 'percent', 'pfmi_p17_anchor_design_convention', 'IMPOSSIBLE_INPUT', availTarget);
   } else if (sched === null || down === null) {
     kpi('availability_pct', null, 'percent', 'pfmi_p17_anchor_design_convention', 'NOT_DECLARED', availTarget);
   } else if (sched === 0) {
@@ -296,6 +482,8 @@ export function compute(pp) {
   // complaints
   if (neg['complaints.received'] || neg['complaints.resolved_within_sla']) {
     kpi('complaints_resolution_pct', null, 'percent', 'design_convention', 'NEGATIVE_INPUT');
+  } else if (resolvedAboveReceived) {
+    kpi('complaints_resolution_pct', null, 'percent', 'design_convention', 'IMPOSSIBLE_INPUT');
   } else if (!isCount(complaints.received) || typeof complaints.resolved_within_sla !== 'number' || !Number.isFinite(complaints.resolved_within_sla)) {
     kpi('complaints_resolution_pct', null, 'percent', 'design_convention', 'NOT_DECLARED');
   } else if (complaints.received === 0) {
@@ -307,6 +495,8 @@ export function compute(pp) {
   // adoption
   if (neg['adoption.active_users'] || neg['adoption.eligible_population']) {
     kpi('adoption_users_per_1000_eligible', null, 'users_per_1000_eligible', 'fsb_access_kpi_family_adapted', 'NEGATIVE_INPUT');
+  } else if (activeAboveEligible) {
+    kpi('adoption_users_per_1000_eligible', null, 'users_per_1000_eligible', 'fsb_access_kpi_family_adapted', 'IMPOSSIBLE_INPUT');
   } else if (!isCount(adoption.active_users) || !isCount(adoption.eligible_population)) {
     kpi('adoption_users_per_1000_eligible', null, 'users_per_1000_eligible', 'fsb_access_kpi_family_adapted', 'NOT_DECLARED');
   } else if (adoption.eligible_population === 0) {
@@ -325,6 +515,8 @@ export function compute(pp) {
   // transparency
   if (neg['transparency.services_disclosing_cost_and_speed'] || neg['transparency.services_total']) {
     kpi('transparency_disclosure_pct', null, 'percent', 'fsb_transparency_kpi1_adapted', 'NEGATIVE_INPUT');
+  } else if (disclosingAboveTotal) {
+    kpi('transparency_disclosure_pct', null, 'percent', 'fsb_transparency_kpi1_adapted', 'IMPOSSIBLE_INPUT');
   } else if (!isCount(transparency.services_total) || !isCount(transparency.services_disclosing_cost_and_speed)) {
     kpi('transparency_disclosure_pct', null, 'percent', 'fsb_transparency_kpi1_adapted', 'NOT_DECLARED');
   } else if (transparency.services_total === 0) {
@@ -410,7 +602,17 @@ export function compute(pp) {
 
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
+  let hash;
+  try {
+    hash = await executionHash(pp, output_payload);
+  } catch (e) {
+    // compute() already refused every input class the shared canonicalizer
+    // rejects (Refusal 3), so this arm is reachable only for the refusal
+    // paths themselves: a refused run never claims an execution_hash over
+    // declared input the canonicalizer cannot canonicalize. The shared
+    // _hash.mjs stays untouched.
+    hash = null;
+  }
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
