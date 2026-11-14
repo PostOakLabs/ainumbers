@@ -729,6 +729,7 @@ status: stable
 - [Settlement Efficiency KPI Engine](./art-84-settlement-efficiency-kpi.md)
 - [GL Flux Explainer with Gate](./art-840-gl-flux-explainer.md)
 - [SOC Report Coverage and Bridge Gap](./art-842-soc-report-coverage-gap.md)
+- [TAP Message Structure Check](./art-843-tap-message-validator.md)
 - [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md)
 - [TLS / X.509 PKI Migration Planner](./art-86-tls-pki-migration-planner.md)
 - [SWIFT / ISO 20022 PQC Readiness Checker](./art-87-iso20022-pqc-readiness-checker.md)

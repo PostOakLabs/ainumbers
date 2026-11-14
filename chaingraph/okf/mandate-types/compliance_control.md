@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-143"]
+tags: ["compliance_control", "count-144"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-143 tool(s) in this mandate-type group:
+144 tool(s) in this mandate-type group:
 
 - [Corridor Cost Averages](../tools/787-corridor-cost-averages.md)
 - [Curator Vault Cap Auditor](../tools/792-curator-vault-cap-auditor.md)
@@ -155,3 +155,4 @@ status: stable
 - [ASC 606 Transaction Price Allocator](../tools/art-834-asc606-transaction-price-allocator.md)
 - [Statement Footing and Cross-Footing Check](../tools/art-839-statement-footing-crossfoot.md)
 - [SOC Report Coverage and Bridge Gap](../tools/art-842-soc-report-coverage-gap.md)
+- [TAP Message Structure Check](../tools/art-843-tap-message-validator.md)
