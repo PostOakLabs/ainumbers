@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (752 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (753 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -8340,6 +8340,16 @@ window.CHAINBUILDER_CATALOG = [
     "feeds": [
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-840-gl-flux-explainer",
+    "display_name": "GL Flux Explainer with Gate",
+    "mandate_type": "assurance",
+    "url": "https://ainumbers.co/chaingraph/art-840-gl-flux-explainer.html",
+    "description": "Computes period-over-period movement per declared general-ledger account from integer minor-unit balances, compares each movement to a decla",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
