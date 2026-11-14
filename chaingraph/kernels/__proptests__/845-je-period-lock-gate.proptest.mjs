@@ -1,6 +1,6 @@
-// 790-je-period-lock-gate.proptest.mjs — class-K property-test FLOOR
+// 845-je-period-lock-gate.proptest.mjs — class-K property-test FLOOR
 // (FV-PBT-FLOOR-BUILD-SPEC.md), authored in-row by JE-PERIOD-LOCK-GATE-1.
-// kernel_digest_at_authoring: sha256:803aaab4f20831b769b41057a3b1af0ce1e2ca3d66a1a00899b779adcd85179c
+// kernel_digest_at_authoring: sha256:462307c68a6c9ef60eb0512d60ace5846850c35ba61082cd3370f221463227c5
 // spec: board/queued/JE-PERIOD-LOCK-GATE-1.md (fixed contract)
 // human_sign_off: PENDING
 //
@@ -11,9 +11,9 @@
 // entry-order permutation invariance, entry-cap boundary, strict leap-day calendar.
 // ZERO external dependencies — Node built-ins only (mulberry32 PRNG, hand-rolled).
 //
-// Run: node chaingraph/kernels/__proptests__/790-je-period-lock-gate.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/845-je-period-lock-gate.proptest.mjs
 
-import { compute } from '../790-je-period-lock-gate.kernel.mjs';
+import { compute } from '../845-je-period-lock-gate.kernel.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -22,7 +22,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const results = { fixture_oracle: null, properties: [] };
 
 function runFixtureOracle() {
-  const fixturesPath = path.join(__dirname, '..', 'fixtures', '790-je-period-lock-gate.fixtures.json');
+  const fixturesPath = path.join(__dirname, '..', 'fixtures', '845-je-period-lock-gate.fixtures.json');
   const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
   const failures = [];
   for (const vec of fixtures.vectors) {
@@ -256,7 +256,7 @@ results.properties.push(checkP7_strict_leap_calendar());
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
 console.log(JSON.stringify({
-  tool_id: '790-je-period-lock-gate',
+  tool_id: '845-je-period-lock-gate',
   float_sensitive: false,
   fixture_oracle_passed: oracleOk,
   fixture_oracle_total: results.fixture_oracle.total,
