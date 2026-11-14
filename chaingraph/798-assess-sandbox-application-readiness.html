@@ -12,7 +12,7 @@
 <link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/798-assess-sandbox-application-readiness.md">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/798-assess-sandbox-application-readiness.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:5db5347aec86fa31337eb94abf55731c359a96232ba139b94c5995b22b9b198a">
+<meta name="kernel-digest" content="sha256:1baf99ad45ac55bbd6ee95ff9e3f6cd47197a717cce1ab82bab0271f4df4a827">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -389,21 +389,32 @@ const EXIT_PLAN_NOTE_GENERIC = 'generic rubric — an application without an exi
 
 function isObj(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
 function isCount(v) { return typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= Number.MAX_SAFE_INTEGER; }
+function isBoundedInt(v, max) { return typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 && v <= max; }
 function invalidInputs(pp, criteriaIn) {
   const bad = [];
   if (!Array.isArray(pp.criteria)) bad.push('criteria');
+  else if (criteriaIn.length === 0) bad.push('criteria');
   else {
+    const seen = {};
     for (let i = 0; i < criteriaIn.length; i++) {
       const row = criteriaIn[i];
-      if (!isObj(row)) bad.push('criteria[' + i + ']');
-      else if (row.evidence_ref !== undefined && typeof row.evidence_ref !== 'string') bad.push('criteria[' + i + '].evidence_ref');
+      if (!isObj(row)) { bad.push('criteria[' + i + ']'); continue; }
+      const keys = Object.keys(row);
+      for (let k = 0; k < keys.length; k++) {
+        if (['criterion_id', 'status', 'evidence_ref'].indexOf(keys[k]) === -1) bad.push('criteria[' + i + '].' + keys[k]);
+      }
+      if (typeof row.criterion_id === 'string') {
+        if (Object.prototype.hasOwnProperty.call(seen, row.criterion_id)) bad.push('criteria[' + i + '].criterion_id');
+        seen[row.criterion_id] = true;
+      }
+      if (row.evidence_ref !== undefined && typeof row.evidence_ref !== 'string') bad.push('criteria[' + i + '].evidence_ref');
     }
   }
   const tp = pp.test_parameters;
   if (!isObj(tp)) bad.push('test_parameters');
   else {
-    if (!isCount(tp.duration_months)) bad.push('test_parameters.duration_months');
-    if (!isCount(tp.customer_cap)) bad.push('test_parameters.customer_cap');
+    if (!isBoundedInt(tp.duration_months, 1200)) bad.push('test_parameters.duration_months');
+    if (!isBoundedInt(tp.customer_cap, 1000000000)) bad.push('test_parameters.customer_cap');
     if (tp.value_cap_per_customer !== undefined && !isCount(tp.value_cap_per_customer)) bad.push('test_parameters.value_cap_per_customer');
     if (tp.aggregate_value_cap !== undefined && !isCount(tp.aggregate_value_cap)) bad.push('test_parameters.aggregate_value_cap');
     const types = tp.eligible_customer_types;
@@ -584,8 +595,12 @@ function runCompute() {
     policy_parameters: pp, output_payload: op, compliance_flags: r.compliance_flags,
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] }
   };
-  executionHashLocal(pp, op).then(function (h) {
-    artifact.execution_hash = 'sha256:' + h;
+  executionHashLocal(pp, op).then(function (h) { return 'sha256:' + h; }, function () {
+    // an unhashable input (non-finite or unsafe number) is refused above; mint it with no hash
+    artifact.hash_refusal = { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: 'policy parameters hold a value that cannot be canonicalized' };
+    return null;
+  }).then(function (h) {
+    artifact.execution_hash = h;
     _lastArtifact = artifact;
     window._lastResult = artifact;
     render(op, artifact, r.compliance_flags);

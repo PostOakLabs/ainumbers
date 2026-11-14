@@ -130,23 +130,75 @@ function isCount(v) {
   return typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= Number.MAX_SAFE_INTEGER;
 }
 
+// The two count fields are whole numbers: a safe integer inside an explicit bound.
+const MAX_DURATION_MONTHS = 1200;
+const MAX_CUSTOMER_CAP = 1000000000;
+function isBoundedInt(v, max) {
+  return typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 && v <= max;
+}
+
+// ── hashability walk (D6) ──────────────────────────────────────────────────
+// Mirrors the classes _hash.mjs refuses before canonicalizing: a non-finite number or an
+// integer outside the 2^53 safe range, nesting past MAX_DEPTH, more values than
+// MAX_ELEMENTS. Returns { reason, detail } (path and kind only, never the value), or null
+// when the subtree is safe to hash. The shared _hash.mjs stays untouched.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
+const CRITERION_ROW_KEYS = ['criterion_id', 'status', 'evidence_ref'];
+
 // Structural check of every required input; returns the offending paths.
 // Absent (undefined), null and wrong-typed values all refuse, never default.
 function invalidInputs(pp, criteriaIn) {
   const bad = [];
   if (!Array.isArray(pp.criteria)) bad.push('criteria');
+  else if (criteriaIn.length === 0) bad.push('criteria');
   else {
+    const seen = {};
     for (let i = 0; i < criteriaIn.length; i++) {
       const row = criteriaIn[i];
-      if (!isObj(row)) bad.push('criteria[' + i + ']');
-      else if (row.evidence_ref !== undefined && typeof row.evidence_ref !== 'string') bad.push('criteria[' + i + '].evidence_ref');
+      if (!isObj(row)) { bad.push('criteria[' + i + ']'); continue; }
+      const keys = Object.keys(row);
+      for (let k = 0; k < keys.length; k++) {
+        if (CRITERION_ROW_KEYS.indexOf(keys[k]) === -1) bad.push('criteria[' + i + '].' + keys[k]);
+      }
+      if (typeof row.criterion_id === 'string') {
+        if (Object.prototype.hasOwnProperty.call(seen, row.criterion_id)) bad.push('criteria[' + i + '].criterion_id');
+        seen[row.criterion_id] = true;
+      }
+      if (row.evidence_ref !== undefined && typeof row.evidence_ref !== 'string') bad.push('criteria[' + i + '].evidence_ref');
     }
   }
   const tp = pp.test_parameters;
   if (!isObj(tp)) bad.push('test_parameters');
   else {
-    if (!isCount(tp.duration_months)) bad.push('test_parameters.duration_months');
-    if (!isCount(tp.customer_cap)) bad.push('test_parameters.customer_cap');
+    if (!isBoundedInt(tp.duration_months, MAX_DURATION_MONTHS)) bad.push('test_parameters.duration_months');
+    if (!isBoundedInt(tp.customer_cap, MAX_CUSTOMER_CAP)) bad.push('test_parameters.customer_cap');
     if (tp.value_cap_per_customer !== undefined && !isCount(tp.value_cap_per_customer)) bad.push('test_parameters.value_cap_per_customer');
     if (tp.aggregate_value_cap !== undefined && !isCount(tp.aggregate_value_cap)) bad.push('test_parameters.aggregate_value_cap');
     const types = tp.eligible_customer_types;
@@ -177,6 +229,26 @@ export function compute(pp) {
   const exitIn = isObj(ppIn.exit_plan) ? ppIn.exit_plan : {};
   const criteriaIn = Array.isArray(ppIn.criteria) ? ppIn.criteria : [];
 
+  // pp alone is held to tighter margins than the full preimage: the {policy_parameters,
+  // output_payload} envelope wraps pp two levels deeper and output_payload carries values too.
+  const unhashable = findHashRefusal(ppIn, 'pp', 1, { maxDepth: HASH_MAX_DEPTH - 8, maxElements: 199000, n: 0 });
+  if (unhashable !== null) {
+    flags.push('REFUSED_UNHASHABLE_INPUT');
+    return {
+      output_payload: {
+        verdict: null,
+        refusal: {
+          code: 'unhashable_input',
+          reason: unhashable.reason,
+          detail: unhashable.detail.length > 200 ? unhashable.detail.slice(0, 200) : unhashable.detail,
+        },
+        gaps: [], parameter_breaches: [], safeguards_missing: [], profile_cites: {},
+        warnings: flags.slice(),
+      },
+      compliance_flags: flags,
+    };
+  }
+
   const profile = (typeof profileName === 'string' && Object.prototype.hasOwnProperty.call(PROFILES, profileName)) ? PROFILES[profileName] : null;
   if (!profile) {
     flags.push('REFUSED_UNKNOWN_PROFILE');
@@ -185,7 +257,7 @@ export function compute(pp) {
         verdict: null,
         refusal: {
           code: 'unknown_profile',
-          detail: "profile must be one of " + Object.keys(PROFILES).map(function (k) { return "'" + k + "'"; }).join(' | ') + "; got " + JSON.stringify(profileName ?? null),
+          detail: "profile must be one of " + Object.keys(PROFILES).map(function (k) { return "'" + k + "'"; }).join(' | ') + "; got " + (typeof profileName === 'string' ? JSON.stringify(profileName) : profileName === undefined || profileName === null ? 'null' : Array.isArray(profileName) ? 'array' : typeof profileName),
         },
         gaps: [], parameter_breaches: [], safeguards_missing: [], profile_cites: {},
         warnings: flags.slice(),
@@ -323,8 +395,12 @@ export function compute(pp) {
 
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // The walked object is the exact execution_hash preimage. When the shared canonicalizer
+  // would refuse it, mint the artifact with a null execution_hash and the reason beside it
+  // instead of letting the hash throw: buildArtifact never throws on any input.
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const hash = unhashable === null ? await executionHash(pp, output_payload) : null;
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -340,4 +416,6 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }

@@ -2,7 +2,7 @@
 // (FV-PBT-FLOOR-BUILD-SPEC.md). Authored against the pinned CBOB Guidance Note
 // for Participation in the Regulatory Sandbox Framework (issued 8 Oct 2026;
 // sha256 and paragraph map in research/SANDBOX-READINESS-PIN-2026-10-30.md).
-// kernel_digest_at_authoring: sha256:5db5347aec86fa31337eb94abf55731c359a96232ba139b94c5995b22b9b198a
+// kernel_digest_at_authoring: sha256:1baf99ad45ac55bbd6ee95ff9e3f6cd47197a717cce1ab82bab0271f4df4a827
 // spec: research/SANDBOX-READINESS-PIN-2026-10-30.md — assess a firm's sandbox
 //   application against a declared regulator profile's eligibility criteria and
 //   test-parameter limits (profiles generic + cbob; BMA dropped at claim time).
@@ -31,7 +31,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/798-assess-sandbox-application-readiness.proptest.mjs
 
-import { compute } from '../798-assess-sandbox-application-readiness.kernel.mjs';
+import { compute, buildArtifact } from '../798-assess-sandbox-application-readiness.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, pick } from './_pbt-common.mjs';
 
 const KERNEL_ID = '798-assess-sandbox-application-readiness';
@@ -179,12 +179,25 @@ function checkP4Refusals() {
     { pp: full({ test_parameters: { duration_months: '6', customer_cap: 10 } }), flag: II[0], code: II[1] },
     { pp: full({ test_parameters: { duration_months: null, customer_cap: 10 } }), flag: II[0], code: II[1] },
     { pp: full({ test_parameters: { duration_months: 6, customer_cap: -1 } }), flag: II[0], code: II[1] },
-    { pp: full({ test_parameters: { duration_months: 6, customer_cap: 1e300 } }), flag: II[0], code: II[1] },
+    { pp: full({ test_parameters: { duration_months: 6, customer_cap: 1e300 } }), flag: 'REFUSED_UNHASHABLE_INPUT', code: 'unhashable_input' },
     { pp: full({ test_parameters: { duration_months: 6, customer_cap: 10, aggregate_value_cap: null } }), flag: II[0], code: II[1] },
     { pp: full({ safeguards: null }), flag: II[0], code: II[1] },
     { pp: full({ safeguards: { ...safeguardsAll(), data_protection: { present: 'yes' } } }), flag: II[0], code: II[1] },
     { pp: full({ exit_plan: null }), flag: II[0], code: II[1] },
     { pp: full({ exit_plan: { present: 1 } }), flag: II[0], code: II[1] },
+    // a criteria list that is empty, duplicated or extra-keyed is never READY
+    { pp: full({ criteria: [] }), flag: II[0], code: II[1] },
+    { pp: full({ criteria: [{ criterion_id: 'innovation', status: 'met' }, { criterion_id: 'innovation', status: 'met' }] }), flag: II[0], code: II[1] },
+    { pp: full({ criteria: [{ criterion_id: 'innovation', status: 'met', note: 'x' }] }), flag: II[0], code: II[1] },
+    // the two count fields are whole numbers inside an explicit bound
+    { pp: full({ test_parameters: { duration_months: 1.5, customer_cap: 10 } }), flag: II[0], code: II[1] },
+    { pp: full({ test_parameters: { duration_months: 6, customer_cap: 1.5 } }), flag: II[0], code: II[1] },
+    { pp: full({ test_parameters: { duration_months: 1201, customer_cap: 10 } }), flag: II[0], code: II[1] },
+    { pp: full({ test_parameters: { duration_months: 6, customer_cap: 1000000001 } }), flag: II[0], code: II[1] },
+    { pp: full({ test_parameters: { duration_months: 2 ** 60, customer_cap: 10 } }), flag: 'REFUSED_UNHASHABLE_INPUT', code: 'unhashable_input' },
+    // unhashable policy parameters refuse in compute() as well
+    { pp: full({ extra: NaN }), flag: 'REFUSED_UNHASHABLE_INPUT', code: 'unhashable_input' },
+    { pp: full({ extra: 2 ** 60 }), flag: 'REFUSED_UNHASHABLE_INPUT', code: 'unhashable_input' },
   ];
   for (const c of cases) {
     let raw;
@@ -194,9 +207,6 @@ function checkP4Refusals() {
       violations++; console.log(`P4 violation: expected refusal ${c.code} with ${c.flag}`);
     }
   }
-  // empty declared criteria on an otherwise complete input is not a refusal.
-  checked++;
-  if (compute(full({ criteria: [] })).output_payload.verdict === null) { violations++; console.log('P4 violation: empty criteria refused'); }
   return { name: 'P4 refusal totality (unknown profile/criterion, invalid status, null/wrong-type/prototype-name inputs) — verdict null, never throws', checked, violations };
 }
 
@@ -235,6 +245,46 @@ function checkP6Mandatory() {
   return { name: 'P6 mandatory flags: generic all six, cbob legal_compatibility only; mandatory not_met fatal, partial met a gap', checked, violations };
 }
 
+// buildArtifact_never_throws: buildArtifact mints an artifact for every input. An
+// unhashable preimage gets execution_hash null plus hash_refusal; a hashable one
+// gets a 64-hex hash and no hash_refusal.
+async function checkBuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  const nest = (n) => { const o = {}; let c = o; for (let i = 0; i < n; i++) { c.a = {}; c = c.a; } return o; };
+  const base = () => ({
+    profile: 'generic',
+    criteria: IDS.map((id) => ({ criterion_id: id, status: 'met' })),
+    test_parameters: { duration_months: 6, customer_cap: 10 },
+    safeguards: safeguardsAll(),
+    exit_plan: exitOk(),
+  });
+  const withExtra = (extra) => ({ ...base(), extra });
+  const cases = [
+    { name: 'NaN', pp: withExtra(NaN), hashable: false },
+    { name: 'Infinity', pp: withExtra(Infinity), hashable: false },
+    { name: 'unsafe integer', pp: withExtra(2 ** 60), hashable: false },
+    { name: 'NaN in test_parameters', pp: { ...base(), test_parameters: { duration_months: NaN, customer_cap: 10 } }, hashable: false },
+    { name: 'depth 600', pp: withExtra(nest(600)), hashable: false },
+    { name: 'depth 100000 profile', pp: { ...base(), profile: nest(100000) }, hashable: false },
+    { name: 'over 1,000,000 values', pp: withExtra(new Array(1000001).fill(0)), hashable: false },
+    { name: 'depth 100 (hashable)', pp: withExtra(nest(100)), hashable: true },
+    { name: 'null pp', pp: null, hashable: true },
+    { name: 'undefined pp', pp: undefined, hashable: null },
+    { name: 'string pp', pp: 'x', hashable: true },
+    { name: 'plain valid', pp: base(), hashable: true },
+  ];
+  for (const c of cases) {
+    checked++;
+    let a;
+    try { a = await buildArtifact(c.pp); } catch (e) { violations++; console.log(`buildArtifact_never_throws violation: ${c.name} threw ${String(e.message).slice(0, 80)}`); continue; }
+    if (c.hashable === null) continue;
+    const hasHash = typeof a.execution_hash === 'string' && /^[0-9a-f]{64}$/.test(a.execution_hash);
+    if (c.hashable && (!hasHash || a.hash_refusal !== undefined)) { violations++; console.log(`buildArtifact_never_throws violation: ${c.name} expected a hash`); }
+    if (!c.hashable && (a.execution_hash !== null || !a.hash_refusal || typeof a.hash_refusal.reason !== 'string')) { violations++; console.log(`buildArtifact_never_throws violation: ${c.name} expected null hash plus hash_refusal`); }
+  }
+  return { name: 'buildArtifact_never_throws: unhashable policy parameters mint a null-hash refusal artifact, never throw', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -249,6 +299,7 @@ const properties = [
   checkP4Refusals(),
   checkP5DeterminismShape(),
   checkP6Mandatory(),
+  await checkBuildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test`);
 const ok = summarize(KERNEL_ID, oracle, properties);
