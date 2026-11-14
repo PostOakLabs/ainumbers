@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>GL Flux Explainer with Gate · ART-840 · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Flags period-over-period movement per declared GL account over a declared threshold and requires a declared explanation id for each. Client-side. Zero PII.">
+<meta name="robots" content="index, follow">
+<meta name="ain:category" content="run">
+<meta name="author" content="Post Oak Labs">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-840-gl-flux-explainer.html">
+<link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-840-gl-flux-explainer.md">
+<meta property="og:type" content="website">
+<meta property="og:title" content="GL Flux Explainer with Gate · ART-840 · OpenChainGraph · AINumbers.co">
+<meta property="og:description" content="Flags period-over-period movement per declared GL account over a declared threshold and requires a declared explanation id for each. Client-side. Zero PII.">
+<meta property="og:url" content="https://ainumbers.co/chaingraph/art-840-gl-flux-explainer.html">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebApplication","name":"GL Flux Explainer with Gate · ART-840 · OpenChainGraph","url":"https://ainumbers.co/chaingraph/art-840-gl-flux-explainer.html","applicationCategory":"FinanceApplication","operatingSystem":"Web browser","description":"Computes period-over-period movement per declared GL account against a declared threshold policy; every breach needs a declared explanation id or the gate reads blocked. Client-side, deterministic, zero PII.","author":{"@type":"Organization","name":"Post Oak Labs","url":"https://postoaklabs.com"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- ART-840 · GL flux explainer. Inline compute() stays byte-identical to kernels/art-840-gl-flux-explainer.kernel.mjs. -->
+<style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
+<style>h1,h2{font-family:'DM Serif Display',serif;font-weight:400}</style>
+<style>
+:root{--bg:#080E1A;--bg2:#0D1627;--bg3:#111E35;--border:#1E2F4A;--border2:#263855;--muted:#3A5270;--body:#6888A8;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--teal-dim:rgba(20,184,166,.12);--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--body);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+nav{position:sticky;top:0;z-index:10;background:rgba(8,14,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:0 20px;height:50px;display:flex;align-items:center}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.5rem;color:var(--white);margin-bottom:8px;font-weight:600}
+.sub{max-width:660px;margin-bottom:6px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(245,158,11,.12);color:#F59E0B;border:1px solid rgba(245,158,11,.3);padding:.2rem .55rem;border-radius:20px;margin:8px 8px 8px 0}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}}
+.q label{display:block;font-size:.82rem;color:var(--bright);margin-bottom:5px}
+.q .hint{font-size:.68rem;color:var(--muted);margin-top:3px}
+select,input,textarea{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--body);border-radius:var(--radius);padding:.5rem .6rem;font-family:inherit;font-size:.82rem}
+textarea{font-family:'JetBrains Mono',monospace;font-size:.72rem;min-height:110px;resize:vertical}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600;margin-top:6px}
+.results{display:none}.results.show{display:block}
+table{width:100%;border-collapse:collapse;font-size:.78rem;margin:10px 0}
+th,td{text-align:left;padding:.5rem .6rem;border-bottom:1px solid var(--border);vertical-align:top}
+th{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.pill{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;padding:.15rem .5rem;border-radius:20px;letter-spacing:.03em}
+.pill.pass{background:rgba(34,197,94,.12);color:var(--green)}
+.pill.fail{background:rgba(239,68,68,.12);color:var(--red)}
+.memo{background:var(--bg3);border-left:3px solid var(--teal);border-radius:var(--radius);padding:10px 14px;font-size:.82rem;color:var(--bright);margin:8px 0}
+.hash{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--green);word-break:break-all}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--body);margin-top:10px;max-height:320px}
+.muted{color:var(--muted);font-size:.72rem}
+.limits{font-size:.74rem;color:var(--body);background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin:10px 0}
+.limits b{color:var(--bright)}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+<!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-840-gl-flux-explainer.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
+<meta name="kernel-digest" content="sha256:7c48e57354229f5ef96cf3591d3c7aad4260ce5d1aefecb61e9ab06bd3607e4e">
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-840 · GL Flux Explainer with Gate</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="wrap">
+  <div class="eyebrow">ART-840 · Close and Audit Analytics</div>
+  <h1>GL Flux Explainer with Gate</h1>
+  <p class="sub">Computes period-over-period movement per declared GL account from integer minor-unit balances, compares each to a declared threshold policy, and ranks the breaches by absolute movement. Every breach needs a declared explanation id from your reason-code list. A breach with none turns the gate to <code>blocked</code>; explained breaches route to <code>review_required</code>; no breach reads <code>clear</code>. Emits a hash-anchored OpenChainGraph v0.4 artifact. Sibling of <a href="art-485-regrpt-variance-explainer.html">ART-485</a>, which does the same job for regulatory report line items.</p>
+  <div class="flag">Flags movements, doesn't judge explanations</div>
+  <div class="flag">Not legal or audit advice</div>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:10px 0">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="limits">
+    Scope limits, read before use: this tool flags movements over a declared threshold and requires a declared explanation id for each. It does not judge whether an explanation is adequate; that is a human review step. Inputs are values only: account ids (never account numbers), integer minor units, and reason-code ids. Free-text explanations are refused. A zero prior balance never yields an infinite percentage; the percentage is reported as NOT_EVALUATED and your declared zero-prior rule applies.
+  </div>
+
+  <div class="card"><div class="grid" id="form">
+    <div class="q" style="grid-column:1/-1"><label>Declared account ids (JSON array)</label><textarea id="accounts_json">["CASH","ACCOUNTS_RECEIVABLE","INVENTORY","ACCRUED_LIABILITIES"]</textarea><div class="hint">Ids only, for example CASH. Account-number-like ids are refused.</div></div>
+    <div class="q" style="grid-column:1/-1"><label>Prior period balances (JSON array)</label><textarea id="prior_json">[{"account_id":"CASH","minor_units":10000000},{"account_id":"ACCOUNTS_RECEIVABLE","minor_units":5000000},{"account_id":"INVENTORY","minor_units":2000000},{"account_id":"ACCRUED_LIABILITIES","minor_units":-1500000}]</textarea><div class="hint">Each: account_id, minor_units (integer).</div></div>
+    <div class="q" style="grid-column:1/-1"><label>Current period balances (JSON array)</label><textarea id="current_json">[{"account_id":"CASH","minor_units":15000000},{"account_id":"ACCOUNTS_RECEIVABLE","minor_units":5050000},{"account_id":"INVENTORY","minor_units":2900000},{"account_id":"ACCRUED_LIABILITIES","minor_units":-2600000}]</textarea></div>
+    <div class="q" style="grid-column:1/-1"><label>Threshold policy (JSON object)</label><textarea id="policy_json">{"version":"FLUX-2026-Q4","abs_minor_units":500000,"pct_bps":1000,"rule":"either","zero_prior_rule":"abs_only"}</textarea><div class="hint">abs_minor_units, pct_bps, rule (either or both), zero_prior_rule (abs_only or any_movement), optional overrides. A threshold that is present must be greater than 0; leave a field out to turn that test off. Rule both needs both thresholds, rule either needs at least one. Unknown keys are refused, and version must be an id such as FLUX-2026-Q4. Limits: a movement equal to the threshold counts as a breach; basis points are floored; balances and thresholds are capped at 1e15 minor units; each list holds at most 5000 entries; an id with six or more digits in a row is treated as account-number-like and refused (a screen, not proof). A zero-prior account under abs_only with no absolute threshold cannot be tested and is flagged ZERO_PRIOR_NOT_EVALUATED.</div></div>
+    <div class="q" style="grid-column:1/-1"><label>Declared reason codes (JSON array)</label><textarea id="codes_json">["VOLUME","TIMING","ONE_OFF"]</textarea></div>
+    <div class="q" style="grid-column:1/-1"><label>Explanations on file (JSON array)</label><textarea id="explanations_json">[{"account_id":"CASH","explanation_id":"VOLUME"},{"account_id":"INVENTORY","explanation_id":"TIMING"}]</textarea><div class="hint">Each: account_id, explanation_id. No other fields.</div></div>
+  </div><button onclick="run()">Run flux gate →</button></div>
+
+  <div class="card results" id="results">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="memo" id="memo"></div>
+    <table id="fluxTable"><thead><tr><th>Rank</th><th>Account</th><th>Movement</th><th>Movement bps</th><th>Breach</th><th>Explained</th></tr></thead><tbody></tbody></table>
+    <div class="muted" style="margin-top:12px">OpenChainGraph v0.4 artifact · execution_hash:</div>
+    <div class="hash" id="hash"></div>
+    <pre id="artifact"></pre>
+    <button id="signArtifactBtn" onclick="signArtifact()" disabled style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:var(--bg-3,#111E35);color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:not-allowed;opacity:.55;transition:opacity .2s,border-color .2s;margin-top:.5rem;display:inline-block">⬇ Sign artifact (Ed25519 · §16)</button>
+    <button id="verifySigBtn" onclick="verifySignature()" style="font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.45rem 1rem;background:transparent;color:var(--text,#D4E8F8);border:1px solid var(--border,#203050);border-radius:var(--radius,6px);cursor:pointer;transition:all .2s;margin-top:.5rem;display:inline-block">🔏 Verify signature (§16)</button>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-top:0">Related</div>
+    <p class="sub" style="margin-bottom:0">Pairs with <a href="art-485-regrpt-variance-explainer.html">ART-485 Regulatory Report Variance Explainer</a>, which covers regulatory report line items rather than GL accounts.</p>
+  </div>
+</div>
+
+<script type="application/json" id="manifest">
+{"tool_id":"art-840-gl-flux-explainer","mcp_name":"explain_gl_flux_with_gate","mandate_type":"assurance","chaingraph_version":"0.4.0","spec_version":"0.8.8","inputSchema":{"type":"object","properties":{"accounts":{"type":"array","items":{"type":"string"}},"prior_balances":{"type":"array","items":{"type":"object","properties":{"account_id":{"type":"string"},"minor_units":{"type":"integer"}}}},"current_balances":{"type":"array","items":{"type":"object","properties":{"account_id":{"type":"string"},"minor_units":{"type":"integer"}}}},"threshold_policy":{"type":"object","properties":{"version":{"type":"string"},"abs_minor_units":{"type":"integer","minimum":1},"pct_bps":{"type":"integer","minimum":1},"rule":{"type":"string","enum":["either","both"]},"zero_prior_rule":{"type":"string","enum":["abs_only","any_movement"]},"overrides":{"type":"array","items":{"type":"object"}}}},"reason_codes":{"type":"array","items":{"type":"string"}},"explanations":{"type":"array","items":{"type":"object","properties":{"account_id":{"type":"string"},"explanation_id":{"type":"string"}}}}}}}
+</script>
+
+<script>
+const MAX_ABS = 1000000000000000; // 1e15 minor units
+const MAX_ITEMS = 5000;
+const ID_RE = /^[A-Za-z][A-Za-z0-9_.:-]{0,39}$/;
+const DIGIT_RUN_RE = /[0-9]{6,}/; // an account-number-like run of digits
+const NOTE = 'Flags movements over a declared threshold and requires a declared explanation id for each. It does not judge whether an explanation is adequate.';
+
+function isInt(v) { return typeof v === 'number' && Number.isSafeInteger(v); }
+function isArr(v) { return Array.isArray(v); }
+function isObj(v) { return v !== null && v !== undefined && typeof v === 'object' && !Array.isArray(v); }
+function cmp(a, b) { return a < b ? -1 : a > b ? 1 : 0; }
+function idProblem(v) {
+  if (typeof v !== 'string' || !ID_RE.test(v)) return 'ID_SHAPE';
+  if (DIGIT_RUN_RE.test(v)) return 'ID_ACCOUNT_NUMBER_LIKE';
+  return null;
+}
+function absBig(n) { return n < 0n ? -n : n; }
+
+function refusal(code, detail) {
+  return {
+    output_payload: {
+      error: code.toLowerCase(),
+      detail,
+      domain_errors: [{ code, text: detail }],
+      gate_status: null,
+      gate_policy_equivalent: null,
+      accounts: [],
+      breaches: [],
+      unexplained_breaches: [],
+      orphan_explanations: [],
+      summary: null,
+      warnings: code ? ['INPUT_REFUSED'] : [],
+      note: NOTE,
+    },
+    compliance_flags: code ? ['INPUT_REFUSED'] : [],
+  };
+}
+
+function readBalances(list, label, declared) {
+  if (!isArr(list) || list.length > MAX_ITEMS) return { code: 'BALANCES_SHAPE', detail: label + ' must be an array of {account_id, minor_units}' };
+  const map = new Map();
+  for (const row of list) {
+    if (!isObj(row)) return { code: 'BALANCES_SHAPE', detail: label + ' entry is not an object' };
+    const keys = Object.keys(row).filter((k) => row[k] !== undefined && row[k] !== null);
+    for (const k of keys) {
+      if (k !== 'account_id' && k !== 'minor_units') return { code: 'FREE_TEXT_REFUSED', detail: label + ' entry carries a field other than account_id and minor_units' };
+    }
+    const p = idProblem(row.account_id);
+    if (p) return { code: p, detail: label + ' account_id is not an acceptable account id' };
+    if (!declared.has(row.account_id)) return { code: 'ACCOUNT_NOT_DECLARED', detail: label + ' names an account that is not in the declared list' };
+    if (map.has(row.account_id)) return { code: 'DUPLICATE_BALANCE', detail: label + ' repeats an account id' };
+    if (!isInt(row.minor_units) || Math.abs(row.minor_units) > MAX_ABS) return { code: 'BALANCE_NOT_INTEGER', detail: label + ' minor_units must be a safe integer within 1e15' };
+    map.set(row.account_id, row.minor_units);
+  }
+  for (const id of declared) {
+    if (!map.has(id)) return { code: 'BALANCE_MISSING', detail: label + ' has no balance for a declared account' };
+  }
+  return { map };
+}
+
+const MAX_BPS = 100000000;
+const PP_KEYS = ['accounts', 'prior_balances', 'current_balances', 'threshold_policy', 'reason_codes', 'explanations'];
+const POLICY_KEYS = ['version', 'abs_minor_units', 'pct_bps', 'rule', 'zero_prior_rule', 'overrides'];
+const OVERRIDE_KEYS = ['account_id', 'abs_minor_units', 'pct_bps'];
+
+function hasUnknownKey(o, allowed) {
+  for (const k of Object.keys(o)) if (!allowed.includes(k)) return true;
+  return false;
+}
+
+// One threshold field: absent (undefined or null) is "not configured"; present must be a positive integer.
+function readLimit(v, name, max) {
+  if (v === undefined || v === null) return { value: null };
+  if (!isInt(v)) return { code: 'THRESHOLD_INVALID', detail: name + ' must be a positive integer' };
+  if (v <= 0) return { code: 'THRESHOLD_NOT_POSITIVE', detail: name + ' must be greater than zero; omit it to leave that test unconfigured' };
+  if (v > max) return { code: 'THRESHOLD_INVALID', detail: name + ' exceeds the cap' };
+  return { value: v };
+}
+
+// The rule decides which thresholds must be present on the effective policy for an account.
+function ruleProblem(rule, abs, bps, who) {
+  if (rule === 'both' && (abs === null || bps === null)) return { code: 'THRESHOLD_FIELD_MISSING', detail: who + ': rule both needs abs_minor_units and pct_bps' };
+  if (abs === null && bps === null) return { code: 'THRESHOLD_FIELD_MISSING', detail: who + ': at least one of abs_minor_units and pct_bps is required' };
+  return null;
+}
+
+function readThreshold(v) {
+  if (!isObj(v)) return { code: 'THRESHOLD_POLICY_MISSING', detail: 'threshold_policy is required' };
+  if (hasUnknownKey(v, POLICY_KEYS)) return { code: 'UNKNOWN_KEY_REFUSED', detail: 'threshold_policy carries a key outside the declared set' };
+  if (v.rule !== 'either' && v.rule !== 'both') return { code: 'THRESHOLD_RULE_UNDECLARED', detail: 'rule must be either or both' };
+  if (v.zero_prior_rule !== 'abs_only' && v.zero_prior_rule !== 'any_movement') return { code: 'ZERO_PRIOR_RULE_UNDECLARED', detail: 'zero_prior_rule must be abs_only or any_movement' };
+  if (v.version !== undefined && v.version !== null && (typeof v.version !== 'string' || !ID_RE.test(v.version))) return { code: 'VERSION_SHAPE', detail: 'version must be an id (letters, digits, . _ : -), not free text' };
+  const a = readLimit(v.abs_minor_units, 'abs_minor_units', MAX_ABS);
+  if (a.code) return a;
+  const b = readLimit(v.pct_bps, 'pct_bps', MAX_BPS);
+  if (b.code) return b;
+  const abs = a.value;
+  const bps = b.value;
+  const rp = ruleProblem(v.rule, abs, bps, 'threshold_policy');
+  if (rp) return rp;
+  const overrides = new Map();
+  const ov = v.overrides == null ? [] : v.overrides;
+  if (!isArr(ov) || ov.length > MAX_ITEMS) return { code: 'THRESHOLD_INVALID', detail: 'overrides must be an array' };
+  for (const o of ov) {
+    if (!isObj(o)) return { code: 'THRESHOLD_INVALID', detail: 'override entry is not an object' };
+    if (hasUnknownKey(o, OVERRIDE_KEYS)) return { code: 'UNKNOWN_KEY_REFUSED', detail: 'an override carries a key outside the declared set' };
+    const p = idProblem(o.account_id);
+    if (p) return { code: p, detail: 'override account_id is not an acceptable account id' };
+    if (overrides.has(o.account_id)) return { code: 'THRESHOLD_INVALID', detail: 'override repeats an account id' };
+    const oa = readLimit(o.abs_minor_units, 'override abs_minor_units', MAX_ABS);
+    if (oa.code) return oa;
+    const ob = readLimit(o.pct_bps, 'override pct_bps', MAX_BPS);
+    if (ob.code) return ob;
+    const ea = oa.value === null ? abs : oa.value;
+    const eb = ob.value === null ? bps : ob.value;
+    const orp = ruleProblem(v.rule, ea, eb, 'override');
+    if (orp) return orp;
+    overrides.set(o.account_id, { abs: ea, bps: eb });
+  }
+  return {
+    policy: {
+      version: v.version == null ? null : v.version,
+      abs, bps, rule: v.rule, zero_prior_rule: v.zero_prior_rule, overrides,
+    },
+  };
+}
+
+function compute(pp) {
+  pp = pp || {};
+  if (!isObj(pp) || hasUnknownKey(pp, PP_KEYS)) return refusal('UNKNOWN_KEY_REFUSED', 'policy_parameters carries a key outside the declared set');
+
+  // ---- declared accounts
+  const accIn = pp.accounts;
+  if (!isArr(accIn) || accIn.length === 0 || accIn.length > MAX_ITEMS) return refusal('ACCOUNTS_SHAPE', 'accounts must be a non-empty array of account ids');
+  const declared = new Set();
+  for (const id of accIn) {
+    const p = idProblem(id);
+    if (p) return refusal(p, 'an entry in accounts is not an acceptable account id');
+    if (declared.has(id)) return refusal('DUPLICATE_ACCOUNT', 'accounts repeats an id');
+    declared.add(id);
+  }
+
+  // ---- balances
+  const prior = readBalances(pp.prior_balances, 'prior_balances', declared);
+  if (prior.code) return refusal(prior.code, prior.detail);
+  const current = readBalances(pp.current_balances, 'current_balances', declared);
+  if (current.code) return refusal(current.code, current.detail);
+
+  // ---- threshold policy
+  const th = readThreshold(pp.threshold_policy);
+  if (th.code) return refusal(th.code, th.detail);
+  const policy = th.policy;
+  for (const id of policy.overrides.keys()) {
+    if (!declared.has(id)) return refusal('ACCOUNT_NOT_DECLARED', 'an override names an account that is not in the declared list');
+  }
+
+  // ---- reason codes and explanations (codes only, never text)
+  const rcIn = pp.reason_codes == null ? [] : pp.reason_codes;
+  if (!isArr(rcIn) || rcIn.length > MAX_ITEMS) return refusal('REASON_CODES_SHAPE', 'reason_codes must be an array of ids');
+  const reasonCodes = new Set();
+  for (const c of rcIn) {
+    const p = idProblem(c);
+    if (p) return refusal(p === 'ID_SHAPE' ? 'FREE_TEXT_REFUSED' : p, 'a reason code is not an acceptable id');
+    reasonCodes.add(c);
+  }
+  const exIn = pp.explanations == null ? [] : pp.explanations;
+  if (!isArr(exIn) || exIn.length > MAX_ITEMS) return refusal('EXPLANATIONS_SHAPE', 'explanations must be an array');
+  const explByAccount = new Map();
+  const explList = [];
+  for (const e of exIn) {
+    if (!isObj(e)) return refusal('EXPLANATIONS_SHAPE', 'an explanation entry is not an object');
+    for (const k of Object.keys(e)) {
+      if (e[k] === undefined || e[k] === null) continue;
+      if (k !== 'account_id' && k !== 'explanation_id') return refusal('FREE_TEXT_REFUSED', 'an explanation carries a field other than account_id and explanation_id');
+    }
+    const pa = idProblem(e.account_id);
+    if (pa) return refusal(pa, 'an explanation account_id is not an acceptable account id');
+    if (typeof e.explanation_id !== 'string' || idProblem(e.explanation_id)) return refusal('FREE_TEXT_REFUSED', 'explanation_id must be a declared reason code id, not free text');
+    if (!reasonCodes.has(e.explanation_id)) return refusal('EXPLANATION_CODE_UNDECLARED', 'explanation_id is not in the declared reason_codes list');
+    explList.push({ account_id: e.account_id, explanation_id: e.explanation_id });
+    if (!explByAccount.has(e.account_id)) explByAccount.set(e.account_id, new Set());
+    explByAccount.get(e.account_id).add(e.explanation_id);
+  }
+
+  // ---- movement per account
+  const rows = [];
+  for (const id of declared) {
+    const pv = prior.map.get(id);
+    const cv = current.map.get(id);
+    const movement = cv - pv;
+    const absMovement = Math.abs(movement);
+    const ov = policy.overrides.get(id);
+    const tAbs = ov ? ov.abs : policy.abs;
+    const tBps = ov ? ov.bps : policy.bps;
+    const zeroPrior = pv === 0;
+
+    const bpsFloor = zeroPrior ? null : (absBig(BigInt(movement)) * 10000n) / absBig(BigInt(pv));
+    const absConfigured = tAbs !== null;
+    const pctConfigured = tBps !== null && !zeroPrior;
+    const absExceeded = absConfigured ? absMovement >= tAbs : null;
+    // exact: |mov| * 10000 >= tBps * |prior|
+    const pctExceeded = pctConfigured ? absBig(BigInt(movement)) * 10000n >= BigInt(tBps) * absBig(BigInt(pv)) : null;
+
+    let breach;
+    if (zeroPrior && policy.zero_prior_rule === 'any_movement') {
+      breach = movement !== 0;
+    } else {
+      const tests = [];
+      if (absExceeded !== null) tests.push(absExceeded);
+      if (pctExceeded !== null) tests.push(pctExceeded);
+      if (tests.length === 0) breach = false;
+      else if (policy.rule === 'both') breach = tests.every((t) => t);
+      else breach = tests.some((t) => t);
+    }
+    // a non-zero movement on a zero-prior account with no evaluable test is named, never a silent pass
+    const notEvaluated = zeroPrior && movement !== 0 && !breach && !(policy.zero_prior_rule === 'any_movement') && !absConfigured;
+
+    const ex = explByAccount.get(id);
+    const explanationIds = ex ? [...ex].sort(cmp) : [];
+    rows.push({
+      account_id: id,
+      prior_minor_units: pv,
+      current_minor_units: cv,
+      movement_minor_units: movement,
+      abs_movement_minor_units: absMovement,
+      movement_bps: bpsFloor === null ? 'NOT_EVALUATED' : bpsFloor.toString(),
+      threshold_abs_minor_units: tAbs,
+      threshold_pct_bps: tBps,
+      abs_exceeded: absExceeded,
+      pct_exceeded: pctExceeded,
+      breach,
+      not_evaluated: notEvaluated,
+      explanation_ids: explanationIds,
+      explained: breach && explanationIds.length > 0,
+    });
+  }
+  rows.sort((a, b) => cmp(a.account_id, b.account_id));
+
+  // ---- breach ranking: largest absolute movement first, ties by account id
+  const breaches = rows
+    .filter((r) => r.breach)
+    .sort((a, b) => (b.abs_movement_minor_units - a.abs_movement_minor_units) || cmp(a.account_id, b.account_id))
+    .map((r, i) => ({ rank: i + 1, account_id: r.account_id, abs_movement_minor_units: r.abs_movement_minor_units, movement_minor_units: r.movement_minor_units, explained: r.explained }));
+  const unexplained = breaches.filter((b) => !b.explained).map((b) => b.account_id);
+
+  // ---- explanations that match no breach
+  const breachIds = new Set(breaches.map((b) => b.account_id));
+  const orphanKeys = new Set();
+  const orphans = [];
+  for (const e of explList) {
+    if (breachIds.has(e.account_id)) continue;
+    const key = e.account_id + '\u0000' + e.explanation_id;
+    if (orphanKeys.has(key)) continue;
+    orphanKeys.add(key);
+    orphans.push({ account_id: e.account_id, explanation_id: e.explanation_id, reason: declared.has(e.account_id) ? 'NO_BREACH' : 'ACCOUNT_NOT_DECLARED' });
+  }
+  orphans.sort((a, b) => cmp(a.account_id, b.account_id) || cmp(a.explanation_id, b.explanation_id));
+
+  // ---- gate (SPEC section 27.4 vocabulary): auto_pass / review_required / hold
+  let gate_status = 'clear';
+  let gate_policy_equivalent = 'auto_pass';
+  if (unexplained.length > 0) { gate_status = 'blocked'; gate_policy_equivalent = 'hold'; }
+  else if (breaches.length > 0) { gate_status = 'review_required'; gate_policy_equivalent = 'review_required'; }
+  const notEvaluatedCount = rows.filter((r) => r.not_evaluated).length;
+  if (notEvaluatedCount > 0 && gate_status === 'clear') { gate_status = 'review_required'; gate_policy_equivalent = 'review_required'; }
+
+  const compliance_flags = [];
+  if (unexplained.length > 0) compliance_flags.push('FLUX_BREACH_UNEXPLAINED');
+  if (notEvaluatedCount > 0) compliance_flags.push('ZERO_PRIOR_NOT_EVALUATED');
+  if (orphans.length > 0) compliance_flags.push('EXPLANATION_ORPHANED');
+  const warnings = compliance_flags.slice();
+
+  const output_payload = {
+    policy_version: policy.version,
+    threshold_rule: policy.rule,
+    zero_prior_rule: policy.zero_prior_rule,
+    gate_status,
+    gate_policy_equivalent,
+    accounts: rows,
+    breaches,
+    unexplained_breaches: unexplained,
+    orphan_explanations: orphans,
+    summary: {
+      account_count: rows.length,
+      breach_count: breaches.length,
+      unexplained_count: unexplained.length,
+      not_evaluated_count: notEvaluatedCount,
+      orphan_explanation_count: orphans.length,
+    },
+    warnings,
+    note: NOTE,
+  };
+  return { output_payload, compliance_flags };
+}
+function parseJson(id,fallback){try{return JSON.parse(document.getElementById(id).value||'null')??fallback;}catch(e){return fallback;}}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+async function run(){
+  const pp={accounts:parseJson('accounts_json',[]),prior_balances:parseJson('prior_json',[]),current_balances:parseJson('current_json',[]),threshold_policy:parseJson('policy_json',{}),reason_codes:parseJson('codes_json',[]),explanations:parseJson('explanations_json',[])};
+  const r=compute(pp);const op=r.output_payload;const compliance_flags=r.compliance_flags;
+  let preimage;
+  try{preimage=__ocgCanonStr({policy_parameters:pp,output_payload:op});}
+  catch(e){
+    document.getElementById('results').classList.add('show');
+    document.getElementById('memo').textContent='Input refused: a number is outside the safe integer range (2^53) or not a finite number. Use integer minor units within 1e15.';
+    document.querySelector('#fluxTable tbody').innerHTML='';
+    document.getElementById('hash').textContent='';
+    document.getElementById('artifact').textContent='';
+    return;
+  }
+  const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(preimage));
+  const hash=[...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');
+  const generatedAt=new Date().toISOString();
+  document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
+  const artifact={'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'assurance',tool_id:'art-840-gl-flux-explainer',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:pp,output_payload:op,compliance_flags:compliance_flags,compute_mode:'browser',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  document.getElementById('results').classList.add('show');
+  const memo=document.getElementById('memo');
+  const tb=document.querySelector('#fluxTable tbody');
+  if(op.error){memo.textContent='Input refused: '+op.detail;tb.innerHTML='';}
+  else{
+    const s=op.summary;
+    memo.textContent='Gate: '+op.gate_status+' ('+op.gate_policy_equivalent+'). '+s.breach_count+' breach(es) out of '+s.account_count+' account(s), '+s.unexplained_count+' unexplained, '+s.orphan_explanation_count+' explanation(s) matching no breach.'+(s.not_evaluated_count>0?' '+s.not_evaluated_count+' zero-prior account(s) moved with no absolute threshold to test against (ZERO_PRIOR_NOT_EVALUATED); route to review.':'');
+    const byId={};op.accounts.forEach(function(a){byId[a.account_id]=a;});
+    tb.innerHTML=op.breaches.map(function(b){const a=byId[b.account_id];return '<tr><td>'+b.rank+'</td><td>'+esc(b.account_id)+'</td><td>'+a.movement_minor_units+'</td><td>'+esc(a.movement_bps)+'</td><td><span class="pill fail">breach</span></td><td><span class="pill '+(b.explained?'pass':'fail')+'">'+(b.explained?esc(a.explanation_ids.join(', ')):'MISSING')+'</span></td></tr>';}).join('');
+  }
+  document.getElementById('hash').textContent='sha256:'+hash;
+  document.getElementById('artifact').textContent=JSON.stringify(artifact,null,2);
+}
+</script>
+
+<!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=manifests/art-840-gl-flux-explainer.manifest.json -->
+<!-- ASK-AGENT:END -->
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="../helm.html">Helm</a>
+        <a href="../convert.html">Conversion Suite</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Hubs</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="../guides/web3-hub.html">Web3 Hub</a>
+        <a href="../guides/solana-hub.html">Solana</a>
+        <a href="../guides/ethereum-hub.html">Ethereum</a>
+        <a href="../guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
+        <a href="../guides/token-standards-hub.html">Token Standards</a>
+        <a href="../guides/tradetech-hub.html">TradeTech</a>
+        <a href="../guides/capital-markets-settlement-hub.html">Capital Markets Settlement</a>
+        <a href="../guides/broker-dealer-ops-hub.html">Broker-Dealer Ops</a>
+        <a href="../guides/treasury-liquidity-hub.html">Treasury and Strategy</a>
+        <a href="../guides/wealthtech-hub.html">WealthTech</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Developers</div>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">About</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+<script>
+/* OCG-CANON v1 — RFC 8785/JCS (I-JSON). DO NOT hand-edit. Byte-identical to kernels/_hash.mjs. */
+function __ocgCanon(v){return Array.isArray(v)?v.map(__ocgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce((o,k)=>(o[k]=__ocgCanon(v[k]),o),{}):v;}
+function __ocgAssertIJson(v){if(typeof v==='number'){if(!Number.isFinite(v))throw new Error('OCG: non-finite number is not I-JSON');if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('OCG: integer exceeds 2^53; pass as string');}else if(Array.isArray(v)){v.forEach(__ocgAssertIJson);}else if(v&&typeof v==='object'){for(const k of Object.keys(v))__ocgAssertIJson(v[k]);}}
+function __ocgCanonStr(x){__ocgAssertIJson(x);return __ocgJcs(x);}
+function __ocgJcs(v){if(v===null||typeof v!=='object')return JSON.stringify(v);if(Array.isArray(v)){var s='[';for(var i=0;i<v.length;i++){if(i)s+=',';var e=v[i];s+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':__ocgJcs(e);}return s+']';}var ks=Object.keys(v).sort(),o='{',f=true;for(var i=0;i<ks.length;i++){var k=ks[i],w=v[k];if(w===undefined||typeof w==='function'||typeof w==='symbol')continue;if(!f)o+=',';f=false;o+=JSON.stringify(k)+':'+__ocgJcs(w);}return o+'}';}
+</script>
+<script>
+/* OCG-PROOF v1 — W3C Data Integrity eddsa-jcs-2022 (OCG §16). DO NOT hand-edit. Byte-identical to kernels/_proof.mjs. */
+/* Signs through __ocgJcs (the OCG-CANON v1 block's serializer — single canon path; RFC 8785 §3.2.3-exact for array-index member names, same bytes as kernels/_proof.mjs jcsStringify since JCS-CANON-FIX-1). */
+(function(){
+  var CS='eddsa-jcs-2022';
+  function jcs(o){return new TextEncoder().encode(__ocgJcs(o));}
+  function sha(b){return crypto.subtle.digest('SHA-256',b).then(function(d){return new Uint8Array(d);});}
+  function secured(a){var c=structuredClone(a);if(c&&c.audit_signature){if('proof'in c.audit_signature)delete c.audit_signature.proof;if(Object.keys(c.audit_signature).length===0)delete c.audit_signature;}return c;}
+  function opts(vm,created){return{type:'DataIntegrityProof',cryptosuite:CS,verificationMethod:vm,proofPurpose:'assertionMethod',created:created};}
+  function hashData(a,o){return Promise.all([sha(jcs(o)),sha(jcs(secured(a)))]).then(function(h){var oh=h[0],dh=h[1];var c=new Uint8Array(oh.length+dh.length);c.set(oh,0);c.set(dh,oh.length);return c;});}
+  var B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function b58e(bytes){var z=0;while(z<bytes.length&&bytes[z]===0)z++;var d=[0];for(var i=z;i<bytes.length;i++){var c=bytes[i];for(var j=0;j<d.length;j++){c+=d[j]<<8;d[j]=c%58;c=(c/58)|0;}while(c){d.push(c%58);c=(c/58)|0;}}var s='';for(var k=0;k<z;k++)s+='1';for(var q=d.length-1;q>=0;q--)s+=B58[d[q]];return s;}
+  function b58d(str){var z=0;while(z<str.length&&str[z]==='1')z++;var b=[0];for(var i=z;i<str.length;i++){var c=B58.indexOf(str[i]);if(c<0)throw new Error('bad base58');for(var j=0;j<b.length;j++){c+=b[j]*58;b[j]=c&255;c>>=8;}while(c){b.push(c&255);c>>=8;}}var out=new Uint8Array(z+b.length);for(var k=0;k<b.length;k++)out[z+b.length-1-k]=b[k];return out;}
+  var MC=[0xed,0x01];
+  function didFromPub(pk){return crypto.subtle.exportKey('raw',pk).then(function(r){var raw=new Uint8Array(r);var p=new Uint8Array(MC.length+raw.length);p.set(MC,0);p.set(raw,MC.length);return 'did:key:z'+b58e(p);});}
+  function pubFromDid(did){if(did.indexOf('did:key:z')!==0)throw new Error('not did:key z-form');var p=b58d(did.slice(9));if(p[0]!==0xed||p[1]!==0x01)throw new Error('did:key not Ed25519');return crypto.subtle.importKey('raw',p.slice(2),{name:'Ed25519'},true,['verify']);}
+  function sign(a,o){var po=opts(o.verificationMethod,o.created);return hashData(a,po).then(function(hd){return crypto.subtle.sign('Ed25519',o.privateKey,hd);}).then(function(s){var proof=Object.assign({},po,{proofValue:'z'+b58e(new Uint8Array(s))});var out=structuredClone(a);out.audit_signature=Object.assign({},out.audit_signature||{},{proof:proof});return out;});}
+  function verify(a,pub){var pr=a&&a.audit_signature&&a.audit_signature.proof;if(!pr||pr.type!=='DataIntegrityProof'||pr.cryptosuite!==CS)return Promise.resolve(false);if(pr.proofPurpose!=='assertionMethod'||typeof pr.proofValue!=='string'||pr.proofValue[0]!=='z')return Promise.resolve(false);var po=opts(pr.verificationMethod,pr.created);return hashData(a,po).then(function(hd){var sig;try{sig=b58d(pr.proofValue.slice(1));}catch(e){return false;}return crypto.subtle.verify('Ed25519',pub,sig,hd);}).catch(function(){return false;});}
+  window.__ocgSign=sign;window.__ocgVerify=verify;window.__ocgDidKeyFromPub=didFromPub;window.__ocgPubFromDidKey=pubFromDid;
+})();
+</script>
+<script>
+/* OCG-§16-UI v1 (univ-artifact) — Sign + Verify + enable shim. DO NOT hand-edit; injected by scripts/add_proof_binding_universal.mjs. */
+function __ocgGetArt(){
+  var cands=['_artifact','_result','_lastArtifact','lastArtifact','_ap2','_lastResult','_ap2Artifact'];
+  for(var i=0;i<cands.length;i++){var v=window[cands[i]];if(v&&typeof v==='object'&&v.chaingraph_version)return v;}
+  var el=document.getElementById('exportPre')||document.getElementById('exportOutput')||document.getElementById('chainOutput')||document.getElementById('artifact');
+  if(el){var t=el.value||el.textContent;try{var vv=JSON.parse(t);if(vv&&vv.chaingraph_version)return vv;}catch(e){}}
+  return null;
+}
+async function signArtifact(){
+  var art=__ocgGetArt();
+  if(!art){alert('Run the tool first to generate an artifact (no §4 execution_hash found).');return;}
+  if(!confirm('Signing binds this run to a one-time key and de-anonymizes it (OCG §16.2). Continue?'))return;
+  var kp=await crypto.subtle.generateKey('Ed25519',true,['sign','verify']);
+  var did=await __ocgDidKeyFromPub(kp.publicKey);
+  var signed=await __ocgSign(art,{verificationMethod:did,created:art.generated_at||new Date().toISOString(),privateKey:kp.privateKey});
+  var ts=new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,14);
+  var fn=(art.tool_id||'artifact')+'_'+ts+'.signed.json';
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(signed,null,2)],{type:'application/json'}));
+  a.download=fn;a.click();URL.revokeObjectURL(a.href);
+}
+async function verifySignature(){
+  var t=window.prompt('Paste a signed OCG artifact JSON to verify its §16 signature:');if(!t)return;
+  var art;try{art=JSON.parse(t);}catch(e){alert('✗ not valid JSON');return;}
+  var pr=art&&art.audit_signature&&art.audit_signature.proof;
+  if(!pr){alert('✗ no §16 proof on this artifact');return;}
+  try{var pub=await __ocgPubFromDidKey(pr.verificationMethod);alert(await __ocgVerify(art,pub)?'✓ §16 signature valid':'✗ signature invalid / tampered');}
+  catch(e){alert('✗ '+(e&&e.message?e.message:'verify failed'));}
+}
+(function(){
+  var el=document.getElementById('artifact');
+  if(!el)return;
+  var obs=new MutationObserver(function(){
+    try{var v=JSON.parse(el.textContent);if(v&&v.chaingraph_version){
+      var sab=document.getElementById('signArtifactBtn');
+      if(sab){sab.disabled=false;}
+      obs.disconnect();
+    }}catch(e){}
+  });
+  obs.observe(el,{childList:true});
+})();
+</script>
+</body>
+</html>
