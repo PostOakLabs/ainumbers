@@ -724,6 +724,7 @@ status: stable
 - [ASC 606 Transaction Price Allocator](./art-834-asc606-transaction-price-allocator.md) — `allocate_asc606_transaction_price`
 - [Statement Footing and Cross-Footing Check](./art-839-statement-footing-crossfoot.md) — `check_statement_footing_crossfoot`
 - [Settlement Efficiency KPI Engine](./art-84-settlement-efficiency-kpi.md) — `compute_settlement_efficiency_kpi`
+- [GL Flux Explainer with Gate](./art-840-gl-flux-explainer.md) — `explain_gl_flux_with_gate`
 - [SOC Report Coverage and Bridge Gap](./art-842-soc-report-coverage-gap.md) — `compute_soc_report_coverage_gap`
 - [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md) — `run_pqc_timeline_fit`
 - [TLS / X.509 PKI Migration Planner](./art-86-tls-pki-migration-planner.md) — `plan_tls_pki_migration`
