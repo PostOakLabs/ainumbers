@@ -13,10 +13,21 @@
  * Usage:
  *   node scripts/gen-root-chrome.mjs           # write (default)
  *   node scripts/gen-root-chrome.mjs --check    # verify freshness, exit 1 on drift
+ *   node scripts/gen-root-chrome.mjs --paths    # print the page list this writer owns
+ *
+ * FOOTER-LINKS-REFRESH-1 (2026-11-13): this is a main-side writer. It is declared
+ * in scripts/derived-artifacts.mjs as the region entry "root-page-footers", so a
+ * footer change is a one-file edit of chaingraph/_page-chrome.mjs and main's
+ * regen carries it to every page below after merge. That matters because three
+ * of these pages (index.html, sitemap.html, tools.html) are whole-file main-only
+ * paths a PR may not touch (MAIN-ONLY-PATHS-GATE-1); before this entry nothing
+ * main-side rewrote their footer, so any template edit left the deploy gate red.
+ * The page list is exported (ROOT_CHROME_PAGES) and the write pass runs only when
+ * this file is executed, so derived-artifacts.mjs can import it with no side effect.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ROOT_FOOTER, ROOT_FOOTER_CSS } from '../chaingraph/_page-chrome.mjs';
 import { assertMarkerRegion } from './_marker-region-lib.mjs';
 
@@ -24,7 +35,7 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const REPO  = resolve(__dir, '..');
 const CHECK = process.argv.includes('--check');
 
-const PAGES = [
+export const ROOT_CHROME_PAGES = [
   'index.html', 'start.html',
   'contact.html', 'convert.html', 'credits.html', 'methods.html',
   'groth16.html', 'mechanical.html',
@@ -77,6 +88,13 @@ function inject(html, page, openTag, closeTag, payload) {
   return html.slice(0, oLineEnd) + payload + html.slice(cLineStart);
 }
 
+const PAGES = ROOT_CHROME_PAGES;
+
+function main() {
+if (process.argv.includes('--paths')) {
+  for (const p of PAGES) console.log(p);
+  return;
+}
 let drift = false;
 for (const page of PAGES) {
   const path = resolve(REPO, page);
@@ -103,3 +121,7 @@ if (CHECK && drift) {
   process.exit(1);
 }
 console.log(`✓ gen-root-chrome: ${PAGES.length} page(s) ${CHECK ? 'fresh' : 'generated'}`);
+}
+
+// Run only when executed directly; importing for ROOT_CHROME_PAGES has no side effect.
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) main();
