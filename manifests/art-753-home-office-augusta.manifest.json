@@ -1,0 +1,287 @@
+{
+  "tool_id": "art-753-home-office-augusta",
+  "version": "0.0.0-draft",
+  "title": "Home Office & Augusta Rule",
+  "description": "Home-office deduction and Augusta-rule estimator: the IRC 280A regular method (actual home expenses x business-use fraction, capped by the 280A(c)(5) gross-income limitation) against the Rev. Proc. 2013-13 simplified safe harbour (5 USD per square foot, 300 square-foot ceiling), the best method for the filer, the IRC 280A(g) tax-free rental exclusion at 14 or fewer days actually rented, and a two-basis tax-benefit roll-up. Ported from Apex #139; three premises diverge from official sources and each is recorded in DIFFERS.md with the statutory quote and the switch that reverts it. Refuses non-finite inputs with a named reason. Zero PII, client-side only.",
+  "category": "chaingraph",
+  "tags": [
+    "chaingraph",
+    "home-office",
+    "augusta-rule",
+    "irc-280a",
+    "rev-proc-2013-13",
+    "s-corp",
+    "tax-deduction",
+    "safe-harbour",
+    "zero-pii",
+    "mcp:calculate_home_office_augusta"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "office_sq_ft",
+      "home_sq_ft",
+      "business_use_pct",
+      "annual_rent_usd",
+      "utilities_usd",
+      "other_home_expenses_usd",
+      "gross_business_income_usd",
+      "entity_type_ho",
+      "rental_days",
+      "daily_rental_rate_usd",
+      "corp_tax_rate_pct",
+      "entity_type_aug",
+      "owner_marginal_rate_pct"
+    ],
+    "properties": {
+      "office_sq_ft": {
+        "type": "number",
+        "description": "Floor area of the office, in square feet. Reads 0 sq ft when blank, zero or non-numeric (Apex's own fallback, preserved and recorded in fallback_fields). The simplified method uses min(office_sq_ft, 300)."
+      },
+      "home_sq_ft": {
+        "type": "number",
+        "description": "Total area of the home, in square feet; the denominator of the business-use fraction. Reads 1 sq ft when blank, zero or non-numeric, which reports a 200/1 = 20,000% business use — Apex's divide-by-zero guard, preserved verbatim. No fetched source bounds this field."
+      },
+      "business_use_pct": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Business-use percentage as a whole number (0-100), or null to auto-derive office_sq_ft / home_sq_ft. Present-but-zero is an override to a 0% business use, not an auto-derive: Apex branches on the control string's truthiness, so the typed text \"0\" is non-empty and wins. null (an empty control) auto-derives."
+      },
+      "annual_rent_usd": {
+        "type": "number",
+        "description": "Annual rent (renter) or annual mortgage interest (owner), in USD. Combined with utilities_usd and other_home_expenses_usd into total_home_expenses_usd. Reads 0 when blank, zero or non-numeric."
+      },
+      "utilities_usd": {
+        "type": "number",
+        "description": "Annual utilities attributable to the home, in USD. Reads 0 when blank, zero or non-numeric."
+      },
+      "other_home_expenses_usd": {
+        "type": "number",
+        "description": "Annual other home costs in USD — insurance, repairs, and on the Apex page 'depreciation (optional)'. The node cannot see inside this bucket, so a depreciation figure here inflates the regular method even though the simplified safe harbour treats depreciation as zero (Rev. Proc. 2013-13 §4.06). Reads 0 when blank, zero or non-numeric."
+      },
+      "gross_business_income_usd": {
+        "type": "number",
+        "description": "Business gross income for the year, in USD, used as the 280A(c)(5) cap on the deduction. Reads 0 when blank, zero or non-numeric, which caps both methods at 0. Note the unresolved gap: Rev. Proc. 2013-13 §2.06/§4.08(2) key the cap to the gross income derived from the qualified business use of the home, reduced by the deductions allocable to that use and by unrelated business deductions — not to a free-standing whole-business figure (see CITES.md, UNGROUNDED)."
+      },
+      "entity_type_ho": {
+        "type": "string",
+        "enum": [
+          "soleProp",
+          "scorp"
+        ],
+        "description": "Home-office filer. 'soleProp' = sole proprietor / single-member LLC on Schedule C. 'scorp' = S-corp owner-employee on an accountable plan, for which Rev. Proc. 2013-13 §4.02 withdraws the simplified safe harbour, so simplified_method_selectable is false and only the regular method competes. In Apex this field changes no arithmetic at all (read at line 363, consumed only by rendered text). The kernel compares it by string equality and does not refuse an unlisted value; the enum is advisory."
+      },
+      "rental_days": {
+        "type": "number",
+        "description": "Days the home is rented to the business, for the 280A(g) test (<= 14). Apex labels this control as days PLANNED; 280A(g) tests days ACTUALLY rented, and the run is flagged ART753_PLANNED_NOT_ACTUAL_RENTAL_DAYS. A non-whole number is flagged ART753_RENTAL_DAYS_NOT_A_WHOLE_DAY. Reads 0 when blank, zero or non-numeric."
+      },
+      "daily_rental_rate_usd": {
+        "type": "number",
+        "description": "Fair-market daily rental rate in USD. Multiplied by rental_days into total_rental_income_usd. Reads 0 when blank, zero or non-numeric."
+      },
+      "corp_tax_rate_pct": {
+        "type": "number",
+        "description": "Rate as a whole percent used to value the S corporation's rent deduction. A typed 0 is falsy under Apex's `(value / 100) || 0.37` idiom and silently becomes 37; 0.01 is the smallest surviving entry. 37% is the TY2026 top individual rate (IRS IR-2025-103), not a corporate rate; an S corporation has no entity-level rate, so this label is a category error — see DIFFERS-05, which is why augusta_tax_benefit_at_owner_rate_usd is emitted alongside."
+      },
+      "entity_type_aug": {
+        "type": "string",
+        "enum": [
+          "scorp",
+          "soleProp"
+        ],
+        "description": "Structure that pays the rent. 'scorp' books a corporation deduction and a tax benefit; 'soleProp' leaves an income exclusion with no entity to deduct it. Compared by string equality; the enum is advisory and an unlisted value is not refused."
+      },
+      "owner_marginal_rate_pct": {
+        "type": "number",
+        "description": "The owner's combined federal+state marginal rate as a whole percent, applied to the deduction and to the owner-rate basis of the Augusta benefit. A typed 0 is falsy under Apex's `(value / 100) || 0.32` idiom and silently becomes 32; 0.01 is the smallest surviving entry. 32% is the TY2026 32% bracket (IRS IR-2025-103)."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "calculate_home_office_augusta",
+    "description": "Home-office deduction and Augusta-rule estimator: the IRC 280A regular method (actual home expenses x business-use fraction, capped by the 280A(c)(5) gross-income limitation) against the Rev. Proc. 2013-13 simplified safe harbour (5 USD per square foot, 300 square-foot ceiling), the best method for the filer, the IRC 280A(g) tax-free rental exclusion at 14 or fewer days actually rented, and a two-basis tax-benefit roll-up. Ported from Apex #139; three premises diverge from official sources and each is recorded in DIFFERS.md with the statutory quote and the switch that reverts it. Refuses non-finite inputs with a named reason. Zero PII, client-side only.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "office_sq_ft",
+        "home_sq_ft",
+        "business_use_pct",
+        "annual_rent_usd",
+        "utilities_usd",
+        "other_home_expenses_usd",
+        "gross_business_income_usd",
+        "entity_type_ho",
+        "rental_days",
+        "daily_rental_rate_usd",
+        "corp_tax_rate_pct",
+        "entity_type_aug",
+        "owner_marginal_rate_pct"
+      ],
+      "properties": {
+        "office_sq_ft": {
+          "type": "number",
+          "description": "Floor area of the office, in square feet. Reads 0 sq ft when blank, zero or non-numeric (Apex's own fallback, preserved and recorded in fallback_fields). The simplified method uses min(office_sq_ft, 300)."
+        },
+        "home_sq_ft": {
+          "type": "number",
+          "description": "Total area of the home, in square feet; the denominator of the business-use fraction. Reads 1 sq ft when blank, zero or non-numeric, which reports a 200/1 = 20,000% business use — Apex's divide-by-zero guard, preserved verbatim. No fetched source bounds this field."
+        },
+        "business_use_pct": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Business-use percentage as a whole number (0-100), or null to auto-derive office_sq_ft / home_sq_ft. Present-but-zero is an override to a 0% business use, not an auto-derive: Apex branches on the control string's truthiness, so the typed text \"0\" is non-empty and wins. null (an empty control) auto-derives."
+        },
+        "annual_rent_usd": {
+          "type": "number",
+          "description": "Annual rent (renter) or annual mortgage interest (owner), in USD. Combined with utilities_usd and other_home_expenses_usd into total_home_expenses_usd. Reads 0 when blank, zero or non-numeric."
+        },
+        "utilities_usd": {
+          "type": "number",
+          "description": "Annual utilities attributable to the home, in USD. Reads 0 when blank, zero or non-numeric."
+        },
+        "other_home_expenses_usd": {
+          "type": "number",
+          "description": "Annual other home costs in USD — insurance, repairs, and on the Apex page 'depreciation (optional)'. The node cannot see inside this bucket, so a depreciation figure here inflates the regular method even though the simplified safe harbour treats depreciation as zero (Rev. Proc. 2013-13 §4.06). Reads 0 when blank, zero or non-numeric."
+        },
+        "gross_business_income_usd": {
+          "type": "number",
+          "description": "Business gross income for the year, in USD, used as the 280A(c)(5) cap on the deduction. Reads 0 when blank, zero or non-numeric, which caps both methods at 0. Note the unresolved gap: Rev. Proc. 2013-13 §2.06/§4.08(2) key the cap to the gross income derived from the qualified business use of the home, reduced by the deductions allocable to that use and by unrelated business deductions — not to a free-standing whole-business figure (see CITES.md, UNGROUNDED)."
+        },
+        "entity_type_ho": {
+          "type": "string",
+          "enum": [
+            "soleProp",
+            "scorp"
+          ],
+          "description": "Home-office filer. 'soleProp' = sole proprietor / single-member LLC on Schedule C. 'scorp' = S-corp owner-employee on an accountable plan, for which Rev. Proc. 2013-13 §4.02 withdraws the simplified safe harbour, so simplified_method_selectable is false and only the regular method competes. In Apex this field changes no arithmetic at all (read at line 363, consumed only by rendered text). The kernel compares it by string equality and does not refuse an unlisted value; the enum is advisory."
+        },
+        "rental_days": {
+          "type": "number",
+          "description": "Days the home is rented to the business, for the 280A(g) test (<= 14). Apex labels this control as days PLANNED; 280A(g) tests days ACTUALLY rented, and the run is flagged ART753_PLANNED_NOT_ACTUAL_RENTAL_DAYS. A non-whole number is flagged ART753_RENTAL_DAYS_NOT_A_WHOLE_DAY. Reads 0 when blank, zero or non-numeric."
+        },
+        "daily_rental_rate_usd": {
+          "type": "number",
+          "description": "Fair-market daily rental rate in USD. Multiplied by rental_days into total_rental_income_usd. Reads 0 when blank, zero or non-numeric."
+        },
+        "corp_tax_rate_pct": {
+          "type": "number",
+          "description": "Rate as a whole percent used to value the S corporation's rent deduction. A typed 0 is falsy under Apex's `(value / 100) || 0.37` idiom and silently becomes 37; 0.01 is the smallest surviving entry. 37% is the TY2026 top individual rate (IRS IR-2025-103), not a corporate rate; an S corporation has no entity-level rate, so this label is a category error — see DIFFERS-05, which is why augusta_tax_benefit_at_owner_rate_usd is emitted alongside."
+        },
+        "entity_type_aug": {
+          "type": "string",
+          "enum": [
+            "scorp",
+            "soleProp"
+          ],
+          "description": "Structure that pays the rent. 'scorp' books a corporation deduction and a tax benefit; 'soleProp' leaves an income exclusion with no entity to deduct it. Compared by string equality; the enum is advisory and an unlisted value is not refused."
+        },
+        "owner_marginal_rate_pct": {
+          "type": "number",
+          "description": "The owner's combined federal+state marginal rate as a whole percent, applied to the deduction and to the owner-rate basis of the Augusta benefit. A typed 0 is falsy under Apex's `(value / 100) || 0.32` idiom and silently becomes 32; 0.01 is the smallest surviving entry. 32% is the TY2026 32% bracket (IRS IR-2025-103)."
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-753-home-office-augusta.html",
+    "function_name": "compute",
+    "kernel": "chaingraph/kernels/art-753-home-office-augusta.kernel.mjs",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "output_schema": {
+    "type": "object",
+    "description": "output_payload: refusal_reason (null unless refused), echoes office_sq_ft, home_sq_ft, business_use_fraction, gross_business_income_usd, entity_type_ho, rental_days, daily_rental_rate_usd, corp_tax_rate, owner_marginal_rate, entity_type_aug; home office total_home_expenses_usd, regular_deduction_before_gross_income_cap_usd, regular_deduction_usd, simplified_deduction_before_gross_income_cap_usd, simplified_deduction_usd, simplified_method_selectable, simplified_wins_on_amounts, best_home_office_deduction_usd, best_home_office_method ('Regular'|'Simplified'), gross_income_cap_applied_to ('regular'|'both'); Augusta rule total_rental_income_usd, qualifies_280a_g_day_test, augusta_tax_free_income_usd, augusta_corp_deduction_usd, augusta_tax_benefit_usd, augusta_tax_benefit_at_owner_rate_usd; benefits home_office_tax_benefit_usd, combined_tax_benefit_usd, combined_tax_benefit_at_owner_rate_basis_usd; provenance switches{}, fallback_fields[] (objects with field, apex_fallback, raw_input), compliance_flags[], notes[]. On a refusal, output_payload carries refusal_reason 'REFUSED_NON_FINITE_INPUT', every computed field null, and compliance_flags ['ART753_INPUT_REFUSED']."
+  },
+  "source": "chaingraph/kernels/art-753-home-office-augusta.kernel.mjs",
+  "input_schema_provenance": "One property per input the kernel reads, 13 in total, each with a real type taken from that read: nine 'number', one ['number','null'] for business_use_pct because the kernel branches on its presence, and two 'string' + enum for the entity selectors. All 13 are required because compute() dereferences every one of them unconditionally; Apex's own per-field fallbacks still apply to a null or omitted value and are reported in fallback_fields, so a default is never mistaken for an input. The two enums are advisory: the kernel compares the entity strings by equality and refuses no unlisted value.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "office_sq_ft": 200,
+    "home_sq_ft": 1800,
+    "business_use_pct": null,
+    "annual_rent_usd": 24000,
+    "utilities_usd": 3600,
+    "other_home_expenses_usd": 1200,
+    "gross_business_income_usd": 120000,
+    "entity_type_ho": "soleProp",
+    "rental_days": 14,
+    "daily_rental_rate_usd": 800,
+    "corp_tax_rate_pct": 37,
+    "entity_type_aug": "scorp",
+    "owner_marginal_rate_pct": 32
+  },
+  "output_example": {
+    "refusal_reason": null,
+    "office_sq_ft": 200,
+    "home_sq_ft": 1800,
+    "business_use_fraction": 0.1111111111111111,
+    "gross_business_income_usd": 120000,
+    "entity_type_ho": "soleProp",
+    "rental_days": 14,
+    "daily_rental_rate_usd": 800,
+    "corp_tax_rate": 0.37,
+    "owner_marginal_rate": 0.32,
+    "entity_type_aug": "scorp",
+    "total_home_expenses_usd": 28800,
+    "regular_deduction_before_gross_income_cap_usd": 3200,
+    "regular_deduction_usd": 3200,
+    "simplified_deduction_before_gross_income_cap_usd": 1000,
+    "simplified_deduction_usd": 1000,
+    "simplified_method_selectable": true,
+    "simplified_wins_on_amounts": false,
+    "best_home_office_deduction_usd": 3200,
+    "best_home_office_method": "Regular",
+    "gross_income_cap_applied_to": "both",
+    "total_rental_income_usd": 11200,
+    "qualifies_280a_g_day_test": true,
+    "augusta_tax_free_income_usd": 11200,
+    "augusta_corp_deduction_usd": 11200,
+    "augusta_tax_benefit_usd": 4144,
+    "augusta_tax_benefit_at_owner_rate_usd": 3584,
+    "home_office_tax_benefit_usd": 1024,
+    "combined_tax_benefit_usd": 5168,
+    "combined_tax_benefit_at_owner_rate_basis_usd": 4608,
+    "switches": {
+      "apex_faithful_mode": false,
+      "gross_income_cap_applies_to_simplified_method": true,
+      "simplified_method_available_to_s_corp_employee": false,
+      "effective_cap_applied": true,
+      "effective_gate_applied": true
+    },
+    "fallback_fields": [
+      {
+        "field": "business_use_pct",
+        "apex_fallback": "auto-derive office_sq_ft / home_sq_ft",
+        "raw_input": "(empty control)"
+      }
+    ],
+    "compliance_flags": [
+      "ART753_280A_G_RESIDENCE_CONDITION_UNTESTED",
+      "ART753_PLANNED_NOT_ACTUAL_RENTAL_DAYS",
+      "ART753_GROSS_INCOME_SCOPE_UNVERIFIED",
+      "ART753_SIMPLIFIED_METHOD_WITH_NON_SCHEDULE_A_EXPENSE_BUCKET",
+      "ART753_CORP_DEDUCTION_BARRED_TEXT_280A_G_1"
+    ],
+    "notes": [
+      "§280A(g) has two conditions: the dwelling unit must be \"used during the taxable year by the taxpayer as a residence\" AND \"actually rented for less than 15 days during the taxable year\" (26 U.S.C. §280A(g), fetched 2026-10-06). This node tests only the day count — no input records residence status — so qualifies_280a_g_day_test is a day-count test, not a §280A(g) determination.",
+      "rental_days is the count you plan to rent (Apex #139 control label: \"Days You Plan to Rent to Business\"); §280A(g) tests days \"actually rented\". A plan is not an actual rental; the statutory test is retrospective and this node reads no calendar.",
+      "gross_business_income_usd is a free-standing whole-business figure. Rev. Proc. 2013-13 §2.06 states the §280A(c)(5) limitation as \"the gross income derived from that use for the taxable year reduced by (1) the deductions allocable to the use that are allowable for the taxable year whether or not the unit is used as described in §280A(c)(1) through (4) … and (2) the allowable trade or business expenses that are not allocable to the use of the dwelling unit\"; §4.08(2) restates it for the safe harbor. No Form 8829 mechanic is modelled, so the cap's scope is unverified.",
+      "entity_type_aug=scorp with rental_days<=14: the owner excludes the rental income under §280A(g)(2) and the corporation books the rent deduction. CAUTION: §280A(g)(1) says \"no deduction otherwise allowable under this chapter because of the rental use of such dwelling unit shall be allowed\" — on its face that bars this very deduction; practitioners split on whether the S-corp deduction survives. The figure is retained from Apex #139 and flagged, not endorsed (DIFFERS-06; OPEN QUESTION 1 in APEXPORT-139-REPORT.md).",
+      "other_home_expenses_usd is a single bucket whose Apex #139 hint lists \"Insurance, repairs, depreciation (optional)\"; a taxpayer using the safe harbor method \"cannot deduct any depreciation (including any additional first-year depreciation) or §179 expense for the portion of the home that is used in a qualified business use\" (Rev. Proc. 2013-13 §4.06), so a depreciation-bearing bucket distorts the regular-vs-simplified comparison."
+    ]
+  },
+  "example_execution_hash": "d3e664bff2a62a1cb1d50ea5094a0fb7986edbf3331ede920aba15592c561016"
+}
