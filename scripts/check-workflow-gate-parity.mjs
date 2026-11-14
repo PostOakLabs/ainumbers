@@ -1126,6 +1126,8 @@ const PREFLIGHT_ONLY = new Map([
   ["diff-scope.test.mjs", SELF_TEST],
   ["check-clause-digest.test.mjs", SELF_TEST],
   ["lint-kernel-citation-comments.test.mjs", SELF_TEST],
+  ["lint-caller-key-lookup.mjs", "advisory for existing kernels (baseline ratchet), blocking only for a kernel with no baseline entry; runs in preflight and kernel-preflight (KERNEL-CALLER-KEY-LOOKUP-LINT-1)"],
+  ["_caller-key-probes.mjs", SELF_TEST],
   ["check-branch-inventory.test.mjs", SELF_TEST],
   ["check-flag-mirror.test.mjs", SELF_TEST],
   ["check-chain-citation.test.mjs", SELF_TEST],
