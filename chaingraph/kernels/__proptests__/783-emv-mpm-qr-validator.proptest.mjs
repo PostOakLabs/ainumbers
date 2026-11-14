@@ -1,5 +1,5 @@
 // 783-emv-mpm-qr-validator — class-K floor property test.
-// kernel_digest_at_authoring: sha256:20030dfb813f7e9eb5b23458d198b4b14a186ec5b0aef5f835fb93548e42d968
+// kernel_digest_at_authoring: sha256:8eddb4fb6dd1e0ba8b4a2e22879e8bcad709c7714fbe9ec95cad0c822385dd0b
 // spec: EMV-MPM-QR-VALIDATOR-1 row (board/queued/EMV-MPM-QR-VALIDATOR-1.md) · pinned texts in
 // research/clause-snapshots/emv-mpm-qr/ · pin note research/EMV-MPM-QR-PIN-2026-10-29.md
 // human_sign_off: PENDING
@@ -11,7 +11,7 @@
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { compute, SCHEME_PROFILES } from '../783-emv-mpm-qr-validator.kernel.mjs';
+import { compute, buildArtifact, SCHEME_PROFILES } from '../783-emv-mpm-qr-validator.kernel.mjs';
 import { runFixtureOracle, summarize, deepEqual, mulberry32 } from './_pbt-common.mjs';
 
 const KERNEL_ID = '783-emv-mpm-qr-validator';
@@ -224,6 +224,49 @@ function checkProfilesMirror() {
   return { name: 'profiles_as_data_mirror_kernel_side_equal', checked: 3, violations: okProfileKeys && okDeep ? [] : ['mirror-drift'] };
 }
 
+// ── P9 buildArtifact_never_throws: an input whose {policy_parameters, output_payload} preimage
+// the shared canonicalizer would reject mints an artifact with a null execution_hash and a
+// hash_refusal beside it; a clean input (accepted or refused) gets a 64-hex hash.
+async function checkBuildArtifactNeverThrows() {
+  const base = () => ({ payload: '000201', profile: 'generic' });
+  let checked = 0;
+  const violations = [];
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const hostile = [
+    { x: 1e300 }, { x: Number.MAX_SAFE_INTEGER + 2 }, { x: Infinity }, { x: NaN },
+    { unknown: { a: [1e300] } }, { x: deep }, { x: wide },
+  ];
+  for (const delta of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...base(), ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) violations.push('artifact-shape:' + Object.keys(delta)[0]);
+      if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) violations.push('value-echoed');
+    } catch (e) { violations.push('threw:' + String((e && e.message) || e).slice(0, 60)); }
+  }
+  for (const pp of [base(), { ...base(), expect: null }, { ...base(), profile: 'nope' }, null, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) violations.push('clean-input-lost-hash');
+    } catch (e) { violations.push('threw-on-clean:' + String((e && e.message) || e).slice(0, 60)); }
+  }
+  return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
+}
+
+// ── P10 a present null expect refuses by name; absent still means no expectation.
+function checkNullExpectRefuses() {
+  const base = { payload: '000201', profile: 'generic' };
+  const violations = [];
+  const nul = compute({ ...base, expect: null }).output_payload;
+  if (!(nul.refused && nul.refused.refused_because === 'expect_invalid')) violations.push('null-expect-not-refused');
+  const abs = compute({ ...base }).output_payload;
+  if (abs.refused && abs.refused.refused_because === 'expect_invalid') violations.push('absent-expect-refused');
+  return { name: 'present_null_expect_refuses_absent_does_not', checked: 2, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -240,12 +283,14 @@ const properties = [
   checkDuplicateTag(),
   checkRefusalBranches(),
   checkProfilesMirror(),
+  await checkBuildArtifactNeverThrows(),
+  checkNullExpectRefuses(),
 ].map((p) => {
   // summarize() wants a violation COUNT; details print once for the failing property only.
   const n = Array.isArray(p.violations) ? p.violations.length : p.violations;
   if (Array.isArray(p.violations) && p.violations.length) console.log('  detail:', p.name, JSON.stringify(p.violations.slice(0, 5)));
   return { name: p.name, checked: p.checked, violations: n };
 });
-console.log(`[${KERNEL_ID}] class-K floor property test — 8 properties.`);
+console.log(`[${KERNEL_ID}] class-K floor property test — 10 properties.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
 process.exit(ok ? 0 : 1);
