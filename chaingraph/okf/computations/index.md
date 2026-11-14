@@ -46,6 +46,7 @@ status: stable
 - [Payment Services Activity Classifier](./836-payment-services-activity-classifier.md)
 - [Issuer Reserve Yield Share Check](./837-issuer-yield-share.md)
 - [Control Frequency Sample](./838-control-frequency-sample.md)
+- [Workload Identity Claims Lint](./844-workload-identity-claims.md)
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md)
 - [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md)
 - [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md)
