@@ -940,15 +940,16 @@ existing contract only.
 
 ## §20 Anchor Binding (NORMATIVE, OPTIONAL — new in v0.7)
 An artifact MAY carry portable, offline-verifiable evidence that its `execution_hash` was included in a
-transparency log or timestamp service by a point in time (the §20.4 `solana-memo` type is the ONE
-exception to "offline-verifiable": its verification requires a Solana RPC, stated there normatively).
+transparency log or timestamp service by a point in time (the §20.4 `solana-memo` and §20.5
+`evm-eas-timestamp` types are the two exceptions to "offline-verifiable": their verification requires a
+ledger RPC, stated in each section normatively).
 Anchor evidence attaches at the OPTIONAL
 top-level array `anchor_bindings`, which — like §16 `audit_signature` — is attached AFTER hashing and is
 EXCLUDED from `execution_hash` scope. Each entry:
 
 ```json
 {
-  "type": "rfc3161-tst" | "opentimestamps" | "c2sp-tlog-proof-v1" | "scitt-receipt-rfc9942" | "solana-memo",
+  "type": "rfc3161-tst" | "opentimestamps" | "c2sp-tlog-proof-v1" | "scitt-receipt-rfc9942" | "solana-memo" | "evm-eas-timestamp",
   "anchored_hash": "sha256:…",
   "log_origin": "<TSA URL / log origin string / calendar or service identifier>",
   "proof": "<base64 verbatim TST DER | base64 OTS proof | tlog-proof@v1 text | base64 COSE receipt>",
@@ -961,7 +962,10 @@ present (§20.1), in which case `anchored_hash` is a Merkle ROOT and the artifac
 LEAF of that tree. The last four members (`policy_oid`, `serial`, `gen_time`, `signer_cert_chain_b64`)
 are `rfc3161-tst` additional members — all REQUIRED for that type, absent otherwise. A `solana-memo`
 entry (§20.4) instead carries `cluster`, `signature`, `slot`, `block_time`, `commitment`, `signer` and
-`anchored_hash` (plus OPTIONAL `merkle_inclusion`); its member set is defined in §20.4.
+`anchored_hash` (plus OPTIONAL `merkle_inclusion`); its member set is defined in §20.4. An
+`evm-eas-timestamp` entry (§20.5) carries `chain_id`, `contract`, `anchored_hash`, `timestamp` and
+`independence_class` (plus OPTIONAL `tx_hash`, `block_number`, `merkle_inclusion`); its member set is
+defined in §20.5.
 
 Verification (per type): `rfc3161-tst` — RFC 3161 TimeStampToken verification: messageImprint matches
 `anchored_hash`, CMS signature over TSTInfo valid, signer chains to a verifier-pinned TSA root, signing
@@ -1191,6 +1195,91 @@ against the `solana-memo` oneOf variant added to `openchain-graph-v0.4.schema.js
 verifier behavior, fixtures and the unknown-type fallback live in the anchor-suite repo, which owns the
 verification-only leg. Nothing in this section requires or permits an OCG implementation to hold a
 Solana signing key.
+
+### §20.5 `evm-eas-timestamp` — verification-only EVM ledger anchor (NORMATIVE, OPTIONAL — new in v0.8.26)
+An `evm-eas-timestamp` binding records that an Ethereum Attestation Service (EAS) contract on a named
+EVM chain holds a nonzero timestamp for `anchored_hash`, as written by that contract's
+`timestamp(bytes32)` and read back by its `getTimestamp(bytes32)`. The type is chain-neutral: the same
+shape covers Ethereum L1, Base and Optimism, distinguished by `chain_id` and `contract`. It is
+**verification-only** in this standard, exactly as §20.4: OCG defines NO stamping leg, NO key custody
+and NO funding for this type. A producer that wants one stamps the hash from its own wallet elsewhere;
+the binding is evidence ABOUT a contract state, never an operation BY this standard. Like every §20
+member it attaches AFTER hashing, is EXCLUDED from the `execution_hash` preimage, and rides in
+`anchor_bindings`:
+
+```json
+{
+  "type": "evm-eas-timestamp",
+  "chain_id": 8453,
+  "contract": "0x<40 hex: an EAS address on the verifier's allowlist for chain_id>",
+  "anchored_hash": "sha256:…",
+  "timestamp": 1760000000,
+  "tx_hash": "0x<64 hex, OPTIONAL>",
+  "block_number": 123456789,
+  "merkle_inclusion": { "…": "OPTIONAL, §20.1 semantics unchanged" },
+  "independence_class": "single-chain-ledger"
+}
+```
+
+Members: `anchored_hash` MUST equal the artifact's `execution_hash`, EXCEPT under `merkle_inclusion`
+(§20.1), where it is the Merkle ROOT, the contract stamps the ROOT, and the artifact `execution_hash` is
+a LEAF; §20.1 semantics apply to this type unchanged. The `bytes32` key the contract is read with is the
+32-byte SHA-256 digest that `anchored_hash` encodes in hex (no re-hashing, no prefix). `chain_id` MUST
+be the EIP-155 chain id of the chain holding the stamp. `contract` MUST be the address of the EAS
+contract read. `timestamp` MUST be the nonzero uint64 (unix seconds) that contract returns for the key:
+the timestamp of the block that first stamped it, set by that chain's block producer (on an OP Stack
+chain, the sequencer), never a signed or authoritative time. `tx_hash` and `block_number` are OPTIONAL
+locators of the stamping transaction; they are informative, because the contract state read is the
+evidence. `independence_class` MUST be `single-chain-ledger` (see the counting rule below).
+
+**Per-chain contract allowlist (data, not standard text).** Which EAS contract address is acceptable on
+which chain is a trust decision held as DATA outside this standard, never as an address typed into this
+section: a verifier takes it from a published per-chain allowlist (for the reference verifier, the
+anchor-suite claims registry, `anchor-suite/docs/anchor-claims-registry.json`, once published). The
+allowlist MAY differ per chain (an OP Stack predeploy on Base and Optimism; a deployed contract on
+Ethereum L1). A verifier with no allowlist entry for (`chain_id`, `contract`) MUST NOT report the
+binding as verified.
+
+Verification is NOT offline: like §20.4, this type structurally requires a JSON-RPC endpoint for the
+named chain, chosen by the VERIFIER (the binding names none; deferring that trust choice to whoever
+verifies is deliberate). A verifier: (1) calls `eth_chainId` and rejects when it differs from
+`chain_id`; (2) rejects when `contract` is not on its allowlist for `chain_id`; (3) reads the stamp by
+`eth_call` of `getTimestamp(bytes32)` on `contract` with the key above, at block tag `finalized`, and at
+no other tag; (4) rejects when the returned value is zero (zero means NOT timestamped) or differs from
+`timestamp`; (5) under `merkle_inclusion`, applies §20.1 (leaf match, RFC 6962 root reconstruction, root
+== `anchored_hash`); and (6), where it checks `tx_hash` or `block_number`, rejects on any mismatch. A
+stamp visible only at `safe`, `latest` or any pre-confirmation level MUST NOT be reported as verified; a
+verifier MAY report it as pending finality. A verifier MAY query several RPCs it chose and require
+identical results; this section requires none.
+
+**Trust caveat (NORMATIVE honesty; MUST be carried, in spirit, by any product copy for this type):**
+- **No signer.** The read returns a time and nothing else. The binding does not identify who stamped
+  the hash, and copy MUST NOT imply it does.
+- **First writer wins.** The contract keeps only the first stamp of a given key, and anyone who knows
+  the hash can stamp it. So the binding shows "the earliest recorded stamp of this hash on chain C, at
+  block time T", never "stamped by the producer". A producer SHOULD stamp a value the world cannot know
+  in advance (the artifact hash after it is built, or a §20.1 root over a set that includes a nonce
+  leaf).
+- **Ledger ordering only.** Like Bitcoin OTS and §20.4, this is NOT an RFC 3161 token: no accountable
+  time authority, no qualified or eIDAS status, no signed time. `timestamp` is a block-producer time.
+- **The verifier picks the RPC, and trusts it.** The RPC operator sees the queried hash and can answer
+  falsely; the chain's sequencer (Base, Optimism) or validator set (Ethereum L1) is trusted for what
+  `finalized` means on that chain. There is NO verify-offline-forever property.
+- **Never independent.** A single-chain-ledger binding is one trust root for its chain, shared with
+  that chain's operators. Any number of `evm-eas-timestamp` bindings on one chain count as ONE root, and
+  copy MUST NOT present such a binding as independent of its chain's sequencer or operators. Toward any
+  "multi-authority" count over a receipt this type contributes at most one `single-chain-ledger` root
+  per chain. (Declaring a class for the other §20 types is out of scope for this section.)
+
+Copy that labels this type a TSA, RFC 3161-aligned, eIDAS-qualified, signed, or independent is
+NON-CONFORMANT with this section.
+
+Gate (EXISTING, extended — no new gate script here): the shape is validated by `schema-validate.mjs`
+against the `evm-eas-timestamp` oneOf variant added to `openchain-graph-v0.4.schema.json` in the same
+change; verifier behavior, recorded-RPC fixtures (including wrong hash, `safe`-only, wrong chain id and
+unknown contract negatives) and the unknown-type fallback live in the anchor-suite repo, which owns the
+verification-only leg. Nothing in this section requires or permits an OCG implementation to hold an
+EVM signing key, submit a transaction, or pay gas.
 
 ## §21 Chain Execution (NORMATIVE — new in v0.8)
 Until v0.8 chain execution (`run_chain` / `composite_execution_hash`) was implementation-defined. §21
