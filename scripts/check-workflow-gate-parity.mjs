@@ -1666,7 +1666,7 @@ const DECLARED_SOFTENERS = new Map([
   // ordering-comment lines added inside the receipt block above; same pin-move.
   // CHANGELOG-DEPLOY-INCLUDE-1 (2026-10-31) moved it :1024 → :1026 — two
   // --include lines added to the dry-run rsync above; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:1026",
+  ["deploy-to-dreamhost.yml:continue-on-error:1027",
    "attest step is advisory-first by design; promotion criterion on the step"],
   // SIGSTORE-BUNDLE-V03-EXPORT-4 (2026-10-24): the receipt-bundle index
   // attest step (continue-on-error at :829) is advisory-first for the SAME
@@ -1685,7 +1685,7 @@ const DECLARED_SOFTENERS = new Map([
   // three receipt steps moved as one block to sit immediately above the
   // deploy-manifest build, so index.sigstore.json ships LISTED in
   // deploy-checksums.txt; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:781",
+  ["deploy-to-dreamhost.yml:continue-on-error:782",
    "receipt-bundle index attest step is advisory-first by design; a Sigstore outage must not red the deploy or skip CF purge + smoke; promotion criterion on the step"],
   // SIGSTORE-BUNDLE-V03-EXPORT-5 (2026-10-25): the receipt-bundle subjects
   // step (id: attest_subjects, continue-on-error at :812) is advisory-first
@@ -1699,7 +1699,7 @@ const DECLARED_SOFTENERS = new Map([
   // SIGSTORE-BUNDLE-V03-EXPORT-8 (2026-10-26) moved it :812 → :736 — the
   // three receipt steps moved as one block to sit immediately above the
   // deploy-manifest build; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:736",
+  ["deploy-to-dreamhost.yml:continue-on-error:737",
    "receipt-bundle subjects step is advisory-first by design; a red index-shape derivation must not red the deploy; promotion criterion on the step"],
   // SIGSTORE-BUNDLE-V03-EXPORT-5 (2026-10-25): the receipt-bundle copy step
   // (id: copy_sigstore_bundle, continue-on-error at :876) is advisory-first
@@ -1713,7 +1713,7 @@ const DECLARED_SOFTENERS = new Map([
   // SIGSTORE-BUNDLE-V03-EXPORT-8 (2026-10-26) moved it :876 → :806 — the
   // three receipt steps moved as one block to sit immediately above the
   // deploy-manifest build; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:806",
+  ["deploy-to-dreamhost.yml:continue-on-error:807",
    "receipt-bundle copy step is advisory-first by design; a copy failure must not red the deploy; promotion criterion on the step"],
 
   // MAIN-GATES-AFTER-REGEN-1 (2026-10-08) moved it :109 → :146 — the
