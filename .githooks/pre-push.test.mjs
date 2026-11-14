@@ -113,6 +113,7 @@ if (args[0] === '--affected' && existsSync('tools/widget.html') && existsSync('d
 }
 if (process.env.MOCK_ARGV_LOG) appendFileSync(process.env.MOCK_ARGV_LOG, JSON.stringify(args) + '\\n');
 if (process.env.MOCK_ENV_LOG) appendFileSync(process.env.MOCK_ENV_LOG, 'PR=' + (process.env.PR_ID_COLLISION_PR || '') + '\\n');
+if (process.env.MOCK_ENV_LOG) appendFileSync(process.env.MOCK_ENV_LOG, 'PUSHBRANCH=' + (process.env.ID_COLLISION_PUSH_BRANCH || '') + '\\n');
 console.log('mock preflight received: ' + args.join(' '));
 process.exit(process.env.MOCK_PREFLIGHT_EXIT ? Number(process.env.MOCK_PREFLIGHT_EXIT) : 0);
 `;
@@ -524,6 +525,53 @@ function prFor(ghJson, branchInStdin, ghExit = 0) {
   assert(wrong.status === 0 && wrong.seen.includes('PR=\n'), `RED: wrong headRefName ⇒ NOT exported (got ${JSON.stringify(wrong.seen)})`);
   const err = prFor('', 'feat-x', 1);
   assert(err.status === 0 && err.seen.includes('PR=\n'), `RED: gh failure ⇒ NOT exported and the push still proceeds (got ${JSON.stringify(err.seen)})`);
+}
+
+// ── 13b. PREPUSH-PR-FROM-PUSH-TARGET-1 — the hook parses the push DESTINATION
+//      branch from its stdin (the remote ref of the sole refs/heads line) and
+//      exports ID_COLLISION_PUSH_BRANCH so check-id-collision.mjs resolves this
+//      push's PR by the pushed branch, not by the local worktree branch name.
+//      Pure stdin parsing: no gh, no network, never blocks; zero or ambiguous
+//      lines leave it unset and an explicit preset value is never clobbered.
+function pushBranchSeen(dir, stdin, envOverrides = {}) {
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0', ...envOverrides }, stdin);
+  const f = join(dir, 'env-log.txt');
+  const seen = existsSync(f) ? readFileSync(f, 'utf8') : '';
+  return { status: r.status, seen };
+}
+{
+  const dir = makeSandbox();
+  const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: dir, env: isolatedChildEnv(), encoding: 'utf8' }).stdout.trim();
+  const sha = head || 'a'.repeat(40);
+  // (a) a cure push: local branch name differs from the pushed (PR head) branch.
+  const cure = pushBranchSeen(dir, `refs/heads/PR-3100-PORT-790-JE-CURE-1 ${sha} refs/heads/PORT-790-JE-PERIOD-LOCK-GATE-1 ${'0'.repeat(40)}\n`);
+  assert(cure.status === 0 && cure.seen.includes('PUSHBRANCH=PORT-790-JE-PERIOD-LOCK-GATE-1'),
+    `PUSH-TARGET: the push DESTINATION branch (remote ref) is exported, not the local branch name (got ${JSON.stringify(cure.seen.split('\n').filter((l) => l.startsWith('PUSHBRANCH'))[0])})`);
+  cleanup(dir);
+  // (b) a tag push has no refs/heads remote ref: nothing exported, push unaffected.
+  const dir2 = makeSandbox();
+  const tag = pushBranchSeen(dir2, `refs/tags/v1 ${sha} refs/tags/v1 ${'0'.repeat(40)}\n`);
+  assert(tag.status === 0 && tag.seen.includes('PUSHBRANCH=\n'),
+    `PUSH-TARGET: a tag push exports no push branch (got ${JSON.stringify(tag.seen.split('\n').filter((l) => l.startsWith('PUSHBRANCH'))[0])})`);
+  cleanup(dir2);
+  // (c) two branch targets in one push: ambiguous, nothing exported (fail closed downstream).
+  const dir3 = makeSandbox();
+  const two = pushBranchSeen(dir3, `refs/heads/a ${sha} refs/heads/br-one ${'0'.repeat(40)}\nrefs/heads/a ${sha} refs/heads/br-two ${'0'.repeat(40)}\n`);
+  assert(two.status === 0 && two.seen.includes('PUSHBRANCH=\n'),
+    `PUSH-TARGET: two branch targets stay unset (got ${JSON.stringify(two.seen.split('\n').filter((l) => l.startsWith('PUSHBRANCH'))[0])})`);
+  cleanup(dir3);
+  // (d) an explicit preset value is never clobbered by the stdin parse.
+  const dir4 = makeSandbox();
+  const preset = pushBranchSeen(dir4, `refs/heads/a ${sha} refs/heads/br-one ${'0'.repeat(40)}\n`, { ID_COLLISION_PUSH_BRANCH: 'PINNED-BRANCH' });
+  assert(preset.status === 0 && preset.seen.includes('PUSHBRANCH=PINNED-BRANCH'),
+    `PUSH-TARGET: a preset ID_COLLISION_PUSH_BRANCH is never clobbered (got ${JSON.stringify(preset.seen.split('\n').filter((l) => l.startsWith('PUSHBRANCH'))[0])})`);
+  cleanup(dir4);
+  // (e) empty stdin (the historical default in this file's older scenarios): unset, no crash.
+  const dir5 = makeSandbox();
+  const empty = pushBranchSeen(dir5, '');
+  assert(empty.status === 0 && empty.seen.includes('PUSHBRANCH=\n'),
+    'PUSH-TARGET: empty stdin stays unset and the hook proceeds');
+  cleanup(dir5);
 }
 
 // ── 14. PREPUSH-MERGE-RESULT-1, RED (load-bearing): the branch tree is green
