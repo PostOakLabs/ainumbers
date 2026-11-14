@@ -43,11 +43,11 @@ import { executionHash } from './_hash.mjs';
 const ART753_CONSTANTS = {
   // Named thresholds, each grounded in CITES.md:
   SIMPLIFIED_METHOD_RATE_USD_PER_SQFT: 5,
-  // Rev. Proc. 2013-13 §4.01(3): "The prescribed rate is $5.00."
+  // Rev. Proc. 2013-13 sec 4.01(3): "The prescribed rate is $5.00."
   SIMPLIFIED_METHOD_MAX_SQFT: 300,
-  // Rev. Proc. 2013-13 §4.01(2): "not to exceed 300 square feet."
+  // Rev. Proc. 2013-13 sec 4.01(2): "not to exceed 300 square feet."
   AUGUSTA_RULE_MAX_RENTAL_DAYS: 14,
-  // 26 U.S.C. §280A(g): "actually rented for less than 15 days during the taxable year."
+  // 26 U.S.C. sec 280A(g): "actually rented for less than 15 days during the taxable year."
   PERCENT_DIVISOR: 100,
   // Apex #139 reads its two rate controls as percentages and divides by 100.
   FALLBACK_CORP_TAX_RATE: 0.37,
@@ -58,7 +58,7 @@ const ART753_CONSTANTS = {
   // UNGROUNDED: Apex #139 warns the IRS "scrutinizes home-office deductions
   // above ~50%". No official text fetched this run states a 50% threshold; the
   // operative tests are exclusive regular use and the principal-place-of-business
-  // test (26 U.S.C. §280A(c)(1)). Kept as a heuristic, flagged, never a rule.
+  // test (26 U.S.C. sec 280A(c)(1)). Kept as a heuristic, flagged, never a rule.
 };
 
 const ART753_POLICY = {
@@ -68,12 +68,12 @@ const ART753_POLICY = {
   GROSS_INCOME_CAP_APPLIES_TO_SIMPLIFIED_METHOD: true,
   // DIFFERS-01 — official wins (IRS Topic 509: "Regardless of the method used
   // to compute the deduction, you may not deduct business expenses in excess of
-  // the gross income limitation."; Rev. Proc. 2013-13 §4.08(2)).
+  // the gross income limitation."; Rev. Proc. 2013-13 sec 4.08(2)).
   SIMPLIFIED_METHOD_AVAILABLE_TO_S_CORP_EMPLOYEE: false
-  // DIFFERS-04 — official wins (Rev. Proc. 2013-13 §4.02: the safe harbor
+  // DIFFERS-04 — official wins (Rev. Proc. 2013-13 sec 4.02: the safe harbor
   // "does not apply to an employee with a home office if the employee receives
   // advances, allowances, or reimbursements … under a reimbursement or other
-  // expense allowance arrangement (as defined in §1.62-2) with his or her
+  // expense allowance arrangement (as defined in sec 1.62-2) with his or her
   // employer.").
 };
 
@@ -88,7 +88,7 @@ function computeCore(pp) {
   // fallback. A 0% rate entry therefore collapses to the default rate (C12/C13).
   const fallbackFields = [];
   const trackFallback = (field, rawInput, fallback) => {
-    fallbackFields.push({ field: field, apex_fallback: fallback, raw_input: rawInput === '' ? '(empty control)' : rawInput });
+    fallbackFields.push({ field: field, apex_fallback: fallback, raw_input: (rawInput === '' || rawInput === null || rawInput === undefined) ? '(empty control)' : rawInput });
   };
   const apexNumOr = (v, fb, field) => {
     const n = Number(v);
@@ -167,6 +167,7 @@ function computeCore(pp) {
       },
       fallback_fields: fallbackFields,
       compliance_flags: ['ART753_INPUT_REFUSED'],
+      warnings: ['ART753_INPUT_REFUSED'],
       notes: refusalNotes
     };
   }
@@ -202,11 +203,12 @@ function computeCore(pp) {
   const combinedTaxBenefitAtOwnerRateBasis = hoBenefit + augTaxBenefitAtOwnerRate;
 
   // ── 4. Compliance flags ──
-  const complianceFlags = [
-    'ART753_280A_G_RESIDENCE_CONDITION_UNTESTED',
-    'ART753_PLANNED_NOT_ACTUAL_RENTAL_DAYS',
-    'ART753_GROSS_INCOME_SCOPE_UNVERIFIED'
-  ];
+  const complianceFlags = [];
+  if (rentalDays > 0) {
+    complianceFlags.push('ART753_280A_G_RESIDENCE_CONDITION_UNTESTED');
+    complianceFlags.push('ART753_PLANNED_NOT_ACTUAL_RENTAL_DAYS');
+  }
+  if (regularDeductionBeforeCap !== 0 || simplifiedDeductionBeforeCap !== 0) complianceFlags.push('ART753_GROSS_INCOME_SCOPE_UNVERIFIED');
   if (otherHomeExp !== 0) complianceFlags.push('ART753_SIMPLIFIED_METHOD_WITH_NON_SCHEDULE_A_EXPENSE_BUCKET');
   if (buPct > C.HIGH_BUSINESS_USE_PCT_HEURISTIC) complianceFlags.push('ART753_HIGH_BUSINESS_USE_HEURISTIC_UNGROUNDED');
   if (gateScorpSimplified && entityTypeHO === 'scorp' && simplifiedDeductionBeforeCap >= regularDeductionBeforeCap) complianceFlags.push('ART753_SIMPLIFIED_AND_REGULAR_DISAGREE_FOR_S_CORP_EMPLOYEE');
@@ -277,6 +279,7 @@ function computeCore(pp) {
     },
     fallback_fields: fallbackFields,
     compliance_flags: complianceFlags,
+    warnings: complianceFlags.slice(),
     notes: notes
   };
 }

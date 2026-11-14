@@ -2,6 +2,7 @@
 // Authored against the APEXPORT-139 porting payload (GRADES PASS-PENDING-XV 2026-10-07) and the
 // 7F adjudication (APEX-DIFFER-RULING-1 2026-11-02; confirmed 2026-11-13): DIFFERS-04 official wins,
 // DIFFERS-06 corporate deduction retained and flagged as a disclosed open legal question.
+// kernel_digest_at_authoring: sha256:84db3eccb433dfc14f27c84a8eb07a8631d7c50d3e8c6db79cd2e426348de545
 // spec: board/claimed/APEX-PORT-139-LAND-RESUME-1.md (SPEC.md section 12 compute binding, section 17 kernel identity)
 // human_sign_off: PENDING
 //
