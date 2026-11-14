@@ -15,13 +15,15 @@
 //   node scripts/check-proof-badge.mjs             strict (CI): exit 1 on any mismatch
 //   node scripts/check-proof-badge.mjs --summary    counts only, exit 0
 
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { classifyNode } from './check-compute-proof-coverage.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const REPO = resolve(HERE, '..');
+// PROOF_BADGE_REPO is a test seam (synthetic trees); it only relocates the scan root.
+const REPO = process.env.PROOF_BADGE_REPO ? resolve(process.env.PROOF_BADGE_REPO) : resolve(HERE, '..');
+const SHARD_DIR = resolve(REPO, 'chaingraph/graph/nodes');
 const CG_DIR = resolve(REPO, 'chaingraph');
 const CG_PATH = resolve(CG_DIR, 'chaingraph.json');
 
@@ -43,6 +45,7 @@ const files = readdirSync(CG_DIR).filter((f) => /^art-\d+.*\.html$/.test(f)).sor
 let checked = 0;
 let mismatches = [];
 let unmapped = [];
+let pending = [];
 
 for (const file of files) {
   const path = resolve(CG_DIR, file);
@@ -54,6 +57,13 @@ for (const file of files) {
   const toolId = file.replace(/\.html$/, '');
   const node = nodesByToolId.get(toolId);
   if (!node) {
+    // PENDING-ASSEMBLE (as check-shard-assembly.mjs classifies it): the node is on disk as a shard and
+    // not yet in the monolith. A new-node PR cannot edit chaingraph.json, so this is skipped, not failed;
+    // check-shard-assembly owns the unassembled-shard verdict. Once assembled, the badge is asserted below.
+    if (existsSync(resolve(SHARD_DIR, `${toolId}.json`))) {
+      pending.push(file);
+      continue;
+    }
     unmapped.push({ file, reason: `no chaingraph.json node with tool_id "${toolId}"` });
     continue;
   }
@@ -73,7 +83,7 @@ for (const file of files) {
 }
 
 if (SUMMARY) {
-  console.log(`proof-badge coverage — ${checked} page(s) with a badge, ${mismatches.length} mismatch(es), ${unmapped.length} unmapped`);
+  console.log(`proof-badge coverage — ${checked} page(s) with a badge, ${mismatches.length} mismatch(es), ${unmapped.length} unmapped, ${pending.length} pending-assemble`);
   process.exit(0);
 }
 
@@ -90,4 +100,5 @@ if (mismatches.length) {
 }
 
 if (unmapped.length || mismatches.length) process.exit(1);
-console.log(`✓ proof-badge gate clean — ${checked} page(s) with a proof badge, all match SSOT.`);
+if (pending.length) console.log(`PENDING-ASSEMBLE (skipped, shard on disk, not in monolith): ${pending.join(', ')}`);
+console.log(`✓ proof-badge gate clean — ${checked} page(s) with a proof badge, ${checked - pending.length} asserted against SSOT, ${pending.length} pending-assemble.`);
