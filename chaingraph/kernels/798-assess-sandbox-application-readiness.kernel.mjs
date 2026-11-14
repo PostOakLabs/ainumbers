@@ -122,17 +122,62 @@ const EXIT_PLAN_NOTE_GENERIC = 'generic rubric — an application without an exi
  * }
  * Refusal branches: unknown profile, unknown criterion id, invalid status.
  */
+function isObj(v) {
+  return v !== null && typeof v === 'object' && !Array.isArray(v);
+}
+// A caller number is finite, non-negative and inside the I-JSON safe range.
+function isCount(v) {
+  return typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= Number.MAX_SAFE_INTEGER;
+}
+
+// Structural check of every required input; returns the offending paths.
+// Absent (undefined), null and wrong-typed values all refuse, never default.
+function invalidInputs(pp, criteriaIn) {
+  const bad = [];
+  if (!Array.isArray(pp.criteria)) bad.push('criteria');
+  else {
+    for (let i = 0; i < criteriaIn.length; i++) {
+      const row = criteriaIn[i];
+      if (!isObj(row)) bad.push('criteria[' + i + ']');
+      else if (row.evidence_ref !== undefined && typeof row.evidence_ref !== 'string') bad.push('criteria[' + i + '].evidence_ref');
+    }
+  }
+  const tp = pp.test_parameters;
+  if (!isObj(tp)) bad.push('test_parameters');
+  else {
+    if (!isCount(tp.duration_months)) bad.push('test_parameters.duration_months');
+    if (!isCount(tp.customer_cap)) bad.push('test_parameters.customer_cap');
+    if (tp.value_cap_per_customer !== undefined && !isCount(tp.value_cap_per_customer)) bad.push('test_parameters.value_cap_per_customer');
+    if (tp.aggregate_value_cap !== undefined && !isCount(tp.aggregate_value_cap)) bad.push('test_parameters.aggregate_value_cap');
+    const types = tp.eligible_customer_types;
+    if (types !== undefined && !(Array.isArray(types) && types.every(function (t) { return typeof t === 'string'; }))) bad.push('test_parameters.eligible_customer_types');
+  }
+  const sg = pp.safeguards;
+  if (!isObj(sg)) bad.push('safeguards');
+  else {
+    for (let k = 0; k < SAFEGUARD_KEYS.length; k++) {
+      const key = SAFEGUARD_KEYS[k];
+      const s = Object.prototype.hasOwnProperty.call(sg, key) ? sg[key] : undefined;
+      if (!isObj(s) || typeof s.present !== 'boolean') bad.push('safeguards.' + key);
+      else if (s.evidence_ref !== undefined && typeof s.evidence_ref !== 'string') bad.push('safeguards.' + key + '.evidence_ref');
+    }
+  }
+  const ep = pp.exit_plan;
+  if (!isObj(ep) || typeof ep.present !== 'boolean') bad.push('exit_plan');
+  return bad;
+}
+
 export function compute(pp) {
-  pp = pp || {};
   const flags = [];
-  const profileName = pp.profile;
+  const ppIn = isObj(pp) ? pp : {};
+  const profileName = ppIn.profile;
 
-  const params = (pp.test_parameters && typeof pp.test_parameters === 'object') ? pp.test_parameters : {};
-  const safeguardsIn = (pp.safeguards && typeof pp.safeguards === 'object') ? pp.safeguards : {};
-  const exitIn = (pp.exit_plan && typeof pp.exit_plan === 'object') ? pp.exit_plan : {};
-  const criteriaIn = Array.isArray(pp.criteria) ? pp.criteria : [];
+  const params = isObj(ppIn.test_parameters) ? ppIn.test_parameters : {};
+  const safeguardsIn = isObj(ppIn.safeguards) ? ppIn.safeguards : {};
+  const exitIn = isObj(ppIn.exit_plan) ? ppIn.exit_plan : {};
+  const criteriaIn = Array.isArray(ppIn.criteria) ? ppIn.criteria : [];
 
-  const profile = PROFILES[profileName];
+  const profile = (typeof profileName === 'string' && Object.prototype.hasOwnProperty.call(PROFILES, profileName)) ? PROFILES[profileName] : null;
   if (!profile) {
     flags.push('REFUSED_UNKNOWN_PROFILE');
     return {
@@ -149,15 +194,33 @@ export function compute(pp) {
     };
   }
 
+  const badInputs = invalidInputs(ppIn, criteriaIn);
+  if (badInputs.length > 0) {
+    flags.push('REFUSED_INVALID_INPUT');
+    return {
+      output_payload: {
+        verdict: null,
+        refusal: {
+          code: 'invalid_input',
+          invalid_fields: badInputs,
+          detail: 'every required input must be present with its declared type; a missing, null or wrong-typed value is refused, never defaulted',
+        },
+        gaps: [], parameter_breaches: [], safeguards_missing: [], profile_cites: {},
+        warnings: flags.slice(),
+      },
+      compliance_flags: flags,
+    };
+  }
+
   // Validate criteria rows; refusal on unknown id or invalid status.
   const unknown = [];
   const invalidStatus = [];
   for (let i = 0; i < criteriaIn.length; i++) {
-    const row = criteriaIn[i] || {};
-    if (!Object.prototype.hasOwnProperty.call(profile.criteria, row.criterion_id)) {
-      unknown.push(row.criterion_id === undefined ? null : row.criterion_id);
+    const row = criteriaIn[i];
+    if (typeof row.criterion_id !== 'string' || !Object.prototype.hasOwnProperty.call(profile.criteria, row.criterion_id)) {
+      unknown.push(typeof row.criterion_id === 'string' ? row.criterion_id : null);
     } else if (STATUSES.indexOf(row.status) === -1) {
-      invalidStatus.push({ criterion_id: row.criterion_id, status: row.status === undefined ? null : row.status });
+      invalidStatus.push({ criterion_id: row.criterion_id, status: typeof row.status === 'string' ? row.status : null });
     }
   }
   if (unknown.length > 0 || invalidStatus.length > 0) {
@@ -237,8 +300,8 @@ export function compute(pp) {
   const profile_cites = {
     profile: profileName,
     label: profile.label,
-    criteria: CRITERIA_IDS.reduce(function (o, id) { o[id] = profile.criteria[id].cite; return o; }, {}),
-    caps: CAP_KEYS.reduce(function (o, k) { o[k] = profile.caps[k].cite; return o; }, {}),
+    criteria: Object.fromEntries(CRITERIA_IDS.map(function (id) { return [id, profile.criteria[id].cite]; })),
+    caps: Object.fromEntries(CAP_KEYS.map(function (k) { return [k, profile.caps[k].cite]; })),
     safeguards: profile.safeguard_cite,
     exit_plan: profile.exit_cite,
   };

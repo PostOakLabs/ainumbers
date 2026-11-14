@@ -2,7 +2,7 @@
 // (FV-PBT-FLOOR-BUILD-SPEC.md). Authored against the pinned CBOB Guidance Note
 // for Participation in the Regulatory Sandbox Framework (issued 8 Oct 2026;
 // sha256 and paragraph map in research/SANDBOX-READINESS-PIN-2026-10-30.md).
-// kernel_digest_at_authoring: sha256:65fa57bfa6142bcc6b203fd93f106485a730a8cc36ce7b26316ab3dcdd1c25a4
+// kernel_digest_at_authoring: sha256:5db5347aec86fa31337eb94abf55731c359a96232ba139b94c5995b22b9b198a
 // spec: research/SANDBOX-READINESS-PIN-2026-10-30.md — assess a firm's sandbox
 //   application against a declared regulator profile's eligibility criteria and
 //   test-parameter limits (profiles generic + cbob; BMA dropped at claim time).
@@ -147,27 +147,57 @@ function checkP3Caps() {
 // P4 — refusal totality: no throw, verdict null, closed refusal codes.
 function checkP4Refusals() {
   let checked = 0, violations = 0;
+  const full = (over) => ({
+    profile: 'generic',
+    criteria: IDS.map((id) => ({ criterion_id: id, status: 'met' })),
+    test_parameters: { duration_months: 6, customer_cap: 10 },
+    safeguards: safeguardsAll(),
+    exit_plan: exitOk(),
+    ...over,
+  });
+  const UP = ['REFUSED_UNKNOWN_PROFILE', 'unknown_profile'];
+  const II = ['REFUSED_INVALID_INPUT', 'invalid_input'];
   const cases = [
-    { pp: { profile: 'bma' }, flag: 'REFUSED_UNKNOWN_PROFILE', code: 'unknown_profile' },
-    { pp: { profile: null }, flag: 'REFUSED_UNKNOWN_PROFILE', code: 'unknown_profile' },
-    { pp: { profile: 'cbob', criteria: [{ criterion_id: 'tax_good_standing', status: 'met' }] }, flag: 'REFUSED_UNKNOWN_CRITERION', code: 'unknown_criterion' },
-    { pp: { profile: 'generic', criteria: [{ criterion_id: 'innovation', status: 'maybe' }] }, flag: 'REFUSED_INVALID_STATUS', code: 'invalid_status' },
-    { pp: { profile: 'generic' }, flag: null, code: null },
+    { pp: { profile: 'bma' }, flag: UP[0], code: UP[1] },
+    { pp: { profile: null }, flag: UP[0], code: UP[1] },
+    // prototype names are never profile names
+    { pp: full({ profile: 'constructor' }), flag: UP[0], code: UP[1] },
+    { pp: full({ profile: '__proto__' }), flag: UP[0], code: UP[1] },
+    { pp: full({ profile: 'toString' }), flag: UP[0], code: UP[1] },
+    { pp: full({ profile: ['cbob'] }), flag: UP[0], code: UP[1] },
+    { pp: full({ criteria: [{ criterion_id: 'tax_good_standing', status: 'met' }] }), flag: 'REFUSED_UNKNOWN_CRITERION', code: 'unknown_criterion' },
+    { pp: full({ criteria: [{ criterion_id: 'constructor', status: 'met' }] }), flag: 'REFUSED_UNKNOWN_CRITERION', code: 'unknown_criterion' },
+    { pp: full({ criteria: [{ criterion_id: '__proto__', status: 'met' }] }), flag: 'REFUSED_UNKNOWN_CRITERION', code: 'unknown_criterion' },
+    { pp: full({ criteria: [{ criterion_id: 7, status: 'met' }] }), flag: 'REFUSED_UNKNOWN_CRITERION', code: 'unknown_criterion' },
+    { pp: full({ criteria: [{ criterion_id: 'innovation', status: 'maybe' }] }), flag: 'REFUSED_INVALID_STATUS', code: 'invalid_status' },
+    // a present null or wrong type on a required field refuses
+    { pp: { profile: 'generic' }, flag: II[0], code: II[1] },
+    { pp: full({ criteria: null }), flag: II[0], code: II[1] },
+    { pp: full({ criteria: 'innovation' }), flag: II[0], code: II[1] },
+    { pp: full({ criteria: [null] }), flag: II[0], code: II[1] },
+    { pp: full({ test_parameters: null }), flag: II[0], code: II[1] },
+    { pp: full({ test_parameters: { duration_months: '6', customer_cap: 10 } }), flag: II[0], code: II[1] },
+    { pp: full({ test_parameters: { duration_months: null, customer_cap: 10 } }), flag: II[0], code: II[1] },
+    { pp: full({ test_parameters: { duration_months: 6, customer_cap: -1 } }), flag: II[0], code: II[1] },
+    { pp: full({ test_parameters: { duration_months: 6, customer_cap: 1e300 } }), flag: II[0], code: II[1] },
+    { pp: full({ test_parameters: { duration_months: 6, customer_cap: 10, aggregate_value_cap: null } }), flag: II[0], code: II[1] },
+    { pp: full({ safeguards: null }), flag: II[0], code: II[1] },
+    { pp: full({ safeguards: { ...safeguardsAll(), data_protection: { present: 'yes' } } }), flag: II[0], code: II[1] },
+    { pp: full({ exit_plan: null }), flag: II[0], code: II[1] },
+    { pp: full({ exit_plan: { present: 1 } }), flag: II[0], code: II[1] },
   ];
   for (const c of cases) {
     let raw;
     try { raw = compute(c.pp); } catch (e) { violations++; console.log(`P4 violation: threw for ${JSON.stringify(c.pp).slice(0, 60)}: ${e.message}`); continue; }
     checked++;
-    if (c.code === null) {
-      // empty declared criteria: no refusal; exit plan absent -> NOT_ELIGIBLE, never a refusal.
-      if (raw.output_payload.verdict === null) { violations++; console.log('P4 violation: empty criteria refused'); }
-      continue;
-    }
     if (raw.output_payload.verdict !== null || !raw.output_payload.refusal || raw.output_payload.refusal.code !== c.code || !raw.compliance_flags.includes(c.flag)) {
       violations++; console.log(`P4 violation: expected refusal ${c.code} with ${c.flag}`);
     }
   }
-  return { name: 'P4 refusal totality (unknown profile/criterion, invalid status) — verdict null, never throws', checked, violations };
+  // empty declared criteria on an otherwise complete input is not a refusal.
+  checked++;
+  if (compute(full({ criteria: [] })).output_payload.verdict === null) { violations++; console.log('P4 violation: empty criteria refused'); }
+  return { name: 'P4 refusal totality (unknown profile/criterion, invalid status, null/wrong-type/prototype-name inputs) — verdict null, never throws', checked, violations };
 }
 
 // P5 — determinism + output shape.
