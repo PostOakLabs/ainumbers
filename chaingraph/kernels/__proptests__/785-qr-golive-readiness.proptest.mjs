@@ -1,5 +1,5 @@
 // 785-qr-golive-readiness — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:0d33ee528eed1240fe67b4ac1957d4216b9d8370a0c040d4ad5b2a9f3a6dfcf9
+// kernel_digest_at_authoring: sha256:5f6d4f0dabd1435299ed3c56a8e3237a7991da822543467c1813a0a1cec44676
 // spec: research/QR-GOLIVE-PIN-2026-10-29.md (gate catalogue + Level One principles)
 // human_sign_off: PENDING
 //
@@ -91,12 +91,29 @@ function checkRefusals() {
     // fractional and unsafe weights
     ...[1999.5, 9007199254740993, NaN].map(bad => (
       { pp: { phase: 'pilot', gates: metGates(), weights: { participant_certification: bad } }, flag: 'REFUSED_WEIGHTS_OUT_OF_BOUNDS' })),
+    // duplicate gate_id refuses whatever the statuses and order
+    { pp: { phase: 'pilot', gates: [...metGates(), { gate_id: 'communications', status: 'not_met' }] }, flag: 'DUPLICATE_GATE_ID' },
+    { pp: { phase: 'pilot', gates: [{ gate_id: 'communications', status: 'not_met' }, ...metGates()] }, flag: 'DUPLICATE_GATE_ID' },
+    // principle_id must be an own member of the catalogue
+    ...['nonsense_principle', 'constructor', '__proto__', 'toString', ''].map(id => (
+      { pp: { phase: 'pilot', gates: metGates(), principles: [{ principle_id: id, status: 'met' }] }, flag: 'UNKNOWN_PRINCIPLE_ID' })),
+    // evidence_ref must be a string or absent: no coercion, a present null refuses
+    ...[42, [], ['a'], {}, { a: 1 }, null, true].map(bad => (
+      { pp: { phase: 'pilot', gates: [{ gate_id: 'communications', status: 'met', evidence_ref: bad }] }, flag: 'EVIDENCE_REF_INVALID' })),
   ];
   for (const c of cases) {
     const r = compute(c.pp);
     checked++;
     if (r.output_payload.refusal !== true || !r.compliance_flags.includes(c.flag)) violations++;
   }
+  // Reordered-gates control: the same gates in any order give one verdict.
+  const fwd = compute({ phase: 'production', gates: metGates() });
+  const rev = compute({ phase: 'production', gates: metGates().reverse() });
+  checked++;
+  if (JSON.stringify(fwd) !== JSON.stringify(rev)) violations++;
+  // A string evidence_ref and an absent one are accepted.
+  checked++;
+  if (compute({ phase: 'pilot', gates: [{ gate_id: 'communications', status: 'met', evidence_ref: 'doc-1' }] }).output_payload.refusal !== false) violations++;
   return { name: 'invalid_domain_rejections', checked, violations };
 }
 

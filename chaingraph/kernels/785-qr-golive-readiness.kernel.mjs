@@ -20,6 +20,8 @@ export const meta = {
 
 const PHASES = ['pilot', 'production', 'cross_border'];
 const STATUSES = ['met', 'partially_met', 'not_met', 'not_applicable'];
+// Level One principles catalogue (array membership via includes: never a prototype-chain lookup).
+const PRINCIPLE_IDS = ['instant_payment', 'interoperable', 'pay_everywhere', 'inclusive_governance', 'low_fees', 'safe_payments', 'shared_capabilities'];
 
 // Default weights in basis points; applicable-gate weights sum to 10000.
 // blocking[phase] marks gates that force NO_GO when not_met at that phase.
@@ -91,8 +93,14 @@ export function compute(pp) {
     if (!entry || typeof entry !== 'object' || !CATALOGUE.some(g => g.gate_id === entry.gate_id)) {
       return refused('unknown gate_id in gates array', 'REFUSED_UNKNOWN_GATE');
     }
+    if (Object.hasOwn(submitted, entry.gate_id)) {
+      return refused('duplicate gate_id ' + entry.gate_id + ' in gates array', 'DUPLICATE_GATE_ID');
+    }
     if (!STATUSES.includes(entry.status)) {
       return refused('status for ' + entry.gate_id + ' must be one of met, partially_met, not_met, not_applicable', 'REFUSED_INVALID_STATUS');
+    }
+    if (Object.hasOwn(entry, 'evidence_ref') && entry.evidence_ref !== undefined && typeof entry.evidence_ref !== 'string') {
+      return refused('evidence_ref for ' + entry.gate_id + ' must be a string when present', 'EVIDENCE_REF_INVALID');
     }
     submitted[entry.gate_id] = entry;
   }
@@ -178,6 +186,9 @@ export function compute(pp) {
     for (const p of pp.principles) {
       if (!p || typeof p !== 'object' || typeof p.principle_id !== 'string' || !STATUSES.includes(p.status)) {
         return refused('each principle needs a principle_id and a status from met, partially_met, not_met, not_applicable', 'REFUSED_INVALID_PRINCIPLES');
+      }
+      if (!PRINCIPLE_IDS.includes(p.principle_id)) {
+        return refused('principle_id must be one of ' + PRINCIPLE_IDS.join(', '), 'UNKNOWN_PRINCIPLE_ID');
       }
       principles_summary.push({ principle_id: p.principle_id, status: p.status });
     }
