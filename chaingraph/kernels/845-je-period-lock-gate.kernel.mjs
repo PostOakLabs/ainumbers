@@ -335,6 +335,16 @@ export function compute(pp) {
       return refusePolicy('POLICY_PERIOD_START_AFTER_END', `period ${sp.p.period_id} starts after it ends`);
     }
   }
+  // A period_id declared twice would merge two periods' totals under one key, so the
+  // verdict would hang on a hidden collision: refuse it (a Set keys by value, so
+  // __proto__ and constructor are ordinary ids).
+  const seenIds = new Set();
+  for (const p of periods) {
+    if (seenIds.has(p.period_id)) {
+      return refusePolicy('DUPLICATE_PERIOD_ID', `period_id ${JSON.stringify(p.period_id)} is declared more than once`);
+    }
+    seenIds.add(p.period_id);
+  }
   for (let i = 1; i < sorted.length; i++) {
     if (sorted[i - 1].end >= sorted[i].start) {
       return refusePolicy('POLICY_PERIOD_OVERLAP', `period ${sorted[i - 1].p.period_id} overlaps period ${sorted[i].p.period_id}`);

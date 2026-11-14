@@ -329,6 +329,25 @@ function checkP10_prototype_name_period_ids() {
   return { name: 'P10_prototype_name_period_ids', trials, violations };
 }
 
+// ---------- P11: a duplicate period_id refuses with DUPLICATE_PERIOD_ID, whatever the order ----------
+function checkP11_duplicate_period_id_refuses() {
+  let violations = 0, trials = 0;
+  const names = ['FY27-01', '__proto__', 'constructor', 'P'];
+  for (let i = 0; i < 200; i++) {
+    const id = names[Math.floor(rand() * names.length)];
+    const n = 2 + Math.floor(rand() * 3); // two to four periods, all sharing one id
+    const periods = Array.from({ length: n }, (_, j) => ({ period_id: id, start_date: `2025-${String(j + 1).padStart(2, '0')}-01`, end_date: `2025-${String(j + 1).padStart(2, '0')}-28`, lock_events: [] }));
+    const entries = periods.map((p, j) => ({ entry_id: `E${j}`, effective_date: `2025-${String(j + 1).padStart(2, '0')}-10`, entered_on: `2025-${String(j + 1).padStart(2, '0')}-10`, roles: [] }));
+    const fwd = compute({ ...basePolicy, periods, entries }).output_payload;
+    const rev = compute({ ...basePolicy, periods: periods.slice().reverse(), entries }).output_payload;
+    trials++;
+    for (const o of [fwd, rev]) {
+      if (o.execution_state !== 'did_not_run' || !String(o.reason).startsWith('DUPLICATE_PERIOD_ID') || o.entries.length !== 0) violations++;
+    }
+  }
+  return { name: 'P11_duplicate_period_id_refuses', trials, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -346,6 +365,7 @@ results.properties.push(checkP7_strict_leap_calendar());
 results.properties.push(await checkP8_buildArtifact_never_throws());
 results.properties.push(checkP9_input_contract());
 results.properties.push(checkP10_prototype_name_period_ids());
+results.properties.push(checkP11_duplicate_period_id_refuses());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
