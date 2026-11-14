@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// @ts-nocheck — plain CLI gate script, never meant to be type-checked; only swept into
+// tsc --checkJs's program because it lives under chaingraph/kernels/ (no @types/node there).
 /**
  * check-vintages.mjs: gates V1, V2 and V4 of the vintage table.
  *
