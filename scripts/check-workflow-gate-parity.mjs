@@ -247,6 +247,10 @@ const NOT_A_GATE = new Map([
     "schedule only."],
   ["mutation-full-scheduled.yml",
     "schedule (nightly) + workflow_dispatch only — full-estate mutation scan, reports."],
+  ["vintage-horizon-schedule.yml",
+    "schedule (weekly) + workflow_dispatch only (VINTAGE-HORIZON-1) — reads data/vintages.json and " +
+    "the clock, no network; it has no pull_request, merge_group or push trigger, so it can never " +
+    "be required and blocks no merge. Its red opens one tracking issue through the shared tracker."],
   ["prepush-attestation.yml",
     "push main + workflow_dispatch only, so it never gates a merge. Its node gate " +
     "(check-prepush-attestation.mjs) is main-side BY CONSTRUCTION: it verifies git notes " +

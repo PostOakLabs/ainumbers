@@ -281,18 +281,37 @@ function openPrsClaiming(id) {
 }
 
 /** This PR's number from the CI environment (pull_request ref or merge-group queue name). */
-function thisPrNumber(env = process.env, branchOf = currentBranch, ghOpenByHead = realOpenPrsByHead) {
+export function thisPrNumber(env = process.env, branchOf = currentBranch, ghOpenByHead = realOpenPrsByHead) {
   if (env.PR_ID_COLLISION_PR) return Number(env.PR_ID_COLLISION_PR)
   const refName = env.GITHUB_REF_NAME || ''
   let m = /^(\d+)\/merge$/.exec(refName)
   if (m) return Number(m[1])
   m = /pr-(\d+)-/.exec(refName) // gh-readonly-queue/main/pr-<n>-<sha>
   if (m) return Number(m[1])
+  if (env.GITHUB_ACTIONS) return null
+  // PREPUSH-PR-FROM-PUSH-TARGET-1: the pre-push hook parses its stdin's remote
+  // ref and exports ID_COLLISION_PUSH_BRANCH = the branch being pushed TO. The
+  // open PR lives on THAT branch, not on the local worktree branch (a cure
+  // push is `git push origin HEAD:<pr-branch>` from a differently named local
+  // branch, or from a detached HEAD, where the local fallback below reads null
+  // and the pusher's own PR still looks like a rival claim on the id).
+  // Resolution rule is unchanged and stays fail closed: EXACTLY ONE open PR on
+  // the pushed branch resolves; zero, 2+, or any gh error leaves the PR
+  // undeterminable (null) and does NOT fall through to the local branch name
+  // — guessing a PR here is how the rival-claim refusal exists at all.
+  if (env.ID_COLLISION_PUSH_BRANCH) {
+    try {
+      const prs = ghOpenByHead(env.ID_COLLISION_PUSH_BRANCH)
+      if (Array.isArray(prs) && prs.length === 1 && Number.isInteger(prs[0].number) && prs[0].number > 0) return prs[0].number
+    } catch { /* undeterminable */ }
+    return null
+  }
   // ID-COLLISION-SELF-PR-BY-HEAD-1: local pre-push fallback. The hook's PR_ID_COLLISION_PR export
   // can come back empty (8 s gh cap, no auth/network in the call), and then the branch's own open
   // PR reads as a rival claim. Resolve it by head branch; use it only when EXACTLY ONE open PR
   // has that head. Any gh error or ambiguity leaves the PR undeterminable (null), as before.
-  if (env.GITHUB_ACTIONS) return null
+  // Reached only when ID_COLLISION_PUSH_BRANCH is absent (no hook stdin, or a
+  // manual gate run outside a push).
   try {
     const branch = branchOf()
     if (!branch || branch === 'HEAD') return null
