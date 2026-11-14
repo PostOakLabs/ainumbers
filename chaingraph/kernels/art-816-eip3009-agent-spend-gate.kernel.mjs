@@ -336,7 +336,7 @@ function validate(pp) {
     if (p.allowed_chain_ids !== undefined && !listIsArray(p.allowed_chain_ids, SETS_MAX)) r.push(refusal('BOUND_EXCEEDED', 'policy.allowed_chain_ids', 'allowed_chain_ids must be a list of at most ' + SETS_MAX + ' uint256 decimal strings'));
     if (Array.isArray(p.allowed_chain_ids)) {
       for (let i = 0; i < p.allowed_chain_ids.length && i < SETS_MAX; i++) {
-        if (toUint256String(p.allowed_chain_ids[i]) === null) r.push(refusal('BAD_CHAIN_ID', 'policy.allowed_chain_ids[' + i + ']', 'each allowed chain id must be a uint256 decimal string'));
+        if (typeof p.allowed_chain_ids[i] !== 'string' || toUint256String(p.allowed_chain_ids[i]) === null) r.push(refusal('BAD_CHAIN_ID', 'policy.allowed_chain_ids[' + i + ']', 'each allowed chain id must be a uint256 decimal string'));
       }
     }
     if (p.allowed_tokens !== undefined && !listIsArray(p.allowed_tokens, SETS_MAX)) r.push(refusal('BOUND_EXCEEDED', 'policy.allowed_tokens', 'allowed_tokens must be a list of at most ' + SETS_MAX + ' token contract addresses'));
@@ -361,7 +361,7 @@ function validate(pp) {
         if (!isObj(w) || unknownKeys(w, ['window_seconds', 'cap']).length > 0) r.push(refusal('BAD_ENTRY', 'policy.window_caps[' + i + ']', 'each window cap must be an object with exactly window_seconds and cap'));
         else {
           if (!isSafeNonNegativeInt(w.window_seconds) || w.window_seconds <= 0) r.push(refusal('BAD_WINDOW', 'policy.window_caps[' + i + '].window_seconds', 'window_seconds must be a positive integer second count'));
-          if (toUint256String(w.cap) === null) r.push(refusal('BAD_AMOUNT', 'policy.window_caps[' + i + '].cap', 'cap must be a uint256 decimal string'));
+          if (typeof w.cap !== 'string' || toUint256String(w.cap) === null) r.push(refusal('BAD_AMOUNT', 'policy.window_caps[' + i + '].cap', 'cap must be a uint256 decimal string'));
         }
       }
     }
