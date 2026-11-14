@@ -96,6 +96,7 @@ import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { nodeFooterPages } from './gen-node-footers.mjs';
+import { ROOT_CHROME_PAGES } from './gen-root-chrome.mjs';
 import { chainAskAgentPages } from './gen-chain-ask-agent.mjs';
 import { hubScenePages } from './gen-hub-scenes.mjs';
 import { WRITES_REPORT_PATH } from './gen-manifest-examples.mjs';
@@ -891,6 +892,27 @@ export const COVERED = [
     // consumes chaingraph.json (node graph) — must run AFTER the assembler (REGEN-COVERED-ORDER-FIX-1)
     after: 'chaingraph-assemble',
     share: '23%',
+  },  {
+    // FOOTER-LINKS-REFRESH-1 (2026-11-13): the ROOT-FOOTER (+ ROOT-FOOTER-CSS)
+    // sentinel region of every root page in scripts/gen-root-chrome.mjs
+    // ROOT_CHROME_PAGES, rewritten from chaingraph/_page-chrome.mjs ROOT_FOOTER by
+    // the ONE main-side writer gen-root-chrome.mjs. The root-page twin of
+    // 'node-page-footers': a footer change is a one-file template edit and main's
+    // regen carries it. Needed because index.html, sitemap.html and tools.html are
+    // whole-file main-only paths (catalog / sitemap-html) a PR may not touch, and
+    // no other writer refreshed their footer, so a template edit left
+    // gen-root-chrome --check red in preflight on main and in the deploy gate.
+    // Region writer (REGION_WRITER_IDS): PRs still author these pages. Placed
+    // after the whole-file writers of start.html, sitemap.html, index.html and
+    // tools.html so their passes cannot leave a stale footer behind it.
+    // Idempotent: the writer only rewrites the region, so a second pass is a no-op.
+    id: 'root-page-footers',
+    regen: 'node scripts/gen-root-chrome.mjs',
+    gate: 'node scripts/gen-root-chrome.mjs --check',
+    writes: ROOT_CHROME_PAGES,
+    artifacts: ROOT_CHROME_PAGES,
+    after: 'start-index',
+    share: 'n/a (new 2026-11-13, FOOTER-LINKS-REFRESH-1)',
   },  {
     id: 'chain-index',
     regen: 'node scripts/gen-chain-index.mjs',
