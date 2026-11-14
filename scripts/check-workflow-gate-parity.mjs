@@ -212,6 +212,9 @@ const BLOCKING_WORKFLOWS = [
 // rotted: automerge-label.yml, fullsuite-schedule.yml, mutation-full-scheduled.yml,
 // ruleset-apply.yml and ruleset-drift-gate.yml were all absent from it.
 const NOT_A_GATE = new Map([
+  ["replay-result-matrix.yml",
+    "workflow_dispatch only; replays the fixture corpus on three OSes and uploads the result files. " +
+    "No pull_request, push or merge_group trigger, never a required check, attests nothing."],
   ["swh-save.yml",
     "workflow_dispatch + push tags only, continue-on-error; no pull_request or merge_group trigger, so it gates no merge."],
   ["automerge-label.yml",
@@ -1121,10 +1124,13 @@ const PREFLIGHT_ONLY = new Map([
   ["check-nav-reachability.test.mjs", SELF_TEST],
   ["check-retired-mcp-toggle.test.mjs", SELF_TEST],
   ["check-kernel-missing-input-failclosed.selftest.mjs", SELF_TEST],
+  ["check-page-kernel-parity.selftest.mjs", SELF_TEST],
   ["check-retired-ap2-version.test.mjs", SELF_TEST],
   ["diff-scope.test.mjs", SELF_TEST],
   ["check-clause-digest.test.mjs", SELF_TEST],
   ["lint-kernel-citation-comments.test.mjs", SELF_TEST],
+  ["lint-caller-key-lookup.mjs", "advisory for existing kernels (baseline ratchet), blocking only for a kernel with no baseline entry; runs in preflight and kernel-preflight (KERNEL-CALLER-KEY-LOOKUP-LINT-1)"],
+  ["_caller-key-probes.mjs", SELF_TEST],
   ["check-branch-inventory.test.mjs", SELF_TEST],
   ["check-flag-mirror.test.mjs", SELF_TEST],
   ["check-chain-citation.test.mjs", SELF_TEST],
@@ -1234,6 +1240,7 @@ const PREFLIGHT_ONLY = new Map([
   ["check-ssot-no-npm.mjs", VIA_PREFLIGHT],
   ["check-retired-mcp-toggle.mjs", VIA_PREFLIGHT],
   ["check-kernel-missing-input-failclosed.mjs", VIA_PREFLIGHT],
+  ["check-page-kernel-parity.mjs", VIA_PREFLIGHT],
   ["check-retired-ap2-version.mjs", VIA_PREFLIGHT],
   ["generate-node-manifest.mjs", VIA_PREFLIGHT],
   ["generate-node-manifest.test.mjs", SELF_TEST],
@@ -1662,7 +1669,7 @@ const DECLARED_SOFTENERS = new Map([
   // ordering-comment lines added inside the receipt block above; same pin-move.
   // CHANGELOG-DEPLOY-INCLUDE-1 (2026-10-31) moved it :1024 → :1026 — two
   // --include lines added to the dry-run rsync above; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:1026",
+  ["deploy-to-dreamhost.yml:continue-on-error:1027",
    "attest step is advisory-first by design; promotion criterion on the step"],
   // SIGSTORE-BUNDLE-V03-EXPORT-4 (2026-10-24): the receipt-bundle index
   // attest step (continue-on-error at :829) is advisory-first for the SAME
@@ -1681,7 +1688,7 @@ const DECLARED_SOFTENERS = new Map([
   // three receipt steps moved as one block to sit immediately above the
   // deploy-manifest build, so index.sigstore.json ships LISTED in
   // deploy-checksums.txt; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:781",
+  ["deploy-to-dreamhost.yml:continue-on-error:782",
    "receipt-bundle index attest step is advisory-first by design; a Sigstore outage must not red the deploy or skip CF purge + smoke; promotion criterion on the step"],
   // SIGSTORE-BUNDLE-V03-EXPORT-5 (2026-10-25): the receipt-bundle subjects
   // step (id: attest_subjects, continue-on-error at :812) is advisory-first
@@ -1695,7 +1702,7 @@ const DECLARED_SOFTENERS = new Map([
   // SIGSTORE-BUNDLE-V03-EXPORT-8 (2026-10-26) moved it :812 → :736 — the
   // three receipt steps moved as one block to sit immediately above the
   // deploy-manifest build; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:736",
+  ["deploy-to-dreamhost.yml:continue-on-error:737",
    "receipt-bundle subjects step is advisory-first by design; a red index-shape derivation must not red the deploy; promotion criterion on the step"],
   // SIGSTORE-BUNDLE-V03-EXPORT-5 (2026-10-25): the receipt-bundle copy step
   // (id: copy_sigstore_bundle, continue-on-error at :876) is advisory-first
@@ -1709,7 +1716,7 @@ const DECLARED_SOFTENERS = new Map([
   // SIGSTORE-BUNDLE-V03-EXPORT-8 (2026-10-26) moved it :876 → :806 — the
   // three receipt steps moved as one block to sit immediately above the
   // deploy-manifest build; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:806",
+  ["deploy-to-dreamhost.yml:continue-on-error:807",
    "receipt-bundle copy step is advisory-first by design; a copy failure must not red the deploy; promotion criterion on the step"],
 
   // MAIN-GATES-AFTER-REGEN-1 (2026-10-08) moved it :109 → :146 — the

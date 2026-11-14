@@ -128,6 +128,12 @@ if (!shouldStop()) {
   record(run('Guest-builtin safety (GUEST-BUILTIN-GATE-1)', `node chaingraph/kernels/check-guest-builtin-safety.mjs --only ${ID}`));
 }
 
+// 4a. caller-key lookup (KERNEL-CALLER-KEY-LOOKUP-LINT-1) — blocking for a kernel with no
+// baseline entry (a newly added kernel), advisory for kernels already in the baseline.
+if (!shouldStop()) {
+  record(run('Caller-key lookup (KERNEL-CALLER-KEY-LOOKUP-LINT-1)', `node chaingraph/kernels/lint-caller-key-lookup.mjs --only ${ID}`));
+}
+
 // 4b. citation-in-comments (KERNEL-CITATION-CLASS-1) — kernel source is BEHAVIOUR ONLY;
 // a citation belongs in node metadata (regulatory_basis/cited_clause_digest/description),
 // never a kernel comment, so a wrong one is a metadata PR forever, never a re-prove.

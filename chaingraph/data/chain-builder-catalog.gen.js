@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (742 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (756 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -364,6 +364,46 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/829-safe-tx-hash-recompute.html",
     "description": "Recomputes the hash and decodes known calls. It does not simulate execution and cannot tell you the destination contract is safe. From paste",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "836-payment-services-activity-classifier",
+    "display_name": "Payment Services Activity Classifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/836-payment-services-activity-classifier.html",
+    "description": "Reads a caller-declared business model as a closed set of boolean payment-activity facts and classifies it into the licence classes of one o",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "837-issuer-yield-share",
+    "display_name": "Issuer Reserve Yield Share Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/837-issuer-yield-share.html",
+    "description": "Recomputes a white-label stablecoin deal's reserve-income split (issuer, platform, distributor, custodian) from aggregate declared values, a",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "838-control-frequency-sample",
+    "display_name": "Control Frequency Sample",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/838-control-frequency-sample.html",
+    "description": "Applies a table you declare. It ships no table, and is not guidance from any audit firm or standard-setter. The sample size is only as defen",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "844-workload-identity-claims",
+    "display_name": "Workload Identity Claims Lint",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/844-workload-identity-claims.html",
+    "description": "Lints the DECODED claims of a workload-identity token and, optionally, of a token produced by an exchange, against a policy you declare: a m",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -7876,6 +7916,26 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-766-parental-leave-income-gap",
+    "display_name": "Parental Leave Income Gap",
+    "mandate_type": "career_workforce",
+    "url": "https://ainumbers.co/chaingraph/art-766-parental-leave-income-gap.html",
+    "description": "Parental-leave income gap planner ported from ApexLogics Apex #131 (AL-138). From an annual base salary, an effective tax rate, monthly hous",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-769-medicare-oop-exposure",
+    "display_name": "Medicare Out-of-Pocket Exposure",
+    "mandate_type": "retirement_projection",
+    "url": "https://ainumbers.co/chaingraph/art-769-medicare-oop-exposure.html",
+    "description": "Medicare out-of-pocket exposure modeler ported from ApexLogics Apex #152 (AL-166). For a declared plan year it walks a modelled year of util",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-77-t1-settlement-readiness-diagnostic",
     "display_name": "T+1 Settlement Readiness Diagnostic",
     "mandate_type": "agent_guardrail_mandate",
@@ -8138,6 +8198,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-816-eip3009-agent-spend-gate",
+    "display_name": "EIP-3009 Agent Spend Gate",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-816-eip3009-agent-spend-gate.html",
+    "description": "Pre-sign gate for one EIP-3009 (ERC-3009, Draft) transferWithAuthorization or receiveWithAuthorization intent, decided against a caller-decl",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-818-zcash-reg-classifier",
     "display_name": "Privacy Coin Regulatory Classifier (MiCA and AMLR)",
     "mandate_type": "compliance_mandate",
@@ -8237,6 +8307,46 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-832-card-data-flow-scope",
+    "display_name": "Card Data Flow Worksheet",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-832-card-data-flow-scope.html",
+    "description": "A worksheet over declared inputs rather than a scope determination. You list system nodes (front end, back end, logs, analytics, a browser-a",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-833-lint-pan-sad-exposure",
+    "display_name": "PAN and SAD Exposure Linter",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/833-lint-pan-sad-exposure.html",
+    "description": "Lints a caller-declared token-record schema against the published PCI DSS v4.0.1 account-data rules and reports which declared surfaces expo",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-834-asc606-transaction-price-allocator",
+    "display_name": "ASC 606 Transaction Price Allocator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-834-asc606-transaction-price-allocator.html",
+    "description": "Allocates a declared transaction price across declared performance obligations by relative standalone selling price, in integer minor units,",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-839-statement-footing-crossfoot",
+    "display_name": "Statement Footing and Cross-Footing Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-839-statement-footing-crossfoot.html",
+    "description": "Foots and cross-foots declared financial statement lines and ties declared note amounts to declared statement lines, in integer minor units,",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-84-settlement-efficiency-kpi",
     "display_name": "Settlement Efficiency KPI Engine",
     "mandate_type": "model_governance",
@@ -8250,6 +8360,36 @@ window.CHAINBUILDER_CATALOG = [
     "feeds": [
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-840-gl-flux-explainer",
+    "display_name": "GL Flux Explainer with Gate",
+    "mandate_type": "assurance",
+    "url": "https://ainumbers.co/chaingraph/art-840-gl-flux-explainer.html",
+    "description": "Computes period-over-period movement per declared general-ledger account from integer minor-unit balances, compares each movement to a decla",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-842-soc-report-coverage-gap",
+    "display_name": "SOC Report Coverage and Bridge Gap",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-842-soc-report-coverage-gap.html",
+    "description": "Recomputes coverage and gap arithmetic from declared values. It does not read the SOC report, does not assess whether any control is effecti",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-843-tap-message-validator",
+    "display_name": "TAP Message Structure Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-843-tap-message-validator.html",
+    "description": "Checks that a pasted Transaction Authorization Protocol message, or a short thread of them, has the structure the published TAIPs JSON Schem",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

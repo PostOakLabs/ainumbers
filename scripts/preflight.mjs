@@ -1256,11 +1256,16 @@ const GATES = [
   ['Forbidden-hash lint',          'node chaingraph/kernels/lint-forbidden-hash.mjs'],
   ['cgCanon twin-parity lint (AUD-CGCANON-TWIN-GATE-1)', 'node chaingraph/kernels/lint-cgcanon-twin.mjs'],
   ['cgCanon twin-parity red-proof (SO #34c, AUD-CGCANON-TWIN-GATE-1)', 'node chaingraph/kernels/lint-cgcanon-twin.mjs --self-test'],
+  // KERNEL-CALLER-KEY-LOOKUP-LINT-1: existing kernels are advisory against the baseline; a kernel with no baseline entry is blocking.
+  ['Caller-key lookup lint (KERNEL-CALLER-KEY-LOOKUP-LINT-1)', 'node chaingraph/kernels/lint-caller-key-lookup.mjs'],
+  ['Caller-key lookup lint red/green controls (GATE-SELFTEST-META-1 pair)', 'node chaingraph/kernels/lint-caller-key-lookup.mjs --self-test'],
+  ['Caller-key probe generator controls (KERNEL-CALLER-KEY-LOOKUP-LINT-1)', 'node chaingraph/kernels/__proptests__/_caller-key-probes.mjs --self-test'],
   ['Hash golden-parity',           'node chaingraph/kernels/golden-parity.test.mjs'],
   ['Hash RFC 8785 vectors (JCS-RFC8785-VECTORS-1)', 'node chaingraph/standard/jcs-rfc8785-vectors.test.mjs'],
   // Paired red-proof (SO #40b / GATE-SELFTEST-META-1): the self-test entry below.
   ['Hash RFC 8785 vectors red-proof (GATE-SELFTEST-META-1 pair)', 'node chaingraph/standard/jcs-rfc8785-vectors.test.mjs --self-test'],
   ['Canonicalizer limits + __proto__ (HASH-PROTO-DEPTH-GUARD-1)', 'node chaingraph/kernels/_hash.test.mjs'],
+  ['Kernel typed-input helper selftest (KERNEL-INPUT-HELPER-1, zero adopters)', 'node chaingraph/kernels/_input.selftest.mjs'],
   ['Kernel-identity monolith upsert controls (GENKERNELID-UPSERT-FIX-1)', 'node chaingraph/kernels/gen-kernel-identity.test.mjs'],
   // RENUMBER-RESTAMP-1: renumber tool + its RED/GREEN self-test (SO #40b pair; the gate-side pair is T4-T6 in the test above).
   ['Renumber-node tool self-test (RENUMBER-RESTAMP-1)', 'node scripts/renumber-node.mjs --self-test'],
@@ -1412,8 +1417,9 @@ const GATES = [
   // fresh vm contexts, recomputes its execution_hash through _hash.mjs, asserts
   // it is stable, and resolves every chain step against the generator's
   // registered node set. Part 4 and run_chain presence are report columns.
-  // Advisory on a pull_request, blocking on merge_group and main; pre-existing
-  // failures are baselined WARN with a downward ratchet
+  // Same verdict on every event: a step present in the overlay monolith's
+  // mcp_name registry is registered, an absent one blocks on pull_request and
+  // merge_group alike; pre-existing failures are baselined WARN with a downward ratchet
   // (scripts/webmcp-chain-execute-baseline.json). About 30 s, so not in the
   // quick subset.
   ['WebMCP chain-execute (plan_chain stable hash + registered step nodes per chain)', 'node scripts/check-webmcp-chain-execute.mjs'],
@@ -1736,7 +1742,13 @@ const GATES = [
   ['Retired mcp-toggle tombstone controls (RED+GREEN mutation)', 'node scripts/check-retired-mcp-toggle.test.mjs'],
   // KERNEL-MISSING-INPUT-FAILCLOSED-GATE-1 (stage 1): ADVISORY by construction, the checker always exits 0.
   ['Kernel missing-input fail-closed sweep (stage 1 advisory, always exits 0)', 'node scripts/check-kernel-missing-input-failclosed.mjs'],
+  // KERNEL-MISSING-INPUT-FAILCLOSED-GATE-2 (stage 2): BLOCKING. A fail-open pair outside the shrink-only baseline
+  // (and every pair of a kernel absent from it) exits 1. Label says "Kernel" so --affected picks it for kernel diffs.
+  ['Kernel missing-input fail-closed enforce (stage 2, blocking, shrink-only baseline)', 'node scripts/check-kernel-missing-input-failclosed.mjs --enforce scripts/kernel-missing-input-failclosed.baseline.json'],
   ['Kernel missing-input fail-closed controls (RED+GREEN planted kernels)', 'node scripts/check-kernel-missing-input-failclosed.selftest.mjs'],
+  // PAGE-KERNEL-PARITY-GATE-1 (stage 1): ADVISORY by construction, the checker always exits 0 (full estate about 50 s).
+  ['Page-versus-kernel parity sweep (stage 1 advisory, always exits 0)', 'node scripts/check-page-kernel-parity.mjs'],
+  ['Page-versus-kernel parity controls (RED+GREEN synthetic pages)', 'node scripts/check-page-kernel-parity.selftest.mjs'],
   ['Retired ap2_version tombstone (§3.1/A3.2, RETIREMENT-TOMBSTONE-GATES-1)','node scripts/check-retired-ap2-version.mjs'],
   ['Retired ap2_version tombstone controls (RED+GREEN mutation)', 'node scripts/check-retired-ap2-version.test.mjs'],
   ['Credits registry coverage (vendored-code license gate)', 'node scripts/check-credits-coverage.mjs repo'],
