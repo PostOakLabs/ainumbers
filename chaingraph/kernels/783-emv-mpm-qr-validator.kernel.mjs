@@ -233,10 +233,10 @@ export function compute(pp) {
   if (pp.payload.length === 0) return refuse('payload_empty', 'payload must be non-empty');
   if (pp.payload.length > PAYLOAD_BOUND) return refuse('payload_bound_exceeded', 'payload exceeds the bounded-input guard of ' + PAYLOAD_BOUND + ' characters');
   if (pp.profile !== undefined && pp.profile !== null && typeof pp.profile !== 'string') return refuse('profile_not_string', 'profile must be a string');
-  const profileKey = pp.profile === undefined || pp.profile === null || pp.profile === '' ? 'generic' : pp.profile;
+  if (pp.profile === undefined || pp.profile === null || pp.profile === '') return refuse('profile_required', 'profile is a required input: use one of generic, fjqr, pix_brcode');
+  const profileKey = pp.profile;
   if (!Object.prototype.hasOwnProperty.call(PROFILES, profileKey)) return refuse('profile_unknown', 'unknown profile: use one of generic, fjqr, pix_brcode');
   const profile = PROFILES[profileKey];
-  if (pp.profile === undefined || pp.profile === null || pp.profile === '') compliance_flags.push('QR_PROFILE_DEFAULTED_GENERIC');
   if (pp.expect !== undefined && pp.expect !== null) {
     if (typeof pp.expect !== 'string' || (pp.expect !== 'static' && pp.expect !== 'dynamic')) {
       return refuse('expect_invalid', 'expect must be "static" or "dynamic"');
