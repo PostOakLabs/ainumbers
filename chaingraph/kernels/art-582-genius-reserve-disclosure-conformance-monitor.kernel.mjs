@@ -3,14 +3,15 @@
 //   repo/chaingraph/art-582-genius-reserve-disclosure-conformance-monitor.html
 // Pure: no DOM, no window, no network.
 //
-// NARROWED SCOPE (Tim's ruling 2026-08-07, EDGE-WAVE-BUILD-SPEC.md §1, research/GENIUS-FINALRULE-CHECK-2026-08-07.md):
-// as of 2026-08-07 no final GENIUS Act implementing regulations exist (every OCC/FDIC/Treasury/
-// FinCEN/NCUA instrument is still NPRM/ANPRM). This kernel checks ONLY the two statute-derived
-// requirements that do not depend on a final implementing rule: 1:1 reserve coverage arithmetic
-// and attestation presence/timeliness against the statutory monthly cadence. The permitted-asset
-// COMPOSITION check is deliberately OUT OF SCOPE — no final asset-eligibility text exists to check
-// against (see the shipped art-06 / art-275 tools for the pre-issuance / statutory-restatement
-// versions of that check). Re-verify this scope decision at any future build touching this file.
+// NARROWED SCOPE (Tim's ruling 2026-08-07, EDGE-WAVE-BUILD-SPEC.md, research/GENIUS-FINALRULE-CHECK-2026-08-07.md;
+// updated 2026-10-29, LANDSCAPE-ART582-FINAL-RULE-FIX-1): The OCC issued its final implementing rule
+// on 2026-10-21 (Bulletin 2026-50, effective 2027-01-18); final rules of the other
+// primary Federal payment stablecoin regulators were not checked. This kernel checks ONLY the two
+// statute-derived requirements it always checked: 1:1 reserve coverage arithmetic and attestation
+// presence/timeliness against the statutory monthly cadence. The permitted-asset COMPOSITION check
+// stays OUT OF SCOPE in this row (see the shipped art-06 / art-275 tools for the pre-issuance /
+// statutory-restatement versions of that check). Re-verify this scope decision at any future build
+// touching this file.
 //
 // Verdict per requirement: MET | NOT_MET | INDETERMINATE (never a monolithic PASS/FAIL —
 // row EDGE-GENIUS-1's explicit contract).
@@ -29,10 +30,11 @@ export const meta = {
 };
 
 // Statutory monthly cadence — GENIUS Act, Pub. L. 119-27 (S.1582), Section 4(a)(3) requires a monthly reserve-composition
-// report with independent examination. No final implementing rule specifies an exact
-// days-after-period-end filing deadline as of 2026-08-07; this kernel uses a 30-day monthly-cadence
-// window as the statute-derived interpretation (dated observation, re-verify against final rule text
-// when one publishes — research/GENIUS-FINALRULE-CHECK-2026-08-07.md).
+// report with independent examination. The OCC final rule of 2026-10-21 sets the monthly
+// composition-report timing at publication by noon on the last day of each month of data as of noon on the
+// last day of the previous month (paragraph (e)(1) of its reserve-asset section) and states no
+// days-after-period-end number, so the 30-day
+// monthly-cadence window stays as this kernel's interpretation (LANDSCAPE-ART582-FINAL-RULE-FIX-1, 2026-10-29).
 const STATUTORY_ATTESTATION_WINDOW_DAYS = 30;
 const COVERAGE_REF = 'GENIUS Act, Pub. L. 119-27 (S.1582) §4(a) — 1:1 reserve coverage requirement';
 const ATTESTATION_REF = 'GENIUS Act, Pub. L. 119-27 (S.1582) §4(a)(3) — monthly reserve report, independent examination by a registered public accounting firm';
@@ -165,7 +167,7 @@ export function compute(pp) {
     days_after_period_end: daysAfterPeriodEnd,
     statutory_attestation_window_days: STATUTORY_ATTESTATION_WINDOW_DAYS,
     onchain_supply_check,
-    scope_note: 'NARROWED 2026-08-07: checks 1:1 coverage arithmetic and attestation presence/timeliness only. The permitted-asset composition check is out of scope pending final GENIUS Act implementing regulations (none exist as of 2026-08-07 — research/GENIUS-FINALRULE-CHECK-2026-08-07.md). Never treated as compliance certification.',
+    scope_note: 'NARROWED 2026-08-07, updated 2026-10-29: checks 1:1 coverage arithmetic and attestation presence/timeliness only; the permitted-asset composition check is out of scope in this row. The OCC issued its final implementing rule on 2026-10-21 (Bulletin 2026-50, 12 CFR Part 15, effective 2027-01-18); final rules of the other primary Federal payment stablecoin regulators were not checked. Never treated as compliance certification.',
   };
 
   return { output_payload, compliance_flags };
