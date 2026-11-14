@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-142"]
+tags: ["compliance_control", "count-143"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-142 tool(s) in this mandate-type group:
+143 tool(s) in this mandate-type group:
 
 - [Corridor Cost Averages](../tools/787-corridor-cost-averages.md)
 - [Curator Vault Cap Auditor](../tools/792-curator-vault-cap-auditor.md)
@@ -30,6 +30,7 @@ status: stable
 - [Payment Services Activity Classifier](../tools/836-payment-services-activity-classifier.md)
 - [Issuer Reserve Yield Share Check](../tools/837-issuer-yield-share.md)
 - [Control Frequency Sample](../tools/838-control-frequency-sample.md)
+- [Workload Identity Claims Lint](../tools/844-workload-identity-claims.md)
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
 - [Mastercard Agentic Token Scope Builder](../tools/art-24-mastercard-agentic-token-builder.md)
