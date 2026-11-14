@@ -161,7 +161,7 @@ export const DEFAULT_PLAN_YEAR = 2026;
 
 // ── MODEL ASSUMPTIONS ────────────────────────────────────────────────────────────
 // NOT tax-year-indexed and NOT CMS parameters. They are this tool's scenario-shaping
-// choices, carried from the Apex page's constants panel unchanged, and they are the
+// choices, carried from the Apex page's constants panel as they were, and they are the
 // knobs a user is most likely to argue with -- so they are named, commented and
 // carried in the output payload so an artifact reader can see what moved the number.
 export const MODEL_ASSUMPTIONS = {
