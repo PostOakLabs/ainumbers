@@ -1,5 +1,5 @@
 // art-846-assess-pfmi-proportional — class-K property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
-// kernel_digest_at_authoring: sha256:5cfcd3cc7d2da7510a781775b7aff9f84c7dee69601df0ae7d44cf84cf387df6
+// kernel_digest_at_authoring: sha256:be69ab19112e05d4429f68929527ac80e97eabea3e7ce35f90742b432cd8c8b3
 // human_sign_off: builder-authored 2026-10-29 — synthetic inputs only.
 //
 // SCOPE: floor tier only. NOT a proof.
@@ -196,6 +196,18 @@ async function checkP7_buildArtifactNeverThrows() {
     checked++;
     const { compliance_flags } = compute({ ...base(), linked_system: v });
     if (compliance_flags.includes('INPUT_REFUSED')) violations++;
+  }
+  // target_date, when present, is a calendar-valid ISO string; null, arrays, numbers, '' and bad dates refuse.
+  for (const v of ['2026-02-31', '2026-13-45', '0000-00-00', '2025-02-29', null, ['2026-06-30'], 20260630, '']) {
+    checked++;
+    const pp = base(); pp.ratings[0] = { id: 'p01', rating: 'not_observed', target_date: v };
+    const { output_payload, compliance_flags } = compute(pp);
+    if (output_payload.error !== 'target_date_invalid' || !compliance_flags.includes('INPUT_REFUSED')) violations++;
+  }
+  for (const v of ['2028-02-29', '2000-02-29', undefined]) {
+    checked++;
+    const pp = base(); pp.ratings[0] = { id: 'p01', rating: 'not_observed', target_date: v };
+    if (compute(pp).compliance_flags.includes('INPUT_REFUSED')) violations++;
   }
   for (const pp of [base(), null, 5, []]) {
     checked++;

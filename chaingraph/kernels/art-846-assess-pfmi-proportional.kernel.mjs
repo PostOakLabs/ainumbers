@@ -150,6 +150,18 @@ function refusal(code, detail) {
   };
 }
 
+// Strict ISO YYYY-MM-DD with a calendar check; a string only, never coerced.
+function isCalendarDate(v) {
+  if (typeof v !== 'string') return false;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  if (!m) return false;
+  const y = +m[1], mo = +m[2], d = +m[3];
+  if (y < 1 || mo < 1 || mo > 12 || d < 1) return false;
+  const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  const dim = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mo - 1];
+  return d <= dim;
+}
+
 // ---- Hashability walk (D6 class)
 // Mirrors the classes _hash.mjs assertIJson() refuses before canonicalizing: a non-finite
 // number or an integer outside the 2^53 safe range, nesting past its MAX_DEPTH, more values
@@ -248,8 +260,7 @@ export function compute(pp) {
       return refusal('RATING_INVALID', 'ratings[' + i + '].rating must be one of ' + JSON.stringify(RATING_SCALE)
         + ' (assessment methodology s3.18/s3.21); got ' + JSON.stringify(entry.rating ?? null) + '.');
     }
-    if (entry.target_date !== undefined && entry.target_date !== null
-      && !/^\d{4}-\d{2}-\d{2}$/.test(String(entry.target_date))) {
+    if (entry.target_date !== undefined && !isCalendarDate(entry.target_date)) {
       return refusal('TARGET_DATE_INVALID', 'ratings[' + i + '].target_date must be a YYYY-MM-DD date string; got ' + JSON.stringify(entry.target_date) + '.');
     }
     if (seen.has(entry.id)) {
