@@ -1,15 +1,19 @@
-// _input.selftest.mjs -- KERNEL-INPUT-HELPER-1. Every reader accepts the nearest valid value and
-// refuses: deleted (undefined), null, wrong type, prototype name, unsafe integer, 1e300,
-// impossible date, padded enum, numeric string where a number is required.
+// _input.selftest.mjs -- KERNEL-INPUT-HELPER-1 and KERNEL-INPUT-HELPER-MAXELEMENTS-1. Every
+// reader accepts the nearest valid value and refuses: deleted (undefined), null, wrong type,
+// prototype name, unsafe integer, 1e300, impossible date, padded enum, numeric string where a
+// number is required.
 // Also proves the SSOT shape (export tail marker) and that refuseIJson agrees with the real
-// _hash.mjs assertIJson, so compute and buildArtifact can never disagree.
+// _hash.mjs assertIJson, including at the shared structural value-count limit (_hash.mjs
+// MAX_ELEMENTS, mirrored by _input.mjs IJSON_MAX_ELEMENTS), so compute and buildArtifact can
+// never disagree.
 // Run: node chaingraph/kernels/_input.selftest.mjs   (exit 0 = all pass)
 
+import { readFileSync } from 'node:fs';
 import {
   REFUSAL, isAbsent, readSafeInt, readFiniteNumber, readEnum, readCalendarDate, readString,
   ownKey, makeAccumulator, refuseIJson,
 } from './_input.mjs';
-import { assertIJson } from './_hash.mjs';
+import { assertIJson, MAX_ELEMENTS } from './_hash.mjs';
 
 let pass = 0;
 const fails = [];
@@ -154,8 +158,41 @@ for (const [name, v] of [['clean', { a: 1, b: [2.5, 'x'] }], ['safe max', { a: N
   t('parity with assertIJson (clean): ' + name, !threw && refuseIJson(v) === null);
 }
 
+// Structural value-count parity: refuseIJson counts visited values exactly as _hash.mjs
+// walkIJson does (the root, arrays and objects each count as one visited value), so the
+// boundary sits at the same total. Exactly MAX_ELEMENTS values accepts, one more refuses with
+// REFUSED_IJSON_TOO_MANY_VALUES, flat and nested. The probes are SIZED FROM _hash.mjs
+// MAX_ELEMENTS, so if the mirrored IJSON_MAX_ELEMENTS in _input.mjs ever diverges from it in
+// either direction, one of these rows fails.
+const flat = (n) => Array.from({ length: n }, (_, i) => i);
+const atLimitFlat = flat(MAX_ELEMENTS - 1);          // array itself + elements = exactly MAX_ELEMENTS values
+const overLimitFlat = flat(MAX_ELEMENTS);            // one counted value past the shared limit
+const atLimitNested = { a: flat(MAX_ELEMENTS - 2) };   // root + member array + elements = exactly MAX_ELEMENTS
+const overLimitNested = { a: flat(MAX_ELEMENTS - 1) }; // one counted value past the shared limit
+let threwAtLimitFlat = false;
+try { assertIJson(atLimitFlat); } catch { threwAtLimitFlat = true; }
+t('limit parity flat: exactly MAX_ELEMENTS values accepted by both', !threwAtLimitFlat && refuseIJson(atLimitFlat) === null);
+let threwOverLimitFlat = false;
+try { assertIJson(overLimitFlat); } catch { threwOverLimitFlat = true; }
+t('limit parity flat: MAX_ELEMENTS+1 values refused by both, stated code', threwOverLimitFlat && refused(refuseIJson(overLimitFlat), REFUSAL.IJSON_TOO_MANY_VALUES));
+let threwAtLimitNested = false;
+try { assertIJson(atLimitNested); } catch { threwAtLimitNested = true; }
+t('limit parity nested: exactly MAX_ELEMENTS values accepted by both', !threwAtLimitNested && refuseIJson(atLimitNested) === null);
+let threwOverLimitNested = false;
+try { assertIJson(overLimitNested); } catch { threwOverLimitNested = true; }
+t('limit parity nested: MAX_ELEMENTS+1 values refused by both, stated code', threwOverLimitNested && refused(refuseIJson(overLimitNested), REFUSAL.IJSON_TOO_MANY_VALUES));
+
+// Mutant controls: a build of _input.mjs with the value counter removed must fail this
+// selftest. The over-limit parity rows above already fail behaviorally on such a build; these
+// canaries also fail it when the counter increment or its stated refusal code is edited away,
+// even on payloads the probes do not reach.
+const ssotSrc = readFileSync(new URL('./_input.mjs', import.meta.url), 'utf8');
+t('mutant: refuseIJson still counts visited values (++counter.n in _input.mjs)', ssotSrc.includes('++counter.n'));
+t('mutant: value-count refusal code still stated in _input.mjs', ssotSrc.includes("'REFUSED_IJSON_TOO_MANY_VALUES'"));
+
 // The SSOT export-tail marker is checked by check-inline-ssot-sync.mjs (the carve fails closed
-// when the marker is absent or ambiguous), so this file needs no filesystem access.
+// when the marker is absent or ambiguous); the mutant canaries above are this file's only
+// filesystem access.
 
 if (fails.length) {
   throw new Error(`_input.selftest: ${fails.length} FAILED of ${pass + fails.length}:\n  ` + fails.join('\n  '));

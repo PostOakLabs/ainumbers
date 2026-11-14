@@ -45,9 +45,15 @@ const REFUSAL = Object.freeze({
   IJSON_UNSUPPORTED_TYPE: 'REFUSED_IJSON_UNSUPPORTED_TYPE',
   IJSON_CYCLE: 'REFUSED_IJSON_CYCLE',
   IJSON_TOO_DEEP: 'REFUSED_IJSON_TOO_DEEP',
+  IJSON_TOO_MANY_VALUES: 'REFUSED_IJSON_TOO_MANY_VALUES',
 });
 
 const IJSON_MAX_DEPTH = 512;
+// Mirror of the structural value-count limit _hash.mjs enforces (its MAX_ELEMENTS export).
+// This module is zero-import and is pasted verbatim into RISC0 guests that resolve only
+// _hash.mjs, so the constant is mirrored here rather than imported; _input.selftest.mjs
+// pins the two to the same number, and a build where they diverge fails that selftest.
+const IJSON_MAX_ELEMENTS = 1000000;
 
 function ok(value) { return { ok: true, value }; }
 function refuse(code, detail) { return { ok: false, code, detail: detail === undefined ? '' : String(detail) }; }
@@ -138,11 +144,16 @@ function makeAccumulator() {
 }
 
 // Refuse any input buildArtifact() (via _hash.mjs assertIJson / jcsStringify) would throw on or
-// canonicalize unstably. Returns null when clean, else { ok:false, code, detail, path }.
+// canonicalize unstably. The walk counts every visited value (the root, arrays and objects
+// included) exactly as _hash.mjs walkIJson does, so a payload at or past the shared structural
+// limit is refused here for the same reason assertIJson throws on it: compute and buildArtifact
+// can never disagree. Returns null when clean, else { ok:false, code, detail, path }.
 function refuseIJson(value) {
   const stack = [];
+  const counter = { n: 0 };
   function walk(v, depth, path) {
     if (depth > IJSON_MAX_DEPTH) return { ok: false, code: REFUSAL.IJSON_TOO_DEEP, detail: 'nesting beyond ' + IJSON_MAX_DEPTH, path };
+    if (++counter.n > IJSON_MAX_ELEMENTS) return { ok: false, code: REFUSAL.IJSON_TOO_MANY_VALUES, detail: 'more than ' + IJSON_MAX_ELEMENTS + ' values', path };
     const t = typeof v;
     if (v === null || t === 'string' || t === 'boolean') return null;
     if (t === 'number') {
