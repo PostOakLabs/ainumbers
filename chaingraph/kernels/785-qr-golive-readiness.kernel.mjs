@@ -59,13 +59,15 @@ export function compute(pp) {
   }
 
   // Weights override — pinned bounds check before anything else is scored.
-  let weights = {};
+  // Null-prototype containers: caller-derived keys (gate_id) must not resolve
+  // through Object.prototype (KERNEL-CALLER-KEY-LOOKUP-LINT-1).
+  let weights = Object.create(null);
   for (const g of CATALOGUE) weights[g.gate_id] = g.weight;
   if (pp.weights !== undefined && pp.weights !== null) {
     if (typeof pp.weights !== 'object' || Array.isArray(pp.weights)) {
       return refused('weights must be an object of {gate_id: weight_bp}', 'REFUSED_WEIGHTS_OUT_OF_BOUNDS');
     }
-    const merged = {};
+    const merged = Object.create(null);
     let sum = 0;
     for (const g of CATALOGUE) {
       const w = pp.weights[g.gate_id] !== undefined ? pp.weights[g.gate_id] : g.weight;
@@ -81,8 +83,8 @@ export function compute(pp) {
     weights = merged;
   }
 
-  // Submitted gate statuses.
-  const submitted = {};
+  // Submitted gate statuses (null-prototype: keys are caller-supplied gate_ids).
+  const submitted = Object.create(null);
   for (const entry of pp.gates) {
     if (!entry || typeof entry !== 'object' || !CATALOGUE.some(g => g.gate_id === entry.gate_id)) {
       return refused('unknown gate_id in gates array', 'REFUSED_UNKNOWN_GATE');
@@ -133,7 +135,7 @@ export function compute(pp) {
   let num = 0, den = 0;
   for (const r of resolved) {
     if (r.status === 'not_applicable') continue;
-    num += r.weight_bp * STATUS_FACTOR[r.status];
+    num += r.weight_bp * (Object.hasOwn(STATUS_FACTOR, r.status) ? STATUS_FACTOR[r.status] : undefined);
     den += r.weight_bp;
   }
   const score_bp = den > 0 ? Math.round((num / den) * 10000) : 0;
@@ -187,7 +189,7 @@ export function compute(pp) {
     principles_summary,
     warn_count: compliance_flags.length,
     advisory_note: 'principles_summary is advisory only and does not affect the verdict',
-    phase_next: PHASE_NEXT[phase],
+    phase_next: Object.hasOwn(PHASE_NEXT, phase) ? PHASE_NEXT[phase] : null,
     decision_support_note: 'DECISION-SUPPORT DRAFT — not a supervisory or regulatory assessment of any named participant or scheme.',
   };
 
