@@ -15,6 +15,13 @@ export const meta = {
 };
 
 const CLAIM_KEYS = ['sub', 'aud', 'exp', 'iat', 'nbf', 'scope', 'act', 'may_act', 'resource'];
+// Per-claim value typing: exp/iat/nbf are integer epoch seconds (NumericDate), aud/scope/resource
+// are a string or a list of strings, sub is a string, act/may_act are actor objects whose sub is
+// a required string. Any other value shape is refused with a named code before the lint runs,
+// so string dates, negative epochs, numeric scope or resource entries, and may_act values that
+// are not one well-formed actor object can never reach a WITHIN_POLICY verdict.
+const NUMERIC_DATE_KEYS = ['exp', 'iat', 'nbf'];
+const STRING_LIST_KEYS = ['aud', 'scope', 'resource'];
 const SIG_KEY = /sig|header|jws|jwt|token|proof|secret|key/i;
 const JWS_HEAD = /^eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*$/;
 const JWS_ANY = /^[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]*$/;
@@ -45,13 +52,7 @@ function scanClaims(c, label, out, depth) {
     if (SIG_KEY.test(k)) { out.push('SIGNATURE_MATERIAL_REFUSED'); continue; }
     if (CLAIM_KEYS.indexOf(k) < 0) { out.push('UNKNOWN_CLAIM_REFUSED'); continue; }
     const v = c[k];
-    if (typeof v === 'string') refuseString(v, out);
-    else if (Array.isArray(v)) {
-      if (v.length > MAX_ITEMS) out.push('TOO_MANY_ITEMS_REFUSED');
-      for (let j = 0; j < v.length && j < MAX_ITEMS; j++) {
-        if (typeof v[j] === 'string') refuseString(v[j], out); else out.push('CLAIM_TYPE_REFUSED');
-      }
-    } else if (k === 'act' || k === 'may_act') {
+    if (k === 'act' || k === 'may_act') {
       if (depth > MAX_ACT_WALK) out.push('ACT_NESTING_REFUSED');
       else if (isObj(v)) {
         const ak = Object.keys(v);
@@ -59,11 +60,25 @@ function scanClaims(c, label, out, depth) {
           if (SIG_KEY.test(ak[j])) out.push('SIGNATURE_MATERIAL_REFUSED');
           else if (ak[j] !== 'sub' && !(k === 'act' && ak[j] === 'act')) out.push('UNKNOWN_CLAIM_REFUSED');
         }
-        if (typeof v.sub === 'string') refuseString(v.sub, out);
-        else if (v.sub !== undefined) out.push('CLAIM_TYPE_REFUSED');
+        if (typeof v.sub !== 'string') out.push('CLAIM_TYPE_REFUSED');
+        else refuseString(v.sub, out);
         if (k === 'act' && v.act !== undefined) scanClaims({ act: v.act }, label, out, depth + 1);
       } else out.push('CLAIM_TYPE_REFUSED');
-    } else if (!isInt(v)) out.push('CLAIM_TYPE_REFUSED');
+    } else if (NUMERIC_DATE_KEYS.indexOf(k) >= 0) {
+      if (!isInt(v)) out.push('CLAIM_TYPE_REFUSED');
+      else if (v < 0) out.push('NUMERIC_DATE_OUT_OF_RANGE');
+    } else if (STRING_LIST_KEYS.indexOf(k) >= 0) {
+      if (typeof v === 'string') refuseString(v, out);
+      else if (Array.isArray(v)) {
+        if (v.length > MAX_ITEMS) out.push('TOO_MANY_ITEMS_REFUSED');
+        for (let j = 0; j < v.length && j < MAX_ITEMS; j++) {
+          if (typeof v[j] === 'string') refuseString(v[j], out); else out.push('CLAIM_TYPE_REFUSED');
+        }
+      } else out.push('CLAIM_TYPE_REFUSED');
+    } else if (k === 'sub') {
+      if (typeof v !== 'string') out.push('CLAIM_TYPE_REFUSED');
+      else refuseString(v, out);
+    }
   }
 }
 
@@ -144,6 +159,12 @@ function lintToken(c, p, label, out, indet) {
     if (c.exp !== undefined && c.nbf > c.exp) out_('NBF_AFTER_EXP');
   }
 
+  // A present scope is judged by the same scope-token vocabulary whether or not an exchange
+  // accompanies the request: present-but-malformed (an empty token in the list, a bad
+  // character) is SCOPE_MALFORMED here for this token, and absent stays indeterminate in the
+  // exchange narrowing check below. Consistency rule: the same code both request shapes.
+  if (p.scope_must_narrow && c.scope !== undefined && scopeSet(c.scope) === undefined) out_('SCOPE_MALFORMED');
+
   if (c.act !== undefined) {
     const ch = actorChain(c.act);
     if (ch.depth > p.max_actor_depth) out_('ACTOR_CHAIN_TOO_DEEP');
@@ -200,24 +221,28 @@ export function compute(pp) {
     }
     const xr = toList(x.resource);
     const sr = toList(s.resource);
-    if (xr !== null && sr !== null) {
-      for (let i = 0; i < xr.length; i++) if (sr.indexOf(xr[i]) < 0) { out.push('exchanged:RESOURCE_WIDER_THAN_SUBJECT'); break; }
+    // An exchanged resource is checked against the subject resource set whether or not the
+    // subject carries one: with no subject resource every exchanged resource is wider, so the
+    // exchange can never gain a resource the subject never had.
+    if (xr !== null) {
+      const srList = sr === null ? [] : sr;
+      for (let i = 0; i < xr.length; i++) if (srList.indexOf(xr[i]) < 0) { out.push('exchanged:RESOURCE_WIDER_THAN_SUBJECT'); break; }
     }
 
     if (policy.scope_must_narrow) {
       const ss = scopeSet(s.scope);
       const xs = scopeSet(x.scope);
-      if (ss === undefined || xs === undefined) out.push('exchanged:SCOPE_MALFORMED');
-      else if (ss === null || xs === null) indet.push('exchanged:SCOPE_ABSENT');
-      else {
+      // Malformed scopes were already flagged per token in lintToken; absent stays indeterminate.
+      if (ss === null || xs === null) indet.push('exchanged:SCOPE_ABSENT');
+      else if (ss !== undefined && xs !== undefined) {
         for (let i = 0; i < xs.length; i++) if (ss.indexOf(xs[i]) < 0) { out.push('exchanged:SCOPE_WIDENED'); break; }
       }
     }
 
+    // scanClaims guarantees a present may_act is one well-formed actor object with a string
+    // sub, and a present act is the same, so the consistency check is a direct comparison.
     if (s.may_act !== undefined && x.act !== undefined) {
-      const ma = isObj(s.may_act) ? s.may_act.sub : undefined;
-      if (ma === undefined) indet.push('subject:MAY_ACT_SUB_ABSENT');
-      else if (!isObj(x.act) || x.act.sub !== ma) out.push('exchanged:MAY_ACT_MISMATCH');
+      if (x.act.sub !== s.may_act.sub) out.push('exchanged:MAY_ACT_MISMATCH');
     }
   }
 
