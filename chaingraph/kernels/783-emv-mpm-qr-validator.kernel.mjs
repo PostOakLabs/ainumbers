@@ -453,8 +453,7 @@ export function compute(pp) {
     if (sub.trailing !== null && sub.trailing.length > 0) addV('62', 'TEMPLATE_TRAILING_DATA', SOURCES.emv + '/4.3.1.2', 'error');
     for (const s of sub.objects) {
       addlSub.set(s.id, s);
-      const cap = ADDL_SUB_CAP[s.id];
-      if (cap !== undefined && s.len > cap) {
+      if (Object.hasOwn(ADDL_SUB_CAP, s.id) && s.len > ADDL_SUB_CAP[s.id]) {
         addV('62.' + s.id, 'ADDL_SUB_LENGTH', SOURCES.emv + '/T3.7', 'error');
       }
       if (s.id === '09' && !/^[AME]{1,3}$/.test(s.value)) {
