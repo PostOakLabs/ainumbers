@@ -279,11 +279,46 @@ function sanitizeUnsafeIntegers(v) {
   return v;
 }
 
+// Hashability walk: mirrors the classes _hash.mjs refuses before canonicalizing
+// (non-finite number, nesting past MAX_DEPTH, more than MAX_ELEMENTS values).
+// Unsafe integers are not refused here because sanitizeUnsafeIntegers() turns
+// them into null before hashing. Reports { reason, detail } with path and kind
+// only, never the value; null when safe. Recursion stops at the depth limit.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > HASH_MAX_DEPTH) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > HASH_MAX_ELEMENTS) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    return Number.isFinite(v) ? null : { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const safePP = sanitizeUnsafeIntegers(pp);
-  const hash = await executionHash(safePP, output_payload);
-  return {
+  // Walk the execution_hash preimage first. An unhashable input mints the
+  // artifact with a null execution_hash and the reason beside it, never a throw.
+  const budget = { n: 0 };
+  const unhashable = findHashRefusal(pp, 'pp', 2, budget) || findHashRefusal(output_payload, 'output_payload', 2, budget);
+  const safePP = unhashable === null ? sanitizeUnsafeIntegers(pp) : pp;
+  const hash = unhashable === null ? await executionHash(safePP, output_payload) : null;
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -299,4 +334,6 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }

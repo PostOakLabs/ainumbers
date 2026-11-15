@@ -449,6 +449,38 @@ function checkP7_inputTruthfulness() {
   return { name: 'P7_input_truthfulness_matrix', trials: checked, violations };
 }
 
+// ---------- P8: buildArtifact_never_throws ----------
+// An input whose {policy_parameters, output_payload} preimage cannot be hashed (NaN, Infinity,
+// nesting past the limit, more than 1,000,000 values) mints an artifact with a null
+// execution_hash plus hash_refusal; it never throws and never echoes the value. An input that
+// hashes (including a nested 1e300, which the kernel nulls before hashing) keeps a 64-hex hash.
+async function checkP8_buildArtifactNeverThrows() {
+  const { buildArtifact } = await import('../art-497-validator-change-control-receipt.kernel.mjs');
+  const base = JSON.parse(readFileSync(path.join(__dirname, '..', 'fixtures', 'art-497-validator-change-control-receipt.fixtures.json'), 'utf8')).vectors[0].policy_parameters;
+  let violations = 0, checked = 0;
+  let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const unhashable = [{ zzz: NaN }, { zzz: Infinity }, { zzz: -Infinity }, { zzz: { a: [NaN] } }, { zzz: deep }, { zzz: wide }];
+  for (const delta of unhashable) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...base, ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) violations++;
+      if (/Infinity|NaN|e\+3\d\d/.test(JSON.stringify(r))) violations++;
+    } catch { violations++; }
+  }
+  const hashable = [base, { ...base, zzz: { a: { b: 1e300 } } }, { ...base, prior_weight: 1e300 }, { ...base, zzz: [9007199254740993] }, null, 5, []];
+  for (const pp of hashable) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) violations++;
+    } catch { violations++; }
+  }
+  return { name: 'P8_buildArtifact_never_throws', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -463,6 +495,7 @@ results.properties.push(checkP4_forced_categorical_boundaries());
 results.properties.push(checkP5_requiredInputsFailClosed());
 results.properties.push(checkP6_statednessMatrix());
 results.properties.push(checkP7_inputTruthfulness());
+results.properties.push(await checkP8_buildArtifactNeverThrows());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
