@@ -34,6 +34,7 @@ status: stable
 - [home_office_augusta_record](./home_office_augusta_record.md) (1)
 - [infrastructure_mandate](./infrastructure_mandate.md) (6)
 - [liquidity_mandate](./liquidity_mandate.md) (2)
+- [medicare_plan_comparison_record](./medicare_plan_comparison_record.md) (1)
 - [model_governance](./model_governance.md) (10)
 - [oracle_price_aggregation](./oracle_price_aggregation.md) (1)
 - [payment_mandate](./payment_mandate.md) (6)
