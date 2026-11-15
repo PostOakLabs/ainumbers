@@ -21,9 +21,10 @@ import { executionHash } from './_hash.mjs';
 //                    conditioned_on in { holding, activity, none }.
 //
 // ROUNDING RULE (the one documented rule): every derived minor-unit amount is
-// Math.floor of the exact product (bp math: floor(value * bp / 10000); income from an
-// annual yield accrues linearly over days/365). The split conserves only when the
-// floored share amounts sum exactly to the recomputed income.
+// floor of the exact product, computed in BigInt (bp math: floor(value * bp / 10000);
+// income from an annual yield accrues linearly over days/365). The split conserves only
+// when the floored share amounts sum exactly to the recomputed income. Any derived amount
+// above Number.MAX_SAFE_INTEGER is refused, never rounded.
 //
 // DETERMINISM: compute() is a PURE function of pp — no Date.now()/Math.random(), no
 // network, no filesystem, no TextEncoder/atob/btoa/URL inside compute(). No UTF-8
@@ -35,6 +36,50 @@ const TOOL_VERSION = '1.0.0';
 // R4 (absent equals explicit null): refusal detail text names a missing value the same
 // way whether the input was absent or null.
 const show = (v) => (v === undefined || v === null ? 'absent' : String(v));
+
+// Money arithmetic is BigInt, floored once per derived amount; any amount above
+// Number.MAX_SAFE_INTEGER is refused so compute() and buildArtifact() agree.
+const MAX_SAFE = BigInt(Number.MAX_SAFE_INTEGER);
+
+// ── hashability walk (D6) ────────────────────────────────────────────────────────
+// Mirrors the classes _hash.mjs refuses before canonicalizing: a non-finite number, an
+// integer outside the 2^53 safe range, nesting past MAX_DEPTH, more values than
+// MAX_ELEMENTS. Path and kind only, never the value; null when the subtree is hashable.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+// pp alone is held to tighter margins: the {policy_parameters, output_payload} envelope
+// wraps it two levels deeper and output_payload carries values too.
+const PP_MAX_DEPTH = HASH_MAX_DEPTH - 8;
+const PP_MAX_ELEMENTS = 199000;
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
+// Caller numbers must be safe integers; no coercion, no truthiness.
+const isSafeInt = (v) => typeof v === 'number' && Number.isSafeInteger(v);
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -72,6 +117,13 @@ export function compute(pp) {
     };
   }
 
+  // -- hashability: refuse any input buildArtifact() could not hash (D6), so compute()
+  // and buildArtifact() accept exactly the same domain.
+  const unhashable = findHashRefusal(pp, 'pp', 1, { maxDepth: PP_MAX_DEPTH, maxElements: PP_MAX_ELEMENTS, n: 0 });
+  if (unhashable !== null) {
+    return refuse('input_not_hashable', `${unhashable.reason}: ${unhashable.detail}`.slice(0, 120));
+  }
+
   // -- profile: only the enacted statutory profile is pinned by this row.
   if (pp.profile !== PROFILE) {
     return refuse('profile_must_be_genius_enacted', show(pp.profile).slice(0, 60));
@@ -80,7 +132,7 @@ export function compute(pp) {
   // -- period: integer days >= 1; either a declared income or (avg value, annual bp).
   const period = pp.period || {};
   const days = period.days;
-  if (typeof days !== 'number' || !isFinite(days) || days !== Math.floor(days) || days < 1 || days > 366) {
+  if (!isSafeInt(days) || days < 1 || days > 366) {
     return refuse('period_days_must_be_integer_1_to_366', show(days));
   }
   const declaredIncome = period.reserve_income_minor;
@@ -88,25 +140,30 @@ export function compute(pp) {
   let avg = null;
   let bp = null;
   if (declaredIncome !== undefined && declaredIncome !== null) {
-    if (typeof declaredIncome !== 'number' || !isFinite(declaredIncome) || declaredIncome !== Math.floor(declaredIncome) || declaredIncome < 0) {
+    if (!isSafeInt(declaredIncome) || declaredIncome < 0) {
       return refuse('reserve_income_minor_must_be_nonnegative_integer', show(declaredIncome));
     }
     declaredIncomeMinor = declaredIncome;
   } else {
     avg = period.avg_reserve_value_minor;
     bp = period.reserve_yield_bp;
-    if (typeof avg !== 'number' || !isFinite(avg) || avg !== Math.floor(avg) || avg < 0) {
+    if (!isSafeInt(avg) || avg < 0) {
       return refuse('avg_reserve_value_minor_must_be_nonnegative_integer', show(avg));
     }
-    if (typeof bp !== 'number' || !isFinite(bp) || bp !== Math.floor(bp) || bp < 0 || bp > 100000) {
+    if (!isSafeInt(bp) || bp < 0 || bp > 100000) {
       return refuse('reserve_yield_bp_must_be_integer_0_to_100000', show(bp));
     }
   }
 
   // -- recomputed income (the single rounding rule: floor).
-  const incomeMinor = declaredIncomeMinor !== null
-    ? declaredIncomeMinor
-    : Math.floor(Math.floor(avg * bp / 10000) * days / 365);
+  // BigInt end to end; the yearly yield is floored, then the day accrual is floored.
+  const incomeBig = declaredIncomeMinor !== null
+    ? BigInt(declaredIncomeMinor)
+    : (BigInt(avg) * BigInt(bp) / 10000n) * BigInt(days) / 365n;
+  if (incomeBig > MAX_SAFE) {
+    return refuse('reserve_income_minor_exceeds_max_safe_integer', 'recomputed income above 9007199254740991');
+  }
+  const incomeMinor = Number(incomeBig);
 
   // -- split: 1..16 parties, each share_bp (0..10000) or fixed_minor (>= 0), not both.
   const split = pp.split;
@@ -130,24 +187,29 @@ export function compute(pp) {
     }
     if (hasBpEntry) {
       const b = e.share_bp;
-      if (typeof b !== 'number' || !isFinite(b) || b !== Math.floor(b) || b < 0 || b > 10000) {
+      if (!isSafeInt(b) || b < 0 || b > 10000) {
         return refuse('share_bp_must_be_integer_0_to_10000', show(b));
       }
       hasBp = true;
       sumBp += b;
-      shares.push({ party_role: e.party_role, basis: 'share_bp', share_bp: b, amount_minor: Math.floor(incomeMinor * b / 10000) });
+      // A share never exceeds the income (b <= 10000), so the floored amount is safe.
+      shares.push({ party_role: e.party_role, basis: 'share_bp', share_bp: b, amount_minor: Number(incomeBig * BigInt(b) / 10000n) });
     } else {
       const f = e.fixed_minor;
-      if (typeof f !== 'number' || !isFinite(f) || f !== Math.floor(f) || f < 0) {
+      if (!isSafeInt(f) || f < 0) {
         return refuse('fixed_minor_must_be_nonnegative_integer', show(f));
       }
       sumFixed += f;
       shares.push({ party_role: e.party_role, basis: 'fixed_minor', amount_minor: f });
     }
   }
-  const allocated = shares.reduce((s, x) => s + x.amount_minor, 0);
+  const allocatedBig = shares.reduce((s, x) => s + BigInt(x.amount_minor), 0n);
+  if (allocatedBig > MAX_SAFE) {
+    return refuse('allocated_share_sum_exceeds_max_safe_integer', 'split amounts sum above 9007199254740991');
+  }
+  const allocated = Number(allocatedBig);
   // Conservation: floored shares must sum exactly to the recomputed income.
-  const conserving = allocated === incomeMinor;
+  const conserving = allocatedBig === incomeBig;
   // A bp-only split must name the full 10000 bp regardless of rounding residue.
   const bpFull = !hasBp || sumBp === 10000;
 
@@ -179,7 +241,7 @@ export function compute(pp) {
       return refuse('reward_funded_from_must_be_enumerated', show(r.funded_from).slice(0, 40));
     }
     const v = r.value_minor;
-    if (typeof v !== 'number' || !isFinite(v) || v !== Math.floor(v) || v < 0) {
+    if (!isSafeInt(v) || v < 0) {
       return refuse('reward_value_minor_must_be_nonnegative_integer', show(v));
     }
     if (typeof r.conditioned_on !== 'string' || !COND_ON.has(r.conditioned_on)) {
@@ -237,8 +299,12 @@ export function compute(pp) {
 
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // The walked object is the exact execution_hash preimage. When the shared canonicalizer
+  // would refuse it, mint the artifact with a null execution_hash and the reason beside
+  // it instead of throwing (D6). compute() refuses the same inputs, so this is the backstop.
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const hash = unhashable === null ? await executionHash(pp, output_payload) : null;
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -254,4 +320,6 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }
