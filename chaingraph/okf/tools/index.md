@@ -47,6 +47,7 @@ status: stable
 - [Payment Services Activity Classifier](./836-payment-services-activity-classifier.md) — `classify_payment_services`
 - [Issuer Reserve Yield Share Check](./837-issuer-yield-share.md) — `check_issuer_reserve_yield_share`
 - [Control Frequency Sample](./838-control-frequency-sample.md) — `plan_control_frequency_sample`
+- [Planning Materiality](./841-planning-materiality.md) — `compute_planning_materiality`
 - [Workload Identity Claims Lint](./844-workload-identity-claims.md) — `lint_workload_identity_token_claims`
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md) — `validate_ap2_mandate_chain`
 - [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md) — `simulate_spend_policy`

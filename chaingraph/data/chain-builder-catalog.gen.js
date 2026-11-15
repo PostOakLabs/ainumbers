@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (763 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (764 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -424,6 +424,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/838-control-frequency-sample.html",
     "description": "Applies a table you declare. It ships no table, and is not guidance from any audit firm or standard-setter. The sample size is only as defen",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "841-planning-materiality",
+    "display_name": "Planning Materiality",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/841-planning-materiality.html",
+    "description": "Arithmetic on declared policy. It does not choose the benchmark, does not judge whether the percentage is appropriate, and is not a material",
     "consumes": [],
     "feeds": [],
     "status": "live"

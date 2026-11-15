@@ -44,6 +44,7 @@ import * as t829      from './829-safe-tx-hash-recompute.kernel.mjs';
 import * as t836      from './836-payment-services-activity-classifier.kernel.mjs';
 import * as t837      from './837-issuer-yield-share.kernel.mjs';
 import * as t838      from './838-control-frequency-sample.kernel.mjs';
+import * as t841      from './841-planning-materiality.kernel.mjs';
 import * as t844      from './844-workload-identity-claims.kernel.mjs';
 import * as art01     from './art-01-ap2-mandate-chain-validator.kernel.mjs';
 import * as art02     from './art-02-agent-spend-policy-simulator.kernel.mjs';
@@ -809,6 +810,7 @@ export const KERNELS = {
   '836-payment-services-activity-classifier':                   t836,
   '837-issuer-yield-share':                                     t837,
   '838-control-frequency-sample':                               t838,
+  '841-planning-materiality':                                   t841,
   '844-workload-identity-claims':                               t844,
   'art-01-ap2-mandate-chain-validator':                         art01,
   'art-02-agent-spend-policy-simulator':                        art02,
