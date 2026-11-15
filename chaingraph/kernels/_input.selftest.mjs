@@ -13,7 +13,7 @@ import {
   REFUSAL, isAbsent, readSafeInt, readFiniteNumber, readEnum, readCalendarDate, readString,
   ownKey, makeAccumulator, refuseIJson,
 } from './_input.mjs';
-import { assertIJson, MAX_ELEMENTS } from './_hash.mjs';
+import { assertIJson, MAX_ELEMENTS, HashLimitError, executionHash } from './_hash.mjs';
 
 let pass = 0;
 const fails = [];
@@ -181,6 +181,18 @@ t('limit parity nested: exactly MAX_ELEMENTS values accepted by both', !threwAtL
 let threwOverLimitNested = false;
 try { assertIJson(overLimitNested); } catch { threwOverLimitNested = true; }
 t('limit parity nested: MAX_ELEMENTS+1 values refused by both, stated code', threwOverLimitNested && refused(refuseIJson(overLimitNested), REFUSAL.IJSON_TOO_MANY_VALUES));
+
+// Scope boundary: refuseIJson gates policy_parameters alone, while the hashed preimage
+// {policy_parameters, output_payload} is walked as one object. A policy_parameters sitting
+// exactly at the shared MAX_ELEMENTS boundary therefore passes refuseIJson above, yet tips
+// the preimage walk past MAX_ELEMENTS once output_payload is non-empty: executionHash
+// throws HashLimitError. This pins the real boundary (input gate on policy_parameters,
+// preimage remainder covered by the D6 never-throw buildArtifact walk); it does not claim
+// the two walks agree.
+let hashThrewLimit = false;
+try { await executionHash(atLimitFlat, { r: [1, 2, 3, 4, 5] }); }
+catch (e) { hashThrewLimit = e instanceof HashLimitError; }
+t('preimage scope: exactly MAX_ELEMENTS values pass refuseIJson, yet the same policy_parameters with a non-empty output_payload exceeds MAX_ELEMENTS in executionHash', refuseIJson(atLimitFlat) === null && hashThrewLimit);
 
 // Mutant controls: a build of _input.mjs with the value counter removed must fail this
 // selftest. The over-limit parity rows above already fail behaviorally on such a build; these

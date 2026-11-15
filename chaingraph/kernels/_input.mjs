@@ -143,11 +143,9 @@ function makeAccumulator() {
   };
 }
 
-// Refuse any input buildArtifact() (via _hash.mjs assertIJson / jcsStringify) would throw on or
-// canonicalize unstably. The walk counts every visited value (the root, arrays and objects
-// included) exactly as _hash.mjs walkIJson does, so a payload at or past the shared structural
-// limit is refused here for the same reason assertIJson throws on it: compute and buildArtifact
-// can never disagree. Returns null when clean, else { ok:false, code, detail, path }.
+// refuseIJson covers policy_parameters only, and the output_payload remainder of the hashed
+// preimage is covered by the D6 never-throw buildArtifact walk. Returns null when clean,
+// else { ok:false, code, detail, path }.
 function refuseIJson(value) {
   const stack = [];
   const counter = { n: 0 };
