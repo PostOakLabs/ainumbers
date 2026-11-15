@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-147"]
+tags: ["compliance_control", "count-148"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,9 +10,10 @@ status: stable
 
 # compliance_control
 
-147 tool(s) in this mandate-type group:
+148 tool(s) in this mandate-type group:
 
 - [EMV MPM QR Payload Validator](../tools/783-emv-mpm-qr-validator.md)
+- [QR Go-Live Readiness Assessor](../tools/785-qr-golive-readiness.md)
 - [Corridor Cost Averages](../tools/787-corridor-cost-averages.md)
 - [Curator Vault Cap Auditor](../tools/792-curator-vault-cap-auditor.md)
 - [Event Fee Recompute](../tools/794-event-fee-recompute.md)
