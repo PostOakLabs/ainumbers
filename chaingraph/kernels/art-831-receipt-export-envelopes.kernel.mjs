@@ -66,22 +66,98 @@ function isTimestamp(v) {
   return day >= 1 && day <= dim;
 }
 
-// URI-reference acceptance: printable US-ASCII only — no whitespace, no control
-// characters, no non-ASCII code points, no raw delimiter characters that must be
-// percent-encoded — and every percent sign part of a valid %XX escape. Absolute or
-// relative both accepted (a URI-reference, not a URI).
+// URI-reference acceptance per RFC 3986 section 4.1 (URI / relative-ref): printable
+// US-ASCII only, every percent sign part of a valid %XX escape, and the string must
+// parse against the grammar: an absolute URI needs a scheme of ALPHA *( ALPHA / DIGIT
+// / "+" / "-" / "." ) before its first colon, a relative reference's first path segment
+// may not contain a colon, and "[" "]" appear only around an IP-literal host.
 // RFC 3986 excludes space, double quote, < > { } | backslash ^ and backtick outright.
+// Pure string and regex work over a string, so it cannot throw.
 const URI_FORBIDDEN = /[^\x21-\x7e]|["<>{}|\\^`]/;
+const URI_SCHEME = /^[A-Za-z][A-Za-z0-9+.-]*$/;
+const URI_USERINFO = /^(?:[A-Za-z0-9\-._~!$&'()*+,;=:]|%[0-9A-Fa-f]{2})*$/;
+const URI_REGNAME = /^(?:[A-Za-z0-9\-._~!$&'()*+,;=]|%[0-9A-Fa-f]{2})*$/;
+const URI_PATH = /^(?:[A-Za-z0-9\-._~!$&'()*+,;=:@/]|%[0-9A-Fa-f]{2})*$/;
+const URI_QUERY_FRAG = /^(?:[A-Za-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9A-Fa-f]{2})*$/;
+const URI_IPV4 = /^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+const URI_IPFUTURE = /^[vV][0-9A-Fa-f]+\.[A-Za-z0-9\-._~!$&'()*+,;=:]+$/;
+// h16 groups of an IPv6address; the final group may be a dotted IPv4 (counts as two).
+function ipv6Groups(str, allowV4Last) {
+  if (str === '') return 0;
+  const parts = str.split(':');
+  let n = 0;
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    if (allowV4Last && i === parts.length - 1 && p.indexOf('.') !== -1) {
+      if (!URI_IPV4.test(p)) return -1;
+      n += 2;
+    } else if (/^[0-9A-Fa-f]{1,4}$/.test(p)) {
+      n += 1;
+    } else {
+      return -1;
+    }
+  }
+  return n;
+}
+function isIPv6(s) {
+  if (!/^[0-9A-Fa-f:.]+$/.test(s) || s.indexOf(':::') !== -1) return false;
+  const dbl = s.indexOf('::');
+  if (dbl === -1) return ipv6Groups(s, true) === 8;
+  if (dbl !== s.lastIndexOf('::')) return false;
+  const a = ipv6Groups(s.slice(0, dbl), false);
+  const b = ipv6Groups(s.slice(dbl + 2), true);
+  return a >= 0 && b >= 0 && a + b <= 7;
+}
+function isUriAuthority(auth) {
+  const at = auth.indexOf('@');
+  if (at !== -1) {
+    if (!URI_USERINFO.test(auth.slice(0, at))) return false;
+    auth = auth.slice(at + 1);
+  }
+  let host = auth, port = '';
+  if (auth.charAt(0) === '[') {
+    const close = auth.indexOf(']');
+    if (close === -1) return false;
+    const inner = auth.slice(1, close);
+    const rest = auth.slice(close + 1);
+    if (rest !== '' && !/^:\d*$/.test(rest)) return false;
+    return isIPv6(inner) || URI_IPFUTURE.test(inner);
+  }
+  const colon = auth.indexOf(':');
+  if (colon !== -1) { host = auth.slice(0, colon); port = auth.slice(colon + 1); }
+  return /^\d*$/.test(port) && URI_REGNAME.test(host);
+}
 function isUriReference(v) {
   if (typeof v !== 'string' || v.length === 0) return false;
   if (URI_FORBIDDEN.test(v)) return false;
-  let i = v.indexOf('%');
-  while (i !== -1) {
-    if (i + 2 >= v.length) return false;
-    const h = v.slice(i + 1, i + 3);
-    if (!/^[0-9A-Fa-f]{2}$/.test(h)) return false;
-    i = v.indexOf('%', i + 1);
+  let rest = v;
+  let frag = null, query = null;
+  const hash = rest.indexOf('#');
+  if (hash !== -1) { frag = rest.slice(hash + 1); rest = rest.slice(0, hash); }
+  const qm = rest.indexOf('?');
+  if (qm !== -1) { query = rest.slice(qm + 1); rest = rest.slice(0, qm); }
+  if (frag !== null && !URI_QUERY_FRAG.test(frag)) return false;
+  if (query !== null && !URI_QUERY_FRAG.test(query)) return false;
+  // A colon before any "/" (the part left after "?" and "#" are cut) marks a scheme.
+  const colon = rest.indexOf(':');
+  const slash = rest.indexOf('/');
+  let hasScheme = false;
+  if (colon !== -1 && (slash === -1 || colon < slash)) {
+    if (!URI_SCHEME.test(rest.slice(0, colon))) return false;
+    hasScheme = true;
+    rest = rest.slice(colon + 1);
   }
+  let hasAuthority = false;
+  if (rest.slice(0, 2) === '//') {
+    hasAuthority = true;
+    const end = rest.indexOf('/', 2);
+    const auth = end === -1 ? rest.slice(2) : rest.slice(2, end);
+    if (!isUriAuthority(auth)) return false;
+    rest = end === -1 ? '' : rest.slice(end);
+  }
+  if (!URI_PATH.test(rest)) return false;
+  // relative-ref path-noscheme: no colon in the first segment (a scheme-less reference).
+  if (!hasScheme && !hasAuthority && rest.split('/')[0].indexOf(':') !== -1) return false;
   return true;
 }
 

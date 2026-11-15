@@ -1,5 +1,5 @@
 // art-831-receipt-export-envelopes — class-K property-test FLOOR + envelope conformance test.
-// kernel_digest_at_authoring: sha256:70fe039651929e65de0f5dc32a8c88071503df02a1a5680d3b347207ce436b1d
+// kernel_digest_at_authoring: sha256:6b5124a707256357710470b5fb0166dec13fab7f5d4c61c09838aae782ae0d3c
 // spec: research/RECEIPT-EXPORT-PIN-2026-10-29.md (pins the two wire specs this kernel emits;
 //       snapshots under research/clause-snapshots/receipt-export/, schema vendored with its
 //       LICENSE at chaingraph/kernels/fixtures/vendor/openlineage-1.55.0/)
@@ -296,6 +296,10 @@ function checkFailClosed() {
   for (const ch of ['<', '>', '"', '{', '}', '|', '\\', '^', '`']) {
     mut((r) => ({ ...r, source: `https://ainumbers.example/a${ch}b` }));
   }
+  // RFC 3986 URI-reference grammar (not just the character set).
+  for (const bad of ['/a[b', '1:abc', 'ht%74p://a/', 'http://[::1/x', 'http://a]/', ':abc', 'a b:c', '//[v1.x']) {
+    mut((r) => ({ ...r, source: bad }));
+  }
   mut((r) => ({ ...r, namespace: '' }));
   mut((r) => ({ ...r, tool_id: '' }));
   mut((r) => ({ ...r, policy_parameters_hash: 'deadbeef' }));
@@ -320,6 +324,12 @@ function checkFailClosed() {
     if (output_payload.lineage_event !== null || output_payload.event_envelope !== null) {
       violations++; console.log('  fail-closed: refused result still carries envelopes');
     }
+  }
+  // Valid URI-reference edge cases must still export (grammar accepts, not just refuses).
+  for (const good of ['rel/path', 'urn:a:b', 'https://ainumbers.example/x?q=1#f', 'a/b:c/d', 'http://[::1]:80/x', 'http://[2001:db8::7]/', '//host/p', '/abs/path', 'mailto:a@b.c', 'ht%74p/x']) {
+    checked++;
+    const { output_payload } = compute({ receipt: { ...base, source: good } });
+    if (output_payload.status === 'refused') { violations++; console.log(`  fail-closed: valid URI-reference refused: ${good}`); }
   }
   return { name: 'fail-closed: every mutated/malformed hash, timestamp or URI-reference is refused, never exported', checked, violations };
 }

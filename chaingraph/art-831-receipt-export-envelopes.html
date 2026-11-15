@@ -8,7 +8,7 @@
 <meta name="description" content="Deterministically re-express an OpenChainGraph execution receipt as a lineage RunEvent and a structured-mode event envelope, so lineage and eventing stacks ingest receipts without a custom adapter.">
 <meta name="robots" content="index, follow">
 <meta name="ain:category" content="run">
-<meta name="kernel-digest" content="sha256:70fe039651929e65de0f5dc32a8c88071503df02a1a5680d3b347207ce436b1d">
+<meta name="kernel-digest" content="sha256:6b5124a707256357710470b5fb0166dec13fab7f5d4c61c09838aae782ae0d3c">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/art-831-receipt-export-envelopes.html">
 <link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-831-receipt-export-envelopes.md">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -234,15 +234,81 @@ function isTimestamp(v){
   return day >= 1 && day <= dim;
 }
 var URI_FORBIDDEN = /[^\x21-\x7e]|["<>{}|\\^`]/;
+var URI_SCHEME = /^[A-Za-z][A-Za-z0-9+.-]*$/;
+var URI_USERINFO = /^(?:[A-Za-z0-9\-._~!$&'()*+,;=:]|%[0-9A-Fa-f]{2})*$/;
+var URI_REGNAME = /^(?:[A-Za-z0-9\-._~!$&'()*+,;=]|%[0-9A-Fa-f]{2})*$/;
+var URI_PATH = /^(?:[A-Za-z0-9\-._~!$&'()*+,;=:@\/]|%[0-9A-Fa-f]{2})*$/;
+var URI_QUERY_FRAG = /^(?:[A-Za-z0-9\-._~!$&'()*+,;=:@\/?]|%[0-9A-Fa-f]{2})*$/;
+var URI_IPV4 = /^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+var URI_IPFUTURE = /^[vV][0-9A-Fa-f]+\.[A-Za-z0-9\-._~!$&'()*+,;=:]+$/;
+function ipv6Groups(str, allowV4Last){
+  if (str === '') return 0;
+  var parts = str.split(':'), n = 0;
+  for (var i = 0; i < parts.length; i++) {
+    var p = parts[i];
+    if (allowV4Last && i === parts.length - 1 && p.indexOf('.') !== -1) {
+      if (!URI_IPV4.test(p)) return -1;
+      n += 2;
+    } else if (/^[0-9A-Fa-f]{1,4}$/.test(p)) {
+      n += 1;
+    } else {
+      return -1;
+    }
+  }
+  return n;
+}
+function isIPv6(s){
+  if (!/^[0-9A-Fa-f:.]+$/.test(s) || s.indexOf(':::') !== -1) return false;
+  var dbl = s.indexOf('::');
+  if (dbl === -1) return ipv6Groups(s, true) === 8;
+  if (dbl !== s.lastIndexOf('::')) return false;
+  var a = ipv6Groups(s.slice(0, dbl), false), b = ipv6Groups(s.slice(dbl + 2), true);
+  return a >= 0 && b >= 0 && a + b <= 7;
+}
+function isUriAuthority(auth){
+  var at = auth.indexOf('@');
+  if (at !== -1) {
+    if (!URI_USERINFO.test(auth.slice(0, at))) return false;
+    auth = auth.slice(at + 1);
+  }
+  var host = auth, port = '';
+  if (auth.charAt(0) === '[') {
+    var close = auth.indexOf(']');
+    if (close === -1) return false;
+    var inner = auth.slice(1, close), tail = auth.slice(close + 1);
+    if (tail !== '' && !/^:\d*$/.test(tail)) return false;
+    return isIPv6(inner) || URI_IPFUTURE.test(inner);
+  }
+  var colon = auth.indexOf(':');
+  if (colon !== -1) { host = auth.slice(0, colon); port = auth.slice(colon + 1); }
+  return /^\d*$/.test(port) && URI_REGNAME.test(host);
+}
 function isUriReference(v){
   if (typeof v !== 'string' || v.length === 0) return false;
   if (URI_FORBIDDEN.test(v)) return false;
-  var i = v.indexOf('%');
-  while (i !== -1) {
-    if (i + 2 >= v.length) return false;
-    if (!/^[0-9A-Fa-f]{2}$/.test(v.slice(i + 1, i + 3))) return false;
-    i = v.indexOf('%', i + 1);
+  var rest = v, frag = null, query = null;
+  var hash = rest.indexOf('#');
+  if (hash !== -1) { frag = rest.slice(hash + 1); rest = rest.slice(0, hash); }
+  var qm = rest.indexOf('?');
+  if (qm !== -1) { query = rest.slice(qm + 1); rest = rest.slice(0, qm); }
+  if (frag !== null && !URI_QUERY_FRAG.test(frag)) return false;
+  if (query !== null && !URI_QUERY_FRAG.test(query)) return false;
+  var colon = rest.indexOf(':'), slash = rest.indexOf('/'), hasScheme = false;
+  if (colon !== -1 && (slash === -1 || colon < slash)) {
+    if (!URI_SCHEME.test(rest.slice(0, colon))) return false;
+    hasScheme = true;
+    rest = rest.slice(colon + 1);
   }
+  var hasAuthority = false;
+  if (rest.slice(0, 2) === '//') {
+    hasAuthority = true;
+    var end = rest.indexOf('/', 2);
+    var auth = end === -1 ? rest.slice(2) : rest.slice(2, end);
+    if (!isUriAuthority(auth)) return false;
+    rest = end === -1 ? '' : rest.slice(end);
+  }
+  if (!URI_PATH.test(rest)) return false;
+  if (!hasScheme && !hasAuthority && rest.split('/')[0].indexOf(':') !== -1) return false;
   return true;
 }
 function runIdFromHash(hash){
