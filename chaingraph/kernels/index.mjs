@@ -44,6 +44,7 @@ import * as t829      from './829-safe-tx-hash-recompute.kernel.mjs';
 import * as t836      from './836-payment-services-activity-classifier.kernel.mjs';
 import * as t837      from './837-issuer-yield-share.kernel.mjs';
 import * as t838      from './838-control-frequency-sample.kernel.mjs';
+import * as t841      from './841-planning-materiality.kernel.mjs';
 import * as t844      from './844-workload-identity-claims.kernel.mjs';
 import * as art01     from './art-01-ap2-mandate-chain-validator.kernel.mjs';
 import * as art02     from './art-02-agent-spend-policy-simulator.kernel.mjs';
@@ -727,6 +728,7 @@ import * as art831    from './art-831-receipt-export-envelopes.kernel.mjs';
 import * as art832    from './art-832-card-data-flow-scope.kernel.mjs';
 import * as art833    from './art-833-lint-pan-sad-exposure.kernel.mjs';
 import * as art834    from './art-834-asc606-transaction-price-allocator.kernel.mjs';
+import * as art835    from './art-835-bank-reconciliation-recompute.kernel.mjs';
 import * as art839    from './art-839-statement-footing-crossfoot.kernel.mjs';
 import * as art84     from './art-84-settlement-efficiency-kpi.kernel.mjs';
 import * as art840    from './art-840-gl-flux-explainer.kernel.mjs';
@@ -808,6 +810,7 @@ export const KERNELS = {
   '836-payment-services-activity-classifier':                   t836,
   '837-issuer-yield-share':                                     t837,
   '838-control-frequency-sample':                               t838,
+  '841-planning-materiality':                                   t841,
   '844-workload-identity-claims':                               t844,
   'art-01-ap2-mandate-chain-validator':                         art01,
   'art-02-agent-spend-policy-simulator':                        art02,
@@ -1491,6 +1494,7 @@ export const KERNELS = {
   'art-832-card-data-flow-scope':                               art832,
   'art-833-lint-pan-sad-exposure':                              art833,
   'art-834-asc606-transaction-price-allocator':                 art834,
+  'art-835-bank-reconciliation-recompute':                      art835,
   'art-839-statement-footing-crossfoot':                        art839,
   'art-84-settlement-efficiency-kpi':                           art84,
   'art-840-gl-flux-explainer':                                  art840,
