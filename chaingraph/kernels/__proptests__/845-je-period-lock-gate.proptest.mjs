@@ -1,6 +1,6 @@
 // 845-je-period-lock-gate.proptest.mjs — class-K property-test FLOOR
 // (FV-PBT-FLOOR-BUILD-SPEC.md), authored in-row by JE-PERIOD-LOCK-GATE-1.
-// kernel_digest_at_authoring: sha256:10405bccbcd70be1a30723b4fe1c91d39c7539cec7c2e74c5f259f4a3ceb39f3
+// kernel_digest_at_authoring: sha256:b35abb05342c065e575bd5f9adc60744f4f7cc6b7f818e93f6844f292d1b6b88
 // spec: board/queued/JE-PERIOD-LOCK-GATE-1.md (fixed contract)
 // human_sign_off: PENDING
 //
