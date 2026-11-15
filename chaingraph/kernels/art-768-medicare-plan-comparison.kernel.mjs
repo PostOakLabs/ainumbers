@@ -677,10 +677,49 @@ export function compute(pp) {
   return { output_payload, compliance_flags };
 }
 
+// Hashability walk over the exact execution_hash preimage: the first value the shared
+// _hash.mjs refuses before canonicalizing (a non-finite number or an integer outside the
+// 2^53 safe range: RFC 8785 3.2.2.3 / RFC 7493; nesting past its MAX_DEPTH; more values than
+// its MAX_ELEMENTS), reported as { reason, detail } with the path and kind only, never the
+// value. null when the whole subtree is safe to hash. The shared _hash.mjs stays untouched.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+const SAFE_KEY = /^[A-Za-z0-9_]{1,64}$/;
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'input_hash_limit_refused', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'input_hash_limit_refused', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'unsafe_number_refused', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'unsafe_number_refused', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + (SAFE_KEY.test(ks[i]) ? ks[i] : '(key)'), depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // When the shared canonicalizer would refuse the preimage, mint the artifact with a null
+  // execution_hash and the refusal echoed in hash_refusal instead of letting the hash throw:
+  // buildArtifact never throws on an input compute accepts or refuses.
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const hash = unhashable === null ? await executionHash(pp, output_payload) : null;
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -695,4 +734,6 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
     compute_mode: 'server',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }

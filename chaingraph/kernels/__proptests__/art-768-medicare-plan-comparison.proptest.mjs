@@ -3,7 +3,7 @@
 // (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES PASS-PENDING-XV
 // 2026-10-18; builder-verifies-at-land: all payload vectors re-executed through the
 // landed kernel compute() with zero mismatches, 2026-11-13).
-// kernel_digest_at_authoring: sha256:803cd25278c1e101175204b9fda2fc474859e9e78aaf2ba4f7cdfe43d5d18dda
+// kernel_digest_at_authoring: sha256:1484250d3fddfc6ee88c17bc0308f135f4e58922497b12f97d1003ae038b4fdd
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.
@@ -233,6 +233,48 @@ async function checkP8InputContract() {
   return { name: 'P8 input contract: I-JSON parity, present null refuses, counts are safe integers, prototype names refuse', checked, violations };
 }
 
+// P9 — buildArtifact_never_throws (D6): every unhashable class compute() refuses (or that
+// the preimage walk catches) mints an artifact with execution_hash null and a hash_refusal
+// that names a reason and a path, never the hostile value; the nearest hashable shapes
+// still hash and carry no hash_refusal.
+async function checkP9BuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  const deep = {}; let cur = deep;
+  for (let i = 0; i < 600; i++) { cur.n = {}; cur = cur.n; }
+  const hostile = [
+    ['outpatient 1e300', { outpatient_charges_usd: 1e300 }],
+    ['outpatient 2^53+1', { outpatient_charges_usd: 9007199254740993 }],
+    ['outpatient 1e17', { outpatient_charges_usd: 1e17 }],
+    ['drug cost 1e200', { annual_drug_cost_usd: 1e200 }],
+    ['multiplier 1e300', { bad_year_charge_multiplier: 1e300 }],
+    ['override 1e300', { part_a_deductible_usd: 1e300 }],
+    ['tier array holding 1e300', { part_b_premium_by_irmaa_tier_usd: [1, 1, 1, 1, 1, 1e300] }],
+    ['unknown key junk 1e300', { junk: 1e300 }],
+    ['unknown key junk Infinity', { junk: Infinity }],
+    ['unknown key junk NaN', { junk: NaN }],
+    ['nesting past the canonicalizer depth', { junk: deep }],
+  ];
+  for (const [label, over] of hostile) {
+    let art = null, threw = false;
+    try { art = await buildArtifact(basePP(over)); } catch { threw = true; }
+    checked++;
+    if (threw) { violations++; console.log(`P9 violation: ${label} threw`); continue; }
+    const hr = art.hash_refusal;
+    const ok = art.execution_hash === null && hr && /^(unsafe_number_refused|input_hash_limit_refused)$/.test(hr.reason)
+      && typeof hr.detail === 'string' && hr.detail.startsWith('pp.')
+      && art.output_payload.valid_input === false;
+    if (!ok) { violations++; console.log(`P9 violation: ${label} did not mint a null-hash refusal artifact`); }
+    if (/e\+\d{3}|Infinity|9007199254740993/.test(JSON.stringify(hr))) { violations++; console.log(`P9 violation: ${label} echoed the hostile value`); }
+  }
+  for (const over of [{}, { outpatient_charges_usd: 9007199254740991 }, { outpatient_charges_usd: 1.5 }]) {
+    let art = null, threw = false;
+    try { art = await buildArtifact(basePP(over)); } catch { threw = true; }
+    checked++;
+    if (threw || !/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('P9 violation: a hashable input lost its hash'); }
+  }
+  return { name: 'P9 buildArtifact_never_throws: unhashable input mints a null-hash refusal artifact, hashable input still hashes', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -249,6 +291,7 @@ const properties = [
   checkP6PartDCap(),
   checkP7AdjudicatedLiterals(),
   await checkP8InputContract(),
+  await checkP9BuildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test`);
 const ok = summarize(KERNEL_ID, oracle, properties);
