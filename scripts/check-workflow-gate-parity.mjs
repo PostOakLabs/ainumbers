@@ -1380,7 +1380,10 @@ const PREFLIGHT_ONLY = new Map([
     "Vintage-table gate (V1, V2, V4) and its --self-test. Hard in preflight; its CI route is " +
     "scripts-verify.yml full preflight (the workflow runs `node scripts/preflight.mjs`), so a " +
     "named workflow step would only duplicate the same suite. Reads only tracked repo files " +
-    "under chaingraph/kernels/__vintages__ — no network, no CI-only input."],
+    "(chaingraph/kernels/__vintages__, data/vintages.json, " +
+    "chaingraph/standard/clause-snapshot-registry.json) - no network, no CI-only input. " +
+    "Those input paths are in the scripts-verify relevance list (scripts/ci-paths.json), so a " +
+    "PR that changes only a vintage table still runs the full preflight."],
 ]);
 
 // ── DECLARATION SYNTAX (axis 2) ───────────────────────────────────────────────
