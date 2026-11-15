@@ -101,6 +101,19 @@ export const SURFACES = new Map([
       'files. Its four checks are each continue-on-error, so one red does not hide the others:\n' +
       'read the run summary table for which of the four failed.',
   }],
+  ['vintage-horizon', {
+    name: 'Vintage Horizon (scheduled)',
+    workflow: '.github/workflows/vintage-horizon-schedule.yml',
+    context:
+      'A dated value in data/vintages.json is about to expire, or its successor was due, and\n' +
+      'no later vintage is entered. The report lists one line per fact with the reason\n' +
+      '(EXPIRING within 90 days, or OVERDUE past its expected publication date).\n' +
+      '\n' +
+      'WHAT TO DO: enter the next vintage for each listed fact from a pinned source. This\n' +
+      'issue never edits a sealed kernel; a kernel that needs the new value is an ordinary\n' +
+      'fix row with its own re-prove decision. The issue closes itself on the first weekly\n' +
+      'run where every fact has a successor.',
+  }],
   ['prepush-attestation', {
     name: 'Pre-push Attestation Check',
     workflow: '.github/workflows/prepush-attestation.yml',
