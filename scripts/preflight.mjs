@@ -1914,6 +1914,9 @@ const GATES = [
   // fact and vintage agree) and V4 (every source digest resolves in the clause snapshot registry).
   ['Vintage table V1/V2/V4 (VINTAGE-TABLE-1)', 'node chaingraph/kernels/__vintages__/check-vintages.mjs'],
   ['Vintage table controls (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node chaingraph/kernels/__vintages__/check-vintages.mjs --self-test'],
+  // ADVISORY hostile-input census of kernels this diff adds or changes (always exits 0).
+  ['Kernel hostile-input census (ADVISORY)', 'node scripts/check-kernel-hostile-census.mjs'],
+  ['Kernel hostile-input census controls (RED+GREEN)', 'node scripts/check-kernel-hostile-census.mjs --self-test'],
   // COMPOSER-PLAN-AND-ROOT-WEBMCP-1: parity gate A (in-repo SSOT recompute of every
   // chain plan hash vs the committed derived set + page-literal sample) and parity
   // gate B fixtures (session-receipt Merkle; the site-side routine test is
