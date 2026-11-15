@@ -1,5 +1,5 @@
 // 841-planning-materiality — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:4462871e2c2a4460e9cea0cf001c00712262524b9f9403bb08c5126e00f52219
+// kernel_digest_at_authoring: sha256:9fcd1053366d67e60bf7aa73be27b28e45fc7a1bfa6a50c129e7ea7d002490ed
 // method: integer basis-point multiplication under a declared rounding rule (arithmetic on declared policy)
 // human_sign_off: PENDING
 //
@@ -141,6 +141,7 @@ function checkRefusals() {
 // policy_parameters mints execution_hash null plus hash_refusal; a clean one hashes.
 async function checkBuildArtifactNeverThrows() {
   const base = { benchmark_id: 'bm', benchmark_amount: 1000000, overall_bps: 500, performance_bps: 7500, trivial_bps: 500, rationale_id: 'rat', rounding_rule: 'half_up' };
+  /** @type {any} */
   let deep = 0;
   for (let i = 0; i < 600; i++) deep = [deep];
   const many = new Array(1000001).fill(1);
