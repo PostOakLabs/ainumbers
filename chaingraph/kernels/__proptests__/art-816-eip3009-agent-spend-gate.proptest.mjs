@@ -301,11 +301,10 @@ function checkP5Precedence() {
 async function checkP6BuildArtifactNeverThrows() {
   let checked = 0, violations = 0;
   /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
-  // The >1e6-values class is probed outside this file (it costs ~0.5 s per run, and the
-  // mutation tier re-runs this file once per mutant).
+  const wide = new Array(1000001).fill(0);
   const hostile = [
     { junk: 1e300 }, { junk: Infinity }, { junk: -Infinity }, { junk: NaN },
-    { junk: { a: [Number.MAX_SAFE_INTEGER + 2] } }, { junk: deep },
+    { junk: { a: [Number.MAX_SAFE_INTEGER + 2] } }, { junk: deep }, { junk: wide },
   ];
   for (const delta of hostile) {
     checked++;
