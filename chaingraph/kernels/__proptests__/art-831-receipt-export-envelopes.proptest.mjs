@@ -1,5 +1,5 @@
 // art-831-receipt-export-envelopes — class-K property-test FLOOR + envelope conformance test.
-// kernel_digest_at_authoring: sha256:0cd1b42c7dde431b89d71f59b186f4772482c5c9066879c7d6d84f09002e1eb3
+// kernel_digest_at_authoring: sha256:70fe039651929e65de0f5dc32a8c88071503df02a1a5680d3b347207ce436b1d
 // spec: research/RECEIPT-EXPORT-PIN-2026-10-29.md (pins the two wire specs this kernel emits;
 //       snapshots under research/clause-snapshots/receipt-export/, schema vendored with its
 //       LICENSE at chaingraph/kernels/fixtures/vendor/openlineage-1.55.0/)
@@ -233,6 +233,7 @@ function checkRunIdByteIdentity() {
     const pp = vec.policy_parameters;
     if (pp.receipt.execution_hash.length !== 64) continue;
     const { output_payload } = compute(pp);
+    if (output_payload.status !== 'exported') continue;
     checked++;
     const hex = output_payload.lineage_event.run.runId.replace(/-/g, '');
     const bytes = pp.receipt.execution_hash.slice(0, 32).match(/.{2}/g).map((h) => parseInt(h, 16));
@@ -287,6 +288,14 @@ function checkFailClosed() {
   mut((r) => ({ ...r, source: 'bad%2zcape' }));
   mut((r) => ({ ...r, source: 'trailing%2' }));
   mut((r) => ({ ...r, source: undefined }));
+  // RFC 3339 numoffset range (hours 00-23, minutes 00-59).
+  mut((r) => ({ ...r, event_time: '2026-11-15T12:00:00+99:99' }));
+  mut((r) => ({ ...r, event_time: '2026-11-15T12:00:00+24:00' }));
+  mut((r) => ({ ...r, event_time: '2026-11-15T12:00:00-05:60' }));
+  // RFC 3986 raw characters excluded from a URI-reference.
+  for (const ch of ['<', '>', '"', '{', '}', '|', '\\', '^', '`']) {
+    mut((r) => ({ ...r, source: `https://ainumbers.example/a${ch}b` }));
+  }
   mut((r) => ({ ...r, namespace: '' }));
   mut((r) => ({ ...r, tool_id: '' }));
   mut((r) => ({ ...r, policy_parameters_hash: 'deadbeef' }));

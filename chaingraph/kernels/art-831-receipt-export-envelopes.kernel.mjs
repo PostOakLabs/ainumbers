@@ -41,7 +41,7 @@ const PRODUCER = 'https://github.com/OpenLineage/OpenLineage/blob/1.55.0/spec/Op
 const EVENT_TYPE = 'co.ainumbers.ocg.receipt.v1';
 
 const HEX64 = /^[0-9a-f]{64}$/;
-const TS_RE = /^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(\.\d+)?([Zz]|[+-]\d{2}:\d{2})$/;
+const TS_RE = /^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(\.\d+)?([Zz]|[+-](\d{2}):(\d{2}))$/;
 
 function isHex64(v) {
   return typeof v === 'string' && HEX64.test(v);
@@ -59,6 +59,8 @@ function isTimestamp(v) {
   const hour = +m[4], minute = +m[5], second = +m[6];
   if (month < 1 || month > 12) return false;
   if (hour > 23 || minute > 59 || second > 60) return false;
+  // RFC 3339 numoffset: time-numoffset hours 00-23, minutes 00-59.
+  if (m[9] !== undefined && (+m[9] > 23 || +m[10] > 59)) return false;
   const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
   const dim = [31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
   return day >= 1 && day <= dim;
@@ -68,7 +70,8 @@ function isTimestamp(v) {
 // characters, no non-ASCII code points, no raw delimiter characters that must be
 // percent-encoded — and every percent sign part of a valid %XX escape. Absolute or
 // relative both accepted (a URI-reference, not a URI).
-const URI_FORBIDDEN = /[^\x21-\x7e]/;
+// RFC 3986 excludes space, double quote, < > { } | backslash ^ and backtick outright.
+const URI_FORBIDDEN = /[^\x21-\x7e]|["<>{}|\\^`]/;
 function isUriReference(v) {
   if (typeof v !== 'string' || v.length === 0) return false;
   if (URI_FORBIDDEN.test(v)) return false;
