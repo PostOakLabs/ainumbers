@@ -1,0 +1,155 @@
+{
+  "tool_id": "art-847-cashleg-window-exposure",
+  "version": "1.0.0",
+  "title": "Cash-Leg Window Exposure",
+  "description": "Computes how long a token leg that settles at any hour waits for a cash leg that only moves while a payment rail is open, against a rail calendar or UTC windows the caller declares: exposure seconds, principal-seconds, next window open and close, weekend crossing and an optional carry cost (actual over 365, half-even). The node hardcodes no calendar and reads no clock.",
+  "category": "chaingraph",
+  "tags": [
+    "settlement-risk",
+    "cash-leg",
+    "operating-hours",
+    "tokenization",
+    "mcp:cashleg_window_exposure"
+  ],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "token_leg_time": {
+        "type": "string",
+        "description": "Instant the token leg settles, strict UTC YYYY-MM-DDTHH:MM:SSZ with a valid calendar date. Offsets, fractions and impossible dates are refused."
+      },
+      "as_of": {
+        "type": "string",
+        "description": "Caller-declared evaluation instant, same strict UTC shape. No clock is read; a token leg after as_of is flagged."
+      },
+      "principal_minor_units": {
+        "type": "string",
+        "description": "Principal in integer minor units as a positive decimal string of at most 18 digits. Numbers and floats are refused, never coerced."
+      },
+      "funding_rate_bp": {
+        "type": "number",
+        "x_null_distinct": true,
+        "description": "Optional funding rate in whole basis points, 0 to 100000, for the carry cost. Absent means no carry figure; a present null or float is refused."
+      },
+      "horizon_days": {
+        "type": "number",
+        "x_null_distinct": true,
+        "description": "Optional search horizon in whole days, 1 to 60; 14 when absent. A present null is refused."
+      },
+      "cash_instrument": {
+        "type": "string",
+        "x_null_distinct": true,
+        "description": "Optional label echoed on the receipt: fiat_bank_money, stablecoin, deposit_token or future_instrument. Any other value is refused."
+      },
+      "cash_leg_open_windows": {
+        "type": "array",
+        "x_null_distinct": true,
+        "description": "Declared UTC cash windows, 1 to 500 items of open_utc and close_utc (open inclusive, close exclusive). Declare exactly one of this or rail_calendar.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "open_utc": {
+              "type": "string",
+              "description": "Window open, strict UTC instant."
+            },
+            "close_utc": {
+              "type": "string",
+              "description": "Window close, strict UTC instant, after open_utc."
+            }
+          }
+        }
+      },
+      "rail_calendar": {
+        "type": "object",
+        "x_null_distinct": true,
+        "description": "Declared versioned rail table: rail_id, calendar_version, source_pin, covers_from and covers_to (YYYY-MM-DD), window_rules (weekdays 0 to 6, open_day_offset -1 or 0, open_local, close_day_offset 0 or 1, close_local), utc_offset_segments (from_date, to_date, offset_minutes) and holidays (business-day dates with no window). Never hardcoded by the node.",
+        "properties": {
+          "rail_id": {
+            "type": "string",
+            "description": "Caller label for the rail."
+          },
+          "calendar_version": {
+            "type": "string",
+            "description": "Caller label for the table version."
+          },
+          "source_pin": {
+            "type": "string",
+            "description": "Where the declared hours and holidays came from."
+          },
+          "covers_from": {
+            "type": "string",
+            "description": "First date the table covers, YYYY-MM-DD."
+          },
+          "covers_to": {
+            "type": "string",
+            "description": "Last date the table covers, YYYY-MM-DD."
+          },
+          "window_rules": {
+            "type": "array",
+            "description": "Weekday window rules."
+          },
+          "utc_offset_segments": {
+            "type": "array",
+            "description": "UTC offsets declared by date range."
+          },
+          "holidays": {
+            "type": "array",
+            "description": "Business-day dates with no window."
+          }
+        }
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "cashleg_window_exposure",
+    "description": "Computes how long a token leg that settles at any hour waits for a cash leg that only moves while a payment rail is open, against a rail calendar or UTC windows the caller declares: exposure seconds, principal-seconds, next window open and close, weekend crossing and an optional carry cost (actual over 365, half-even). The node hardcodes no calendar and reads no clock.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "token_leg_time": {
+          "type": "string",
+          "description": "Instant the token leg settles, strict UTC YYYY-MM-DDTHH:MM:SSZ."
+        },
+        "as_of": {
+          "type": "string",
+          "description": "Caller-declared evaluation instant, strict UTC."
+        },
+        "principal_minor_units": {
+          "type": "string",
+          "description": "Principal in integer minor units, decimal string, at most 18 digits."
+        },
+        "funding_rate_bp": {
+          "type": "number",
+          "description": "Optional funding rate in whole basis points, 0 to 100000."
+        },
+        "horizon_days": {
+          "type": "number",
+          "description": "Optional search horizon in whole days, 1 to 60; 14 when absent."
+        },
+        "cash_instrument": {
+          "type": "string",
+          "description": "Optional label: fiat_bank_money, stablecoin, deposit_token or future_instrument."
+        },
+        "cash_leg_open_windows": {
+          "type": "array",
+          "description": "Declared UTC cash windows of open_utc and close_utc. Declare exactly one of this or rail_calendar."
+        },
+        "rail_calendar": {
+          "type": "object",
+          "description": "Declared versioned rail table: weekday window rules, UTC offsets by date range and holidays."
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-847-cashleg-window-exposure.html",
+    "function_name": "runCheck",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "chaingraph/kernels/art-847-cashleg-window-exposure.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads. No required array: every refusal (absent token time, missing or ambiguous calendar, float principal) is a structured refusal payload, so each refusal branch stays reachable through every call path.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0"
+}
