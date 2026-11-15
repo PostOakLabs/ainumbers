@@ -688,6 +688,7 @@ import * as art763    from './art-763-ai-displacement-risk-screener.kernel.mjs';
 import * as art764    from './art-764-solo-401k-vs-sep-ira.kernel.mjs';
 import * as art765    from './art-765-dependent-care-fsa-cdctc-optimizer.kernel.mjs';
 import * as art766    from './art-766-parental-leave-income-gap.kernel.mjs';
+import * as art768    from './art-768-medicare-plan-comparison.kernel.mjs';
 import * as art769    from './art-769-medicare-oop-exposure.kernel.mjs';
 import * as art77     from './art-77-t1-settlement-readiness-diagnostic.kernel.mjs';
 import * as art770    from './art-770-total-cost-of-homeownership.kernel.mjs';
@@ -730,6 +731,7 @@ import * as art84     from './art-84-settlement-efficiency-kpi.kernel.mjs';
 import * as art840    from './art-840-gl-flux-explainer.kernel.mjs';
 import * as art842    from './art-842-soc-report-coverage-gap.kernel.mjs';
 import * as art843    from './art-843-tap-message-validator.kernel.mjs';
+import * as art846    from './art-846-assess-pfmi-proportional.kernel.mjs';
 import * as art85     from './art-85-pqc-timeline-fit-diagnostic.kernel.mjs';
 import * as art86     from './art-86-tls-pki-migration-planner.kernel.mjs';
 import * as art87     from './art-87-iso20022-pqc-readiness-checker.kernel.mjs';
@@ -1449,6 +1451,7 @@ export const KERNELS = {
   'art-764-solo-401k-vs-sep-ira':                               art764,
   'art-765-dependent-care-fsa-cdctc-optimizer':                 art765,
   'art-766-parental-leave-income-gap':                          art766,
+  'art-768-medicare-plan-comparison':                           art768,
   'art-769-medicare-oop-exposure':                              art769,
   'art-77-t1-settlement-readiness-diagnostic':                  art77,
   'art-770-total-cost-of-homeownership':                        art770,
@@ -1491,6 +1494,7 @@ export const KERNELS = {
   'art-840-gl-flux-explainer':                                  art840,
   'art-842-soc-report-coverage-gap':                            art842,
   'art-843-tap-message-validator':                              art843,
+  'art-846-assess-pfmi-proportional':                           art846,
   'art-85-pqc-timeline-fit-diagnostic':                         art85,
   'art-86-tls-pki-migration-planner':                           art86,
   'art-87-iso20022-pqc-readiness-checker':                      art87,

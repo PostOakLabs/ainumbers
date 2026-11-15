@@ -1910,6 +1910,9 @@ const GATES = [
   // HARD on pull_request and locally; not run on merge_group / push:main, which carry the regen's commits.
   ['Main-only derived paths (MAIN-ONLY-PATHS-GATE-1)', 'node scripts/check-main-only-paths.mjs'],
   ['Main-only derived paths controls (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-main-only-paths.mjs --self-test'],
+  // ADVISORY hostile-input census of kernels this diff adds or changes (always exits 0).
+  ['Kernel hostile-input census (ADVISORY)', 'node scripts/check-kernel-hostile-census.mjs'],
+  ['Kernel hostile-input census controls (RED+GREEN)', 'node scripts/check-kernel-hostile-census.mjs --self-test'],
   // COMPOSER-PLAN-AND-ROOT-WEBMCP-1: parity gate A (in-repo SSOT recompute of every
   // chain plan hash vs the committed derived set + page-literal sample) and parity
   // gate B fixtures (session-receipt Merkle; the site-side routine test is
