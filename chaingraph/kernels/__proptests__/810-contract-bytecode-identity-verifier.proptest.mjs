@@ -1,6 +1,6 @@
 
 // 810-contract-bytecode-identity-verifier — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:9bc94068a33ab9fdd9c3323a0e898bb099328f10fb4ca970424388670379e009
+// kernel_digest_at_authoring: sha256:8f39b1dc2eb860d25d87997da1bfb3c6e122496535434193a2674bb214df0d5a
 // spec: research/ETH-BYTECODE-ID-BUILD-SPEC-2026-10-23.md (rules 1 to 8, amended: metadata hash reported, not recomputed)
 // human_sign_off: PENDING
 //
@@ -556,6 +556,7 @@ async function checkBuildArtifactNeverThrows() {
   let checked = 0, violations = 0;
   const base = { creation_code: '0x00', runtime_code: '0x6000', creation_scheme: 'create', deployer: DEP, nonce: 0 };
   /** @type {any} */ let deep = 1; for (let i = 0; i < 511; i++) deep = [deep];
+  /** @type {Array<[string, Record<string, any>, string]>} */
   const hostile = [
     ['unsafe_integer', { junk: 1e300 }, 'REFUSED_INPUT_UNSAFE_NUMBER'],
     ['unsafe_integer_edge', { junk: { a: [Number.MAX_SAFE_INTEGER + 2] } }, 'REFUSED_INPUT_UNSAFE_NUMBER'],
