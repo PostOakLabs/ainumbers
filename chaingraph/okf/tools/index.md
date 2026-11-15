@@ -47,6 +47,7 @@ status: stable
 - [Payment Services Activity Classifier](./836-payment-services-activity-classifier.md) — `classify_payment_services`
 - [Issuer Reserve Yield Share Check](./837-issuer-yield-share.md) — `check_issuer_reserve_yield_share`
 - [Control Frequency Sample](./838-control-frequency-sample.md) — `plan_control_frequency_sample`
+- [Planning Materiality](./841-planning-materiality.md) — `compute_planning_materiality`
 - [Workload Identity Claims Lint](./844-workload-identity-claims.md) — `lint_workload_identity_token_claims`
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md) — `validate_ap2_mandate_chain`
 - [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md) — `simulate_spend_policy`
@@ -729,6 +730,7 @@ status: stable
 - [Card Data Flow Worksheet](./art-832-card-data-flow-scope.md) — `map_card_data_flow_scope`
 - [PAN and SAD Exposure Linter](./art-833-lint-pan-sad-exposure.md) — `lint_pan_sad_exposure`
 - [ASC 606 Transaction Price Allocator](./art-834-asc606-transaction-price-allocator.md) — `allocate_asc606_transaction_price`
+- [Bank Reconciliation Recompute](./art-835-bank-reconciliation-recompute.md) — `recompute_bank_reconciliation`
 - [Statement Footing and Cross-Footing Check](./art-839-statement-footing-crossfoot.md) — `check_statement_footing_crossfoot`
 - [Settlement Efficiency KPI Engine](./art-84-settlement-efficiency-kpi.md) — `compute_settlement_efficiency_kpi`
 - [GL Flux Explainer with Gate](./art-840-gl-flux-explainer.md) — `explain_gl_flux_with_gate`
