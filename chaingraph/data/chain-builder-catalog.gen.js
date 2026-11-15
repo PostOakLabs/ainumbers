@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (760 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (762 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -199,6 +199,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/784-cbr-data-return-validator.html",
     "description": "Validates a bank's or money transfer operator's periodic AGGREGATE correspondent-banking data return against an illustrative, profile-driven",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "785-qr-golive-readiness",
+    "display_name": "QR Go-Live Readiness Assessor",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/785-qr-golive-readiness.html",
+    "description": "Assesses a QR payment scheme's pilot, production, or cross-border go-live readiness through weighted blocking and advisory gates: participan",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -7951,6 +7961,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "career_workforce",
     "url": "https://ainumbers.co/chaingraph/art-766-parental-leave-income-gap.html",
     "description": "Parental-leave income gap planner ported from ApexLogics Apex #131 (AL-138). From an annual base salary, an effective tax rate, monthly hous",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-768-medicare-plan-comparison",
+    "display_name": "Medicare Plan Comparison",
+    "mandate_type": "medicare_plan_comparison_record",
+    "url": "https://ainumbers.co/chaingraph/art-768-medicare-plan-comparison.html",
+    "description": "Medicare plan comparison ported from ApexLogics Apex #151 (AL-165). Prices two caller-declared Medicare enrollment paths for a full year, Pa",
     "consumes": [],
     "feeds": [],
     "status": "live"
