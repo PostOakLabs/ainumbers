@@ -103,6 +103,11 @@ const QM_TIERS_BY_YEAR = {
   },
 };
 
+// Single-writer export (REGZ-TABLE-SINGLE-WRITER-3): the node page's QM_TABLES block is
+// generated from this object by scripts/check-art218-table-parity.mjs; the page never
+// hand-maintains a second copy of these constants.
+export const THRESHOLD_TABLES = QM_TIERS_BY_YEAR;
+
 function safeNum(v, def) { const n = Number(v); return Number.isFinite(n) ? n : def; }
 function r2(v) { return Number.isFinite(v) ? Math.round(v * 100) / 100 : 0; }
 

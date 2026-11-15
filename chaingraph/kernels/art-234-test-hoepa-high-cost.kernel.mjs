@@ -57,6 +57,11 @@ const HOEPA_PF = {
   },
 };
 
+// Single-writer export (REGZ-TABLE-SINGLE-WRITER-3): the node page's HOEPA_PF block is
+// generated from this object by scripts/check-art234-table-parity.mjs; the page never
+// hand-maintains a second copy of these constants.
+export const THRESHOLD_TABLES = HOEPA_PF;
+
 // HOEPA prepayment penalty trigger (§1026.32(a)(1)(iii)) -- structural, not CPI-adjusted
 const HOEPA_PP = {
   max_months: 36,        // PP must not apply > 36 months after consummation

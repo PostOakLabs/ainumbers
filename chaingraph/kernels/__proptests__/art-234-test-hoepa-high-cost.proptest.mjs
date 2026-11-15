@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:395efd18dd8233b45dc22b2414180fd195afa91e131b4ea32e131175efaedd9e
+// kernel_digest_at_authoring: sha256:9d04036fb75d95cec0d883be557a62a5661bb502037e2a147a6ce1dfbe8b209b
 //
 // FV-PROPFLOOR-SHARD-B7-1 — property-test floor for art-234-test-hoepa-high-cost.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (apr_spread subtraction through r4 rounding,
