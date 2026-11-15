@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (762 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (763 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -8382,6 +8382,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-834-asc606-transaction-price-allocator.html",
     "description": "Allocates a declared transaction price across declared performance obligations by relative standalone selling price, in integer minor units,",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-835-bank-reconciliation-recompute",
+    "display_name": "Bank Reconciliation Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-835-bank-reconciliation-recompute.html",
+    "description": "Recomputes a bank-to-book reconciliation and an optional proof of cash from declared values, in integer minor units. The caller declares the",
     "consumes": [],
     "feeds": [],
     "status": "live"

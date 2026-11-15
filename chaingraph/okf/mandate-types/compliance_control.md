@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-148"]
+tags: ["compliance_control", "count-149"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-148 tool(s) in this mandate-type group:
+149 tool(s) in this mandate-type group:
 
 - [EMV MPM QR Payload Validator](../tools/783-emv-mpm-qr-validator.md)
 - [QR Go-Live Readiness Assessor](../tools/785-qr-golive-readiness.md)
@@ -156,6 +156,7 @@ status: stable
 - [Card Data Flow Worksheet](../tools/art-832-card-data-flow-scope.md)
 - [PAN and SAD Exposure Linter](../tools/art-833-lint-pan-sad-exposure.md)
 - [ASC 606 Transaction Price Allocator](../tools/art-834-asc606-transaction-price-allocator.md)
+- [Bank Reconciliation Recompute](../tools/art-835-bank-reconciliation-recompute.md)
 - [Statement Footing and Cross-Footing Check](../tools/art-839-statement-footing-crossfoot.md)
 - [SOC Report Coverage and Bridge Gap](../tools/art-842-soc-report-coverage-gap.md)
 - [TAP Message Structure Check](../tools/art-843-tap-message-validator.md)

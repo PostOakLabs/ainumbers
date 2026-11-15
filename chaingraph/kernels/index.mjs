@@ -727,6 +727,7 @@ import * as art831    from './art-831-receipt-export-envelopes.kernel.mjs';
 import * as art832    from './art-832-card-data-flow-scope.kernel.mjs';
 import * as art833    from './art-833-lint-pan-sad-exposure.kernel.mjs';
 import * as art834    from './art-834-asc606-transaction-price-allocator.kernel.mjs';
+import * as art835    from './art-835-bank-reconciliation-recompute.kernel.mjs';
 import * as art839    from './art-839-statement-footing-crossfoot.kernel.mjs';
 import * as art84     from './art-84-settlement-efficiency-kpi.kernel.mjs';
 import * as art840    from './art-840-gl-flux-explainer.kernel.mjs';
@@ -1491,6 +1492,7 @@ export const KERNELS = {
   'art-832-card-data-flow-scope':                               art832,
   'art-833-lint-pan-sad-exposure':                              art833,
   'art-834-asc606-transaction-price-allocator':                 art834,
+  'art-835-bank-reconciliation-recompute':                      art835,
   'art-839-statement-footing-crossfoot':                        art839,
   'art-84-settlement-efficiency-kpi':                           art84,
   'art-840-gl-flux-explainer':                                  art840,
