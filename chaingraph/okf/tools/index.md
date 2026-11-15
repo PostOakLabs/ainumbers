@@ -25,6 +25,7 @@ status: stable
 - [Servicing Compliance Clock](./733-servicing-compliance-clock.md) — `servicing_compliance_clock`
 - [EMV MPM QR Payload Validator](./783-emv-mpm-qr-validator.md) — `validate_emv_mpm_qr_payload`
 - [CBR Data Return Validator](./784-cbr-data-return-validator.md) — `validate_cbr_data_return`
+- [QR Go-Live Readiness Assessor](./785-qr-golive-readiness.md) — `assess_qr_golive_readiness`
 - [Corridor Cost Averages](./787-corridor-cost-averages.md) — `compute_corridor_cost_averages`
 - [Curator Vault Cap Auditor](./792-curator-vault-cap-auditor.md) — `audit_curator_vault_caps`
 - [Event Fee Recompute](./794-event-fee-recompute.md) — `recompute_event_contract_fee`
@@ -690,6 +691,7 @@ status: stable
 - [Solo 401(k) vs. SEP-IRA Optimizer](./art-764-solo-401k-vs-sep-ira.md) — `compare_solo401k_sep_simple`
 - [Dependent Care FSA vs. CDCTC Optimizer](./art-765-dependent-care-fsa-cdctc-optimizer.md) — `estimate_dc_fsa_cdctc_split`
 - [Parental Leave Income Gap](./art-766-parental-leave-income-gap.md) — `parental_leave_income_gap`
+- [Medicare Plan Comparison](./art-768-medicare-plan-comparison.md) — `compare_medicare_plans`
 - [Medicare Out-of-Pocket Exposure](./art-769-medicare-oop-exposure.md) — `compute_medicare_oop_exposure`
 - [T+1 Settlement Readiness Diagnostic](./art-77-t1-settlement-readiness-diagnostic.md) — `run_t1_readiness_diagnostic`
 - [Total Cost of Homeownership](./art-770-total-cost-of-homeownership.md) — `total_cost_of_homeownership`
@@ -732,6 +734,7 @@ status: stable
 - [GL Flux Explainer with Gate](./art-840-gl-flux-explainer.md) — `explain_gl_flux_with_gate`
 - [SOC Report Coverage and Bridge Gap](./art-842-soc-report-coverage-gap.md) — `compute_soc_report_coverage_gap`
 - [TAP Message Structure Check](./art-843-tap-message-validator.md) — `validate_tap_message`
+- [PFMI proportional self-assessment scorer](./art-846-assess-pfmi-proportional.md) — `assess_pfmi_proportional`
 - [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md) — `run_pqc_timeline_fit`
 - [TLS / X.509 PKI Migration Planner](./art-86-tls-pki-migration-planner.md) — `plan_tls_pki_migration`
 - [SWIFT / ISO 20022 PQC Readiness Checker](./art-87-iso20022-pqc-readiness-checker.md) — `check_iso20022_pqc_readiness`

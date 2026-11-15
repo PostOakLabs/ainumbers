@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (759 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (762 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -199,6 +199,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/784-cbr-data-return-validator.html",
     "description": "Validates a bank's or money transfer operator's periodic AGGREGATE correspondent-banking data return against an illustrative, profile-driven",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "785-qr-golive-readiness",
+    "display_name": "QR Go-Live Readiness Assessor",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/785-qr-golive-readiness.html",
+    "description": "Assesses a QR payment scheme's pilot, production, or cross-border go-live readiness through weighted blocking and advisory gates: participan",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -7956,6 +7966,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-768-medicare-plan-comparison",
+    "display_name": "Medicare Plan Comparison",
+    "mandate_type": "medicare_plan_comparison_record",
+    "url": "https://ainumbers.co/chaingraph/art-768-medicare-plan-comparison.html",
+    "description": "Medicare plan comparison ported from ApexLogics Apex #151 (AL-165). Prices two caller-declared Medicare enrollment paths for a full year, Pa",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-769-medicare-oop-exposure",
     "display_name": "Medicare Out-of-Pocket Exposure",
     "mandate_type": "retirement_projection",
@@ -8418,6 +8438,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-843-tap-message-validator.html",
     "description": "Checks that a pasted Transaction Authorization Protocol message, or a short thread of them, has the structure the published TAIPs JSON Schem",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-846-assess-pfmi-proportional",
+    "display_name": "PFMI proportional self-assessment scorer",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-846-assess-pfmi-proportional.html",
+    "description": "Scores a payment system operator’s or overseer’s self-assessment against the 24 CPMI-IOSCO Principles (Apr 2012) or the 5 responsibilities o",
     "consumes": [],
     "feeds": [],
     "status": "live"

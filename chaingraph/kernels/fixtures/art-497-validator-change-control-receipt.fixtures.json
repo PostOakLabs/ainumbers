@@ -1,6 +1,6 @@
 {
   "tool_id": "art-497-validator-change-control-receipt",
-  "note": "golden_hash filled by golden-parity.test.mjs --update. Vector 1 is a clean weight_change with quorum met. Vector 2 is an add with quorum short (SHORT is not itself an exception -- it is a policy outcome, distinct from a structural exception). Vector 3 is a remove with multiple simultaneous exceptions (nonzero posterior weight, no authorizer, unstated quorum policy, missing epoch, zero total stake). Vector 4 is the empty-input finite-gate case: every field resolves to an explicit null/0/false, never NaN or undefined.",
+  "note": "golden_hash filled by golden-parity.test.mjs --update. Vector 1 is a clean weight_change with quorum met. Vector 2 is an add with quorum short (SHORT is not itself an exception -- it is a policy outcome, distinct from a structural exception). Vector 3 is a remove with multiple simultaneous exceptions (nonzero posterior weight, no authorizer, unstated quorum policy, missing epoch, zero total stake). Vector 4 is the empty-input finite-gate case: every field resolves to an explicit null/0/false, never NaN or undefined. Vectors 12 to 27 are the weight-statedness cure corpus: weights, total stake and quorum numbers are statements only as finite JSON numbers or as one strict decimal-string form (the page port sends DOM input strings, pinned by the accept-strict-numeric-string-form positive control), empty strings, booleans, arrays and junk refuse NOT_STATED, negatives refuse NEGATIVE, nothing is coerced or clamped, and non-string as_of, effective_epoch and validator_ref are missing statements. Vectors 29 to 39 are the input-truthfulness cure corpus (Muse-lane audit): an impossible as_of calendar date refuses AS_OF_INVALID_DATE and never records it as the receipt date (a real leap day stays clean), an integer magnitude beyond 2^53 refuses UNSAFE_INTEGER and echoes null (its JSON round-trip already prints a different number), a non-string authorizing identity is refused by type and never coerced into the chain, and change_type is an exact allowlist match where padding is a different value.",
   "vectors": [
     {
       "name": "weight_change_quorum_met",
@@ -147,10 +147,10 @@
         "validator_ref": null,
         "change_type": "unstated",
         "change_type_valid": false,
-        "prior_weight": 0,
-        "posterior_weight": 0,
-        "weight_delta": 0,
-        "total_stake_weight": 0,
+        "prior_weight": null,
+        "posterior_weight": null,
+        "weight_delta": null,
+        "total_stake_weight": null,
         "share_of_total_pct": null,
         "authorization_chain": [],
         "authorized": false,
@@ -161,10 +161,13 @@
         "as_of": null,
         "exceptions": [
           "UNKNOWN_CHANGE_TYPE",
-          "TOTAL_STAKE_WEIGHT_ZERO_OR_ABSENT",
+          "PRIOR_WEIGHT_NOT_STATED",
+          "POSTERIOR_WEIGHT_NOT_STATED",
+          "TOTAL_STAKE_WEIGHT_NOT_STATED",
           "NO_AUTHORIZING_IDENTITY",
           "QUORUM_REQUIRED_NOT_STATED",
           "EFFECTIVE_EPOCH_MISSING",
+          "AS_OF_MISSING",
           "VALIDATOR_REF_MISSING"
         ]
       },
@@ -173,7 +176,1656 @@
         "VCC_UNAUTHORIZED_CHANGE",
         "ESCALATION_RAISED"
       ],
-      "golden_hash": "f26893f666f521c4f1c00389415f7b68e17ee18c00b19a39bd3dfe94c28b733e"
+      "golden_hash": "cd3070ad9ca4d488f5022ccf7cdb00e2e6c3d388142a0147b0549df199ff07a7"
+    },
+    {
+      "name": "refuse-as-of-missing",
+      "description": "Fail-open cure: the positive base vector with the required field as_of deleted must not record a clean receipt. A missing or blank as-of date is no statement at all, so AS_OF_MISSING fires and the receipt escalates instead of passing as dated evidence.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "change_type_valid": true,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": 0.6,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": null,
+        "exceptions": [
+          "AS_OF_MISSING"
+        ]
+      },
+      "golden_hash": "6301519ef9144dda021706d54fa74330c6996dffe41e005d1a10c3d53f6ce28b"
+    },
+    {
+      "name": "refuse-prior-weight-missing",
+      "description": "Fail-open cure: the positive base vector with the required field prior_weight deleted must not read as a stated zero. A missing or null weight is no statement, so PRIOR_WEIGHT_NOT_STATED fires and the receipt escalates; an explicit 0 remains the caller's own statement and evaluates.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "posterior_weight": 1500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "change_type_valid": true,
+        "prior_weight": null,
+        "posterior_weight": 1500,
+        "weight_delta": null,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": null,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "PRIOR_WEIGHT_NOT_STATED"
+        ]
+      },
+      "golden_hash": "e2ee83ba3dbe40e24285b86e31aa650e86bae15eca8190a454043e17bd73bf56"
+    },
+    {
+      "name": "refuse-posterior-weight-missing",
+      "description": "Fail-open cure: the positive base vector with the required field posterior_weight deleted must not read as a stated zero (a silent slash to zero). POSTERIOR_WEIGHT_NOT_STATED fires and the receipt escalates; an explicit 0 remains the caller's own statement and evaluates.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "prior_weight": 1200,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "change_type_valid": true,
+        "prior_weight": 1200,
+        "posterior_weight": null,
+        "weight_delta": null,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": null,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "POSTERIOR_WEIGHT_NOT_STATED"
+        ]
+      },
+      "golden_hash": "f7042cb18ecd6bb5e1dbee6ed54a459ec4ef8111e63a851bab7a16d20bf5b0f3"
+    },
+    {
+      "name": "refuse-change-type-case-variant",
+      "description": "Allowlist rule: change_type is an exact allowlist of lowercase values, so the uppercase variant of a valid value must refuse with UNKNOWN_CHANGE_TYPE and escalate rather than evaluate as an add.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "ADD",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "ADD",
+        "change_type_valid": false,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": 0.6,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "UNKNOWN_CHANGE_TYPE"
+        ]
+      },
+      "golden_hash": "dd68f32f39026f88817990418ccf93edb51c63bafe4d6d5012a03961aa985aa3"
+    },
+    {
+      "name": "refuse-change-type-unknown",
+      "description": "Allowlist rule: the literal string \"unknown\" is not a member of the change_type allowlist and must refuse with UNKNOWN_CHANGE_TYPE rather than read as a wildcard or pass through.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "unknown",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "unknown",
+        "change_type_valid": false,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": 0.6,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "UNKNOWN_CHANGE_TYPE"
+        ]
+      },
+      "golden_hash": "18757dbba11d2b101195966db569221be622ae2c8eade53c04a00d6dd19f6c2d"
+    },
+    {
+      "name": "refuse-change-type-empty",
+      "description": "Allowlist rule: an empty change_type string is no statement of the change kind and must refuse with UNKNOWN_CHANGE_TYPE (echoed as \"unstated\") rather than evaluate any weight branch.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "unstated",
+        "change_type_valid": false,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": 0.6,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "UNKNOWN_CHANGE_TYPE"
+        ]
+      },
+      "golden_hash": "af264dd8516dc17365c560a23ce776752b058e1862780c5e37420efa348d4a38"
+    },
+    {
+      "name": "refuse-change-type-junk",
+      "description": "Allowlist rule: a junk change_type string that is not one of add, remove or weight_change must refuse with UNKNOWN_CHANGE_TYPE and escalate; no weight branch may run.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "promote",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "promote",
+        "change_type_valid": false,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": 0.6,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "UNKNOWN_CHANGE_TYPE"
+        ]
+      },
+      "golden_hash": "75c8615d908e0c69cc6f3bf2e5343ccf7b659ccd1ed5f4eb4c02170a929e6f70"
+    },
+    {
+      "name": "refuse-prior-weight-empty-string",
+      "description": "Statedness cure: an add whose prior_weight is the empty string is NO statement at all, never a Number()-coerced stated zero, so the silent from-zero add refuses. PRIOR_WEIGHT_NOT_STATED fires, the unstated prior echoes as null, and no derived field (delta, share) is computed from it.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "add",
+        "prior_weight": "",
+        "posterior_weight": 800,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "add",
+        "change_type_valid": true,
+        "prior_weight": null,
+        "posterior_weight": 800,
+        "weight_delta": null,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": null,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "PRIOR_WEIGHT_NOT_STATED"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "ed0c5664f1138759bfe4cf9db0776ee00f037cc264f137593a43d20a80ab2394"
+    },
+    {
+      "name": "refuse-prior-weight-false",
+      "description": "Statedness cure: a boolean prior_weight is NO statement (never 1 or 0), so an add with prior false refuses with PRIOR_WEIGHT_NOT_STATED and escalates.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "add",
+        "prior_weight": false,
+        "posterior_weight": 800,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "add",
+        "change_type_valid": true,
+        "prior_weight": null,
+        "posterior_weight": 800,
+        "weight_delta": null,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": null,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "PRIOR_WEIGHT_NOT_STATED"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "cbaf2b9aa750abc765883adc5591a5de2da54aaa59964ef6aedc5a075cca2ab5"
+    },
+    {
+      "name": "refuse-prior-weight-empty-array",
+      "description": "Statedness cure: an array prior_weight is NO statement (an empty array never coerces to a stated zero), so an add with prior [] refuses with PRIOR_WEIGHT_NOT_STATED and escalates.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "add",
+        "prior_weight": [],
+        "posterior_weight": 800,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "add",
+        "change_type_valid": true,
+        "prior_weight": null,
+        "posterior_weight": 800,
+        "weight_delta": null,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": null,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "PRIOR_WEIGHT_NOT_STATED"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "9975cf1abe10b16411fd009712b5ee484ded7d2e6a61d847dd490e849809ce3c"
+    },
+    {
+      "name": "refuse-prior-weight-negative",
+      "description": "Statedness cure: a negative prior_weight is a refused statement, never clamped to zero. PRIOR_WEIGHT_NEGATIVE fires, the negative value is echoed as stated-but-refused, and the add branch does not evaluate on it.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "add",
+        "prior_weight": -9,
+        "posterior_weight": 800,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "add",
+        "change_type_valid": true,
+        "prior_weight": -9,
+        "posterior_weight": 800,
+        "weight_delta": null,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": null,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "PRIOR_WEIGHT_NEGATIVE"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "31a676095de9f6c7a41a7f0ae508bd177aed877efd2954a9dab33f739d778806"
+    },
+    {
+      "name": "refuse-posterior-weight-empty-string",
+      "description": "Statedness cure: a remove whose posterior_weight is the empty string is NO statement, never a coerced stated zero, so the silent slash-to-zero refuses with POSTERIOR_WEIGHT_NOT_STATED and escalates.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "remove",
+        "prior_weight": 900,
+        "posterior_weight": "",
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "remove",
+        "change_type_valid": true,
+        "prior_weight": 900,
+        "posterior_weight": null,
+        "weight_delta": null,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": null,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "POSTERIOR_WEIGHT_NOT_STATED"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "d2d7f8bf3a26437a9f3068857ae4d8ce727003943b18a29b6e37226a190fb797"
+    },
+    {
+      "name": "refuse-posterior-weight-empty-array",
+      "description": "Statedness cure: an array posterior_weight is NO statement (never a coerced zero), so a remove with posterior [] refuses with POSTERIOR_WEIGHT_NOT_STATED and escalates.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "remove",
+        "prior_weight": 900,
+        "posterior_weight": [],
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "remove",
+        "change_type_valid": true,
+        "prior_weight": 900,
+        "posterior_weight": null,
+        "weight_delta": null,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": null,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "POSTERIOR_WEIGHT_NOT_STATED"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "9d4fbcb76e9e5aa959d147f116216ab75d98284f4ac54143c87add2821946d57"
+    },
+    {
+      "name": "refuse-posterior-weight-negative",
+      "description": "Statedness cure: a negative posterior_weight on a remove is a refused statement, never clamped to zero. POSTERIOR_WEIGHT_NEGATIVE fires, the negative value is echoed as stated-but-refused, and no slash-to-zero is recorded.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "remove",
+        "prior_weight": 900,
+        "posterior_weight": -500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "remove",
+        "change_type_valid": true,
+        "prior_weight": 900,
+        "posterior_weight": -500,
+        "weight_delta": null,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": null,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "POSTERIOR_WEIGHT_NEGATIVE"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "c382f0aef521cfa5c051a1229eaf43ffeef6e01a0e77b789474f322348a7f8c7"
+    },
+    {
+      "name": "refuse-total-stake-weight-empty-string",
+      "description": "Statedness cure: an empty-string total_stake_weight is NO statement, so TOTAL_STAKE_WEIGHT_NOT_STATED fires (distinct from an explicit zero total) and the share-of-total is not computed.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": "",
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "change_type_valid": true,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": null,
+        "share_of_total_pct": null,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "TOTAL_STAKE_WEIGHT_NOT_STATED"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "7272be199707c95bfe5e311c4c73c4bc40699d2b65c02c28fef28b507c682eba"
+    },
+    {
+      "name": "refuse-total-stake-weight-negative",
+      "description": "Statedness cure: a negative total_stake_weight is a refused statement, never clamped to zero. TOTAL_STAKE_WEIGHT_NEGATIVE fires and the share-of-total is not computed.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": -1,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "change_type_valid": true,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": -1,
+        "share_of_total_pct": null,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "TOTAL_STAKE_WEIGHT_NEGATIVE"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "41faba4522902ec3b14d0b7536eb84367168932fc83177c3022248a40369c413"
+    },
+    {
+      "name": "refuse-quorum-achieved-empty-string",
+      "description": "Statedness cure: an empty-string quorum_achieved is NO statement, so the quorum verdict is UNQUANTIFIED with QUORUM_ACHIEVED_NOT_STATED -- never a Number()-coerced zero that reads as SHORT.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": "",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "change_type_valid": true,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": 0.6,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": null,
+        "quorum_status": "UNQUANTIFIED",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "QUORUM_ACHIEVED_NOT_STATED"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "a0e90e3daf09b7e84d984e4696c686b67e3d74139a6051ca837a72bdcd4c97b0"
+    },
+    {
+      "name": "refuse-quorum-required-boolean",
+      "description": "Statedness cure: a boolean quorum_required is NO statement (never 1), so the caller policy is UNQUANTIFIED with QUORUM_REQUIRED_NOT_STATED and escalates.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": true,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "change_type_valid": true,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": 0.6,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": null,
+        "quorum_achieved": 3,
+        "quorum_status": "UNQUANTIFIED",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "QUORUM_REQUIRED_NOT_STATED"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "0b0fb768103f7c5e121711a9d0674dbe0b6272aa094c2f72ca1013b9e33b4bc6"
+    },
+    {
+      "name": "refuse-quorum-achieved-negative",
+      "description": "Statedness cure: a negative quorum_achieved is a refused statement, never clamped, so the verdict is UNQUANTIFIED with QUORUM_ACHIEVED_NEGATIVE rather than SHORT.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": -1,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "change_type_valid": true,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": 0.6,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": -1,
+        "quorum_status": "UNQUANTIFIED",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "QUORUM_ACHIEVED_NEGATIVE"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "d1ff1a25cd0b57e310a786f0998246830eb7f3eba2d41da9a6aabe33322048ed"
+    },
+    {
+      "name": "refuse-as-of-non-string",
+      "description": "Statedness cure: a non-string as_of (here a number) is a missing statement, never String()-coerced into a present date, so AS_OF_MISSING fires and the receipt escalates.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": 20260730
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "change_type_valid": true,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": 0.6,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": null,
+        "exceptions": [
+          "AS_OF_MISSING"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "49430644a0cd547afcf2eee2949fbeb9eb51819c487267fc3c1cc625ddd298a9"
+    },
+    {
+      "name": "refuse-effective-epoch-non-string",
+      "description": "Statedness cure: a non-string effective_epoch (here a number) is a missing statement, never coerced into a present epoch, so EFFECTIVE_EPOCH_MISSING fires.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": 4821,
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "change_type_valid": true,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": 0.6,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": null,
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "EFFECTIVE_EPOCH_MISSING"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "8c30c8d441367cc1d912ebba8c02d6e1a78593055c8e73567b640e54847754a6"
+    },
+    {
+      "name": "refuse-validator-ref-non-string",
+      "description": "Statedness cure: a non-string validator_ref (here the boolean false) is a missing statement, never coerced into the string \"false\", so VALIDATOR_REF_MISSING fires and the record is not VCC_RECORDED.",
+      "policy_parameters": {
+        "validator_ref": false,
+        "change_type": "weight_change",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": null,
+        "change_type": "weight_change",
+        "change_type_valid": true,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": 0.6,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "VALIDATOR_REF_MISSING"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_VALIDATOR_REF_MISSING",
+        "VCC_QUORUM_MET",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "2f778fae687320492ceb40e2e5e84bbdf9530e6f56daa2869d62c1bfa68726e2"
+    },
+    {
+      "name": "accept-strict-numeric-string-form",
+      "description": "Positive control for the one strict decimal-string form: the page port sends DOM input strings, so prior 1200, posterior 1500, total 50000 and both quorum numbers as strings evaluate exactly like the numeric base vector (weight_change_quorum_met) with no exception and no escalation.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "prior_weight": "1200",
+        "posterior_weight": "1500",
+        "total_stake_weight": "50000",
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": "3",
+        "quorum_achieved": "3",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "change_type_valid": true,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": 0.6,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": []
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET"
+      ],
+      "golden_hash": "f5658d5ea73218c9f6ac55bce6f9f6fb3db7dad2b96d4180f652a5ada0f60199"
+    },
+    {
+      "name": "refuse-as-of-impossible-day",
+      "description": "An impossible calendar date (February 31) in the as-of field is refused: it never records an impossible date as the receipt date (AS_OF_INVALID_DATE, as_of echoes null, escalation raised).",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-02-31"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "change_type_valid": true,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": 0.6,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": null,
+        "exceptions": [
+          "AS_OF_INVALID_DATE"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "d7a1dc9e623403a8ca571891a808a83449264762143c4886d579c9fcebc45469"
+    },
+    {
+      "name": "refuse-as-of-impossible-month",
+      "description": "An impossible month and day (2026-13-45) in the as-of field is refused the same way: AS_OF_INVALID_DATE, as_of echoes null, escalation raised.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-13-45"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "change_type_valid": true,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": 0.6,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": null,
+        "exceptions": [
+          "AS_OF_INVALID_DATE"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "e4208167ae588bdd6f12df180f1f584e718e65961821a3744c6748ab7d400220"
+    },
+    {
+      "name": "accept-as-of-leap-day",
+      "description": "Positive control for the calendar validator: a real leap day (2024-02-29) is a clean receipt date, byte-identical to the base verdict.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2024-02-29"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "change_type_valid": true,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": 0.6,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2024-02-29",
+        "exceptions": []
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET"
+      ],
+      "golden_hash": "99afd6a4f176a277f266742dfc446854008c3b03e4f355f00fd188a12216f9d6"
+    },
+    {
+      "name": "refuse-prior-weight-unsafe-integer",
+      "description": "A prior weight beyond 2^53 (the decimal string 9007199254740993, which the JSON round-trip already prints as 9007199254740992) refuses PRIOR_WEIGHT_UNSAFE_INTEGER, echoes null, and never reaches the artifact preimage as a number.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "prior_weight": "9007199254740993",
+        "posterior_weight": 1500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "change_type_valid": true,
+        "prior_weight": null,
+        "posterior_weight": 1500,
+        "weight_delta": null,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": null,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "PRIOR_WEIGHT_UNSAFE_INTEGER"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "2bdceaf1fbddf1af6a090df6f8465a948ba8301e5c9cd399811b75526ab06c08"
+    },
+    {
+      "name": "refuse-posterior-weight-unsafe-integer",
+      "description": "A posterior weight of exactly 2^53 (9007199254740992, one past the last safe integer) refuses POSTERIOR_WEIGHT_UNSAFE_INTEGER and echoes null.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "prior_weight": 1200,
+        "posterior_weight": "9007199254740992",
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "change_type_valid": true,
+        "prior_weight": 1200,
+        "posterior_weight": null,
+        "weight_delta": null,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": null,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "POSTERIOR_WEIGHT_UNSAFE_INTEGER"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "57f42a305fb2101d209c1589e04ba0343b637e3e1984081ec5ce6ee3d1d58204"
+    },
+    {
+      "name": "refuse-total-stake-weight-unsafe-integer",
+      "description": "A total stake beyond 2^53 (a 20-digit decimal string) refuses TOTAL_STAKE_WEIGHT_UNSAFE_INTEGER, echoes null, and no share is derived.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": "99999999999999999999",
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "change_type_valid": true,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": null,
+        "share_of_total_pct": null,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "TOTAL_STAKE_WEIGHT_UNSAFE_INTEGER"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "29e9b7557db63dd756d3d8bbabac4532f081be7df451959119b0a03b6de153cd"
+    },
+    {
+      "name": "refuse-quorum-achieved-unsafe-integer",
+      "description": "An achieved-quorum count beyond 2^53 refuses QUORUM_ACHIEVED_UNSAFE_INTEGER and the quorum verdict goes UNQUANTIFIED, never a coerced count.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": "9007199254740992",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "change_type_valid": true,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": 0.6,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": null,
+        "quorum_status": "UNQUANTIFIED",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "QUORUM_ACHIEVED_UNSAFE_INTEGER"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "94cc7881a36ffda33b5e3f5a73aadcf252787204d9a04bd0ca1c0fb59130402a"
+    },
+    {
+      "name": "refuse-authorizing-identity-non-string",
+      "description": "A number and a boolean inside authorizing_identities are refused by type (AUTHORIZING_IDENTITY_NOT_A_STRING): they are never String()-coerced into the chain or counted toward quorum; only the real string identity counts.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          0,
+          false,
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "change_type_valid": true,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": 0.6,
+        "authorization_chain": [
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "AUTHORIZING_IDENTITY_NOT_A_STRING",
+          "QUORUM_ACHIEVED_EXCEEDS_NAMED_AUTHORIZERS"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "1b9696b41b0593262df300f846ea10fb3efb2861c31a348020f10c88b8e70c68"
+    },
+    {
+      "name": "refuse-authorizing-identity-object",
+      "description": "An object inside authorizing_identities is refused by type the same way (AUTHORIZING_IDENTITY_NOT_A_STRING); the chain holds only the real string identity.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          {}
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change",
+        "change_type_valid": true,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": 0.6,
+        "authorization_chain": [
+          "ID-A"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "AUTHORIZING_IDENTITY_NOT_A_STRING",
+          "QUORUM_ACHIEVED_EXCEEDS_NAMED_AUTHORIZERS"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "f3aafeba0073b91c1c1fad007574aef97d92a1289144383072f0770019cbf5b3"
+    },
+    {
+      "name": "refuse-change-type-padded-leading",
+      "description": "A leading space before the change type is a different value, not a tolerated one: UNKNOWN_CHANGE_TYPE (the exact allowlist no longer trims).",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": " weight_change",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": " weight_change",
+        "change_type_valid": false,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": 0.6,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "UNKNOWN_CHANGE_TYPE"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "20f4f5e93b77e4cf2bac8e1bb1bc6a30217f2ff8da5aa753158d86b02582dc85"
+    },
+    {
+      "name": "refuse-change-type-padded-trailing",
+      "description": "A trailing space after the change type refuses the same way: UNKNOWN_CHANGE_TYPE on the exact-value allowlist.",
+      "policy_parameters": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change ",
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "total_stake_weight": 50000,
+        "authorizing_identities": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30"
+      },
+      "output_payload": {
+        "validator_ref": "VAL-07",
+        "change_type": "weight_change ",
+        "change_type_valid": false,
+        "prior_weight": 1200,
+        "posterior_weight": 1500,
+        "weight_delta": 300,
+        "total_stake_weight": 50000,
+        "share_of_total_pct": 0.6,
+        "authorization_chain": [
+          "ID-A",
+          "ID-B",
+          "ID-C"
+        ],
+        "authorized": true,
+        "quorum_required": 3,
+        "quorum_achieved": 3,
+        "quorum_status": "MET",
+        "effective_epoch": "epoch-4821",
+        "as_of": "2026-07-30",
+        "exceptions": [
+          "UNKNOWN_CHANGE_TYPE"
+        ]
+      },
+      "compliance_flags": [
+        "VCC_RECORDED",
+        "VCC_QUORUM_MET",
+        "ESCALATION_RAISED"
+      ],
+      "golden_hash": "b105defd17e1d2f58fd8b997ec376bc0fb3b0748675e745e4ff57923338240c3"
     }
   ]
 }
