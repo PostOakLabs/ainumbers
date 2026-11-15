@@ -1,5 +1,5 @@
 // art-497-validator-change-control-receipt.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C25-1).
-// kernel_digest_at_authoring: sha256:638918e4e58649908892dbbe69894f92db286f9170b68d7d46ce5f0ef4c5ebc1
+// kernel_digest_at_authoring: sha256:dc2fd0401a33be9a8facce69b9973dd015445c249cdc58410366c2a7ea3c5751
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -458,7 +458,7 @@ async function checkP8_buildArtifactNeverThrows() {
   const { buildArtifact } = await import('../art-497-validator-change-control-receipt.kernel.mjs');
   const base = JSON.parse(readFileSync(path.join(__dirname, '..', 'fixtures', 'art-497-validator-change-control-receipt.fixtures.json'), 'utf8')).vectors[0].policy_parameters;
   let violations = 0, checked = 0;
-  let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
   const wide = new Array(1000001).fill(0);
   const unhashable = [{ zzz: NaN }, { zzz: Infinity }, { zzz: -Infinity }, { zzz: { a: [NaN] } }, { zzz: deep }, { zzz: wide }];
   for (const delta of unhashable) {
