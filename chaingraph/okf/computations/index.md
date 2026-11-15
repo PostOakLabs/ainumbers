@@ -27,6 +27,7 @@ status: stable
 - [Servicing Compliance Clock](./733-servicing-compliance-clock.md)
 - [EMV MPM QR Payload Validator](./783-emv-mpm-qr-validator.md)
 - [CBR Data Return Validator](./784-cbr-data-return-validator.md)
+- [QR Go-Live Readiness Assessor](./785-qr-golive-readiness.md)
 - [Corridor Cost Averages](./787-corridor-cost-averages.md)
 - [Curator Vault Cap Auditor](./792-curator-vault-cap-auditor.md)
 - [Event Fee Recompute](./794-event-fee-recompute.md)
