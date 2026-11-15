@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-146"]
+tags: ["compliance_control", "count-147"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-146 tool(s) in this mandate-type group:
+147 tool(s) in this mandate-type group:
 
 - [EMV MPM QR Payload Validator](../tools/783-emv-mpm-qr-validator.md)
 - [Corridor Cost Averages](../tools/787-corridor-cost-averages.md)
@@ -158,3 +158,4 @@ status: stable
 - [Statement Footing and Cross-Footing Check](../tools/art-839-statement-footing-crossfoot.md)
 - [SOC Report Coverage and Bridge Gap](../tools/art-842-soc-report-coverage-gap.md)
 - [TAP Message Structure Check](../tools/art-843-tap-message-validator.md)
+- [PFMI proportional self-assessment scorer](../tools/art-846-assess-pfmi-proportional.md)
