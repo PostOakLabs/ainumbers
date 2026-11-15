@@ -226,6 +226,7 @@ const rootPages = [
   { icon: '🔐', name: 'Security', href: 'security.html' },
   { icon: '🛡️', name: 'Privacy', href: 'privacy.html' },
   { icon: '🧠', name: 'Prompt Library', href: 'prompts.html' },
+  { icon: '🔁', name: 'Front-to-Back Prompts', href: 'front-to-back.html' },
   { icon: '🧰', name: 'All Tools (directory)', href: 'tools.html' },
   { icon: '🗂', name: 'Workpaper Index (hash-anchored bundles)', href: 'workpaper-index.html' },
   { icon: '🔍', name: 'OIM Viewer', href: 'oim-viewer.html' },

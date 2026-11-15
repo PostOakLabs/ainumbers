@@ -20,12 +20,14 @@ import * as t514      from './514-tokenized-fund-collateral-validator.kernel.mjs
 import * as t515      from './515-collateral-swap-eligibility-validator.kernel.mjs';
 import * as t732      from './732-borrower-escrow-auditor.kernel.mjs';
 import * as t733      from './733-servicing-compliance-clock.kernel.mjs';
+import * as t783      from './783-emv-mpm-qr-validator.kernel.mjs';
 import * as t784      from './784-cbr-data-return-validator.kernel.mjs';
 import * as t787      from './787-corridor-cost-averages.kernel.mjs';
 import * as t792      from './792-curator-vault-cap-auditor.kernel.mjs';
 import * as t794      from './794-event-fee-recompute.kernel.mjs';
 import * as t795      from './795-stablecoin-refund-dispute.kernel.mjs';
 import * as t797      from './797-stablecoin-cash-equivalent-test.kernel.mjs';
+import * as t798      from './798-assess-sandbox-application-readiness.kernel.mjs';
 import * as t806      from './806-event-contract-terms-lint.kernel.mjs';
 import * as t808      from './808-lst-share-rate-reconciler.kernel.mjs';
 import * as t810      from './810-contract-bytecode-identity-verifier.kernel.mjs';
@@ -41,6 +43,7 @@ import * as t829      from './829-safe-tx-hash-recompute.kernel.mjs';
 import * as t836      from './836-payment-services-activity-classifier.kernel.mjs';
 import * as t837      from './837-issuer-yield-share.kernel.mjs';
 import * as t838      from './838-control-frequency-sample.kernel.mjs';
+import * as t844      from './844-workload-identity-claims.kernel.mjs';
 import * as art01     from './art-01-ap2-mandate-chain-validator.kernel.mjs';
 import * as art02     from './art-02-agent-spend-policy-simulator.kernel.mjs';
 import * as art03     from './art-03-x402-settlement-modeler.kernel.mjs';
@@ -673,6 +676,7 @@ import * as art75     from './art-75-eugb-factsheet-validator.kernel.mjs';
 import * as art750    from './art-750-diff-evidence-bundles.kernel.mjs';
 import * as art751    from './art-751-sha256-hmac-digest-demonstrator.kernel.mjs';
 import * as art752    from './art-752-freelance-quarterly-estimated-tax.kernel.mjs';
+import * as art753    from './art-753-home-office-augusta.kernel.mjs';
 import * as art754    from './art-754-equity-exit-waterfall.kernel.mjs';
 import * as art756    from './art-756-sales-ote-commission-analyzer.kernel.mjs';
 import * as art758    from './art-758-hdhp-ppo-break-even.kernel.mjs';
@@ -684,6 +688,7 @@ import * as art763    from './art-763-ai-displacement-risk-screener.kernel.mjs';
 import * as art764    from './art-764-solo-401k-vs-sep-ira.kernel.mjs';
 import * as art765    from './art-765-dependent-care-fsa-cdctc-optimizer.kernel.mjs';
 import * as art766    from './art-766-parental-leave-income-gap.kernel.mjs';
+import * as art769    from './art-769-medicare-oop-exposure.kernel.mjs';
 import * as art77     from './art-77-t1-settlement-readiness-diagnostic.kernel.mjs';
 import * as art770    from './art-770-total-cost-of-homeownership.kernel.mjs';
 import * as art771    from './art-771-automation-payback.kernel.mjs';
@@ -720,7 +725,12 @@ import * as art831    from './art-831-receipt-export-envelopes.kernel.mjs';
 import * as art832    from './art-832-card-data-flow-scope.kernel.mjs';
 import * as art833    from './art-833-lint-pan-sad-exposure.kernel.mjs';
 import * as art834    from './art-834-asc606-transaction-price-allocator.kernel.mjs';
+import * as art839    from './art-839-statement-footing-crossfoot.kernel.mjs';
 import * as art84     from './art-84-settlement-efficiency-kpi.kernel.mjs';
+import * as art840    from './art-840-gl-flux-explainer.kernel.mjs';
+import * as art842    from './art-842-soc-report-coverage-gap.kernel.mjs';
+import * as art843    from './art-843-tap-message-validator.kernel.mjs';
+import * as art846    from './art-846-assess-pfmi-proportional.kernel.mjs';
 import * as art85     from './art-85-pqc-timeline-fit-diagnostic.kernel.mjs';
 import * as art86     from './art-86-tls-pki-migration-planner.kernel.mjs';
 import * as art87     from './art-87-iso20022-pqc-readiness-checker.kernel.mjs';
@@ -772,12 +782,14 @@ export const KERNELS = {
   '515-collateral-swap-eligibility-validator':                  t515,
   '732-borrower-escrow-auditor':                                t732,
   '733-servicing-compliance-clock':                             t733,
+  '783-emv-mpm-qr-validator':                                   t783,
   '784-cbr-data-return-validator':                              t784,
   '787-corridor-cost-averages':                                 t787,
   '792-curator-vault-cap-auditor':                              t792,
   '794-event-fee-recompute':                                    t794,
   '795-stablecoin-refund-dispute':                              t795,
   '797-stablecoin-cash-equivalent-test':                        t797,
+  '798-assess-sandbox-application-readiness':                   t798,
   '806-event-contract-terms-lint':                              t806,
   '808-lst-share-rate-reconciler':                              t808,
   '810-contract-bytecode-identity-verifier':                    t810,
@@ -793,6 +805,7 @@ export const KERNELS = {
   '836-payment-services-activity-classifier':                   t836,
   '837-issuer-yield-share':                                     t837,
   '838-control-frequency-sample':                               t838,
+  '844-workload-identity-claims':                               t844,
   'art-01-ap2-mandate-chain-validator':                         art01,
   'art-02-agent-spend-policy-simulator':                        art02,
   'art-03-x402-settlement-modeler':                             art03,
@@ -1425,6 +1438,7 @@ export const KERNELS = {
   'art-750-diff-evidence-bundles':                              art750,
   'art-751-sha256-hmac-digest-demonstrator':                    art751,
   'art-752-freelance-quarterly-estimated-tax':                  art752,
+  'art-753-home-office-augusta':                                art753,
   'art-754-equity-exit-waterfall':                              art754,
   'art-756-sales-ote-commission-analyzer':                      art756,
   'art-758-hdhp-ppo-break-even':                                art758,
@@ -1436,6 +1450,7 @@ export const KERNELS = {
   'art-764-solo-401k-vs-sep-ira':                               art764,
   'art-765-dependent-care-fsa-cdctc-optimizer':                 art765,
   'art-766-parental-leave-income-gap':                          art766,
+  'art-769-medicare-oop-exposure':                              art769,
   'art-77-t1-settlement-readiness-diagnostic':                  art77,
   'art-770-total-cost-of-homeownership':                        art770,
   'art-771-automation-payback':                                 art771,
@@ -1472,7 +1487,12 @@ export const KERNELS = {
   'art-832-card-data-flow-scope':                               art832,
   'art-833-lint-pan-sad-exposure':                              art833,
   'art-834-asc606-transaction-price-allocator':                 art834,
+  'art-839-statement-footing-crossfoot':                        art839,
   'art-84-settlement-efficiency-kpi':                           art84,
+  'art-840-gl-flux-explainer':                                  art840,
+  'art-842-soc-report-coverage-gap':                            art842,
+  'art-843-tap-message-validator':                              art843,
+  'art-846-assess-pfmi-proportional':                           art846,
   'art-85-pqc-timeline-fit-diagnostic':                         art85,
   'art-86-tls-pki-migration-planner':                           art86,
   'art-87-iso20022-pqc-readiness-checker':                      art87,

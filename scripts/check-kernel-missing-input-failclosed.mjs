@@ -26,15 +26,19 @@
  *   NO-POSITIVE   fixtures exist but none expects a positive verdict.
  *   LOAD-ERROR    the kernel module could not be imported or has no compute().
  *
- * ADVISORY: this script ALWAYS exits 0. Exit 2 is reserved for a usage error or
- * a crash of the harness itself. It writes nothing into the repo tree; a debt
+ * ADVISORY by default: without --enforce this script ALWAYS exits 0. Exit 2 is
+ * reserved for a usage error or a crash of the harness itself.
+ * STAGE 2 (KERNEL-MISSING-INPUT-FAILCLOSED-GATE-2): --enforce <baseline> exits 1 when a
+ * FAIL pair (node id + field) exists that the baseline does not list; a kernel absent
+ * from the baseline is new and must have zero FAIL pairs. The baseline is read-only here. It writes nothing into the repo tree; a debt
  * report is written only to the path given by --json. Under CI the summary is
  * also appended to $GITHUB_STEP_SUMMARY.
  *
  * Usage:
- *   node scripts/check-kernel-missing-input-failclosed.mjs [--json <file>] [--write-baseline <file>] [--root <dir>] [--verbose]
- *     --write-baseline  record the current FAIL pairs (node id + deleted field) for a future
- *                       blocking stage; stage 1 never reads or enforces a baseline
+ *   node scripts/check-kernel-missing-input-failclosed.mjs [--json <file>] [--write-baseline <file>] [--enforce <baseline>] [--only <id,id>] [--root <dir>] [--verbose]
+ *     --write-baseline  record the current FAIL pairs (node id + deleted field)
+ *     --enforce         blocking mode against a baseline (see above)
+ *     --only            sweep just these kernel ids (seconds, for the kernel you just wrote)
  *     --root  directory holding chaingraph/kernels/ and manifests/ (default: this repo)
  *
  * Self-test: scripts/check-kernel-missing-input-failclosed.selftest.mjs
@@ -157,16 +161,51 @@ export function buildBaseline(results) {
   return { nodes, total_pairs: pairs.length };
 }
 
-function parseArgs(argv) {
-  const a = { json: null, baseline: null, root: resolve(HERE, '..'), verbose: false };
-  for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--json') a.json = argv[++i];
-    else if (argv[i] === '--write-baseline') a.baseline = argv[++i];
-    else if (argv[i] === '--root') a.root = resolve(argv[++i]);
-    else if (argv[i] === '--verbose') a.verbose = true;
-    else { console.error(`usage: check-kernel-missing-input-failclosed.mjs [--json <file>] [--write-baseline <file>] [--root <dir>] [--verbose] (unknown arg ${argv[i]})`); process.exit(2); }
-    if ((argv[i] === undefined) || (a.json === undefined) || (a.baseline === undefined) || (a.root === undefined)) { console.error('usage: missing value for a flag'); process.exit(2); }
+/**
+ * Stage 2 decision. `baseline` is the parsed baseline document ({ nodes: { id: { fields } } }).
+ * Returns every FAIL case whose (node, field) pair is not in the baseline. A kernel absent
+ * from the baseline is new, so every one of its FAIL pairs is a violation. The baseline is
+ * only ever read here: it can shrink (by a regeneration after a cure) and never grows.
+ */
+export function enforceAgainstBaseline(results, baseline) {
+  const known = new Map(Object.entries(baseline?.nodes || {}).map(([id, n]) => [id, new Set(n.fields || [])]));
+  const violations = [];
+  for (const r of results) {
+    if (r.state !== 'FAIL') continue;
+    const allowed = known.get(r.id);
+    const seen = new Set();
+    for (const f of r.fails) {
+      if (allowed && allowed.has(f.field)) continue;
+      const key = `${f.field}\u0000${f.mode}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      violations.push({ node: r.id, field: f.field, mode: f.mode, verdict: f.verdict, identical: f.identical, isNew: !allowed });
+    }
   }
+  return violations;
+}
+
+export function describeViolation(v) {
+  const mutated = v.mode === 'delete' ? 'deleted' : 'set to null';
+  const survived = v.verdict !== null && v.verdict !== undefined ? `verdict ${v.verdict} survived` : 'the output was identical to the positive output';
+  return `${v.node}: required input "${v.field}" ${mutated}, ${survived}${v.isNew ? ' (kernel not in baseline: new kernels must have zero FAIL pairs)' : ''}. Refuse or return a non-positive verdict when this input is missing.`;
+}
+
+function parseArgs(argv) {
+  const a = { json: null, baseline: null, enforce: null, only: null, root: resolve(HERE, '..'), verbose: false };
+  const usage = 'usage: check-kernel-missing-input-failclosed.mjs [--json <file>] [--write-baseline <file>] [--enforce <baseline>] [--only <id,id>] [--root <dir>] [--verbose]';
+  for (let i = 0; i < argv.length; i++) {
+    const flag = argv[i];
+    const val = () => { const v = argv[++i]; if (v === undefined) { console.error(`${usage} (missing value for ${flag})`); process.exit(2); } return v; };
+    if (flag === '--json') a.json = val();
+    else if (flag === '--write-baseline') a.baseline = val();
+    else if (flag === '--enforce') a.enforce = resolve(val());
+    else if (flag === '--only') a.only = val().split(',').map((s) => s.trim()).filter(Boolean);
+    else if (flag === '--root') a.root = resolve(val());
+    else if (flag === '--verbose') a.verbose = true;
+    else { console.error(`${usage} (unknown arg ${flag})`); process.exit(2); }
+  }
+  if (a.only && a.only.length === 0) { console.error(`${usage} (--only needs at least one id)`); process.exit(2); }
   return a;
 }
 
@@ -175,7 +214,18 @@ async function main() {
   const kdir = join(args.root, 'chaingraph', 'kernels');
   const fdir = join(kdir, 'fixtures');
   if (!existsSync(fdir)) { console.error(`fixtures dir not found: ${fdir}`); process.exit(2); }
-  const files = readdirSync(fdir).filter((f) => f.endsWith('.fixtures.json')).sort();
+  let files = readdirSync(fdir).filter((f) => f.endsWith('.fixtures.json')).sort();
+  if (args.only) {
+    // --only: a builder checks the kernel it just wrote. An id with no fixture file is a usage error, not a silent pass.
+    const missing = args.only.filter((id) => !files.includes(`${id}.fixtures.json`));
+    if (missing.length) { console.error(`--only: no fixtures file for ${missing.join(', ')}`); process.exit(2); }
+    files = files.filter((f) => args.only.includes(f.replace(/\.fixtures\.json$/, '')));
+  }
+  let baselineDoc = null;
+  if (args.enforce) {
+    try { baselineDoc = JSON.parse(readFileSync(args.enforce, 'utf8')); } catch (e) { console.error(`--enforce: cannot read baseline ${args.enforce}: ${e && e.message}`); process.exit(2); }
+    if (!baselineDoc || typeof baselineDoc.nodes !== 'object') { console.error(`--enforce: ${args.enforce} has no "nodes" map`); process.exit(2); }
+  }
   const results = [];
   const shardRequired = new Map();   // tool_id -> input_schema.required from the node shard
   const ndir = join(args.root, 'chaingraph', 'graph', 'nodes');
@@ -236,7 +286,7 @@ async function main() {
     lines.push(`${r.state.padEnd(12)} ${r.id}  ${detail}`);
   }
   const summary = [
-    `kernel-missing-input-failclosed (stage 1, ADVISORY, always exit 0)`,
+    args.enforce ? `kernel-missing-input-failclosed (stage 2, ENFORCE against ${args.enforce.split(/[\\/]/).pop()})` : `kernel-missing-input-failclosed (stage 1, ADVISORY, always exit 0)`,
     ...lines,
     `kernels examined: ${totals.kernels_examined}  positive fixtures: ${totals.positive_fixtures}  deletions tried: ${totals.deletions_tried}`,
     `FAIL: ${totals.FAIL}  HARNESS-SUSPECT: ${totals.HARNESS_SUSPECT_KERNELS} kernel(s), ${totals.HARNESS_SUSPECT} pair(s) (advisory, undeclared list)  UNCLASSIFIED: ${totals.UNCLASSIFIED}  UNDECLARED: ${totals.UNDECLARED}  (PASS: ${totals.PASS}  NO-POSITIVE: ${totals.NO_POSITIVE}  LOAD-ERROR: ${totals.LOAD_ERROR})`,
@@ -251,6 +301,15 @@ async function main() {
   }
   if (process.env.GITHUB_STEP_SUMMARY) {
     try { appendFileSync(process.env.GITHUB_STEP_SUMMARY, '```\n' + summary + '\n```\n'); } catch { /* summary is best effort */ }
+  }
+  if (baselineDoc) {
+    const violations = enforceAgainstBaseline(results, baselineDoc);
+    if (violations.length) {
+      for (const v of violations) console.error(`FAIL-OPEN ${describeViolation(v)}`);
+      console.error(`kernel-missing-input-failclosed: ${violations.length} fail-open pair(s) not in the baseline. The baseline never grows; fix the kernel.`);
+      process.exit(1);
+    }
+    console.log('kernel-missing-input-failclosed: no fail-open pair outside the baseline');
   }
   process.exit(0);
 }

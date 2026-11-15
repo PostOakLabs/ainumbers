@@ -1256,11 +1256,16 @@ const GATES = [
   ['Forbidden-hash lint',          'node chaingraph/kernels/lint-forbidden-hash.mjs'],
   ['cgCanon twin-parity lint (AUD-CGCANON-TWIN-GATE-1)', 'node chaingraph/kernels/lint-cgcanon-twin.mjs'],
   ['cgCanon twin-parity red-proof (SO #34c, AUD-CGCANON-TWIN-GATE-1)', 'node chaingraph/kernels/lint-cgcanon-twin.mjs --self-test'],
+  // KERNEL-CALLER-KEY-LOOKUP-LINT-1: existing kernels are advisory against the baseline; a kernel with no baseline entry is blocking.
+  ['Caller-key lookup lint (KERNEL-CALLER-KEY-LOOKUP-LINT-1)', 'node chaingraph/kernels/lint-caller-key-lookup.mjs'],
+  ['Caller-key lookup lint red/green controls (GATE-SELFTEST-META-1 pair)', 'node chaingraph/kernels/lint-caller-key-lookup.mjs --self-test'],
+  ['Caller-key probe generator controls (KERNEL-CALLER-KEY-LOOKUP-LINT-1)', 'node chaingraph/kernels/__proptests__/_caller-key-probes.mjs --self-test'],
   ['Hash golden-parity',           'node chaingraph/kernels/golden-parity.test.mjs'],
   ['Hash RFC 8785 vectors (JCS-RFC8785-VECTORS-1)', 'node chaingraph/standard/jcs-rfc8785-vectors.test.mjs'],
   // Paired red-proof (SO #40b / GATE-SELFTEST-META-1): the self-test entry below.
   ['Hash RFC 8785 vectors red-proof (GATE-SELFTEST-META-1 pair)', 'node chaingraph/standard/jcs-rfc8785-vectors.test.mjs --self-test'],
   ['Canonicalizer limits + __proto__ (HASH-PROTO-DEPTH-GUARD-1)', 'node chaingraph/kernels/_hash.test.mjs'],
+  ['Kernel typed-input helper selftest (KERNEL-INPUT-HELPER-1, zero adopters)', 'node chaingraph/kernels/_input.selftest.mjs'],
   ['Kernel-identity monolith upsert controls (GENKERNELID-UPSERT-FIX-1)', 'node chaingraph/kernels/gen-kernel-identity.test.mjs'],
   // RENUMBER-RESTAMP-1: renumber tool + its RED/GREEN self-test (SO #40b pair; the gate-side pair is T4-T6 in the test above).
   ['Renumber-node tool self-test (RENUMBER-RESTAMP-1)', 'node scripts/renumber-node.mjs --self-test'],
@@ -1735,6 +1740,9 @@ const GATES = [
   ['Retired mcp-toggle tombstone controls (RED+GREEN mutation)', 'node scripts/check-retired-mcp-toggle.test.mjs'],
   // KERNEL-MISSING-INPUT-FAILCLOSED-GATE-1 (stage 1): ADVISORY by construction, the checker always exits 0.
   ['Kernel missing-input fail-closed sweep (stage 1 advisory, always exits 0)', 'node scripts/check-kernel-missing-input-failclosed.mjs'],
+  // KERNEL-MISSING-INPUT-FAILCLOSED-GATE-2 (stage 2): BLOCKING. A fail-open pair outside the shrink-only baseline
+  // (and every pair of a kernel absent from it) exits 1. Label says "Kernel" so --affected picks it for kernel diffs.
+  ['Kernel missing-input fail-closed enforce (stage 2, blocking, shrink-only baseline)', 'node scripts/check-kernel-missing-input-failclosed.mjs --enforce scripts/kernel-missing-input-failclosed.baseline.json'],
   ['Kernel missing-input fail-closed controls (RED+GREEN planted kernels)', 'node scripts/check-kernel-missing-input-failclosed.selftest.mjs'],
   // PAGE-KERNEL-PARITY-GATE-1 (stage 1): ADVISORY by construction, the checker always exits 0 (full estate about 50 s).
   ['Page-versus-kernel parity sweep (stage 1 advisory, always exits 0)', 'node scripts/check-page-kernel-parity.mjs'],
@@ -1902,6 +1910,9 @@ const GATES = [
   // HARD on pull_request and locally; not run on merge_group / push:main, which carry the regen's commits.
   ['Main-only derived paths (MAIN-ONLY-PATHS-GATE-1)', 'node scripts/check-main-only-paths.mjs'],
   ['Main-only derived paths controls (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-main-only-paths.mjs --self-test'],
+  // ADVISORY hostile-input census of kernels this diff adds or changes (always exits 0).
+  ['Kernel hostile-input census (ADVISORY)', 'node scripts/check-kernel-hostile-census.mjs'],
+  ['Kernel hostile-input census controls (RED+GREEN)', 'node scripts/check-kernel-hostile-census.mjs --self-test'],
   // COMPOSER-PLAN-AND-ROOT-WEBMCP-1: parity gate A (in-repo SSOT recompute of every
   // chain plan hash vs the committed derived set + page-literal sample) and parity
   // gate B fixtures (session-receipt Merkle; the site-side routine test is
