@@ -120,6 +120,17 @@ t('P4 after latest closed interval refuses', resolve(yearTable, FACT, '2031-01-0
   t('P6 overlap resolves where only one applies', resolve([orig, clash], 'h', '2026-05-15').value === 100);
 }
 
+// P6b correction chains resolve to the latest link; a present corrects must be a non-empty string.
+{
+  const mk = (v, extra) => Object.assign({ fact: 'c', vintage: v, value: v, effective_from: '2026-01-01', effective_to: null }, extra);
+  const chain = [mk('v1'), mk('v2', { corrects: 'v1' }), mk('v3', { corrects: 'v2' })];
+  t('P6b three-link chain resolves to v3', resolve(chain, 'c', '2026-06-01').vintage === 'v3');
+  t('P6b three-link chain resolves to v3 (reversed)', resolve(chain.slice().reverse(), 'c', '2026-06-01').vintage === 'v3');
+  t('P6b corrects null refuses bad entries', resolve([mk('v1'), mk('v2', { corrects: null })], 'c', '2026-06-01').status === REFUSAL.BAD_ENTRIES);
+  t('P6b corrects 7 refuses bad entries', resolve([mk('v1'), mk('v2', { corrects: 7 })], 'c', '2026-06-01').status === REFUSAL.BAD_ENTRIES);
+  t('P6b corrects empty string refuses bad entries', resolve([mk('v1'), mk('v2', { corrects: '' })], 'c', '2026-06-01').status === REFUSAL.BAD_ENTRIES);
+}
+
 // P7 refusals, never a default.
 t('P7 impossible date', resolve(yearTable, FACT, '2026-02-30').status === REFUSAL.BAD_DATE);
 t('P7 non-leap Feb 29', resolve(yearTable, FACT, '2025-02-29').status === REFUSAL.BAD_DATE);

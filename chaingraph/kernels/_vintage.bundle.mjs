@@ -69,6 +69,7 @@ function entryWellFormed(e) {
   if (!isIsoDate(e.effective_from)) return false;
   if (e.effective_to !== null && !isIsoDate(e.effective_to)) return false;
   if (e.effective_to !== null && e.effective_to < e.effective_from) return false;
+  if (Object.prototype.hasOwnProperty.call(e, 'corrects') && (typeof e.corrects !== 'string' || e.corrects === '')) return false;
   return true;
 }
 
@@ -86,12 +87,10 @@ function resolve(entries, fact, asOf) {
 
   const matching = ofFact.filter((e) =>
     e.effective_from <= asOf && (e.effective_to === null || asOf <= e.effective_to));
-  const corrected = new Set(matching
-    .filter((e) => typeof e.corrects === 'string')
-    .map((e) => e.corrects));
-  // A correcting entry carries `corrects`; the original it names (same vintage
-  // id, no `corrects`) is dropped.
-  const final = matching.filter((e) => typeof e.corrects === 'string' || !corrected.has(e.vintage));
+  // An entry is dropped when a different matching entry names its vintage in
+  // `corrects`, whether or not it corrects something itself, so a chain
+  // v1, v2 corrects v1, v3 corrects v2 resolves to v3.
+  const final = matching.filter((e) => !matching.some((o) => o !== e && o.corrects === e.vintage));
 
   if (final.length === 0) return refuse(REFUSAL.NO_VINTAGE, fact + ' @ ' + asOf);
   if (final.length > 1) return refuse(REFUSAL.AMBIGUOUS, fact + ' @ ' + asOf);
