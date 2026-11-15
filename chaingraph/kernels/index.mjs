@@ -20,6 +20,7 @@ import * as t514      from './514-tokenized-fund-collateral-validator.kernel.mjs
 import * as t515      from './515-collateral-swap-eligibility-validator.kernel.mjs';
 import * as t732      from './732-borrower-escrow-auditor.kernel.mjs';
 import * as t733      from './733-servicing-compliance-clock.kernel.mjs';
+import * as t783      from './783-emv-mpm-qr-validator.kernel.mjs';
 import * as t784      from './784-cbr-data-return-validator.kernel.mjs';
 import * as t787      from './787-corridor-cost-averages.kernel.mjs';
 import * as t792      from './792-curator-vault-cap-auditor.kernel.mjs';
@@ -729,6 +730,7 @@ import * as art84     from './art-84-settlement-efficiency-kpi.kernel.mjs';
 import * as art840    from './art-840-gl-flux-explainer.kernel.mjs';
 import * as art842    from './art-842-soc-report-coverage-gap.kernel.mjs';
 import * as art843    from './art-843-tap-message-validator.kernel.mjs';
+import * as art846    from './art-846-assess-pfmi-proportional.kernel.mjs';
 import * as art85     from './art-85-pqc-timeline-fit-diagnostic.kernel.mjs';
 import * as art86     from './art-86-tls-pki-migration-planner.kernel.mjs';
 import * as art87     from './art-87-iso20022-pqc-readiness-checker.kernel.mjs';
@@ -780,6 +782,7 @@ export const KERNELS = {
   '515-collateral-swap-eligibility-validator':                  t515,
   '732-borrower-escrow-auditor':                                t732,
   '733-servicing-compliance-clock':                             t733,
+  '783-emv-mpm-qr-validator':                                   t783,
   '784-cbr-data-return-validator':                              t784,
   '787-corridor-cost-averages':                                 t787,
   '792-curator-vault-cap-auditor':                              t792,
@@ -1489,6 +1492,7 @@ export const KERNELS = {
   'art-840-gl-flux-explainer':                                  art840,
   'art-842-soc-report-coverage-gap':                            art842,
   'art-843-tap-message-validator':                              art843,
+  'art-846-assess-pfmi-proportional':                           art846,
   'art-85-pqc-timeline-fit-diagnostic':                         art85,
   'art-86-tls-pki-migration-planner':                           art86,
   'art-87-iso20022-pqc-readiness-checker':                      art87,
