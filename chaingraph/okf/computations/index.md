@@ -25,6 +25,7 @@ status: stable
 - [Collateral Swap Eligibility Validator](./515-collateral-swap-eligibility-validator.md)
 - [Borrower Escrow Auditor](./732-borrower-escrow-auditor.md)
 - [Servicing Compliance Clock](./733-servicing-compliance-clock.md)
+- [EMV MPM QR Payload Validator](./783-emv-mpm-qr-validator.md)
 - [CBR Data Return Validator](./784-cbr-data-return-validator.md)
 - [Corridor Cost Averages](./787-corridor-cost-averages.md)
 - [Curator Vault Cap Auditor](./792-curator-vault-cap-auditor.md)
