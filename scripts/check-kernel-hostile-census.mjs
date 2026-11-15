@@ -31,7 +31,7 @@
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, execFile } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -244,9 +244,38 @@ async function selfTest() {
 
 // ---------- main ----------
 
+const KERNEL_TIMEOUT_MS = Number(opt('--kernel-timeout-ms', 20000));
+
+function runIsolated(stem) {
+  return new Promise((res) => {
+    const args = [fileURLToPath(import.meta.url), '--kernel', stem, '--json', '--budget-ms', String(BUDGET_MS), '--max-fields', String(MAX_FIELDS)];
+    execFile(process.execPath, args, { encoding: 'utf8', timeout: KERNEL_TIMEOUT_MS, killSignal: 'SIGKILL', maxBuffer: 1 << 24 }, (err, out) => {
+      if (err && (err.killed || err.signal)) return res({ hang: true });
+      try { res(JSON.parse(String(out).trim().split(/\r?\n/).pop())); } catch { res({ skip: 'child output unreadable' }); }
+    });
+  });
+}
+
+async function mapLimit(items, n, fn) {
+  const out = new Array(items.length); let next = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
+    while (next < items.length) { const i = next++; out[i] = await fn(items[i]); }
+  }));
+  return out;
+}
+
+// --kernel <id> --json: one kernel, in-process, machine-readable (used by the isolated runner).
+async function jsonOne(stem) {
+  const k = await loadKernel(stem);
+  if (k.skip) { console.log(JSON.stringify({ skip: k.skip })); return 0; }
+  const r = await censusKernel(k.mod, k.base);
+  console.log(JSON.stringify(r)); return 0;
+}
+
 async function main() {
   if (flag('--self-test')) return selfTest();
 
+  if (flag('--json') && opt('--kernel', null)) return jsonOne(opt('--kernel', null));
   let stems;
   const one = opt('--kernel', null);
   if (one) stems = [one];
@@ -257,12 +286,15 @@ async function main() {
   }
   if (!stems.length) { console.log('kernel hostile census (advisory): no kernel added or changed; nothing to do'); return 0; }
 
-  const tot = { kernels: 0, skipped: 0, total: 0, computeThrows: 0, buildThrows: 0, clean: 0, cut: 0, withFinding: 0 };
+  const tot = { kernels: 0, skipped: 0, total: 0, computeThrows: 0, buildThrows: 0, clean: 0, cut: 0, withFinding: 0, hangs: 0 };
   const rows = [];
-  for (const stem of stems) {
-    const k = await loadKernel(stem);
-    if (k.skip) { tot.skipped++; rows.push(`${stem.padEnd(60)} skipped (${k.skip})`); continue; }
-    const r = await censusKernel(k.mod, k.base);
+  // One child process per kernel with a hard timeout: a kernel that loops forever on a hostile
+  // input (sync code the in-process time-box cannot interrupt) is reported as HANG, not a stall.
+  const results = await mapLimit(stems, 4, (stem) => runIsolated(stem));
+  stems.forEach((stem, i) => {
+    const r = results[i];
+    if (r.skip) { tot.skipped++; rows.push(`${stem.padEnd(60)} skipped (${r.skip})`); return; }
+    if (r.hang) { tot.hangs++; tot.withFinding++; rows.push(`${stem.padEnd(60)} HANG (no result within ${KERNEL_TIMEOUT_MS} ms)`); return; }
     tot.kernels++; tot.total += r.total; tot.computeThrows += r.computeThrows;
     tot.buildThrows += r.buildThrows; tot.clean += r.clean; if (r.cut) tot.cut++;
     if (r.computeThrows || r.buildThrows) tot.withFinding++;
@@ -270,10 +302,21 @@ async function main() {
     for (const [label, key] of [['throws', 'computeThrows'], ['build-throws', 'buildThrows'], ['clean', 'clean']]) {
       if (r.ex[key] && stems.length <= 40) rows.push(`    first ${label}: ${r.ex[key]}`);
     }
-  }
+  });
   console.log('kernel hostile census (ADVISORY, exit 0; NaN/Infinity excluded)');
   for (const row of rows) console.log(row);
-  console.log(`\nTOTALS: kernels=${tot.kernels} skipped=${tot.skipped} variants=${tot.total} compute-throws=${tot.computeThrows} build-throws=${tot.buildThrows} accepted-clean=${tot.clean} kernels-with-throw-or-build-finding=${tot.withFinding} cut-by-time-box=${tot.cut}`);
+  console.log(`\nTOTALS: kernels=${tot.kernels} skipped=${tot.skipped} variants=${tot.total} compute-throws=${tot.computeThrows} build-throws=${tot.buildThrows} accepted-clean=${tot.clean} kernels-with-throw-or-build-finding=${tot.withFinding} hangs=${tot.hangs} cut-by-time-box=${tot.cut}`);
+  // Down-only baseline (advisory): in --all mode, report any total above the committed
+  // ceiling. The ceiling may only be lowered by hand; this never changes the exit code.
+  if (flag('--all')) {
+    try {
+      const b = JSON.parse(readFileSync(resolve(HERE, 'kernel-hostile-census-baseline.json'), 'utf8'));
+      const over = ['withFinding', 'computeThrows', 'buildThrows', 'hangs'].filter((k) => tot[k] > b[k]);
+      console.log(over.length
+        ? `BASELINE (advisory): ABOVE ceiling on ${over.join(', ')} (ceiling withFinding=${b.withFinding} compute-throws=${b.computeThrows} build-throws=${b.buildThrows} hangs=${b.hangs})`
+        : `BASELINE (advisory): at or below ceiling (withFinding=${b.withFinding} compute-throws=${b.computeThrows} build-throws=${b.buildThrows} hangs=${b.hangs})`);
+    } catch { console.log('BASELINE (advisory): no baseline file'); }
+  }
   return flag('--strict') && (tot.computeThrows || tot.buildThrows) ? 1 : 0;
 }
 
