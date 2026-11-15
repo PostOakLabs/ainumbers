@@ -7,7 +7,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/841-planning-materiality.proptest.mjs
 
-import { compute } from '../841-planning-materiality.kernel.mjs';
+import { compute, buildArtifact } from '../841-planning-materiality.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, deepEqual } from './_pbt-common.mjs';
 
 const KERNEL_ID = '841-planning-materiality';
@@ -137,6 +137,37 @@ function checkRefusals() {
   return { name: 'invalid_domains_refuse_with_code', checked: cases.length + 3, violations };
 }
 
+// buildArtifact never throws on junk numbers or oversized shapes: an unhashable
+// policy_parameters mints execution_hash null plus hash_refusal; a clean one hashes.
+async function checkBuildArtifactNeverThrows() {
+  const base = { benchmark_id: 'bm', benchmark_amount: 1000000, overall_bps: 500, performance_bps: 7500, trivial_bps: 500, rationale_id: 'rat', rounding_rule: 'half_up' };
+  let deep = 0;
+  for (let i = 0; i < 600; i++) deep = [deep];
+  const many = new Array(1000001).fill(1);
+  const junk = [1e300, 2 ** 60, NaN, Infinity, -Infinity];
+  const cases = [];
+  for (const j of junk) {
+    cases.push({ ...base, benchmark_amount: j }, { ...base, overall_bps: j }, { ...base, extra: j });
+  }
+  cases.push({ ...base, extra: deep }, { ...base, extra: many });
+  let checked = 0, violations = 0;
+  for (const pp of cases) {
+    checked++;
+    try {
+      const a = await buildArtifact(pp, { now: null });
+      if (a.execution_hash !== null || !a.hash_refusal || typeof a.hash_refusal.reason !== 'string') violations++;
+    } catch (e) { violations++; }
+  }
+  for (const pp of [base, {}]) {
+    checked++;
+    try {
+      const a = await buildArtifact(pp, { now: null });
+      if (typeof a.execution_hash !== 'string' || a.execution_hash.length < 32 || 'hash_refusal' in a) violations++;
+    } catch (e) { violations++; }
+  }
+  return { name: 'buildArtifact_never_throws', checked, violations };
+}
+
 // ---------- run ----------
 let fixtureOracle;
 try {
@@ -150,6 +181,7 @@ const properties = [
   checkThresholdsNeverExceedParent(),
   checkRoundingRelation(),
   checkRefusals(),
+  await checkBuildArtifactNeverThrows(),
 ];
 const ok = summarize(KERNEL_ID, fixtureOracle, properties);
 process.exit(ok ? 0 : 1);
