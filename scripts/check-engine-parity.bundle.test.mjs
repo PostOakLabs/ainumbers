@@ -146,5 +146,31 @@ for (const [label, text, offendingLine] of BAD_FORMS) {
   rmSync(root, { recursive: true, force: true });
 }
 
+// --- REAL TREE (ENGINE-BUNDLE-REAL-KERNELS-SELFTEST-1): bundle the repo's own
+// chaingraph/kernels/ exactly as cross-engine-parity.yml does. The cases above
+// prove the lint on a synthetic tree; this one proves every kernel actually on
+// the branch is bundleable. Cross-Engine Parity is not a required check, so
+// without this case a kernel the bundler refuses (art-753's export list, PR
+// 3110) merges and turns that job red on every PR built on main. This selftest
+// runs in preflight, which the required scripts-verify job runs.
+// Only the QuickJS execution leg stays outside preflight (needs the qjs binary).
+{
+  const out = mkdtempSync(resolve(tmpdir(), 'bundle-real-tree-'));
+  const bundlePath = resolve(out, 'parity-bundle.js');
+  const env = { ...process.env };
+  delete env.PARITY_BUNDLE_KERNELS_DIR;
+  const r = spawnSync(process.execPath, [RUNNER, '--bundle', bundlePath], { encoding: 'utf8', env });
+  check('real kernel tree: bundler exits 0', r.status === 0,
+    (r.stderr || '').split('\n').filter((l) => l.includes('ENGINE-BUNDLE-ESM-LINT-1')).slice(0, 2).join(' | ')
+      || `status=${r.status} ${(r.stderr || '').slice(0, 300)}`);
+  check('real kernel tree: bundle file emitted', existsSync(bundlePath));
+  if (existsSync(bundlePath)) {
+    const bundle = readFileSync(bundlePath, 'utf8');
+    check('real kernel tree: no top-level export|import in bundle', !TOPLEVEL.test(bundle),
+      (bundle.match(/^[ \t]*(?:export|import)\b.*$/m) || [''])[0]);
+  }
+  rmSync(out, { recursive: true, force: true });
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);
