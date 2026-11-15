@@ -75,6 +75,15 @@ const CHI2_CRIT_8DF_5PCT = 15.507;
 // Below this usable-count the smallest expected cell falls under 5 and the chi-square screen
 // loses discriminative power; the trace says so rather than suppressing the statistic.
 const BENFORD_MIN_EXPECTED_CELL = 110;
+// Mean absolute deviation (MAD) of the observed first-digit proportions from the expected ones,
+// banded against fixed first-digit cut-offs. The band is a screening convention, not a test of
+// intent. Below the minimum usable count the band is withheld (NOT_EVALUATED), never guessed.
+const MAD_CUT_CLOSE = 0.006;
+const MAD_CUT_ACCEPTABLE = 0.012;
+const MAD_CUT_MARGINAL = 0.015;
+// Default minimum usable count for a MAD band; a caller may declare another positive integer in
+// policy_parameters.mad_min_count.
+const BENFORD_MAD_MIN_COUNT_DEFAULT = 1000;
 
 // ---------- shared helpers ----------
 
@@ -288,6 +297,16 @@ function computeBenford(pp, rejected) {
   const amounts = pp.amounts;
   if (!Array.isArray(amounts) || amounts.length === 0) rejected.push({ field: 'amounts', reason: 'absent, not an array, or empty', supplied: null });
 
+  // MAD policy parameters: absent means the documented default / not declared; present but the
+  // wrong type is refused, never coerced.
+  let madMinCount = BENFORD_MAD_MIN_COUNT_DEFAULT;
+  if (pp.mad_min_count !== undefined) {
+    if (Number.isSafeInteger(pp.mad_min_count) && pp.mad_min_count > 0) madMinCount = pp.mad_min_count;
+    else rejected.push({ field: 'mad_min_count', reason: 'present but not a positive safe integer', supplied: null });
+  }
+  const applicability = pp.applicability_declared;
+  if (applicability !== undefined && typeof applicability !== 'boolean') rejected.push({ field: 'applicability_declared', reason: 'present but not a boolean', supplied: null });
+
   if (rejected.length > 0) {
     return {
       output_payload: {
@@ -297,6 +316,8 @@ function computeBenford(pp, rejected) {
         chi_square_statistic: null,
         critical_value: CHI2_CRIT_8DF_5PCT,
         deviation_flag: null,
+        mad: null,
+        mad_band: null,
         trace: 'screen refused: ' + rejected.map((r) => r.field + ' ' + r.reason).join('; '),
         overall: 'INPUT_REJECTED',
         warnings: rejected.map((r) => r.field + ': ' + r.reason),
@@ -326,6 +347,8 @@ function computeBenford(pp, rejected) {
         chi_square_statistic: null,
         critical_value: CHI2_CRIT_8DF_5PCT,
         deviation_flag: null,
+        mad: null,
+        mad_band: null,
         trace: 'screen refused: no supplied amount yielded a usable first significant digit (all zero, negative, or non-numeric)',
         overall: 'INPUT_REJECTED',
         warnings: ['amounts: no usable positive amount with a first significant digit'],
@@ -343,7 +366,38 @@ function computeBenford(pp, rejected) {
   const statistic = r6(chi2);
   const deviation = statistic > CHI2_CRIT_8DF_5PCT;
 
+  // MAD over the nine first-digit proportions, presented to 6 decimals as a fixed-point string.
+  let absSum = 0;
+  for (let d = 1; d <= 9; d++) {
+    const gap = counts[d] / usable - BENFORD_P[d];
+    absSum += gap < 0 ? -gap : gap;
+  }
+  const madRounded = r6(absSum / 9);
+  const madText = madRounded.toFixed(6);
+  // The band is withheld unless the sample is large enough AND the caller declared the screen
+  // applicable (not assigned, rounded or ranged numbers). Absent applicability is never assumed true.
+  let madBand;
+  let madReason = null;
+  if (usable < madMinCount) {
+    madBand = 'NOT_EVALUATED';
+    madReason = 'BELOW_MIN_COUNT';
+  } else if (applicability === undefined) {
+    madBand = 'NOT_EVALUATED';
+    madReason = 'APPLICABILITY_NOT_DECLARED';
+  } else if (applicability === false) {
+    madBand = 'NOT_EVALUATED';
+    madReason = 'APPLICABILITY_DECLARED_FALSE';
+  } else if (madRounded < MAD_CUT_CLOSE) madBand = 'CLOSE_CONFORMITY';
+  else if (madRounded < MAD_CUT_ACCEPTABLE) madBand = 'ACCEPTABLE_CONFORMITY';
+  else if (madRounded < MAD_CUT_MARGINAL) madBand = 'MARGINALLY_ACCEPTABLE';
+  else madBand = 'NONCONFORMITY';
+
   const compliance_flags = [deviation ? 'BENFORD_SCREENED_DEVIATES' : 'BENFORD_SCREENED_CONSISTENT'];
+  if (madBand === 'NOT_EVALUATED') compliance_flags.push('BENFORD_MAD_NOT_EVALUATED');
+  else if (madBand === 'CLOSE_CONFORMITY') compliance_flags.push('BENFORD_MAD_CLOSE_CONFORMITY');
+  else if (madBand === 'ACCEPTABLE_CONFORMITY') compliance_flags.push('BENFORD_MAD_ACCEPTABLE_CONFORMITY');
+  else if (madBand === 'MARGINALLY_ACCEPTABLE') compliance_flags.push('BENFORD_MAD_MARGINALLY_ACCEPTABLE');
+  else compliance_flags.push('BENFORD_MAD_NONCONFORMITY');
   const payload = {
     item_count: amounts.length,
     usable_count: usable,
@@ -351,7 +405,13 @@ function computeBenford(pp, rejected) {
     chi_square_statistic: statistic,
     critical_value: CHI2_CRIT_8DF_5PCT,
     deviation_flag: deviation,
+    mad: madText,
+    mad_band: madBand,
+    mad_reason: madReason,
+    mad_min_count: madMinCount,
+    mad_applicability: applicability === undefined ? 'NOT_DECLARED' : (applicability ? 'DECLARED_APPLICABLE' : 'DECLARED_NOT_APPLICABLE'),
     trace: usable + ' of ' + amounts.length + ' amount(s) usable; chi-square = ' + statistic + ' vs ' + CHI2_CRIT_8DF_5PCT + ' (8 degrees of freedom, 5% level); observed first digits ' + (deviation ? 'DEVIATE from' : 'are CONSISTENT with') + ' the Benford distribution'
+      + '; mean absolute deviation = ' + madText + ', screening band ' + madBand + (madReason ? ' (' + madReason + ')' : '')
       + (usable < BENFORD_MIN_EXPECTED_CELL ? '; small sample: fewer than ' + BENFORD_MIN_EXPECTED_CELL + ' usable amounts leave every expected cell below 5, weakening the screen' : ''),
     overall: deviation ? 'SCREENED_DEVIATES' : 'SCREENED_CONSISTENT',
   };
