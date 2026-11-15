@@ -37,7 +37,7 @@ const COLUMN_KEYS = ['opening_minor', 'receipts_minor', 'disbursements_minor', '
 function isObj(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
 function absBig(x) { return x < 0n ? -x : x; }
 
-// Days since 1970-01-01 for a proleptic Gregorian civil date (pure integer arithmetic).
+// Day count from the Unix epoch day (1970-01-01) for a proleptic Gregorian civil date (pure integer arithmetic).
 function daysFromCivil(y, m, d) {
   const yy = m <= 2 ? y - 1 : y;
   const era = Math.floor(yy / 400);
@@ -99,9 +99,11 @@ export function compute(pp) {
     for (const k of Object.keys(o)) if (!allowed.includes(k)) { refuse('FREE_TEXT_FIELD_REFUSED'); return false; }
     return true;
   };
-  // Money: safe integer inside the declared limit. undefined -> null (caller flags it), present wrong type refuses.
+  // Presence (R4): null and undefined are both "not provided" and flag the fact as missing; they are never
+  // read as a value and never defaulted. A present value of the wrong type, range or shape refuses.
+  // Money: safe integer inside the declared limit.
   const money = (v, { positive = false, nonNegative = false } = {}) => {
-    if (v === undefined) return undefined;
+    if (v == null) return undefined;
     if (typeof v !== 'number' || !Number.isSafeInteger(v)) { refuse('WRONG_TYPE_REFUSED'); return undefined; }
     const b = BigInt(v);
     if (absBig(b) > MAX_MINOR) { refuse('AMOUNT_OUT_OF_RANGE_REFUSED'); return undefined; }
@@ -110,19 +112,19 @@ export function compute(pp) {
     return b;
   };
   const idOf = (v) => {
-    if (v === undefined) return undefined;
+    if (v == null) return undefined;
     if (typeof v !== 'string') { refuse('WRONG_TYPE_REFUSED'); return undefined; }
     if (ACCOUNT_RUN_RE.test(v) || IBAN_LIKE_RE.test(v)) { refuse('ACCOUNT_NUMBER_LOOKALIKE_REFUSED'); return undefined; }
     if (!ID_RE.test(v)) { refuse('ID_FORMAT_REFUSED'); return undefined; }
     return v;
   };
   const enumOf = (v, allowed) => {
-    if (v === undefined) return undefined;
+    if (v == null) return undefined;
     if (typeof v !== 'string' || !allowed.includes(v)) { refuse('ENUM_VALUE_REFUSED'); return undefined; }
     return v;
   };
   const dateOf = (v) => {
-    if (v === undefined) return undefined;
+    if (v == null) return undefined;
     const n = parseDate(v);
     if (n === null) { refuse('DATE_INVALID_REFUSED'); return undefined; }
     return n;
@@ -138,7 +140,7 @@ export function compute(pp) {
   if (asOf === undefined) add('AS_OF_DATE_MISSING');
 
   let threshold;
-  if (pp.stale_threshold_days === undefined) add('STALE_THRESHOLD_MISSING');
+  if (pp.stale_threshold_days == null) add('STALE_THRESHOLD_MISSING');
   else if (typeof pp.stale_threshold_days !== 'number' || !Number.isSafeInteger(pp.stale_threshold_days)) refuse('WRONG_TYPE_REFUSED');
   else if (pp.stale_threshold_days < 0 || pp.stale_threshold_days > MAX_THRESHOLD_DAYS) refuse('THRESHOLD_OUT_OF_RANGE_REFUSED');
   else threshold = pp.stale_threshold_days;
@@ -150,7 +152,7 @@ export function compute(pp) {
   // Outstanding lists: required, each item positive amount + id + date.
   const readList = (v, missingFlag, listName) => {
     const out = [];
-    if (v === undefined) { add(missingFlag); return null; }
+    if (v == null) { add(missingFlag); return null; }
     if (!Array.isArray(v)) { refuse('WRONG_TYPE_REFUSED'); return null; }
     if (v.length > MAX_ITEMS) { refuse('MAX_ITEMS_REFUSED'); return null; }
     for (const it of v) {
@@ -170,7 +172,7 @@ export function compute(pp) {
   const payments = readList(pp.outstanding_payments, 'OUTSTANDING_PAYMENTS_MISSING', 'outstanding_payments');
 
   let others = null;
-  if (pp.other_items === undefined) add('OTHER_ITEMS_MISSING');
+  if (pp.other_items == null) add('OTHER_ITEMS_MISSING');
   else if (!Array.isArray(pp.other_items)) refuse('WRONG_TYPE_REFUSED');
   else if (pp.other_items.length > MAX_ITEMS) refuse('MAX_ITEMS_REFUSED');
   else {
@@ -191,15 +193,16 @@ export function compute(pp) {
   }
 
   // Optional proof of cash. Absent is allowed; a present block must be complete and well typed.
+  /** @type {{ bank?: any, book?: any } | null} */
   let poc = null;
-  if (pp.proof_of_cash !== undefined) {
+  if (pp.proof_of_cash != null) {
     if (!isObj(pp.proof_of_cash)) refuse('WRONG_TYPE_REFUSED');
     else {
       keyCheck(pp.proof_of_cash, POC_KEYS);
       poc = {};
       for (const col of POC_KEYS) {
         const c = pp.proof_of_cash[col];
-        if (c === undefined) { add('PROOF_OF_CASH_COLUMN_MISSING'); poc = null; break; }
+        if (c == null) { add('PROOF_OF_CASH_COLUMN_MISSING'); poc = null; break; }
         if (!isObj(c)) { refuse('WRONG_TYPE_REFUSED'); poc = null; break; }
         keyCheck(c, COLUMN_KEYS);
         const opening = money(c.opening_minor);
@@ -229,7 +232,9 @@ export function compute(pp) {
   const diff = adjBank - adjBook;
 
   const stale = [];
-  for (const it of deposits.concat(payments, others)) {
+  const dated = [];
+  for (const group of [deposits, payments, others]) for (const it of group) dated.push(it);
+  for (const it of dated) {
     const age = asOf - it.dt;
     if (age > threshold) stale.push({ item_id: it.id, list: it.list, age_days: age });
   }
@@ -251,7 +256,6 @@ export function compute(pp) {
         closing_minor: Number(c.closing),
         footing_difference_minor: Number(footingDiff),
         closing_minus_declared_balance_minor: Number(c.closing - balance),
-        _break: footingDiff !== 0n || c.closing !== balance,
       };
     };
     const bank = column(poc.bank, statement);
@@ -260,8 +264,6 @@ export function compute(pp) {
     const footBreak = bank.footing_difference_minor !== 0 || book.footing_difference_minor !== 0;
     const closeBreak = bank.closing_minus_declared_balance_minor !== 0 || book.closing_minus_declared_balance_minor !== 0;
     pocBreak = footBreak || closeBreak;
-    delete bank._break;
-    delete book._break;
     proof = { bank, book, movement_difference_minor: Number(movementDiff), foots: !footBreak, closes_to_declared_balances: !closeBreak };
     if (footBreak) compliance_flags.push('PROOF_OF_CASH_FOOTING_BREAK');
     if (closeBreak) compliance_flags.push('PROOF_OF_CASH_CLOSING_MISMATCH');

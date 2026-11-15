@@ -1,5 +1,5 @@
 // art-835-bank-reconciliation-recompute — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:d425e970f92957ac4e8bfca52b8a751a15e224a78e7deb9d1e3642edf2916f32
+// kernel_digest_at_authoring: sha256:b3e7e01f5b854caaa5d8988fa47fb8f12c0cffd3db36c5e647b35b788bc5fcea
 // spec: BANK-REC-RECOMPUTE-NODE-1 board row (bank-to-book reconciliation and proof of cash over declared integer values)
 // human_sign_off: PENDING
 //
@@ -22,7 +22,7 @@ const N_CASES = 400;
 function randInt(rng, lo, hi) { return lo + Math.floor(rng() * (hi - lo + 1)); }
 function pad(n) { return String(n).padStart(2, '0'); }
 // Day-of-October-2026 helper: dates between 2026-08-01 and 2026-10-31.
-const AS_OF = '2026-10-31';
+const REC_DATE = '2026-10-31';
 function randDate(rng) {
   const off = randInt(rng, 0, 91); // days back from 2026-10-31
   const d = new Date(Date.UTC(2026, 9, 31) - off * 86400000);
@@ -54,7 +54,7 @@ function genRec(rng) {
   return {
     statement_ending_balance_minor: statement,
     ledger_ending_balance_minor: ledger,
-    as_of_date: AS_OF,
+    as_of_date: REC_DATE,
     stale_threshold_days: randInt(rng, 0, 120),
     outstanding_deposits: deposits,
     outstanding_payments: payments,
@@ -173,18 +173,19 @@ function checkRefusalsAndMissing(rng) {
   let violations = 0;
   for (let i = 0; i < N_CASES; i++) {
     const which = i % 8;
+    /** @type {any} */
     const pp = genRec(rng);
-    if (pp.outstanding_deposits.length === 0) pp.outstanding_deposits.push({ item_id: 'dx', amount_minor: 5, item_date: AS_OF });
+    if (pp.outstanding_deposits.length === 0) pp.outstanding_deposits.push({ item_id: 'dx', amount_minor: 5, item_date: REC_DATE });
     if (which === 0) pp.outstanding_deposits[0].memo = 'x';
     else if (which === 1) pp.outstanding_deposits[0].item_id = 'acct' + String(randInt(rng, 10000000, 99999999));
-    else if (which === 2) pp.statement_ending_balance_minor = null;
+    else if (which === 2) pp.statement_ending_balance_minor = null; // present null reads as not provided
     else if (which === 3) pp.as_of_date = '2026-02-31';
     else if (which === 4) pp.ledger_ending_balance_minor = '5';
     else if (which === 5) delete pp.ledger_ending_balance_minor;
     else if (which === 6) delete pp.other_items;
     else pp.outstanding_deposits[0].item_id = 'Jane Doe';
     const { output_payload: o, compliance_flags } = compute(pp);
-    const refused = which !== 5 && which !== 6;
+    const refused = which !== 2 && which !== 5 && which !== 6;
     if (refused) {
       if (o.verdict !== 'input_refused' || !o.refusal_code || !compliance_flags.includes('INPUT_REFUSED')) violations++;
     } else if (o.verdict !== 'indeterminate' || !compliance_flags.includes('INDETERMINATE')) violations++;
@@ -210,8 +211,8 @@ function checkDeterminismAndWarningsMirror(rng) {
 const NASTY = [
   undefined, null, 0, 'x', [], {}, 1e300, -1e300, 9007199254740993, NaN, Infinity,
   JSON.parse('{"__proto__":{"a":1}}'), JSON.parse('{"constructor":1,"toString":2}'),
-  { statement_ending_balance_minor: 9007199254740993, ledger_ending_balance_minor: 1, as_of_date: AS_OF, stale_threshold_days: 1, outstanding_deposits: [], outstanding_payments: [], other_items: [] },
-  { statement_ending_balance_minor: 1e300, ledger_ending_balance_minor: NaN, as_of_date: AS_OF, stale_threshold_days: 1, outstanding_deposits: [{ item_id: 'a', amount_minor: Infinity, item_date: AS_OF }], outstanding_payments: [], other_items: [] },
+  { statement_ending_balance_minor: 9007199254740993, ledger_ending_balance_minor: 1, as_of_date: REC_DATE, stale_threshold_days: 1, outstanding_deposits: [], outstanding_payments: [], other_items: [] },
+  { statement_ending_balance_minor: 1e300, ledger_ending_balance_minor: NaN, as_of_date: REC_DATE, stale_threshold_days: 1, outstanding_deposits: [{ item_id: 'a', amount_minor: Infinity, item_date: REC_DATE }], outstanding_payments: [], other_items: [] },
 ];
 
 async function checkBuildArtifactNeverThrows() {
