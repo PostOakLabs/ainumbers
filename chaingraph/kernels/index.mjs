@@ -20,6 +20,7 @@ import * as t514      from './514-tokenized-fund-collateral-validator.kernel.mjs
 import * as t515      from './515-collateral-swap-eligibility-validator.kernel.mjs';
 import * as t732      from './732-borrower-escrow-auditor.kernel.mjs';
 import * as t733      from './733-servicing-compliance-clock.kernel.mjs';
+import * as t783      from './783-emv-mpm-qr-validator.kernel.mjs';
 import * as t784      from './784-cbr-data-return-validator.kernel.mjs';
 import * as t787      from './787-corridor-cost-averages.kernel.mjs';
 import * as t792      from './792-curator-vault-cap-auditor.kernel.mjs';
@@ -780,6 +781,7 @@ export const KERNELS = {
   '515-collateral-swap-eligibility-validator':                  t515,
   '732-borrower-escrow-auditor':                                t732,
   '733-servicing-compliance-clock':                             t733,
+  '783-emv-mpm-qr-validator':                                   t783,
   '784-cbr-data-return-validator':                              t784,
   '787-corridor-cost-averages':                                 t787,
   '792-curator-vault-cap-auditor':                              t792,
