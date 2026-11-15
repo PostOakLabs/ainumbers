@@ -380,6 +380,12 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── KERNEL-ERRATA-SCHEMA-1 (2026-11-14) ────────────────────────────────────
+  ["check-kernel-errata.mjs",
+    "Kernel erratum schema and registry gate: preflight-only because scripts-verify.yml's " +
+    "path-scoped full preflight already runs it on every PR that can change an erratum or " +
+    "its kernel, so a separate workflow step would only duplicate that run."],
+  ["check-kernel-errata.selftest.mjs", SELF_TEST],
   // ── Interpolated-markup ratchet (2026-11-07) ───────────────────────────────
   ["check-innerhtml-ratchet.mjs",
     "Advisory-first interpolated-markup ratchet over tools/*.html: preflight wires " +
