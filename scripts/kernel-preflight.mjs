@@ -13,7 +13,10 @@
  * below either already had a per-kernel mode, or gained a small `--only <id>`
  * flag on the underlying script (behaviour-neutral: whole-estate run is
  * unchanged when the flag is absent). See the row's `done:` list for which
- * scripts were touched.
+ * scripts were touched. ONE exception: check 7c (mutation wall bound) is an
+ * ADVISORY estimate, not a gate — it wires run-mutation-tier.mjs's own
+ * exported machinery into a short sampled run and never gates anything
+ * (MUTATION-BOUND-FROM-PREFLIGHT-1).
  *
  * Usage:
  *   node scripts/kernel-preflight.mjs <art-id>            full check list
@@ -54,9 +57,11 @@
 import { execSync, execFileSync } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
 import { loadHubCategories } from './_hub-categories.mjs';
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { existsSync, readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { resolve, dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { copySandboxDeps, surfaceSplitPatch, runProcessBounded, loadConfig } from './run-mutation-tier.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const env = { ...process.env, PYTHONIOENCODING: 'utf-8' };
@@ -95,6 +100,20 @@ function run(label, cmd, extra) {
 
 function na(label, reason) {
   return { label, status: 'N-A', ms: 0, note: reason };
+}
+
+/** True when relPath differs from origin/main, or is absent there (a brand-new
+ * file, genuinely touched). Shared touched-scoping: the jsdoc touched-root
+ * derivation (check 6) and the mutation wall bound advisory (check 7c) must
+ * agree on what "touched" means, so one definition serves both. */
+function differsFromOriginMain(relPath, absPath) {
+  let originContent;
+  try {
+    originContent = execFileSync('git', ['show', `origin/main:${relPath}`], { cwd: REPO, env: gitEnv(), stdio: ['ignore', 'pipe', 'ignore'] }).toString();
+  } catch {
+    return true; // absent from origin/main — brand-new file, genuinely touched
+  }
+  return originContent !== readFileSync(absPath, 'utf8');
 }
 
 const results = [];
@@ -173,15 +192,6 @@ if (!shouldStop()) {
   const relFloor = `chaingraph/kernels/__proptests__/${ID}.proptest.mjs`;
   const candidates = [relKernel, ...(existsSync(PROPTEST_PATH) ? [relFloor] : [])];
 
-  function differsFromOriginMain(relPath, absPath) {
-    let originContent;
-    try {
-      originContent = execFileSync('git', ['show', `origin/main:${relPath}`], { cwd: REPO, env: gitEnv(), stdio: ['ignore', 'pipe', 'ignore'] }).toString();
-    } catch {
-      return true; // absent from origin/main — brand-new file, genuinely touched
-    }
-    return originContent !== readFileSync(absPath, 'utf8');
-  }
   const files = candidates.filter((rel) => differsFromOriginMain(rel, resolve(REPO, rel)));
 
   if (files.length === 0) {
@@ -264,6 +274,203 @@ if (!shouldStop()) {
     record(na('Floor digest stamp (kernel_digest_at_authoring)', 'no floor file to check (see prior FAIL)'));
   } else {
     record(run('Floor digest stamp (kernel_digest_at_authoring)', `node scripts/check-fv-floor-coverage.mjs --verify-authoring "chaingraph/kernels/__proptests__/${ID}.proptest.mjs"`));
+  }
+}
+
+// 7c. Mutation wall bound (advisory, MUTATION-BOUND-FROM-PREFLIGHT-1). For a
+// TOUCHED kernel (its bytes differ from origin/main) that carries NO sibling
+// <id>.mutation.json bound, estimate what one full mutation-tier run of this
+// kernel would cost and, when the estimate exceeds the 600 s default bound,
+// print `would-set bound N s` plus the sibling content that would carry it.
+// Cure class it automates: the 2026-11 CI shards went red with
+// "MUTATION-TIER TIMEOUT ... after 600s" for kernels whose honest bound
+// needed a measured full run (art-783: 1787 mutants, 1377.7 s full wall) that
+// nobody could know before booking the CI minute.
+//
+// The estimate = mutants x measured seconds per mutant x 2.3 safety. The
+// per-mutant seconds come from a SHORT SAMPLED Stryker run: up to three
+// 40-line windows of the SANDBOX kernel copy stay mutable via the SAME
+// StrykerJS directive pair surfaceSplitPatch writes (tracked kernel bytes are
+// never touched); the sampled wall over the sampled active mutants gives
+// s/mutant at the tier's own concurrency, and the report's full mutant count
+// (Ignored entries included) gives the population.
+//
+// Advisory ONLY: the sibling file is never written, and every terminal state
+// below is N-A, so this step can never change this script's exit code. A
+// state the step cannot measure (no npx, budget expiry, no active sample
+// mutant) is printed as its own named N-A, never silently skipped (SO #34c).
+// --fast skips the step outright so the authoring loop keeps its 1-2 min
+// shape; run once without --fast before booking mutation-tier CI time.
+// KERNEL_PREFLIGHT_MUTATION_SAMPLE_JSON={"mutantCount":n,"secondsPerMutant":x}
+// injects a pre-measured sample (the selftest's surface, and any caller that
+// already holds a real measured sample); production runs measure for
+// themselves.
+if (!shouldStop()) {
+  const t0 = Date.now();
+  const LABEL = 'Mutation wall bound (advisory, MUTATION-BOUND-FROM-PREFLIGHT-1)';
+  const SAMPLE = {
+    DEFAULT_BOUND_S: 600, // run-mutation-tier.mjs DEFAULT_KERNEL_TIMEOUT_S: the CI per-kernel bound
+    SAFETY_FACTOR: 2.3,   // measured CI-vs-local drift of the mutation tier wall clock
+    WINDOW_LINES: 40,     // lines per sample window
+    BUDGET_S: 240,        // hard wall bound for the whole sampled run (expiry => NOT MEASURED, never a hang)
+    CONCURRENCY: 2,       // run-mutation-tier.mjs's own default
+    TIMEOUT_MS: 15000,    // per-mutant timeout, run-mutation-tier.mjs's own default
+  };
+  const siblingRel = `chaingraph/kernels/${ID}.mutation.json`;
+  const advisory = (out) => record({ label: LABEL, status: 'N-A', ms: Date.now() - t0, out });
+  const estimateBound = (mutantCount, secondsPerMutant) =>
+    Math.round(mutantCount * secondsPerMutant * SAMPLE.SAFETY_FACTOR);
+
+  // Up to three disjoint sample windows, centers at the quarters. Below twice
+  // the window size the whole file IS the sample (no directives needed).
+  // Adjacent windows keep a >= 2-line gap so the disable/restore directive
+  // pairs never share a line.
+  const sampleWindows = (totalLines) => {
+    if (totalLines <= SAMPLE.WINDOW_LINES * 2) return [[1, totalLines]];
+    const out = [];
+    for (const f of [0.25, 0.5, 0.75]) {
+      const s = Math.max(1, Math.round(totalLines * f) - Math.floor(SAMPLE.WINDOW_LINES / 2));
+      const e = Math.min(totalLines, s + SAMPLE.WINDOW_LINES - 1);
+      if (out.length && s <= out[out.length - 1][1] + 2) continue;
+      out.push([s, e]);
+    }
+    return out;
+  };
+  // The disabled complement of the active windows, as surfaceSplitPatch ranges.
+  const complementOf = (windows, totalLines) => {
+    const out = [];
+    let cursor = 1;
+    for (const [s, e] of windows) {
+      if (s > cursor) out.push([cursor, s - 1]);
+      cursor = e + 1;
+    }
+    if (cursor <= totalLines) out.push([cursor, totalLines]);
+    return out;
+  };
+
+  const sampleMutationRate = async (strykerVersion) => {
+    const sandbox = mkdtempSync(join(tmpdir(), 'ain-kpfb-sample-'));
+    try {
+      copySandboxDeps(
+        `chaingraph/kernels/${ID}.kernel.mjs`,
+        `chaingraph/kernels/__proptests__/${ID}.proptest.mjs`,
+        `chaingraph/kernels/fixtures/${ID}.fixtures.json`,
+        sandbox, REPO,
+      );
+      const kernelPath = join(sandbox, 'chaingraph', 'kernels', `${ID}.kernel.mjs`);
+      const source = readFileSync(kernelPath, 'utf8');
+      const totalLines = source.split(/\r?\n/).length;
+      const windows = sampleWindows(totalLines);
+      const complement = complementOf(windows, totalLines);
+      const patched = complement.length
+        ? surfaceSplitPatch(source, complement, 'kernel-preflight mutation-wall sample (MUTATION-BOUND-FROM-PREFLIGHT-1); sandbox copy only')
+        : source;
+      writeFileSync(kernelPath, patched);
+      const reportPath = join(sandbox, 'reports', `${ID}.sample.mutation-report.json`);
+      const configPath = join(sandbox, `stryker.${ID}.sample.json`);
+      writeFileSync(configPath, JSON.stringify({
+        mutate: [`chaingraph/kernels/${ID}.kernel.mjs`],
+        testRunner: 'command',
+        commandRunner: { command: `node chaingraph/kernels/__proptests__/${ID}.proptest.mjs` },
+        reporters: ['json'],
+        jsonReporter: { fileName: reportPath },
+        timeoutMS: SAMPLE.TIMEOUT_MS,
+        concurrency: SAMPLE.CONCURRENCY,
+        tempDirName: join(sandbox, '.stryker-tmp', ID),
+      }, null, 2));
+      // The same win32 npx-cli.js-direct invocation runStryker() uses inside
+      // run-mutation-tier.mjs (npx.cmd + shell:true reopens a shell
+      // metacharacter class on win32; running npx's own npx-cli.js through
+      // `node` directly is a normal execve on every platform).
+      const npxCliJs = resolve(dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npx-cli.js');
+      const inv = process.platform === 'win32'
+        ? (existsSync(npxCliJs) ? { cmd: process.execPath, prefixArgs: [npxCliJs] } : { cmd: 'npx.cmd', prefixArgs: [] })
+        : { cmd: 'npx', prefixArgs: [] };
+      const run = await runProcessBounded({
+        cmd: inv.cmd,
+        args: [...inv.prefixArgs, '--yes', `--package=@stryker-mutator/core@${strykerVersion}`, 'stryker', 'run', configPath],
+        cwd: sandbox,
+        budgetS: SAMPLE.BUDGET_S,
+      });
+      if (run.timedOut) return { measured: false, why: `the sampled run exceeded its ${SAMPLE.BUDGET_S}s wall budget and was killed` };
+      if (run.crashed) return { measured: false, why: `stryker could not run: ${run.error}` };
+      if (!existsSync(reportPath)) return { measured: false, why: 'the sampled run produced no report (Stryker initial-test-run failure?)' };
+      let report;
+      try { report = JSON.parse(readFileSync(reportPath, 'utf8')); } catch (e) { return { measured: false, why: `the sample report is unparseable: ${e.message}` }; }
+      let totalMutants = 0;
+      let sampled = 0;
+      for (const f of Object.values(report.files || {})) {
+        for (const m of f.mutants || []) {
+          totalMutants += 1;
+          if (m.status !== 'Ignored') sampled += 1;
+        }
+      }
+      if (sampled < 1) return { measured: false, why: `the sample windows carried no active mutant across ${totalMutants} generated (all Ignored) — nothing measurable` };
+      return { measured: true, totalMutants, sampled, sampledSeconds: run.elapsedS, windows: windows.length };
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true });
+    }
+  };
+
+  // Precondition screen; each state its own named N-A.
+  if (FAST) {
+    advisory('skipped under --fast — the authoring loop keeps its 1-2 min shape. Run once without --fast before booking mutation-tier CI time.');
+  } else if (existsSync(resolve(REPO, siblingRel))) {
+    let boundNote = '';
+    try { boundNote = ` (kernelTimeoutSeconds ${JSON.parse(readFileSync(resolve(REPO, siblingRel), 'utf8')).kernelTimeoutSeconds})`; } catch { /* unreadable sibling: the name alone still decides */ }
+    advisory(`sibling bound present: ${siblingRel}${boundNote} — the tier already resolves its wall clock from it; nothing to estimate.`);
+  } else if (!differsFromOriginMain(`chaingraph/kernels/${ID}.kernel.mjs`, KERNEL_PATH)) {
+    advisory('kernel byte-identical to origin/main — untouched kernel bytes are the bytes the CI tier already measured; nothing to estimate.');
+  } else {
+    let tierConfig = null;
+    try { tierConfig = loadConfig(REPO); } catch { /* unreadable config: the screens below pass open; the sample itself stays honest */ }
+    const fixturesPath = resolve(REPO, 'chaingraph', 'kernels', 'fixtures', `${ID}.fixtures.json`);
+    let decision = null;
+    if (tierConfig?.excludedKernels && Object.prototype.hasOwnProperty.call(tierConfig.excludedKernels, ID)) {
+      decision = advisory(`excludedKernels names ${ID} — the tier never runs this kernel, so no wall bound can be owed.`);
+    } else if (tierConfig?.mutateSurfaceSplits && Object.prototype.hasOwnProperty.call(tierConfig.mutateSurfaceSplits, ID)) {
+      decision = advisory(`mutateSurfaceSplits names ${ID} — a named surface split already shrinks the instrumented population, so a plain-source sample would misestimate it. Bound from your own measured run instead.`);
+    } else if (!existsSync(fixturesPath)) {
+      decision = advisory(`no chaingraph/kernels/fixtures/${ID}.fixtures.json — the sampled floor has no fixtures file to run against; cannot sample.`);
+    }
+    if (!decision) {
+      let sample = null;
+      const injected = process.env.KERNEL_PREFLIGHT_MUTATION_SAMPLE_JSON;
+      if (injected) {
+        try {
+          const s = JSON.parse(injected);
+          if (!(Number.isFinite(s.mutantCount) && s.mutantCount > 0) || !(Number.isFinite(s.secondsPerMutant) && s.secondsPerMutant > 0)) {
+            throw new Error('mutantCount and secondsPerMutant must both be positive finite numbers');
+          }
+          sample = { measured: true, totalMutants: s.mutantCount, secondsPerMutant: s.secondsPerMutant, injected: true };
+        } catch (e) {
+          sample = { measured: false, why: `injected sample unreadable: ${e.message}` };
+        }
+      } else {
+        console.log(`  [${LABEL}] sampling now: one bounded stryker run over three <=${SAMPLE.WINDOW_LINES}-line windows (budget ${SAMPLE.BUDGET_S}s); stryker output follows.`);
+        sample = await sampleMutationRate(tierConfig?.strykerVersion || '8.7.1');
+      }
+      if (!sample.measured) {
+        advisory(`NOT MEASURED — ${sample.why}. The advisory cannot estimate here; measure the full run detached before booking mutation-tier CI time.`);
+      } else {
+        const secondsPerMutant = sample.injected ? sample.secondsPerMutant : sample.sampledSeconds / sample.sampled;
+        const estimateS = sample.totalMutants * secondsPerMutant * SAMPLE.SAFETY_FACTOR;
+        const boundN = estimateBound(sample.totalMutants, secondsPerMutant);
+        const basis = sample.injected
+          ? `pre-measured sample injected via KERNEL_PREFLIGHT_MUTATION_SAMPLE_JSON (${sample.totalMutants} mutants x ${secondsPerMutant.toFixed(3)} s/mutant)`
+          : `sampled ${sample.sampled} active mutant(s) across ${sample.windows} window(s) in ${sample.sampledSeconds}s at concurrency ${SAMPLE.CONCURRENCY} (${secondsPerMutant.toFixed(3)} s/mutant), ${sample.totalMutants} mutants generated in total`;
+        if (estimateS > SAMPLE.DEFAULT_BOUND_S) {
+          advisory([
+            `would-set bound ${boundN} s`,
+            `sibling ${siblingRel} would carry: ${JSON.stringify({ kernelTimeoutSeconds: boundN })}`,
+            `estimate: ${sample.totalMutants} mutants x ${secondsPerMutant.toFixed(3)} s/mutant x ${SAMPLE.SAFETY_FACTOR} safety = ${estimateS.toFixed(1)} s vs the ${SAMPLE.DEFAULT_BOUND_S}s default — past it, the CI tier hard-fails at the default bound (MUTATION-TIER TIMEOUT). ${basis}.`,
+            'Advisory only: this file was NOT written. Author the sibling from your own measured run if you adopt the bound.',
+          ].join('\n'));
+        } else {
+          advisory(`estimate ${estimateS.toFixed(1)} s (${basis}) is under the ${SAMPLE.DEFAULT_BOUND_S}s default — no sibling bound needed.`);
+        }
+      }
+    }
   }
 }
 
