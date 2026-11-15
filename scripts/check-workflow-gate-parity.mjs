@@ -1375,6 +1375,12 @@ const PREFLIGHT_ONLY = new Map([
     "invocation anywhere PR-reachable would duplicate that writer. Reads only tracked repo " +
     "files plus local git (through gitEnv()) — no network, no CI-only input. The write half " +
     "is a builder/main-side regen command, never a workflow step by name."],
+  // ── VINTAGE-TABLE-1 (PR-3107-WORKFLOW-PARITY-CURE-1, 2026-11-14) ────────────
+  ["check-vintages.mjs",
+    "Vintage-table gate (V1, V2, V4) and its --self-test. Hard in preflight; its CI route is " +
+    "scripts-verify.yml full preflight (the workflow runs `node scripts/preflight.mjs`), so a " +
+    "named workflow step would only duplicate the same suite. Reads only tracked repo files " +
+    "under chaingraph/kernels/__vintages__ — no network, no CI-only input."],
 ]);
 
 // ── DECLARATION SYNTAX (axis 2) ───────────────────────────────────────────────
