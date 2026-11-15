@@ -132,10 +132,17 @@ function preimage(pp, output_payload) {
 //   export function f / function* g  -> function f / function* g
 //   export async function f / f*     -> async function f / async function f*
 //   export const|let|var x           -> const|let|var x
+//   export { a, b };                 -> removed (ENGINE-BUNDLE-EXPORT-LIST-REWRITE-1),
+//                                       but ONLY when every listed name is a plain
+//                                       identifier declared at top level in the same
+//                                       region (const/let/var/function/async
+//                                       function/class declaration)
 //   import ... from '...'            -> removed (single- or multi-line)
 //   import '...'                     -> removed
 // Refused forms (loud generation-time error, exit 1, before any QuickJS run):
-//   export { a, b };   export *;   export * from '...'
+//   export { a as b };   export *;   export * from '...'
+// and an export list naming anything that is not a plain identifier declared at
+// top level in the same region,
 // and, as a belt, any top-level export|import that survives the rewriting.
 function stripEsmForBundle(src, kernelId, kernelPath) {
   const fail = (lineNo, text) => {
@@ -145,18 +152,41 @@ function stripEsmForBundle(src, kernelId, kernelPath) {
     );
     console.error(
       'ENGINE-BUNDLE-ESM-LINT-1: rewrite the declaration to a stripped form '
-      + '(export function/const/let/var/async function/default/class), '
+      + '(export function/const/let/var/async function/default/class, or a plain '
+      + 'top-level export list of names declared at top level in the same file), '
       + 'or extend scripts/check-engine-parity.mjs.',
     );
     process.exit(1);
   };
   const lineOf = (index) => src.slice(0, index).split('\n').length;
-  // Refuse the non-rewritable export forms first, quoting source line numbers.
-  for (const m of src.matchAll(/^[ \t]*export[ \t]*(\{|\*)/gm)) {
+  // Refuse `export *` and `export * from` first, quoting source line numbers.
+  for (const m of src.matchAll(/^[ \t]*export[ \t]*\*/gm)) {
     const eol = src.indexOf('\n', m.index);
     fail(lineOf(m.index), src.slice(m.index, eol === -1 ? undefined : eol).trim());
   }
-  return src
+  // ENGINE-BUNDLE-EXPORT-LIST-REWRITE-1: a plain top-level export list is
+  // rewritten by REMOVING the line, but only when every listed name is a plain
+  // identifier (no `as` rename, no string name) introduced by a top-level
+  // const/let/var/function/async function/class declaration in this region;
+  // an `export` prefix on the declaring line counts (stripped later, below).
+  // Anything else keeps the loud refusal.
+  const isTopLevelDeclared = (name) => new RegExp(
+    '^(?:export[ \\t]+)?(?:const|let|var)[ \\t]+' + name + '\\b'
+    + '|^(?:export[ \\t]+)?(?:async[ \\t]+)?function[ \\t]*\\*?[ \\t]*' + name + '\\b'
+    + '|^(?:export[ \\t]+)?class[ \\t]+' + name + '\\b',
+    'm',
+  ).test(src);
+  const stripped = src.replace(
+    /^[ \t]*export[ \t]*\{([^}]*)\}[ \t]*;?[ \t]*$/gm,
+    (list, names, offset) => {
+      for (const item of names.split(',').map((s) => s.trim())) {
+        if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(item)) fail(lineOf(offset), list.trim());
+        if (!isTopLevelDeclared(item)) fail(lineOf(offset), list.trim());
+      }
+      return '';
+    },
+  );
+  return stripped
     .replace(/^[ \t]*import[\s\S]*?from[ \t]*['"][^'"]*['"][ \t]*;?[ \t]*$/gm, '')  // multi-line import block
     .replace(/^[ \t]*import[ \t]*['"][^'"]*['"][ \t]*;?[ \t]*$/gm, '')              // bare side-effect import
     .replace(/^[ \t]*import[ \t]+[^;\n]+;?[ \t]*$/gm, '')                           // simple single-line import
