@@ -1,5 +1,5 @@
 // art-831-receipt-export-envelopes — class-K property-test FLOOR + envelope conformance test.
-// kernel_digest_at_authoring: sha256:0059de782826aba95159d0cc0e4aebe58329b700eb1109951dca9e1a5c5e45c3
+// kernel_digest_at_authoring: sha256:0cd1b42c7dde431b89d71f59b186f4772482c5c9066879c7d6d84f09002e1eb3
 // spec: research/RECEIPT-EXPORT-PIN-2026-10-29.md (pins the two wire specs this kernel emits;
 //       snapshots under research/clause-snapshots/receipt-export/, schema vendored with its
 //       LICENSE at chaingraph/kernels/fixtures/vendor/openlineage-1.55.0/)
@@ -20,7 +20,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-831-receipt-export-envelopes.proptest.mjs
 
-import { compute } from '../art-831-receipt-export-envelopes.kernel.mjs';
+import { compute, buildArtifact } from '../art-831-receipt-export-envelopes.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, deepEqual, NASTY_STRINGS } from './_pbt-common.mjs';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -325,6 +325,37 @@ function checkProhibitedGlobals() {
   return { name: 'kernel source contains no clock, randomness, encoding-builtin or network call', checked, violations };
 }
 
+// buildArtifact_never_throws (D6): an input whose {policy_parameters, output_payload} preimage
+// the shared canonicalizer would reject mints an artifact with a null execution_hash and a
+// hash_refusal beside it; a clean input (exported or refused) gets a 64-hex hash.
+async function checkBuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  const exported = FIXTURES.vectors.find((v) => compute(v.policy_parameters).output_payload.status === 'exported').policy_parameters;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const hostile = [
+    { zzz: { a: { b: 1e300 } } }, { zzz: Number.MAX_SAFE_INTEGER + 2 }, { zzz: Infinity }, { zzz: -Infinity }, { zzz: NaN },
+    { zzz: deep }, { zzz: wide },
+  ];
+  for (const delta of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...exported, ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) { violations++; console.log('  never-throws violation: artifact shape for hostile input'); }
+      if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) { violations++; console.log('  never-throws violation: hostile value echoed'); }
+    } catch (e) { violations++; console.log(`  never-throws violation: buildArtifact threw: ${String(e.message).slice(0, 80)}`); }
+  }
+  for (const pp of [exported, { receipt: null }, null, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('  never-throws violation: clean input lost its hash'); }
+    } catch (e) { violations++; console.log(`  never-throws violation: buildArtifact threw on clean input: ${String(e.message).slice(0, 80)}`); }
+  }
+  return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -342,6 +373,7 @@ const properties = [
   checkInputsFacetDialect(),
   checkFailClosed(),
   checkProhibitedGlobals(),
+  await checkBuildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — receipt export envelopes.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
