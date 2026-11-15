@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (759 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (760 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -8418,6 +8418,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-843-tap-message-validator.html",
     "description": "Checks that a pasted Transaction Authorization Protocol message, or a short thread of them, has the structure the published TAIPs JSON Schem",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-846-assess-pfmi-proportional",
+    "display_name": "PFMI proportional self-assessment scorer",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-846-assess-pfmi-proportional.html",
+    "description": "Scores a payment system operator’s or overseer’s self-assessment against the 24 CPMI-IOSCO Principles (Apr 2012) or the 5 responsibilities o",
     "consumes": [],
     "feeds": [],
     "status": "live"
