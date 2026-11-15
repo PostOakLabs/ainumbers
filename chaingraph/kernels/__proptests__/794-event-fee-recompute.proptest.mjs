@@ -1,5 +1,5 @@
 // 794-event-fee-recompute — class-K property-test FLOOR per FV-PBT-FLOOR-BUILD-SPEC.md.
-// kernel_digest_at_authoring: sha256:891846e7b92888b8bba41daa1512764a18d2061178c5fe7b1644ca0a2b4cf0d7
+// kernel_digest_at_authoring: sha256:001ac55dd94879a3579eab157343841a1aaa40ab146e0cb8f95754b5ad0d0d62
 // spec: research/kalshi-event-contract-rows-2026-10-30.md section 3.3 + research/EVENT-FEE-RECOMPUTE-PIN-2026-10-30.md
 // human_sign_off: TIM-PENDING-2026-10-31
 //
@@ -7,7 +7,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/794-event-fee-recompute.proptest.mjs
 
-import { compute } from '../794-event-fee-recompute.kernel.mjs';
+import { compute, buildArtifact } from '../794-event-fee-recompute.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32 } from './_pbt-common.mjs';
 
 const KERNEL_ID = '794-event-fee-recompute';
@@ -568,6 +568,36 @@ function checkGenericFamilyOracle() {
   return { name: 'P10_generic_family_bigint_oracle', checked: t.checked, violations: t.violations, failed: t.failed };
 }
 
+// P11 (D6) -- buildArtifact_never_throws: an input whose {policy_parameters, output_payload}
+// preimage the shared canonicalizer would reject mints an artifact with a null execution_hash
+// and a hash_refusal beside it; a clean input (accepted or refused) gets a 64-hex hash.
+async function checkBuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  const base = () => randomValidPp(mulberry32(SEED + 11));
+  /** @type {any} */ let deep = {}; { let o = deep; for (let i = 0; i < 511; i++) { o.x = {}; o = o.x; } }
+  const hostile = [
+    { junk: 1e300 }, { junk: NaN }, { junk: -Infinity }, { junk: Infinity },
+    { junk: { a: [Number.MAX_SAFE_INTEGER + 2] } }, { junk: deep }, { junk: new Array(1000001).fill(0) },
+  ];
+  for (const delta of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...base(), ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) { violations++; console.log('P11 violation: artifact shape'); }
+      if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) { violations++; console.log('P11 violation: hostile value echoed'); }
+    } catch (e) { violations++; console.log('P11 violation: buildArtifact threw: ' + String(e.message).slice(0, 80)); }
+  }
+  for (const pp of [base(), { ...base(), profile: 'nope' }, null, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('P11 violation: clean input lost its hash'); }
+    } catch (e) { violations++; console.log('P11 violation: buildArtifact threw on clean input: ' + String(e.message).slice(0, 80)); }
+  }
+  return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -586,6 +616,7 @@ const properties = [
   checkExactFees(),
   checkGenericRowsAndEcho(),
   checkGenericFamilyOracle(),
+  await checkBuildArtifactNeverThrows(),
 ];
 for (const p of properties) if (p.failed && p.failed.length) console.error(p.name + ' FAILED: ' + p.failed.slice(0, 40).join(' | '));
 console.log(`[${KERNEL_ID}] class-K floor property test`);
