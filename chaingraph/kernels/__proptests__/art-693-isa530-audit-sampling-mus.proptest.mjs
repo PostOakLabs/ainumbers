@@ -17,7 +17,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-693-isa530-audit-sampling-mus.proptest.mjs
 
-import { compute } from '../art-693-isa530-audit-sampling-mus.kernel.mjs';
+import { compute, buildArtifact } from '../art-693-isa530-audit-sampling-mus.kernel.mjs';
 import { runFixtureOracle, summarize, findShapeViolations, mulberry32, pick } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-693-isa530-audit-sampling-mus';
@@ -273,6 +273,31 @@ function checkP8_method_dispatch() {
   return { name: 'P8_method_dispatch_refuses_unknown', checked, violations };
 }
 
+// ---------- P10: buildArtifact_never_throws -- an unhashable preimage mints a null hash + hash_refusal ----------
+async function checkP10_buildArtifact_never_throws() {
+  let violations = 0, checked = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 511; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const hostile = [{ zzz: 1e300 }, { zzz: NaN }, { zzz: Infinity }, { zzz: -Infinity }, { zzz: deep }, { zzz: wide }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } }];
+  for (const base of [{}, { method: 'monetary_unit_sampling' }, { method: 'misstatement_projection' }, { method: 'benford_screen', amounts: [123, 234, 345] }]) {
+    for (const delta of hostile) {
+      checked++;
+      try {
+        const art = await buildArtifact({ ...base, ...delta });
+        const r = art.hash_refusal;
+        if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) violations++;
+        if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) violations++;
+      } catch (e) { violations++; }
+    }
+    checked++;
+    try {
+      const art = await buildArtifact({ ...base });
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) violations++;
+    } catch (e) { violations++; }
+  }
+  return { name: 'P10_buildArtifact_never_throws', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -290,6 +315,7 @@ const properties = [
   checkP7_benford_differential(),
   checkP8_method_dispatch(),
   checkP9_mad_param_refusals(),
+  await checkP10_buildArtifact_never_throws(),
 ];
 console.log(`[${KERNEL_ID}] class-A floor property test.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
