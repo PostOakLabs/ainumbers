@@ -23,6 +23,7 @@ status: stable
 - [Collateral Swap Eligibility Validator](./515-collateral-swap-eligibility-validator.md) — `validate_collateral_swap_eligibility`
 - [Borrower Escrow Auditor](./732-borrower-escrow-auditor.md) — `audit_borrower_escrow_stmt`
 - [Servicing Compliance Clock](./733-servicing-compliance-clock.md) — `servicing_compliance_clock`
+- [EMV MPM QR Payload Validator](./783-emv-mpm-qr-validator.md) — `validate_emv_mpm_qr_payload`
 - [CBR Data Return Validator](./784-cbr-data-return-validator.md) — `validate_cbr_data_return`
 - [Corridor Cost Averages](./787-corridor-cost-averages.md) — `compute_corridor_cost_averages`
 - [Curator Vault Cap Auditor](./792-curator-vault-cap-auditor.md) — `audit_curator_vault_caps`
