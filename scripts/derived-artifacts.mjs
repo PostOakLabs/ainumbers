@@ -1713,6 +1713,24 @@ export const EXCLUDED = [
        + 'scripts/check-webmcp-signed-snapshot.mjs in preflight (RED only on a bad signature or malformed '
        + 'snapshot; age and drift vs the regen-on-main webmcp.json are advisory).',
   },
+  {
+    what: 'kernel sibling-stamp freshness (via scripts/stamp-writers.mjs — STALE-STAMP-WRITERS-1)',
+    script: 'scripts/stamp-writers.mjs',
+    share: 'n/a — an orchestrator of the existing repo writers, not a generator',
+    why: 'NOT A GENERATOR. It owns no artifact surface of its own: per touched kernel id it only INVOKES '
+       + 'the existing writers (gen-kernel-identity.mjs --write --shard=<id>, the proptest floor plus its '
+       + 'kernel_digest_at_authoring header restamp, check-ask-agent-block.mjs --write --only <id>), each '
+       + 'with its own owner row or gate. Its input set is the CHECKOUT DIFF, not the committed tree: '
+       + 'deriveTouchedIds() reads git diff <base>...HEAD + working tree + index + untracked files, so on '
+       + 'a clean main-regen checkout (base == HEAD, tree clean) the derived id set is EMPTY and a '
+       + 'write-mode run is a defined no-op ("no touched kernel ids - nothing to do"; measured on this '
+       + 'PR\'s post-merge tree: --check derives zero ids, writes zero bytes, exit 0). There is no '
+       + 'convergent byte set for COVERED to own, so the decision is EXCLUDED; the --check mode stays '
+       + 'wired into preflight GATES as the freshness gate that lists each stale stamp with its fix '
+       + 'command. Classification demanded by NODE-FANOUT-REGEN-CLOSE-1 at generator add; a MEASURED '
+       + 'reason, not a shrug. Fence shape per the ORCH-389 precedent: the classification rides the PR '
+       + 'whose preflight amendment surfaced the script.',
+  },
 ];
 
 /** Every path the regen may write, deduped and sorted — the commit pathspec. */

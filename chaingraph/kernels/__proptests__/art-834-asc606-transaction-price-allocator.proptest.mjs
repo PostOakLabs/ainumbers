@@ -1,5 +1,5 @@
 // art-834-asc606-transaction-price-allocator — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:a5fc86788526c97004e538ce8a220e63293c36a07c0f90f1318e339601e8c6ef
+// kernel_digest_at_authoring: sha256:05728d2b15a4ff8b5de683c055a3cc4fb06fd5eaab95f2f2e289a6fcbd9bf27e
 // spec: ASC606-ALLOCATION-NODE-1 board row (allocation by declared method; integer minor units)
 // human_sign_off: PENDING
 //
@@ -11,7 +11,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-834-asc606-transaction-price-allocator.proptest.mjs
 
-import { compute } from '../art-834-asc606-transaction-price-allocator.kernel.mjs';
+import { compute, buildArtifact } from '../art-834-asc606-transaction-price-allocator.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, pick } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-834-asc606-transaction-price-allocator';
@@ -221,6 +221,35 @@ function checkDeterminismAndWarningsMirror(rng) {
   return { name: 'deterministic_and_warnings_mirror_flags', checked: N_CASES, violations };
 }
 
+// buildArtifact_never_throws (D6): an input whose preimage the shared canonicalizer would reject
+// mints a null execution_hash plus a hash_refusal; a clean input keeps a 64-hex hash.
+async function checkBuildArtifactNeverThrows(rng) {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const hostile = [
+    { zzz: 1e300 }, { zzz: Infinity }, { zzz: -Infinity }, { zzz: NaN }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } },
+    { zzz: deep }, { zzz: wide },
+  ];
+  for (const delta of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...genCase(rng), ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) violations++;
+      if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) violations++;
+    } catch (e) { violations++; }
+  }
+  for (let i = 0; i < 20; i++) {
+    checked++;
+    try {
+      const art = await buildArtifact(genCase(rng));
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) violations++;
+    } catch (e) { violations++; }
+  }
+  return { name: 'buildArtifact_never_throws', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -237,6 +266,7 @@ const properties = [
   checkResidual(mulberry32(6)),
   checkRefusals(mulberry32(7)),
   checkDeterminismAndWarningsMirror(mulberry32(8)),
+  await checkBuildArtifactNeverThrows(mulberry32(9)),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test`);
 const ok = summarize(KERNEL_ID, oracle, properties);
