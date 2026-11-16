@@ -1,5 +1,5 @@
 // art-832-card-data-flow-scope — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:6518b84b67ba2cd88669c714464e3add4a9e27014529e83f62c30b74500357db
+// kernel_digest_at_authoring: sha256:7fe434424122964fce410178670ac486390412d92da1d4a10ef5fb8f60055bc4
 // spec: board/claimed/PCI-FLOWMAP-SCOPE-1.md
 // human_sign_off: PENDING
 //
@@ -7,7 +7,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-832-card-data-flow-scope.proptest.mjs
 
-import { compute } from '../art-832-card-data-flow-scope.kernel.mjs';
+import { compute, buildArtifact } from '../art-832-card-data-flow-scope.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, pick, deepEqual } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-832-card-data-flow-scope';
@@ -96,6 +96,37 @@ function checkRefusals() {
   return { name: 'invalid_input_refused', checked: bad.length, violations };
 }
 
+// buildArtifact_never_throws (D6): a preimage the shared canonicalizer would reject mints an
+// artifact with a null execution_hash and a hash_refusal beside it; a clean input gets a hash.
+async function checkBuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const base = () => ({ components: [{ id: 'a', kind: 'frontend', sees_raw_pan: true }] });
+  const hostile = [
+    { zzz: 1e300 }, { zzz: NaN }, { zzz: -Infinity }, { zzz: Infinity }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } },
+    { zzz: deep }, { zzz: wide },
+  ];
+  for (const delta of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...base(), ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) { violations++; console.log(`unhashable violation: ${Object.keys(delta)[0]} artifact shape`); }
+      if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) { violations++; console.log('unhashable violation: hostile value echoed'); }
+    } catch (e) { violations++; console.log(`unhashable violation: buildArtifact threw: ${String(e.message).slice(0, 80)}`); }
+  }
+  const nullProto = Object.create(null);
+  for (const pp of [base(), {}, null, 5, [], { components: [{ id: 'a', kind: 'backend', captures_from: [nullProto] }] }]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('unhashable violation: clean input lost its hash'); }
+    } catch (e) { violations++; console.log(`unhashable violation: buildArtifact threw on clean input: ${String(e.message).slice(0, 80)}`); }
+  }
+  return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -103,7 +134,7 @@ try {
 } catch (e) {
   oracle = { total: 1, failures: [{ name: 'fixture-oracle-load', expected: '(compute() implemented)', got: String((e && e.message) || e) }] };
 }
-const properties = [checkPartition(), checkLeakImpliesFlag(), checkNoLeakWithoutRawPan(), checkDeterminism(), checkRefusals()];
+const properties = [checkPartition(), checkLeakImpliesFlag(), checkNoLeakWithoutRawPan(), checkDeterminism(), checkRefusals(), await checkBuildArtifactNeverThrows()];
 console.log(`[${KERNEL_ID}] class-K floor property test.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
 process.exit(ok ? 0 : 1);
