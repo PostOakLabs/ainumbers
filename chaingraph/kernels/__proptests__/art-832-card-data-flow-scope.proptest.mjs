@@ -1,5 +1,5 @@
 // art-832-card-data-flow-scope — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:6518b84b67ba2cd88669c714464e3add4a9e27014529e83f62c30b74500357db
+// kernel_digest_at_authoring: sha256:7fe434424122964fce410178670ac486390412d92da1d4a10ef5fb8f60055bc4
 // spec: board/claimed/PCI-FLOWMAP-SCOPE-1.md
 // human_sign_off: PENDING
 //
