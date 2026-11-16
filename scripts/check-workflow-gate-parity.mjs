@@ -392,6 +392,14 @@ const PREFLIGHT_ONLY = new Map([
     "Self-test for stamp-writers.mjs over in-memory fixtures; it can only be reddened by a change " +
     "to that checker, which scripts-verify.yml's path-scoped full preflight already runs, so a " +
     "separate workflow step would only duplicate it."],
+  // ── HEADROOM-LIB-1 (2026-11-14) ─────────────────────────────────────────────
+  ["run-headroom.mjs",
+    "Advisory-first headroom search: preflight wires --advisory, which prints the base-point report, " +
+    "gates H1/H2/H3/H5/H6 and their planted red-and-green controls, and always exits 0, so a blocking " +
+    "CI step would re-run a gate that cannot fail yet. Spec section 6 makes it blocking only after one " +
+    "clean week, by Tim's call; the flip and the CI routing land together. It reads checked-in " +
+    "declarations, fixtures and kernels only (no network, no CI-only input), and the PRs that can change " +
+    "its verdict are kernel and scripts/ edits, which scripts-verify.yml's path-scoped full preflight already runs."],
   // ── KERNEL-ERRATA-SCHEMA-1 (2026-11-14) ────────────────────────────────────
   ["check-kernel-errata.mjs",
     "Kernel erratum schema and registry gate: preflight-only because scripts-verify.yml's " +
@@ -1422,6 +1430,15 @@ const PREFLIGHT_ONLY = new Map([
     "invocation anywhere PR-reachable would duplicate that writer. Reads only tracked repo " +
     "files plus local git (through gitEnv()) — no network, no CI-only input. The write half " +
     "is a builder/main-side regen command, never a workflow step by name."],
+  // ── VINTAGE-TABLE-1 (PR-3107-WORKFLOW-PARITY-CURE-1, 2026-11-14) ────────────
+  ["check-vintages.mjs",
+    "Vintage-table gate (V1, V2, V4) and its --self-test. Hard in preflight; its CI route is " +
+    "scripts-verify.yml full preflight (the workflow runs `node scripts/preflight.mjs`), so a " +
+    "named workflow step would only duplicate the same suite. Reads only tracked repo files " +
+    "(chaingraph/kernels/__vintages__, data/vintages.json, " +
+    "chaingraph/standard/clause-snapshot-registry.json) - no network, no CI-only input. " +
+    "Those input paths are in the scripts-verify relevance list (scripts/ci-paths.json), so a " +
+    "PR that changes only a vintage table still runs the full preflight."],
 ]);
 
 // ── DECLARATION SYNTAX (axis 2) ───────────────────────────────────────────────

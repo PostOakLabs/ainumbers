@@ -1748,6 +1748,9 @@ const GATES = [
   // (and every pair of a kernel absent from it) exits 1. Label says "Kernel" so --affected picks it for kernel diffs.
   ['Kernel missing-input fail-closed enforce (stage 2, blocking, shrink-only baseline)', 'node scripts/check-kernel-missing-input-failclosed.mjs --enforce scripts/kernel-missing-input-failclosed.baseline.json'],
   ['Kernel missing-input fail-closed controls (RED+GREEN planted kernels)', 'node scripts/check-kernel-missing-input-failclosed.selftest.mjs'],
+  // HEADROOM-LIB-1: distance to the nearest verdict change found on a declared grid. ADVISORY by construction:
+  // the runner prints the base-point report, gates H1/H2/H3/H5/H6 and their planted controls, and always exits 0.
+  ['Kernel headroom search (advisory, always exits 0)', 'node chaingraph/kernels/__headroom__/run-headroom.mjs --advisory'],
   // KERNEL-ERRATA-SCHEMA-1: kernel erratum source records. K1 witness holds, K3 predicate purity,
   // K5 append-only; the selftest plants a red and a green for each.
   ['Kernel errata K1/K3/K5 (witness, predicate purity, append-only)', 'node scripts/check-kernel-errata.mjs'],
@@ -1924,6 +1927,10 @@ const GATES = [
   // HARD on pull_request and locally; not run on merge_group / push:main, which carry the regen's commits.
   ['Main-only derived paths (MAIN-ONLY-PATHS-GATE-1)', 'node scripts/check-main-only-paths.mjs'],
   ['Main-only derived paths controls (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-main-only-paths.mjs --self-test'],
+  // VINTAGE-TABLE-1: gates V1 (declared literal equals the dated table), V2 (kernels sharing a
+  // fact and vintage agree) and V4 (every source digest resolves in the clause snapshot registry).
+  ['Vintage table V1/V2/V4 (VINTAGE-TABLE-1)', 'node chaingraph/kernels/__vintages__/check-vintages.mjs'],
+  ['Vintage table controls (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node chaingraph/kernels/__vintages__/check-vintages.mjs --self-test'],
   // ADVISORY hostile-input census of kernels this diff adds or changes (always exits 0).
   ['Kernel hostile-input census (ADVISORY)', 'node scripts/check-kernel-hostile-census.mjs'],
   ['Kernel hostile-input census controls (RED+GREEN)', 'node scripts/check-kernel-hostile-census.mjs --self-test'],
