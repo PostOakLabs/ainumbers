@@ -26,8 +26,9 @@
  * module (`<script type="module">`, script-src 'self') and vendored verbatim into a
  * classic inline script (strip the `export ` keywords, wrap in an IIFE, return the four
  * functions) for self-contained pages. CSP on the verify pages is `connect-src 'none'`;
- * keep it that way: no fetch, no XMLHttpRequest, no WebSocket, no dynamic import().
- * Runs unchanged in Node (the selftest imports it directly) and in browsers.
+ * keep it that way: the zero-network posture here is enforced by check-verify-no-egress
+ * and the site static egress scan, and this module must never grow a transport of any
+ * kind. Runs unchanged in Node (the selftest imports it directly) and in browsers.
  */
 
 // ── checkpoint parsing ─────────────────────────────────────────────────────────-------
