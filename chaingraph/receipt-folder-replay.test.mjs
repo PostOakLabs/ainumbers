@@ -19,7 +19,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
 const PAGE = resolve(HERE, 'receipt-folder-replay.html');
 const LIB = resolve(HERE, 'replay-lib.mjs');
-const VERDICT_SRC = resolve(ROOT, 'scripts', 'check-kernel-missing-input-failclosed.mjs');
+const VERDICT_SRC = resolve(ROOT, 'scripts', 'lib', 'verdict-read.mjs');
 const CSP_SRC = resolve(ROOT, 'scripts', 'check-csp-consistency.mjs');
 const CORPUS = resolve(HERE, 'kernels', '__replay__', 'corpus');
 const read = (p) => readFileSync(p, 'utf8');

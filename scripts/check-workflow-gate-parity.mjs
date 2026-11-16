@@ -215,6 +215,9 @@ const NOT_A_GATE = new Map([
   ["replay-result-matrix.yml",
     "workflow_dispatch only; replays the fixture corpus on three OSes and uploads the result files. " +
     "No pull_request, push or merge_group trigger, never a required check, attests nothing."],
+  ["replay-house-attest.yml",
+    "workflow_dispatch + daily schedule only, guarded to the upstream repository; replays the fixture corpus " +
+    "and attests the result. No pull_request, push or merge_group trigger, never a required check."],
   ["swh-save.yml",
     "workflow_dispatch + push tags only, continue-on-error; no pull_request or merge_group trigger, so it gates no merge."],
   ["automerge-label.yml",
@@ -380,6 +383,14 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── HEADROOM-LIB-1 (2026-11-14) ─────────────────────────────────────────────
+  ["run-headroom.mjs",
+    "Advisory-first headroom search: preflight wires --advisory, which prints the base-point report, " +
+    "gates H1/H2/H3/H5/H6 and their planted red-and-green controls, and always exits 0, so a blocking " +
+    "CI step would re-run a gate that cannot fail yet. Spec section 6 makes it blocking only after one " +
+    "clean week, by Tim's call; the flip and the CI routing land together. It reads checked-in " +
+    "declarations, fixtures and kernels only (no network, no CI-only input), and the PRs that can change " +
+    "its verdict are kernel and scripts/ edits, which scripts-verify.yml's path-scoped full preflight already runs."],
   // ── KERNEL-ERRATA-SCHEMA-1 (2026-11-14) ────────────────────────────────────
   ["check-kernel-errata.mjs",
     "Kernel erratum schema and registry gate: preflight-only because scripts-verify.yml's " +
@@ -388,6 +399,25 @@ const PREFLIGHT_ONLY = new Map([
     "and the gate code sits under scripts/**), so a separate workflow step would only " +
     "duplicate that run."],
   ["check-kernel-errata.selftest.mjs", SELF_TEST],
+  // ── KERNEL-ERRATA-GATE-1-RESUME-1 (2026-11-15) ─────────────────────────────
+  ["check-kernel-errata-k2.mjs",
+    "K2 no-silent-fix sweep: advisory on PRs by design (always exits 0; making it blocking " +
+    "is a later row's flip), so a blocking CI step would re-run a gate that cannot fail yet. " +
+    "Preflight-only like check-kernel-errata.mjs: scripts-verify.yml's path-scoped full " +
+    "preflight already runs it on every PR that can change its inputs (scripts/**, " +
+    "chaingraph/errata/** and chaingraph/kernels/fixtures/** are all in scripts-verify's " +
+    "relevance list in scripts/ci-paths.json), and a kernel-module-only edit meets the gate " +
+    "at the hooked push exactly as it meets check-kernel-errata.mjs."],
+  ["check-kernel-errata-k2.selftest.mjs", SELF_TEST],
+  ["check-kernel-errata-k4.mjs",
+    "K4 predicate-width property test: advisory on PRs by design (always exits 0; a too-wide " +
+    "predicate is a count, not a red), so a blocking CI step would re-run a gate that cannot " +
+    "fail yet. Preflight-only like check-kernel-errata.mjs: scripts-verify.yml's path-scoped " +
+    "full preflight already runs it on every PR that can change its inputs (scripts/**, " +
+    "chaingraph/errata/** and chaingraph/kernels/fixtures/** are all in scripts-verify's " +
+    "relevance list in scripts/ci-paths.json), and a kernel-module-only edit meets the gate " +
+    "at the hooked push exactly as it meets check-kernel-errata.mjs."],
+  ["check-kernel-errata-k4.selftest.mjs", SELF_TEST],
   // ── Interpolated-markup ratchet (2026-11-07) ───────────────────────────────
   ["check-innerhtml-ratchet.mjs",
     "Advisory-first interpolated-markup ratchet over tools/*.html: preflight wires " +
@@ -612,6 +642,14 @@ const PREFLIGHT_ONLY = new Map([
     "trust-signals digest — a raw invocation anywhere PR-reachable would duplicate that writer. " +
     "Reads only tracked repo files — no network, no CI-only input. The write half is a " +
     "builder/main-side regen command, never a workflow step by name."],
+  ["gen-replay-house-line.mjs",
+    "Replay house line freshness --check (REPLAY-HOUSE-SIGN-1): replays the fixture corpus and " +
+    "byte-compares data/replay-house-line.json. Hard in preflight; its CI route is " +
+    "scripts-verify.yml full preflight, so a named workflow step would only duplicate the same " +
+    "suite. It is the COVERED gate of derived-artifacts.mjs id 'replay-house-line' (prAbsentOk " +
+    "advisory-on-PR, blocking-on-main), and the single writer is derived-artifacts-regen.yml. " +
+    "Reads only tracked repo files, no network. The write half is a main-side regen command."],
+  ["replay-house-line.selftest.mjs", SELF_TEST],
   ["derived-context-detached.test.mjs", SELF_TEST],
   // ── EVREG-1 (2026-09-22) ────────────────────────────────────────────────────
   ["check-evidence-register.mjs",
@@ -1383,6 +1421,15 @@ const PREFLIGHT_ONLY = new Map([
     "invocation anywhere PR-reachable would duplicate that writer. Reads only tracked repo " +
     "files plus local git (through gitEnv()) — no network, no CI-only input. The write half " +
     "is a builder/main-side regen command, never a workflow step by name."],
+  // ── VINTAGE-TABLE-1 (PR-3107-WORKFLOW-PARITY-CURE-1, 2026-11-14) ────────────
+  ["check-vintages.mjs",
+    "Vintage-table gate (V1, V2, V4) and its --self-test. Hard in preflight; its CI route is " +
+    "scripts-verify.yml full preflight (the workflow runs `node scripts/preflight.mjs`), so a " +
+    "named workflow step would only duplicate the same suite. Reads only tracked repo files " +
+    "(chaingraph/kernels/__vintages__, data/vintages.json, " +
+    "chaingraph/standard/clause-snapshot-registry.json) - no network, no CI-only input. " +
+    "Those input paths are in the scripts-verify relevance list (scripts/ci-paths.json), so a " +
+    "PR that changes only a vintage table still runs the full preflight."],
 ]);
 
 // ── DECLARATION SYNTAX (axis 2) ───────────────────────────────────────────────
