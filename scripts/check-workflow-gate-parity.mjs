@@ -399,6 +399,25 @@ const PREFLIGHT_ONLY = new Map([
     "and the gate code sits under scripts/**), so a separate workflow step would only " +
     "duplicate that run."],
   ["check-kernel-errata.selftest.mjs", SELF_TEST],
+  // ── KERNEL-ERRATA-GATE-1-RESUME-1 (2026-11-15) ─────────────────────────────
+  ["check-kernel-errata-k2.mjs",
+    "K2 no-silent-fix sweep: advisory on PRs by design (always exits 0; making it blocking " +
+    "is a later row's flip), so a blocking CI step would re-run a gate that cannot fail yet. " +
+    "Preflight-only like check-kernel-errata.mjs: scripts-verify.yml's path-scoped full " +
+    "preflight already runs it on every PR that can change its inputs (scripts/**, " +
+    "chaingraph/errata/** and chaingraph/kernels/fixtures/** are all in scripts-verify's " +
+    "relevance list in scripts/ci-paths.json), and a kernel-module-only edit meets the gate " +
+    "at the hooked push exactly as it meets check-kernel-errata.mjs."],
+  ["check-kernel-errata-k2.selftest.mjs", SELF_TEST],
+  ["check-kernel-errata-k4.mjs",
+    "K4 predicate-width property test: advisory on PRs by design (always exits 0; a too-wide " +
+    "predicate is a count, not a red), so a blocking CI step would re-run a gate that cannot " +
+    "fail yet. Preflight-only like check-kernel-errata.mjs: scripts-verify.yml's path-scoped " +
+    "full preflight already runs it on every PR that can change its inputs (scripts/**, " +
+    "chaingraph/errata/** and chaingraph/kernels/fixtures/** are all in scripts-verify's " +
+    "relevance list in scripts/ci-paths.json), and a kernel-module-only edit meets the gate " +
+    "at the hooked push exactly as it meets check-kernel-errata.mjs."],
+  ["check-kernel-errata-k4.selftest.mjs", SELF_TEST],
   // ── Interpolated-markup ratchet (2026-11-07) ───────────────────────────────
   ["check-innerhtml-ratchet.mjs",
     "Advisory-first interpolated-markup ratchet over tools/*.html: preflight wires " +
