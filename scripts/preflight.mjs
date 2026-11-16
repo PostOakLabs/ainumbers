@@ -1752,6 +1752,12 @@ const GATES = [
   // K5 append-only; the selftest plants a red and a green for each.
   ['Kernel errata K1/K3/K5 (witness, predicate purity, append-only)', 'node scripts/check-kernel-errata.mjs'],
   ['Kernel errata controls (RED+GREEN per gate)', 'node scripts/check-kernel-errata.selftest.mjs'],
+  // KERNEL-ERRATA-GATE-1-RESUME-1: K2 no silent fix and K4 predicate width. Both checkers
+  // are ADVISORY on PRs (always exit 0; making K2 blocking is a later row's flip).
+  ['Kernel errata K2 no-silent-fix sweep (advisory, always exits 0)', 'node scripts/check-kernel-errata-k2.mjs'],
+  ['Kernel errata K2 controls (RED+GREEN on real fix pairs)', 'node scripts/check-kernel-errata-k2.selftest.mjs'],
+  ['Kernel errata K4 predicate-width property test (advisory, always exits 0)', 'node scripts/check-kernel-errata-k4.mjs'],
+  ['Kernel errata K4 controls (too-narrow RED, too-wide counted)', 'node scripts/check-kernel-errata-k4.selftest.mjs'],
   // PAGE-KERNEL-PARITY-GATE-1 (stage 1): ADVISORY by construction, the checker always exits 0 (full estate about 50 s).
   ['Page-versus-kernel parity sweep (stage 1 advisory, always exits 0)', 'node scripts/check-page-kernel-parity.mjs'],
   ['Page-versus-kernel parity controls (RED+GREEN synthetic pages)', 'node scripts/check-page-kernel-parity.selftest.mjs'],
