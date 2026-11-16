@@ -205,6 +205,19 @@ export const COVERED = [
     share: 'n/a (new 2026-11-12, VERIFYBINDING-DIGEST-DEFAULT-1)',
   },
   {
+    // REPLAY-HOUSE-SIGN-1 (2026-11-14): the HOUSE LINE of the determinism record. Replays the
+    // tracked fixture corpus (scripts/replay-result.mjs) and writes the two digests that
+    // .github/workflows/replay-house-attest.yml signs on upstream. Content only, so a fixpoint
+    // of the committed kernels and fixtures; no PR hand-edits it (prAbsentOk, SO #35).
+    id: 'replay-house-line',
+    regen: 'node scripts/gen-replay-house-line.mjs',
+    gate: 'node scripts/gen-replay-house-line.mjs --check',
+    writes: ['data/replay-house-line.json'],
+    artifacts: ['data/replay-house-line.json'],
+    prAbsentOk: true,
+    share: 'n/a (new 2026-11-14, REPLAY-HOUSE-SIGN-1)',
+  },
+  {
     // PROVE-BASELINE-SINGLE-WRITER-1 (2026-10-19): the §18 deferred ratchet
     // baseline joins the single-writer set. Every prove PR and node PR used to
     // edit scripts/compute-proof-baseline.json (count + deferred_nodes), so
