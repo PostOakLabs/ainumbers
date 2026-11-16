@@ -1747,6 +1747,10 @@ const GATES = [
   // HEADROOM-LIB-1: distance to the nearest verdict change found on a declared grid. ADVISORY by construction:
   // the runner prints the base-point report, gates H1/H2/H3/H5/H6 and their planted controls, and always exits 0.
   ['Kernel headroom search (advisory, always exits 0)', 'node chaingraph/kernels/__headroom__/run-headroom.mjs --advisory'],
+  // KERNEL-ERRATA-SCHEMA-1: kernel erratum source records. K1 witness holds, K3 predicate purity,
+  // K5 append-only; the selftest plants a red and a green for each.
+  ['Kernel errata K1/K3/K5 (witness, predicate purity, append-only)', 'node scripts/check-kernel-errata.mjs'],
+  ['Kernel errata controls (RED+GREEN per gate)', 'node scripts/check-kernel-errata.selftest.mjs'],
   // PAGE-KERNEL-PARITY-GATE-1 (stage 1): ADVISORY by construction, the checker always exits 0 (full estate about 50 s).
   ['Page-versus-kernel parity sweep (stage 1 advisory, always exits 0)', 'node scripts/check-page-kernel-parity.mjs'],
   ['Page-versus-kernel parity controls (RED+GREEN synthetic pages)', 'node scripts/check-page-kernel-parity.selftest.mjs'],

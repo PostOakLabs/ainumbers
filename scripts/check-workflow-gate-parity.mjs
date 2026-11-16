@@ -388,6 +388,14 @@ const PREFLIGHT_ONLY = new Map([
     "clean week, by Tim's call; the flip and the CI routing land together. It reads checked-in " +
     "declarations, fixtures and kernels only (no network, no CI-only input), and the PRs that can change " +
     "its verdict are kernel and scripts/ edits, which scripts-verify.yml's path-scoped full preflight already runs."],
+  // ── KERNEL-ERRATA-SCHEMA-1 (2026-11-14) ────────────────────────────────────
+  ["check-kernel-errata.mjs",
+    "Kernel erratum schema and registry gate: preflight-only because scripts-verify.yml's " +
+    "path-scoped full preflight already runs it on every PR that can change its inputs " +
+    "(chaingraph/errata/** is in scripts-verify's relevance list in scripts/ci-paths.json, " +
+    "and the gate code sits under scripts/**), so a separate workflow step would only " +
+    "duplicate that run."],
+  ["check-kernel-errata.selftest.mjs", SELF_TEST],
   // ── Interpolated-markup ratchet (2026-11-07) ───────────────────────────────
   ["check-innerhtml-ratchet.mjs",
     "Advisory-first interpolated-markup ratchet over tools/*.html: preflight wires " +
