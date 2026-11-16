@@ -2,7 +2,7 @@
 // (FV-PBT-FLOOR-BUILD-SPEC.md). Authored against the APEXPORT-131 porting payload
 // (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES PASS-PENDING-XV
 // 2026-10-18, Builder-verifies-at-land 35/35).
-// kernel_digest_at_authoring: sha256:ef9a4ec29eef07d640c289044905539ac573ff080da3fb6a8d1b80148db52056
+// kernel_digest_at_authoring: sha256:3bd313964df3132d90e18f864f0b031d2f357b800ce7f0354d80004216c28679
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.
@@ -43,7 +43,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-766-parental-leave-income-gap.proptest.mjs
 
-import { compute } from '../art-766-parental-leave-income-gap.kernel.mjs';
+import { compute, buildArtifact } from '../art-766-parental-leave-income-gap.kernel.mjs';
 import { summarize, mulberry32, findShapeViolations, pick } from './_pbt-common.mjs';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -255,6 +255,37 @@ function checkP6CapDiagnostics() {
   return { name: 'P6 state_cap_binds and per-row windfall_capped restated', checked, violations };
 }
 
+// P7 (D6) -- buildArtifact_never_throws: an input the shared canonicalizer would reject
+// (junk 1e300, NaN, -Infinity, depth 511, more than 1e6 values; as an extra key, a declared
+// field, or pp itself) mints an artifact with a null execution_hash and a hash_refusal; a
+// clean input gets a 64-hex hash. Each unhashable class is one case (fixtures JSON cannot
+// carry NaN, -Infinity or 1e6 values, and the parity gate runs every fixtures vector
+// through compute(), so the classes live here).
+async function checkP7BuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 511; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const hostile = [
+    basePP({ junk: 1e300 }), basePP({ junk: NaN }), basePP({ junk: -Infinity }), basePP({ junk: deep }), basePP({ junk: wide }),
+    basePP({ base_salary: NaN }), basePP({ base_salary: 1e300 }), NaN, -Infinity, 1e300,
+  ];
+  for (const pp of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) { violations++; console.log('P7 violation: refusal artifact shape'); }
+      if (/e\+3\d\d|Infinity/.test(JSON.stringify(r))) { violations++; console.log('P7 violation: hostile value echoed'); }
+    } catch (e) { violations++; console.log(`P7 violation: buildArtifact threw: ${String(e.message).slice(0, 80)}`); }
+  }
+  checked++;
+  try {
+    const art = await buildArtifact(basePP());
+    if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('P7 violation: clean input lost its hash'); }
+  } catch (e) { violations++; console.log(`P7 violation: buildArtifact threw on clean input: ${String(e.message).slice(0, 80)}`); }
+  return { name: 'P7 buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -269,6 +300,7 @@ const properties = [
   checkP4DomainRefusal(),
   checkP5RecoveryVerdict(),
   checkP6CapDiagnostics(),
+  await checkP7BuildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test`);
 const ok = summarize(KERNEL_ID, oracle, properties);
