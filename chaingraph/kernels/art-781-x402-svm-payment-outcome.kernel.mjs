@@ -510,11 +510,28 @@ export function compute(pp) {
   const unique = matching.length === 1;
   const match = unique ? matching[0].ins : null;
 
+  // D1 / D2 safety rules (no spec verifier rule; the token program enforces both on chain, so a
+  // transaction that breaks either cannot land and must never read as a PASS): the matched
+  // TransferChecked must carry the declared mint decimals and run under the mint's declared token
+  // program. The ATA still matches under either program (spec S1.4 and S3.1: derived for both).
+  if (match !== null) {
+    if (match.decimals !== pp.mint.decimals) {
+      return refusal('TRANSFER_DECIMALS_MISMATCH', 'instruction ' + match.index + ' carries TransferChecked decimals ' + match.decimals + ' but mint.decimals is ' + pp.mint.decimals + '; the token program rejects a decimals mismatch on chain, so this transaction cannot land.');
+    }
+    if (match.token_program !== declaredTokenProgram) {
+      return refusal('TOKEN_PROGRAM_MISMATCH', 'instruction ' + match.index + ' runs under ' + JSON.stringify(match.token_program) + ' but the mint is declared under ' + JSON.stringify(declaredTokenProgram) + '; a TransferChecked under a program other than the mint\'s owning program cannot land.');
+    }
+  }
+
   // wrong-program ATA: the destination equals the ATA under the OTHER token program while
   // the mint is declared under a different one (the substitution free derivations hide).
+  // D3: the scan runs unconditionally. With no unique match it decides the destination verdict;
+  // with a unique match the payment still PASSES (spec S1.4 rejects only MORE THAN ONE MATCHING
+  // transfer), and the extra transfer is surfaced by EXTRA_TOKEN_TRANSFER_PRESENT (spec S3.1
+  // Path 1 allows a single top-level TransferChecked when there are no splits).
   let wrongProgramAta = false;
   let wrongProgramDetail = null;
-  if (!unique) {
+  {
     for (const t of transfers) {
       if (t.mint_s !== rq.asset) continue;
       const otherProgram = t.token_program === 'token-2022' ? 'spl-token' : 'token-2022';
@@ -591,13 +608,17 @@ export function compute(pp) {
     const specReading = SPEC_PIN + ' L166-L174 (S1.2: correct destination account, the ATA derived from pay_to and asset under the relevant token program; correct token program, spl-token or token-2022)';
     const refReading = REF_PIN + ': scheme.ts derives the expected ATA for the parsed TransferChecked; the derivation under the classic program only is the wrong-derivation class the pinned ATA source deprecates for Token-2022 mints';
     let verdict, evidence;
-    if (wrongProgramAta) {
+    if (unique && transfers.length > 1) {
+      compliance_flags.push('EXTRA_TOKEN_TRANSFER_PRESENT');
+    }
+    if (wrongProgramAta && !unique) {
       verdict = 'FAIL';
       evidence = wrongProgramDetail + '; the mint is declared under ' + JSON.stringify(declaredTokenProgram) + ', so the classic-program ATA is not the account the requirements name';
       compliance_flags.push('WRONG_PROGRAM_ATA');
     } else if (unique) {
       verdict = 'PASS';
-      evidence = 'instruction ' + match.index + ' destination equals the recomputed ATA under ' + match.token_program + ' (' + matching[0].expected_ata + ')';
+      evidence = 'instruction ' + match.index + ' destination equals the recomputed ATA under ' + match.token_program + ' (' + matching[0].expected_ata + ')'
+        + (transfers.length > 1 ? '; ' + (transfers.length - 1) + ' further pasted TransferChecked instruction(s) do not match, so the payment still passes (spec S1.4 rejects only more than one MATCHING transfer) and EXTRA_TOKEN_TRANSFER_PRESENT is raised because S3.1 Path 1 allows a single top-level TransferChecked when there are no splits' + (wrongProgramDetail !== null ? '; ' + wrongProgramDetail : '') : '');
     } else if (matching.length === 0) {
       verdict = 'FAIL';
       evidence = 'no pasted transfer lands on the recomputed destination ATA under either token program (declared-program ATA ' + (ataDeclared === null ? 'null' : ataDeclared.address) + ', classic-program ATA ' + (ataClassic === null ? 'null' : ataClassic.address) + ')';
@@ -804,7 +825,7 @@ export function compute(pp) {
     signature_checks: sigChecks,
     verdicts,
     clause_summary,
-    note: 'Clause-verdict recompute of an x402 exact-scheme Solana payment over pasted values only. Spec readings pinned at ' + SPEC_PIN + '; reference readings at ' + REF_PIN + '. The amount clause is where the readings split: the spec outcome definition accepts overpayment (S1.4 L187-L192) while the static path rejects any amount inequality (scheme.ts L1160), and the smart-wallet paths accept gross >= (smartWalletVerification.ts L657-L662, L727-L781) and net-delta >= (L795-L803, L837-L844). On a Token-2022 transfer-fee mint the static path compares the gross instruction amount while the balance-delta readings compare the net, so one payment can pass one path and fail another; the withheld amount is min(ceil(gross*bps/10000), maximum_fee), the Token-2022 arithmetic (copied from the estate transfer-fee node). Both Kora advisories name these seams (' + GHSA_PIN + '). Transaction V1 is no longer spec-undefined: S1.5 (L200+) defines version admission and the reference implements it (scheme.ts L359-L364, L767-L774), so the staged spec-undefined clause was dropped at the re-pin and replaced by this admission rule. The recipient ATA is derived under both token programs with the chain predecessor derivation (seeds [wallet, token program id, mint] under ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL). Limits: only pasted instructions are matched (top-level plus any the caller marks is_inner); the spec S1 rule spans the full CPI trace, so a smart-wallet payment whose inner instructions are not pasted shows matching_count 0, never a verdict the bytes cannot support; lookup-table accounts must be pasted resolved; splits are refused. This kernel reads nothing on-chain, calls no facilitator, checks no balance and moves no funds; verdict vocabulary is PASS, FAIL, DIVERGES, SPEC_UNDEFINED.',
+    note: 'Clause-verdict recompute of an x402 exact-scheme Solana payment over pasted values only. Spec readings pinned at ' + SPEC_PIN + '; reference readings at ' + REF_PIN + '. The amount clause is where the readings split: the spec outcome definition accepts overpayment (S1.4 L187-L192) while the static path rejects any amount inequality (scheme.ts L1160), and the smart-wallet paths accept gross >= (smartWalletVerification.ts L657-L662, L727-L781) and net-delta >= (L795-L803, L837-L844). On a Token-2022 transfer-fee mint the static path compares the gross instruction amount while the balance-delta readings compare the net, so one payment can pass one path and fail another; the withheld amount is min(ceil(gross*bps/10000), maximum_fee), the Token-2022 arithmetic (copied from the estate transfer-fee node). Both Kora advisories name these seams (' + GHSA_PIN + '). Transaction V1 is no longer spec-undefined: S1.5 (L200+) defines version admission and the reference implements it (scheme.ts L359-L364, L767-L774), so the staged spec-undefined clause was dropped at the re-pin and replaced by this admission rule. Two guard rules sit outside the spec text (it sets no verifier rule for them, the token program enforces them on chain): the matched TransferChecked decimals must equal mint.decimals (refusal TRANSFER_DECIMALS_MISMATCH) and its token program must equal the mint declared token program (refusal TOKEN_PROGRAM_MISMATCH). An extra non-matching TransferChecked beside one correct match does not change the verdict, because S1.4 rejects only more than one MATCHING transfer, but S3.1 Path 1 allows a single top-level TransferChecked when there are no splits, so the flag EXTRA_TOKEN_TRANSFER_PRESENT is raised and transfer_checked_count reports the count. The recipient ATA is derived under both token programs with the chain predecessor derivation (seeds [wallet, token program id, mint] under ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL). Limits: only pasted instructions are matched (top-level plus any the caller marks is_inner); the spec S1 rule spans the full CPI trace, so a smart-wallet payment whose inner instructions are not pasted shows matching_count 0, never a verdict the bytes cannot support; lookup-table accounts must be pasted resolved; splits are refused. This kernel reads nothing on-chain, calls no facilitator, checks no balance and moves no funds; verdict vocabulary is PASS, FAIL, DIVERGES, SPEC_UNDEFINED.',
   };
 
   return { output_payload, compliance_flags };

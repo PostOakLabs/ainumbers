@@ -1,6 +1,6 @@
 // @ts-nocheck — floor file: node:crypto/Buffer reference section needs it (precedent art-780).
 // art-781-x402-svm-payment-outcome property-test floor.
-// kernel_digest_at_authoring: sha256:8306bd6d21e0fff19d298b5c4b71c779db2a37d4c9a9692289fa97618642a4d0
+// kernel_digest_at_authoring: sha256:8c894a6bb5f51602b9bee4ecc45f29213e2b24f6e6d8d6061de582e672e4b0ae
 // (re-pinned X402-SVM-OUTCOME-CI-HEAL-1: the KERNEL-INPUT-USAGE-CHECK-1 heal removed the dead
 //  `const mintDecimals = pp.mint.decimals;` local at old line 444 — behavior-neutral, all 27
 //  fixture goldens deep-equal byte-identically before and after)
@@ -130,7 +130,7 @@ for (const g of GOLDENS) {
 
 // ---- fixture oracle --------------------------------------------------------
 const fixtures = JSON.parse(readFileSync(path.join(HERE, '..', 'fixtures', 'art-781-x402-svm-payment-outcome.fixtures.json'), 'utf8'));
-ok('fixtures.count', fixtures.vectors.length === 33,String(fixtures.vectors.length));
+ok('fixtures.count', fixtures.vectors.length === 40,String(fixtures.vectors.length));
 for (const v of fixtures.vectors) {
   const out = compute(v.policy_parameters);
   const op = out.output_payload;
