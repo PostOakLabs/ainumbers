@@ -2981,6 +2981,20 @@ function psChangedGateChecks(files) {
   return checks;
 }
 
+// PREFLIGHT-AFFECTED-GATE-PARITY-1 (2026-11-14): the workflow gate parity gate
+// is the one full-suite gate a gate-machinery diff can actually move (it compares
+// this file's GATES against .github/workflows), yet it rode neither local leg:
+// PRs 3107/3117/3052/3099 ran their pre-push legs clean and first-failed in CI on
+// it (reverse-presence, unwired-preflight-gate). Scoped, not always-on: the
+// verdict can only change when one of its three inputs changes, so the gate
+// joins the leg exactly when the diff touches preflight.mjs, the parity checker
+// itself, or a workflow file. Measured about 1 s when it does run.
+const PS_PARITY_TRIGGER = /^(scripts\/preflight\.mjs|scripts\/check-workflow-gate-parity\.mjs|\.github\/workflows\/[^/]+\.ya?ml)$/;
+function psParityGateChecks(files) {
+  if (!files.some((f) => PS_PARITY_TRIGGER.test(f))) return [];
+  return [['Workflow gate parity (no CI↔preflight drift)', 'node scripts/check-workflow-gate-parity.mjs']];
+}
+
 async function runPushSafetySuite(selfTest) {
   const files = psChangedFiles();
   const kernelIds = psTouchedKernelIds(files);
@@ -2988,6 +3002,7 @@ async function runPushSafetySuite(selfTest) {
     ...QUICK_GATES,
     ['Changed-file secret scan (PREPUSH-SAFETY-LEG-1)', '__SECRET_SCAN__'],
     ...kernelIds.map((id) => [`Kernel gates (touched kernel ${id}, --fast --keep-going)`, `node scripts/kernel-preflight.mjs ${id} --fast --keep-going`]),
+    ...psParityGateChecks(files),
     ...psChangedGateChecks(files),
   ];
   if (selfTest) {
@@ -3003,12 +3018,30 @@ async function runPushSafetySuite(selfTest) {
     }
     const probe = psSecretScan(['nonexistent-file-xyz']); // deleted/absent path must not crash the scan
     if (!Array.isArray(probe)) failures.push('secret scan not resilient to absent paths');
+    // PREFLIGHT-AFFECTED-GATE-PARITY-1: a gate-machinery diff can move CI<->preflight
+    // parity only through preflight.mjs, the parity checker itself, or a workflow file;
+    // when one of those is in the changed set the leg must carry the parity gate.
+    // The probes are diff-independent (structural, like the kernel/env probes above);
+    // the last assertion judges this tree's real changed set.
+    const parityProbe = psParityGateChecks(['scripts/preflight.mjs']);
+    if (parityProbe.length !== 1 || parityProbe[0][1] !== 'node scripts/check-workflow-gate-parity.mjs') {
+      failures.push('push-safety parity probe broken for a preflight.mjs diff');
+    }
+    if (psParityGateChecks(['.github/workflows/ci.yml']).length !== 1) {
+      failures.push('push-safety parity probe broken for a workflow diff');
+    }
+    if (psParityGateChecks(['README.md', 'scripts/check-copy-hallmarks.mjs']).length !== 0) {
+      failures.push('push-safety parity gate must not ride a non-gate-machinery diff');
+    }
+    if (files.some((f) => PS_PARITY_TRIGGER.test(f)) && !labels.some((l) => l.includes('Workflow gate parity'))) {
+      failures.push('push-safety is missing the workflow gate parity gate for a gate-machinery diff');
+    }
     if (failures.length) {
       for (const f of failures) console.error(`   ✗ ${f}`);
       console.error('❌ --push-safety --self-test FAILED.');
       process.exit(1);
     }
-    console.log(`✅ --push-safety --self-test PASSED — quick set included, secret scan present, kernel/env classification and scan resilience green (${gates.length} gates in the leg for this tree).`);
+    console.log(`✅ --push-safety --self-test PASSED — quick set included, secret scan present, parity gate wired for gate-machinery diffs, kernel/env classification and scan resilience green (${gates.length} gates in the leg for this tree).`);
     process.exit(0);
   }
   const t0 = Date.now();
