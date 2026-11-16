@@ -559,11 +559,37 @@ if (!shouldStop()) {
   } else {
     const nav = run('Node page exists + linked from a hub', 'node scripts/check-nav-reachability.mjs');
     const pageRel = `chaingraph/${ID}.html`;
-    const isIsland = nav.out.includes(pageRel);
-    if (nav.status === 'PASS' || !isIsland) {
-      record({ label: 'Node page exists + linked from a hub', status: 'PASS', ms: nav.ms, out: `chaingraph/${ID}.html exists and is not reported as an unreachable island.` });
-    } else {
+    // NAV-ISLAND-SCOPE-1 (2026-11-16): judge ONLY this PR's own page. The old rule
+    // substring-matched this page's path ANYWHERE in the gate's combined output, but the
+    // gate names our page in places that are NOT island findings — most notably the
+    // PENDING-ASSEMBLE excusal section, which is the NORMAL state of a new node page
+    // until main-side registration lands (SO #35). Measured 2026-11-13, merge_group run
+    // 43389851037: main's derived regen for chaingraph/art-832-card-data-flow-scope.html
+    // had failed its copy-hallmarks cap, so that merged-but-unlinked page sat on main,
+    // this sub-gate exited 1 on it, and our own excused page's path in the same output
+    // made this step FAIL the unrelated art-816 preflight with "1 NEW island(s):
+    // chaingraph/art-832-...". A page on main that is unreachable because main's regen
+    // is red must not fail another PR's kernel preflight. The gate now prints one
+    // machine-readable verdict line on both plain-check exits —
+    //   nav-reachability: FAILING-ISLANDS <n>[ <path>...]
+    // — and this check reads THAT set, never the prose: our page in the set is a real
+    // island we own (wire it into a hub); our page merely excused or reachable is a
+    // PASS; islands outside the set belong to main's tree and their own rows. A
+    // non-zero exit with no parsable line (sub-gate NOT_EVALUABLE, format drift) fails
+    // CLOSED — a result we cannot read is never a green (NAV-SUBGATE-CRASH-1, SO #34c).
+    const line = nav.out.split('\n').find((l) => l.startsWith('nav-reachability: FAILING-ISLANDS'));
+    const toks = line ? line.trim().split(/\s+/) : null;
+    const count = toks ? Number(toks[2]) : NaN;
+    const wellFormed = !!toks && toks.length >= 3 && Number.isInteger(count) && count === toks.length - 3;
+    const failing = wellFormed ? new Set(toks.slice(3)) : null;
+    if (nav.status === 'PASS') {
+      record({ label: 'Node page exists + linked from a hub', status: 'PASS', ms: nav.ms, out: `chaingraph/${ID}.html exists and check-nav-reachability.mjs passed with 0 failing islands.` });
+    } else if (!failing) {
+      record({ label: 'Node page exists + linked from a hub', status: 'FAIL', ms: nav.ms, out: `check-nav-reachability.mjs failed but printed no parsable FAILING-ISLANDS verdict line — its result cannot be classified, so this check fails closed rather than guess (NAV-SUBGATE-CRASH-1: a verdict that was never computed is never a green). Nothing is attributed to chaingraph/${ID}.html.\n${nav.out}` });
+    } else if (failing.has(pageRel)) {
       record({ label: 'Node page exists + linked from a hub', status: 'FAIL', ms: nav.ms, out: `chaingraph/${ID}.html is an unreachable island per check-nav-reachability.mjs (NAV-ISLAND-1) — wire it into a hub.\n${nav.out}` });
+    } else {
+      record({ label: 'Node page exists + linked from a hub', status: 'PASS', ms: nav.ms, out: `chaingraph/${ID}.html is NOT among the ${count} new island(s) check-nav-reachability.mjs failed on (NAV-ISLAND-SCOPE-1: ${[...failing].join(', ')} sit on main's tree and are owned by main-side regen or their own rows — a page unreachable because main's regen is red must not fail this PR's kernel preflight).\n${nav.out}` });
     }
   }
 }
