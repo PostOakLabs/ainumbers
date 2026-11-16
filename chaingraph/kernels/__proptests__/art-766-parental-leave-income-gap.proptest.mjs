@@ -2,7 +2,7 @@
 // (FV-PBT-FLOOR-BUILD-SPEC.md). Authored against the APEXPORT-131 porting payload
 // (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES PASS-PENDING-XV
 // 2026-10-18, Builder-verifies-at-land 35/35).
-// kernel_digest_at_authoring: sha256:ef9a4ec29eef07d640c289044905539ac573ff080da3fb6a8d1b80148db52056
+// kernel_digest_at_authoring: sha256:d9dc1b27c5a74ee4b93b812603ddf7fdc04efa07cadab91ad18dfa2bc3c26aa2
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.
