@@ -214,6 +214,17 @@ try {
     : '';
 }
 ok(/fixpoint ok|stale-by-absence/.test(writerVerdict), modOnDisk === null ? 'writer verdict consistent with the absent module (PR-head shape)' : 'writer is a fixpoint');
+// Per-entry regen scoping (DERIVED-SET-SELFTEST-1 CLASS B): each COVERED entry's regen
+// writes only that entry's surfaces. When the snapshot module is absent (PR head) the
+// snapshot scope has nothing to prove on this tree and is skipped here.
+const SCOPES = modOnDisk === null ? ['errata-page-regions'] : ['errata-reader-snapshot', 'errata-page-regions'];
+for (const scoped of SCOPES) {
+  let scopedVerdict = '';
+  try {
+    scopedVerdict = execFileSync(process.execPath, [at('scripts/gen-errata-snapshot.mjs'), CHECK_FLAG, '--only', scoped], { encoding: 'utf8' });
+  } catch { scopedVerdict = ''; }
+  ok(new RegExp(`fixpoint ok .*scoped to ${scoped}`).test(scopedVerdict), `scoped regen (${scoped}) is a fixpoint over its own surfaces`);
+}
 ok(VERIFY.includes("from './errata-check.mjs'"), 'verify.html imports the shared reader');
 ok(VERIFY.includes("from './errata/errata-snapshot.mjs'"), 'verify.html imports the snapshot');
 ok(VERIFY.includes('window.__errataUpdate'), 'verify.html arms the errata updater');

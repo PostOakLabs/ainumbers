@@ -4,6 +4,9 @@
  *
  *   node scripts/gen-errata-snapshot.mjs          # write (main-side regen workflow)
  *   node scripts/gen-errata-snapshot.mjs --check  # freshness gate: exit 1 if output differs
+ *   node scripts/gen-errata-snapshot.mjs --only <COVERED-id>   # scoped per-entry regen
+ *       (errata-reader-snapshot = the snapshot module only;
+ *        errata-page-regions    = the two pages' generated regions only)
  *
  * Bakes the page-load errata snapshot from the recorded module errata and the published
  * checkpoint, and splices the three generated surfaces:
@@ -36,6 +39,20 @@ const BUNDLE_PAGE = 'chaingraph/receipt-bundle-verify.html';
 const READER_PATH = 'chaingraph/errata-check.mjs';
 
 const CHECK = process.argv.includes('--check');
+
+// Per-entry regen scoping (DERIVED-SET-SELFTEST-1 CLASS B): the live regen selftest
+// executes each COVERED entry's regen command and refuses any write outside that
+// entry's own artifacts[]. One writer owns three surfaces split across two COVERED
+// entries (whole-file snapshot module vs the two hand pages' regions), so each entry
+// declares a scoped regen and the default (no --only) writes all three for the
+// main-side regen workflow and local full runs.
+const ONLY = (() => {
+  const i = process.argv.indexOf('--only');
+  if (i === -1) return null;
+  const v = process.argv[i + 1];
+  if (v !== 'errata-reader-snapshot' && v !== 'errata-page-regions') die(`--only must name a COVERED entry id of this writer (errata-reader-snapshot | errata-page-regions), got ${JSON.stringify(v)}`);
+  return v;
+})();
 
 function die(msg) {
   console.error(`gen-errata-snapshot: REFUSED ${msg}`);
@@ -206,16 +223,21 @@ function renderVendoredSnapshot() {
 
 // ── outputs ───────────────────────────────────────────────────────────────────────────
 const out = [];
-out.push([SNAPSHOT_PATH, renderSnapshotModule()]);
+const wantSnapshot = ONLY === null || ONLY === 'errata-reader-snapshot';
+const wantRegions = ONLY === null || ONLY === 'errata-page-regions';
 
-const pageText = readFileSync(join(ROOT, ERRATA_PAGE), 'utf8');
-out.push([ERRATA_PAGE, splice(pageText, '<!-- KERNEL-ERRATA-TABLE:START', '<!-- KERNEL-ERRATA-TABLE:END -->', renderErrataTableRegion(), ERRATA_PAGE)]);
+if (wantSnapshot) out.push([SNAPSHOT_PATH, renderSnapshotModule()]);
 
-const bundleText = readFileSync(join(ROOT, BUNDLE_PAGE), 'utf8');
-out.push([BUNDLE_PAGE, splice(
-  splice(bundleText, '<!-- ERRATA-READER-VENDORED:START', '<!-- ERRATA-READER-VENDORED:END -->', renderVendoredReader(), BUNDLE_PAGE + ' (reader)'),
-  '<!-- ERRATA-SNAPSHOT-VENDORED:START', '<!-- ERRATA-SNAPSHOT-VENDORED:END -->', renderVendoredSnapshot(), BUNDLE_PAGE + ' (snapshot)'
-)]);
+if (wantRegions) {
+  const pageText = readFileSync(join(ROOT, ERRATA_PAGE), 'utf8');
+  out.push([ERRATA_PAGE, splice(pageText, '<!-- KERNEL-ERRATA-TABLE:START', '<!-- KERNEL-ERRATA-TABLE:END -->', renderErrataTableRegion(), ERRATA_PAGE)]);
+
+  const bundleText = readFileSync(join(ROOT, BUNDLE_PAGE), 'utf8');
+  out.push([BUNDLE_PAGE, splice(
+    splice(bundleText, '<!-- ERRATA-READER-VENDORED:START', '<!-- ERRATA-READER-VENDORED:END -->', renderVendoredReader(), BUNDLE_PAGE + ' (reader)'),
+    '<!-- ERRATA-SNAPSHOT-VENDORED:START', '<!-- ERRATA-SNAPSHOT-VENDORED:END -->', renderVendoredSnapshot(), BUNDLE_PAGE + ' (snapshot)'
+  )]);
+}
 
 function readdirSafe(p) { try { return readdirSync(p); } catch { return null; } }
 
@@ -231,9 +253,9 @@ if (CHECK) {
     console.error('Run: node scripts/gen-errata-snapshot.mjs   (main-side regen owns this output; on a PR this gate is advisory)');
     process.exit(1);
   }
-  console.log(`gen-errata-snapshot --check: fixpoint ok (${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}, checkpoint size ${cp.size}, 3 generated surfaces).`);
+  console.log(`gen-errata-snapshot --check: fixpoint ok (${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}, checkpoint size ${cp.size}, ${out.length} generated surface${out.length === 1 ? '' : 's'}${ONLY ? `, scoped to ${ONLY}` : ''}).`);
   process.exit(0);
 }
 
 for (const [rel, rendered] of out) writeFileSync(join(ROOT, rel), rendered);
-console.log(`gen-errata-snapshot: wrote ${out.map(([rel]) => rel).join(', ')} (${entries.length} entries, checkpoint size ${cp.size}).`);
+console.log(`gen-errata-snapshot: wrote ${out.map(([rel]) => rel).join(', ')} (${entries.length} entries, checkpoint size ${cp.size}${ONLY ? `, scoped to ${ONLY}` : ''}).`);

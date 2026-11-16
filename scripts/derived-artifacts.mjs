@@ -214,7 +214,7 @@ export const COVERED = [
     // still ships on every PR head inside receipt-bundle-verify.html's vendored block
     // (entry 2), so the self-contained page works from the moment the PR lands.
     id: 'errata-reader-snapshot',
-    regen: 'node scripts/gen-errata-snapshot.mjs',
+    regen: 'node scripts/gen-errata-snapshot.mjs --only errata-reader-snapshot',
     gate: 'node scripts/gen-errata-snapshot.mjs --check',
     writes: ['chaingraph/errata/errata-snapshot.mjs'],
     artifacts: ['chaingraph/errata/errata-snapshot.mjs'],
@@ -231,7 +231,7 @@ export const COVERED = [
     // REGION_WRITER_IDS: a PR authors the prose around these regions and carries the
     // pages; main's regen owns the block interiors after merge.
     id: 'errata-page-regions',
-    regen: 'node scripts/gen-errata-snapshot.mjs',
+    regen: 'node scripts/gen-errata-snapshot.mjs --only errata-page-regions',
     gate: 'node scripts/gen-errata-snapshot.mjs --check',
     writes: ['errata.html', 'chaingraph/receipt-bundle-verify.html'],
     artifacts: ['errata.html', 'chaingraph/receipt-bundle-verify.html'],
