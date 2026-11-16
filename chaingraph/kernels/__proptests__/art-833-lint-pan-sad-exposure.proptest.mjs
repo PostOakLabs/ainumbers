@@ -2,14 +2,14 @@
 // Authored by PAN-SAD-EXPOSURE-LINT-1, 2026-11-04.
 // spec: node shard art-833-lint-pan-sad-exposure.json, cited_clause_digest (PCI DSS v4.0.1
 //       excerpts 3.3.1.x / 3.4.1 / 3.5.1.x registered in clause-snapshot-registry.json)
-// kernel_digest_at_authoring: sha256:11790e57751c5175dc900584b64b2e998a61dd85631d7e9c3ce4dd41c276fb1d
+// kernel_digest_at_authoring: sha256:07dbbbd2dc31801c760e3185eb4279d959cf912d990f48a07f0373beb5974e72
 // human_sign_off: PENDING
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
 // Run: node chaingraph/kernels/__proptests__/art-833-lint-pan-sad-exposure.proptest.mjs
 
-import { compute } from '../art-833-lint-pan-sad-exposure.kernel.mjs';
+import { compute, buildArtifact } from '../art-833-lint-pan-sad-exposure.kernel.mjs';
 import { runFixtureOracle, summarize, deepEqual } from './_pbt-common.mjs';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -148,6 +148,49 @@ function checkWellFormedInputNeverRefused() {
   return { name: 'well_formed_conformance_inputs_never_refused', checked, violations };
 }
 
+// P7 (D6) buildArtifact_never_throws: an input whose {policy_parameters, output_payload}
+// preimage the shared canonicalizer would reject mints an artifact with a null execution_hash
+// and a hash_refusal beside it; a clean input (accepted or refused) gets a 64-hex hash.
+async function checkBuildArtifactNeverThrows() {
+  let checked = 0;
+  let violations = 0;
+  /** @type {any} */ let deep = 1;
+  for (let i = 0; i < 600; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const hostile = [
+    { zzz: 1e300 }, { zzz: Infinity }, { zzz: -Infinity }, { zzz: NaN },
+    { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } }, { zzz: deep }, { zzz: wide },
+  ];
+  for (const delta of hostile) {
+    checked += 1;
+    try {
+      const art = await buildArtifact({ ...baseRecord('prefix:6,suffix:4'), ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) {
+        violations += 1;
+        console.log('P7 violation: artifact shape for ' + Object.keys(delta)[0]);
+      }
+    } catch (e) {
+      violations += 1;
+      console.log('P7 violation: buildArtifact threw: ' + String((e && e.message) || e).slice(0, 80));
+    }
+  }
+  for (const pp of [baseRecord('prefix:6,suffix:4'), {}, null, 5, []]) {
+    checked += 1;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) {
+        violations += 1;
+        console.log('P7 violation: clean input lost its hash');
+      }
+    } catch (e) {
+      violations += 1;
+      console.log('P7 violation: buildArtifact threw on clean input: ' + String((e && e.message) || e).slice(0, 80));
+    }
+  }
+  return { name: 'buildArtifact_never_throws', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -162,6 +205,7 @@ const properties = [
   checkRefusalTotality(),
   checkFlagMirror(),
   checkWellFormedInputNeverRefused(),
+  await checkBuildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — PAN masking / SAD retention / digest exposure.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
