@@ -16,6 +16,8 @@ Deterministic audit-sampling arithmetic in three caller-declared functions dispa
 - sampling_interval (integer, optional)
 - sampled_items (array, optional)
 - amounts (array, optional)
+- mad_min_count (integer, optional)
+- applicability_declared (boolean, optional)
 
 ## Outputs
 
@@ -34,6 +36,11 @@ Deterministic audit-sampling arithmetic in three caller-declared functions dispa
 - chi_square_statistic (number,null, optional)
 - critical_value (number, optional)
 - deviation_flag (boolean,null, optional)
+- mad (string,null, optional)
+- mad_band (string,null, optional)
+- mad_reason (string,null, optional)
+- mad_min_count (integer, optional)
+- mad_applicability (string, optional)
 - trace (string, required)
 - overall (string, required)
 - warnings (array, optional)
