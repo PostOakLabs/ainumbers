@@ -2,10 +2,10 @@
   "schema_version": "mcp-catalog-v1",
   "server_id": "ainumbers-fintech-suite",
   "name": "AINumbers Fintech Intelligence Suite",
-  "description": "1265 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
+  "description": "1273 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
   "base_url": "https://ainumbers.co",
-  "generated": "2026-11-14",
-  "tool_count": 1264,
+  "generated": "2026-11-16",
+  "tool_count": 1272,
   "tools": [
     {
       "name": "calculate_a2a_fee_route",
@@ -19318,10 +19318,12 @@
             "type": "boolean"
           },
           "cert_not_expired": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "expiry attestation; only the exact boolean true supports chain trust, and an absent, null, numeric or string value refuses"
           },
           "revocation_status": {
-            "type": "string"
+            "type": "string",
+            "description": "allowlist: only the exact value 'good' can accept; 'revoked', 'unknown', empty or junk strings refuse with REVOCATION_STATUS_NOT_GOOD"
           }
         },
         "required": [
@@ -19346,7 +19348,7 @@
         "url": "https://ainumbers.co/chaingraph/art-124-content-credential-signature-verifier.html",
         "ap2_export": true,
         "execution_type": "browser-reference",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "prefill": false
       }
     },
@@ -25419,6 +25421,63 @@
       }
     },
     {
+      "name": "validate_emv_mpm_qr_payload",
+      "description": "Decodes and validates an EMV merchant-presented QR payload against a pluggable national scheme profile: generic EMV MPM, Fiji FJQR, or Brazil Pix BR Code. TLV structure, CRC-16 over the payload including the 6304 literal, static versus dynamic rules, scheme-mandatory tags, and the signed dynamic-payload envelope shape. Merchant-bearing values are never echoed; no URL is ever fetched; no signature is verified.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "payload",
+          "profile"
+        ],
+        "properties": {
+          "payload": {
+            "type": "string",
+            "description": "The EMV merchant-presented QR payload string. Synthetic payloads only; merchant-bearing values are never echoed back."
+          },
+          "profile": {
+            "type": "string",
+            "enum": [
+              "generic",
+              "fjqr",
+              "pix_brcode"
+            ],
+            "description": "Scheme profile to validate against: generic EMV MPM, Fiji FJQR, or Brazil Pix BR Code."
+          },
+          "expect": {
+            "type": "string",
+            "enum": [
+              "static",
+              "dynamic"
+            ],
+            "description": "Optional assertion on the derived mode.",
+            "x_null_distinct": true
+          },
+          "dynamic_envelope": {
+            "type": "object",
+            "description": "Optional JWS protected-header skeleton (alg, typ, kid, jku) for a Pix dynamic payload. Shape check only."
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "783-emv-mpm-qr-validator",
+        "category": "Cross-Border Payments: CBPR+ / ISO 20022 Conformance",
+        "tags": [
+          "emv-qr",
+          "qr-code",
+          "fiji-fjqr",
+          "pix-brcode",
+          "crc16",
+          "scheme-profile",
+          "mcp:validate_emv_mpm_qr_payload"
+        ],
+        "url": "https://ainumbers.co/chaingraph/783-emv-mpm-qr-validator.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
       "name": "validate_cbr_data_return",
       "description": "Validates an aggregate correspondent-banking data return against an illustrative profile-driven template: required fields, roll-forward consistency, corridor sums, period sanity, key-currency and concentration flags, readiness roll-up. Aggregate-only: free-text leaves are refused by path with no echo.",
       "inputSchema": {
@@ -25486,6 +25545,92 @@
           "mcp:validate_cbr_data_return"
         ],
         "url": "https://ainumbers.co/chaingraph/784-cbr-data-return-validator.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "assess_qr_golive_readiness",
+      "description": "Assesses a QR payment scheme's pilot, production, or cross-border go-live readiness through weighted blocking and advisory gates plus a Level One principles checklist. Any blocking gate not met is NO_GO; a uat_summary with an open severity-1 defect or passed below mandatory fails the UAT gate; otherwise the weighted basis-point score sets GO or GO_WITH_CONDITIONS.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "phase",
+          "gates"
+        ],
+        "properties": {
+          "phase": {
+            "type": "string",
+            "enum": [
+              "pilot",
+              "production",
+              "cross_border"
+            ]
+          },
+          "gates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "gate_id": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "evidence_ref": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "uat_summary": {
+            "type": "object",
+            "properties": {
+              "mandatory_cases": {
+                "type": "number"
+              },
+              "passed": {
+                "type": "number"
+              },
+              "open_sev1": {
+                "type": "number"
+              }
+            }
+          },
+          "principles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "principle_id": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "weights": {
+            "type": "object"
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "785-qr-golive-readiness",
+        "category": "chaingraph",
+        "tags": [
+          "qr",
+          "instant-payments",
+          "go-live",
+          "readiness",
+          "scheme",
+          "mcp:assess_qr_golive_readiness"
+        ],
+        "url": "https://ainumbers.co/chaingraph/785-qr-golive-readiness.html",
         "ap2_export": true,
         "execution_type": "browser-reference",
         "version": "1.0.0",
@@ -25800,6 +25945,179 @@
           "mcp:check_stablecoin_refunds"
         ],
         "url": "https://ainumbers.co/chaingraph/795-stablecoin-refund-dispute.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "assess_sandbox_readiness",
+      "description": "Assess a regulatory sandbox application against a declared regulator profile (generic rubric or the pinned Central Bank of The Bahamas Regulatory Sandbox Guidance Note, issued 8 October 2026). Returns READY, READY_WITH_GAPS or NOT_ELIGIBLE with sorted gaps, parameter breaches against profile caps, missing safeguards and per-item source cites. Unknown profile, unknown criterion id and invalid status are refused by name.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "profile",
+          "criteria",
+          "test_parameters",
+          "safeguards",
+          "exit_plan"
+        ],
+        "properties": {
+          "profile": {
+            "type": "string",
+            "enum": [
+              "generic",
+              "cbob"
+            ]
+          },
+          "criteria": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "criterion_id",
+                "status"
+              ],
+              "properties": {
+                "criterion_id": {
+                  "type": "string",
+                  "enum": [
+                    "innovation",
+                    "consumer_benefit",
+                    "benchmarking_viability",
+                    "resources",
+                    "customer_risk",
+                    "legal_compatibility"
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "met",
+                    "partially_met",
+                    "not_met"
+                  ]
+                },
+                "evidence_ref": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "test_parameters": {
+            "type": "object",
+            "required": [
+              "duration_months",
+              "customer_cap"
+            ],
+            "properties": {
+              "duration_months": {
+                "type": "number"
+              },
+              "customer_cap": {
+                "type": "number"
+              },
+              "value_cap_per_customer": {
+                "type": "number"
+              },
+              "aggregate_value_cap": {
+                "type": "number"
+              },
+              "eligible_customer_types": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "safeguards": {
+            "type": "object",
+            "required": [
+              "consumer_redress",
+              "aml_cft_controls",
+              "data_protection",
+              "disclosure_to_participants"
+            ],
+            "properties": {
+              "consumer_redress": {
+                "type": "object",
+                "properties": {
+                  "present": {
+                    "type": "boolean"
+                  },
+                  "evidence_ref": {
+                    "type": "string"
+                  }
+                }
+              },
+              "aml_cft_controls": {
+                "type": "object",
+                "properties": {
+                  "present": {
+                    "type": "boolean"
+                  },
+                  "evidence_ref": {
+                    "type": "string"
+                  }
+                }
+              },
+              "data_protection": {
+                "type": "object",
+                "properties": {
+                  "present": {
+                    "type": "boolean"
+                  },
+                  "evidence_ref": {
+                    "type": "string"
+                  }
+                }
+              },
+              "disclosure_to_participants": {
+                "type": "object",
+                "properties": {
+                  "present": {
+                    "type": "boolean"
+                  },
+                  "evidence_ref": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "exit_plan": {
+            "type": "object",
+            "required": [
+              "present",
+              "customer_transition"
+            ],
+            "properties": {
+              "present": {
+                "type": "boolean"
+              },
+              "wind_down_days": {
+                "type": "number"
+              },
+              "customer_transition": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "798-assess-sandbox-application-readiness",
+        "category": "chaingraph",
+        "tags": [
+          "regulatory-sandbox",
+          "application-readiness",
+          "eligibility-criteria",
+          "test-parameters",
+          "bahamas"
+        ],
+        "url": "https://ainumbers.co/chaingraph/798-assess-sandbox-application-readiness.html",
         "ap2_export": true,
         "execution_type": "browser-reference",
         "version": "1.0.0",
@@ -26554,6 +26872,70 @@
           "ICFR"
         ],
         "url": "https://ainumbers.co/chaingraph/838-control-frequency-sample.html",
+        "ap2_export": false,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": true
+      }
+    },
+    {
+      "name": "compute_planning_materiality",
+      "description": "Arithmetic on declared policy: from a declared benchmark amount, three percentages in basis points, a required rationale id and a rounding rule, recomputes overall, performance and clearly-trivial thresholds and flags an ordering violation. Ships no default percentage, does not choose the benchmark and is not a materiality determination. Refuses a missing rationale id, a percentage of zero or above 10000 basis points, and a negative or non-integer amount. Zero network calls, zero PII.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "benchmark_id",
+          "benchmark_amount",
+          "overall_bps",
+          "performance_bps",
+          "trivial_bps",
+          "rationale_id",
+          "rounding_rule"
+        ],
+        "properties": {
+          "benchmark_id": {
+            "description": "Declared id of the benchmark the amount comes from (not free text)",
+            "type": "string"
+          },
+          "benchmark_amount": {
+            "description": "Benchmark amount in integer minor units; zero or more",
+            "type": "integer"
+          },
+          "overall_bps": {
+            "description": "Overall materiality as basis points of the benchmark; 1 to 10000",
+            "type": "integer"
+          },
+          "performance_bps": {
+            "description": "Performance materiality as basis points of overall; 1 to 10000",
+            "type": "integer"
+          },
+          "trivial_bps": {
+            "description": "Clearly-trivial threshold as basis points of overall; 1 to 10000",
+            "type": "integer"
+          },
+          "rationale_id": {
+            "description": "Required id of the documented rationale for the benchmark and percentages",
+            "type": "string"
+          },
+          "rounding_rule": {
+            "description": "Declared rounding rule, half_up or floor; it changes the hash",
+            "type": "string"
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "841-planning-materiality",
+        "category": "sox-404-icfr-audit-controls",
+        "tags": [
+          "planning materiality",
+          "overall materiality",
+          "performance materiality",
+          "clearly trivial",
+          "basis points",
+          "SOX 404",
+          "ICFR"
+        ],
+        "url": "https://ainumbers.co/chaingraph/841-planning-materiality.html",
         "ap2_export": false,
         "execution_type": "browser-reference",
         "version": "1.0.0",
@@ -51848,6 +52230,12 @@
           },
           "amounts": {
             "type": "array"
+          },
+          "mad_min_count": {
+            "type": "integer"
+          },
+          "applicability_declared": {
+            "type": "boolean"
           }
         }
       },
@@ -53636,6 +54024,120 @@
       }
     },
     {
+      "name": "calculate_home_office_augusta",
+      "description": "Home-office deduction (regular versus Rev. Proc. 2013-13 simplified method) and the IRC 280A(g) Augusta-rule day test from a square-footage and expense profile. The gross-income cap applies to both methods; the simplified method is not selectable for an S-corp owner-employee. The 280A(g)(1) bar on the corporate rent deduction is an open legal question: the figure is kept and flagged, not decided.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "office_sq_ft",
+          "home_sq_ft",
+          "business_use_pct",
+          "annual_rent_usd",
+          "utilities_usd",
+          "other_home_expenses_usd",
+          "gross_business_income_usd",
+          "entity_type_ho",
+          "rental_days",
+          "daily_rental_rate_usd",
+          "corp_tax_rate_pct",
+          "entity_type_aug",
+          "owner_marginal_rate_pct"
+        ],
+        "properties": {
+          "office_sq_ft": {
+            "type": "number",
+            "description": "Square feet of the home used for business. Blank or 0 falls back to 0."
+          },
+          "home_sq_ft": {
+            "type": "number",
+            "description": "Total home square feet. Blank or 0 falls back to 1 to avoid dividing by zero."
+          },
+          "business_use_pct": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Business-use percent, 0 to 100. Null auto-derives office_sq_ft / home_sq_ft; 0 overrides to 0%."
+          },
+          "annual_rent_usd": {
+            "type": "number",
+            "description": "Annual rent or mortgage interest and taxes for the home, USD."
+          },
+          "utilities_usd": {
+            "type": "number",
+            "description": "Annual utilities for the home, USD."
+          },
+          "other_home_expenses_usd": {
+            "type": "number",
+            "description": "Other annual home expenses (insurance, repairs), USD. One undifferentiated bucket."
+          },
+          "gross_business_income_usd": {
+            "type": "number",
+            "description": "Gross business income used for the gross-income cap, USD. Free-standing figure."
+          },
+          "entity_type_ho": {
+            "type": "string",
+            "enum": [
+              "soleProp",
+              "scorp"
+            ],
+            "description": "Home-office filer: soleProp (Schedule C) or scorp (S-corp owner-employee, accountable plan)."
+          },
+          "rental_days": {
+            "type": "number",
+            "description": "Days the home is rented to the business. The day test passes at 14 or fewer."
+          },
+          "daily_rental_rate_usd": {
+            "type": "number",
+            "description": "Fair-market daily rental rate charged to the business, USD."
+          },
+          "corp_tax_rate_pct": {
+            "type": "number",
+            "description": "Rate valuing the corporate rent deduction, percent. 0 falls back to 37."
+          },
+          "entity_type_aug": {
+            "type": "string",
+            "enum": [
+              "scorp",
+              "soleProp"
+            ],
+            "description": "Entity paying the rent: soleProp or scorp."
+          },
+          "owner_marginal_rate_pct": {
+            "type": "number",
+            "description": "Owner marginal rate, percent. 0 falls back to 32."
+          }
+        },
+        "annotations": {
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "metadata": {
+        "tool_id": "art-753-home-office-augusta",
+        "category": "chaingraph",
+        "tags": [
+          "chaingraph",
+          "home-office",
+          "augusta-rule",
+          "irc-280a",
+          "rev-proc-2013-13",
+          "s-corp",
+          "tax-deduction",
+          "safe-harbour",
+          "zero-pii",
+          "mcp:calculate_home_office_augusta"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-753-home-office-augusta.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "0.0.0-draft",
+        "prefill": false
+      }
+    },
+    {
       "name": "calc_equity_exit_waterfall",
       "description": "Model equity exit proceeds after liquidation preference waterfalls for startup employees and founders (NVCA model term sheet conventions; IRC \u00a71001 for the gain computation): the preference stack, non-participating conversion or capped participation, the common pool, your gross and net proceeds, taxable gain and the break-even exit. Deterministic, client-side, zero PII.",
       "inputSchema": {
@@ -54494,6 +54996,383 @@
           "mcp:parental_leave_income_gap"
         ],
         "url": "https://ainumbers.co/chaingraph/art-766-parental-leave-income-gap.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "compare_medicare_plans",
+      "description": "Prices two caller-declared Medicare enrollment paths for a full year, Path A (Original Medicare plus Medigap plus stand-alone Part D) and Path B (Medicare Advantage), for a typical year and a bad-year stress test on 2026 CMS parameters. Returns both totals, the annual and bad-year differences and both worst-case ceilings, or a named refusal. Verify-only: it does not quote plans or compare networks.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "irmaa_tier",
+          "admissions_per_year",
+          "primary_visits_per_year",
+          "specialist_visits_per_year",
+          "length_of_stay_days",
+          "outpatient_charges_usd",
+          "annual_drug_cost_usd",
+          "medigap_premium_monthly_usd",
+          "medigap_plan_type",
+          "part_d_premium_monthly_usd",
+          "part_d_deductible_a_usd",
+          "ma_premium_monthly_usd",
+          "part_b_giveback_monthly_usd",
+          "ma_primary_copay_usd",
+          "ma_specialist_copay_usd",
+          "ma_inpatient_copay_per_day_usd",
+          "ma_inpatient_copay_days",
+          "ma_outpatient_coinsurance_pct",
+          "ma_moop_usd",
+          "ma_drug_coverage_included",
+          "ma_plan_drug_deductible_usd"
+        ],
+        "properties": {
+          "irmaa_tier": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5
+          },
+          "admissions_per_year": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "primary_visits_per_year": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "specialist_visits_per_year": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "length_of_stay_days": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3650
+          },
+          "outpatient_charges_usd": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "annual_drug_cost_usd": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "medigap_premium_monthly_usd": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "medigap_plan_type": {
+            "type": "string",
+            "enum": [
+              "PlanG",
+              "PlanN",
+              "HDG",
+              "None"
+            ]
+          },
+          "part_d_premium_monthly_usd": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "part_d_deductible_a_usd": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "ma_premium_monthly_usd": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "part_b_giveback_monthly_usd": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "ma_primary_copay_usd": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "ma_specialist_copay_usd": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "ma_inpatient_copay_per_day_usd": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "ma_inpatient_copay_days": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3650
+          },
+          "ma_outpatient_coinsurance_pct": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "ma_moop_usd": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "ma_drug_coverage_included": {
+            "type": "boolean"
+          },
+          "ma_plan_drug_deductible_usd": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "bad_year_admissions": {
+            "type": "integer",
+            "minimum": 0,
+            "x_null_distinct": true,
+            "maximum": 1000
+          },
+          "bad_year_length_of_stay_days": {
+            "type": "integer",
+            "minimum": 0,
+            "x_null_distinct": true,
+            "maximum": 3650
+          },
+          "bad_year_charge_multiplier": {
+            "type": "number",
+            "minimum": 0,
+            "x_null_distinct": true,
+            "maximum": 1000
+          },
+          "part_b_premium_by_irmaa_tier_usd": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "minItems": 6,
+            "maxItems": 6,
+            "x_null_distinct": true
+          },
+          "part_d_irmaa_surcharge_by_tier_usd": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "minItems": 6,
+            "maxItems": 6,
+            "x_null_distinct": true
+          },
+          "part_b_deductible_usd": {
+            "type": "number",
+            "minimum": 0,
+            "x_null_distinct": true,
+            "maximum": 1000000000
+          },
+          "part_a_deductible_usd": {
+            "type": "number",
+            "minimum": 0,
+            "x_null_distinct": true,
+            "maximum": 1000000000
+          },
+          "part_a_days_61_to_90_coinsurance_usd": {
+            "type": "number",
+            "minimum": 0,
+            "x_null_distinct": true,
+            "maximum": 1000000000
+          },
+          "part_a_lifetime_reserve_coinsurance_usd": {
+            "type": "number",
+            "minimum": 0,
+            "x_null_distinct": true,
+            "maximum": 1000000000
+          },
+          "part_d_max_deductible_usd": {
+            "type": "number",
+            "minimum": 0,
+            "x_null_distinct": true,
+            "maximum": 1000000000
+          },
+          "part_d_out_of_pocket_cap_usd": {
+            "type": "number",
+            "minimum": 0,
+            "x_null_distinct": true,
+            "maximum": 1000000000
+          },
+          "plan_n_office_visit_copay_usd": {
+            "type": "number",
+            "minimum": 0,
+            "x_null_distinct": true,
+            "maximum": 1000000000
+          },
+          "high_deductible_plan_g_deductible_usd": {
+            "type": "number",
+            "minimum": 0,
+            "x_null_distinct": true,
+            "maximum": 1000000000
+          }
+        },
+        "additionalProperties": false
+      },
+      "metadata": {
+        "tool_id": "art-768-medicare-plan-comparison",
+        "category": "chaingraph",
+        "tags": [
+          "Medicare",
+          "Medigap",
+          "Medicare Advantage",
+          "Part D",
+          "MOOP",
+          "IRMAA",
+          "out-of-pocket",
+          "annual cost projection",
+          "CMS",
+          "2026",
+          "mcp:compare_medicare_plans"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-768-medicare-plan-comparison.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": true
+      }
+    },
+    {
+      "name": "compute_medicare_oop_exposure",
+      "description": "Medicare out-of-pocket exposure modeler for a declared plan year: Part A benefit-period cost sharing, Part B deductible and coinsurance, Part D cost sharing after the plan-year cap, the residual left after a coverage structure, annual premiums including IRMAA, and a routine / rough / worst-case spread. Integer US cents, no clock, named refusals, optional worst-case multiplier.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "plan_year",
+          "coverage_structure",
+          "irmaa_tier",
+          "benefit_periods",
+          "days_per_period",
+          "snf_days",
+          "part_b_approved_charges_cents",
+          "annual_drug_cost_cents",
+          "part_d_deductible_cents",
+          "supplemental_monthly_premium_cents",
+          "advantage_moop_cents",
+          "advantage_coinsurance_pct"
+        ],
+        "properties": {
+          "plan_year": {
+            "type": "integer",
+            "description": "Plan year whose published parameters apply (2026 declared). Must be a number; a string, null or undeclared year is a named error."
+          },
+          "coverage_structure": {
+            "type": "string",
+            "enum": [
+              "OriginalOnly",
+              "PlanG",
+              "PlanN",
+              "Advantage"
+            ],
+            "description": "Coverage the residual is measured against: OriginalOnly, PlanG, PlanN (no annual ceiling) or Advantage (plan MOOP)."
+          },
+          "irmaa_tier": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5,
+            "description": "Income-related tier 0-5 (six CMS 2026 Part B bands). Sets Part B premium and Part D adjustment. Any other value is refused."
+          },
+          "benefit_periods": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Non-negative integer count of Part A benefit periods in the year. Zero means no admission and no Part A deductible."
+          },
+          "days_per_period": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 366,
+            "description": "Non-negative integer inpatient days per benefit period: 1-60 deductible, 61-90 quarter, 91-150 half; after 150 not costed."
+          },
+          "snf_days": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 366,
+            "description": "Non-negative integer SNF days per benefit period: 1-20 in full, 21-100 coinsurance, 101+ not covered and not costed."
+          },
+          "part_b_approved_charges_cents": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000000000,
+            "description": "Non-negative integer cents: Medicare-approved Part B charges for the year. Deductible first, then 20 percent."
+          },
+          "annual_drug_cost_cents": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000000000,
+            "description": "Non-negative integer cents: annual gross covered Part D drug cost; the walk is capped at the plan-year threshold."
+          },
+          "part_d_deductible_cents": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000000000,
+            "description": "Non-negative integer cents: plan Part D deductible; above the plan-year maximum it is clamped and the clamp is reported."
+          },
+          "supplemental_monthly_premium_cents": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000000000,
+            "description": "Non-negative integer cents: Medigap or Advantage monthly premium, charged for twelve months. Zero means none."
+          },
+          "advantage_moop_cents": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000000000,
+            "description": "Non-negative integer cents: Advantage in-network maximum out-of-pocket for Part A and B. Zero means not entered."
+          },
+          "advantage_coinsurance_pct": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Integer 0-100: Advantage medical coinsurance percent, applied to Part A cost sharing plus post-deductible Part B."
+          },
+          "worst_case_spend_multiplier": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Optional integer 1-100, default 4: worst-case multiplier on Part B and drug spend. A modelling assumption, not a CMS figure."
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-769-medicare-oop-exposure",
+        "category": "chaingraph",
+        "tags": [
+          "compliance_mandate",
+          "medicare",
+          "out-of-pocket",
+          "part-a-deductible",
+          "benefit-period",
+          "part-b-deductible",
+          "part-d-out-of-pocket-threshold",
+          "irmaa",
+          "medigap",
+          "medicare-advantage",
+          "retirement",
+          "integer-minor-units",
+          "mcp:compute_medicare_oop_exposure"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-769-medicare-oop-exposure.html",
         "ap2_export": true,
         "execution_type": "browser-reference",
         "version": "1.0.0",
@@ -55776,6 +56655,50 @@
         ],
         "url": "https://ainumbers.co/chaingraph/art-831-receipt-export-envelopes.html",
         "ap2_export": false,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "assess_pfmi_proportional",
+      "description": "Scores a payment system operator\u2019s or overseer\u2019s self-assessment against the 24 CPMI-IOSCO Principles (Apr 2012) or the 5 responsibilities of relevant authorities, on the methodology\u2019s four-level scale plus not_applicable (Dec 2012), with this tool\u2019s illustrative proportional tiers (systemic, prominent, small), a gap register, a date-ordered action plan, and an optional linked fast payment system governance module (CPMI Oct 2024 \u00a74). Values only; never evidence.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "role",
+          "ratings"
+        ],
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string"
+          },
+          "system_type": {
+            "type": "string"
+          },
+          "linked_system": {
+            "type": "boolean"
+          },
+          "ratings": {
+            "type": "array"
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-846-assess-pfmi-proportional",
+        "category": "chaingraph",
+        "tags": [
+          "payment-system-oversight",
+          "pfmi",
+          "cpmi-iosco",
+          "self-assessment",
+          "mcp:assess_pfmi_proportional"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-846-assess-pfmi-proportional.html",
+        "ap2_export": true,
         "execution_type": "browser-reference",
         "version": "1.0.0",
         "prefill": false
