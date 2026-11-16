@@ -1,5 +1,5 @@
 // art-831-receipt-export-envelopes — class-K property-test FLOOR + envelope conformance test.
-// kernel_digest_at_authoring: sha256:8cc858b85b85d288aaef2aa1b6bf2a465324337e51bccddcb5e9818106de5fb4
+// kernel_digest_at_authoring: sha256:6b5124a707256357710470b5fb0166dec13fab7f5d4c61c09838aae782ae0d3c
 // spec: research/RECEIPT-EXPORT-PIN-2026-10-29.md (pins the two wire specs this kernel emits;
 //       snapshots under research/clause-snapshots/receipt-export/, schema vendored with its
 //       LICENSE at chaingraph/kernels/fixtures/vendor/openlineage-1.55.0/)
@@ -20,7 +20,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-831-receipt-export-envelopes.proptest.mjs
 
-import { compute } from '../art-831-receipt-export-envelopes.kernel.mjs';
+import { compute, buildArtifact } from '../art-831-receipt-export-envelopes.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, deepEqual, NASTY_STRINGS } from './_pbt-common.mjs';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -233,6 +233,7 @@ function checkRunIdByteIdentity() {
     const pp = vec.policy_parameters;
     if (pp.receipt.execution_hash.length !== 64) continue;
     const { output_payload } = compute(pp);
+    if (output_payload.status !== 'exported') continue;
     checked++;
     const hex = output_payload.lineage_event.run.runId.replace(/-/g, '');
     const bytes = pp.receipt.execution_hash.slice(0, 32).match(/.{2}/g).map((h) => parseInt(h, 16));
@@ -262,7 +263,7 @@ function checkInputsFacetDialect() {
     inputs.forEach((ds, i) => {
       if (ds.name !== pp.receipt.parent_hashes[i]) { violations++; console.log(`  input ${i} not named by parent hash for ${vec.name}`); }
       if (ds.namespace !== pp.receipt.namespace) { violations++; console.log(`  input ${i} namespace mismatch for ${vec.name}`); }
-      if (ds.type !== 'table') { violations++; console.log(`  input ${i} not in the dataset-facet dialect (type) for ${vec.name}`); }
+      if ('type' in ds) { violations++; console.log(`  input ${i} carries a non-spec type member for ${vec.name}`); }
     });
   }
   return { name: 'one dataset per parent hash, named by hash, in the estate lineage-card facet dialect', checked, violations };
@@ -287,6 +288,18 @@ function checkFailClosed() {
   mut((r) => ({ ...r, source: 'bad%2zcape' }));
   mut((r) => ({ ...r, source: 'trailing%2' }));
   mut((r) => ({ ...r, source: undefined }));
+  // RFC 3339 numoffset range (hours 00-23, minutes 00-59).
+  mut((r) => ({ ...r, event_time: '2026-11-15T12:00:00+99:99' }));
+  mut((r) => ({ ...r, event_time: '2026-11-15T12:00:00+24:00' }));
+  mut((r) => ({ ...r, event_time: '2026-11-15T12:00:00-05:60' }));
+  // RFC 3986 raw characters excluded from a URI-reference.
+  for (const ch of ['<', '>', '"', '{', '}', '|', '\\', '^', '`']) {
+    mut((r) => ({ ...r, source: `https://ainumbers.example/a${ch}b` }));
+  }
+  // RFC 3986 URI-reference grammar (not just the character set).
+  for (const bad of ['/a[b', '1:abc', 'ht%74p://a/', 'http://[::1/x', 'http://a]/', ':abc', 'a b:c', '//[v1.x']) {
+    mut((r) => ({ ...r, source: bad }));
+  }
   mut((r) => ({ ...r, namespace: '' }));
   mut((r) => ({ ...r, tool_id: '' }));
   mut((r) => ({ ...r, policy_parameters_hash: 'deadbeef' }));
@@ -312,6 +325,12 @@ function checkFailClosed() {
       violations++; console.log('  fail-closed: refused result still carries envelopes');
     }
   }
+  // Valid URI-reference edge cases must still export (grammar accepts, not just refuses).
+  for (const good of ['rel/path', 'urn:a:b', 'https://ainumbers.example/x?q=1#f', 'a/b:c/d', 'http://[::1]:80/x', 'http://[2001:db8::7]/', '//host/p', '/abs/path', 'mailto:a@b.c', 'ht%74p/x']) {
+    checked++;
+    const { output_payload } = compute({ receipt: { ...base, source: good } });
+    if (output_payload.status === 'refused') { violations++; console.log(`  fail-closed: valid URI-reference refused: ${good}`); }
+  }
   return { name: 'fail-closed: every mutated/malformed hash, timestamp or URI-reference is refused, never exported', checked, violations };
 }
 
@@ -323,6 +342,37 @@ function checkProhibitedGlobals() {
   let checked = forbidden.length, violations = 0;
   for (const h of hits) { violations++; console.log(`  prohibited-global: kernel source contains ${h}`); }
   return { name: 'kernel source contains no clock, randomness, encoding-builtin or network call', checked, violations };
+}
+
+// buildArtifact_never_throws (D6): an input whose {policy_parameters, output_payload} preimage
+// the shared canonicalizer would reject mints an artifact with a null execution_hash and a
+// hash_refusal beside it; a clean input (exported or refused) gets a 64-hex hash.
+async function checkBuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  const exported = FIXTURES.vectors.find((v) => compute(v.policy_parameters).output_payload.status === 'exported').policy_parameters;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const hostile = [
+    { zzz: { a: { b: 1e300 } } }, { zzz: Number.MAX_SAFE_INTEGER + 2 }, { zzz: Infinity }, { zzz: -Infinity }, { zzz: NaN },
+    { zzz: deep }, { zzz: wide },
+  ];
+  for (const delta of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...exported, ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) { violations++; console.log('  never-throws violation: artifact shape for hostile input'); }
+      if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) { violations++; console.log('  never-throws violation: hostile value echoed'); }
+    } catch (e) { violations++; console.log(`  never-throws violation: buildArtifact threw: ${String(e.message).slice(0, 80)}`); }
+  }
+  for (const pp of [exported, { receipt: null }, null, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('  never-throws violation: clean input lost its hash'); }
+    } catch (e) { violations++; console.log(`  never-throws violation: buildArtifact threw on clean input: ${String(e.message).slice(0, 80)}`); }
+  }
+  return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
 }
 
 // ---------- run ----------
@@ -342,6 +392,7 @@ const properties = [
   checkInputsFacetDialect(),
   checkFailClosed(),
   checkProhibitedGlobals(),
+  await checkBuildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — receipt export envelopes.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
