@@ -156,7 +156,13 @@ const CHANGED = MODE === 'check'
 // checked out there (e.g. repo/.wt/<wu>/) is a full repo copy and must be excluded the
 // same way '.claude'/'worktrees' already are, or every page in it double-counts as an
 // island/reachable-baseline entry for someone else's in-progress WU.
-const SKIP_DIRS = new Set(['.git', 'node_modules', '.github', 'worktrees', '.claude', '.wt']);
+// '.tmp' added by NAV-ISLAND-TMP-SKIP-1 (2026-11-15): another preflight gate extracts
+// in-flight scratch under REPO/.tmp (mkdtemp 'ain-*' dir with a tools/widget.html inside)
+// while this gate walks the tree; the transient page counted as a new island and flaked
+// every parallel local preflight. Same race class already fixed in
+// check-inline-ssot-sync.mjs (VERIFYBINDING-DIGEST-DEFAULT-1, 2026-11-12); no real page
+// can ever live under .tmp, so skipping the dir cannot mask a genuine island.
+const SKIP_DIRS = new Set(['.git', 'node_modules', '.github', 'worktrees', '.claude', '.wt', '.tmp']);
 
 function collect(dir, out = []) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
