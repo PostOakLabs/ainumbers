@@ -163,6 +163,7 @@ function looksIdentifierLike(s) {
   return false;
 }
 function isPosInt(x) { return typeof x === 'number' && Number.isInteger(x) && x >= 1; }
+function isSafeIntMin(x, min) { return typeof x === 'number' && Number.isSafeInteger(x) && x >= min; }
 
 // ISO YYYY-MM-DD calendar-date check (pure arithmetic, no Date)
 function isCalendarDate(s) {
@@ -312,6 +313,19 @@ export function compute(pp) {
   if (roundingMode !== 'ceil' && roundingMode !== 'round_half_up') return refuse(flags, 'rounding_mode_must_be_ceil_or_round_half_up', 'rounding_mode');
   if (!(typeof fillUnit === 'number' && Number.isInteger(fillUnit) && fillUnit >= 1)) return refuse(flags, 'fill_rounding_unit_micro_must_be_positive_int', 'fill_rounding_unit_micro');
   if (!(typeof orderUnit === 'number' && Number.isInteger(orderUnit) && orderUnit >= 0)) return refuse(flags, 'order_rounding_unit_micro_must_be_nonnegative_int', 'order_rounding_unit_micro');
+  // generic caller values reach BigInt() later; refuse anything that is not a safe integer
+  // in range first so no caller value can make BigInt() or a division throw
+  if (!shipped) {
+    if (genActive.series_multiplier_num !== undefined && !isSafeIntMin(genActive.series_multiplier_num, 0)) {
+      return refuse(flags, 'series_multiplier_num_must_be_nonnegative_safe_int', 'series_multiplier_num');
+    }
+    if (genActive.series_multiplier_den !== undefined && !isSafeIntMin(genActive.series_multiplier_den, 1)) {
+      return refuse(flags, 'series_multiplier_den_must_be_positive_safe_int', 'series_multiplier_den');
+    }
+    if (genActive.floor_min_fee_micro !== undefined && !isSafeIntMin(genActive.floor_min_fee_micro, 0)) {
+      return refuse(flags, 'floor_min_fee_micro_must_be_nonnegative_safe_int', 'floor_min_fee_micro');
+    }
+  }
   const acc = shipped ? (profileId === 'kalshi' && prof.accumulator && orderUnit > 0) : (orderUnit > 0 && genActive.accumulator === true);
 
   function thetaFor(role, kind) {
@@ -475,8 +489,12 @@ export function compute(pp) {
       if (feeCheck === 'UNDERCHARGE') flags.push('FEE_CHECK_UNDERCHARGE');
     }
 
-    // conservation: order fee equals the fill trade fees plus the net carried rounding
-    const conservationOk = orderFee === tradeSum + carry;
+    // conservation: order fee equals the fill trade fees plus the net carried rounding.
+    // On the accumulator path the rebate is already netted inside carry; on the
+    // rebate_share maker path the rebate is paid out per fill, so it is subtracted.
+    const conservationOk = (!acc && family === 'rebate_share')
+      ? orderFee === tradeSum - rebateTotal + carry
+      : orderFee === tradeSum + carry;
     perOrder.push({
       order_label: label,
       role,
