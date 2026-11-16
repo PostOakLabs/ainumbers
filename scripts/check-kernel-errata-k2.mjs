@@ -16,10 +16,15 @@
  * A source-only edit that does not move the canonical digest (a line-ending-only edit) owes
  * neither an erratum nor a declaration.
  *
- * ADVISORY: this script ALWAYS exits 0. Exit 2 is reserved for a usage error or a crash of
- * the harness itself. K2 is advisory on PRs as staged 2026-11-15; the flip to blocking is
- * the desk's decision under the errata build spec (bar: two weeks advisory with zero false
- * reds).
+ * MODE: advisory by default, off as shipped. The one tracked setting
+ * chaingraph/errata/k2-gate-mode.json carries {"mode": "advisory" | "blocking"}; with the
+ * file absent the gate is advisory. Both modes classify identically; only the exit differs.
+ * Advisory reports red lines and exits 0. Blocking exits 1 on any red line, so the
+ * preflight that runs the gate refuses the push. Flipping is the owner's decision and is
+ * recorded in the promotion ledger; the switch ships off (KERNEL-ERRATA-CURE-HOOK-1).
+ * Exit 2 stays reserved for a usage error, an unreadable or malformed mode setting, or a
+ * crash of the harness itself: a typo'd flip must stop the desk, never silently stay
+ * advisory. The --replay retrospective is a report and stays exit 0 in both modes.
  *
  * Usage:
  *   node scripts/check-kernel-errata-k2.mjs [--root <repo>] [--base <ref>] [--head <ref>]
@@ -37,12 +42,14 @@
 import {
   REPO_ROOT, SOURCES_DIR, fixturePath, git, resolveCommit, loadKernelAt, outcome, outcomeKey, probeVariants,
 } from './lib/kernel-errata.mjs';
-import { resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const DECL_DIR = 'chaingraph/errata/no-semantic-change';
 const KERNELS_DIR = 'chaingraph/kernels';
 const DECL_RE = /^sha256:[0-9a-f]{64}$/;
+const MODE_PATH = 'chaingraph/errata/k2-gate-mode.json';
 
 // M-status kernel files between two commits. Status letters other than M (a new module, a
 // rename, a deletion) are not fixes in place; the caller reports them out of scope.
@@ -88,6 +95,29 @@ export function validateDeclaration(decl, expect) {
   if (typeof decl.declared_at !== 'string' || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(decl.declared_at)) errs.push('declared_at must be YYYY-MM-DD');
   if (typeof decl.row !== 'string' || !decl.row.trim()) errs.push('row must name the row or PR that made the change');
   return errs;
+}
+
+// The one tracked setting. Absent file = advisory, the shipped default. Anything unreadable,
+// unparseable or out of range throws (main turns it into exit 2): a typo'd flip must stop
+// the desk, never quietly leave the gate off.
+export function resolveGateMode(root) {
+  let text;
+  try { text = readFileSync(join(root, MODE_PATH), 'utf8'); } catch (e) {
+    if (e?.code === 'ENOENT') return { mode: 'advisory', source: `default, no ${MODE_PATH}` };
+    throw new Error(`${MODE_PATH} is unreadable: ${e?.message ?? e}`);
+  }
+  let parsed;
+  try { parsed = JSON.parse(text); } catch (e) { throw new Error(`${MODE_PATH} is not valid JSON: ${e?.message ?? e}`); }
+  const mode = parsed?.mode;
+  if (mode !== 'advisory' && mode !== 'blocking') throw new Error(`${MODE_PATH}: mode must be "advisory" or "blocking", got ${JSON.stringify(mode ?? null)}`);
+  return { mode, source: MODE_PATH };
+}
+
+// Exit decision for one classification. Advisory reds are report-only; blocking reds exit 1
+// so the invoking preflight refuses the push.
+export function gateExit(lines, mode) {
+  const reds = lines.filter((l) => l.red).length;
+  return { reds, exitCode: mode === 'blocking' && reds > 0 ? 1 : 0 };
 }
 
 // The declaration's proof obligation: fixture corpus plus missing-input probes on both
@@ -191,16 +221,18 @@ async function main() {
   }
   const baseRef = opt('--base') ?? 'origin/main';
   const headRef = opt('--head') ?? 'HEAD';
-  let baseCommit, headCommit;
+  let baseCommit, headCommit, gateMode;
   try {
     baseCommit = resolveCommit(root, baseRef);
     headCommit = resolveCommit(root, headRef);
   } catch (e) { console.error(`cannot resolve refs: ${e.message}`); process.exit(2); }
+  try { gateMode = resolveGateMode(root); } catch (e) { console.error(`cannot read the K2 mode setting: ${e.message}`); process.exit(2); }
   const mb = mergeBase(root, baseCommit, headCommit);
   const { lines, examined } = await checkK2(root, mb, headCommit);
   for (const l of lines) console.log(`${l.red ? 'RED' : 'ok '} ${l.text}`);
-  const reds = lines.filter((l) => l.red).length;
-  console.log(`check-kernel-errata-k2 (K2 advisory): ${examined} in-place kernel modification${examined === 1 ? '' : 's'} examined, ${reds} red${reds ? ' (K2 is non-blocking until the desk flips it)' : ''}`);
+  const { reds, exitCode } = gateExit(lines, gateMode.mode);
+  console.log(`check-kernel-errata-k2 (K2 ${gateMode.mode}, from ${gateMode.source}): ${examined} in-place kernel modification${examined === 1 ? '' : 's'} examined, ${reds} red${reds ? (gateMode.mode === 'blocking' ? ' (blocking: exiting 1)' : ' (advisory: exiting 0)') : ''}`);
+  if (exitCode) process.exit(exitCode);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();
