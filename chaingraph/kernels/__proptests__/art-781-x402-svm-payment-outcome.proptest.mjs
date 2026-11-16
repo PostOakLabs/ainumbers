@@ -1,12 +1,16 @@
 // @ts-nocheck — floor file: node:crypto/Buffer reference section needs it (precedent art-780).
 // art-781-x402-svm-payment-outcome property-test floor.
-// kernel_digest_at_authoring: sha256:8306bd6d21e0fff19d298b5c4b71c779db2a37d4c9a9692289fa97618642a4d0
+// kernel_digest_at_authoring: sha256:d8dd70bf66ea07886300d7788517e30b7878ab0fc3acb65e2c9a880aa2c7d7c0
 // (re-pinned X402-SVM-OUTCOME-CI-HEAL-1: the KERNEL-INPUT-USAGE-CHECK-1 heal removed the dead
 //  `const mintDecimals = pp.mint.decimals;` local at old line 444 — behavior-neutral, all 27
 //  fixture goldens deep-equal byte-identically before and after)
 // (re-pinned again by the art-781 cure: GHSA text first_patched_version 2.0.5, create_idempotent
 //  instruction kind, top-level memo count; 27 existing vectors move only in note and the R4
 //  kind-list text, plus 6 new vectors F21-F26, 33 in all)
+// (re-pinned PR-2728-HEAL-HOOK-1: the merge with fresh main surfaced the landed
+//  caller-key lint, whose single hit is the vendored validateField reduce write;
+//  cured with an Object.hasOwn guard — behavior-neutral, all 27 fixture goldens
+//  deep-equal before and after)
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md section 3. Shape:
