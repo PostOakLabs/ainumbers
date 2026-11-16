@@ -144,7 +144,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/733-servicing-compliance-clock.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:759f085e71fb92d731f9c15f8b6e16d43eda57cca85572d743c13f88352d8a48">
+<meta name="kernel-digest" content="sha256:e7eac9a4322542b6e39434f60df84cdc6eb24ceee9887b282aadc16f319bb4ea">
 <meta name="ai-tool" content="servicing_compliance_clock">
 </head>
 <body>
@@ -699,6 +699,15 @@ function classify(dueZ, actionIso) {
   return a <= dueZ ? 'met' : 'breached';
 }
 
+// Floor test: the action is lawful only ON OR AFTER the earliest date, the
+// inverse of the deadline test in classify().
+function classifyFloor(earliestZ, actionIso) {
+  if (actionIso === undefined || actionIso === null || actionIso === '') return 'within';
+  const a = parseIso(actionIso);
+  if (a === null) return null; // signal refusal upstream
+  return a >= earliestZ ? 'met' : 'breached';
+}
+
 // ---------------------------------------------------------------- compute()
 
 function compute(pp) {
@@ -927,7 +936,7 @@ function compute(pp) {
       // date D = D - delinquency_date in calendar days, so the earliest lawful
       // first-notice/filing date is delinquency_date + 121 days.
       const earliest = addCalendarDays(T, 121);
-      const st = classify(earliest, act);
+      const st = classifyFloor(earliest, act);
       out = obligation(rule, CITE.foreclosure_referral_120day, BASIS_CAL, null, Tiso, earliest, act,
         st === 'met' ? 'met' : st, // on/after earliest = lawful referral
         st === 'met' ? null : 'first_notice_or_filing_before_120_day_delinquency_bar_expired', {
