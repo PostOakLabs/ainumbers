@@ -212,6 +212,12 @@ const BLOCKING_WORKFLOWS = [
 // rotted: automerge-label.yml, fullsuite-schedule.yml, mutation-full-scheduled.yml,
 // ruleset-apply.yml and ruleset-drift-gate.yml were all absent from it.
 const NOT_A_GATE = new Map([
+  ["replay-result-matrix.yml",
+    "workflow_dispatch only; replays the fixture corpus on three OSes and uploads the result files. " +
+    "No pull_request, push or merge_group trigger, never a required check, attests nothing."],
+  ["replay-house-attest.yml",
+    "workflow_dispatch + daily schedule only, guarded to the upstream repository; replays the fixture corpus " +
+    "and attests the result. No pull_request, push or merge_group trigger, never a required check."],
   ["swh-save.yml",
     "workflow_dispatch + push tags only, continue-on-error; no pull_request or merge_group trigger, so it gates no merge."],
   ["automerge-label.yml",
@@ -244,6 +250,10 @@ const NOT_A_GATE = new Map([
     "schedule only."],
   ["mutation-full-scheduled.yml",
     "schedule (nightly) + workflow_dispatch only — full-estate mutation scan, reports."],
+  ["vintage-horizon-schedule.yml",
+    "schedule (weekly) + workflow_dispatch only (VINTAGE-HORIZON-1) — reads data/vintages.json and " +
+    "the clock, no network; it has no pull_request, merge_group or push trigger, so it can never " +
+    "be required and blocks no merge. Its red opens one tracking issue through the shared tracker."],
   ["prepush-attestation.yml",
     "push main + workflow_dispatch only, so it never gates a merge. Its node gate " +
     "(check-prepush-attestation.mjs) is main-side BY CONSTRUCTION: it verifies git notes " +
@@ -373,6 +383,41 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── HEADROOM-LIB-1 (2026-11-14) ─────────────────────────────────────────────
+  ["run-headroom.mjs",
+    "Advisory-first headroom search: preflight wires --advisory, which prints the base-point report, " +
+    "gates H1/H2/H3/H5/H6 and their planted red-and-green controls, and always exits 0, so a blocking " +
+    "CI step would re-run a gate that cannot fail yet. Spec section 6 makes it blocking only after one " +
+    "clean week, by Tim's call; the flip and the CI routing land together. It reads checked-in " +
+    "declarations, fixtures and kernels only (no network, no CI-only input), and the PRs that can change " +
+    "its verdict are kernel and scripts/ edits, which scripts-verify.yml's path-scoped full preflight already runs."],
+  // ── KERNEL-ERRATA-SCHEMA-1 (2026-11-14) ────────────────────────────────────
+  ["check-kernel-errata.mjs",
+    "Kernel erratum schema and registry gate: preflight-only because scripts-verify.yml's " +
+    "path-scoped full preflight already runs it on every PR that can change its inputs " +
+    "(chaingraph/errata/** is in scripts-verify's relevance list in scripts/ci-paths.json, " +
+    "and the gate code sits under scripts/**), so a separate workflow step would only " +
+    "duplicate that run."],
+  ["check-kernel-errata.selftest.mjs", SELF_TEST],
+  // ── KERNEL-ERRATA-GATE-1-RESUME-1 (2026-11-15) ─────────────────────────────
+  ["check-kernel-errata-k2.mjs",
+    "K2 no-silent-fix sweep: advisory on PRs by design (always exits 0; making it blocking " +
+    "is a later row's flip), so a blocking CI step would re-run a gate that cannot fail yet. " +
+    "Preflight-only like check-kernel-errata.mjs: scripts-verify.yml's path-scoped full " +
+    "preflight already runs it on every PR that can change its inputs (scripts/**, " +
+    "chaingraph/errata/** and chaingraph/kernels/fixtures/** are all in scripts-verify's " +
+    "relevance list in scripts/ci-paths.json), and a kernel-module-only edit meets the gate " +
+    "at the hooked push exactly as it meets check-kernel-errata.mjs."],
+  ["check-kernel-errata-k2.selftest.mjs", SELF_TEST],
+  ["check-kernel-errata-k4.mjs",
+    "K4 predicate-width property test: advisory on PRs by design (always exits 0; a too-wide " +
+    "predicate is a count, not a red), so a blocking CI step would re-run a gate that cannot " +
+    "fail yet. Preflight-only like check-kernel-errata.mjs: scripts-verify.yml's path-scoped " +
+    "full preflight already runs it on every PR that can change its inputs (scripts/**, " +
+    "chaingraph/errata/** and chaingraph/kernels/fixtures/** are all in scripts-verify's " +
+    "relevance list in scripts/ci-paths.json), and a kernel-module-only edit meets the gate " +
+    "at the hooked push exactly as it meets check-kernel-errata.mjs."],
+  ["check-kernel-errata-k4.selftest.mjs", SELF_TEST],
   // ── Interpolated-markup ratchet (2026-11-07) ───────────────────────────────
   ["check-innerhtml-ratchet.mjs",
     "Advisory-first interpolated-markup ratchet over tools/*.html: preflight wires " +
@@ -597,6 +642,14 @@ const PREFLIGHT_ONLY = new Map([
     "trust-signals digest — a raw invocation anywhere PR-reachable would duplicate that writer. " +
     "Reads only tracked repo files — no network, no CI-only input. The write half is a " +
     "builder/main-side regen command, never a workflow step by name."],
+  ["gen-replay-house-line.mjs",
+    "Replay house line freshness --check (REPLAY-HOUSE-SIGN-1): replays the fixture corpus and " +
+    "byte-compares data/replay-house-line.json. Hard in preflight; its CI route is " +
+    "scripts-verify.yml full preflight, so a named workflow step would only duplicate the same " +
+    "suite. It is the COVERED gate of derived-artifacts.mjs id 'replay-house-line' (prAbsentOk " +
+    "advisory-on-PR, blocking-on-main), and the single writer is derived-artifacts-regen.yml. " +
+    "Reads only tracked repo files, no network. The write half is a main-side regen command."],
+  ["replay-house-line.selftest.mjs", SELF_TEST],
   ["derived-context-detached.test.mjs", SELF_TEST],
   // ── EVREG-1 (2026-09-22) ────────────────────────────────────────────────────
   ["check-evidence-register.mjs",
@@ -1126,6 +1179,8 @@ const PREFLIGHT_ONLY = new Map([
   ["diff-scope.test.mjs", SELF_TEST],
   ["check-clause-digest.test.mjs", SELF_TEST],
   ["lint-kernel-citation-comments.test.mjs", SELF_TEST],
+  ["lint-caller-key-lookup.mjs", "advisory for existing kernels (baseline ratchet), blocking only for a kernel with no baseline entry; runs in preflight and kernel-preflight (KERNEL-CALLER-KEY-LOOKUP-LINT-1)"],
+  ["_caller-key-probes.mjs", SELF_TEST],
   ["check-branch-inventory.test.mjs", SELF_TEST],
   ["check-flag-mirror.test.mjs", SELF_TEST],
   ["check-chain-citation.test.mjs", SELF_TEST],
@@ -1366,6 +1421,15 @@ const PREFLIGHT_ONLY = new Map([
     "invocation anywhere PR-reachable would duplicate that writer. Reads only tracked repo " +
     "files plus local git (through gitEnv()) — no network, no CI-only input. The write half " +
     "is a builder/main-side regen command, never a workflow step by name."],
+  // ── VINTAGE-TABLE-1 (PR-3107-WORKFLOW-PARITY-CURE-1, 2026-11-14) ────────────
+  ["check-vintages.mjs",
+    "Vintage-table gate (V1, V2, V4) and its --self-test. Hard in preflight; its CI route is " +
+    "scripts-verify.yml full preflight (the workflow runs `node scripts/preflight.mjs`), so a " +
+    "named workflow step would only duplicate the same suite. Reads only tracked repo files " +
+    "(chaingraph/kernels/__vintages__, data/vintages.json, " +
+    "chaingraph/standard/clause-snapshot-registry.json) - no network, no CI-only input. " +
+    "Those input paths are in the scripts-verify relevance list (scripts/ci-paths.json), so a " +
+    "PR that changes only a vintage table still runs the full preflight."],
 ]);
 
 // ── DECLARATION SYNTAX (axis 2) ───────────────────────────────────────────────
@@ -1664,7 +1728,7 @@ const DECLARED_SOFTENERS = new Map([
   // ordering-comment lines added inside the receipt block above; same pin-move.
   // CHANGELOG-DEPLOY-INCLUDE-1 (2026-10-31) moved it :1024 → :1026 — two
   // --include lines added to the dry-run rsync above; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:1026",
+  ["deploy-to-dreamhost.yml:continue-on-error:1027",
    "attest step is advisory-first by design; promotion criterion on the step"],
   // SIGSTORE-BUNDLE-V03-EXPORT-4 (2026-10-24): the receipt-bundle index
   // attest step (continue-on-error at :829) is advisory-first for the SAME
@@ -1683,7 +1747,7 @@ const DECLARED_SOFTENERS = new Map([
   // three receipt steps moved as one block to sit immediately above the
   // deploy-manifest build, so index.sigstore.json ships LISTED in
   // deploy-checksums.txt; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:781",
+  ["deploy-to-dreamhost.yml:continue-on-error:782",
    "receipt-bundle index attest step is advisory-first by design; a Sigstore outage must not red the deploy or skip CF purge + smoke; promotion criterion on the step"],
   // SIGSTORE-BUNDLE-V03-EXPORT-5 (2026-10-25): the receipt-bundle subjects
   // step (id: attest_subjects, continue-on-error at :812) is advisory-first
@@ -1697,7 +1761,7 @@ const DECLARED_SOFTENERS = new Map([
   // SIGSTORE-BUNDLE-V03-EXPORT-8 (2026-10-26) moved it :812 → :736 — the
   // three receipt steps moved as one block to sit immediately above the
   // deploy-manifest build; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:736",
+  ["deploy-to-dreamhost.yml:continue-on-error:737",
    "receipt-bundle subjects step is advisory-first by design; a red index-shape derivation must not red the deploy; promotion criterion on the step"],
   // SIGSTORE-BUNDLE-V03-EXPORT-5 (2026-10-25): the receipt-bundle copy step
   // (id: copy_sigstore_bundle, continue-on-error at :876) is advisory-first
@@ -1711,7 +1775,7 @@ const DECLARED_SOFTENERS = new Map([
   // SIGSTORE-BUNDLE-V03-EXPORT-8 (2026-10-26) moved it :876 → :806 — the
   // three receipt steps moved as one block to sit immediately above the
   // deploy-manifest build; same pin-move.
-  ["deploy-to-dreamhost.yml:continue-on-error:806",
+  ["deploy-to-dreamhost.yml:continue-on-error:807",
    "receipt-bundle copy step is advisory-first by design; a copy failure must not red the deploy; promotion criterion on the step"],
 
   // MAIN-GATES-AFTER-REGEN-1 (2026-10-08) moved it :109 → :146 — the

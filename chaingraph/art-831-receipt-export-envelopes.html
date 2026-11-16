@@ -8,7 +8,7 @@
 <meta name="description" content="Deterministically re-express an OpenChainGraph execution receipt as a lineage RunEvent and a structured-mode event envelope, so lineage and eventing stacks ingest receipts without a custom adapter.">
 <meta name="robots" content="index, follow">
 <meta name="ain:category" content="run">
-<meta name="kernel-digest" content="sha256:8cc858b85b85d288aaef2aa1b6bf2a465324337e51bccddcb5e9818106de5fb4">
+<meta name="kernel-digest" content="sha256:6b5124a707256357710470b5fb0166dec13fab7f5d4c61c09838aae782ae0d3c">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/art-831-receipt-export-envelopes.html">
 <link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-831-receipt-export-envelopes.md">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -115,7 +115,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <span>›</span>
       <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
       <span>›</span>
-      <span style="color:var(--gold)">ART-804 · Receipt Export Envelopes</span>
+      <span style="color:var(--gold)">ART-831 · Receipt Export Envelopes</span>
     </div>
     <div class="nav-right">
       <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
@@ -139,7 +139,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <tr><td><code>execution_hash</code></td><td><code>run.runId</code> (derived ; see the derivation table below)</td><td><code>id</code></td></tr>
       <tr><td><code>tool_id</code></td><td><code>job.name</code></td><td><code>data.tool_id</code></td></tr>
       <tr><td><code>namespace</code></td><td><code>job.namespace</code> (and every input dataset's <code>namespace</code>)</td><td>none (the caller <code>source</code> lands on the envelope instead)</td></tr>
-      <tr><td><code>parent_hashes</code>[i]</td><td><code>inputs[i]</code> : one dataset named by the hash, <code>{namespace, name, type: "table"}</code>, the estate lineage-card facet dialect</td><td><code>data.parent_hashes</code> (unchanged)</td></tr>
+      <tr><td><code>parent_hashes</code>[i]</td><td><code>inputs[i]</code> : one dataset named by the hash, <code>{namespace, name}</code>, the estate lineage-card facet dialect</td><td><code>data.parent_hashes</code> (unchanged)</td></tr>
       <tr><td><code>parent_tool_ids</code>[i]</td><td>none (paired to the parent hashes by position, never emitted)</td><td><code>data.parent_tool_ids</code> (unchanged)</td></tr>
       <tr><td><code>chain_depth</code></td><td>none</td><td><code>data.chain_depth</code> (unchanged)</td></tr>
       <tr><td><code>policy_parameters_hash</code></td><td>none</td><td><code>data.policy_parameters_hash</code> (unchanged)</td></tr>
@@ -219,7 +219,7 @@ flags  : RECEIPT_EXPORTED | RECEIPT_EXPORT_REFUSED (+ root/multi-parent mirror f
    is the SSOT; this mirror is kept byte-faithful to it and exercised by the page's
    own determinism review. No clock, no randomness, no network. */
 var HEX64 = /^[0-9a-f]{64}$/;
-var TS_RE = /^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(\.\d+)?([Zz]|[+-]\d{2}:\d{2})$/;
+var TS_RE = /^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(\.\d+)?([Zz]|[+-](\d{2}):(\d{2}))$/;
 function isHex64(v){ return typeof v === 'string' && HEX64.test(v); }
 function isNonEmptyString(v){ return typeof v === 'string' && v.length > 0; }
 function isTimestamp(v){
@@ -228,20 +228,87 @@ function isTimestamp(v){
   var year=+m[1], month=+m[2], day=+m[3], hour=+m[4], minute=+m[5], second=+m[6];
   if (month < 1 || month > 12) return false;
   if (hour > 23 || minute > 59 || second > 60) return false;
+  if (m[9] !== undefined && (+m[9] > 23 || +m[10] > 59)) return false;
   var isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
   var dim = [31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
   return day >= 1 && day <= dim;
 }
-var URI_FORBIDDEN = /[^\x21-\x7e]/;
+var URI_FORBIDDEN = /[^\x21-\x7e]|["<>{}|\\^`]/;
+var URI_SCHEME = /^[A-Za-z][A-Za-z0-9+.-]*$/;
+var URI_USERINFO = /^(?:[A-Za-z0-9\-._~!$&'()*+,;=:]|%[0-9A-Fa-f]{2})*$/;
+var URI_REGNAME = /^(?:[A-Za-z0-9\-._~!$&'()*+,;=]|%[0-9A-Fa-f]{2})*$/;
+var URI_PATH = /^(?:[A-Za-z0-9\-._~!$&'()*+,;=:@\/]|%[0-9A-Fa-f]{2})*$/;
+var URI_QUERY_FRAG = /^(?:[A-Za-z0-9\-._~!$&'()*+,;=:@\/?]|%[0-9A-Fa-f]{2})*$/;
+var URI_IPV4 = /^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+var URI_IPFUTURE = /^[vV][0-9A-Fa-f]+\.[A-Za-z0-9\-._~!$&'()*+,;=:]+$/;
+function ipv6Groups(str, allowV4Last){
+  if (str === '') return 0;
+  var parts = str.split(':'), n = 0;
+  for (var i = 0; i < parts.length; i++) {
+    var p = parts[i];
+    if (allowV4Last && i === parts.length - 1 && p.indexOf('.') !== -1) {
+      if (!URI_IPV4.test(p)) return -1;
+      n += 2;
+    } else if (/^[0-9A-Fa-f]{1,4}$/.test(p)) {
+      n += 1;
+    } else {
+      return -1;
+    }
+  }
+  return n;
+}
+function isIPv6(s){
+  if (!/^[0-9A-Fa-f:.]+$/.test(s) || s.indexOf(':::') !== -1) return false;
+  var dbl = s.indexOf('::');
+  if (dbl === -1) return ipv6Groups(s, true) === 8;
+  if (dbl !== s.lastIndexOf('::')) return false;
+  var a = ipv6Groups(s.slice(0, dbl), false), b = ipv6Groups(s.slice(dbl + 2), true);
+  return a >= 0 && b >= 0 && a + b <= 7;
+}
+function isUriAuthority(auth){
+  var at = auth.indexOf('@');
+  if (at !== -1) {
+    if (!URI_USERINFO.test(auth.slice(0, at))) return false;
+    auth = auth.slice(at + 1);
+  }
+  var host = auth, port = '';
+  if (auth.charAt(0) === '[') {
+    var close = auth.indexOf(']');
+    if (close === -1) return false;
+    var inner = auth.slice(1, close), tail = auth.slice(close + 1);
+    if (tail !== '' && !/^:\d*$/.test(tail)) return false;
+    return isIPv6(inner) || URI_IPFUTURE.test(inner);
+  }
+  var colon = auth.indexOf(':');
+  if (colon !== -1) { host = auth.slice(0, colon); port = auth.slice(colon + 1); }
+  return /^\d*$/.test(port) && URI_REGNAME.test(host);
+}
 function isUriReference(v){
   if (typeof v !== 'string' || v.length === 0) return false;
   if (URI_FORBIDDEN.test(v)) return false;
-  var i = v.indexOf('%');
-  while (i !== -1) {
-    if (i + 2 >= v.length) return false;
-    if (!/^[0-9A-Fa-f]{2}$/.test(v.slice(i + 1, i + 3))) return false;
-    i = v.indexOf('%', i + 1);
+  var rest = v, frag = null, query = null;
+  var hash = rest.indexOf('#');
+  if (hash !== -1) { frag = rest.slice(hash + 1); rest = rest.slice(0, hash); }
+  var qm = rest.indexOf('?');
+  if (qm !== -1) { query = rest.slice(qm + 1); rest = rest.slice(0, qm); }
+  if (frag !== null && !URI_QUERY_FRAG.test(frag)) return false;
+  if (query !== null && !URI_QUERY_FRAG.test(query)) return false;
+  var colon = rest.indexOf(':'), slash = rest.indexOf('/'), hasScheme = false;
+  if (colon !== -1 && (slash === -1 || colon < slash)) {
+    if (!URI_SCHEME.test(rest.slice(0, colon))) return false;
+    hasScheme = true;
+    rest = rest.slice(colon + 1);
   }
+  var hasAuthority = false;
+  if (rest.slice(0, 2) === '//') {
+    hasAuthority = true;
+    var end = rest.indexOf('/', 2);
+    var auth = end === -1 ? rest.slice(2) : rest.slice(2, end);
+    if (!isUriAuthority(auth)) return false;
+    rest = end === -1 ? '' : rest.slice(end);
+  }
+  if (!URI_PATH.test(rest)) return false;
+  if (!hasScheme && !hasAuthority && rest.split('/')[0].indexOf(':') !== -1) return false;
   return true;
 }
 function runIdFromHash(hash){
@@ -276,7 +343,7 @@ function exportEnvelopes(r){
       eventType: 'COMPLETE', eventTime: r.event_time,
       run: { runId: runIdFromHash(r.execution_hash) },
       job: { namespace: r.namespace, name: r.tool_id },
-      inputs: r.parent_hashes.map(function(h){ return { namespace: r.namespace, name: h, type: 'table' }; }),
+      inputs: r.parent_hashes.map(function(h){ return { namespace: r.namespace, name: h }; }),
       outputs: [], producer: PRODUCER, schemaURL: SCHEMA_URL
     },
     event_envelope: {
@@ -353,6 +420,9 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-831
     <div class="footer-cols">
       <div class="footer-col">
         <div class="footer-col-label">Platform</div>
+        <a href="../start.html">Start Here</a>
+        <a href="../front-to-back.html">Front-to-Back Prompts</a>
+        <a href="../prompts.html">Prompt Library</a>
         <a href="chaingraph-hub.html">ChainGraph Hub</a>
         <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
         <a href="openchain-graph-spec.html">Spec v0.8.13</a>
@@ -368,8 +438,10 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-831
       <div class="footer-col">
         <div class="footer-col-label">Hubs</div>
         <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="visual-explainers-hub.html">Visual Explainers</a>
+        <a href="education-hub.html">Learn OpenChainGraph</a>
         <a href="../guides/web3-hub.html">Web3 Hub</a>
-        <a href="../guides/solana-hub.html">Solana</a>
+        <a href="../guides/canton-tmf-hub.html">Canton</a>
         <a href="../guides/ethereum-hub.html">Ethereum</a>
         <a href="../guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
         <a href="../guides/token-standards-hub.html">Token Standards</a>
@@ -383,6 +455,8 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-831
         <div class="footer-col-label">Developers</div>
         <a href="../mcp.html">MCP Docs</a>
         <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../webmcp.html">WebMCP</a>
+        <a href="../mcp-benchmark.html">MCP Benchmark</a>
         <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
         <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
         <a href="../openapi.json" target="_blank">openapi.json</a>
@@ -390,6 +464,7 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-831
         <a href="okf/index.md" target="_blank">OKF bundle</a>
         <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
         <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../verification-desk.html">Verification Desk</a>
         <a href="verify.html">Artifact Verifier</a>
         <a href="../ledger/index.html">Receipt Ledger</a>
       </div>
@@ -402,6 +477,8 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-831
         <a href="../fv-explainer.html">FV Process Explainer</a>
         <a href="../errata.html">FV Errata</a>
         <a href="../suggest.html">Suggest</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="../privacy.html">Privacy</a>
         <a href="../contact.html">Contact</a>
         <a href="../sitemap.html">Sitemap</a>
         <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
