@@ -137,3 +137,72 @@ test('RED/GREEN on the real writer: a main-merge head hides the kernel without t
     assert.ok(!/not in scope/.test((withList.stdout || '') + (withList.stderr || '')), 'GREEN: with the list the kernel is in scope: ' + (withList.stdout + withList.stderr).slice(0, 300));
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+// ---- the input-schema writer never creates a manifest (2026-11-15, AUTOFIX-INPUT-SCHEMA-NO-CREATE-1) ----
+// #3136: a kernel PR whose node had no manifest got one anyway — the writer's BACKFILL-CREATE path
+// laid down manifests/810-*.manifest.json (mcp_name over the 30 limit, description over 500) and the
+// PR red'd webmcp-meta-budgets. The wiring must skip a manifest-less id with a notice instead of
+// invoking the writer at all.
+
+test('manifest-less id: the schema writer is never invoked, the step skips', async () => {
+  const { inputSchemaStep } = await import('./pr-autofix-kernel.mjs');
+  const calls = [];
+  const run = (a) => { calls.push(a); return { status: 0, output: 'created manifests/art-1-x.manifest.json' }; };
+  const res = inputSchemaStep('art-1-x', run, () => false);
+  assert.equal(res, 'skip');
+  assert.equal(calls.length, 0, 'RED: the writer ran for a manifest-less id and its create path lays down a manifest file');
+});
+
+test('existing manifest: the writer still runs with exactly the flags it runs today', async () => {
+  const { inputSchemaStep } = await import('./pr-autofix-kernel.mjs');
+  const calls = [];
+  const res = inputSchemaStep('art-1-x', (a) => { calls.push(a); return { status: 0, output: '' }; }, () => true);
+  assert.equal(res, 'ok');
+  assert.deepEqual(calls[0], ['scripts/gen-input-schemas.mjs', '--write', '--only', 'art-1-x']);
+});
+
+test('whole wiring, real script, fake create path: no manifest appears, notice names the id, exit 0', async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, cpSync, existsSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join, resolve: res, dirname: dn } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const { spawnSync } = await import('node:child_process');
+  const repo = res(dn(fileURLToPath(import.meta.url)), '..', '..');
+  const root = mkdtempSync(join(tmpdir(), 'autofix-nocreate-'));
+  try {
+    mkdirSync(join(root, 'scripts', 'ci'), { recursive: true });
+    mkdirSync(join(root, 'chaingraph', 'kernels'), { recursive: true });
+    // the REAL script, unmodified: this exercises the wiring, not a reimplementation of it
+    cpSync(join(repo, 'scripts', 'ci', 'pr-autofix-kernel.mjs'), join(root, 'scripts', 'ci', 'pr-autofix-kernel.mjs'));
+    cpSync(join(repo, 'scripts', '_git-env-lib.mjs'), join(root, 'scripts', '_git-env-lib.mjs'));
+    // estate stubs: coveredPaths() is the script's only other import; the fake schema writer
+    // mimics the real BACKFILL-CREATE path — invoked at all, it lays down the manifest
+    writeFileSync(join(root, 'scripts', 'derived-artifacts.mjs'), 'export function coveredPaths() { return []; }\n');
+    writeFileSync(
+      join(root, 'scripts', 'gen-input-schemas.mjs'),
+      [
+        "import { mkdirSync, writeFileSync } from 'node:fs';",
+        "import { join } from 'node:path';",
+        "const id = process.argv[process.argv.indexOf('--only') + 1];",
+        "mkdirSync('manifests', { recursive: true });",
+        "writeFileSync(join('manifests', `${id}.manifest.json`), '{}\\n');",
+        "console.log(`created manifests/${id}.manifest.json`);",
+      ].join('\n'),
+    );
+    writeFileSync(join(root, 'chaingraph', 'kernels', 'art-1-x.kernel.mjs'), 'export async function buildArtifact(){ return {}; }\n');
+    // no chaingraph/graph/nodes/art-1-x.json on purpose: the identity writer skips, out of scope here
+    const git = (...a) => spawnSync('git', a, { cwd: root, encoding: 'utf8', env: gitEnv() });
+    git('init', '-q'); git('config', 'user.email', 't@t'); git('config', 'user.name', 't');
+    git('add', '-A'); git('commit', '-qm', 'base');
+    const touched = join(root, 'touched.nul');
+    writeFileSync(touched, 'chaingraph/kernels/art-1-x.kernel.mjs\0');
+    const r = spawnSync(process.execPath, [join(root, 'scripts', 'ci', 'pr-autofix-kernel.mjs'), '--touched', touched], {
+      cwd: root, encoding: 'utf8', env: gitEnv(),
+    });
+    const out = (r.stdout || '') + (r.stderr || '');
+    assert.equal(r.status, 0, 'the run itself exits 0: ' + out.slice(0, 400));
+    assert.ok(!existsSync(join(root, 'manifests', 'art-1-x.manifest.json')), 'RED: a manifest file appears for a node that has none (the create path ran)');
+    assert.ok(!out.includes('> node scripts/gen-input-schemas.mjs'), 'the schema writer was never invoked');
+    assert.ok(out.includes('::notice title=input-schema skipped for art-1-x'), 'GREEN: one notice names the id and the reason');
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
