@@ -17,8 +17,9 @@
  * neither an erratum nor a declaration.
  *
  * ADVISORY: this script ALWAYS exits 0. Exit 2 is reserved for a usage error or a crash of
- * the harness itself. K2 is non-blocking until the desk flips it (two weeks advisory with
- * zero false reds is the bar named in the errata build spec).
+ * the harness itself. K2 is advisory on PRs as staged 2026-11-15; the flip to blocking is
+ * the desk's decision under the errata build spec (bar: two weeks advisory with zero false
+ * reds).
  *
  * Usage:
  *   node scripts/check-kernel-errata-k2.mjs [--root <repo>] [--base <ref>] [--head <ref>]

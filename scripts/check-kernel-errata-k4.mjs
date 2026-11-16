@@ -17,7 +17,8 @@
  * are both RED, not green.
  *
  * ADVISORY: this script ALWAYS exits 0. Exit 2 is reserved for a usage error or a crash of
- * the harness itself. K4 is non-blocking until the desk flips it.
+ * the harness itself. K4 is advisory on PRs as staged 2026-11-15; the flip to blocking is
+ * the desk's decision under the errata build spec.
  *
  * Usage: node scripts/check-kernel-errata-k4.mjs [--root <repo>]
  * Self-test: scripts/check-kernel-errata-k4.selftest.mjs (too-narrow RED, too-wide counted)
