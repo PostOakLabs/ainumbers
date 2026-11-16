@@ -141,3 +141,50 @@ test('the hygiene set covers the gates that went red in CI on 2026-11-06', () =>
     assert.ok(AFFECTED_HYGIENE_CMDS.includes(`node scripts/${c}`), c);
   }
 });
+
+// ── PREFLIGHT-AFFECTED-GATE-PARITY-1: a gate-machinery diff selects the parity gate ──
+// PRs 3107/3117/3052 pushed new gates with no workflow registration and first-failed
+// in CI on "Workflow gate parity (no CI↔preflight drift)" although --affected was
+// green: no AFFECTED_CLASSES path class matched gate machinery, so the parity gate
+// was only ever picked by the kernel class's broad /parity/i label regex.
+const PARITY_LABEL = 'Workflow gate parity (no CI↔preflight drift)';
+const PARITY_CONTROLS_LABEL = 'Workflow gate parity controls (status + reverse-presence axes, mutation)';
+const WITH_PARITY = [...GATES, [PARITY_LABEL, 'p'], [PARITY_CONTROLS_LABEL, 'q']];
+
+test('a diff touching only scripts/preflight.mjs selects the workflow gate parity gate', () => {
+  const r = affectedSelection(WITH_PARITY, ['scripts/preflight.mjs']);
+  assert.ok(r.classes.includes('gate-machinery'), JSON.stringify(r.classes));
+  assert.ok(labels(r).includes(PARITY_LABEL));
+});
+
+test('a lone new scripts/check-something-new.mjs selects the workflow gate parity gate', () => {
+  const r = affectedSelection(WITH_PARITY, ['scripts/check-something-new.mjs']);
+  assert.ok(r.classes.includes('gate-machinery'), JSON.stringify(r.classes));
+  assert.ok(labels(r).includes(PARITY_LABEL));
+});
+
+test('a lone .github/workflows/scripts-verify.yml selects the workflow gate parity gate', () => {
+  const r = affectedSelection(WITH_PARITY, ['.github/workflows/scripts-verify.yml']);
+  assert.ok(r.classes.includes('gate-machinery'), JSON.stringify(r.classes));
+  assert.ok(labels(r).includes(PARITY_LABEL));
+});
+
+test('a diff touching the parity checker itself selects the plain gate, never its controls', () => {
+  const r = affectedSelection(WITH_PARITY, ['scripts/check-workflow-gate-parity.mjs']);
+  assert.ok(labels(r).includes(PARITY_LABEL));
+  assert.ok(!labels(r).includes(PARITY_CONTROLS_LABEL), 'AFFECTED_SKIP must keep dropping the controls gate');
+});
+
+test('changed gate test and selftest files (any depth under scripts/) select the parity gate without a kernel file', () => {
+  const r = affectedSelection(WITH_PARITY, ['scripts/lib/affected-gates.test.mjs']);
+  assert.ok(r.classes.includes('gate-machinery'), JSON.stringify(r.classes));
+  assert.ok(labels(r).includes(PARITY_LABEL));
+  const s = affectedSelection(WITH_PARITY, ['scripts/check-copy-hallmarks.selftest.mjs']);
+  assert.ok(labels(s).includes(PARITY_LABEL));
+});
+
+test('an unrelated README-only touched set selects no gate-machinery gate (no change)', () => {
+  const r = affectedSelection(WITH_PARITY, ['README.md']);
+  assert.deepEqual(r.classes, []);
+  assert.ok(!labels(r).some((l) => /Workflow gate parity/.test(l)));
+});
