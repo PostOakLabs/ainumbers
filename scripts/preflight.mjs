@@ -1963,6 +1963,8 @@ const GATES = [
   // prAbsentOk) and it stays blocking on main. This GATES row is also what the generator
   // coverage meta-gate (SSOT-GATES-1 §G2.5) requires: a --check generator must be wired here.
   ['Published kernel-digest list freshness (single-writer main regen, VERIFYBINDING-DIGEST-DEFAULT-1)', 'node scripts/gen-kernel-digests.mjs --check'],
+  ['Replay house line freshness (single-writer main regen, REPLAY-HOUSE-SIGN-1)', 'node scripts/gen-replay-house-line.mjs --check'],
+  ['Replay house line controls (REPLAY-HOUSE-SIGN-1)', 'node scripts/replay-house-line.selftest.mjs'],
   ['OCG integrator profile freshness (OCG-INTEGRATOR-PROFILE-1)', 'node scripts/gen-integrator-profile.mjs --check'],
   ['Chain-builder catalog freshness (CHAINBUILDER-CATALOG-GEN-1)', 'node scripts/gen-chainbuilder-catalog.mjs --check'],
   ['Hub node-card coverage (HUB-GEN-1)', 'node scripts/gen-chaingraph-hub.mjs --check'],

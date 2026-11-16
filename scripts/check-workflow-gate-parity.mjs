@@ -215,6 +215,9 @@ const NOT_A_GATE = new Map([
   ["replay-result-matrix.yml",
     "workflow_dispatch only; replays the fixture corpus on three OSes and uploads the result files. " +
     "No pull_request, push or merge_group trigger, never a required check, attests nothing."],
+  ["replay-house-attest.yml",
+    "workflow_dispatch + daily schedule only, guarded to the upstream repository; replays the fixture corpus " +
+    "and attests the result. No pull_request, push or merge_group trigger, never a required check."],
   ["swh-save.yml",
     "workflow_dispatch + push tags only, continue-on-error; no pull_request or merge_group trigger, so it gates no merge."],
   ["automerge-label.yml",
@@ -620,6 +623,14 @@ const PREFLIGHT_ONLY = new Map([
     "trust-signals digest — a raw invocation anywhere PR-reachable would duplicate that writer. " +
     "Reads only tracked repo files — no network, no CI-only input. The write half is a " +
     "builder/main-side regen command, never a workflow step by name."],
+  ["gen-replay-house-line.mjs",
+    "Replay house line freshness --check (REPLAY-HOUSE-SIGN-1): replays the fixture corpus and " +
+    "byte-compares data/replay-house-line.json. Hard in preflight; its CI route is " +
+    "scripts-verify.yml full preflight, so a named workflow step would only duplicate the same " +
+    "suite. It is the COVERED gate of derived-artifacts.mjs id 'replay-house-line' (prAbsentOk " +
+    "advisory-on-PR, blocking-on-main), and the single writer is derived-artifacts-regen.yml. " +
+    "Reads only tracked repo files, no network. The write half is a main-side regen command."],
+  ["replay-house-line.selftest.mjs", SELF_TEST],
   ["derived-context-detached.test.mjs", SELF_TEST],
   // ── EVREG-1 (2026-09-22) ────────────────────────────────────────────────────
   ["check-evidence-register.mjs",
