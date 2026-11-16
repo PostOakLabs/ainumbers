@@ -389,6 +389,14 @@ const PREFLIGHT_ONLY = new Map([
     "Self-test for stamp-writers.mjs over in-memory fixtures; it can only be reddened by a change " +
     "to that checker, which scripts-verify.yml's path-scoped full preflight already runs, so a " +
     "separate workflow step would only duplicate it."],
+  // ── KERNEL-ERRATA-SCHEMA-1 (2026-11-14) ────────────────────────────────────
+  ["check-kernel-errata.mjs",
+    "Kernel erratum schema and registry gate: preflight-only because scripts-verify.yml's " +
+    "path-scoped full preflight already runs it on every PR that can change its inputs " +
+    "(chaingraph/errata/** is in scripts-verify's relevance list in scripts/ci-paths.json, " +
+    "and the gate code sits under scripts/**), so a separate workflow step would only " +
+    "duplicate that run."],
+  ["check-kernel-errata.selftest.mjs", SELF_TEST],
   // ── Interpolated-markup ratchet (2026-11-07) ───────────────────────────────
   ["check-innerhtml-ratchet.mjs",
     "Advisory-first interpolated-markup ratchet over tools/*.html: preflight wires " +
