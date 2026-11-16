@@ -353,7 +353,7 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
   // An input the shared canonicalizer would refuse mints a refusal artifact (null
   // execution_hash plus hash_refusal) instead of throwing (D6). pp is walked before
   // compute() so no arithmetic or hash ever runs on it. Domain refusals of a hashable pp
-  // keep compute()'s declared throw contract, unchanged.
+  // keep compute()'s declared throw contract as it was.
   const preHash = findHashRefusal({ policy_parameters: pp }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
   if (preHash !== null) {
     return {
