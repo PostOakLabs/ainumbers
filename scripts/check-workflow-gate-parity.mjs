@@ -1313,6 +1313,7 @@ const PREFLIGHT_ONLY = new Map([
   ["regen-sitemap.mjs", VIA_PREFLIGHT],
   ["gen-registry-lineage.mjs", VIA_PREFLIGHT],
   ["gen-registry-errata.mjs", VIA_PREFLIGHT],
+  ["gen-errata-snapshot.mjs", VIA_PREFLIGHT],
   ["gen-euc-register.mjs", VIA_PREFLIGHT],
   ["gen-euc-register-page.mjs", VIA_PREFLIGHT],
   ["gen-clause-edge-report.mjs", VIA_PREFLIGHT],
