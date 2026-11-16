@@ -279,8 +279,38 @@ jobs:
         run: node scripts/check-internal-lang-leak.mjs
 
       - name: Copy hallmarks (§1.4)
+        # Assembled-copy cap check (2026-11-16): on pull_request and merge_group
+        # the ",-not X" caps are additionally judged over the ASSEMBLED
+        # chaingraph-hub.html + sitemap.html (chaingraph/chaingraph-hub.html
+        # and sitemap.html are shared derived artifacts a PR never edits, so
+        # the committed copies this step used to judge are stale by
+        # construction — a node description pushing a cap over passed every
+        # PR gate and red main's derived regen after merge; run 43382731385:
+        # 12 vs cap 11 / 4 vs cap 3). On merge_group the tree assembled by the
+        # "Ephemeral derived tree (merge_group)" step above is reused; on
+        # pull_request this step assembles its own scratch tree with the same
+        # two commands (nothing derived is ever committed — same shape as
+        # land-verify.yml's s18tree step). DERIVED_ROOT is scoped to the one
+        # command that reads it (check-copy-hallmarks is in
+        # DERIVED_ROOT_GATES; the webmcp commands below must not see it).
+        # push/workflow_run keep judging the COMMITTED tree byte-for-byte as
+        # before — on main the committed tree IS the regen's output (the
+        # regen exception; check-copy-hallmarks stays inert without
+        # DERIVED_ROOT, so the plain invocation is unchanged).
+        shell: bash
         run: |
-          node scripts/check-copy-hallmarks.mjs
+          set -euo pipefail
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ] || [ "${GITHUB_EVENT_NAME}" = "merge_group" ]; then
+            SCRATCH="${RUNNER_TEMP}/derived-tree"
+            if [ ! -f "${SCRATCH}/chaingraph/chaingraph-hub.html" ]; then
+              SCRATCH="${RUNNER_TEMP}/copy-hallmarks-derived-tree"
+              node scripts/assemble-chaingraph.mjs --out "${SCRATCH}/chaingraph/chaingraph.json"
+              node scripts/derived-artifacts.mjs --out "${SCRATCH}"
+            fi
+            DERIVED_ROOT="${SCRATCH}" node scripts/check-copy-hallmarks.mjs
+          else
+            node scripts/check-copy-hallmarks.mjs
+          fi
           node scripts/check-webmcp-meta-budgets.mjs --ceiling
           node scripts/check-webmcp-meta-neardupes.mjs --ceiling
 
