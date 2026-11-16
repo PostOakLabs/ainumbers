@@ -383,6 +383,14 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── HEADROOM-LIB-1 (2026-11-14) ─────────────────────────────────────────────
+  ["run-headroom.mjs",
+    "Advisory-first headroom search: preflight wires --advisory, which prints the base-point report, " +
+    "gates H1/H2/H3/H5/H6 and their planted red-and-green controls, and always exits 0, so a blocking " +
+    "CI step would re-run a gate that cannot fail yet. Spec section 6 makes it blocking only after one " +
+    "clean week, by Tim's call; the flip and the CI routing land together. It reads checked-in " +
+    "declarations, fixtures and kernels only (no network, no CI-only input), and the PRs that can change " +
+    "its verdict are kernel and scripts/ edits, which scripts-verify.yml's path-scoped full preflight already runs."],
   // ── KERNEL-ERRATA-SCHEMA-1 (2026-11-14) ────────────────────────────────────
   ["check-kernel-errata.mjs",
     "Kernel erratum schema and registry gate: preflight-only because scripts-verify.yml's " +
