@@ -1,5 +1,5 @@
 // art-842-soc-report-coverage-gap — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:cec65d5341087b8568d3736ff418a994c1b1fd26503e4d8e6ae55f2c62ea6a33
+// kernel_digest_at_authoring: sha256:2e77afa1c11f02cfd456e36c6ed4499408644f5f13e3f5e25e6836c95821b3c9
 // spec: SOC-BRIDGE-GAP-NODE-1 board row (coverage and gap arithmetic from declared values)
 // human_sign_off: PENDING
 //
@@ -12,7 +12,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-842-soc-report-coverage-gap.proptest.mjs
 
-import { compute } from '../art-842-soc-report-coverage-gap.kernel.mjs';
+import { compute, buildArtifact } from '../art-842-soc-report-coverage-gap.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, pick } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-842-soc-report-coverage-gap';
@@ -149,6 +149,38 @@ function checkDeterminismAndWarningsMirror(rng) {
   return { name: 'deterministic_and_warnings_mirror_flags', checked: N_CASES, violations };
 }
 
+// buildArtifact_never_throws (D6): a preimage the shared canonicalizer would reject mints an
+// artifact with a null execution_hash and a hash_refusal beside it; a clean input (accepted,
+// refused or indeterminate) gets a 64-hex hash.
+async function checkBuildArtifactNeverThrows(rng) {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const hostile = [
+    { zzz: 1e300 }, { zzz: Infinity }, { zzz: -Infinity }, { zzz: NaN },
+    { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } }, { zzz: deep }, { zzz: wide },
+    { exception_count: 1e300 }, { exception_count: NaN },
+  ];
+  for (const delta of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...genCase(rng), ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) { violations++; console.log(`violation: ${Object.keys(delta)[0]} artifact shape`); }
+      if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) { violations++; console.log('violation: hostile value echoed'); }
+    } catch (e) { violations++; console.log(`violation: buildArtifact threw: ${String(e.message).slice(0, 80)}`); }
+  }
+  const clean = [genCase(rng), (() => { const p = genCase(rng); delete p.cuecs; return p; })(), { ...genCase(rng), report_type: 'bogus' }, null, 5, []];
+  for (const pp of clean) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('violation: clean input lost its hash'); }
+    } catch (e) { violations++; console.log(`violation: buildArtifact threw on clean input: ${String(e.message).slice(0, 80)}`); }
+  }
+  return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -164,6 +196,7 @@ const properties = [
   checkIdRefusals(mulberry32(5)),
   checkMissingFacts(mulberry32(6)),
   checkDeterminismAndWarningsMirror(mulberry32(7)),
+  await checkBuildArtifactNeverThrows(mulberry32(8)),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test`);
 const ok = summarize(KERNEL_ID, oracle, properties);
