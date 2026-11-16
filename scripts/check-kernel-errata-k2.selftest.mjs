@@ -19,14 +19,21 @@
  *     commit touches the art-807 kernel the precondition assert breaks and this control
  *     must be re-pinned.
  *   - Unit controls on validateDeclaration: five malformed declarations each rejected.
+ *   - Mode switch controls (KERNEL-ERRATA-CURE-HOOK-1): resolveGateMode over a scratch root
+ *     (absent file = advisory default, both values resolve, an out-of-range value and
+ *     malformed JSON are hard errors); the planted cure red is report-only with the mode
+ *     off (exit 0) and a failing exit with the mode on (exit 1); a satisfied cure exits 0
+ *     in both modes; blocking with no in-place kernel edit never reds vacuously.
  *
  *   node scripts/check-kernel-errata-k2.selftest.mjs
- * Node built-ins only; no network, no clock, no randomness; writes nothing.
+ * Node built-ins only; no network, no clock; writes only a mkdtemp scratch dir (the mode
+ * setting controls) which it removes.
  */
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { REPO_ROOT, SOURCES_DIR, resolveCommit, loadKernelAt } from './lib/kernel-errata.mjs';
-import { checkK2, collectModifiedKernels, loadEntriesAt, validateDeclaration, verifyNoSemanticChange } from './check-kernel-errata-k2.mjs';
+import { checkK2, collectModifiedKernels, gateExit, loadEntriesAt, resolveGateMode, validateDeclaration, verifyNoSemanticChange } from './check-kernel-errata-k2.mjs';
 
 let fails = 0;
 const expect = (name, cond) => { console.log(`${cond ? 'PASS' : 'FAIL'} ${name}`); if (!cond) fails++; };
@@ -94,6 +101,39 @@ expect('precondition: the real art-807 entry names the digest at 59a5e7cbc7^', A
 {
   const entriesNow = loadEntriesAt(REPO_ROOT, 'HEAD');
   expect('K2 smoke: entries loadable at HEAD', entriesNow.length >= 3);
+}
+// Mode switch (KERNEL-ERRATA-CURE-HOOK-1): the tracked setting decides only the exit, never
+// the classification. A malformed setting is a hard error so a typo'd flip stops the desk.
+{
+  const dir = mkdtempSync(join(tmpdir(), 'k2-mode-'));
+  try {
+    expect('K2 mode: absent setting resolves advisory by default', resolveGateMode(dir).mode === 'advisory');
+    mkdirSync(join(dir, 'chaingraph', 'errata'), { recursive: true });
+    const modePath = join(dir, 'chaingraph/errata/k2-gate-mode.json');
+    const setMode = (text) => writeFileSync(modePath, text);
+    setMode(JSON.stringify({ gate: 'K2', mode: 'advisory' }));
+    expect('K2 mode: explicit advisory resolves', resolveGateMode(dir).mode === 'advisory');
+    setMode(JSON.stringify({ gate: 'K2', mode: 'blocking' }));
+    expect('K2 mode: blocking resolves', resolveGateMode(dir).mode === 'blocking');
+    let threw = false;
+    try { setMode(JSON.stringify({ gate: 'K2', mode: 'loudly-off' })); resolveGateMode(dir); } catch { threw = true; }
+    expect('K2 mode: an out-of-range value is a hard error, not a silent advisory', threw);
+    threw = false;
+    try { setMode('{ not json'); resolveGateMode(dir); } catch { threw = true; }
+    expect('K2 mode: malformed JSON is a hard error', threw);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+  // The planted cure: the real art-807 fix pair with no erratum and no declaration. Red in
+  // both modes; only blocking turns the red into a failing exit.
+  const planted = await checkK2(REPO_ROOT, `${FIX807}^`, FIX807, { entries: [] });
+  expect('K2 mode: the planted cure is red with the mode off', redFor(planted.lines, ART807, /without an erratum naming the old digest/));
+  expect('K2 mode: advisory red exits 0 (report only)', gateExit(planted.lines, 'advisory').exitCode === 0 && gateExit(planted.lines, 'advisory').reds === 1);
+  expect('K2 mode: the same red with the mode on exits 1', gateExit(planted.lines, 'blocking').exitCode === 1);
+  const satisfied = await checkK2(REPO_ROOT, `${FIX807}^`, FIX807, { entries: [{ path: `${SOURCES_DIR}/KE-2026-0001.json`, entry: ART807_ENTRY }] });
+  expect('K2 mode: a satisfied cure exits 0 in both modes', gateExit(satisfied.lines, 'advisory').exitCode === 0 && gateExit(satisfied.lines, 'blocking').exitCode === 0);
+  // No in-scope kernel modification between two commits: blocking never reds vacuously.
+  const headNow = resolveCommit(REPO_ROOT, 'HEAD');
+  const quiet = await checkK2(REPO_ROOT, `${headNow}^`, headNow);
+  expect('K2 mode: blocking with no in-place kernel edit exits 0', quiet.examined === 0 && gateExit(quiet.lines, 'blocking').exitCode === 0);
 }
 console.log(fails ? `${fails} FAILED` : 'ALL PASS');
 process.exit(fails ? 1 : 0);
