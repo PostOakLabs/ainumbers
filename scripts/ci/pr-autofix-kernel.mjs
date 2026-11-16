@@ -20,6 +20,9 @@
  *                    allow:   manifests/<id>.manifest.json  (the PR's own manifest)
  *                    Hand-curated schemas (no provenance mark) are never overwritten by the
  *                    tool; a non-zero exit (e.g. id outside its backfill plan) is a warning.
+ *                    A node with no manifest on the PR tree is a skip with a notice: the
+ *                    writer updates an existing manifest, it never creates one (2026-11-15,
+ *                    #3136: the create path laid down a manifest for a manifest-less node).
  *   root-chrome      trigger: a root-level *.html page in the PR's touched set
  *                    runs:    node scripts/gen-root-chrome.mjs
  *                    allow:   only those touched root pages that are NOT shared derived
@@ -154,6 +157,26 @@ export function identityStep(id, run, hasShard, touchedIds) {
   return res;
 }
 
+/**
+ * Run the schema writer for one id. Returns 'ok' | 'skip'. A node with no manifest on the PR
+ * tree is a skip: gen-input-schemas.mjs would take its BACKFILL-CREATE path and lay down a
+ * manifest this PR's node never had (2026-11-15, #3136 — the job then reds webmcp-meta-budgets
+ * on a file no gate here can judge). The writer updates an existing manifest and never creates
+ * one. `run` and `hasManifest` are injectable.
+ */
+export function inputSchemaStep(id, run, hasManifest) {
+  if (!hasManifest(id)) {
+    console.log(`::notice title=input-schema skipped for ${id}::no manifest for this id on the PR tree; the writer updates an existing manifest, it never creates one`);
+    return 'skip';
+  }
+  // Best effort: a non-zero exit means the id is outside the backfill plan or the
+  // schema is hand-curated, which is a hand edit for the PR author, not a fix.
+  if (run(['scripts/gen-input-schemas.mjs', '--write', '--only', id]).status !== 0) {
+    console.log(`::warning title=gen-input-schemas --only ${id} exited non-zero::nothing to backfill, or a hand-curated schema.`);
+  }
+  return 'ok';
+}
+
 async function main() {
   const argv = process.argv.slice(2);
   const ti = argv.indexOf('--touched');
@@ -189,11 +212,9 @@ async function main() {
     if (identityStep(id, runNode, (i) => existsSync(resolve(REPO, `chaingraph/graph/nodes/${i}.json`)), ids) === 'fail') failed = true;
     fence('kernel-identity', true);
 
-    // Best effort: a non-zero exit means the id is outside the backfill plan or the
-    // schema is hand-curated, which is a hand edit for the PR author, not a fix.
-    if (runNode(['scripts/gen-input-schemas.mjs', '--write', '--only', id]).status !== 0) {
-      console.log(`::warning title=gen-input-schemas --only ${id} exited non-zero::nothing to backfill, or a hand-curated schema.`);
-    }
+    // The writer updates an existing manifest and never creates one; a manifest-less id
+    // is a skip with a notice (see inputSchemaStep).
+    inputSchemaStep(id, runNode, (i) => existsSync(resolve(REPO, `manifests/${i}.manifest.json`)));
     fence('input-schema', true);
   }
 
