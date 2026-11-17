@@ -83,9 +83,11 @@ export const ARMED_LABEL = 'automerge';
 export const CHECKS_PENDING_MAX_MIN = 45;
 // A merge of main into a PR whose head is already red only spends CI (the same
 // gates fail on the new head). Such a PR is left alone unless it is
-// conflicting, main touched a file the PR also touches since their merge base,
-// or it carries the opt-in label below. No per-gate path map exists, so "the
-// files the failing gate reads" is approximated by the files the PR changes.
+// conflicting, or it carries the opt-in label below. When the head's required
+// run facts are unreadable, main touching a file the PR also touches since
+// their merge base still lets it sync (fail-open on missing facts only); when
+// a required run on the head has a PR-owned failing step, the PR is skipped
+// until its head changes whatever main touched.
 // Two red classes ARE repaired by a merge of current main, so they sync too
 // (MAIN_OWNED_FRESHNESS_STEPS below): every failing step on the head's latest
 // required run is a main-owned freshness step, or the head's run started
@@ -327,16 +329,23 @@ export function decide(input) {
   if (Number.isFinite(committed) && now - committed < minAge) return skip('fresh-head');
   if (pr.checksState === 'PENDING' && Number.isFinite(committed) && now - committed < CHECKS_PENDING_MAX_MIN * 60_000) return skip('checks-running');
   if (conflicts.length === 0 && (pr.labels || []).includes(ARMED_LABEL)) return skip('armed-queue-rebuilds');
-  // Red head: a clean merge cannot fix it. Conflicting PRs, shared-file
-  // overlap with main, unknown overlap and the opt-in label all keep syncing.
-  // The skip yields to the two main-repairable red classes documented on
-  // MAIN_OWNED_FRESHNESS_STEPS: every failing step is a main-owned freshness
-  // step (redHeadFreshnessOnly), or the head's run predates main's latest
-  // recovery from a red episode (redHeadStale). A merge of current main is
-  // the cure for both. Missing CI facts keep the skip, never act blind.
-  if (conflicts.length === 0 && RED_STATES.has(pr.checksState) && !(pr.labels || []).includes(SYNC_ANYWAY_LABEL)
-      && Array.isArray(input.sharedFiles) && input.sharedFiles.length === 0
-      && !(redHeadFreshnessOnly(input) || redHeadStale(input))) return skip('red-head-no-shared-files');
+  // Red head: a clean merge cannot fix it. Conflicting PRs, unknown overlap
+  // and the opt-in label keep syncing. The skip yields to the two
+  // main-repairable red classes documented on MAIN_OWNED_FRESHNESS_STEPS:
+  // every failing step is a main-owned freshness step (redHeadFreshnessOnly),
+  // or the head's run predates main's latest recovery from a red episode
+  // (redHeadStale). A merge of current main is the cure for both. Missing CI
+  // facts keep the skip, never act blind.
+  // Required-failed head: when the head's latest required run (Scripts Verify
+  // or Land Verify) has a PR-owned failing step, a merge of main only restarts
+  // CI on a head that stays red, so the skip holds even when main touched a
+  // file the PR also touches. It lasts until the head changes (a new head
+  // re-reads fresh facts).
+  const redUnrepairable = conflicts.length === 0 && RED_STATES.has(pr.checksState)
+      && !(pr.labels || []).includes(SYNC_ANYWAY_LABEL)
+      && !(redHeadFreshnessOnly(input) || redHeadStale(input));
+  if (redUnrepairable && Array.isArray(input.failingSteps) && input.failingSteps.length > 0) return skip('required-failed-on-head');
+  if (redUnrepairable && Array.isArray(input.sharedFiles) && input.sharedFiles.length === 0) return skip('red-head-no-shared-files');
 
   if (conflicts.length === 0) return { action: 'merge-clean', reason: 'behind', paths: [] };
   const sentinelOk = input.sentinelOk || new Set();
