@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:451c7b3b5ae225db716a4b46040eb80af02bf7aa2a2ac25a35f3da1e295700ce
+// kernel_digest_at_authoring: sha256:bf3100793d1d3480208df28e8a6e20238cb59334219cb7f49cfaf7d75995b726
 //
 // FV-PROPFLOOR-SHARD-B6-1 — property-test floor for art-218-qm-points-and-fees.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (pass/fail is a continuous points-and-fees
@@ -32,7 +32,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-218-qm-points-and-fees.proptest.mjs
 
-import { compute } from '../art-218-qm-points-and-fees.kernel.mjs';
+import { compute, buildArtifact } from '../art-218-qm-points-and-fees.kernel.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -385,6 +385,36 @@ results.properties.push(checkP5_yearTableSelectionExact());
 results.properties.push(checkP6_yearResolutionAndFallback());
 results.properties.push(checkP7_tierGapNoTierMatched());
 results.properties.push(checkP8_passToleranceEdges());
+
+// P9 -- buildArtifact_never_throws: a preimage the shared canonicalizer would reject mints an
+// artifact with a null execution_hash and a hash_refusal beside it; a clean input gets a
+// 64-hex hash and no hash_refusal.
+async function checkP9_buildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 511; i++) deep = { a: deep };
+  const unhashable = [
+    { loan_amount: 1e300 }, { loan_amount: NaN }, { loan_amount: Infinity }, { loan_amount: -Infinity },
+    { points_and_fees: 1e300 }, { year: 1e300 }, { extra: 1e300 },
+    { extra: deep }, { extra: new Array(1000001).fill(0) },
+  ];
+  for (const pp of unhashable) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) { violations++; console.log('P9 violation: artifact shape', Object.keys(pp)[0]); }
+    } catch (e) { violations++; console.log(`P9 violation: buildArtifact threw: ${String(e.message).slice(0, 80)}`); }
+  }
+  for (const pp of [{ loan_amount: 300000, points_and_fees: 5000 }, {}, { loan_amount: 10000, points_and_fees: 900, year: 2024 }]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('P9 violation: clean input lost its hash'); }
+    } catch (e) { violations++; console.log(`P9 violation: threw on clean input: ${String(e.message).slice(0, 80)}`); }
+  }
+  return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
+}
+results.properties.push(await checkP9_buildArtifactNeverThrows());
 results.boundary_forced = checkP4_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
