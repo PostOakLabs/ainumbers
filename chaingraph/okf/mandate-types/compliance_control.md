@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-146"]
+tags: ["compliance_control", "count-150"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,9 +10,10 @@ status: stable
 
 # compliance_control
 
-146 tool(s) in this mandate-type group:
+150 tool(s) in this mandate-type group:
 
 - [EMV MPM QR Payload Validator](../tools/783-emv-mpm-qr-validator.md)
+- [QR Go-Live Readiness Assessor](../tools/785-qr-golive-readiness.md)
 - [Corridor Cost Averages](../tools/787-corridor-cost-averages.md)
 - [Curator Vault Cap Auditor](../tools/792-curator-vault-cap-auditor.md)
 - [Event Fee Recompute](../tools/794-event-fee-recompute.md)
@@ -32,6 +33,7 @@ status: stable
 - [Payment Services Activity Classifier](../tools/836-payment-services-activity-classifier.md)
 - [Issuer Reserve Yield Share Check](../tools/837-issuer-yield-share.md)
 - [Control Frequency Sample](../tools/838-control-frequency-sample.md)
+- [Planning Materiality](../tools/841-planning-materiality.md)
 - [Workload Identity Claims Lint](../tools/844-workload-identity-claims.md)
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
@@ -155,6 +157,8 @@ status: stable
 - [Card Data Flow Worksheet](../tools/art-832-card-data-flow-scope.md)
 - [PAN and SAD Exposure Linter](../tools/art-833-lint-pan-sad-exposure.md)
 - [ASC 606 Transaction Price Allocator](../tools/art-834-asc606-transaction-price-allocator.md)
+- [Bank Reconciliation Recompute](../tools/art-835-bank-reconciliation-recompute.md)
 - [Statement Footing and Cross-Footing Check](../tools/art-839-statement-footing-crossfoot.md)
 - [SOC Report Coverage and Bridge Gap](../tools/art-842-soc-report-coverage-gap.md)
 - [TAP Message Structure Check](../tools/art-843-tap-message-validator.md)
+- [PFMI proportional self-assessment scorer](../tools/art-846-assess-pfmi-proportional.md)

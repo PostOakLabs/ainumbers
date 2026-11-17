@@ -18,7 +18,7 @@
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -170,7 +170,9 @@ try {
   const src = readFileSync(REAL, 'utf8');
   const broken = src.replace('sink.push(', 'void (');
   if (broken === src) throw new Error('selftest cannot break the checker: marker `sink.push(` not found');
-  writeFileSync(brokenPath, broken.replace("resolve(HERE, '..')", JSON.stringify(resolve(HERE, '..'))));
+  // the broken copy lives in tmp, so its relative import of the shared verdict reader is made absolute
+  const verdictUrl = pathToFileURL(resolve(HERE, 'lib', 'verdict-read.mjs')).href;
+  writeFileSync(brokenPath, broken.replace("resolve(HERE, '..')", JSON.stringify(resolve(HERE, '..'))).replace("'./lib/verdict-read.mjs'", JSON.stringify(verdictUrl)));
   const red = runChecker(brokenPath, 'red');
   if (red.crashed || red.wrong.length === 0) {
     console.error('RED control did not go red: the broken checker was not detected.', red);
