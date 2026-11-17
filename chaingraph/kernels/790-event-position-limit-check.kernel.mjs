@@ -73,7 +73,9 @@ function refused(flag, field, reason, extra) {
     compliance_note: 'structured non-verdict: no limit or accountability finding is asserted on a refused input',
   };
   if (extra) payload.refusal.detail = extra;
-  return { output_payload: payload, compliance_flags: [flag, 'REFUSED_NO_FINDING_ASSERTED'] };
+  const flags = [flag];
+  if (payload.refusal) flags.push('REFUSED_NO_FINDING_ASSERTED');
+  return { output_payload: payload, compliance_flags: flags };
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
