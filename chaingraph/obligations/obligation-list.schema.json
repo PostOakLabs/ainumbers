@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "ainumbers:obligation-list",
+  "title": "Obligation list (one per pinned clause digest)",
+  "description": "Splits a pinned clause excerpt into numbered obligations with byte spans into the excerpt. Public files carry byte offsets and our own short labels, never quoted source text. Enforced by scripts/check-obligation-coverage.mjs gate O1; this schema documents the contract and its required[] is drift-pinned by the gate selftest.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["clause_digest", "excerpt_bytes", "split_by", "split_at", "reviewed_by", "reviewed_at", "obligations"],
+  "properties": {
+    "clause_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "Digest of the pinned excerpt this list splits. The file name is the digest hex without the sha256: prefix." },
+    "clause_ref": { "type": "string", "description": "Human-readable citation, e.g. 12 CFR 1026.32(a)(1)." },
+    "clause_path": { "type": "string", "description": "Paragraph path inside the clause, as registered in the clause-snapshot registry." },
+    "excerpt_bytes": { "type": "integer", "minimum": 1, "description": "Byte length of the pinned excerpt; O1 checks every span against it." },
+    "split_by": { "type": "string", "minLength": 1, "description": "Model or person that made the split. Must be a model that did not build the covered node." },
+    "split_at": { "type": "string", "minLength": 1, "description": "ISO date of the split." },
+    "reviewed_by": { "type": "string", "minLength": 1, "description": "A different model or person that reviewed the split; must differ from split_by (O1)." },
+    "reviewed_at": { "type": "string", "minLength": 1, "description": "ISO date of the review." },
+    "obligations": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 25,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "span", "kind"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^O[0-9]+$", "description": "Unique within the list." },
+          "label": { "type": "string", "minLength": 8, "maxLength": 300, "description": "Our own short paraphrase of what the span requires. Never a verbatim quote of the source text." },
+          "span": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["start", "end"],
+            "properties": {
+              "start": { "type": "integer", "minimum": 0, "description": "Byte offset into the excerpt, inclusive." },
+              "end": { "type": "integer", "minimum": 0, "description": "Byte offset into the excerpt, exclusive (Buffer.slice semantics)." }
+            }
+          },
+          "kind": { "type": "string", "enum": ["condition", "threshold", "exception", "definition", "procedure", "deadline"], "description": "A definition needs no vector of its own." }
+        }
+      }
+    }
+  }
+}
