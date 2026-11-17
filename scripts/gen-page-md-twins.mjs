@@ -5,7 +5,11 @@
  * For every GENERATED node page and chain page, emit the token-cheap markdown
  * twin `<same path>.md`: title, description, typed inputs, typed outputs
  * (output_schema), the declared sample (fixture vector 0), the verify step, the
- * page URL, and the WebMCP tool name when registered.
+ * page URL, and the WebMCP tool name when registered. Node twins whose tool has
+ * an obligation coverage sidecar (chaingraph/obligations/coverage/<tool_id>.json,
+ * OBLIGATION-PAGE-1) also carry the generated Covered / Not covered block; gate
+ * O6 (scripts/check-obligation-page.mjs) pins its Not covered list to the
+ * coverage file's out_of_scope list.
  *
  * ⛔ NEVER scraped from HTML. Every byte below is derived from the SSOT set:
  *   chaingraph/chaingraph.json (live nodes + chains)
@@ -99,6 +103,70 @@ function typeLabel(schemaType) {
 }
 
 /**
+ * OBLIGATION-PAGE-1: the node's obligation coverage sidecar, resolved to the
+ * twin's Covered / Not covered block data, or null when the node has none.
+ *
+ * Reads ONLY sidecars (chaingraph/obligations/coverage/<tool_id>.json plus the
+ * obligation lists the labels join from); no kernel, fixture or golden byte is
+ * touched, so the block is a pure render like every other twin section.
+ * Covered = the coverage file's `covers` keys with labels joined from the cited
+ * digests' obligation lists. Not covered = its `out_of_scope` entries: a plain
+ * statement of scope (the estate's honest-limits line), never an apology.
+ * `uncovered` deliberately does NOT print: it is a defect (gate O3's concern,
+ * a later row), not a scope statement. A coverage file that does not parse
+ * renders nothing here; gate O6 (check-obligation-page.mjs) reds the shape.
+ */
+function obligationBlock(repo, toolId) {
+  const covPath = resolve(repo, 'chaingraph', 'obligations', 'coverage', `${toolId}.json`);
+  if (!existsRaw(covPath)) return null;
+  let cov;
+  try { cov = JSON.parse(readFileSync(covPath, 'utf8')); } catch { return null; }
+  const labels = new Map();
+  for (const d of Array.isArray(cov.clause_digests) ? cov.clause_digests : []) {
+    const listPath = resolve(repo, 'chaingraph', 'obligations', `${String(d).replace(/^sha256:/, '')}.json`);
+    let list;
+    try { list = JSON.parse(readFileSync(listPath, 'utf8')); } catch { continue; }
+    for (const o of Array.isArray(list.obligations) ? list.obligations : []) {
+      if (o && o.id) labels.set(o.id, o.label);
+    }
+  }
+  const flat = (s) => humanize(String(s ?? '')).replace(/\s+/g, ' ').trim();
+  const covered = Object.keys(cov.covers || {}).map((id) => ({ id, label: labels.has(id) ? flat(labels.get(id)) : '' }));
+  const notCovered = (Array.isArray(cov.out_of_scope) ? cov.out_of_scope : [])
+    .filter((o) => o && o.id)
+    .map((o) => ({ id: o.id, reason: flat(o.reason) }));
+  if (!covered.length && !notCovered.length) return null;
+  return { covered, notCovered };
+}
+
+/**
+ * Render the Covered / Not covered markdown for one block datum. PURE and
+ * exported: gate O6's selftest re-parses this output against the coverage
+ * file, so the renderer and the gate can never silently diverge.
+ * The copy posture is CONTRACT §1.4-adjacent (the twin is markdown, outside
+ * the copy-hallmarks scan, and the generator humanizes em-dashes like every
+ * other twin line); the headings are exact strings the O6 parser anchors on.
+ */
+export function renderObligationBlock(ob) {
+  if (!ob) return '';
+  const L = [];
+  L.push('## Covered');
+  L.push('');
+  L.push('Obligations of the cited rule text that this tool implements, each with test vectors on both the passing and the refusing side:');
+  L.push('');
+  for (const c of ob.covered) L.push(`- ${c.id}${c.label ? `: ${c.label}` : ''}`);
+  if (ob.notCovered.length) {
+    L.push('');
+    L.push('## Not covered');
+    L.push('');
+    L.push('Obligations of the cited rule text that this tool does not implement:');
+    L.push('');
+    for (const o of ob.notCovered) L.push(`- ${o.id}: ${o.reason}`);
+  }
+  return L.join('\n');
+}
+
+/**
  * Pure collector: every twin target. Exported so gen-llms-full.mjs lists the
  * twin paths from the SAME walk (one source, no second enumeration to drift).
  * Returns [{ kind:'node'|'chain', pageRel, twinRel, pageUrl, title, ... }].
@@ -156,6 +224,7 @@ export function collectTwinTargets(repo) {
       const v = (f.vectors ?? [])[0];
       if (v && v.policy_parameters) rec.sample = v.policy_parameters;
     } catch { /* no fixture — sample omitted */ }
+    rec.obligations = obligationBlock(repo, n.tool_id);
     targets.push(rec);
   }
 
@@ -290,6 +359,14 @@ export function renderTwinMd(t) {
       L.push(`Run the sample policy_parameters through MCP tool \`${t.mcpName}\` at https://mcp.ainumbers.co/mcp (or the page form) and check the returned receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.`);
     } else {
       L.push('Use synthetic inputs only; never send real personal data. Any published receipt can be checked against the ledger at https://ledger.ainumbers.co/.');
+    }
+    // OBLIGATION-PAGE-1: the generated Covered / Not covered block, rendered
+    // from the coverage sidecar for every node that has one. Gate O6
+    // (check-obligation-page.mjs) pins the Not covered list to the coverage
+    // file's out_of_scope list.
+    if (t.obligations) {
+      L.push('');
+      L.push(renderObligationBlock(t.obligations));
     }
   }
   for (const c of t.chains ?? []) {
