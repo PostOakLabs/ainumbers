@@ -1,5 +1,5 @@
 // art-751-sha256-hmac-digest-demonstrator -- class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:dd59994be22b706a37764b59b362aa949096494b0dc2496180865a0c49f8aaba
+// kernel_digest_at_authoring: sha256:1f96ec6c3b47f1e0093abd08bace5c8c120615fc5a06e952b201640a27a53b72
 // spec: ACCT-INFRA-KERNELS-BUILD-SPEC.md Sec.0.1 (bundle + demonstrator) + Sec.4 (composition contract)
 //       + board row SHARED-SHA256-BUNDLE-1
 // human_sign_off: PENDING
@@ -24,7 +24,7 @@
 // Run: node chaingraph/kernels/__proptests__/art-751-sha256-hmac-digest-demonstrator.proptest.mjs
 
 import { createHash, createHmac } from 'node:crypto';
-import { compute } from '../art-751-sha256-hmac-digest-demonstrator.kernel.mjs';
+import { compute, buildArtifact } from '../art-751-sha256-hmac-digest-demonstrator.kernel.mjs';
 import { runFixtureOracle, findShapeViolations, summarize, mulberry32, pickNasty, deepEqual } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-751-sha256-hmac-digest-demonstrator';
@@ -173,6 +173,38 @@ function checkP8_shape() {
   return { name: 'P8_output_shape_and_algorithm_id_echo', checked, violations };
 }
 
+// ---- P9 (D6): buildArtifact_never_throws -----------------------------------------------------------
+// An input whose {policy_parameters, output_payload} preimage the shared canonicalizer would refuse
+// mints an artifact with a null execution_hash and a hash_refusal beside it; a clean input (ok or
+// rejected) gets a 64-hex hash and no hash_refusal.
+async function checkP9_buildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  /** @type {any} */ let deep511 = 1; for (let i = 0; i < 510; i++) deep511 = [deep511];
+  const wide = new Array(1000001).fill(0);
+  const hostile = [
+    { zzz: 1e300 }, { zzz: NaN }, { zzz: -Infinity }, { zzz: Infinity }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } },
+    { zzz: deep }, { zzz: deep511 }, { zzz: wide },
+  ];
+  for (const delta of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ input: 'abc', ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) { violations++; console.log('P9 violation: artifact shape for ' + Object.keys(delta)[0]); }
+      if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) { violations++; console.log('P9 violation: hostile value echoed'); }
+    } catch (e) { violations++; console.log('P9 violation: buildArtifact threw: ' + String(e.message).slice(0, 80)); }
+  }
+  for (const pp of [{ input: 'abc' }, { mode: 'hmac_sha256', input: 'abc', key_hex: 'aa' }, { mode: 'nope', input: 'abc' }, {}, null, undefined]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('P9 violation: clean input lost its hash'); }
+    } catch (e) { violations++; console.log('P9 violation: buildArtifact threw on clean input: ' + String(e.message).slice(0, 80)); }
+  }
+  return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -190,6 +222,7 @@ const properties = [
   checkP6_totality(),
   checkP7_determinism(),
   checkP8_shape(),
+  await checkP9_buildArtifactNeverThrows(),
 ];
 const ok = summarize(KERNEL_ID, oracle, properties);
 process.exit(ok ? 0 : 1);

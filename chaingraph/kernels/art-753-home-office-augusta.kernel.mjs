@@ -77,27 +77,111 @@ const ART753_POLICY = {
   // employer.").
 };
 
+// Exact allowlist for both entity selectors: the two values Apex #139's controls offer.
+const ART753_ENTITY_TYPES = ['soleProp', 'scorp'];
+// Caller numerics the core reads. A missing (undefined or null) value takes the documented
+// Apex fallback; a present value must already be a JS number. Nothing is coerced.
+const ART753_NUMERIC_FIELDS = ['office_sq_ft', 'home_sq_ft', 'business_use_pct', 'annual_rent_usd', 'utilities_usd', 'other_home_expenses_usd', 'gross_business_income_usd', 'rental_days', 'daily_rental_rate_usd', 'corp_tax_rate_pct', 'owner_marginal_rate_pct'];
+
+// Typed input check, run before any arithmetic. Returns [{ code, field, kind }] in a fixed
+// field order; the first entry names the refusal_reason.
+function art753InputErrors(pp) {
+  if (pp === null || typeof pp !== 'object' || Array.isArray(pp)) {
+    return [{ code: 'REFUSED_INPUT_NOT_OBJECT', field: '(input)', kind: 'not_an_object' }];
+  }
+  const errors = [];
+  for (const f of ART753_NUMERIC_FIELDS) {
+    const v = pp[f];
+    if (v !== undefined && v !== null && typeof v !== 'number') {
+      errors.push({ code: 'REFUSED_WRONG_TYPE_' + f.toUpperCase(), field: f, kind: 'expected_number_or_absent_got_' + (Array.isArray(v) ? 'array' : typeof v) });
+    }
+  }
+  for (const [f, suffix] of [['entity_type_ho', 'HO'], ['entity_type_aug', 'AUG']]) {
+    const v = pp[f];
+    if (typeof v !== 'string' || !ART753_ENTITY_TYPES.includes(v)) {
+      errors.push({ code: 'REFUSED_ENTITY_TYPE_' + suffix + '_NOT_ALLOWED', field: f, kind: 'expected_one_of_soleProp_scorp_got_' + ((v === null || v === undefined) ? 'absent_or_null' : Array.isArray(v) ? 'array' : typeof v === 'string' ? 'other_string' : typeof v) });
+    }
+  }
+  return errors;
+}
+
+// The all-null refusal payload. Entity echoes survive only when they are allowlisted strings.
+function art753Refusal(reason, notes, entityTypeHO, entityTypeAug, fallbackFields) {
+  const P = ART753_POLICY;
+  const capSimplified = P.GROSS_INCOME_CAP_APPLIES_TO_SIMPLIFIED_METHOD && !P.APEX_FAITHFUL_MODE;
+  const gateScorpSimplified = !P.SIMPLIFIED_METHOD_AVAILABLE_TO_S_CORP_EMPLOYEE && !P.APEX_FAITHFUL_MODE;
+  const echo = (v) => (typeof v === 'string' && ART753_ENTITY_TYPES.includes(v)) ? v : null;
+  return {
+    refusal_reason: reason,
+    office_sq_ft: null, home_sq_ft: null, business_use_fraction: null,
+    gross_business_income_usd: null, entity_type_ho: echo(entityTypeHO),
+    rental_days: null, daily_rental_rate_usd: null, corp_tax_rate: null,
+    owner_marginal_rate: null, entity_type_aug: echo(entityTypeAug),
+    total_home_expenses_usd: null,
+    regular_deduction_before_gross_income_cap_usd: null,
+    regular_deduction_usd: null,
+    simplified_deduction_before_gross_income_cap_usd: null,
+    simplified_deduction_usd: null,
+    simplified_method_selectable: null,
+    simplified_wins_on_amounts: null,
+    best_home_office_deduction_usd: null,
+    best_home_office_method: null,
+    gross_income_cap_applied_to: null,
+    total_rental_income_usd: null,
+    qualifies_280a_g_day_test: null,
+    augusta_tax_free_income_usd: null,
+    augusta_corp_deduction_usd: null,
+    augusta_tax_benefit_usd: null,
+    augusta_tax_benefit_at_owner_rate_usd: null,
+    home_office_tax_benefit_usd: null,
+    combined_tax_benefit_usd: null,
+    combined_tax_benefit_at_owner_rate_basis_usd: null,
+    switches: {
+      apex_faithful_mode: P.APEX_FAITHFUL_MODE,
+      gross_income_cap_applies_to_simplified_method: P.GROSS_INCOME_CAP_APPLIES_TO_SIMPLIFIED_METHOD,
+      simplified_method_available_to_s_corp_employee: P.SIMPLIFIED_METHOD_AVAILABLE_TO_S_CORP_EMPLOYEE,
+      effective_cap_applied: capSimplified,
+      effective_gate_applied: gateScorpSimplified
+    },
+    fallback_fields: fallbackFields,
+    compliance_flags: [],
+    warnings: [],
+    notes: notes
+  };
+}
+
 function computeCore(pp) {
   const C = ART753_CONSTANTS;
   const P = ART753_POLICY;
   const capSimplified = P.GROSS_INCOME_CAP_APPLIES_TO_SIMPLIFIED_METHOD && !P.APEX_FAITHFUL_MODE;
   const gateScorpSimplified = !P.SIMPLIFIED_METHOD_AVAILABLE_TO_S_CORP_EMPLOYEE && !P.APEX_FAITHFUL_MODE;
 
-  // ── 1. Coercion: Apex #139's exact reads, including its fallbacks and quirks ──
-  // Apex: `+el.value || fallback` — a falsy Number() (0, -0, NaN) takes the
+  // ── 0. Typed refusal: a wrong type or an unlisted entity is refused, never coerced ──
+  const inputErrors = art753InputErrors(pp);
+  if (inputErrors.length > 0) {
+    const typedNotes = ['Input refused before any arithmetic: ' + inputErrors.map((e) => e.field + ' (' + e.code + ', ' + e.kind + ')').join('; ') + '. Apex #139 fallbacks apply only to a missing (null or undefined) numeric, never to a wrong type; the entity selectors accept exactly "soleProp" or "scorp".'];
+    const isObj = inputErrors[0].code !== 'REFUSED_INPUT_NOT_OBJECT';
+    const typedRefusal = art753Refusal(inputErrors[0].code, typedNotes, isObj ? pp.entity_type_ho : null, isObj ? pp.entity_type_aug : null, []);
+    typedRefusal.compliance_flags.push('ART753_INPUT_REFUSED');
+    typedRefusal.warnings.push('ART753_INPUT_REFUSED');
+    return typedRefusal;
+  }
+
+  // ── 1. Apex #139's reads, including its fallbacks and quirks (typed values only) ──
+  // Apex: `+el.value || fallback` — a falsy number (0, -0, NaN) takes the
   // fallback. A 0% rate entry therefore collapses to the default rate (C12/C13).
   const fallbackFields = [];
   const trackFallback = (field, rawInput, fallback) => {
-    fallbackFields.push({ field: field, apex_fallback: fallback, raw_input: (rawInput === '' || rawInput === null || rawInput === undefined) ? '(empty control)' : rawInput });
+    fallbackFields.push({ field: field, apex_fallback: fallback, raw_input: (rawInput === null || rawInput === undefined) ? '(empty control)' : rawInput });
   };
   const apexNumOr = (v, fb, field) => {
-    const n = Number(v);
+    const n = (v === null || v === undefined) ? 0 : v;
     if (!n) { trackFallback(field, v, fb); return fb; }
     return n;
   };
-  // Apex: `+el.value / 100 || fallback` — the fallback applies to the divided value.
+  // Apex: `+value / 100 || fallback` — the fallback applies to the divided value.
   const apexPctOr = (v, fb, field) => {
-    const n = Number(v) / C.PERCENT_DIVISOR;
+    const n = ((v === null || v === undefined) ? 0 : v) / C.PERCENT_DIVISOR;
     if (!n) { trackFallback(field, v, fb); return fb; }
     return n;
   };
@@ -105,13 +189,13 @@ function computeCore(pp) {
   const officeSqFt = apexNumOr(pp.office_sq_ft, 0, 'office_sq_ft');
   const homeSqFt = apexNumOr(pp.home_sq_ft, 1, 'home_sq_ft');
   // Apex: `buPctOverride ? (+buPctOverride / 100) : (officeSqFt / homeSqFt)`.
-  // The control's raw string is tested for presence: "" is absent (auto-derive),
-  // but "0" is present and overrides to 0% (a typed 0 is truthy as a string).
+  // A missing value (null or undefined) auto-derives; a typed number, including 0,
+  // is present and overrides (0 overrides to 0%).
   const buPctControl = pp.business_use_pct;
-  const buPctAbsent = buPctControl === null || buPctControl === undefined || String(buPctControl) === '';
+  const buPctAbsent = buPctControl === null || buPctControl === undefined;
   const buPct = buPctAbsent
     ? (officeSqFt / homeSqFt)
-    : (Number(buPctControl) / C.PERCENT_DIVISOR);
+    : (buPctControl / C.PERCENT_DIVISOR);
   if (buPctAbsent) {
     fallbackFields.push({ field: 'business_use_pct', apex_fallback: 'auto-derive office_sq_ft / home_sq_ft', raw_input: '(empty control)' });
   }
@@ -133,43 +217,10 @@ function computeCore(pp) {
   const coercedNumerics = [officeSqFt, homeSqFt, buPct, annualRent, utilities, otherHomeExp, grossIncome, rentalDays, dailyRate, corpTaxRate, ownerMargRate];
   if (coercedNumerics.some((n) => !Number.isFinite(n))) {
     const refusalNotes = ['One or more inputs are non-finite after Apex coercion; refused per the I-JSON guard (RFC 8785 §3.2.2.3). Apex #139 would propagate NaN/Infinity into every derived figure (DIFFERS-07).'];
-    return {
-      refusal_reason: 'REFUSED_NON_FINITE_INPUT',
-      office_sq_ft: null, home_sq_ft: null, business_use_fraction: null,
-      gross_business_income_usd: null, entity_type_ho: entityTypeHO === undefined ? null : entityTypeHO,
-      rental_days: null, daily_rental_rate_usd: null, corp_tax_rate: null,
-      owner_marginal_rate: null, entity_type_aug: entityTypeAug === undefined ? null : entityTypeAug,
-      total_home_expenses_usd: null,
-      regular_deduction_before_gross_income_cap_usd: null,
-      regular_deduction_usd: null,
-      simplified_deduction_before_gross_income_cap_usd: null,
-      simplified_deduction_usd: null,
-      simplified_method_selectable: null,
-      simplified_wins_on_amounts: null,
-      best_home_office_deduction_usd: null,
-      best_home_office_method: null,
-      gross_income_cap_applied_to: null,
-      total_rental_income_usd: null,
-      qualifies_280a_g_day_test: null,
-      augusta_tax_free_income_usd: null,
-      augusta_corp_deduction_usd: null,
-      augusta_tax_benefit_usd: null,
-      augusta_tax_benefit_at_owner_rate_usd: null,
-      home_office_tax_benefit_usd: null,
-      combined_tax_benefit_usd: null,
-      combined_tax_benefit_at_owner_rate_basis_usd: null,
-      switches: {
-        apex_faithful_mode: P.APEX_FAITHFUL_MODE,
-        gross_income_cap_applies_to_simplified_method: P.GROSS_INCOME_CAP_APPLIES_TO_SIMPLIFIED_METHOD,
-        simplified_method_available_to_s_corp_employee: P.SIMPLIFIED_METHOD_AVAILABLE_TO_S_CORP_EMPLOYEE,
-        effective_cap_applied: capSimplified,
-        effective_gate_applied: gateScorpSimplified
-      },
-      fallback_fields: fallbackFields,
-      compliance_flags: ['ART753_INPUT_REFUSED'],
-      warnings: ['ART753_INPUT_REFUSED'],
-      notes: refusalNotes
-    };
+    const nonFiniteRefusal = art753Refusal('REFUSED_NON_FINITE_INPUT', refusalNotes, entityTypeHO, entityTypeAug, fallbackFields);
+    nonFiniteRefusal.compliance_flags.push('ART753_INPUT_REFUSED');
+    nonFiniteRefusal.warnings.push('ART753_INPUT_REFUSED');
+    return nonFiniteRefusal;
   }
 
   // ── 2. Home office: Apex #139 lines 365–369 (regular vs simplified) ──
@@ -285,6 +336,42 @@ function computeCore(pp) {
 }
 // ── ART753 COMPUTE CORE END ────────────────────────────────────────────────
 
+// ── hashability walk (D6) ────────────────────────────────────────────────────────
+// Mirrors the classes _hash.mjs assertIJson() refuses before it canonicalizes: a non-finite
+// number, an integer outside the 2^53 safe range, nesting past MAX_DEPTH, more values than
+// MAX_ELEMENTS. A BigInt is refused too, because JSON.stringify throws on one. Reports
+// { reason, detail } with the path and kind only, never the value; null when the subtree is
+// safe to hash. The shared _hash.mjs stays untouched. Mirrored verbatim in the page.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'bigint') return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': bigint' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 const TOOL_ID = 'art-753-home-office-augusta';
 const TOOL_VERSION = '1.0.0';
 
@@ -305,16 +392,20 @@ export function compute(pp) {
 }
 
 // `now` is passed in, never read from a clock. execution_hash comes from _hash.mjs.
+// buildArtifact never throws on any input: the object walked below is the exact execution_hash
+// preimage, and when the shared canonicalizer would refuse it the artifact is minted with a
+// null execution_hash and a hash_refusal beside it.
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  return {
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
     tool_id: TOOL_ID,
     tool_version: TOOL_VERSION,
     generated_at: now,
-    execution_hash: await executionHash(pp, output_payload),
+    execution_hash: unhashable === null ? await executionHash(pp, output_payload) : null,
     chain: { parent_hashes, parent_tool_ids, chain_depth },
     policy_parameters: pp,
     output_payload,
@@ -323,4 +414,6 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }
