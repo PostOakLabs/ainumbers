@@ -1787,6 +1787,7 @@ const GATES = [
   ['Vendored crypto digest pins (VENDOR-DIGEST-GATE-1)', 'node scripts/check-vendored-digests.mjs'],
   ['Vendored crypto digest fixture proof (1-byte perturbation RED, SO #34c)', 'node scripts/check-vendored-digests.test.mjs'],
   ['MANIFEST name parity',         'node scripts/check-manifest-parity.mjs'],
+  ['Manifest example/output-schema parity controls (advisory class, RED/GREEN pair, GATE-SELFTEST-META-1)', 'node scripts/check-manifest-parity.selftest.mjs'],
   ['Manifest schema (SSOT-SCHEMA-1)', 'node scripts/check-manifest-schema.mjs'],
   // OUTPUTSCHEMA-GAP-1: every live-node manifest either declares output_schema or sits under the
   // down-only baseline ceiling (scripts/output-schema-baseline.json); every declared output_schema
