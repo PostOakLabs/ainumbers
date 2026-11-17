@@ -7,7 +7,7 @@
 // fixed corpus of structural cases: rounding-policy conformance at exact ties,
 // the 2^53 boundary, one-unit mutations, and line-order invariance.
 //
-// kernel_digest_at_authoring: sha256:9a5c782686ba02ea75b2ea3cdbe73e6edfb8abc4e3061119c1cad45ede1fc7bd
+// kernel_digest_at_authoring: sha256:ffef529c9f06535ddd81328334810ec191dee1410a0834bb6b7eed16f99a6f62
 // spec: research/UCP-WAVE-BUILD-SPEC-2026-11-03.md — reconcile a pasted UCP
 //   (Universal Commerce Protocol, tag v2026-08-25) cart/checkout/order totals
 //   block in integer minor units; RECONCILED / MISMATCH / INDETERMINATE;
@@ -21,7 +21,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { compute } from '../825-reconcile-ucp-checkout-totals.kernel.mjs';
+import { compute, buildArtifact } from '../825-reconcile-ucp-checkout-totals.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32 } from './_pbt-common.mjs';
 
 const KERNEL_ID = '825-reconcile-ucp-checkout-totals';
@@ -327,6 +327,13 @@ function checkRefusalCodes() {
     ['SCALE_INVALID', lineWith({ item: { price: 1, quantity_unit: { unit: 'KGM', scale: 16 } }, quantity: 1, totals: [{ type: 'subtotal', amount: 0 }] })],
     ['SCALE_INVALID', lineWith({ item: { price: 1, quantity_unit: { unit: 'C62', scale: 1 } }, quantity: 1, totals: [{ type: 'subtotal', amount: 0 }] })],
     ['AMOUNT_NOT_INTEGER', orderWithAdj([{ type: 'subtotal', amount: 0 }, { type: 'total', amount: 1.5 }])],
+    // cure NODE-825-CHECKOUT-TOTALS-CURE-1: a present non-array line_items or adjustments
+    // refuses (malformed never reads as absent), and an integer beyond the UCP 2^53-1
+    // amount domain refuses instead of flowing into declared_total.
+    ['LINE_ITEMS_NOT_ARRAY', { mode: 'checkout', document: { totals: okTotals, line_items: 'x' } }],
+    ['LINE_ITEMS_NOT_ARRAY', { mode: 'checkout', document: { totals: okTotals, line_items: null } }],
+    ['ADJUSTMENTS_NOT_ARRAY', { mode: 'order', document: { totals: okTotals, adjustments: 'refund' } }],
+    ['AMOUNT_NOT_INTEGER', { mode: 'checkout', document: { totals: [{ type: 'subtotal', amount: 9007199254740992 }, { type: 'total', amount: 0 }] } }],
   ];
   for (const [code, pp] of cases) {
     const r = compute(pp);
@@ -390,19 +397,20 @@ function checkSignAndRangeFindings() {
   eqStr(m, codeList(p.violations), 'SIGN_VIOLATION');
   assertThat(m, codeList(p.violations).indexOf('AMOUNT_OUT_OF_RANGE') === -1);
 
-  // (2^53-1)+1 is outside the amount domain; the identity is not evaluated.
-  p = compute(doc([{ type: 'subtotal', amount: MAX_MINOR + 1 }, { type: 'total', amount: 0 }])).output_payload;
-  eqStr(m, p.verdict, 'MISMATCH');
-  eqStr(m, codeList(p.violations), 'AMOUNT_OUT_OF_RANGE');
-  eqStr(m, pathList(p.violations), '$.totals[0].amount');
+  // (2^53-1)+1 is outside the amount domain: it refuses (the amount is echoed into
+  // declared_total, so compute must never accept what the hash layer would throw on).
+  const rr = compute(doc([{ type: 'subtotal', amount: MAX_MINOR + 1 }, { type: 'total', amount: 0 }]));
+  p = rr.output_payload;
+  eqStr(m, p.verdict, 'INDETERMINATE');
+  eqStr(m, p.refusal, 'AMOUNT_NOT_INTEGER');
+  eqStr(m, rr.compliance_flags.join(','), 'INPUT_REFUSED');
   eqNum(m, p.totals_identity_ok, null);
   eqNum(m, p.computed_total, null);
-  eqNum(m, p.declared_total, 0);
-  assertThat(m, p.violations[0].reason.indexOf('2^53-1') !== -1);
+  eqNum(m, p.declared_total, null);
 
   // -(2^53-1)-1 is likewise outside the domain.
   p = compute(doc([{ type: 'subtotal', amount: -MAX_MINOR - 1 }, { type: 'total', amount: 0 }])).output_payload;
-  eqStr(m, codeList(p.violations), 'AMOUNT_OUT_OF_RANGE');
+  eqStr(m, p.refusal, 'AMOUNT_NOT_INTEGER');
   eqNum(m, p.totals_identity_ok, null);
 
   // line-level price: -1 is a sign violation, not a quantity problem
@@ -426,9 +434,10 @@ function checkSignAndRangeFindings() {
   p = compute({ mode: 'checkout', document: { totals: [{ type: 'subtotal', amount: 0 }, { type: 'total', amount: 0 }], line_items: [{ item: { id: 'qmax', price: 1 }, quantity: MAX_MINOR + 1, totals: [{ type: 'subtotal', amount: 0 }] }] } }).output_payload;
   eqStr(m, codeList(p.violations), 'QUANTITY_OUT_OF_RANGE');
 
-  // a fractional quantity/price is not an integer identity input: skip, do not guess
+  // a fractional quantity/price is not an integer identity input: skip, do not guess,
+  // and a skipped line holds the document at INDETERMINATE (never a clean RECONCILED)
   p = compute({ mode: 'checkout', document: { totals: [{ type: 'subtotal', amount: 0 }, { type: 'total', amount: 0 }], line_items: [{ item: { id: 'frac', price: 1.5 }, quantity: 1, totals: [{ type: 'subtotal', amount: 0 }] }] } }).output_payload;
-  eqStr(m, p.verdict, 'RECONCILED');
+  eqStr(m, p.verdict, 'INDETERMINATE');
   eqStr(m, p.skipped[0].code, 'PRICE_OR_QUANTITY_MISSING');
   eqStr(m, p.line_results[0].skip_code, 'PRICE_OR_QUANTITY_MISSING');
   eqNum(m, p.line_results[0].price_quantity_ok, null);
@@ -444,13 +453,14 @@ function checkSignAndRangeFindings() {
   eqStr(m, codeList(p.indeterminate), 'LINE_SUBTOTAL_AMBIGUOUS');
   eqStr(m, p.line_results[0].skip_code, 'LINE_SUBTOTAL_AMBIGUOUS');
   p = compute({ mode: 'checkout', document: { totals: [{ type: 'subtotal', amount: 0 }, { type: 'total', amount: 0 }], line_items: [{ item: { id: 'none', price: 1 }, quantity: 1, totals: [{ type: 'tax', amount: 0 }] }] } }).output_payload;
-  eqStr(m, p.verdict, 'RECONCILED');
+  eqStr(m, p.verdict, 'INDETERMINATE');
   eqStr(m, p.skipped[0].code, 'LINE_SUBTOTAL_MISSING');
   eqStr(m, p.line_results[0].skip_code, 'LINE_SUBTOTAL_MISSING');
 
-  // item.unit_price means the pricing basis differs from the sale basis: skip
+  // item.unit_price means the pricing basis differs from the sale basis: skip, and the
+  // unasserted line keeps the document INDETERMINATE (partial never reconciles)
   p = compute({ mode: 'checkout', document: { totals: [{ type: 'subtotal', amount: 100 }, { type: 'total', amount: 100 }], line_items: [{ item: { id: 'up', price: 100, unit_price: 120 }, quantity: 1, totals: [{ type: 'subtotal', amount: 100 }] }] } }).output_payload;
-  eqStr(m, p.verdict, 'RECONCILED');
+  eqStr(m, p.verdict, 'INDETERMINATE');
   eqStr(m, p.skipped[0].code, 'PRICING_BASIS_DIFFERS');
   eqStr(m, p.line_results[0].skip_code, 'PRICING_BASIS_DIFFERS');
 
@@ -602,12 +612,18 @@ function checkOrderRefundBound() {
   eqNum(m, p.refunds.total_paid, 2500);
   eqNum(m, p.refunds.ok, null);
 
-  // adjustment without totals is skipped, not counted as zero
+  // adjustment without totals is skipped, not counted as zero, and the unevaluated
+  // adjustment holds the document at INDETERMINATE (partial never reconciles)
   p = compute(orderDoc([{ reason: 'goodwill' }])).output_payload;
-  eqStr(m, p.verdict, 'RECONCILED');
+  eqStr(m, p.verdict, 'INDETERMINATE');
   eqStr(m, p.skipped[0].code, 'ADJUSTMENT_TOTALS_MISSING');
   eqStr(m, p.skipped[0].path, '$.adjustments[0]');
   eqNum(m, p.refunds.net_refunded, null);
+
+  // a present adjustments value that is not an array refuses (malformed never reads as absent)
+  p = compute(orderDoc('refund')).output_payload;
+  eqStr(m, p.verdict, 'INDETERMINATE');
+  eqStr(m, p.refusal, 'ADJUSTMENTS_NOT_ARRAY');
 
   // a non-object adjustment is named and left out
   p = compute(orderDoc(['nope'])).output_payload;
@@ -713,6 +729,18 @@ function checkDiscountAttribution() {
   p = compute(withApplied([{ code: 5, amount: -1 }])).output_payload;
   eqStr(m, p.discount_attribution.status, 'REPORTED_NO_CODES');
   eqStr(m, p.discount_attribution.applied[0].code, null);
+
+  // an unsafe numeric amount refuses: it would be echoed into the hashed payload and
+  // silently dropped from applied_sum (applied 1e300 used to reconcile with sum 0)
+  p = compute(withApplied([{ code: 'BIG', amount: 1e300 }])).output_payload;
+  eqStr(m, p.verdict, 'INDETERMINATE');
+  eqStr(m, p.refusal, 'AMOUNT_NOT_INTEGER');
+
+  // a legitimate sum beyond the safe range reports null, never a coerced 0
+  p = compute(withApplied([{ amount: -MAX_MINOR }, { amount: -MAX_MINOR }, { amount: -MAX_MINOR }])).output_payload;
+  eqStr(m, p.verdict, 'RECONCILED');
+  eqNum(m, p.discount_attribution.applied.length, 3);
+  eqNum(m, p.discount_attribution.applied_sum, null);
   return { name: 'P12-discount-attribution', checked: m.checked, violations: m.violations };
 }
 
@@ -731,7 +759,7 @@ function checkCountsAndRollup() {
       { item: { id: 'b', price: 7 }, quantity: 1, totals: [{ type: 'tax', amount: 1 }] },
     ],
   } }).output_payload;
-  eqStr(m, p.verdict, 'RECONCILED');
+  eqStr(m, p.verdict, 'INDETERMINATE');
   eqNum(m, p.evaluated_count, 2);
   eqNum(m, p.skipped_count, 2);
   eqNum(m, p.skipped.length, 1);
@@ -781,13 +809,13 @@ function checkCountsAndRollup() {
   eqStr(m, codeList(p.violations), 'SIGN_VIOLATION');
   assertThat(m, codeList(p.violations).indexOf('SUBTOTAL_ROLLUP_MISMATCH') === -1);
 
-  // an out-of-range line subtotal is not usable for the roll-up
+  // a line subtotal beyond the amount domain refuses (it echoes into subtotal_declared)
   p = compute({ mode: 'checkout', document: {
     totals: [{ type: 'subtotal', amount: 0 }, { type: 'total', amount: 0 }],
     line_items: [{ item: { id: 'oor', price: 0 }, quantity: 1, totals: [{ type: 'subtotal', amount: MAX_MINOR + 1 }] }],
   } }).output_payload;
-  eqStr(m, p.verdict, 'MISMATCH');
-  eqStr(m, codeList(p.violations), 'AMOUNT_OUT_OF_RANGE');
+  eqStr(m, p.verdict, 'INDETERMINATE');
+  eqStr(m, p.refusal, 'AMOUNT_NOT_INTEGER');
   assertThat(m, codeList(p.violations).indexOf('SUBTOTAL_ROLLUP_MISMATCH') === -1);
 
   // line subtotals that overflow the exact sum are named as such
@@ -862,13 +890,17 @@ function checkResourceBoundEdges() {
   eqNum(m, p.declared_total, 19600);
   eqNum(m, p.violations.length, 0);
 
-  // a 101st entry is outside the bound and is not read: a sign violation placed
-  // there cannot change the verdict
+  // a 101st entry is outside the bound and is not read: the truncation propagates and
+  // holds the document at INDETERMINATE (a truncated pass never reports RECONCILED,
+  // and never reports truncated false)
   const over = hundred.concat([{ type: 'discount', amount: 5 }]);
   p = compute({ mode: 'checkout', document: { totals: over } }).output_payload;
-  eqStr(m, p.verdict, 'RECONCILED');
+  eqStr(m, p.verdict, 'INDETERMINATE');
+  eqNum(m, p.truncated, true);
   eqNum(m, p.violations.length, 0);
   eqNum(m, p.computed_total, 19600);
+  eqStr(m, codeList(p.indeterminate), 'INPUT_BOUND_EXCEEDED');
+  assertThat(m, p.indeterminate[0].reason.indexOf('were not examined') !== -1);
   return { name: 'P14-resource-bound-edges', checked: m.checked, violations: m.violations };
 }
 
@@ -898,6 +930,46 @@ function checkCurrencyAndDefaults() {
   return { name: 'P15-currency-and-default-flags', checked: m.checked, violations: m.violations };
 }
 
+// P16 — buildArtifact NEVER THROWS (D6): over every unhashable class the artifact carries
+// execution_hash null plus a named hash_refusal; a clean input still gets a 64-hex hash and
+// no refusal. The walked object is the exact execution_hash preimage ({policy_parameters,
+// output_payload}), so an unsafe number anywhere in the caller input (decoy, price,
+// quantity, extension amount) must be caught by the walk, never by a throw.
+async function checkBuildArtifactNeverThrows() {
+  const m = meter();
+  const cleanDoc = { totals: [{ type: 'subtotal', amount: 100 }, { type: 'total', amount: 100 }] };
+  let deep = /** @type {any} */ ({ leaf: 1 });
+  for (let i = 0; i < 600; i++) deep = { a: deep };
+  const many = new Array(1000001).fill(0);
+  const cases = [
+    // [name, pp, expectRefusal]
+    ['clean', { mode: 'checkout', document: cleanDoc }, false],
+    ['refused-but-hashable', { mode: 'checkout', document: { totals: 5 } }, false],
+    ['unsafe-integer-in-input', { mode: 'checkout', document: { totals: [{ type: 'subtotal', amount: 1e300 }, { type: 'total', amount: 0 }] } }, true],
+    ['non-finite-in-input', { mode: 'checkout', document: cleanDoc, decoy: Infinity }, true],
+    ['unsafe-integer-decoy', { mode: 'checkout', document: { currency: 'USD', decoy: [2 ** 60], totals: cleanDoc.totals } }, true],
+    ['too-deep-input', { mode: 'checkout', document: cleanDoc, decoy: deep }, true],
+    ['too-many-values-input', { mode: 'checkout', document: cleanDoc, decoy: many }, true],
+  ];
+  for (const [name, pp, expectRefusal] of cases) {
+    let art;
+    try {
+      art = await buildArtifact(pp);
+    } catch (e) {
+      assertThat(m, false); // buildArtifact threw: the one thing D6 forbids
+      continue;
+    }
+    m.checked++;
+    const unhashable = expectRefusal;
+    if (unhashable !== (art.hash_refusal !== undefined)) m.violations++;
+    if (unhashable) {
+      if (art.execution_hash !== null) m.violations++;
+      if (typeof art.hash_refusal.reason !== 'string' || typeof art.hash_refusal.detail !== 'string') m.violations++;
+    } else if (!/^[0-9a-f]{64}$/.test(String(art.execution_hash))) m.violations++;
+  }
+  return { name: 'P16-buildArtifact-never-throws', checked: m.checked, violations: m.violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -921,6 +993,7 @@ const properties = [
   checkCountsAndRollup(),
   checkResourceBoundEdges(),
   checkCurrencyAndDefaults(),
+  await checkBuildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — UCP cart/checkout/order totals reconcile (RECONCILED / MISMATCH / INDETERMINATE).`);
 const ok = summarize(KERNEL_ID, oracle, properties);
