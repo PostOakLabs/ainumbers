@@ -1,0 +1,67 @@
+name: Replay House Attest
+
+# Replays the tracked fixture corpus on upstream and signs the result with a GitHub
+# artifact attestation (custom predicate ainumbers.co/replay-witness/v1). Two subjects:
+#   replay-beacon  sha256("ainumbers-replay-witness/v1:" + corpus_digest)
+#   replay-result  sha256 of replay-result.json
+# replay-env.json (runner OS, arch, Node, wall time, counts) is the predicate.
+# data/replay-house-line.json, written on main by scripts/gen-replay-house-line.mjs, states
+# the same two digests; the last step reports whether this run matches it.
+#
+# Manual trigger and a daily schedule only. Never a required check, never runs on
+# merge_group, no secrets, and it only runs on the upstream repository.
+#
+# Verify a run: download the replay-result artifact, then
+#   gh attestation verify replay-result.json --repo PostOakLabs/ainumbers \
+#     --predicate-type ainumbers.co/replay-witness/v1
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 4 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  attest:
+    if: github.repository == 'PostOakLabs/ainumbers'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      - name: Replay corpus
+        run: node scripts/replay-result.mjs --out replay-out
+
+      - name: Derive attestation subjects
+        run: node scripts/replay-house-subjects.mjs replay-out
+
+      - name: Attest replay result
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-checksums: replay-out/replay-subjects.txt
+          predicate-type: ainumbers.co/replay-witness/v1
+          predicate-path: replay-out/replay-env.json
+
+      - name: Upload result files
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: replay-result
+          path: replay-out/
+          if-no-files-found: error
+
+      - name: Compare with the committed house line
+        run: node scripts/replay-house-subjects.mjs replay-out --compare data/replay-house-line.json

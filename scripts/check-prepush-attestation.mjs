@@ -245,6 +245,13 @@ export const SPEC_SYNC_APP = Object.freeze({
 });
 
 /**
+ * Roots `.github/workflows/derived-artifacts-regen.yml` stages with
+ * `git add -- registry/lineage` (lines ~385 and ~655) although they are
+ * EXCLUDED from coveredPaths(). Keep in step with those lines.
+ */
+export const REGEN_STAGED_EXTRA_ROOTS = ['registry/lineage'];
+
+/**
  * Is a file inside the derived-surface set the regen workflow itself stages
  * from? The set is NOT copied here — it is imported from
  * scripts/derived-artifacts.mjs (`coveredPaths()`), the same SSOT
@@ -256,6 +263,10 @@ export const SPEC_SYNC_APP = Object.freeze({
 export function isDeclaredDerivedPath(file) {
   if (!file) return false;
   const p = file.replace(/\\/g, '/');
+  // ATTEST-BOT-LINEAGE-FENCE-1: trees the regen workflow stages but that are
+  // deliberately NOT in coveredPaths() (unbounded path sets, see EXCLUDED in
+  // derived-artifacts.mjs). Whole-segment match only.
+  if (REGEN_STAGED_EXTRA_ROOTS.some((r) => p === r || p.startsWith(`${r}/`))) return true;
   // MAIN-REGEN-ATTEST-PREFIX-1: same normalization as isProtectedPath(). The
   // derived set declares directory roots WITH trailing slashes (coveredPaths()
   // carries 'manifests/'), so the bare `${root}/` prefix built 'manifests//' and
@@ -772,6 +783,10 @@ export const SCENARIOS = [
   'bot-app-lookup-fails',   // GREEN: user id pins the bot; the app lookup failing under the CI token is logged, not fatal
   'bot-wrong-user-id',      // RED:   exact bot login but a DIFFERENT user id — not the pinned single writer
   'bot-resolution-unavailable', // INDETERMINATE: both the commits API and the app lookup failed — absence not established
+  // ATTEST-BOT-LINEAGE-FENCE-1 — the regen workflow stages registry/lineage
+  // (`git add -- registry/lineage`) although it is EXCLUDED from coveredPaths():
+  'bot-lineage-tiles-in-scope',        // GREEN: pinned bot writing only the registry/lineage tile tree
+  'bot-lineage-lookalike-out-of-scope', // RED:   pinned bot writing registry/lineage-evil/ and registry/lineagex (whole-segment match only)
   'adjudicated-note',       // GREEN: retroactive adjudication note, reason printed into the log
   // ATTEST-BOT-MERGE-BY-CHILD-1 — the ruled RED/GREEN controls for the
   // attest-by-child route (Tim's ruling 2026-10-21T23:55Z item 4):
@@ -795,6 +810,8 @@ const EXPECTED = {
   'bot-app-lookup-fails': { exitCode: 0, verdict: 'AUTOMATION', state: 'PASS' },
   'bot-wrong-user-id': { exitCode: 1, verdict: 'UNATTESTED', state: 'FAIL' },
   'bot-resolution-unavailable': { exitCode: 1, verdict: 'INDETERMINATE', state: 'FAIL' },
+  'bot-lineage-tiles-in-scope': { exitCode: 0, verdict: 'AUTOMATION', state: 'PASS' },
+  'bot-lineage-lookalike-out-of-scope': { exitCode: 1, verdict: 'UNATTESTED', state: 'FAIL' },
   'adjudicated-note': { exitCode: 0, verdict: 'BYPASS-DECLARED', state: 'PASS' },
   'bot-merge-child-unattested': { exitCode: 1, verdict: 'UNATTESTED', state: 'FAIL' },
   'bot-merge-child-attested': { exitCode: 0, verdict: 'ATTESTED', state: 'PASS' },
@@ -878,6 +895,17 @@ function buildFixture(scenario, dir) {
     writeFileSync(join(dir, 'README.md'), 'fixture base\npost-merge follow-up\n');
     g('add', 'README.md');
     g('commit', '-q', '-m', 'chore: post-merge follow-up run');
+  } else if (scenario === 'bot-lineage-tiles-in-scope') {
+    botCommit([['chaingraph/kernels/index.mjs', 'fixture declared derived surface (the protected path that puts the commit in scope)'],
+      ['registry/lineage/checkpoint', 'fixture lineage checkpoint'],
+      ['registry/lineage/tile/0/000.p/117', 'fixture lineage tile'],
+      ['registry/lineage/tile/entries/000.p/117', 'fixture lineage entries tile']],
+      'chore(derived): regenerate shared derived artifacts on main');
+  } else if (scenario === 'bot-lineage-lookalike-out-of-scope') {
+    botCommit([['chaingraph/kernels/index.mjs', 'fixture declared derived surface (the protected path that puts the commit in scope)'],
+      ['registry/lineage-evil/x', 'fixture lookalike dir'],
+      ['registry/lineagex', 'fixture lookalike file']],
+      'chore(derived): regenerate shared derived artifacts on main');
   } else if (scenario === 'bot-manifest-dir-slash') {
     // MAIN-REGEN-ATTEST-PREFIX-1: the declared root for bot-written manifests is
     // 'manifests/' WITH a trailing slash (coveredPaths() artifacts entry). Before
@@ -912,7 +940,8 @@ function buildFixture(scenario, dir) {
     g('notes', `--ref=${NOTES_REF}`, 'add', '-f', '-m', `PREFLIGHT-VERIFIED sha=${prHead} ts=${ts}`, prHead);
   } else if (scenario === 'bot-in-scope' || scenario === 'bot-out-of-scope' || scenario === 'bot-wrong-app'
     || scenario === 'bot-app-lookup-fails' || scenario === 'bot-wrong-user-id' || scenario === 'bot-resolution-unavailable'
-    || scenario === 'bot-manifest-dir-slash' || scenario === 'bot-merge-child-unattested') {
+    || scenario === 'bot-manifest-dir-slash' || scenario === 'bot-merge-child-unattested'
+    || scenario === 'bot-lineage-tiles-in-scope' || scenario === 'bot-lineage-lookalike-out-of-scope') {
     g('notes', `--ref=${NOTES_REF}`, 'add', '-f', '-m', `PREFLIGHT-VERIFIED sha=${base} ts=${ts}`, base);
   } else if (scenario === 'bot-merge-child-attested') {
     // The attested follow-up: the note the child run wrote lands on the CHILD
