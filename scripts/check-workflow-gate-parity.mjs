@@ -383,6 +383,8 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── TIEOUT-SPAN-SCHEMA-1 (2026-11-17) ───────────────────────────────────────
+  ["check-document-span.selftest.mjs", SELF_TEST],
   // ── STALE-STAMP-WRITERS-1 (2026-11-14) ──────────────────────────────────────
   ["stamp-writers.mjs",
     "Repo-only stamp-writer classification check, run as `stamp-writers.mjs --check` in preflight. " +
