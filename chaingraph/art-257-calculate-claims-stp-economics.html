@@ -396,97 +396,151 @@ const TOOL_ID      = 'art-257-calculate-claims-stp-economics';
 const TOOL_VERSION = '1.0.0';
 let _lastArtifact  = null;
 
-function _finite(v, def) { const n = Number(v); return (isFinite(n) && !isNaN(n)) ? n : def; }
-function _round2(v) { return Math.round(v * 100) / 100; }
-function _round1(v) { return Math.round(v * 10)  / 10;  }
+/* inline port of chaingraph/kernels/art-257-calculate-claims-stp-economics.kernel.mjs compute():
+   same algorithm, same constants, same fixed orders. Pure function of pp. */
 
-function _solveIRR(cashflows, tol, maxIter) {
-  tol = tol || 1e-6; maxIter = maxIter || 1000;
-  let r = 0.1;
-  for (let i = 0; i < maxIter; i++) {
-    let f = 0, df = 0;
-    for (let t = 0; t < cashflows.length; t++) {
-      const disc = Math.pow(1 + r, t);
-      f  += cashflows[t] / disc;
-      df -= t * cashflows[t] / (disc * (1 + r));
-    }
-    if (Math.abs(df) < 1e-12) break;
-    const nr = r - f / df;
-    if (Math.abs(nr - r) < tol) return nr;
-    r = nr;
-    if (!isFinite(r)) return null;
+const TABLE_VERSION = 'CLAIMS-STP-ECONOMICS-V1.0-2025';
+const TABLE_SOURCE  = 'McKinsey Insurance 2024 (claims automation ROI benchmarks); Accenture Claims Transformation 2025; Majesco Claims Technology Survey 2024; NAIC Claims Process Innovation Working Group 2023.';
+
+function _solveIRR(cost, annualBenefit, years) {
+  // Annuity IRR: find r such that annualBenefit * (1 - (1+r)^-years) / r = cost
+  let lo = -0.99, hi = 100, mid = 0.1;
+  for (let i = 0; i < 60; i++) {
+    mid = (lo + hi) / 2;
+    const r = mid;
+    const pv = r === 0 ? annualBenefit * years : annualBenefit * (1 - Math.pow(1 + r, -years)) / r;
+    if (pv > cost) lo = mid; else hi = mid;
+    if (hi - lo < 1e-8) break;
   }
-  return isFinite(r) ? r : null;
+  return Math.round(mid * 10000) / 100; // as %
 }
 
-function compute(p) {
-  p = p || {};
-  const annual_claims          = _finite(p.annual_claims_volume, 0);
-  const current_stp_pct        = Math.max(0, Math.min(100, _finite(p.current_stp_rate_pct, 0)));
-  const target_stp_pct         = Math.max(0, Math.min(100, _finite(p.target_stp_rate_pct, 0)));
-  const manual_cost            = _finite(p.manual_handling_cost, 0);
-  const auto_cost              = _finite(p.automated_handling_cost, 0);
-  const impl_cost              = _finite(p.implementation_cost, 0);
-  const annual_license         = _finite(p.annual_license_cost, 0);
-  const discount_rate          = _finite(p.discount_rate_pct, 10) / 100;
-  const years                  = Math.max(1, Math.min(10, Math.round(_finite(p.projection_years, 5))));
-  const avg_claim_pmt          = p.average_claim_payment != null ? _finite(p.average_claim_payment, 0) : 0;
-  const leakage_manual_pct     = _finite(p.leakage_rate_manual_pct, 0) / 100;
-  const leakage_stp_pct        = _finite(p.leakage_rate_stp_pct, 0)    / 100;
-  const has_leakage            = avg_claim_pmt > 0;
+function _finite(v, def) {
+  const n = Number(v);
+  return (isFinite(n) && !isNaN(n)) ? n : def;
+}
 
-  const current_stp_claims   = _round2(annual_claims * current_stp_pct / 100);
-  const target_stp_claims    = _round2(annual_claims * target_stp_pct  / 100);
-  const current_manual_claims = _round2(annual_claims - current_stp_claims);
-  const target_manual_claims  = _round2(annual_claims - target_stp_claims);
+function _round0(v) { return Math.round(v); }
+function _round2(v) { return Math.round(v * 100) / 100; }
 
-  const current_annual_cost  = _round2(current_stp_claims * auto_cost + current_manual_claims * manual_cost);
-  const target_annual_cost   = _round2(target_stp_claims  * auto_cost + target_manual_claims  * manual_cost + annual_license);
-  const annual_handling_savings = _round2(current_annual_cost - target_stp_claims * auto_cost - target_manual_claims * manual_cost);
+function compute(params) {
+  const p = params || {};
 
-  let net_leakage_impact = 0, leakage_reduction = 0, leakage_increase = 0;
-  if (has_leakage) {
-    const incremental_stp = target_stp_claims - current_stp_claims;
-    leakage_reduction = _round2(incremental_stp * avg_claim_pmt * (leakage_manual_pct - leakage_stp_pct));
-    leakage_increase  = 0;
-    net_leakage_impact = leakage_reduction - leakage_increase;
-  }
+  // Volume inputs
+  const annual_claims_volume    = _finite(p.annual_claims_volume, 0);      // total claims/year
+  const current_stp_rate_pct    = _finite(p.current_stp_rate_pct, 0);      // current auto-closed %
+  const target_stp_rate_pct     = _finite(p.target_stp_rate_pct, 0);       // target auto-closed %
 
-  const net_annual_benefit = _round2(annual_handling_savings + net_leakage_impact - annual_license);
+  // Cost inputs
+  const manual_handling_cost    = _finite(p.manual_handling_cost, 0);       // $ per manually handled claim
+  const automated_handling_cost = _finite(p.automated_handling_cost, 0);    // $ per STP claim
+  const implementation_cost     = _finite(p.implementation_cost, 0);        // total one-time investment $
+  const annual_license_cost     = _finite(p.annual_license_cost, 0);        // recurring platform cost $/yr
 
-  const irr_cashflows = [-impl_cost];
-  for (let y = 0; y < years; y++) irr_cashflows.push(net_annual_benefit);
-  const irr_raw = _solveIRR(irr_cashflows);
-  const irr_pct = irr_raw !== null ? _round1(irr_raw * 100) : null;
+  // Quality/leakage
+  const leakage_rate_manual_pct   = _finite(p.leakage_rate_manual_pct, 0);  // % leakage on manual
+  const leakage_rate_stp_pct      = _finite(p.leakage_rate_stp_pct, 0);     // % leakage on STP
+  const average_claim_payment     = _finite(p.average_claim_payment, 0);    // avg payment per claim
 
-  let npv = -impl_cost;
+  // Discount rate for NPV
+  const discount_rate_pct   = _finite(p.discount_rate_pct, 10);             // default 10%
+  const projection_years    = Math.min(Math.max(1, Math.round(_finite(p.projection_years, 5))), 20);
+
+  // Clamp rates
+  const cur_stp  = Math.max(0, Math.min(100, current_stp_rate_pct));
+  const tgt_stp  = Math.max(0, Math.min(100, target_stp_rate_pct));
+
+  // Current state
+  const current_stp_claims    = _round0(annual_claims_volume * cur_stp / 100);
+  const current_manual_claims = _round0(annual_claims_volume - current_stp_claims);
+  const current_annual_cost   = _round2(current_stp_claims * automated_handling_cost +
+                                        current_manual_claims * manual_handling_cost +
+                                        annual_license_cost);
+
+  // Target state
+  const target_stp_claims     = _round0(annual_claims_volume * tgt_stp / 100);
+  const target_manual_claims  = _round0(annual_claims_volume - target_stp_claims);
+  const target_annual_cost    = _round2(target_stp_claims * automated_handling_cost +
+                                        target_manual_claims * manual_handling_cost +
+                                        annual_license_cost);
+
+  // Annual savings from handling cost reduction
+  const annual_handling_savings = _round2(current_annual_cost - target_annual_cost);
+
+  // Leakage delta (incremental claims paid due to automation errors vs manual review)
+  // Leakage $ = leakage_rate% * avg_payment * volume_at_each_mode
+  const incremental_stp_claims    = target_stp_claims - current_stp_claims;
+  const incremental_manual_claims = current_manual_claims - target_manual_claims;
+  const leakage_increase  = average_claim_payment > 0
+    ? _round2(incremental_stp_claims    * average_claim_payment * leakage_rate_stp_pct    / 100)
+    : 0;
+  const leakage_reduction = average_claim_payment > 0
+    ? _round2(incremental_manual_claims * average_claim_payment * leakage_rate_manual_pct / 100)
+    : 0;
+  const net_leakage_impact = _round2(leakage_reduction - leakage_increase); // positive = savings
+
+  // Net annual benefit
+  const net_annual_benefit = _round2(annual_handling_savings + net_leakage_impact);
+
+  // Simple payback period (years)
+  const payback_years = net_annual_benefit > 0
+    ? _round2(implementation_cost / net_annual_benefit)
+    : null;
+
+  // NPV over projection_years
+  const r = discount_rate_pct / 100;
+  let npv = -implementation_cost;
   const annual_cashflows = [];
-  for (let y = 1; y <= years; y++) {
-    const disc = _round2(net_annual_benefit / Math.pow(1 + discount_rate, y));
-    npv += disc;
-    annual_cashflows.push({ year: y, cashflow: net_annual_benefit, discounted_cashflow: disc });
+  for (let yr = 1; yr <= projection_years; yr++) {
+    const cf = _round2(net_annual_benefit);
+    const discounted = _round2(cf / Math.pow(1 + r, yr));
+    npv += discounted;
+    annual_cashflows.push({ year: yr, cashflow: cf, discounted_cashflow: discounted });
   }
   npv = _round2(npv);
 
-  const payback_years = net_annual_benefit > 0 ? _round2(impl_cost / net_annual_benefit) : null;
-  const stp_improvement = _round2(target_stp_pct - current_stp_pct);
-  const current_avg_cost = annual_claims > 0 ? _round2(current_annual_cost / annual_claims) : 0;
-  const target_avg_cost  = annual_claims > 0 ? _round2(target_annual_cost  / annual_claims) : 0;
-  const cost_reduction   = _round2(current_avg_cost - target_avg_cost);
-  const cost_reduction_pct = current_avg_cost > 0 ? _round2((cost_reduction / current_avg_cost) * 100) : 0;
+  // IRR (bounded bisection on the annuity form)
+  let irr_pct = null;
+  if (implementation_cost > 0 && net_annual_benefit > 0) {
+    irr_pct = _solveIRR(implementation_cost, net_annual_benefit, projection_years);
+  }
+
+  // Per-claim metrics
+  const current_avg_cost_per_claim = annual_claims_volume > 0
+    ? _round2(current_annual_cost / annual_claims_volume) : 0;
+  const target_avg_cost_per_claim  = annual_claims_volume > 0
+    ? _round2(target_annual_cost  / annual_claims_volume) : 0;
+  const cost_reduction_per_claim   = _round2(current_avg_cost_per_claim - target_avg_cost_per_claim);
+  const cost_reduction_pct         = current_avg_cost_per_claim > 0
+    ? _round2(cost_reduction_per_claim / current_avg_cost_per_claim * 100) : 0;
+
+  const stp_rate_improvement_ppt = _round2(tgt_stp - cur_stp);
 
   return {
-    npv, irr_pct, payback_years, net_annual_benefit,
-    annual_handling_savings, net_leakage_impact, leakage_increase, leakage_reduction,
-    current_annual_cost, target_annual_cost,
-    cost_reduction_per_claim: cost_reduction, cost_reduction_pct,
-    current_avg_cost_per_claim: current_avg_cost, target_avg_cost_per_claim: target_avg_cost,
-    stp_rate_improvement_ppt: stp_improvement,
-    current_stp_claims, target_stp_claims, current_manual_claims, target_manual_claims,
-    projection_years: years, discount_rate_pct: _finite(p.discount_rate_pct, 10),
+    npv,
+    irr_pct,
+    payback_years,
+    net_annual_benefit,
+    annual_handling_savings,
+    net_leakage_impact,
+    leakage_increase,
+    leakage_reduction,
+    current_annual_cost,
+    target_annual_cost,
+    cost_reduction_per_claim,
+    cost_reduction_pct,
+    current_avg_cost_per_claim,
+    target_avg_cost_per_claim,
+    stp_rate_improvement_ppt,
+    current_stp_claims,
+    target_stp_claims,
+    current_manual_claims,
+    target_manual_claims,
+    projection_years,
+    discount_rate_pct,
     annual_cashflows,
-    table_version:   'CLAIMS-STP-ECONOMICS-V1.0-2025',
-    table_source:    'McKinsey Insurance 2024 (claims automation ROI benchmarks); Accenture Claims Transformation 2025; Majesco Claims Technology Survey 2024; NAIC Claims Process Innovation Working Group 2023.',
+    table_version:   TABLE_VERSION,
+    table_source:    TABLE_SOURCE,
     regulatory_basis:'NAIC Claims Process Innovation Working Group (2023); IAIS ComFrame (proportionality in claims governance). STP automation economics benchmarks per McKinsey Insurance 2024 and Majesco Claims Technology Survey 2024.',
     pii_note:        'ZERO PII: aggregate portfolio metrics and cost inputs only. No claimant, policyholder, or claim-event personal data enters this kernel.',
     not_legal_advice:'Not legal, actuarial, or investment advice. STP investment decisions require enterprise business case review and actuarial sign-off on leakage assumptions.',
