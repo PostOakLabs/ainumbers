@@ -273,7 +273,7 @@ function leaf(v, p, datatype, out) {
   if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
     const keys = Object.keys(v);
     if (keys.length === 1 && keys[0] === 'len' && isInt(v.len) && v.len >= 1) {
-      const max = MAXLEN[datatype];
+      const max = Object.hasOwn(MAXLEN, datatype) ? MAXLEN[datatype] : undefined;
       if (max !== undefined && v.len > max) out.push({ path: p, rule_id: 'MAXLEN', section: MAXLEN_SECTION });
       return;
     }
@@ -282,7 +282,7 @@ function leaf(v, p, datatype, out) {
 }
 
 function codeLeaf(v, p, codeName, out) {
-  const spec = CODES[codeName];
+  const spec = Object.hasOwn(CODES, codeName) ? CODES[codeName] : undefined;
   if (typeof v !== 'string') { out.push({ path: p, rule_id: spec.iso ? 'C3' : 'CODE', section: spec.iso ? '5.2.1.2' : spec.section }); return; }
   if (spec.iso) {
     // C3 CountryCode: must be an ISO 3166-1 alpha-2 value (or XX).
