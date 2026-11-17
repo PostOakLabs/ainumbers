@@ -46,41 +46,42 @@ export function compute(pp) {
   const basis = pp.balance_basis;
   if (basis !== 'functional' && basis !== 'per_currency') {
     compliance_flags.push('BASIS_NOT_DECLARED');
-    return { output_payload: { execution_state: 'did_not_run', reason: 'BASIS_NOT_DECLARED' }, compliance_flags };
+    return { output_payload: { execution_state: 'did_not_run', reason: 'BASIS_NOT_DECLARED', domain_errors: compliance_flags.slice() }, compliance_flags };
   }
   const fnCcy = pp.functional_currency;
   if (basis === 'functional' && (typeof fnCcy !== 'string' || fnCcy.length === 0)) {
     compliance_flags.push('BASIS_NOT_DECLARED');
-    return { output_payload: { execution_state: 'did_not_run', reason: 'BASIS_NOT_DECLARED_FUNCTIONAL_CURRENCY_REQUIRED' }, compliance_flags };
+    return { output_payload: { execution_state: 'did_not_run', reason: 'BASIS_NOT_DECLARED_FUNCTIONAL_CURRENCY_REQUIRED', domain_errors: compliance_flags.slice() }, compliance_flags };
   }
   const exponents = pp.currency_exponents;
   if (!isPlainObject(exponents) || Object.keys(exponents).length === 0) {
     compliance_flags.push('UNKNOWN_CURRENCY');
-    return { output_payload: { execution_state: 'did_not_run', reason: 'UNKNOWN_CURRENCY_CURRENCY_EXPONENTS_REQUIRED' }, compliance_flags };
+    return { output_payload: { execution_state: 'did_not_run', reason: 'UNKNOWN_CURRENCY_CURRENCY_EXPONENTS_REQUIRED', domain_errors: compliance_flags.slice() }, compliance_flags };
   }
   const tolIn = pp.tolerance_minor;
-  const tolerance = {};
+  const tolerancePairs = [];
   if (tolIn !== undefined && tolIn !== null) {
     if (!isPlainObject(tolIn)) {
       compliance_flags.push('NEGATIVE_TOLERANCE');
-      return { output_payload: { execution_state: 'did_not_run', reason: 'NEGATIVE_TOLERANCE' }, compliance_flags };
+      return { output_payload: { execution_state: 'did_not_run', reason: 'NEGATIVE_TOLERANCE', domain_errors: compliance_flags.slice() }, compliance_flags };
     }
     for (const ccy of Object.keys(tolIn)) {
       if (!isValidTolerance(tolIn[ccy])) {
         compliance_flags.push('NEGATIVE_TOLERANCE');
-        return { output_payload: { execution_state: 'did_not_run', reason: 'NEGATIVE_TOLERANCE', currency: ccy }, compliance_flags };
+        return { output_payload: { execution_state: 'did_not_run', reason: 'NEGATIVE_TOLERANCE', currency: ccy, domain_errors: compliance_flags.slice() }, compliance_flags };
       }
-      tolerance[ccy] = tolIn[ccy];
+      tolerancePairs.push([ccy, tolIn[ccy]]);
     }
   }
+  const tolerance = Object.fromEntries(tolerancePairs);
   const entriesIn = pp.entries;
   if (!Array.isArray(entriesIn) || entriesIn.length === 0) {
     compliance_flags.push('ENTRY_TOO_FEW_LINES');
-    return { output_payload: { execution_state: 'did_not_run', reason: 'ENTRY_TOO_FEW_LINES' }, compliance_flags };
+    return { output_payload: { execution_state: 'did_not_run', reason: 'ENTRY_TOO_FEW_LINES', domain_errors: compliance_flags.slice() }, compliance_flags };
   }
   if (entriesIn.length > MAX_ENTRIES) {
     compliance_flags.push('ENTRY_CAP_EXCEEDED');
-    return { output_payload: { execution_state: 'did_not_run', reason: 'ENTRY_CAP_EXCEEDED', cap: MAX_ENTRIES }, compliance_flags };
+    return { output_payload: { execution_state: 'did_not_run', reason: 'ENTRY_CAP_EXCEEDED', cap: MAX_ENTRIES, domain_errors: compliance_flags.slice() }, compliance_flags };
   }
 
   // ---- per-entry evaluation (input order preserved; deterministic) ----
@@ -91,6 +92,7 @@ export function compute(pp) {
 
   for (const e of entriesIn) {
     const entryResult = evaluateEntry(e, { basis, fnCcy, exponents, tolerance, seenEntryIds, seenLineIds });
+    if (!Object.hasOwn(totals, entryResult.status)) totals[entryResult.status] = 0;
     totals[entryResult.status] += 1;
     results.push(entryResult);
   }
@@ -104,6 +106,7 @@ export function compute(pp) {
       entry_cap: MAX_ENTRIES,
       entries: results,
       totals: totals,
+      domain_errors: compliance_flags.slice(),
     },
     compliance_flags,
   };
@@ -126,7 +129,7 @@ function evaluateEntry(e, ctx) {
   }
 
   const warnings = [];
-  const residualByCcy = {};
+  const residualByCcy = new Map();
   let fnResidual = 0;
   let firstRefusal = null;
 
@@ -166,7 +169,7 @@ function evaluateEntry(e, ctx) {
     }
 
     if (basis === 'per_currency') {
-      residualByCcy[ccy] = (residualByCcy[ccy] || 0) + ln.amount_minor;
+      residualByCcy.set(ccy, (residualByCcy.get(ccy) || 0) + ln.amount_minor);
     } else {
       fnResidual += fnAmt;
     }
@@ -177,15 +180,14 @@ function evaluateEntry(e, ctx) {
   let residualMinor;
   let maxResidual;
   if (basis === 'per_currency') {
-    residualMinor = residualByCcy;
+    residualMinor = Object.fromEntries(residualByCcy);
     maxResidual = 0;
-    for (const ccy of Object.keys(residualByCcy)) {
-      const r = Math.abs(residualByCcy[ccy]);
+    for (const res of residualByCcy.values()) {
+      const r = Math.abs(res);
       if (r > maxResidual) maxResidual = r;
     }
   } else {
-    residualMinor = {};
-    residualMinor[fnCcy] = fnResidual;
+    residualMinor = { [fnCcy]: fnResidual };
     maxResidual = Math.abs(fnResidual);
   }
 
@@ -193,14 +195,21 @@ function evaluateEntry(e, ctx) {
   // against the declared tolerance for that currency; any currency over its own
   // tolerance tips the entry to imbalanced.
   let status = 'balanced';
-  const ccySet = basis === 'per_currency' ? Object.keys(residualByCcy) : [fnCcy];
-  const amounts = basis === 'per_currency' ? residualByCcy : residualMinor;
-  for (const ccy of ccySet) {
-    const r = Math.abs(amounts[ccy]);
-    const t = tolerance[ccy] !== undefined ? tolerance[ccy] : 0;
-    if (r === 0) continue;
-    if (r <= t) { if (status === 'balanced') status = 'within_tolerance'; }
-    else status = 'imbalanced';
+  if (basis === 'per_currency') {
+    for (const [ccy, res] of residualByCcy) {
+      const r = Math.abs(res);
+      const t = Object.hasOwn(tolerance, ccy) ? tolerance[ccy] : 0;
+      if (r === 0) continue;
+      if (r <= t) { if (status === 'balanced') status = 'within_tolerance'; }
+      else status = 'imbalanced';
+    }
+  } else {
+    const r = Math.abs(fnResidual);
+    const t = Object.hasOwn(tolerance, fnCcy) ? tolerance[fnCcy] : 0;
+    if (r !== 0) {
+      if (r <= t) status = 'within_tolerance';
+      else status = 'imbalanced';
+    }
   }
 
   return {
