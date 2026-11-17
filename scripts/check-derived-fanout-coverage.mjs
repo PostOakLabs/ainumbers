@@ -180,7 +180,7 @@ export function orderingViolations(COVERED) {
 // an entry that is no longer needed (command gone, now covered, no longer a
 // reader) also fails until removed. Lower READER_ALLOWLIST_MAX when you remove
 // entries; never raise it — fix the gate by putting it in DERIVED_ROOT_GATES.
-export const READER_ALLOWLIST_MAX = 46; // seeded 2026-11-05 at the measured count; only ever lowered
+export const READER_ALLOWLIST_MAX = 43; // seeded 2026-11-05 at 46; 44 after QUEUE-ASSEMBLED-NEWNODE-GATES-1 (ask-agent + output-schema left the list); 43 after FOOTER-LINKS-REFRESH-1 (gen-root-chrome --check became a COVERED gate); only ever lowered
 
 // Fixed derived reads named by the row; the rest of the set is read from the
 // SSOT's COVERED artifacts, never restated here.

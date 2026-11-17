@@ -1,13 +1,13 @@
 # Canton Cash-Leg Assurance Chain
 
-Stress-test the cash leg: LCR/NSFR liquidity scenario → MiCA reserve adequacy → on-chain finality verification. Assures Canton settlement payments against Basel III, MiCA Art. 36, and PFMI P9.
+Stress-test the cash leg: LCR/NSFR liquidity scenario → MiCA reserve adequacy → on-chain finality verification. Assures Canton settlement payments against Basel III, MiCA Art. 36, and PFMI P9. The DTCC Tokenization Service, live since October 28, 2026 per DTCC's launch announcement, settles its cash leg by wire or ACH over fiat rails as of November 2026.
 
 - Page: https://ainumbers.co/chaingraph/chains/canton-cash-leg-assurance.html
 - Markdown twin: https://ainumbers.co/chaingraph/chains/canton-cash-leg-assurance.md
 
 ## Workflow chain: Canton Cash-Leg Assurance Chain
 
-Stress-test the cash leg: LCR/NSFR liquidity scenario → MiCA reserve adequacy → on-chain finality verification. Assures Canton settlement payments against Basel III, MiCA Art. 36, and PFMI P9.
+Stress-test the cash leg: LCR/NSFR liquidity scenario → MiCA reserve adequacy → on-chain finality verification. Assures Canton settlement payments against Basel III, MiCA Art. 36, and PFMI P9. The DTCC Tokenization Service, live since October 28, 2026 per DTCC's launch announcement, settles its cash leg by wire or ACH over fiat rails as of November 2026.
 
 Domain: Digital-Asset Rails
 

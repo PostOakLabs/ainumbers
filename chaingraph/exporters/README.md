@@ -14,13 +14,15 @@ EBA taxonomy (core project rule).
 | `zip.mjs` | Dependency-free STORE-only ZIP + CRC32 (xlsx is a ZIP; Workers-safe, deterministic) |
 | `xlsx.mjs` | `buildXlsx(artifact)` → 3-sheet workbook (Decision / Data / Provenance), inline strings |
 | `csv.mjs` | `buildCsv(artifact)` → manifest + scalars + tables (UTF-8 BOM) |
-| `pdf.mjs` | `buildPdf(artifact)` → paginated Helvetica memo, per-`mandate_type` title, provenance footer, **QR** of the verify URL (top-right) |
-| `qr.mjs` | `qrMatrix(text)` → boolean module matrix (byte mode, EC-M, v1–7). ⚠ SCAN the sample PDF to confirm |
+| `pdf.mjs` | `buildPdf(artifact)` → paginated Helvetica memo, per-`mandate_type` title, provenance footer. The verify URL is printed as text; the QR draw (`qrOps`) is parked, see the note at its call site |
+| `qr.mjs` | `qrMatrix(text, ecl)` → boolean module matrix (byte mode, EC L/M/Q/H, v1–40). JavaScript port of Project Nayuki's QR Code generator (MIT) |
+| `qr-reference-parity.mjs` | Compares `qr.mjs` against matrices from upstream's own encoder (`fixtures/qr-reference/vectors.json`, 125 vectors, all 40 versions). `qr-reference-parity.test.mjs` is the standalone entry |
 | `xbrl.mjs` | `buildXbrl(artifact, taxonomy)` → XBRL v2.1; `ocg-ext` validates against the published `../xbrl/ocg-ext/ocg-ext-2026.xsd`; `eba-corep-*` loader present but **guarded** (optional/pull-driven) |
-| `export.test.mjs` | Node smoke test; writes `sample-export.{xlsx,csv,pdf,xbrl}` + QR structural check |
+| `export.test.mjs` | Node smoke test; writes `sample-export.{xlsx,csv,pdf,xbrl}` + QR structural check + QR reference parity |
 
-**TODOs:** `qr.mjs` is unverified against a scanner in CI — scan `sample-export.pdf` once (the verify URL is
-also printed as text, so a non-scanning QR loses nothing). `xbrl.mjs` COREP emission is wired (`buildCorep`)
+**TODOs:** `qr.mjs` matches a reference encoder but no decoder runs in CI, so a phone scan is still the
+end-to-end check (`node qr-preview.mjs` renders a large symbol to scan from screen). The PDF QR stays parked
+until the quiet-zone and text-overlap items noted in `pdf.mjs` are fixed. `xbrl.mjs` COREP emission is wired (`buildCorep`)
 but `eba-corep-*` stay guarded until `COREP_MAPS` (and the JSON scaffold at `taxonomies/eba-corep-concept-map.json`)
 have real `eba_qname`/`schemaRef` values from the published EBA taxonomy — do not fabricate.
 

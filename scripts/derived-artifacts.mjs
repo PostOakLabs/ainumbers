@@ -96,6 +96,7 @@ import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { nodeFooterPages } from './gen-node-footers.mjs';
+import { ROOT_CHROME_PAGES } from './gen-root-chrome.mjs';
 import { chainAskAgentPages } from './gen-chain-ask-agent.mjs';
 import { hubScenePages } from './gen-hub-scenes.mjs';
 import { WRITES_REPORT_PATH } from './gen-manifest-examples.mjs';
@@ -184,6 +185,37 @@ export const COVERED = [
     writes: ['chaingraph/chaingraph.json', 'chaingraph/chaingraph.meta.json'],
     artifacts: ['chaingraph/chaingraph.json', 'chaingraph/chaingraph.meta.json'],
     share: '8%',
+  },
+  {
+    // VERIFYBINDING-DIGEST-DEFAULT-1 (2026-11-12): the PUBLISHED KERNEL-DIGEST LIST --
+    // every live node's current kernel identity digest, derived from the node SHARDS'
+    // compute_images (system sha256-source; the kernel-identity publication), written to
+    // chaingraph/kernel-digests.json. The kernel_digest leg of verifyBinding engages by
+    // DEFAULT against this list (browser verifiers load and arm it), so a receipt from
+    // one tool can no longer pass against another tool's page. Reads only the committed
+    // shards -- no after: edge on chaingraph-assemble (they share an input, not a
+    // producer/consumer link). prAbsentOk per webmcp-manifest/ai-catalog: main's regen
+    // writes the file after merge and a PR is forbidden to commit it (SO #35).
+    id: 'kernel-digests',
+    regen: 'node scripts/gen-kernel-digests.mjs',
+    gate: 'node scripts/gen-kernel-digests.mjs --check',
+    writes: ['chaingraph/kernel-digests.json'],
+    artifacts: ['chaingraph/kernel-digests.json'],
+    prAbsentOk: true,
+    share: 'n/a (new 2026-11-12, VERIFYBINDING-DIGEST-DEFAULT-1)',
+  },
+  {
+    // REPLAY-HOUSE-SIGN-1 (2026-11-14): the HOUSE LINE of the determinism record. Replays the
+    // tracked fixture corpus (scripts/replay-result.mjs) and writes the two digests that
+    // .github/workflows/replay-house-attest.yml signs on upstream. Content only, so a fixpoint
+    // of the committed kernels and fixtures; no PR hand-edits it (prAbsentOk, SO #35).
+    id: 'replay-house-line',
+    regen: 'node scripts/gen-replay-house-line.mjs',
+    gate: 'node scripts/gen-replay-house-line.mjs --check',
+    writes: ['data/replay-house-line.json'],
+    artifacts: ['data/replay-house-line.json'],
+    prAbsentOk: true,
+    share: 'n/a (new 2026-11-14, REPLAY-HOUSE-SIGN-1)',
   },
   {
     // PROVE-BASELINE-SINGLE-WRITER-1 (2026-10-19): the §18 deferred ratchet
@@ -873,6 +905,27 @@ export const COVERED = [
     // consumes chaingraph.json (node graph) — must run AFTER the assembler (REGEN-COVERED-ORDER-FIX-1)
     after: 'chaingraph-assemble',
     share: '23%',
+  },  {
+    // FOOTER-LINKS-REFRESH-1 (2026-11-13): the ROOT-FOOTER (+ ROOT-FOOTER-CSS)
+    // sentinel region of every root page in scripts/gen-root-chrome.mjs
+    // ROOT_CHROME_PAGES, rewritten from chaingraph/_page-chrome.mjs ROOT_FOOTER by
+    // the ONE main-side writer gen-root-chrome.mjs. The root-page twin of
+    // 'node-page-footers': a footer change is a one-file template edit and main's
+    // regen carries it. Needed because index.html, sitemap.html and tools.html are
+    // whole-file main-only paths (catalog / sitemap-html) a PR may not touch, and
+    // no other writer refreshed their footer, so a template edit left
+    // gen-root-chrome --check red in preflight on main and in the deploy gate.
+    // Region writer (REGION_WRITER_IDS): PRs still author these pages. Placed
+    // after the whole-file writers of start.html, sitemap.html, index.html and
+    // tools.html so their passes cannot leave a stale footer behind it.
+    // Idempotent: the writer only rewrites the region, so a second pass is a no-op.
+    id: 'root-page-footers',
+    regen: 'node scripts/gen-root-chrome.mjs',
+    gate: 'node scripts/gen-root-chrome.mjs --check',
+    writes: ROOT_CHROME_PAGES,
+    artifacts: ROOT_CHROME_PAGES,
+    after: 'start-index',
+    share: 'n/a (new 2026-11-13, FOOTER-LINKS-REFRESH-1)',
   },  {
     id: 'chain-index',
     regen: 'node scripts/gen-chain-index.mjs',
@@ -1627,6 +1680,24 @@ export const EXCLUDED = [
        + 'scripts/check-webmcp-signed-snapshot.mjs in preflight (RED only on a bad signature or malformed '
        + 'snapshot; age and drift vs the regen-on-main webmcp.json are advisory).',
   },
+  {
+    what: 'kernel sibling-stamp freshness (via scripts/stamp-writers.mjs — STALE-STAMP-WRITERS-1)',
+    script: 'scripts/stamp-writers.mjs',
+    share: 'n/a — an orchestrator of the existing repo writers, not a generator',
+    why: 'NOT A GENERATOR. It owns no artifact surface of its own: per touched kernel id it only INVOKES '
+       + 'the existing writers (gen-kernel-identity.mjs --write --shard=<id>, the proptest floor plus its '
+       + 'kernel_digest_at_authoring header restamp, check-ask-agent-block.mjs --write --only <id>), each '
+       + 'with its own owner row or gate. Its input set is the CHECKOUT DIFF, not the committed tree: '
+       + 'deriveTouchedIds() reads git diff <base>...HEAD + working tree + index + untracked files, so on '
+       + 'a clean main-regen checkout (base == HEAD, tree clean) the derived id set is EMPTY and a '
+       + 'write-mode run is a defined no-op ("no touched kernel ids - nothing to do"; measured on this '
+       + 'PR\'s post-merge tree: --check derives zero ids, writes zero bytes, exit 0). There is no '
+       + 'convergent byte set for COVERED to own, so the decision is EXCLUDED; the --check mode stays '
+       + 'wired into preflight GATES as the freshness gate that lists each stale stamp with its fix '
+       + 'command. Classification demanded by NODE-FANOUT-REGEN-CLOSE-1 at generator add; a MEASURED '
+       + 'reason, not a shrug. Fence shape per the ORCH-389 precedent: the classification rides the PR '
+       + 'whose preflight amendment surfaced the script.',
+  },
 ];
 
 /** Every path the regen may write, deduped and sorted — the commit pathspec. */
@@ -1784,6 +1855,29 @@ export const DERIVED_ROOT_GATES = new Set([
   // reads the page through the overlay too: `--out` puts the freshly healed
   // page in DERIVED_ROOT (PR-2888-DERIVED-PAGE-READ-1).
   'node scripts/check-zk-trust-page.mjs',                    // trust-page stage counts (reads the monolith)
+  // QUEUE-ASSEMBLED-NEWNODE-GATES-1 (2026-11-09): the two gates below read the CHECKOUT registry,
+  // which does not contain a new node until main's post-merge regen enrols it, so a new-node PR
+  // passed the queue and main went red on the same node: ask-agent "no block" art-756 (runs
+  // 42542899593, 42539545126), ask-agent "block drifted" art-793 (42617856331) and art-795
+  // (42508010729), output-schema coverage (42517511673). Both now overlay-read the registry, the
+  // node pages and the manifests through derivedResolve (the check-a11y-tree.mjs convention), so
+  // the merge_group verdict is on the assembled tree that will be main. Spelled exactly as
+  // preflight.mjs's GATES list runs them (the --self-test / .test.mjs siblings are hermetic
+  // fixture proofs that never overlay, so they stay out of the set).
+  'node scripts/check-ask-agent-block.mjs',                  // ask-agent block freshness (registry, pages, manifests overlay)
+  'node scripts/check-output-schema-coverage.mjs',           // output-schema coverage (registry, manifests overlay)
+  // VERIFYBINDING-DIGEST-DEFAULT-1 (2026-11-12): check-ledger-hermetic.mjs NAMES the published
+  // kernel-digest list (chaingraph/kernel-digests.json) in its fetch allowlist, so the derived-reader
+  // text-match classifies it as reading main-regen derived bytes (DERIVED-READER-COVERAGE-1). It
+  // never opens that file — it greps the LEDGER PAGE SOURCE for allowlist tokens — and it must stay
+  // hard in every context. Membership here is classification-only: the gate is not COVERED, so
+  // runVerifyGates never runs it and never skips it for non-awareness.
+  'node scripts/check-ledger-hermetic.mjs',                  // ledger hermetic (names kernel-digests.json; reads page source only)
+  // WEBMCP-SIGNED-EXPIRY-1 (DERIVED-READER-COVERAGE-1): the snapshot freshness gate reads
+  // .well-known/webmcp-signed.json through derivedResolve, so a merge_group overlay judges the
+  // assembled tree. The file itself is hand-signed (EXCLUDED, never regen-written); the gate is not
+  // COVERED, so membership is awareness classification only.
+  'node scripts/check-webmcp-snapshot-fresh.mjs',            // snapshot expiry freshness (overlay-reads the signed snapshot)
 ]);
 
 // S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1 (2026-10-31): derivedRoot/derivedResolve moved VERBATIM

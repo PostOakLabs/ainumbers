@@ -1,0 +1,175 @@
+{
+  "tool_id": "art-820-negotiate-ucp-capabilities",
+  "inventory_version": "1.0.0",
+  "authored_at": "2026-11-04",
+  "error_direction": "undirected",
+  "error_direction_rationale": "The kernel's outputs are set membership and string comparisons (name intersection, date ordering, label-aligned prefixes, inclusive bounds). No threshold or rounding approximation exists in any branch, so there is no direction in which errors could accumulate toward a finding or toward no-finding.",
+  "derived_from": [
+    {
+      "digest": "sha256:f8816cd478fb18d3e96839251c40f8642ee34ee7549f5595b2db58c787a4e43f",
+      "clause_path": "Overview / Capability Versioning / Intersection Algorithm / Extension Dependencies / Profile Resolution Flow"
+    },
+    {
+      "digest": "sha256:cd0441675907f86e5d129eb447269fe7dcc2f4fb7e4a3b72cc7c2376c09a5c70",
+      "clause_path": "Overview / Profile Structure / Keys / Namespace Authority Binding / Namespace Governance / Version Format / Supported Versions / Component Versioning"
+    }
+  ],
+  "branches": [
+    {
+      "id": "b-intersection-by-name",
+      "clause": "Intersection Algorithm step 1: for each business capability, include it if a platform capability with the same name exists",
+      "disposition": "represented",
+      "evidence": "agreed_capabilities"
+    },
+    {
+      "id": "b-highest-mutual-version",
+      "clause": "Intersection Algorithm step 2 + Capability Versioning: exact version equality between profiles; highest shared version selected",
+      "disposition": "represented",
+      "evidence": "agreed_capabilities"
+    },
+    {
+      "id": "b-no-mutual-version-excluded",
+      "clause": "Intersection Algorithm step 2: if the mutual version set is empty, exclude the capability from the intersection",
+      "disposition": "represented",
+      "evidence": "dropped"
+    },
+    {
+      "id": "b-prune-orphaned-extensions",
+      "clause": "Intersection Algorithm step 3: remove any capability where extends is set but none of its parents are in the intersection",
+      "disposition": "represented",
+      "evidence": "dropped"
+    },
+    {
+      "id": "b-prune-repeat-until-stable",
+      "clause": "Intersection Algorithm step 4: pruning is iterative; repeat until no more capabilities are removed",
+      "disposition": "represented",
+      "evidence": "dropped"
+    },
+    {
+      "id": "b-requires-protocol-bounds",
+      "clause": "Extension Dependencies: requires.protocol min/max are inclusive bounds on the selected protocol version; violating extensions are excluded",
+      "disposition": "represented",
+      "evidence": "dropped"
+    },
+    {
+      "id": "b-requires-capability-bounds",
+      "clause": "Extension Dependencies: requires.capabilities maps names to inclusive min/max bounds on the selected versions of the named capabilities",
+      "disposition": "represented",
+      "evidence": "dropped"
+    },
+    {
+      "id": "b-requires-absent-compatible",
+      "clause": "Extension Dependencies: if requires is absent, the extension is assumed compatible with the profile's declared versions",
+      "disposition": "represented",
+      "evidence": "agreed_capabilities"
+    },
+    {
+      "id": "b-requires-reprune",
+      "clause": "Extension Dependencies / Profile Resolution Flow step 4: excluding an incompatible extension may orphan extensions that extend it, so orphan pruning repeats until the active set is stable",
+      "disposition": "represented",
+      "evidence": "dropped"
+    },
+    {
+      "id": "b-protocol-version-check",
+      "clause": "Profile Resolution Flow step 2: a platform that cannot support the requested protocol version fails the negotiation; supported_versions allows selecting a mutually supported older release",
+      "disposition": "represented",
+      "evidence": "protocol_version"
+    },
+    {
+      "id": "b-negotiation-failure-definite",
+      "clause": "Profile Resolution Flow: negotiation failure (empty capability intersection) is a definite outcome",
+      "disposition": "represented",
+      "evidence": "primary_reason"
+    },
+    {
+      "id": "b-namespace-authority-binding",
+      "clause": "Namespace Authority Binding steps 1-6: reversed https schema host must equal the entity name or be a label-aligned prefix; on failure the entity is treated as not present and never activated",
+      "disposition": "represented",
+      "evidence": "findings"
+    },
+    {
+      "id": "b-dev-ucp-release-pinning",
+      "clause": "Component Versioning: a dev.ucp.* entry whose version differs from the profile's ucp.version MUST be rejected, treated as not present",
+      "disposition": "represented",
+      "evidence": "findings"
+    },
+    {
+      "id": "b-keys-canonical-jwk-set",
+      "clause": "Keys: the top-level keys[] member of a Profile is the canonical JWK Set key field",
+      "disposition": "represented",
+      "evidence": "findings"
+    },
+    {
+      "id": "b-supported-versions-leaf-fetch",
+      "clause": "Supported Versions and Leaf Profiles: a party selecting an older version negotiates against the leaf profile for that version",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "the leaf profile document for the selected older protocol version",
+        "source": "the supported_versions map in the pasted profile (location member per key)",
+        "owner": "the caller — a verify-only node never fetches; it negotiates over the two pasted profile objects and reports the selected protocol version"
+      }
+    },
+    {
+      "id": "b-capability-schema-fetch",
+      "clause": "Profile Resolution Flow step 3: for each intersected capability the platform fetches the schema document and validates the entity against it",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "the extension/capability schema documents named by entry schema members",
+        "source": "the schema member of the pasted capability entries (namespace binding is checked; the document itself is not fetched)",
+        "owner": "the caller — schema fetch and validation against the fetched document happen outside this kernel"
+      }
+    },
+    {
+      "id": "b-transport-errors",
+      "clause": "Profile Resolution Flow steps 1-2: discovery failure and unsupported-protocol-version failure terminate negotiation at the transport layer",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "HTTP transport semantics (discovery status, error response bodies, continue_url flows)",
+        "source": "the protocol transport binding, not the pasted profile objects",
+        "owner": "the MCP worker transport layer — this kernel receives already-pasted profiles and raises no transport errors"
+      }
+    },
+    {
+      "id": "b-profile-required-members",
+      "clause": "Profile Structure: ucp.version, ucp.services, and ucp.payment_handlers MUST be present even when empty",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "issues",
+        "reachability_vector": {
+          "business_profile": { "ucp": { "version": "2026-08-25", "services": {} } },
+          "platform_profile": { "ucp": { "version": "2026-08-25", "services": {}, "payment_handlers": {} } }
+        },
+        "fixture": "reachability#malformed-profile-missing-payment-handlers"
+      }
+    },
+    {
+      "id": "b-version-format-non-date",
+      "clause": "Version Format: the protocol version MUST be a dated release in YYYY-MM-DD format; businesses MUST NOT advertise a non-date version string",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "issues",
+        "reachability_vector": {
+          "business_profile": { "ucp": { "version": "2026-08-25", "services": {}, "payment_handlers": {} } },
+          "platform_profile": { "ucp": { "version": "draft", "services": {}, "payment_handlers": {} } }
+        },
+        "fixture": "reachability#non-date-protocol-version"
+      }
+    },
+    {
+      "id": "b-profile-not-an-object",
+      "clause": "Profile Structure: a Profile is a JSON object with a required ucp member",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "issues",
+        "reachability_vector": {
+          "business_profile": "not-a-profile",
+          "platform_profile": { "ucp": { "version": "2026-08-25", "services": {}, "payment_handlers": {} } }
+        },
+        "fixture": "reachability#profile-not-an-object"
+      }
+    }
+  ]
+}

@@ -7,10 +7,13 @@
  * CI runs 38264357350, 38264539837, 38270564551 all died with
  * "SyntaxError: unsupported keyword: export" AFTER the QuickJS download).
  *
- * RED half: the unstrippable forms (export { ... }, export * from) must make the
- * bundler exit 1 with the ENGINE-BUNDLE-ESM-LINT-1 error BEFORE emitting anything.
+ * RED half: the unstrippable forms (export { a as b } rename, an export list
+ * naming an undeclared name, export * from) must make the bundler exit 1 with
+ * the ENGINE-BUNDLE-ESM-LINT-1 error BEFORE emitting anything.
  * GREEN half: the strippable forms (default, class, generator, async generator,
- * multi-line import) must yield a bundle with no top-level export|import.
+ * multi-line import, and since ENGINE-BUNDLE-EXPORT-LIST-REWRITE-1 a plain
+ * top-level export list of names declared at top level in the same file) must
+ * yield a bundle with no top-level export|import.
  *
  * Run: node scripts/check-engine-parity.bundle.test.mjs
  * (registered in scripts/preflight.mjs next to the node parity leg)
@@ -107,7 +110,11 @@ const plantBeforeBuildArtifact = (text) =>
   GOOD_KERNEL.replace('export async function buildArtifact', `${text}export async function buildArtifact`);
 
 const BAD_FORMS = [
-  ['export { a, b };', 'export const a = 1, b = 2;\nexport { a, b };\n', 'export { a, b };'],
+  // ENGINE-BUNDLE-EXPORT-LIST-REWRITE-1: a rename stays refused even when the
+  // renamed name is declared at top level in the same file.
+  ['export { a as b };', 'const a = 1;\nexport { a as b };\n', 'export { a as b };'],
+  // ...and an export list naming an undeclared name stays refused.
+  ['export { a, missing };', 'const a = 1;\nexport { a, missing };\n', 'export { a, missing };'],
   ['export * from', "export * from './other.mjs';\n", "export * from './other.mjs';"],
   ['bare export *;', 'export *;\n', 'export *;'],
 ];
@@ -121,13 +128,48 @@ for (const [label, text, offendingLine] of BAD_FORMS) {
   rmSync(root, { recursive: true, force: true });
 }
 
-// Planted-bad control: an unstrippable form that the OLD three-regex stripper
-// silently passed through must now be caught (this is the RED half).
+// --- GREEN (ENGINE-BUNDLE-EXPORT-LIST-REWRITE-1): a plain top-level export
+// list whose every name is declared at top level in the same file is rewritten
+// by dropping the export line; the declarations (and compute) stay. ----------
+// `counter` is declared in GOOD_KERNEL via `export let counter = 0;`.
 {
   const root = makeTree(plantBeforeBuildArtifact('export { counter };\n'));
-  const { r } = runBundle(root);
-  check('planted-bad control: export { counter }; exits 1', r.status === 1);
+  const { r, bundlePath } = runBundle(root);
+  check('declared export list: exits 0', r.status === 0, r.stderr.slice(0, 400));
+  check('declared export list: bundle file emitted', existsSync(bundlePath));
+  if (existsSync(bundlePath)) {
+    const bundle = readFileSync(bundlePath, 'utf8');
+    check('declared export list: no top-level export|import in bundle', !TOPLEVEL.test(bundle),
+      (bundle.match(/^[ \t]*(?:export|import)\b.*$/m) || [''])[0]);
+    check('declared export list: let counter = 0 kept', bundle.includes('let counter = 0;'));
+  }
   rmSync(root, { recursive: true, force: true });
+}
+
+// --- REAL TREE (ENGINE-BUNDLE-REAL-KERNELS-SELFTEST-1): bundle the repo's own
+// chaingraph/kernels/ exactly as cross-engine-parity.yml does. The cases above
+// prove the lint on a synthetic tree; this one proves every kernel actually on
+// the branch is bundleable. Cross-Engine Parity is not a required check, so
+// without this case a kernel the bundler refuses (art-753's export list, PR
+// 3110) merges and turns that job red on every PR built on main. This selftest
+// runs in preflight, which the required scripts-verify job runs.
+// Only the QuickJS execution leg stays outside preflight (needs the qjs binary).
+{
+  const out = mkdtempSync(resolve(tmpdir(), 'bundle-real-tree-'));
+  const bundlePath = resolve(out, 'parity-bundle.js');
+  const env = { ...process.env };
+  delete env.PARITY_BUNDLE_KERNELS_DIR;
+  const r = spawnSync(process.execPath, [RUNNER, '--bundle', bundlePath], { encoding: 'utf8', env });
+  check('real kernel tree: bundler exits 0', r.status === 0,
+    (r.stderr || '').split('\n').filter((l) => l.includes('ENGINE-BUNDLE-ESM-LINT-1')).slice(0, 2).join(' | ')
+      || `status=${r.status} ${(r.stderr || '').slice(0, 300)}`);
+  check('real kernel tree: bundle file emitted', existsSync(bundlePath));
+  if (existsSync(bundlePath)) {
+    const bundle = readFileSync(bundlePath, 'utf8');
+    check('real kernel tree: no top-level export|import in bundle', !TOPLEVEL.test(bundle),
+      (bundle.match(/^[ \t]*(?:export|import)\b.*$/m) || [''])[0]);
+  }
+  rmSync(out, { recursive: true, force: true });
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

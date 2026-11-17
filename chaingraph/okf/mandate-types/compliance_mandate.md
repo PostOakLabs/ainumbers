@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-345"]
+tags: ["compliance_mandate", "count-347"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_mandate
 
-345 tool(s) in this mandate-type group:
+347 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
@@ -346,6 +346,7 @@ status: stable
 - [Consolidation with CTA and Minority Interest](../tools/art-683-consolidation-cta-minority-interest.md)
 - [Close Posting Lineage](../tools/art-692-close-posting-lineage.md)
 - [SCO60 Group 2 Exposure Limit V2](../tools/art-711-sco60-crypto-asset-exposure-classifier-v2.md)
+- [Caregiver Income Impact & Lost Earnings Estimator](../tools/art-761-caregiver-income-impact.md)
 - [PayPal Dispute Deadline & Evidence](../tools/art-776-paypal-dispute-deadline-evidence.md)
 - [PSP Dispute Reason Crosswalk](../tools/art-777-psp-dispute-reason-crosswalk.md)
 - [BNPL Plan Comparator](../tools/art-779-bnpl-plan-comparator.md)
@@ -354,6 +355,7 @@ status: stable
 - [RFC 4180 CSV Parser](../tools/art-788-csv-rfc4180-parser.md)
 - [ERC-3643 Transfer Decision Recompute](../tools/art-807-erc3643-transfer-decision.md)
 - [Privacy Coin Regulatory Classifier (MiCA and AMLR)](../tools/art-818-zcash-reg-classifier.md)
+- [UCP Capability Negotiation](../tools/art-820-negotiate-ucp-capabilities.md)
 - [ZK Compliance Proof Generator](../tools/cry-01-zk-compliance-proof-generator.md)
 - [ISO 20022 Structured-Address Migration Batch Verifier](../tools/rca-03-iso20022-address-migration-verifier.md)
 - [Open Banking Consent Flow Stress Simulator](../tools/sim-07-open-banking-consent-flow-stress.md)
