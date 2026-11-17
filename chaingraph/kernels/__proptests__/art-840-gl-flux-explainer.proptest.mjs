@@ -1,5 +1,5 @@
 // art-840-gl-flux-explainer -- class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:7c48e57354229f5ef96cf3591d3c7aad4260ce5d1aefecb61e9ab06bd3607e4e
+// kernel_digest_at_authoring: sha256:70dae3c060496b0689c16134963d1f8f9605e75feff806df2770c420d7d10542
 // spec: the art-840 node description (chaingraph/graph/nodes/art-840-gl-flux-explainer.json) and the gate vocabulary in chaingraph/standard/SPEC.md section 27.4
 // human_sign_off: PENDING
 //
@@ -15,12 +15,14 @@
 //      kept small so every product is exact) agrees on the breach set and the bps floor.
 //   P5 determinism: two calls on the same input are byte-identical.
 //   P6 refusals carry INPUT_REFUSED and no gate status.
+//   P8 buildArtifact_never_throws: an unhashable input (1e300, NaN, -Infinity, depth 600, over 1e6
+//      values) mints a null execution_hash plus hash_refusal; clean input keeps a 64-hex hash.
 //
 // ZERO external dependencies -- Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
 // Run: node chaingraph/kernels/__proptests__/art-840-gl-flux-explainer.proptest.mjs
 
-import { compute } from '../art-840-gl-flux-explainer.kernel.mjs';
+import { compute, buildArtifact } from '../art-840-gl-flux-explainer.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, pick, deepEqual } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-840-gl-flux-explainer';
@@ -207,6 +209,38 @@ function checkThresholdSignal(cases, rng) {
   return { name: 'P7_zero_or_missing_threshold_never_silent', checked, violations: v };
 }
 
+// P8 (D6) -- buildArtifact_never_throws: an input whose {policy_parameters, output_payload}
+// preimage the shared canonicalizer would reject mints an artifact with a null execution_hash
+// and a hash_refusal beside it; a clean input (accepted or refused) gets a 64-hex hash.
+async function checkBuildArtifactNeverThrows(rng) {
+  let checked = 0;
+  let v = 0;
+  /** @type {any} */ let deep = 1;
+  for (let i = 0; i < 600; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const hostile = [
+    { zzz: 1e300 }, { zzz: Infinity }, { zzz: -Infinity }, { zzz: NaN }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } },
+    { zzz: deep }, { zzz: wide }, { explanations: deep }, { accounts: wide },
+  ];
+  for (const delta of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...genCase(rng), ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) v++;
+      if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) v++;
+    } catch (e) { v++; }
+  }
+  for (const pp of [genCase(rng), { ...genCase(rng), zzz: 1 }, null, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) v++;
+    } catch (e) { v++; }
+  }
+  return { name: 'buildArtifact_never_throws', checked, violations: v };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -225,6 +259,7 @@ const properties = [
   checkDeterminism(cases),
   checkRefusals(rng),
   checkThresholdSignal(cases, rng),
+  await checkBuildArtifactNeverThrows(rng),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
