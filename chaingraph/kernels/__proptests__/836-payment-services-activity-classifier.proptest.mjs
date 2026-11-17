@@ -1,6 +1,6 @@
 // 836-payment-services-activity-classifier — class-K property-test FLOOR, authored for the
 // activity-classifier build (PAYMENT-SERVICES-ACTIVITY-CLASSIFIER-1).
-// kernel_digest_at_authoring: sha256:821d1d5329086d92e11b779e2765ffcb325ba72b8f047f994df8082cbc84b55f
+// kernel_digest_at_authoring: sha256:ce5101bdf7bab885a56b62a774c5f2baa696ae8de6f23e59315b7c4b6b90e959
 // spec: the pinned regime texts and the class/exclusion mapping recorded in the node's
 // cited_clause_digest entries (node shard) and the kernel's PROFILES/SOURCES tables.
 // human_sign_off: PENDING
@@ -140,6 +140,24 @@ function checkDeterminismAndShape() {
   return { name: 'determinism_contract_fields_and_regime_status_marker', checked, violations };
 }
 
+// Class-K 6: no payload carries a triggered class and an applied technical_service_only
+// exclusion for the same fact set (the exclusion must be blocked by every class fact).
+function checkNoClassWithAppliedTechExclusion() {
+  let checked = 0, violations = 0;
+  for (let i = 0; i < 240; i++) {
+    for (const profile of PROFILES) {
+      const activities = pattern(i);
+      activities.technical_service_only = true;
+      const { output_payload } = compute({ profile, activities });
+      if (output_payload.refused) continue;
+      checked++;
+      const applied = output_payload.exclusions_applied.some((e) => e.exclusion_id === 'technical_service_only' && e.applied === true);
+      if (applied && output_payload.classes_triggered.length > 0) violations++;
+    }
+  }
+  return { name: 'no_triggered_class_with_applied_technical_exclusion', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -153,6 +171,7 @@ const properties = [
   checkExclusionSoundness(),
   checkInvalidDomainRejection(),
   checkDeterminismAndShape(),
+  checkNoClassWithAppliedTechExclusion(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — activity classifier (closure, conflict equivalence, exclusion soundness, refusal, determinism/shape).`);
 const ok = summarize(KERNEL_ID, oracle, properties);
