@@ -41,6 +41,10 @@ function checkAmount(v) {
 export function compute(pp) {
   pp = pp || {};
   const compliance_flags = [];
+  // Declared optional string (manifest input_schema): echoed through to the ran
+  // artifact's output_payload; null when absent or not a string. No refusal is
+  // attached to it — it is provenance echo, not a decision input.
+  const policy_version = typeof pp.policy_version === 'string' && pp.policy_version.length > 0 ? pp.policy_version : null;
 
   // ---- batch-level validation (deterministic order) ----
   const basis = pp.balance_basis;
@@ -100,6 +104,7 @@ export function compute(pp) {
   return {
     output_payload: {
       execution_state: 'ran',
+      policy_version: policy_version,
       basis: basis,
       functional_currency: basis === 'functional' ? fnCcy : null,
       tolerance_used: tolerance,
