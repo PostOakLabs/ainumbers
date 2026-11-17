@@ -1,5 +1,5 @@
 // 838-control-frequency-sample — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:69c6709ef19686ddf6b3eec36c3570e777cdbd10233d35ce3a18fcf468035ee0
+// kernel_digest_at_authoring: sha256:ef38f2b9c6edc9bb0965709b8f01de02b4c97a3e799a68b68c5dd88fa5c27d8a
 // method: systematic sampling over a caller-declared population hash (see the attribute sampling plan node, art-458)
 // human_sign_off: PENDING
 //
@@ -7,7 +7,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/838-control-frequency-sample.proptest.mjs
 
-import { compute } from '../838-control-frequency-sample.kernel.mjs';
+import { compute, buildArtifact } from '../838-control-frequency-sample.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, deepEqual } from './_pbt-common.mjs';
 
 const KERNEL_ID = '838-control-frequency-sample';
@@ -124,6 +124,39 @@ function checkRefusals() {
   return { name: 'invalid_domains_refuse_with_code', checked: cases.length + 3, violations };
 }
 
+// buildArtifact_never_throws (D6): one named case per unhashable class. Each mints a null
+// execution_hash plus a hash_refusal naming the class; clean inputs (planned or refused) keep a
+// 64-hex hash and no hash_refusal.
+async function checkBuildArtifactNeverThrows() {
+  const base = { control_frequency: 'f', population_size: 100, population_hash: 'h', period_days: 30, policy_table: table(1, 200, 5) };
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 511; i++) deep = [deep];
+  /** @type {[string, Record<string, any>, string][]} */
+  const classes = [
+    ['junk_1e300', { junk: 1e300 }, 'REFUSED_INPUT_UNSAFE_NUMBER'],
+    ['junk_NaN', { junk: NaN }, 'REFUSED_INPUT_UNSAFE_NUMBER'],
+    ['junk_neg_infinity', { junk: -Infinity }, 'REFUSED_INPUT_UNSAFE_NUMBER'],
+    ['junk_unsafe_integer', { junk: Number.MAX_SAFE_INTEGER + 2 }, 'REFUSED_INPUT_UNSAFE_NUMBER'],
+    ['depth_511', { junk: deep }, 'REFUSED_INPUT_HASH_LIMIT'],
+    ['values_over_1e6', { junk: new Array(1000001).fill(0) }, 'REFUSED_INPUT_HASH_LIMIT'],
+  ];
+  let checked = 0, violations = 0;
+  for (const [label, delta, reason] of classes) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...base, ...delta });
+      if (art.execution_hash !== null || !art.hash_refusal || art.hash_refusal.reason !== reason) { violations++; console.log(`never_throws violation: ${label} artifact shape`); }
+    } catch (e) { violations++; console.log(`never_throws violation: ${label} threw: ${String(e.message).slice(0, 80)}`); }
+  }
+  for (const pp of [base, { ...base, population_size: 3 }, null, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('never_throws violation: clean input lost its hash'); }
+    } catch (e) { violations++; console.log(`never_throws violation: threw on clean input: ${String(e.message).slice(0, 80)}`); }
+  }
+  return { name: 'buildArtifact_never_throws', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -137,6 +170,7 @@ const properties = [
   checkTailReachable(),
   checkOutOfRangeFlagged(),
   checkRefusals(),
+  await checkBuildArtifactNeverThrows(),
 ];
 const ok = summarize(KERNEL_ID, oracle, properties);
 process.exit(ok ? 0 : 1);
