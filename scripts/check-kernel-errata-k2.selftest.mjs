@@ -131,8 +131,13 @@ expect('precondition: the real art-807 entry names the digest at 59a5e7cbc7^', A
   const satisfied = await checkK2(REPO_ROOT, `${FIX807}^`, FIX807, { entries: [{ path: `${SOURCES_DIR}/KE-2026-0001.json`, entry: ART807_ENTRY }] });
   expect('K2 mode: a satisfied cure exits 0 in both modes', gateExit(satisfied.lines, 'advisory').exitCode === 0 && gateExit(satisfied.lines, 'blocking').exitCode === 0);
   // No in-scope kernel modification between two commits: blocking never reds vacuously.
-  const headNow = resolveCommit(REPO_ROOT, 'HEAD');
-  const quiet = await checkK2(REPO_ROOT, `${headNow}^`, headNow);
+  // Pinned pair (the repo's first two commits; the diff is README-only) rather than
+  // HEAD^..HEAD, which on a pull_request checkout is the whole PR diff and so edits a
+  // kernel in place on every kernel PR.
+  const quietA = resolveCommit(REPO_ROOT, '395ce8394b');
+  const quietB = resolveCommit(REPO_ROOT, 'b15d7d0ffa');
+  expect('K2 precondition: 395ce8394b..b15d7d0ffa modifies no kernel', collectModifiedKernels(REPO_ROOT, quietA, quietB).length === 0);
+  const quiet = await checkK2(REPO_ROOT, quietA, quietB);
   expect('K2 mode: blocking with no in-place kernel edit exits 0', quiet.examined === 0 && gateExit(quiet.lines, 'blocking').exitCode === 0);
 }
 console.log(fails ? `${fails} FAILED` : 'ALL PASS');
