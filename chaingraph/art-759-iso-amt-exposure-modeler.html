@@ -309,80 +309,197 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-759
 </footer>
 
 <script>
-/* ── the 2026 AMT parameters, from IRS Rev. Proc. 2025-32 §4.10 (see CITES.md) ── */
-const AMT_PARAMS = {
-  single: { exemption: 90100, phaseoutStart: 500000, rate1: 0.26, rate2: 0.28, threshold: 244500 },
-  mfj:    { exemption: 140200, phaseoutStart: 1000000, rate1: 0.26, rate2: 0.28, threshold: 244500 }
-};
-
 /* ── inline port of chaingraph/kernels/art-759-iso-amt-exposure-modeler.kernel.mjs compute():
    same algorithm, same constants, same fixed orders. Pure function of pp. ── */
-const AMT_PHASEOUT_RATE = 0.50;               // IRC §55(d)(4)(A)(ii) overrides §55(d)(2) for 2026 (Rev. Proc. 2025-32 §4.10)
-const REGULAR_BRACKETS_SINGLE = [[12400,.10],[50400,.12],[105700,.22],[201775,.24],[256225,.32],[640600,.35],[Infinity,.37]];
-const REGULAR_BRACKETS_MFJ = [[24800,.10],[100800,.12],[211400,.22],[403550,.24],[512450,.32],[768700,.35],[Infinity,.37]];
-const STANDARD_DEDUCTION = {single:16100, mfj:32200};   // Rev. Proc. 2025-32 §4.14(1); regular-tax leg only (IRC §63(b)(1)); §56(b)(1)(D) disallows it for AMTI
-const SCENARIO_PERCENTS = [0,.25,.5,.75,1];
-const MAX_SEARCH_FACTOR = 10, MAX_SEARCH_ITERATIONS = 60;
 
-function paramsFor(status){
-  if(status==='single')return{exemption:AMT_PARAMS.single.exemption,phaseoutStart:AMT_PARAMS.single.phaseoutStart,threshold:AMT_PARAMS.single.threshold};
-  if(status==='mfj')return{exemption:AMT_PARAMS.mfj.exemption,phaseoutStart:AMT_PARAMS.mfj.phaseoutStart,threshold:AMT_PARAMS.mfj.threshold};
-  return null;
-}
-function calcAMT(amti, params){
+// 2026 AMT exemption amounts: IRS Rev. Proc. 2025-32 sec. 4.10; IRC sec. 55(d)(1).
+const AMT_EXEMPTION_SINGLE = 90100;
+const AMT_EXEMPTION_MFJ = 140200;
+
+// 2026 AMT phase-out threshold (the AMTI above which the exemption is reduced):
+// Rev. Proc. 2025-32 sec. 4.10; IRC sec. 55(d)(2).
+const AMT_PHASEOUT_START_SINGLE = 500000;
+const AMT_PHASEOUT_START_MFJ = 1000000;
+
+// AMT exemption phase-out rate for tax year 2026: 50 percent, not 55(d)(2)'s base 25
+// (IRC sec. 55(d)(4)(A)(ii)(IV) as added by P.L. 119-21 sec. 70107(c); Rev. Proc.
+// 2025-32 sec. 4.10's phaseout table embeds the same rate).
+const AMT_PHASEOUT_RATE = 0.50;
+
+// AMT two-rate structure: 26 percent of the taxable excess up to $244,500, 28 percent above
+// (IRC sec. 55(b)(1)(A); the $175,000 statutory figure is inflation-adjusted for 2026 by
+// Rev. Proc. 2025-32 sec. 4.10).
+const AMT_RATE_1 = 0.26;
+const AMT_RATE_2 = 0.28;
+const AMT_RATE2_THRESHOLD = 244500;
+
+// 2026 ordinary-income regular-tax brackets: IRS Rev. Proc. 2025-32 sec. 4.01, Table 3
+// (single) and Table 1 (MFJ). Each entry is [upperBound, marginalRate]; the last bound is Infinity.
+const REGULAR_BRACKETS_SINGLE = [
+  [12400, 0.10], [50400, 0.12], [105700, 0.22], [201775, 0.24],
+  [256225, 0.32], [640600, 0.35], [Infinity, 0.37],
+];
+const REGULAR_BRACKETS_MFJ = [
+  [24800, 0.10], [100800, 0.12], [211400, 0.22], [403550, 0.24],
+  [512450, 0.32], [768700, 0.35], [Infinity, 0.37],
+];
+
+// 2026 standard deduction: IRS Rev. Proc. 2025-32 sec. 4.14(1); IRC sec. 63(c)(2). Regular-tax
+// leg only: taxable income of a non-itemizer is AGI minus the deduction (IRC sec. 63(b)(1));
+// the deduction is added back for AMTI (IRC sec. 56(b)(1)(D)), so only the regular-tax leg uses it.
+const STANDARD_DEDUCTION = { single: 16100, mfj: 32200 };
+
+// Scenario ladder: 0%, 25%, 50%, 75%, 100%.
+const SCENARIO_PERCENTS = [0, 0.25, 0.5, 0.75, 1];
+
+// Guard for the max-no-AMT binary search.
+const MAX_SEARCH_FACTOR = 10;
+const MAX_SEARCH_ITERATIONS = 60;
+
+// Tentative minimum tax and exemption machinery.
+function calcAMT(amti, params) {
+  // Phase-out: exemption reduced by $0.50 per $1 above phaseout start (IRC sec. 55(d)(4)(A)(ii)
+  // overrides 55(d)(2)'s 25-percent base rate for taxable years beginning after Dec 31, 2025).
   const phaseoutAmt = Math.max(0, amti - params.phaseoutStart);
   const effectiveExemption = Math.max(0, params.exemption - phaseoutAmt * AMT_PHASEOUT_RATE);
   const amtBase = Math.max(0, amti - effectiveExemption);
+  // Two-rate: 26% on the first $244,500 of amtBase, 28% on the rest (IRC sec. 55(b)(1)(A)).
   let tmt;
-  if(amtBase <= params.threshold){ tmt = amtBase * AMT_PARAMS.single.rate1; }
-  else { tmt = params.threshold * AMT_PARAMS.single.rate1 + (amtBase - params.threshold) * AMT_PARAMS.single.rate2; }
+  if (amtBase <= params.threshold) {
+    tmt = amtBase * AMT_RATE_1;
+  } else {
+    tmt = params.threshold * AMT_RATE_1 + (amtBase - params.threshold) * AMT_RATE_2;
+  }
   return { tmt, effectiveExemption, amtBase };
 }
-function calcRegularTax(income, status){
+
+// Brackets over taxable income (gross ordinary income minus STANDARD_DEDUCTION, floored at
+// zero). The ISO spread is NOT added to regular taxable income (IRC sec. 56(b)(3): an ISO
+// exercise is not ordinary income for regular tax at exercise).
+function calcRegularTax(income, status) {
   const brackets = status === 'single' ? REGULAR_BRACKETS_SINGLE : REGULAR_BRACKETS_MFJ;
-  let tax=0, prev=0;
-  for(const [top,rate] of brackets){ if(income<=prev)break; tax += (Math.min(income,top)-prev)*rate; prev=top; }
+  let tax = 0, prev = 0;
+  for (const [top, rate] of brackets) {
+    if (income <= prev) break;
+    tax += (Math.min(income, top) - prev) * rate;
+    prev = top;
+  }
   return tax;
 }
-function compute(pp){
+
+function paramsFor(status) {
+  if (status === 'single') {
+    // MFS folds into the 'single' option label ("Single / MFS") and applies the unmarried figures.
+    return { exemption: AMT_EXEMPTION_SINGLE, phaseoutStart: AMT_PHASEOUT_START_SINGLE,
+      threshold: AMT_RATE2_THRESHOLD };
+  }
+  if (status === 'mfj') {
+    return { exemption: AMT_EXEMPTION_MFJ, phaseoutStart: AMT_PHASEOUT_START_MFJ,
+      threshold: AMT_RATE2_THRESHOLD };
+  }
+  return null;
+}
+
+function computeFlat(pp) {
   pp = pp || {};
-  const params = paramsFor(pp.filing_status);
-  if(!params)return{refused:'REFUSED_UNKNOWN_FILING_STATUS',detail:"filing_status must be 'single' or 'mfj'; received "+JSON.stringify(pp.filing_status)};
-  const shares=pp.shares, strike=pp.strike_price, fmv=pp.fmv, ordIncome=pp.ordinary_income, otherAMT=pp.other_amt_adjustments;
-  const numeric={shares,strike_price:strike,fmv,ordinary_income:ordIncome,other_amt_adjustments:otherAMT};
-  for(const k of Object.keys(numeric)){
-    if(typeof numeric[k]!=='number'||!Number.isFinite(numeric[k]))return{refused:'REFUSED_NON_FINITE_INPUT',detail:k+' must be a finite number; received '+JSON.stringify(numeric[k])};
+  // An explicit null is treated exactly as an absent key.
+  for (const k of Object.keys(pp)) {
+    if (pp[k] === null) delete pp[k];
   }
+  const status = pp.filing_status;
+  const params = paramsFor(status);
+  if (!params) {
+    return { refused: 'REFUSED_UNKNOWN_FILING_STATUS',
+      detail: "filing_status must be 'single' or 'mfj'; received " + JSON.stringify(status) };
+  }
+
+  const shares = pp.shares;
+  const strike = pp.strike_price;
+  const fmv = pp.fmv;
+  const ordIncome = pp.ordinary_income;
+  const otherAMT = pp.other_amt_adjustments;
+
+  const numeric = { shares, strike_price: strike, fmv, ordinary_income: ordIncome,
+    other_amt_adjustments: otherAMT };
+  for (const k of Object.keys(numeric)) {
+    if (typeof numeric[k] !== 'number' || !Number.isFinite(numeric[k])) {
+      return { refused: 'REFUSED_NON_FINITE_INPUT',
+        detail: k + ' must be a finite number; received ' + JSON.stringify(numeric[k]) };
+    }
+  }
+
+  // ISO spread is an AMT preference (IRC sec. 56(b)(3): the bargain element is included in
+  // AMTI for the year).
   const isoSpread = shares * (fmv - strike);
+  // AMTI = ordinary income + ISO spread + other adjustments.
   const amti = ordIncome + isoSpread + otherAMT;
+
   const { tmt, effectiveExemption, amtBase } = calcAMT(amti, params);
-  const standardDeduction = STANDARD_DEDUCTION[pp.filing_status];
+  // Regular tax is imposed on taxable income: for a non-itemizer, gross ordinary income
+  // minus the 2026 standard deduction (IRC sec. 63(b)(1)), floored at zero when gross income
+  // is below the deduction; the AMTI leg above takes NO deduction (IRC sec. 56(b)(1)(D)).
+  const standardDeduction = STANDARD_DEDUCTION[status];
   const taxableIncome = Math.max(0, ordIncome - standardDeduction);
-  const regularTax = calcRegularTax(taxableIncome, pp.filing_status);
+  const regularTax = calcRegularTax(taxableIncome, status);
+  // IRC sec. 55(a): the AMT is the excess of tentative minimum tax over the regular tax.
   const amtOwed = Math.max(0, tmt - regularTax);
+  // AMT paid becomes a minimum tax credit carried to future years (IRC sec. 53).
   const amtCredit = amtOwed;
-  let lo=0, hi=shares*MAX_SEARCH_FACTOR, maxNoAMTShares=0;
-  for(let iter=0;iter<MAX_SEARCH_ITERATIONS;iter++){
-    const mid=Math.floor((lo+hi)/2);
-    const testSpread=mid*(fmv-strike);
-    const testAMTI=ordIncome+testSpread+otherAMT;
-    const {tmt:t}=calcAMT(testAMTI,params);
-    if(t<=regularTax){ maxNoAMTShares=mid; lo=mid+1; } else { hi=mid-1; }
+
+  // Max shares exercisable without triggering AMT: binary search for the largest N with
+  // TMT(AMTI with N shares) <= regularTax.
+  let lo = 0, hi = shares * MAX_SEARCH_FACTOR, maxNoAMTShares = 0;
+  for (let iter = 0; iter < MAX_SEARCH_ITERATIONS; iter++) {
+    const mid = Math.floor((lo + hi) / 2);
+    const testSpread = mid * (fmv - strike);
+    const testAMTI = ordIncome + testSpread + otherAMT;
+    const { tmt: t } = calcAMT(testAMTI, params);
+    if (t <= regularTax) { maxNoAMTShares = mid; lo = mid + 1; } else { hi = mid - 1; }
   }
-  const scenarios=SCENARIO_PERCENTS.map((p)=>{
-    const n=Math.round(shares*p);
-    const sp=n*(fmv-strike);
-    const testAMTI=ordIncome+sp+otherAMT;
-    const {tmt:t,effectiveExemption:ee}=calcAMT(testAMTI,params);
-    const owed=Math.max(0,t-regularTax);
-    return {shares_exercised:n,iso_spread:sp,amti:testAMTI,effective_exemption:ee,amt_owed:owed,net_value_after_amt:sp-owed,is_entered:n===shares};
+
+  // Scenario ladder: netValue = spread - AMT owed.
+  const scenarios = SCENARIO_PERCENTS.map((p) => {
+    const n = Math.round(shares * p);
+    const sp = n * (fmv - strike);
+    const testAMTI = ordIncome + sp + otherAMT;
+    const { tmt: t, effectiveExemption: ee } = calcAMT(testAMTI, params);
+    const owed = Math.max(0, t - regularTax);
+    const netVal = sp - owed;
+    return { shares_exercised: n, iso_spread: sp, amti: testAMTI,
+      effective_exemption: ee, amt_owed: owed, net_value_after_amt: netVal,
+      is_entered: n === shares };
   });
-  return {output_payload:{
-    shares_exercised:shares,strike_price:strike,fmv_at_exercise:fmv,ordinary_income:ordIncome,
-    other_amt_adjustments:otherAMT,filing_status:pp.filing_status,iso_spread:isoSpread,amti,
-    effective_exemption:effectiveExemption,amt_base:amtBase,tentative_minimum_tax:tmt,regular_tax:regularTax,
-    amt_owed:amtOwed,amt_credit_generated:amtCredit,max_shares_no_amt:maxNoAMTShares,
-    amt_triggered:amtOwed>0,scenarios}};
+
+  return {
+    shares_exercised: shares,
+    strike_price: strike,
+    fmv_at_exercise: fmv,
+    ordinary_income: ordIncome,
+    other_amt_adjustments: otherAMT,
+    filing_status: status,
+    iso_spread: isoSpread,
+    amti,
+    effective_exemption: effectiveExemption,
+    amt_base: amtBase,
+    tentative_minimum_tax: tmt,
+    standard_deduction: standardDeduction,
+    taxable_income: taxableIncome,
+    regular_tax: regularTax,
+    amt_owed: amtOwed,
+    amt_credit_generated: amtCredit,
+    max_shares_no_amt: maxNoAMTShares,
+    amt_triggered: amtOwed > 0,
+    scenarios,
+  };
+}
+
+function compute(pp) {
+  const out = computeFlat(pp);
+  if (out && typeof out === 'object' && out.refused) {
+    out.domain_errors = [out.refused];
+    return { output_payload: out, compliance_flags: [out.refused] };
+  }
+  return { output_payload: out, compliance_flags: [] };
 }
 
 /* ── execution hash: JCS-canonical preimage over {policy_parameters, output_payload}, browser leg ── */
@@ -408,7 +525,7 @@ function shr(n){return Number(n).toLocaleString("en-US");}
 let _lastArtifact=null;
 async function run(){
   let pp,out,flags=[],malformed=null;
-  try{ pp=assemblePP(); const r=compute(pp); out=r.output_payload; if(r.refused){out={refusal_reason:r.refused,domain_errors:[{code:r.refused,text:r.detail}]};flags=["ART759_INPUT_REFUSED"];} }
+  try{ pp=assemblePP(); const r=compute(pp); out=r.output_payload; flags=Array.isArray(r.compliance_flags)?r.compliance_flags:[]; }
   catch(e){ malformed=String((e&&e.message)||e); pp=null; out={refusal_reason:"PAGE_INPUT_MALFORMED",domain_errors:[{code:"PAGE_INPUT_MALFORMED",text:malformed}]}; flags=["ART759_INPUT_REFUSED"]; }
   const generatedAt=new Date().toISOString();
   document.getElementById("generatedAt").textContent="generated_at "+generatedAt;
@@ -419,15 +536,15 @@ async function run(){
   document.getElementById("ap2ExportBtn").disabled=false;
 }
 function renderResults(op,execHash,pp){
-  const refused=!!op.refusal_reason;
+  const refused=!!op.refused;
   document.getElementById("heroRow").innerHTML=refused
-    ? "<div class=\"hero-stat\"><div class=\"hero-val\" style=\"color:var(--red)\">REFUSED</div><div class=\"hero-lbl\">"+op.refusal_reason+"</div></div>"
+    ? "<div class=\"hero-stat\"><div class=\"hero-val\" style=\"color:var(--red)\">REFUSED</div><div class=\"hero-lbl\">"+op.refused+"</div></div>"
     : "<div class=\"hero-stat\"><div class=\"hero-val\" style=\"color:"+(op.amt_triggered?"var(--red)":"var(--green)")+"\">"+usd(op.amt_owed)+"</div><div class=\"hero-lbl\">AMT owed</div></div>"+
       "<div class=\"hero-stat\"><div class=\"hero-val\">"+usd(op.effective_exemption)+"</div><div class=\"hero-lbl\">Effective exemption</div></div>"+
       "<div class=\"hero-stat\"><div class=\"hero-val\">"+shr(op.max_shares_no_amt)+"</div><div class=\"hero-lbl\">Max shares (no AMT)</div></div>"+
       "<div class=\"hero-stat\"><div class=\"hero-val\">"+usd(op.amt_credit_generated)+"</div><div class=\"hero-lbl\">AMT credit generated</div></div>";
   const vd=document.getElementById("verdictDiv");
-  if(refused){ vd.innerHTML="<div class=\"verdict fail\">REFUSED — "+op.refusal_reason+": "+op.domain_errors.map(function(d){return d.text;}).join(" ")+"</div>"; }
+  if(refused){ vd.innerHTML="<div class=\"verdict fail\">REFUSED — "+op.refused+": "+(op.detail||"")+"</div>"; }
   else if(op.amt_triggered){ vd.innerHTML="<div class=\"verdict warn\">⚠ AMT triggered: "+usd(op.amt_owed)+" owed. Consider exercising only "+shr(op.max_shares_no_amt)+" shares this year to avoid AMT entirely.</div>"; }
   else { vd.innerHTML="<div class=\"verdict pass\">✓ No AMT triggered. You have room to exercise up to "+shr(op.max_shares_no_amt)+" shares total this year without AMT.</div>"; }
   const tbl=document.getElementById("resultTbl");
