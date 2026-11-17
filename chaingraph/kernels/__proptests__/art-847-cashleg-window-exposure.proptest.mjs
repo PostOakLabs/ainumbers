@@ -1,5 +1,5 @@
 // art-847-cashleg-window-exposure -- class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:f6b6083f08783b09c31d60bfb2b53d3071d81e19741d4f968f05d0633973eb71
+// kernel_digest_at_authoring: sha256:9d32e9011c337eb49339ba5a1df9f3151a7ace948e9dcbf053c7d4578a7ed33e
 // spec: CASHLEG-WINDOW-EXPOSURE-NODE-1 (RESUME-1 premise corrections)
 // human_sign_off: PENDING
 //
