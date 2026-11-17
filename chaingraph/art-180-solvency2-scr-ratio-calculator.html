@@ -309,6 +309,9 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-180
     <div class="footer-cols">
       <div class="footer-col">
         <div class="footer-col-label">Platform</div>
+        <a href="../start.html">Start Here</a>
+        <a href="../front-to-back.html">Front-to-Back Prompts</a>
+        <a href="../prompts.html">Prompt Library</a>
         <a href="chaingraph-hub.html">ChainGraph Hub</a>
         <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
         <a href="openchain-graph-spec.html">Spec v0.8.13</a>
@@ -324,8 +327,10 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-180
       <div class="footer-col">
         <div class="footer-col-label">Hubs</div>
         <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="visual-explainers-hub.html">Visual Explainers</a>
+        <a href="education-hub.html">Learn OpenChainGraph</a>
         <a href="../guides/web3-hub.html">Web3 Hub</a>
-        <a href="../guides/solana-hub.html">Solana</a>
+        <a href="../guides/canton-tmf-hub.html">Canton</a>
         <a href="../guides/ethereum-hub.html">Ethereum</a>
         <a href="../guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
         <a href="../guides/token-standards-hub.html">Token Standards</a>
@@ -339,6 +344,8 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-180
         <div class="footer-col-label">Developers</div>
         <a href="../mcp.html">MCP Docs</a>
         <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../webmcp.html">WebMCP</a>
+        <a href="../mcp-benchmark.html">MCP Benchmark</a>
         <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
         <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
         <a href="../openapi.json" target="_blank">openapi.json</a>
@@ -346,6 +353,7 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-180
         <a href="okf/index.md" target="_blank">OKF bundle</a>
         <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
         <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../verification-desk.html">Verification Desk</a>
         <a href="verify.html">Artifact Verifier</a>
         <a href="../ledger/index.html">Receipt Ledger</a>
       </div>
@@ -358,6 +366,8 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-180
         <a href="../fv-explainer.html">FV Process Explainer</a>
         <a href="../errata.html">FV Errata</a>
         <a href="../suggest.html">Suggest</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="../privacy.html">Privacy</a>
         <a href="../contact.html">Contact</a>
         <a href="../sitemap.html">Sitemap</a>
         <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
@@ -404,48 +414,50 @@ const MANIFEST = {
 let _lastArtifact=null, _lastPP=null, _lastOP=null, _lastFlags=null;
 
 function compute(pp) {
-  const cap = (pp && pp.capital) ? pp.capital : {};
-  const g = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
-  const own_funds        = g(cap.eligible_own_funds);
-  const t1_unrestricted  = g(cap.tier1_unrestricted);
-  const t1_restricted    = g(cap.tier1_restricted);
-  const tier2            = g(cap.tier2);
-  const tier3            = g(cap.tier3);
-  const scr              = g(cap.scr);
-  const mcr              = g(cap.mcr);
+  const { capital = {} } = pp;
 
-  const t1_total = t1_unrestricted + t1_restricted;
+  const g = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
+  const own_funds       = g(capital.eligible_own_funds);
+  const t1_unrestricted = g(capital.tier1_unrestricted);
+  const t1_restricted   = g(capital.tier1_restricted);
+  const tier3           = g(capital.tier3);
+  const scr             = g(capital.scr);
+  const mcr             = g(capital.mcr);
 
   const scr_coverage_ratio = scr > 0 ? Math.round((own_funds / scr) * 10000) / 100 : 0;
   const mcr_coverage_ratio = mcr > 0 ? Math.round((own_funds / mcr) * 10000) / 100 : 0;
 
+  const tier2            = g(capital.tier2);
+  const t1_total = t1_unrestricted + t1_restricted;
   const t1_unrestricted_pct = scr > 0 ? Math.round((t1_unrestricted / scr) * 10000) / 100 : 0;
   const t1_total_pct        = scr > 0 ? Math.round((t1_total / scr) * 10000) / 100 : 0;
-  const tier3_pct           = scr > 0 ? Math.round((tier3 / scr) * 10000) / 100 : 0;
   const t2_tier3_pct        = scr > 0 ? Math.round(((tier2 + tier3) / scr) * 10000) / 100 : 0;
+  const tier3_pct           = scr > 0 ? Math.round((tier3 / scr) * 10000) / 100 : 0;
 
-  // Art. 82(1)(a): eligible Tier 1 at least one half of the SCR.
+  // 82(1)(a): eligible Tier 1 at least one half of the SCR.
   const t1_total_limit_ok = scr > 0 && t1_total * 2 >= scr;
-  // Art. 82(1)(b): eligible Tier 3 less than 15% of the SCR (exactly 15% fails).
+  // 82(1)(b): eligible Tier 3 less than 15% of the SCR (exactly 15% fails).
   const tier3_limit_ok = scr > 0 ? tier3 * 100 < 15 * scr : true;
-  // Art. 82(1)(c): Tier 2 plus Tier 3 at most 50% of the SCR.
+  // 82(1)(c): Tier 2 plus Tier 3 at most 50% of the SCR.
   const t2_tier3_limit_ok = scr > 0 ? (tier2 + tier3) * 2 <= scr : true;
-  // Art. 82(3): restricted Tier 1 items strictly under 20% of total Tier 1.
+  // 82(3): restricted Tier 1 items (69(a)(iii), 69(a)(v), 69(b); the
+  // 308b(9) transitional item is not modelled) strictly under 20% of total Tier 1.
   const t1_restricted_share_ok = t1_total > 0 ? t1_restricted * 5 < t1_total : true;
   const t1_restricted_pct = t1_total > 0 ? Math.round((t1_restricted / t1_total) * 10000) / 100 : 0;
 
-  const tiering_ok = t1_total_limit_ok && tier3_limit_ok && t2_tier3_limit_ok && t1_restricted_share_ok;
-  const scr_breached = own_funds < scr;
-  const mcr_breached = own_funds < mcr;
+  const scr_breached = scr > 0 && scr_coverage_ratio < 100;
+  const mcr_breached = mcr > 0 && mcr_coverage_ratio < 100;
+  const tiering_ok   = t1_total_limit_ok && tier3_limit_ok && t2_tier3_limit_ok && t1_restricted_share_ok;
 
   const compliance_flags = [];
   compliance_flags.push('SII_SCR_RATIO_CALCULATED');
-  if (scr_breached) compliance_flags.push('SII_SCR_BREACH'); else if (scr > 0) compliance_flags.push('SII_SCR_COVERED');
-  if (mcr_breached) compliance_flags.push('SII_MCR_BREACH');
-  if (!t2_tier3_limit_ok) compliance_flags.push('SII_TIER2_TIER3_LIMIT_BREACH');
-  if (!t1_total_limit_ok && scr > 0) compliance_flags.push('SII_TIER1_TOTAL_LIMIT_BREACH');
-  if (!tier3_limit_ok) compliance_flags.push('SII_TIER3_LIMIT_BREACH');
-  if (!t1_restricted_share_ok) compliance_flags.push('SII_TIER1_RESTRICTED_SHARE_BREACH');
+  if (scr_breached)                         compliance_flags.push('SII_SCR_BREACH');
+  else if (scr > 0)                         compliance_flags.push('SII_SCR_COVERED');
+  if (mcr_breached)                         compliance_flags.push('SII_MCR_BREACH');
+  if (!t2_tier3_limit_ok)                   compliance_flags.push('SII_TIER2_TIER3_LIMIT_BREACH');
+  if (!t1_total_limit_ok && scr > 0)        compliance_flags.push('SII_TIER1_TOTAL_LIMIT_BREACH');
+  if (!tier3_limit_ok)                      compliance_flags.push('SII_TIER3_LIMIT_BREACH');
+  if (!t1_restricted_share_ok)              compliance_flags.push('SII_TIER1_RESTRICTED_SHARE_BREACH');
 
   return {
     output_payload: {

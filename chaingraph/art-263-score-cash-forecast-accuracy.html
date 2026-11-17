@@ -327,6 +327,9 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-263
     <div class="footer-cols">
       <div class="footer-col">
         <div class="footer-col-label">Platform</div>
+        <a href="../start.html">Start Here</a>
+        <a href="../front-to-back.html">Front-to-Back Prompts</a>
+        <a href="../prompts.html">Prompt Library</a>
         <a href="chaingraph-hub.html">ChainGraph Hub</a>
         <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
         <a href="openchain-graph-spec.html">Spec v0.8.13</a>
@@ -342,8 +345,10 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-263
       <div class="footer-col">
         <div class="footer-col-label">Hubs</div>
         <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="visual-explainers-hub.html">Visual Explainers</a>
+        <a href="education-hub.html">Learn OpenChainGraph</a>
         <a href="../guides/web3-hub.html">Web3 Hub</a>
-        <a href="../guides/solana-hub.html">Solana</a>
+        <a href="../guides/canton-tmf-hub.html">Canton</a>
         <a href="../guides/ethereum-hub.html">Ethereum</a>
         <a href="../guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
         <a href="../guides/token-standards-hub.html">Token Standards</a>
@@ -357,6 +362,8 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-263
         <div class="footer-col-label">Developers</div>
         <a href="../mcp.html">MCP Docs</a>
         <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../webmcp.html">WebMCP</a>
+        <a href="../mcp-benchmark.html">MCP Benchmark</a>
         <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
         <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
         <a href="../openapi.json" target="_blank">openapi.json</a>
@@ -364,6 +371,7 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-263
         <a href="okf/index.md" target="_blank">OKF bundle</a>
         <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
         <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../verification-desk.html">Verification Desk</a>
         <a href="verify.html">Artifact Verifier</a>
         <a href="../ledger/index.html">Receipt Ledger</a>
       </div>
@@ -376,6 +384,8 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-263
         <a href="../fv-explainer.html">FV Process Explainer</a>
         <a href="../errata.html">FV Errata</a>
         <a href="../suggest.html">Suggest</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="../privacy.html">Privacy</a>
         <a href="../contact.html">Contact</a>
         <a href="../sitemap.html">Sitemap</a>
         <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
@@ -404,62 +414,143 @@ const TOOL_ID      = 'art-263-score-cash-forecast-accuracy';
 const TOOL_VERSION = '1.0.0';
 let _lastArtifact  = null;
 
-function _finite(v,def){const n=Number(v);return(isFinite(n)&&!isNaN(n))?n:(def===undefined?0:def);}
-function _round2(v){return Math.round(v*100)/100;}
+/* inline port of chaingraph/kernels/art-263-score-cash-forecast-accuracy.kernel.mjs compute():
+   same algorithm, same constants, same fixed orders. Pure function of pp. */
 
-function horizonBucket(days){if(days<=1)return'T+1';if(days<=7)return'T+7';if(days<=30)return'T+30';return'T+90+';}
-function afpTier(mape){if(mape<5)return'EXCELLENT';if(mape<10)return'GOOD';if(mape<20)return'ACCEPTABLE';return'POOR';}
+// Accuracy tier thresholds (AFP 2024 survey benchmarks)
+const TIERS = [
+  { label: 'EXCELLENT', mape_max:  5 },
+  { label: 'GOOD',      mape_max: 10 },
+  { label: 'ACCEPTABLE',mape_max: 20 },
+  { label: 'POOR',      mape_max: Infinity },
+];
 
-function compute(p) {
-  p=p||{};
-  const forecasts=Array.isArray(p.forecasts)?p.forecasts:[];
-  const horizon_data={'T+1':[],'T+7':[],'T+30':[],'T+90+':[]};
-  let total_obs=0,skipped_zero=0;
-  const ape_all=[],bias_all=[],sign_all=[];
-  for(let i=0;i<forecasts.length;i++){
-    const f=forecasts[i]||{};
-    const actual=_finite(f.actual_amount,null);
-    const forecast=_finite(f.forecast_amount,null);
-    const days=_finite(f.horizon_days,1);
-    if(actual===null||forecast===null)continue;
-    if(actual===0){skipped_zero++;continue;}
-    total_obs++;
-    const ape=Math.abs(actual-forecast)/Math.abs(actual)*100;
-    const bias=(forecast-actual)/Math.abs(actual)*100;
-    const bucket=horizonBucket(days);
-    ape_all.push(ape);
-    bias_all.push(bias);
-    sign_all.push(bias>0?1:(bias<0?-1:0));
-    horizon_data[bucket].push({ape:ape,bias:bias});
+const TABLE_VERSION = 'AFP-CASH-FORECAST-KPI-2024';
+const TABLE_SOURCE  = 'AFP Cash Forecasting Survey 2024; Gartner Treasury Analytics 2023; GTreasury TMS Benchmark 2024';
+
+function classifyTier(mape) {
+  for (let i = 0; i < TIERS.length; i++) {
+    if (mape < TIERS[i].mape_max) return TIERS[i].label;
   }
-  let overall_mape_pct=0,overall_bias_pct=0;
-  if(total_obs>0){
-    let sum_ape=0,sum_bias=0;
-    for(let i=0;i<ape_all.length;i++){sum_ape+=ape_all[i];sum_bias+=bias_all[i];}
-    overall_mape_pct=_round2(sum_ape/total_obs);
-    overall_bias_pct=_round2(sum_bias/total_obs);
+  return 'POOR';
+}
+
+// Horizon buckets: T+1 (1 day), T+7 (2-7 days), T+30 (8-30 days), T+90+ (>30 days)
+function horizonBucket(horizon_days) {
+  const d = _finite(horizon_days, 0);
+  if (d <= 1)  return 'T+1';
+  if (d <= 7)  return 'T+7';
+  if (d <= 30) return 'T+30';
+  return 'T+90+';
+}
+
+function scoreGroup(group) {
+  if (!group.length) return null;
+
+  let sum_ape = 0, sum_bias = 0, valid = 0;
+
+  for (let i = 0; i < group.length; i++) {
+    const g = group[i];
+    const actual   = g.actual;
+    const forecast = g.forecast;
+    if (actual === 0) continue; // skip zero-actual to avoid division by zero
+    const ape  = Math.abs(actual - forecast) / Math.abs(actual);
+    const bias = (forecast - actual) / Math.abs(actual);
+    sum_ape  += ape;
+    sum_bias += bias;
+    valid++;
   }
-  const overall_accuracy_tier=total_obs>0?afpTier(overall_mape_pct):'N/A';
-  const by_horizon={};
-  const bucket_keys=['T+1','T+7','T+30','T+90+'];
-  for(let b=0;b<bucket_keys.length;b++){
-    const bk=bucket_keys[b];
-    const pts=horizon_data[bk];
-    if(pts.length===0)continue;
-    let s_ape=0,s_bias=0;
-    for(let i=0;i<pts.length;i++){s_ape+=pts[i].ape;s_bias+=pts[i].bias;}
-    const bm=_round2(s_ape/pts.length);
-    const bb=_round2(s_bias/pts.length);
-    by_horizon[bk]={n:pts.length,mape_pct:bm,bias_pct:bb,accuracy_tier:afpTier(bm)};
+
+  if (!valid) return null;
+
+  const mape = _round2(sum_ape / valid * 100);
+  const bias = _round2(sum_bias / valid * 100);
+  const tier = classifyTier(mape);
+
+  return { n: valid, mape_pct: mape, bias_pct: bias, accuracy_tier: tier };
+}
+
+function _finite(v, def) {
+  const n = Number(v);
+  if (v === null || v === undefined || v === '') return def;
+  return (isFinite(n) && !isNaN(n)) ? n : def;
+}
+function _round2(v) { return Math.round(v * 100) / 100; }
+
+function compute(params) {
+  const p = params || {};
+
+  const forecasts = Array.isArray(p.forecasts) ? p.forecasts : [];
+
+  // Group by horizon bucket
+  const buckets = { 'T+1': [], 'T+7': [], 'T+30': [], 'T+90+': [] };
+  const all_valid = [];
+
+  for (let i = 0; i < forecasts.length; i++) {
+    const f = forecasts[i] || {};
+    const actual   = _finite(f.actual_amount,   null);
+    const forecast = _finite(f.forecast_amount, null);
+    const horizon  = _finite(f.horizon_days,    1);
+
+    if (actual === null || forecast === null) continue;
+
+    const item = { actual, forecast, horizon };
+    const bucket = horizonBucket(horizon);
+    buckets[bucket].push(item);
+    all_valid.push(item);
   }
-  let timing_bias_detected=false,persistent_sign_periods=0;
-  if(sign_all.length>=4){
-    const pos=sign_all.filter(function(s){return s>0;}).length;
-    const neg=sign_all.filter(function(s){return s<0;}).length;
-    const total_non_zero=pos+neg;
-    if(total_non_zero>0&&Math.max(pos,neg)/total_non_zero>0.75){timing_bias_detected=true;persistent_sign_periods=Math.max(pos,neg);}
+
+  // Score each bucket
+  const by_horizon = {};
+  for (const key in buckets) {
+    const score = scoreGroup(buckets[key]);
+    if (score) by_horizon[key] = score;
   }
-  return{total_observations:total_obs,skipped_zero_actual:skipped_zero,overall_mape_pct:overall_mape_pct,overall_bias_pct:overall_bias_pct,overall_accuracy_tier:overall_accuracy_tier,by_horizon:by_horizon,timing_bias_detected:timing_bias_detected,persistent_sign_periods:persistent_sign_periods,afp_benchmark_tiers:'EXCELLENT < 5% / GOOD 5-10% / ACCEPTABLE 10-20% / POOR >= 20% (AFP Cash Forecasting Survey 2024)',table_version:'AFP-CASH-FORECAST-KPI-2024',table_source:'AFP Cash Forecasting Survey 2024; Gartner Treasury Analytics 2023; GTreasury TMS Benchmark 2024',regulatory_basis:'AFP Cash Forecasting Survey 2024 MAPE benchmarks; Gartner Treasury Analytics 2023 T+1/T+7/T+30 horizon tiers. MAPE = mean(|actual-forecast|/|actual|)*100; bias = mean((forecast-actual)/|actual|)*100; persistent directional bias (>75% same-sign) flagged as systematic timing issue.',pii_note:'ZERO PII: forecast amounts, actual amounts, and horizon metadata only. No account holder, cash-pool owner, or personal data enters this kernel.',not_legal_advice:'Not financial or investment advice. Cash forecast accuracy scoring is for internal TMS benchmarking only.'};
+
+  // Overall score
+  const overall = scoreGroup(all_valid);
+
+  // Timing vs volume decomposition (simple heuristic):
+  // timing_error = dispersion of error sign across periods (persistent sign = timing issue)
+  // volume_error = coefficient of variation of APE values
+  let timing_bias_detected   = false;
+  let persistent_sign_periods = 0;
+
+  if (all_valid.length >= 3) {
+    let positive_bias = 0, negative_bias = 0;
+    for (let i = 0; i < all_valid.length; i++) {
+      const diff = all_valid[i].forecast - all_valid[i].actual;
+      if (diff > 0) positive_bias++;
+      else if (diff < 0) negative_bias++;
+    }
+    const dominant = Math.max(positive_bias, negative_bias);
+    const total    = all_valid.length;
+    // If >75% of errors lean one direction, flag persistent timing bias
+    if (dominant / total >= 0.75) {
+      timing_bias_detected = true;
+      persistent_sign_periods = dominant;
+    }
+  }
+
+  const total_observations = all_valid.length;
+  const skipped_zero_actual = forecasts.length - total_observations;
+
+  return {
+    total_observations,
+    skipped_zero_actual,
+    overall_mape_pct:          overall ? overall.mape_pct : null,
+    overall_bias_pct:          overall ? overall.bias_pct : null,
+    overall_accuracy_tier:     overall ? overall.accuracy_tier : 'INSUFFICIENT_DATA',
+    by_horizon,
+    timing_bias_detected,
+    persistent_sign_periods,
+    afp_benchmark_tiers:       'EXCELLENT < 5% / GOOD 5-10% / ACCEPTABLE 10-20% / POOR >= 20% (AFP Cash Forecasting Survey 2024)',
+    table_version:             TABLE_VERSION,
+    table_source:              TABLE_SOURCE,
+    regulatory_basis:          'AFP Cash Forecasting Survey 2024 MAPE benchmarks; Gartner Treasury Analytics 2023 T+1/T+7/T+30 horizon tiers. MAPE = mean(|actual-forecast|/|actual|)*100; bias = mean((forecast-actual)/|actual|)*100; persistent directional bias (>75% same-sign) flagged as systematic timing issue.',
+    pii_note:                  'ZERO PII: forecast amounts, actual amounts, and horizon metadata only. No account holder, cash-pool owner, or personal data enters this kernel.',
+    not_legal_advice:          'Not financial or investment advice. Cash forecast accuracy scoring is for internal TMS benchmarking only.',
+  };
 }
 
 function cgCanon(v){return Array.isArray(v)?v.map(cgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}):v;}
