@@ -80,6 +80,20 @@ function refused(flag, field, reason, extra) {
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+function daysInMonth(y, m) {
+  if (m === 2) return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0 ? 29 : 28;
+  return m === 4 || m === 6 || m === 9 || m === 11 ? 30 : 31;
+}
+
+function isValidIsoDate(v) {
+  if (typeof v !== 'string' || !ISO_DATE.test(v)) return false;
+  const y = Number(v.slice(0, 4));
+  const m = Number(v.slice(5, 7));
+  const d = Number(v.slice(8, 10));
+  if (m < 1 || m > 12 || d < 1 || d > daysInMonth(y, m)) return false;
+  return true;
+}
+
 // Identifier-like label detection (AUTHORING-STANDARD section 1 refusal for identifier-shaped fields):
 // a label that looks like an account id, member id, order id, blockchain address, or hash is
 // refused — labels must be synthetic contract/event/series designators.
@@ -131,7 +145,7 @@ export function compute(pp) {
 
   // ── as_of (caller clock, never a wall clock) ──
   const asOf = pp.as_of;
-  if (typeof asOf !== 'string' || !ISO_DATE.test(asOf)) {
+  if (!isValidIsoDate(asOf)) {
     return refused('AS_OF_REFUSED', 'as_of',
       'as_of must be an ISO-8601 date YYYY-MM-DD; the kernel never reads a wall clock');
   }
@@ -239,6 +253,7 @@ export function compute(pp) {
 
   // ── netting: per_contract_net nets yes and no quantities on the same contract ──
   let books = parsed;
+  let nonUniformLevels = false;
   const nettingApplied = netting === 'per_contract_net';
   if (nettingApplied) {
     const byContract = new Map();
@@ -248,18 +263,65 @@ export function compute(pp) {
     }
     books = [];
     for (const [, group] of byContract) {
+      const levels = new Set(group.map((p) => p.accountability_level_minor));
+      const limits = new Set(group.map((p) => p.limit_minor));
+      const bases = new Set(group.map((p) => p.limit_basis));
+      if (levels.size > 1 || limits.size > 1 || bases.size > 1) {
+        nonUniformLevels = true;
+      }
+
       const yes = group.filter((p) => p.side === 'yes');
       const no = group.filter((p) => p.side === 'no');
       const yesQty = yes.reduce((a, p) => a + p.quantity, 0);
       const noQty = no.reduce((a, p) => a + p.quantity, 0);
       const net = yesQty - noQty;
-      const proto = group[0];
+      const proto = {
+        contract_label: group[0].contract_label,
+        event_label: group[0].event_label,
+        series_label: group[0].series_label,
+        accountability_level_minor: levels.size === 1 ? [...levels][0] : null,
+        limit_minor: limits.size === 1 ? [...limits][0] : null,
+        limit_basis: bases.size === 1 ? [...bases][0] : 'max_loss',
+        declared_max_loss_minor: null,
+        netted: true,
+      };
+
       if (net === 0) {
-        books.push({ ...proto, side: 'yes', quantity: 0, avg_price_micro: proto.avg_price_micro, netted: true });
+        books.push({ ...proto, side: 'yes', quantity: 0, avg_price_micro: group[0].avg_price_micro });
       } else if (net > 0) {
-        books.push({ ...proto, side: 'yes', quantity: net, avg_price_micro: yes[0].avg_price_micro, netted: true });
+        // Option 2 (conservative / worst-case allocation):
+        // lowest-cost positions offset first, leaving residual holding highest-price / maximum-loss contracts.
+        // For YES, loss per contract is avg_price_micro; sort descending so highest-loss contracts remain.
+        const sortedYes = [...yes].sort((a, b) => b.avg_price_micro - a.avg_price_micro);
+        let remainingNet = net;
+        let totalMicroSpend = 0n;
+        for (const p of sortedYes) {
+          const take = Math.min(p.quantity, remainingNet);
+          totalMicroSpend += BigInt(take) * BigInt(p.avg_price_micro);
+          remainingNet -= take;
+          if (remainingNet <= 0) break;
+        }
+        const avgPriceMicro = Number(ceilDivBig(totalMicroSpend, BigInt(net)));
+        books.push({ ...proto, side: 'yes', quantity: net, avg_price_micro: avgPriceMicro });
       } else {
-        books.push({ ...proto, side: 'no', quantity: -net, avg_price_micro: no[0].avg_price_micro, netted: true });
+        // Option 2 for NO: loss per contract is (PRICE_MICRO_MAX - avg_price_micro).
+        // Lowest-loss positions (highest avg_price_micro) offset first,
+        // leaving residual holding highest-loss contracts (lowest avg_price_micro).
+        // Sort ascending so highest-loss contracts remain.
+        const sortedNo = [...no].sort((a, b) => a.avg_price_micro - b.avg_price_micro);
+        const netQty = -net;
+        let remainingNet = netQty;
+        let totalMicroLoss = 0n;
+        for (const p of sortedNo) {
+          const take = Math.min(p.quantity, remainingNet);
+          const unitLoss = BigInt(PRICE_MICRO_MAX - p.avg_price_micro);
+          totalMicroLoss += BigInt(take) * unitLoss;
+          remainingNet -= take;
+          if (remainingNet <= 0) break;
+        }
+        const unitLossCeil = ceilDivBig(totalMicroLoss, BigInt(netQty));
+        const avgPriceMicro = PRICE_MICRO_MAX - Number(unitLossCeil);
+        books.push({ ...proto, side: 'no', quantity: netQty, avg_price_micro: avgPriceMicro });
       }
     }
   }
@@ -318,7 +380,6 @@ export function compute(pp) {
   const groupRows = [];
   const accountabilityBreaches = [];
   const limitBreaches = [];
-  let nonUniformLevels = false;
   for (const [key, rows] of groups) {
     const maxLossMinor = rows.reduce((a, r) => a + r.max_loss_minor, 0);
     const quantity = rows.reduce((a, r) => a + r.book.quantity, 0);
@@ -378,7 +439,10 @@ export function compute(pp) {
       });
     }
   }
-  if (nonUniformLevels) flags.push('AGG_LEVELS_NOT_UNIFORM_PER_GROUP_CHECKS_ONLY');
+  if (nonUniformLevels) {
+    flags.push('NON_UNIFORM_ACCOUNTABILITY_LEVELS');
+    flags.push('AGG_LEVELS_NOT_UNIFORM_PER_GROUP_CHECKS_ONLY');
+  }
   if (isMM && mmLimitExempt) flags.push('LIMIT_CHECKS_SCOPE_NOTE_MM_EXEMPT');
 
   let verdict;

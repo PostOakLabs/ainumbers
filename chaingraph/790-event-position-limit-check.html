@@ -14,7 +14,7 @@
      kernel moves; do not hand-edit to an arbitrary value.
      PR-2776-FLAGS-LINT-CURE-1 stamped 2026-11-17: refusal flags array made conditionally
      constructed in the kernel (flags-computed lint cure); emitted values unchanged. -->
-<meta name="kernel-digest" content="sha256:ea07ae52e578deb20a033ebff2c513da37025e3b6b57d2b7b1be93bbf9c5c2ae">
+<meta name="kernel-digest" content="sha256:e2d5d08e405afae1d2cab46a7b1515cc6601a57fa0ae3c0facbda452b65e8346">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/790-event-position-limit-check.html">
 <link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/790-event-position-limit-check.md">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -366,6 +366,17 @@ var PROFILES = {
 var MICRO_PER_MINOR = 10000, PRICE_MICRO_MAX = 1000000;
 var ISO_DATE_RE = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
 
+function daysInMonth(y, m) {
+  if (m === 2) return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0 ? 29 : 28;
+  return m === 4 || m === 6 || m === 9 || m === 11 ? 30 : 31;
+}
+function isValidIsoDate(v) {
+  if (typeof v !== 'string' || !ISO_DATE_RE.test(v)) return false;
+  var y = Number(v.slice(0, 4)), m = Number(v.slice(5, 7)), d = Number(v.slice(8, 10));
+  if (m < 1 || m > 12 || d < 1 || d > daysInMonth(y, m)) return false;
+  return true;
+}
+
 function refusedPayload(flag, field, reason){
   return { verdict:'REFUSED', manual_review_required:true, refusal:{ flag:flag, field:field||null, reason:reason }, refusal_flag:flag, compliance_note:'structured non-verdict: no limit or accountability finding is asserted on a refused input' };
 }
@@ -395,7 +406,7 @@ function computeLimitCheck(pp){
   }
   var profile = PROFILES[profileId];
   var asOf = pp.as_of;
-  if (typeof asOf !== 'string' || !ISO_DATE_RE.test(asOf)) {
+  if (!isValidIsoDate(asOf)) {
     return { output_payload: refusedPayload('AS_OF_REFUSED','as_of','as_of must be an ISO-8601 date YYYY-MM-DD; the kernel never reads a wall clock'), compliance_flags:['AS_OF_REFUSED','REFUSED_NO_FINDING_ASSERTED'] };
   }
   if (asOf < profile.effective_from || (profile.effective_to && asOf > profile.effective_to)) {
@@ -463,6 +474,7 @@ function computeLimitCheck(pp){
 
   var nettingApplied = netting === 'per_contract_net';
   var books = parsed;
+  var nonUniformLevels = false;
   if (nettingApplied) {
     var byContract = {}, order = [];
     for (var bi = 0; bi < parsed.length; bi++) {
@@ -473,15 +485,54 @@ function computeLimitCheck(pp){
     books = [];
     for (var oi = 0; oi < order.length; oi++) {
       var group = byContract[order[oi]];
-      var yesQty = 0, noQty = 0, yesPrice = null, noPrice = null;
+      var groupLevels = {}, groupLimits = {}, groupBases = {};
       for (var gi = 0; gi < group.length; gi++) {
-        if (group[gi].side === 'yes') { yesQty += group[gi].quantity; if (yesPrice === null) yesPrice = group[gi].avg_price_micro; }
-        else { noQty += group[gi].quantity; if (noPrice === null) noPrice = group[gi].avg_price_micro; }
+        groupLevels[group[gi].accountability_level_minor] = true;
+        groupLimits[group[gi].limit_minor] = true;
+        groupBases[group[gi].limit_basis] = true;
       }
-      var net = yesQty - noQty, proto = group[0];
-      if (net === 0) books.push(Object.assign({}, proto, { side:'yes', quantity:0, avg_price_micro:proto.avg_price_micro, netted:true }));
-      else if (net > 0) books.push(Object.assign({}, proto, { side:'yes', quantity:net, avg_price_micro:yesPrice, netted:true }));
-      else books.push(Object.assign({}, proto, { side:'no', quantity:-net, avg_price_micro:noPrice, netted:true }));
+      var glKeys = Object.keys(groupLevels), glmKeys = Object.keys(groupLimits), gbKeys = Object.keys(groupBases);
+      if (glKeys.length > 1 || glmKeys.length > 1 || gbKeys.length > 1) nonUniformLevels = true;
+
+      var yes = [], no = [], yesQty = 0, noQty = 0;
+      for (var gi2 = 0; gi2 < group.length; gi2++) {
+        if (group[gi2].side === 'yes') { yes.push(group[gi2]); yesQty += group[gi2].quantity; }
+        else { no.push(group[gi2]); noQty += group[gi2].quantity; }
+      }
+      var net = yesQty - noQty;
+      var proto = Object.assign({}, group[0], {
+        accountability_level_minor: glKeys.length === 1 ? group[0].accountability_level_minor : null,
+        limit_minor: glmKeys.length === 1 ? group[0].limit_minor : null,
+        limit_basis: gbKeys.length === 1 ? group[0].limit_basis : 'max_loss',
+        declared_max_loss_minor: null,
+        netted: true
+      });
+      if (net === 0) {
+        books.push(Object.assign({}, proto, { side: 'yes', quantity: 0, avg_price_micro: group[0].avg_price_micro }));
+      } else if (net > 0) {
+        yes.sort(function(a, b){ return b.avg_price_micro - a.avg_price_micro; });
+        var remNet = net, totalMicro = 0;
+        for (var yi = 0; yi < yes.length; yi++) {
+          var take = Math.min(yes[yi].quantity, remNet);
+          totalMicro += take * yes[yi].avg_price_micro;
+          remNet -= take;
+          if (remNet <= 0) break;
+        }
+        var avgPrice = Math.ceil(totalMicro / net);
+        books.push(Object.assign({}, proto, { side: 'yes', quantity: net, avg_price_micro: avgPrice }));
+      } else {
+        no.sort(function(a, b){ return a.avg_price_micro - b.avg_price_micro; });
+        var netQty = -net, remNet = netQty, totalLoss = 0;
+        for (var ni = 0; ni < no.length; ni++) {
+          var take = Math.min(no[ni].quantity, remNet);
+          totalLoss += take * (PRICE_MICRO_MAX - no[ni].avg_price_micro);
+          remNet -= take;
+          if (remNet <= 0) break;
+        }
+        var unitLossCeil = Math.ceil(totalLoss / netQty);
+        var avgPrice = PRICE_MICRO_MAX - unitLossCeil;
+        books.push(Object.assign({}, proto, { side: 'no', quantity: netQty, avg_price_micro: avgPrice }));
+      }
     }
   }
 
@@ -503,9 +554,9 @@ function computeLimitCheck(pp){
     if (!groups[gk]) { groups[gk] = []; groupOrder.push(gk); }
     groups[gk].push(bookRows[gri]);
   }
-  var groupRows = [], accountabilityBreaches = [], limitBreaches = [], nonUniformLevels = false;
-  for (var gi2 = 0; gi2 < groupOrder.length; gi2++) {
-    var key2 = groupOrder[gi2], rows = groups[key2];
+  var groupRows = [], accountabilityBreaches = [], limitBreaches = [];
+  for (var gi3 = 0; gi3 < groupOrder.length; gi3++) {
+    var key2 = groupOrder[gi3], rows = groups[key2];
     var maxLossMinor = 0, quantity = 0, levels = {}, limits = {}, bases = {}, anyNoLevel = false, anyNoLimit = false;
     for (var xi = 0; xi < rows.length; xi++) {
       maxLossMinor += rows[xi].max_loss_minor;
@@ -528,7 +579,10 @@ function computeLimitCheck(pp){
     if (acctExceeded) accountabilityBreaches.push({ group_key:key2, max_loss_minor:maxLossMinor, declared_level_minor:rows[0].book.accountability_level_minor, effective_level_minor:effAcct, market_maker_multiplier_applied: isMM ? mmMultiplier : null, cite: profile.cites.accountability });
     if (limitExceeded) limitBreaches.push({ group_key:key2, max_loss_minor:maxLossMinor, quantity:quantity, limit_minor:effLimit, limit_basis:effBasis, market_maker_exemption_applied:false, cite: profile.cites.limit });
   }
-  if (nonUniformLevels) flags.push('AGG_LEVELS_NOT_UNIFORM_PER_GROUP_CHECKS_ONLY');
+  if (nonUniformLevels) {
+    flags.push('NON_UNIFORM_ACCOUNTABILITY_LEVELS');
+    flags.push('AGG_LEVELS_NOT_UNIFORM_PER_GROUP_CHECKS_ONLY');
+  }
 
   var verdict;
   if (limitBreaches.length > 0) { verdict = 'LIMIT_BREACH'; flags.push('LIMIT_BREACH_PRESENT'); }

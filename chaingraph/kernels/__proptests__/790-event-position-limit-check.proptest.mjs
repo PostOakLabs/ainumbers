@@ -6,7 +6,7 @@
 // Properties below run over a committed mulberry32 seed (deterministic) plus a fixed corpus of
 // structural cases.
 //
-// kernel_digest_at_authoring: sha256:ea07ae52e578deb20a033ebff2c513da37025e3b6b57d2b7b1be93bbf9c5c2ae
+// kernel_digest_at_authoring: sha256:e2d5d08e405afae1d2cab46a7b1515cc6601a57fa0ae3c0facbda452b65e8346
 // spec: the row EVENT-POSITION-LIMIT-CHECK-1 contract plus the pinned primary text mapped in
 //   research/EVENT-POSITION-LIMIT-PIN-2026-10-30.md — per-contract/per-event/per-series max
 //   loss against CALLER-SUPPLIED accountability levels and position limits; market-maker
