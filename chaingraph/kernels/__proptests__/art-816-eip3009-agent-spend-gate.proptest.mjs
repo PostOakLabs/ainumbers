@@ -1,5 +1,5 @@
 // art-816-eip3009-agent-spend-gate property-test floor (EIP3009-SPEND-GATE-NODE-1).
-// kernel_digest_at_authoring: sha256:524cb40019f234dd83b28950345426983871c57cd4d953e39258b00ca07b2dd4
+// kernel_digest_at_authoring: sha256:293c629322d68219dd18b8bff66afcffb4684ff1c4f64b159fe8e25414c0b10a
 // spec: research/EIP3009-AGENT-SPEND-GATE-BUILD-SPEC-2026-11.md (workspace-root research dir), section 10
 // human_sign_off: PENDING
 //
@@ -11,13 +11,14 @@
 //      matches them; a one-status flip moves OVER_LIMIT back to SPEND
 //   P4 output shape, determinism, and structural refusals
 //   P5 DENY outranks OVER_LIMIT with both reasons listed
+//   P6 buildArtifact never throws: unhashable junk gets a null execution_hash plus hash_refusal
 //   NC negative control: a mutated payload is detectably different
 // Fixed rng seed for reproducibility. ZERO external dependencies beyond the in-repo helpers.
 // READ-ONLY w.r.t. the kernel it imports.
 //
 // Run: node chaingraph/kernels/__proptests__/art-816-eip3009-agent-spend-gate.proptest.mjs
 
-import { compute } from '../art-816-eip3009-agent-spend-gate.kernel.mjs';
+import { compute, buildArtifact } from '../art-816-eip3009-agent-spend-gate.kernel.mjs';
 import { executionHash } from '../_hash.mjs';
 import { runFixtureOracle, summarize, mulberry32, deepEqual, findShapeViolations } from './_pbt-common.mjs';
 import { readFileSync } from 'node:fs';
@@ -293,6 +294,37 @@ function checkP5Precedence() {
   return { name: 'P5_deny_outranks_over_limit', checked, violations };
 }
 
+// ---------- P6: buildArtifact never throws ----------
+// An input whose {policy_parameters, output_payload} preimage the shared canonicalizer would
+// reject mints an artifact with a null execution_hash and a hash_refusal beside it; a clean
+// input gets a 64-hex hash and no hash_refusal.
+async function checkP6BuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const hostile = [
+    { junk: 1e300 }, { junk: Infinity }, { junk: -Infinity }, { junk: NaN },
+    { junk: { a: [Number.MAX_SAFE_INTEGER + 2] } }, { junk: deep }, { junk: wide },
+  ];
+  for (const delta of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact(Object.assign({}, happy(), delta));
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) { violations++; console.error('P6: artifact shape for ' + Object.keys(delta)[0]); }
+      if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) { violations++; console.error('P6: hostile value echoed'); }
+    } catch (e) { violations++; console.error('P6: buildArtifact threw: ' + String(e.message).slice(0, 80)); }
+  }
+  for (const input of [happy(), happy([entry()], { value: '5' }), pp(undefined, domain(), policy(), [], BASE_NOW), null, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(input);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.error('P6: clean input lost its hash'); }
+    } catch (e) { violations++; console.error('P6: buildArtifact threw on clean input: ' + String(e.message).slice(0, 80)); }
+  }
+  return { name: 'P6_buildArtifact_never_throws', checked, violations };
+}
+
 // ---------- NC: negative control over the fixture oracle itself ----------
 function checkNegativeControl() {
   const fixtures = JSON.parse(readFileSync(path.join(__dirname, '..', 'fixtures', 'art-816-eip3009-agent-spend-gate.fixtures.json'), 'utf8'));
@@ -316,6 +348,7 @@ const properties = [
   checkP3CanceledExclusion(),
   checkP4ShapeDeterminismRefusals(),
   checkP5Precedence(),
+  await checkP6BuildArtifactNeverThrows(),
   checkNegativeControl(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — 13-rule spend gate.`);
