@@ -2,7 +2,7 @@
 // Authored against the APEXPORT-139 porting payload (GRADES PASS-PENDING-XV 2026-10-07) and the
 // 7F adjudication (APEX-DIFFER-RULING-1 2026-11-02; confirmed 2026-11-13): DIFFERS-04 official wins,
 // DIFFERS-06 corporate deduction retained and flagged as a disclosed open legal question.
-// kernel_digest_at_authoring: sha256:84db3eccb433dfc14f27c84a8eb07a8631d7c50d3e8c6db79cd2e426348de545
+// kernel_digest_at_authoring: sha256:6d83f8dc0cf5f4459dea7103f7ef5666695670004ec94a3efba9dcf4d0edc3b1
 // spec: board/claimed/APEX-PORT-139-LAND-RESUME-1.md (SPEC.md section 12 compute binding, section 17 kernel identity)
 // human_sign_off: PENDING
 //
@@ -18,7 +18,9 @@
 // deduction and zero benefit; the corporate-deduction flag fires exactly when scorp and
 // qualifying; P5 determinism and no undefined/non-finite in output_payload; P6 non-finite
 // inputs are refused with the named reason and the single refusal flag; P7 buildArtifact
-// returns a 64-hex execution_hash.
+// returns a 64-hex execution_hash; P8 buildArtifact_never_throws on any input, an unhashable
+// preimage mints execution_hash null plus hash_refusal; P9 a wrong-typed numeric or an unlisted
+// entity is refused with its own code, never coerced.
 //
 // ZERO external dependencies -- Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
@@ -154,6 +156,46 @@ async function checkP7Artifact() {
   return { name: 'P7 buildArtifact carries a 64-hex execution_hash', checked, violations };
 }
 
+// P8 -- buildArtifact_never_throws: hostile inputs mint an artifact; an unhashable preimage
+// carries execution_hash null plus hash_refusal.
+async function checkP8NeverThrows() {
+  let checked = 0, violations = 0;
+  const deep = (n) => { let o = null; for (let i = 0; i < n; i++) o = [o]; return o; };
+  const cyc = {}; cyc.self = cyc;
+  const hostile = [undefined, null, 0, 'x', [], {}, { ...basePP(), extra: deep(600) }, { ...basePP(), extra: cyc }, { ...basePP(), extra: 1n }, { ...basePP(), extra: Number.MAX_SAFE_INTEGER * 4 }, { ...basePP(), extra: NaN }, { ...basePP(), office_sq_ft: 'a' }];
+  for (const pp of hostile) {
+    checked++;
+    try {
+      const a = await buildArtifact(pp);
+      const hashed = /^[0-9a-f]{64}$/.test(a.execution_hash || '');
+      const refused = a.execution_hash === null && a.hash_refusal && typeof a.hash_refusal.reason === 'string';
+      if (!hashed && !refused) { violations++; console.log('P8 violation: neither hash nor hash_refusal'); }
+    } catch (e) { violations++; console.log('P8 violation: threw ' + String((e && e.message) || e)); }
+  }
+  return { name: 'P8 buildArtifact_never_throws', checked, violations };
+}
+
+// P9 -- typed refusal: no Number() coercion on caller numerics, exact entity allowlist.
+function checkP9TypedRefusal() {
+  let checked = 0, violations = 0;
+  const numeric = ['office_sq_ft', 'home_sq_ft', 'business_use_pct', 'annual_rent_usd', 'utilities_usd', 'other_home_expenses_usd', 'gross_business_income_usd', 'rental_days', 'daily_rental_rate_usd', 'corp_tax_rate_pct', 'owner_marginal_rate_pct'];
+  for (const f of numeric) {
+    for (const bad of ['5', '', true, [1], {}]) {
+      const r = compute({ ...basePP(), [f]: bad });
+      checked++;
+      if (r.output_payload.refusal_reason !== 'REFUSED_WRONG_TYPE_' + f.toUpperCase() || r.output_payload.combined_tax_benefit_usd !== null) { violations++; console.log('P9 violation: ' + f + ' wrong type not refused'); }
+    }
+  }
+  for (const [f, code] of [['entity_type_ho', 'REFUSED_ENTITY_TYPE_HO_NOT_ALLOWED'], ['entity_type_aug', 'REFUSED_ENTITY_TYPE_AUG_NOT_ALLOWED']]) {
+    for (const bad of ['llc', 'SCORP', 'scorp ', '', 1, null, undefined, true, {}]) {
+      const r = compute({ ...basePP(), [f]: bad });
+      checked++;
+      if (r.output_payload.refusal_reason !== code) { violations++; console.log('P9 violation: ' + f + ' unlisted value not refused'); }
+    }
+  }
+  return { name: 'P9 typed refusal, exact entity allowlist', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -169,6 +211,8 @@ const properties = [
   checkP5DeterminismShape(),
   checkP6Refusal(),
   await checkP7Artifact(),
+  await checkP8NeverThrows(),
+  checkP9TypedRefusal(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test`);
 const ok = summarize(KERNEL_ID, oracle, properties);
