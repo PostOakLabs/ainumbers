@@ -14,8 +14,11 @@
 //
 // Gate-machinery controls (selftests, fixture proofs, mutation controls) are
 // skipped: a diff touching gate machinery gets the push-safety leg instead
-// (scripts/prepush-full-trigger.mjs). The Mutation tier floor is skipped for
-// cost (CI shards it six ways).
+// (scripts/prepush-full-trigger.mjs). The plain "Workflow gate parity" gate is
+// the exception since PREFLIGHT-AFFECTED-GATE-PARITY-1: it is cheap and it is
+// the one full-suite gate a gate-machinery diff can actually move, so the
+// gate-machinery class selects it (its controls stay skipped). The Mutation
+// tier floor is skipped for cost (CI shards it six ways).
 //
 // Tests: node --test scripts/lib/affected-gates.test.mjs
 
@@ -39,6 +42,24 @@ export const AFFECTED_CLASSES = [
   ['mcp-surface',
     (f) => /^(mcp|\.well-known)\//.test(f),
     /server card|\bMCP\b|WebMCP/i],
+  // PREFLIGHT-AFFECTED-GATE-PARITY-1 (2026-11-14): gate machinery had no class,
+  // so a diff touching only preflight.mjs, a check-*.mjs gate or a workflow
+  // selected the hygiene set alone, and "Workflow gate parity (no CI↔preflight
+  // drift)" was picked only by the kernel class's broad /parity/i label regex —
+  // i.e. only when a kernel file was also touched. PRs 3107/3117/3052 pushed new
+  // gates with no workflow registration, ran --affected green, and first-failed
+  // in CI on that gate (reverse-presence, unwired-preflight-gate). The label test
+  // names the parity gate directly; its controls gate stays dropped by
+  // AFFECTED_SKIP (controls|mutation), and AFFECTED_SLOW does not match it
+  // (measured about 1 s). The kernel class still matches it too — no change
+  // there, just no longer the only path.
+  ['gate-machinery',
+    (f) => f === 'scripts/preflight.mjs'
+      || /^scripts\/check-[^/]+\.mjs$/.test(f) // includes check-workflow-gate-parity.mjs itself
+      || /^scripts\/.+\.selftest\.mjs$/.test(f)
+      || /^scripts\/.+\.test\.mjs$/.test(f)
+      || /^\.github\/workflows\/[^/]+\.ya?ml$/.test(f),
+    /Workflow gate parity/i],
 ];
 
 // Left to CI, measured 2026-11-05:

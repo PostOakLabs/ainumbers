@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (760 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (764 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -199,6 +199,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/784-cbr-data-return-validator.html",
     "description": "Validates a bank's or money transfer operator's periodic AGGREGATE correspondent-banking data return against an illustrative, profile-driven",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "785-qr-golive-readiness",
+    "display_name": "QR Go-Live Readiness Assessor",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/785-qr-golive-readiness.html",
+    "description": "Assesses a QR payment scheme's pilot, production, or cross-border go-live readiness through weighted blocking and advisory gates: participan",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -414,6 +424,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/838-control-frequency-sample.html",
     "description": "Applies a table you declare. It ships no table, and is not guidance from any audit firm or standard-setter. The sample size is only as defen",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "841-planning-materiality",
+    "display_name": "Planning Materiality",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/841-planning-materiality.html",
+    "description": "Arithmetic on declared policy. It does not choose the benchmark, does not judge whether the percentage is appropriate, and is not a material",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -7956,6 +7976,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-768-medicare-plan-comparison",
+    "display_name": "Medicare Plan Comparison",
+    "mandate_type": "medicare_plan_comparison_record",
+    "url": "https://ainumbers.co/chaingraph/art-768-medicare-plan-comparison.html",
+    "description": "Medicare plan comparison ported from ApexLogics Apex #151 (AL-165). Prices two caller-declared Medicare enrollment paths for a full year, Pa",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-769-medicare-oop-exposure",
     "display_name": "Medicare Out-of-Pocket Exposure",
     "mandate_type": "retirement_projection",
@@ -8362,6 +8392,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-834-asc606-transaction-price-allocator.html",
     "description": "Allocates a declared transaction price across declared performance obligations by relative standalone selling price, in integer minor units,",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-835-bank-reconciliation-recompute",
+    "display_name": "Bank Reconciliation Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-835-bank-reconciliation-recompute.html",
+    "description": "Recomputes a bank-to-book reconciliation and an optional proof of cash from declared values, in integer minor units. The caller declares the",
     "consumes": [],
     "feeds": [],
     "status": "live"
