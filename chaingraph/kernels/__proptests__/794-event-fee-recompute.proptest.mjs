@@ -1,5 +1,5 @@
 // 794-event-fee-recompute — class-K property-test FLOOR per FV-PBT-FLOOR-BUILD-SPEC.md.
-// kernel_digest_at_authoring: sha256:891846e7b92888b8bba41daa1512764a18d2061178c5fe7b1644ca0a2b4cf0d7
+// kernel_digest_at_authoring: sha256:291ae813ace3e651e3d2482de004aaf9bd391ef5c98aa80a8a7c7e1c2642d245
 // spec: research/kalshi-event-contract-rows-2026-10-30.md section 3.3 + research/EVENT-FEE-RECOMPUTE-PIN-2026-10-30.md
 // human_sign_off: TIM-PENDING-2026-10-31
 //
@@ -7,7 +7,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/794-event-fee-recompute.proptest.mjs
 
-import { compute } from '../794-event-fee-recompute.kernel.mjs';
+import { compute, buildArtifact } from '../794-event-fee-recompute.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32 } from './_pbt-common.mjs';
 
 const KERNEL_ID = '794-event-fee-recompute';
@@ -568,6 +568,88 @@ function checkGenericFamilyOracle() {
   return { name: 'P10_generic_family_bigint_oracle', checked: t.checked, violations: t.violations, failed: t.failed };
 }
 
+// P11 (D6) -- buildArtifact_never_throws: an input whose {policy_parameters, output_payload}
+// preimage the shared canonicalizer would reject mints an artifact with a null execution_hash
+// and a hash_refusal beside it; a clean input (accepted or refused) gets a 64-hex hash.
+async function checkBuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  const base = () => randomValidPp(mulberry32(SEED + 11));
+  /** @type {any} */ let deep = {}; { let o = deep; for (let i = 0; i < 511; i++) { o.x = {}; o = o.x; } }
+  const hostile = [
+    { junk: 1e300 }, { junk: NaN }, { junk: -Infinity }, { junk: Infinity },
+    { junk: { a: [Number.MAX_SAFE_INTEGER + 2] } }, { junk: deep }, { junk: new Array(1000001).fill(0) },
+  ];
+  for (const delta of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...base(), ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) { violations++; console.log('P11 violation: artifact shape'); }
+      if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) { violations++; console.log('P11 violation: hostile value echoed'); }
+    } catch (e) { violations++; console.log('P11 violation: buildArtifact threw: ' + String(e.message).slice(0, 80)); }
+  }
+  for (const pp of [base(), { ...base(), profile: 'nope' }, null, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('P11 violation: clean input lost its hash'); }
+    } catch (e) { violations++; console.log('P11 violation: buildArtifact threw on clean input: ' + String(e.message).slice(0, 80)); }
+  }
+  return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
+}
+
+// P12 -- GENERIC PARAMS NEVER THROW: non-integer, non-numeric, null, object, array,
+// zero-denominator, negative and unsafe values for every generic param that reaches
+// BigInt() refuse with a named reason and never throw, in compute() and buildArtifact().
+// Also: rebate_share conservation (order fee = trade fees - rebate total + carry) with a
+// nonzero maker theta, so the rebate is nonzero.
+async function checkGenericParamsNeverThrow() {
+  const t = tally();
+  const bad = [1.5, 'x', '5', null, {}, [], true, NaN, Infinity, -1, 1e300, -0, 0];
+  /** @type {[string, number, string][]} */
+  const fields = [
+    ['series_multiplier_num', 0, 'series_multiplier_num_must_be_nonnegative_safe_int'],
+    ['series_multiplier_den', 1, 'series_multiplier_den_must_be_positive_safe_int'],
+    ['floor_min_fee_micro', 0, 'floor_min_fee_micro_must_be_nonnegative_safe_int'],
+  ];
+  for (const [field, min, why] of fields) {
+    for (const v of bad) {
+      const params = GP({ [field]: v });
+      const pp = { profile: 'generic', as_of: '2026-10-01', params, orders: [ORD()] };
+      const label = field + '=' + (Object.is(v, -0) ? '-0' : JSON.stringify(v) === undefined ? String(v) : JSON.stringify(v));
+      const valid = typeof v === 'number' && Number.isSafeInteger(v) && v >= min;
+      let r = null;
+      try { r = compute(pp).output_payload; } catch (e) { t.ok(false, 'compute threw ' + label); continue; }
+      t.ok(valid ? r.verdict === 'completed' : (r.verdict === 'refused' && r.refused_because === why && r.refused_field === field), 'verdict ' + label);
+      try {
+        const art = await buildArtifact(pp);
+        t.ok(valid ? /^[0-9a-f]{64}$/.test(art.execution_hash) : art.output_payload.verdict === 'refused', 'artifact ' + label);
+      } catch (e) { t.ok(false, 'buildArtifact threw ' + label); }
+    }
+  }
+  // the same values on a caller-declared effective row
+  for (const v of [null, {}, 'x', 1.5]) {
+    const pp = { profile: 'generic', as_of: '2026-10-01', params: { rows: [GP({ effective_from: '2026-01-01', series_multiplier_den: v })] }, orders: [ORD()] };
+    try { t.ok(compute(pp).output_payload.verdict === 'refused', 'row den ' + String(v)); } catch (e) { t.ok(false, 'row compute threw'); }
+  }
+  // rebate_share conservation with a nonzero maker fee and a nonzero rebate
+  const rs = (bp, role) => compute({
+    profile: 'generic', as_of: '2026-10-01',
+    params: GP({ fee_family: 'rebate_share', theta_maker_num: 3, theta_maker_den: 100, rebate_share_bp: bp, fill_rounding_unit_micro: 10 }),
+    orders: [ORD({ role, fills: [{ contracts: 10, price_micro: 500000 }, { contracts: 7, price_micro: 300000 }] })],
+  }).output_payload;
+  for (const bp of [0, 1, 2000, 5000, 10000]) {
+    const p = rs(bp, 'maker');
+    const po = p.per_order[0];
+    t.ok(p.verdict === 'completed' && po.conservation_ok === true && p.conservation_ok === true
+      && BigInt(po.order_fee_micro) === BigInt(po.trade_fees_micro) - BigInt(po.rebate_total_micro) + BigInt(po.carry_micro), 'rebate_share conservation bp ' + bp);
+  }
+  const m = rs(2000, 'maker').per_order[0];
+  t.ok(BigInt(m.rebate_total_micro) > 0n, 'rebate_share rebate is nonzero');
+  t.ok(rs(2000, 'taker').per_order[0].conservation_ok === true, 'rebate_share taker conservation');
+  return { name: 'P12_generic_params_never_throw_and_rebate_share_conservation', checked: t.checked, violations: t.violations, failed: t.failed };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -586,6 +668,8 @@ const properties = [
   checkExactFees(),
   checkGenericRowsAndEcho(),
   checkGenericFamilyOracle(),
+  await checkBuildArtifactNeverThrows(),
+  await checkGenericParamsNeverThrow(),
 ];
 for (const p of properties) if (p.failed && p.failed.length) console.error(p.name + ' FAILED: ' + p.failed.slice(0, 40).join(' | '));
 console.log(`[${KERNEL_ID}] class-K floor property test`);
