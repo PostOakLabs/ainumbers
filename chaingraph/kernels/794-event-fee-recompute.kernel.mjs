@@ -163,6 +163,7 @@ function looksIdentifierLike(s) {
   return false;
 }
 function isPosInt(x) { return typeof x === 'number' && Number.isInteger(x) && x >= 1; }
+function isSafeIntMin(x, min) { return typeof x === 'number' && Number.isSafeInteger(x) && x >= min; }
 
 // ISO YYYY-MM-DD calendar-date check (pure arithmetic, no Date)
 function isCalendarDate(s) {
@@ -312,6 +313,19 @@ export function compute(pp) {
   if (roundingMode !== 'ceil' && roundingMode !== 'round_half_up') return refuse(flags, 'rounding_mode_must_be_ceil_or_round_half_up', 'rounding_mode');
   if (!(typeof fillUnit === 'number' && Number.isInteger(fillUnit) && fillUnit >= 1)) return refuse(flags, 'fill_rounding_unit_micro_must_be_positive_int', 'fill_rounding_unit_micro');
   if (!(typeof orderUnit === 'number' && Number.isInteger(orderUnit) && orderUnit >= 0)) return refuse(flags, 'order_rounding_unit_micro_must_be_nonnegative_int', 'order_rounding_unit_micro');
+  // generic caller values reach BigInt() later; refuse anything that is not a safe integer
+  // in range first so no caller value can make BigInt() or a division throw
+  if (!shipped) {
+    if (genActive.series_multiplier_num !== undefined && !isSafeIntMin(genActive.series_multiplier_num, 0)) {
+      return refuse(flags, 'series_multiplier_num_must_be_nonnegative_safe_int', 'series_multiplier_num');
+    }
+    if (genActive.series_multiplier_den !== undefined && !isSafeIntMin(genActive.series_multiplier_den, 1)) {
+      return refuse(flags, 'series_multiplier_den_must_be_positive_safe_int', 'series_multiplier_den');
+    }
+    if (genActive.floor_min_fee_micro !== undefined && !isSafeIntMin(genActive.floor_min_fee_micro, 0)) {
+      return refuse(flags, 'floor_min_fee_micro_must_be_nonnegative_safe_int', 'floor_min_fee_micro');
+    }
+  }
   const acc = shipped ? (profileId === 'kalshi' && prof.accumulator && orderUnit > 0) : (orderUnit > 0 && genActive.accumulator === true);
 
   function thetaFor(role, kind) {
@@ -475,8 +489,12 @@ export function compute(pp) {
       if (feeCheck === 'UNDERCHARGE') flags.push('FEE_CHECK_UNDERCHARGE');
     }
 
-    // conservation: order fee equals the fill trade fees plus the net carried rounding
-    const conservationOk = orderFee === tradeSum + carry;
+    // conservation: order fee equals the fill trade fees plus the net carried rounding.
+    // On the accumulator path the rebate is already netted inside carry; on the
+    // rebate_share maker path the rebate is paid out per fill, so it is subtracted.
+    const conservationOk = (!acc && family === 'rebate_share')
+      ? orderFee === tradeSum - rebateTotal + carry
+      : orderFee === tradeSum + carry;
     perOrder.push({
       order_label: label,
       role,
@@ -521,10 +539,48 @@ export function compute(pp) {
   return { output_payload: payload, compliance_flags: flags };
 }
 
+// ---------- hashability walk (D6) ----------
+// Mirrors the classes _hash.mjs refuses before canonicalizing: a non-finite number or an
+// integer outside the 2^53 safe range, nesting past its MAX_DEPTH, more values than its
+// MAX_ELEMENTS. Reports { reason, detail } with the path and kind only, never the value;
+// null when the preimage is safe to hash. The shared _hash.mjs stays untouched.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // The object walked is the exact execution_hash preimage. When the shared canonicalizer
+  // would refuse it, mint the artifact with a null execution_hash and the reason beside it
+  // instead of letting the hash throw.
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const hash = unhashable === null ? await executionHash(pp, output_payload) : null;
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -540,4 +596,6 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }
