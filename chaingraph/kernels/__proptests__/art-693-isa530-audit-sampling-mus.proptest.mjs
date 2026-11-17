@@ -1,5 +1,5 @@
 // art-693-isa530-audit-sampling-mus.proptest.mjs -- class-A property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
-// kernel_digest_at_authoring: sha256:e92c7887ebf4004dfc6cc8f68bdea0bc5ae6ac9b7b90356275ea4b1a5ee3cd8c
+// kernel_digest_at_authoring: sha256:4a0de636bbeea81172cf57d31a081cb364e22b340318c644ffe74461dde4a53c
 // spec: ISA530-SAMPLING-BUILD-SPEC.md (workspace root, ISA530-BUILD-1).
 // human_sign_off: PENDING
 //
@@ -17,7 +17,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-693-isa530-audit-sampling-mus.proptest.mjs
 
-import { compute } from '../art-693-isa530-audit-sampling-mus.kernel.mjs';
+import { compute, buildArtifact } from '../art-693-isa530-audit-sampling-mus.kernel.mjs';
 import { runFixtureOracle, summarize, findShapeViolations, mulberry32, pick } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-693-isa530-audit-sampling-mus';
@@ -60,7 +60,13 @@ function randomBenfordPP(rng) {
     if (rng() < 0.08) amounts.push(pick(rng, [0, -5, -0.25])); // exercise exclusion path
     else amounts.push(+(randInt(rng, 1, 99999) + rng()).toFixed(2));
   }
-  return { method: 'benford_screen', amounts };
+  const pp = { method: 'benford_screen', amounts };
+  // MAD parameters: absent half the time, otherwise a small declared floor and a boolean applicability
+  if (rng() < 0.5) pp.mad_min_count = randInt(rng, 1, 40);
+  const ap = rng();
+  if (ap < 0.4) pp.applicability_declared = true;
+  else if (ap < 0.55) pp.applicability_declared = false;
+  return pp;
 }
 
 function randomPP(rng) {
@@ -216,8 +222,42 @@ function checkP7_benford_differential() {
     if (op.deviation_flag !== (op.chi_square_statistic > CHI2_CRIT)) violations++;
     const sumCounts = Object.values(op.first_digit_counts).reduce((a, b) => a + b, 0);
     if (sumCounts !== op.usable_count) violations++;
+
+    // MAD re-derived from raw counts against Math.log10 proportions in a different operation order
+    // (sum of absolute count gaps, then one division), tolerance one unit of the 6th decimal.
+    let gapSum = 0;
+    for (let d = 1; d <= 9; d++) gapSum += Math.abs(counts[d] - usable * Math.log10(1 + 1 / d));
+    const madRef = gapSum / usable / 9;
+    if (typeof op.mad !== 'string' || !/^\d\.\d{6}$/.test(op.mad)) violations++;
+    else if (Math.abs(+op.mad - madRef) > 0.0000011) violations++;
+    const minCount = pp.mad_min_count === undefined ? 1000 : pp.mad_min_count;
+    if (op.mad_min_count !== minCount) violations++;
+    let wantBand;
+    if (usable < minCount) wantBand = 'NOT_EVALUATED';
+    else if (pp.applicability_declared !== true) wantBand = 'NOT_EVALUATED';
+    else if (+op.mad < 0.006) wantBand = 'CLOSE_CONFORMITY';
+    else if (+op.mad < 0.012) wantBand = 'ACCEPTABLE_CONFORMITY';
+    else if (+op.mad < 0.015) wantBand = 'MARGINALLY_ACCEPTABLE';
+    else wantBand = 'NONCONFORMITY';
+    if (op.mad_band !== wantBand) violations++;
+    if ((op.mad_band === 'NOT_EVALUATED') !== (typeof op.mad_reason === 'string')) violations++;
+    if (!compute(pp).compliance_flags.includes('BENFORD_MAD_' + op.mad_band)) violations++;
+    if (/fraud/i.test(op.trace)) violations++;
   }
-  return { name: 'P7_benford_counts_and_chisquare_differential', checked, violations };
+  return { name: 'P7_benford_counts_chisquare_and_mad_differential', checked, violations };
+}
+
+// ---------- P9: MAD parameter refusals -- a wrong-typed mad_min_count or applicability never computes ----------
+function checkP9_mad_param_refusals() {
+  let violations = 0, checked = 0;
+  const amounts = [123, 234, 345, 456, 567];
+  for (const extra of [{ mad_min_count: '1000' }, { mad_min_count: null }, { mad_min_count: 0 }, { mad_min_count: 2.5 }, { mad_min_count: -3 }, { applicability_declared: 'true' }, { applicability_declared: null }, { applicability_declared: 1 }]) {
+    const { output_payload: op, compliance_flags } = compute({ method: 'benford_screen', amounts, ...extra });
+    checked++;
+    if (op.overall !== 'INPUT_REJECTED' || op.mad !== null || op.mad_band !== null) violations++;
+    if (!compliance_flags.includes('BENFORD_INPUT_REJECTED')) violations++;
+  }
+  return { name: 'P9_mad_param_refusals', checked, violations };
 }
 
 // ---------- P8: dispatch -- an unrecognized method never computes ----------
@@ -231,6 +271,31 @@ function checkP8_method_dispatch() {
     if (!Array.isArray(op.warnings) || op.warnings.length === 0) violations++;
   }
   return { name: 'P8_method_dispatch_refuses_unknown', checked, violations };
+}
+
+// ---------- P10: buildArtifact_never_throws -- an unhashable preimage mints a null hash + hash_refusal ----------
+async function checkP10_buildArtifact_never_throws() {
+  let violations = 0, checked = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 511; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const hostile = [{ zzz: 1e300 }, { zzz: NaN }, { zzz: Infinity }, { zzz: -Infinity }, { zzz: deep }, { zzz: wide }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } }];
+  for (const base of [{}, { method: 'monetary_unit_sampling' }, { method: 'misstatement_projection' }, { method: 'benford_screen', amounts: [123, 234, 345] }]) {
+    for (const delta of hostile) {
+      checked++;
+      try {
+        const art = await buildArtifact({ ...base, ...delta });
+        const r = art.hash_refusal;
+        if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) violations++;
+        if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) violations++;
+      } catch (e) { violations++; }
+    }
+    checked++;
+    try {
+      const art = await buildArtifact({ ...base });
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) violations++;
+    } catch (e) { violations++; }
+  }
+  return { name: 'P10_buildArtifact_never_throws', checked, violations };
 }
 
 // ---------- run ----------
@@ -249,6 +314,8 @@ const properties = [
   checkP6_projection_differential(),
   checkP7_benford_differential(),
   checkP8_method_dispatch(),
+  checkP9_mad_param_refusals(),
+  await checkP10_buildArtifact_never_throws(),
 ];
 console.log(`[${KERNEL_ID}] class-A floor property test.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
