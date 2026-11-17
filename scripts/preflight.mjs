@@ -2109,6 +2109,13 @@ const GATES = [
   // Sigsum submit token + SIGSUM-BUDGET-COUNTER-1 landed. See derived-artifacts.mjs
   // registration status alongside this gate for whether output now exists on disk.
   ['F1 registry errata log freshness (REGISTRY-ERRATA-RETRY-1)', 'node scripts/gen-registry-errata.mjs --check'],
+  // KERNEL-ERRATA-READER-1 (2026-11-16): the page-load errata snapshot the verify pages
+  // arm (chaingraph/errata/errata-snapshot.mjs + the generated regions on errata.html and
+  // chaingraph/receipt-bundle-verify.html). Wired here per the house pattern for --check
+  // generators (satisfies check-generator-coverage.mjs); its CI route is the workflows
+  // that run the full preflight, and its COVERED entry in derived-artifacts.mjs makes the
+  // main-side regen the single writer of those three surfaces after merge.
+  ['Kernel errata snapshot freshness (KERNEL-ERRATA-READER-1)', 'node scripts/gen-errata-snapshot.mjs --check'],
   // REGISTRY-ABSENCE-TREE-BUILD-1: the F2 absence lane. --check = tree.json freshness
   // (recomputed from registry/kernel/*, SO #34) PLUS the lineage binding (the lineage log's
   // ainumbers-absence-tree-v1 entry must equal the recomputed root + key count, BUILD-SPEC
