@@ -184,10 +184,7 @@ function evaluateEntry(e, ctx) {
 
   let residualMinor;
   if (basis === 'per_currency') {
-    residualMinor = {};
-    for (const [ccy, res] of residualByCcy) {
-      residualMinor[ccy] = Number(res);
-    }
+    residualMinor = Object.fromEntries([...residualByCcy].map(([ccy, res]) => [ccy, Number(res)]));
   } else {
     residualMinor = { [fnCcy]: Number(fnResidual) };
   }

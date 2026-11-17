@@ -1,5 +1,5 @@
 // art-791-check-je-multicurrency-balance — class-K property-test floor.
-// kernel_digest_at_authoring: sha256:62700189b068485409bb094e9e6ad9a90bb86396c6aec2464f961431b9c38400
+// kernel_digest_at_authoring: sha256:004f87f31572c010499a92bb5e94d81f466ab3ffab96b85b0b7ce9ee42aa3fe2
 // spec: JE-MULTICCY-BALANCE-1 (fixed contract in the row; research/borrow-triage-2026-10-29/
 //       ledger-checks-enhanced-recommendations-2026-10-30.md §3)
 // human_sign_off: builder JE-MULTICCY-BALANCE-1, 2026-10-30 (all inputs synthetic integers)
