@@ -205,6 +205,39 @@ export const COVERED = [
     share: 'n/a (new 2026-11-12, VERIFYBINDING-DIGEST-DEFAULT-1)',
   },
   {
+    // KERNEL-ERRATA-READER-1 (2026-11-16), entry 1 of 2: the whole-file ERRATA SNAPSHOT
+    // MODULE chaingraph/verify.html imports for the kernel-errata reader
+    // (chaingraph/errata-check.mjs). Baked from registry/errata/checkpoint's verbatim
+    // lines plus the recorded module errata (chaingraph/errata/sources/*) and their
+    // sha256-pinned predicates. prAbsentOk per kernel-digests: main's regen writes the
+    // module after merge and a PR is forbidden to commit it (SO #35); the snapshot DATA
+    // still ships on every PR head inside receipt-bundle-verify.html's vendored block
+    // (entry 2), so the self-contained page works from the moment the PR lands.
+    id: 'errata-reader-snapshot',
+    regen: 'node scripts/gen-errata-snapshot.mjs --only errata-reader-snapshot',
+    gate: 'node scripts/gen-errata-snapshot.mjs --check',
+    writes: ['chaingraph/errata/errata-snapshot.mjs'],
+    artifacts: ['chaingraph/errata/errata-snapshot.mjs'],
+    prAbsentOk: true,
+    share: 'n/a (new 2026-11-16, KERNEL-ERRATA-READER-1)',
+  },
+  {
+    // KERNEL-ERRATA-READER-1 (2026-11-16), entry 2 of 2: the REGION writer on the two
+    // pages that host the reader. errata.html gains the generated table of module errata
+    // between KERNEL-ERRATA-TABLE markers; chaingraph/receipt-bundle-verify.html (a
+    // deliberately self-contained page, CONTRACT 1.1: it imports nothing) gets the
+    // vendored reader + snapshot blocks between ERRATA-READER-VENDORED and
+    // ERRATA-SNAPSHOT-VENDORED markers. Declared in check-main-only-paths.mjs
+    // REGION_WRITER_IDS: a PR authors the prose around these regions and carries the
+    // pages; main's regen owns the block interiors after merge.
+    id: 'errata-page-regions',
+    regen: 'node scripts/gen-errata-snapshot.mjs --only errata-page-regions',
+    gate: 'node scripts/gen-errata-snapshot.mjs --check',
+    writes: ['errata.html', 'chaingraph/receipt-bundle-verify.html'],
+    artifacts: ['errata.html', 'chaingraph/receipt-bundle-verify.html'],
+    share: 'n/a (new 2026-11-16, KERNEL-ERRATA-READER-1)',
+  },
+  {
     // REPLAY-HOUSE-SIGN-1 (2026-11-14): the HOUSE LINE of the determinism record. Replays the
     // tracked fixture corpus (scripts/replay-result.mjs) and writes the two digests that
     // .github/workflows/replay-house-attest.yml signs on upstream. Content only, so a fixpoint
