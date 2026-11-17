@@ -22,6 +22,44 @@ Home-office deduction and IRC 280A(g) Augusta-rule rental exclusion calculator p
 - entity_type_aug (string, required): Entity paying the rent: soleProp or scorp.
 - owner_marginal_rate_pct (number, required): Owner marginal rate, percent. 0 falls back to 32.
 
+## Outputs
+
+- refusal_reason (string,null, required)
+- office_sq_ft (number,null, required)
+- home_sq_ft (number,null, required)
+- business_use_fraction (number,null, required)
+- gross_business_income_usd (number,null, required)
+- entity_type_ho (string,null, required)
+- rental_days (number,null, required)
+- daily_rental_rate_usd (number,null, required)
+- corp_tax_rate (number,null, required)
+- owner_marginal_rate (number,null, required)
+- entity_type_aug (string,null, required)
+- total_home_expenses_usd (number,null, required)
+- regular_deduction_before_gross_income_cap_usd (number,null, required)
+- regular_deduction_usd (number,null, required)
+- simplified_deduction_before_gross_income_cap_usd (number,null, required)
+- simplified_deduction_usd (number,null, required)
+- simplified_method_selectable (boolean,null, required)
+- simplified_wins_on_amounts (boolean,null, required)
+- best_home_office_deduction_usd (number,null, required)
+- best_home_office_method (string,null, required)
+- gross_income_cap_applied_to (string,null, required)
+- total_rental_income_usd (number,null, required)
+- qualifies_280a_g_day_test (boolean,null, required)
+- augusta_tax_free_income_usd (number,null, required)
+- augusta_corp_deduction_usd (number,null, required)
+- augusta_tax_benefit_usd (number,null, required)
+- augusta_tax_benefit_at_owner_rate_usd (number,null, required)
+- home_office_tax_benefit_usd (number,null, required)
+- combined_tax_benefit_usd (number,null, required)
+- combined_tax_benefit_at_owner_rate_basis_usd (number,null, required)
+- switches (object, required)
+- fallback_fields (array, required)
+- compliance_flags (array, required)
+- warnings (array, required)
+- notes (array, required)
+
 ## Sample
 
 ```json
