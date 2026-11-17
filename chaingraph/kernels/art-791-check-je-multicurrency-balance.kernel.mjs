@@ -135,7 +135,7 @@ function evaluateEntry(e, ctx) {
 
   const warnings = [];
   const residualByCcy = new Map();
-  let fnResidual = 0;
+  let fnResidual = 0n;
   let firstRefusal = null;
 
   for (const ln of lines) {
@@ -174,26 +174,22 @@ function evaluateEntry(e, ctx) {
     }
 
     if (basis === 'per_currency') {
-      residualByCcy.set(ccy, (residualByCcy.get(ccy) || 0) + ln.amount_minor);
+      residualByCcy.set(ccy, (residualByCcy.get(ccy) || 0n) + BigInt(ln.amount_minor));
     } else {
-      fnResidual += fnAmt;
+      fnResidual += BigInt(fnAmt);
     }
   }
 
   if (firstRefusal) return refused(firstRefusal, warnings, entryId);
 
   let residualMinor;
-  let maxResidual;
   if (basis === 'per_currency') {
-    residualMinor = Object.fromEntries(residualByCcy);
-    maxResidual = 0;
-    for (const res of residualByCcy.values()) {
-      const r = Math.abs(res);
-      if (r > maxResidual) maxResidual = r;
+    residualMinor = {};
+    for (const [ccy, res] of residualByCcy) {
+      residualMinor[ccy] = Number(res);
     }
   } else {
-    residualMinor = { [fnCcy]: fnResidual };
-    maxResidual = Math.abs(fnResidual);
+    residualMinor = { [fnCcy]: Number(fnResidual) };
   }
 
   // Status: the largest absolute residual across the relevant currency set is compared
@@ -202,16 +198,16 @@ function evaluateEntry(e, ctx) {
   let status = 'balanced';
   if (basis === 'per_currency') {
     for (const [ccy, res] of residualByCcy) {
-      const r = Math.abs(res);
-      const t = Object.hasOwn(tolerance, ccy) ? tolerance[ccy] : 0;
-      if (r === 0) continue;
+      const r = res < 0n ? -res : res;
+      const t = BigInt(Object.hasOwn(tolerance, ccy) ? tolerance[ccy] : 0);
+      if (r === 0n) continue;
       if (r <= t) { if (status === 'balanced') status = 'within_tolerance'; }
       else status = 'imbalanced';
     }
   } else {
-    const r = Math.abs(fnResidual);
-    const t = Object.hasOwn(tolerance, fnCcy) ? tolerance[fnCcy] : 0;
-    if (r !== 0) {
+    const r = fnResidual < 0n ? -fnResidual : fnResidual;
+    const t = BigInt(Object.hasOwn(tolerance, fnCcy) ? tolerance[fnCcy] : 0);
+    if (r !== 0n) {
       if (r <= t) status = 'within_tolerance';
       else status = 'imbalanced';
     }
