@@ -1458,6 +1458,24 @@ const PREFLIGHT_ONLY = new Map([
     "(scripts/ci-paths.json), so a PR that changes only a vintage table still runs the full " +
     "preflight and the stale page is caught. The page is PR-carried on purpose: declaring it a " +
     "derived-artifacts COVERED artifact would make it main-only and refuse its own birth PR."],
+  // ── OBLIGATION-PAGE-1 (2026-11-17) ──────────────────────────────────────────
+  ["check-obligation-page.mjs",
+    "Obligation map gate O6: the generated md twin's Not covered block equals the coverage " +
+    "file's out_of_scope list. Hard in preflight; its CI route is scripts-verify.yml full " +
+    "preflight (the workflow runs `node scripts/preflight.mjs`), and its INPUT " +
+    "chaingraph/obligations/** is in the scripts-verify relevance list (scripts/ci-paths.json, " +
+    "the errata precedent), so a coverage-only PR still runs it. Reads only tracked repo files " +
+    "(chaingraph.json, coverage sidecars, the generated twins) - no network, no CI-only input. " +
+    "Twin-staleness findings split INSIDE the gate on isMainContext(): advisory on a PR (the " +
+    "twin is SO #35 single-writer output a PR must not commit), HARD on main; on merge_group " +
+    "the gate overlay-reads the assembled tree (a DERIVED_ROOT_GATES member in " +
+    "derived-artifacts.mjs), so the queue judges the freshly regenerated twins."],
+  ["check-obligation-page.selftest.mjs",
+    "Gate O6's paired red/green controls (GATE-SELFTEST-META-1). Hermetic fixture legs plus a " +
+    "renderer/parser round-trip over the real coverage files; the real-tree CLI leg tolerates " +
+    "only the by-construction twin-staleness red (SO #35 window between a coverage-affecting " +
+    "merge and main's regen). Same CI route as the gate itself: scripts-verify.yml full " +
+    "preflight."],
 ]);
 
 // ── DECLARATION SYNTAX (axis 2) ───────────────────────────────────────────────
