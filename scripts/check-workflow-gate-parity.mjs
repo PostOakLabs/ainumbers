@@ -1448,6 +1448,8 @@ const PREFLIGHT_ONLY = new Map([
     "chaingraph/standard/clause-snapshot-registry.json) - no network, no CI-only input. " +
     "Those input paths are in the scripts-verify relevance list (scripts/ci-paths.json), so a " +
     "PR that changes only a vintage table still runs the full preflight."],
+  // ── PAGE-MANIFEST-PARITY-GATE-1 (2026-11-16) ────────────────────────────────
+  ["check-manifest-parity.selftest.mjs", SELF_TEST],
   // ── VINTAGE-CALENDAR-1 (2026-11-16) ─────────────────────────────────────────
   ["gen-vintage-calendar.mjs",
     "Vintage-calendar page writer and its --check / --self-test. Hard in preflight; its CI " +
