@@ -1932,6 +1932,16 @@ const GATES = [
   // fact and vintage agree) and V4 (every source digest resolves in the clause snapshot registry).
   ['Vintage table V1/V2/V4 (VINTAGE-TABLE-1)', 'node chaingraph/kernels/__vintages__/check-vintages.mjs'],
   ['Vintage table controls (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node chaingraph/kernels/__vintages__/check-vintages.mjs --self-test'],
+  // VINTAGE-CALENDAR-1: the public calendar page renders from the table through its
+  // writer; --check byte-compares the page against a fresh render (pure function, no
+  // wall clock), so a table edit without a page regen reds here and on main. The
+  // page itself is PR-carried: it is deliberately NOT a derived-artifacts COVERED
+  // artifact (a whole-file COVERED page is main-only and its birth PR could not
+  // carry it), and its count sentinels are registered in counts.mjs but the page is
+  // not in verify-counts.mjs's scan list (a counts-declared page classifies
+  // count-sentinel in check-main-only-paths.mjs, which refuses adding one in a PR).
+  ['Vintage calendar page freshness (VINTAGE-CALENDAR-1)', 'node scripts/gen-vintage-calendar.mjs --check'],
+  ['Vintage calendar page controls (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/gen-vintage-calendar.mjs --self-test'],
   // ADVISORY hostile-input census of kernels this diff adds or changes (always exits 0).
   ['Kernel hostile-input census (ADVISORY)', 'node scripts/check-kernel-hostile-census.mjs'],
   ['Kernel hostile-input census controls (RED+GREEN)', 'node scripts/check-kernel-hostile-census.mjs --self-test'],
