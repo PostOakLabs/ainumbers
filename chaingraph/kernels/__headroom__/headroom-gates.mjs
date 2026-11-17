@@ -267,6 +267,20 @@ export async function runControls() {
   const redH1 = red.findings.filter((f) => f.gate === 'H1');
   rec('H4 red (flipped comparator turns H1 red)', redH1.length > 0 && redH1.some((f) => !f.ok), redH1.map((f) => f.detail).join('; '));
 
+  // HEADROOM-SELFCHECK-1-RESUME-1: a scratch copy with a WRONG PUBLISHED FIGURE must turn H1
+  // red on its own (the kernel verdict logic is untouched; only the slack figure lies).
+  const k218 = await loadCompute(d218);
+  const wrongCompute = async (pp) => {
+    const r = await k218(clone(pp));
+    if (r && r.output_payload && typeof r.output_payload.headroom === 'number') {
+      r.output_payload.headroom = r.output_payload.headroom + 100;
+    }
+    return r;
+  };
+  const wrong = await runDeclaration(d218, { compute: wrongCompute, failOpen });
+  const wrongH1 = wrong.findings.filter((f) => f.gate === 'H1');
+  rec('H1 red (wrong published figure)', wrongH1.length > 0 && wrongH1.some((f) => !f.ok), wrongH1.map((f) => f.detail).join('; '));
+
   // H2: real witnesses pass, tampered witnesses fail
   const rep = real.reports[0];
   const entry = rep.entries.find((e) => e.status === 'flip' && e.pointer === '/points_and_fees' && e.direction === '+');
