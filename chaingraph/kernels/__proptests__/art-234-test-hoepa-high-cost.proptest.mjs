@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:395efd18dd8233b45dc22b2414180fd195afa91e131b4ea32e131175efaedd9e
+// kernel_digest_at_authoring: sha256:55ffa3354198aee2a6c610962a6463ee8c8b54ae0f605f4f5f67b3501780d1d4
 //
 // FV-PROPFLOOR-SHARD-B7-1 — property-test floor for art-234-test-hoepa-high-cost.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (apr_spread subtraction through r4 rounding,
@@ -11,7 +11,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-234-test-hoepa-high-cost.proptest.mjs
 
-import { compute } from '../art-234-test-hoepa-high-cost.kernel.mjs';
+import { compute, buildArtifact } from '../art-234-test-hoepa-high-cost.kernel.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -147,6 +147,36 @@ results.properties.push(checkP1_isHighCostMatchesAnyTrigger());
 results.properties.push(checkP2_aprThresholdSelectionAgreement());
 results.properties.push(checkP3_pointsFeesLimitMonotone());
 results.properties.push(checkP4_aprSpreadRoundTrip());
+
+// P5b -- buildArtifact_never_throws: a preimage the shared canonicalizer would reject mints an
+// artifact with a null execution_hash and a hash_refusal beside it; a clean input gets a
+// 64-hex hash and no hash_refusal.
+async function checkBuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 511; i++) deep = { a: deep };
+  const unhashable = [
+    { loan_amount: 1e300 }, { loan_amount: NaN }, { loan_amount: Infinity }, { loan_amount: -Infinity },
+    { apr: 1e300 }, { points_and_fees: 1e300 }, { extra: 1e300 },
+    { extra: deep }, { extra: new Array(1000001).fill(0) },
+  ];
+  for (const pp of unhashable) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) { violations++; console.log('never_throws violation: artifact shape', Object.keys(pp)[0]); }
+    } catch (e) { violations++; console.log(`never_throws violation: buildArtifact threw: ${String(e.message).slice(0, 80)}`); }
+  }
+  for (const pp of [{ loan_amount: 300000, apr: 7.5, points_and_fees: 5000 }, {}]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('never_throws violation: clean input lost its hash'); }
+    } catch (e) { violations++; console.log(`never_throws violation: threw on clean input: ${String(e.message).slice(0, 80)}`); }
+  }
+  return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
+}
+results.properties.push(await checkBuildArtifactNeverThrows());
 results.boundary_forced = checkP5_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);

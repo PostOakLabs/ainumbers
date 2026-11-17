@@ -692,6 +692,14 @@ const PREFLIGHT_ONLY = new Map([
     "the checker's own logic against in-memory fixtures and can only be reddened by a change to " +
     "that checker, which is exactly the PR shape scripts-verify.yml's path filter catches."],
   ["check-art220-table-parity.test.mjs", SELF_TEST],
+  // REGZ-TABLE-SINGLE-WRITER-3: the art-218/art-234 page/kernel table-parity gates and their
+  // SO #40b mutation controls run in preflight, whose CI route is scripts-verify.yml's preflight
+  // invocation. The checkers read only tracked repo files (kernel export + page region), so no
+  // CI-only input exists and a named workflow step would duplicate the same suite.
+  ["check-art218-table-parity.mjs", VIA_PREFLIGHT],
+  ["check-art218-table-parity.test.mjs", SELF_TEST],
+  ["check-art234-table-parity.mjs", VIA_PREFLIGHT],
+  ["check-art234-table-parity.test.mjs", SELF_TEST],
   // ── SEALED-KERNEL-RECEIPT-PUSH-GATE-1 (2026-10-19) ─────────────────────────────
   ["check-sealed-kernel-receipt.mjs",
     "SO #36 sealed-kernel receipt push gate (SEALED-KERNEL-RECEIPT-PUSH-GATE-1): for every kernel " +
