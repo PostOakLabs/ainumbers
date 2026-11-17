@@ -7,7 +7,7 @@ metadata:
   source: "ainumbers.co/mcp/showcase-prompts.json"
   prompt_id: "casp-authorization-path"
   verify_surface: "https://ledger.ainumbers.co/ https://mcp.ainumbers.co/mcp"
-  version: "8770e0e5aba5"
+  version: "1e1ce005ada9"
 ---
 
 # CASP authorization path

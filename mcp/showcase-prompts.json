@@ -1469,5 +1469,89 @@
       "https://mcp.ainumbers.co/mcp"
     ],
     "body": "Make a deployment gate read a Helm run's evidence instead of a human's thumbs-up.\n\n1. On your paired helmd, pick one completed workflow run. helmd artifact.get it; record the execution_hash and per-step digests.\n2. helmd artifact.verify the run against its manifest digest. A run that fails verify must never reach the gate; confirm your policy rejects it.\n3. helmd evidence.export the run as its in-toto statement export. Record the statement's subject digests.\n4. Inspect the statement: confirm the subjects name the artifacts your deployment actually consumes, not a superset.\n5. Negative test: modify one byte of a subject artifact and re-verify the statement; confirm verification fails. Quote the failure.\n6. Wire the gate: your policy engine (cosign verify or a Kyverno verify rule against the exported statement) checks the statement before allowing the deployment. Record the policy rule text.\n7. Give me the gate decision output for one allowed and one blocked deployment.\n8. Write the runbook entry for the platform channel: the export command, the policy rule, the two test outputs, and the line that the gate reads digests, not opinions. If a named tool is not in your tool list, call call_tool with { \"name\": \"<tool>\", \"arguments\": { … } }. It runs the same validation and returns the same receipt."
+  },
+  {
+    "id": "securities-trade-to-settlement",
+    "group": "banking",
+    "doorways": [
+      "mcp",
+      "ledger"
+    ],
+    "requires": [
+      "R",
+      "Z"
+    ],
+    "title": "A securities trade from instruction to settlement",
+    "audience": "post-trade operations",
+    "one_line": "Lint the sese.023 instruction and sese.024 advice, classify T+1 cut-off breaches, score the fail probability, and seal the run as a receipt.",
+    "tools": [
+      "lint_securities_settlement_message",
+      "classify_t1_posttrade_timing",
+      "predict_settlement_fail",
+      "build_session_receipt",
+      "verify_execution_hash"
+    ],
+    "arguments": [],
+    "verify_surface": [
+      "https://ledger.ainumbers.co/",
+      "https://mcp.ainumbers.co/mcp"
+    ],
+    "body": "Follow one securities trade from instruction to settlement and leave a receipt any reviewer can re-check.\n\n1. Lint a synthetic sese.023 settlement instruction with lint_securities_settlement_message (schema conformance, mandatory fields, ISIN checks); fix the reported defects in the input and re-run until clean. Record the execution hash.\n2. Lint the matching sese.024 status advice the same way and confirm the status progression the instruction and the advice describe together.\n3. Classify the post-trade timings with classify_t1_posttrade_timing on declared trade dates and market cut-offs. List every step that breaches its cut-off under the T+1 regime and the margin each step has left.\n4. Score the trade's fail probability with predict_settlement_fail from anonymized configuration features (SSI match status, instrument liquidity tier, counterparty fail-history band, deadline proximity). Report the score and the drivers behind it.\n5. Seal the run with build_session_receipt over the hashes from steps 1 to 4, then call verify_execution_hash (send each receipt's execution_hash as claimed_hash) so every number re-verifies from the receipt alone.\nDeliverable: lint verdicts, the cut-off breach list, the fail score with its drivers, the ledger link, and one sentence on what the receipts prove (the declared synthetic inputs were validated, classified, and scored as given) and what they do not prove (no real client data, no settlement outcome, no compliance determination).\nCall shape: every ChainGraph node tool takes its arguments nested under one wrapper object, e.g. {\"policy_parameters\": { ... }}; flat arguments are discarded by schema validation. If a named tool is not in your tool list, call call_tool with { \"name\": \"<tool>\", \"arguments\": { … } }. It runs the same validation and returns the same receipt."
+  },
+  {
+    "id": "emir-report-to-pairing",
+    "group": "compliance",
+    "doorways": [
+      "mcp",
+      "ledger"
+    ],
+    "requires": [
+      "R",
+      "Z"
+    ],
+    "title": "An EMIR Refit report from validation to pairing",
+    "audience": "EMIR Refit reporting",
+    "one_line": "Validate the auth.030, pair both counterparties by UTI, close the reconciliation exceptions, and seal the evidence.",
+    "tools": [
+      "validate_emir_trade_report",
+      "reconcile_emir_pairing",
+      "build_session_receipt",
+      "verify_execution_hash"
+    ],
+    "arguments": [],
+    "verify_surface": [
+      "https://ledger.ainumbers.co/",
+      "https://mcp.ainumbers.co/mcp"
+    ],
+    "body": "Follow one derivative trade through the EMIR Refit reporting checks and leave a receipt a supervisor can re-check.\n\n1. Validate a synthetic auth.030 trade report with validate_emir_trade_report (action type, both 20-character LEIs, UTI, UPI, notional, currency); fix the reported field defects in the input and re-run until clean. Record the execution hash.\n2. Pair the two counterparties' reports by UTI with reconcile_emir_pairing over a declared matching-field set within a per-field tolerance. List every field that lands outside tolerance with its two reported values.\n3. Correct each out-of-tolerance field in the input, re-run reconcile_emir_pairing, and keep the before/after exception list until the declared matching-field set comes back clean.\n4. Seal the run with build_session_receipt over the hashes from steps 1 to 3, then call verify_execution_hash (send each receipt's execution_hash as claimed_hash) so every number re-verifies from the receipt alone.\nDeliverable: the validation verdict, the before/after pairing exceptions, the ledger link, and one sentence on what the receipts prove (the declared synthetic reports were validated and paired as given) and what they do not prove (no real counterparty data, no filing, no regulatory determination).\nCall shape: every ChainGraph node tool takes its arguments nested under one wrapper object, e.g. {\"policy_parameters\": { ... }}; flat arguments are discarded by schema validation. If a named tool is not in your tool list, call call_tool with { \"name\": \"<tool>\", \"arguments\": { … } }. It runs the same validation and returns the same receipt."
+  },
+  {
+    "id": "regulatory-reporting-cycle",
+    "group": "banking",
+    "doorways": [
+      "mcp",
+      "ledger"
+    ],
+    "requires": [
+      "R",
+      "Z"
+    ],
+    "title": "A regulatory reporting cycle from variance to capital",
+    "audience": "bank regulatory reporting",
+    "one_line": "Explain the period variance, attest the daily reconciliation, map the Schedule RC-R capital, and seal each receipt.",
+    "tools": [
+      "explain_regrpt_variance",
+      "attest_daily_reconciliation",
+      "map_call_report_schedule_rcr",
+      "map_call_report_schedule_rc",
+      "build_session_receipt",
+      "verify_execution_hash"
+    ],
+    "arguments": [],
+    "verify_surface": [
+      "https://ledger.ainumbers.co/",
+      "https://mcp.ainumbers.co/mcp"
+    ],
+    "body": "Run one regulatory reporting cycle and leave receipts a reviewer can re-check.\n\n1. Compare this period's regulatory report instance with the prior period using explain_regrpt_variance. Report absolute and relative movement per line item against the declared materiality threshold, and name the lines that moved most.\n2. Attest the daily reconciliation duty with attest_daily_reconciliation over a caller-declared population. The attestation states the duty was discharged over that population; the match computation itself stays outside it.\n3. Map the FFIEC 031 Schedule RC-R components with map_call_report_schedule_rcr from declared CET1, additional Tier 1, and Tier 2 capital, total risk-weighted assets, and total leverage exposure. Return the mapped ratios. The sibling tool map_call_report_schedule_rc maps the Schedule RC balance-sheet lines the same way if the cycle needs them.\n4. Seal the run with build_session_receipt over the hashes from steps 1 to 3, then call verify_execution_hash (send each receipt's execution_hash as claimed_hash) so every number re-verifies from the receipt alone.\nDeliverable: the variance table, the attestation receipt, the capital mapping, the ledger link, and one sentence on what the receipts prove (the declared inputs were processed as given) and what they do not prove (no filing submission, no capital adequacy conclusion).\nCall shape: every ChainGraph node tool takes its arguments nested under one wrapper object, e.g. {\"policy_parameters\": { ... }}; flat arguments are discarded by schema validation. If a named tool is not in your tool list, call call_tool with { \"name\": \"<tool>\", \"arguments\": { … } }. It runs the same validation and returns the same receipt."
   }
 ]

@@ -39,6 +39,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ROOT_FOOTER, ROOT_FOOTER_CSS } from '../../chaingraph/_page-chrome.mjs';
 import { hubCountsFromHtml, hubCountPhrase, stripHubCountNumeral } from '../counts.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -237,7 +238,12 @@ export function extractChrome(startHtml) {
 }
 
 export function readStartChrome() {
-  return extractChrome(readFileSync(resolve(REPO, 'start.html'), 'utf8'));
+  const chrome = extractChrome(readFileSync(resolve(REPO, 'start.html'), 'utf8'));
+  // The footer regions of start.html are rewritten from the chrome SSOT by
+  // 'root-page-footers', which runs after these page writers in a regen pass.
+  // Read the SSOT directly so the footer cannot lag start.html by one pass
+  // (REGEN-FIXPOINT-ROOT-FOOTERS-1). On a fresh tree the two are byte-equal.
+  return { ...chrome, footer: ROOT_FOOTER, footerCss: ROOT_FOOTER_CSS };
 }
 
 export function readRegistry() {

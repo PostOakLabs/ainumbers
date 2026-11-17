@@ -7,7 +7,7 @@ metadata:
   source: "ainumbers.co/mcp/showcase-prompts.json"
   prompt_id: "payments-day-end-to-end"
   verify_surface: "https://ledger.ainumbers.co/ https://mcp.ainumbers.co/mcp https://anchor.ainumbers.co/mcp"
-  version: "8770e0e5aba5"
+  version: "1e1ce005ada9"
 ---
 
 # A payments day from start to finish

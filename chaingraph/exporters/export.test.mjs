@@ -101,6 +101,13 @@ const qr = qrMatrix('https://ainumbers.co/chaingraph/verify?hash=' + 'a'.repeat(
 ok(qr.size >= 21 && qr.size % 4 === 1, `qr size is a valid module count (${qr.size})`);
 const finderOK = (r, c) => qr.modules[r][c] && qr.modules[r + 6][c] && qr.modules[r][c + 6] && !qr.modules[r + 1][c + 1];
 ok(finderOK(0, 0) && finderOK(0, qr.size - 7) && finderOK(qr.size - 7, 0), 'qr has 3 finder patterns at the corners');
+// qr reference parity: every matrix must equal what upstream's own encoder produces
+// (fixtures/qr-reference/vectors.json). Runs here because this file is already a wired gate.
+const { runQrReferenceParity } = await import('./qr-reference-parity.mjs');
+const qrParity = runQrReferenceParity();
+for (const f of qrParity.failures.slice(0, 10)) console.error('    ' + f);
+ok(qrParity.failures.length === 0, `qr matches the upstream reference encoder (${qrParity.matched} matrices, ${qrParity.refused} refusals, ${qrParity.failures.length} failures)`);
+ok(qrParity.versions.length === 40, `qr reference vectors cover all 40 versions (${qrParity.versions.length})`);
 
 // guards
 ok(!exportArtifact({ artifact, format: 'xbrl' }).ok, 'xbrl without taxonomy rejected');
