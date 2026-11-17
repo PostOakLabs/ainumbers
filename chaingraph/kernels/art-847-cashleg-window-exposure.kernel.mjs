@@ -77,7 +77,7 @@ function daysInMonth(y, m) {
   return (m === 4 || m === 6 || m === 9 || m === 11) ? 30 : 31;
 }
 
-// "YYYY-MM-DD" with a calendar check; returns a day number (days since 1970-01-01) or null.
+// "YYYY-MM-DD" with a calendar check; returns a day number (days from 1970-01-01) or null.
 function parseDate(s) {
   if (typeof s !== 'string') return null;
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
