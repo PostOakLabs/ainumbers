@@ -1,6 +1,6 @@
 // art-773-daycount-year-fraction.proptest.mjs — class-K property-test FLOOR
 // (FV-PBT-FLOOR-BUILD-SPEC.md) for the SHARED-DAYCOUNT-BUNDLE-1 demonstrator.
-// kernel_digest_at_authoring: sha256:bb9fe4f950004e18f78fdfdd1beaa6691381e31877f66491534ca9e6f8465401
+// kernel_digest_at_authoring: sha256:721ab5ce139162c47765e35a2a179cd0a9636dd5af5cd74035961ce8182386fc
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof. Internal engineering QC only.
@@ -35,7 +35,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-773-daycount-year-fraction.proptest.mjs
 
-import { compute } from '../art-773-daycount-year-fraction.kernel.mjs';
+import { compute, buildArtifact } from '../art-773-daycount-year-fraction.kernel.mjs';
 import { runFixtureOracle, summarize } from './_pbt-common.mjs';
 import { _daycount } from '../_daycount.bundle.mjs';
 import { _amort } from '../_amort.bundle.mjs';
@@ -251,6 +251,36 @@ function checkP7Bus252() {
   return { name: 'P7 BUS_252 restatement', checked, violations: violations.length, detail: violations };
 }
 
+// P8 (D6) buildArtifact_never_throws: a preimage the shared canonicalizer would reject mints an
+// artifact with a null execution_hash and a hash_refusal beside it; a clean input gets a 64-hex hash.
+async function checkP8BuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 511; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const base = { mode: 'ACT_360', start: '2024-01-01', end: '2024-07-01' };
+  const hostile = [
+    { zzz: 1e300 }, { zzz: NaN }, { zzz: -Infinity }, { zzz: Infinity }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } },
+    { zzz: deep }, { zzz: wide },
+  ];
+  for (const delta of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...base, ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) { violations++; console.log('P8 violation: artifact shape'); }
+      if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) { violations++; console.log('P8 violation: hostile value echoed'); }
+    } catch (e) { violations++; console.log('P8 violation: buildArtifact threw: ' + String(e.message).slice(0, 80)); }
+  }
+  for (const pp of [base, { ...base, mode: 'ACT_365' }, null, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('P8 violation: clean input lost its hash'); }
+    } catch (e) { violations++; console.log('P8 violation: buildArtifact threw on clean input: ' + String(e.message).slice(0, 80)); }
+  }
+  return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -266,6 +296,7 @@ const properties = [
   checkP5RollContract(),
   checkP6IcmaShape(),
   checkP7Bus252(),
+  await checkP8BuildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — SHARED-DAYCOUNT-BUNDLE-1 demonstrator.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
