@@ -160,6 +160,71 @@ writeFileSync(join(coverageDir, 'art-0000-synthetic.json'), JSON.stringify(goodC
   rmSync(tmp, { recursive: true, force: true });
 }
 
+// ── O4 re-pin flow (row OBLIGATION-REPIN-1): the old list prints beside the new digest ──
+console.log('O4 re-pin flow (old list printed beside the new digest, red then green):');
+{
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const tmp2 = mkdtempSync(join(tmpdir(), 'obligation-repin-'));
+  const nodes2 = join(tmp2, 'nodes'); const obligations2 = join(tmp2, 'obligations');
+  const coverage2 = join(obligations2, 'coverage'); const baseline2 = join(obligations2, 'o4-baseline.json');
+  mkdirSync(nodes2, { recursive: true }); mkdirSync(coverage2, { recursive: true });
+  const O4 = () => checkO4({ nodesDir: nodes2, obligationsDir: obligations2, coverageDir: coverage2, baselinePath: baseline2 });
+  // the fresh split a re-pin eventually owes the new digest
+  const digBList = {
+    clause_digest: DIG_B, excerpt_bytes: 1200,
+    split_by: 'model-c', split_at: '2026-11-17',
+    reviewed_by: 'model-d', reviewed_at: '2026-11-17',
+    obligations: [
+      { id: 'O1', label: 'fresh split first obligation', span: { start: 0, end: 600 }, kind: 'condition' },
+      { id: 'O2', label: 'fresh split second obligation', span: { start: 600, end: 1100 }, kind: 'threshold' },
+      { id: 'O3', label: 'fresh split third obligation', span: { start: 1100, end: 1199 }, kind: 'definition' },
+    ],
+  };
+  // plant the re-pin: the shard now cites DIG_B (unlisted, unbaselined) while
+  // its coverage file still names DIG_A, whose list is on disk
+  writeFileSync(join(nodes2, 'art-0000-synthetic.json'), JSON.stringify({ tool_id: 'art-0000-synthetic', cited_clause_digest: [{ digest: DIG_B }] }));
+  writeFileSync(join(obligations2, 'a'.repeat(64) + '.json'), JSON.stringify(goodList));
+  const repinCov = clone(goodCoverage);
+  writeFileSync(join(coverage2, 'art-0000-synthetic.json'), JSON.stringify(repinCov));
+  writeFileSync(baseline2, JSON.stringify({}));
+  {
+    const errs = O4();
+    expectRed('re-pinned digest has no list', errs, 'no obligation list and no o4-baseline entry');
+    expectRed('coverage still names the old digest', errs, 'no longer cites');
+    const header = errs.find((e) => e.startsWith('re-pin art-0000-synthetic: old list aaaaaaaa') && e.includes('beside new digest bbbbbbbb'));
+    if (header) ok('old list header printed beside the new digest (' + header.slice(0, 90) + ')');
+    else fail('no old-list-beside-new-digest header: ' + errs.join(' | ').slice(0, 200));
+    if (errs.some((e) => e.includes('[0,400) condition: first testable obligation'))) ok('old list obligations printed with spans and labels');
+    else fail('no old-list obligation lines in the re-pin output');
+    if (errs.some((e) => e.includes('does not carry over') && e.includes('propose-obligation-split.mjs'))) ok('re-pin red requires the fresh split');
+    else fail('no fresh-split requirement line in the re-pin output');
+    const headers = errs.filter((e) => e.includes('beside new digest bbbbbbbb')).length;
+    if (headers === 1) ok('the same re-pin prints its old list exactly once (unlisted red and stale-coverage red deduped)');
+    else fail(`expected exactly 1 beside-header, got ${headers}`);
+  }
+  // cure the re-pin: a fresh split for DIG_B, the baseline stays empty, the
+  // coverage file names the digest the node cites now
+  writeFileSync(join(obligations2, 'b'.repeat(64) + '.json'), JSON.stringify(digBList));
+  const curedCov = clone(goodCoverage); curedCov.clause_digests = [DIG_B];
+  writeFileSync(join(coverage2, 'art-0000-synthetic.json'), JSON.stringify(curedCov));
+  expectGreen('fresh split plus updated coverage greens the re-pin', O4());
+  // part 3 alone: DIG_B baselined (so the unlisted red is quiet) but the
+  // coverage file still names DIG_A; the beside-block must still print
+  rmSync(join(obligations2, 'b'.repeat(64) + '.json'));
+  writeFileSync(baseline2, JSON.stringify({ [DIG_B]: 'pending obligation backfill (OBLIGATION-BACKFILL-n)' }));
+  writeFileSync(join(coverage2, 'art-0000-synthetic.json'), JSON.stringify(repinCov));
+  {
+    const errs = O4();
+    expectRed('baselined re-pin still flags stale coverage', errs, 'no longer cites');
+    const headers = errs.filter((e) => e.includes('beside new digest bbbbbbbb')).length;
+    if (headers === 1) ok('stale-coverage red alone still prints the old list beside the new digest');
+    else fail(`expected exactly 1 beside-header on the stale-coverage-only path, got ${headers}`);
+    if (!errs.some((e) => e.includes('no obligation list and no o4-baseline entry'))) ok('baselined new digest keeps the unlisted red quiet');
+    else fail('unlisted red fired despite the baseline entry');
+  }
+  rmSync(tmp2, { recursive: true, force: true });
+}
+
 // ── schema drift guard ───────────────────────────────────────────────────────
 console.log('schema drift guard (JSON Schema files match the validators):');
 {
