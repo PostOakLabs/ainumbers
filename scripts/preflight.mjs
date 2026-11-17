@@ -1787,6 +1787,7 @@ const GATES = [
   ['Vendored crypto digest pins (VENDOR-DIGEST-GATE-1)', 'node scripts/check-vendored-digests.mjs'],
   ['Vendored crypto digest fixture proof (1-byte perturbation RED, SO #34c)', 'node scripts/check-vendored-digests.test.mjs'],
   ['MANIFEST name parity',         'node scripts/check-manifest-parity.mjs'],
+  ['Manifest example/output-schema parity controls (advisory class, RED/GREEN pair, GATE-SELFTEST-META-1)', 'node scripts/check-manifest-parity.selftest.mjs'],
   ['Manifest schema (SSOT-SCHEMA-1)', 'node scripts/check-manifest-schema.mjs'],
   // OUTPUTSCHEMA-GAP-1: every live-node manifest either declares output_schema or sits under the
   // down-only baseline ceiling (scripts/output-schema-baseline.json); every declared output_schema
@@ -2021,6 +2022,15 @@ const GATES = [
   // twins and their <link rel=alternate> head tags are SO #35 single-writer
   // artifacts written main-side) while it stays BLOCKING on main.
   ['Markdown twin freshness (PAGE-MD-TWINS-1)', 'node scripts/gen-page-md-twins.mjs --check'],
+  // OBLIGATION-PAGE-1: obligation map gate O6 — the generated md twin's Not
+  // covered block equals the coverage file's out_of_scope list. In-gate
+  // isMainContext() split (the MAINONLY-REMOVAL-ADVISORY-ON-PR-1 pattern):
+  // twin-staleness findings are advisory on a PR (the twin is SO #35
+  // single-writer output a PR must not commit) and HARD on main and on
+  // merge_group, where the gate overlay-reads the assembled tree's fresh twins
+  // (a DERIVED_ROOT_GATES member in derived-artifacts.mjs).
+  ['Obligation page agreement (O6, OBLIGATION-PAGE-1)', 'node scripts/check-obligation-page.mjs'],
+  ['Obligation page gate controls (RED/GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-obligation-page.selftest.mjs'],
   // AI-CATALOG-1 (AGENT-REACH-BUILD-SPEC §3.2): both well-known catalogs from one
   // generator. Freshness is advisory on a PR via the generic ADVISORY_ON_PR
   // categorisation (derived-artifacts.mjs COVERED ids ai-catalog + api-catalog):
@@ -2346,6 +2356,13 @@ const GATES = [
   ['Page-kernel digest fixture proof (SO #40b pairing)', 'node scripts/check-page-kernel-digest.test.mjs'],
   ['art-220 page/kernel TABLES single-writer parity (ART220-TABLE-SINGLE-WRITER-1)', 'node scripts/check-art220-table-parity.mjs'],
   ['art-220 TABLES parity mutation controls (SO #40b pairing)', 'node scripts/check-art220-table-parity.test.mjs'],
+  // REGZ-TABLE-SINGLE-WRITER-3: the art-218/art-234 node pages' year tables are GENERATED from the
+  // kernels' THRESHOLD_TABLES exports; a hand edit or a kernel change without --write reds these.
+  // Same mechanism as ART220-TABLE-SINGLE-WRITER-1's check-art220-table-parity.mjs (PR #1679).
+  ['art-218 page/kernel QM_TABLES single-writer parity (REGZ-TABLE-SINGLE-WRITER-3)', 'node scripts/check-art218-table-parity.mjs'],
+  ['art-218 QM_TABLES parity mutation controls (SO #40b pairing)', 'node scripts/check-art218-table-parity.test.mjs'],
+  ['art-234 page/kernel HOEPA_PF single-writer parity (REGZ-TABLE-SINGLE-WRITER-3)', 'node scripts/check-art234-table-parity.mjs'],
+  ['art-234 HOEPA_PF parity mutation controls (SO #40b pairing)', 'node scripts/check-art234-table-parity.test.mjs'],
   // §18 RECOMPUTE-EQUALITY (SO #34, ASYNC-VACUOUS-GATE-1). Re-executes every proven node's kernel in the
   // QuickJS sandbox and requires the receipt's journal.output to reproduce. ~8s over the full estate.
   ['§18 recompute-equality (SO #34)', 'node scripts/check-recompute-equality.mjs'],

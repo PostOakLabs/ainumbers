@@ -1,5 +1,5 @@
 // art-839-statement-footing-crossfoot — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:550d986913d180078e27e7c0fdd3b9369c307fdc8442fc3028359a85bbaf40be
+// kernel_digest_at_authoring: sha256:b2e2101d8a5aa0fb8ae96aaba936355c6d614eae9d1a5c7c2618b20c977893c8
 // spec: FOOTING-CROSSFOOT-NODE-1 board row (footing, cross-footing and note ties over declared integer values)
 // human_sign_off: PENDING
 //
@@ -11,7 +11,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-839-statement-footing-crossfoot.proptest.mjs
 
-import { compute } from '../art-839-statement-footing-crossfoot.kernel.mjs';
+import { compute, buildArtifact } from '../art-839-statement-footing-crossfoot.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32 } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-839-statement-footing-crossfoot';
@@ -206,6 +206,43 @@ function checkIncompleteNeverTies(rng) {
   return { name: 'unfooted_total_or_missing_crossfoot_never_ties', checked: N_CASES, violations };
 }
 
+// buildArtifact_never_throws (D6): an input whose {policy_parameters, output_payload} preimage the
+// shared canonicalizer would reject mints an artifact with a null execution_hash and a hash_refusal
+// beside it; a clean input (ties, breaks or refused) gets a 64-hex hash and no hash_refusal.
+async function checkBuildArtifactNeverThrows(rng) {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 511; i++) deep = { a: deep };
+  const wide = new Array(1000001).fill(0);
+  const hostile = [{ zzz: 1e300 }, { zzz: Infinity }, { zzz: -Infinity }, { zzz: NaN }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } }, { zzz: deep }, { zzz: wide }];
+  for (const delta of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...genStatement(rng), ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) { violations++; console.log('violation: artifact shape for ' + Object.keys(delta)[0]); }
+      if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) { violations++; console.log('violation: hostile value echoed'); }
+    } catch (e) { violations++; console.log('violation: buildArtifact threw: ' + String(e.message).slice(0, 80)); }
+  }
+  for (let i = 0; i < 50; i++) {
+    const pp = genStatement(rng);
+    if (i % 3 === 1) pp.lines[0].amounts_minor[0] += 7;
+    if (i % 3 === 2) delete pp.tolerance_minor;
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('violation: clean input lost its hash'); }
+    } catch (e) { violations++; console.log('violation: buildArtifact threw on clean input: ' + String(e.message).slice(0, 80)); }
+  }
+  for (const pp of [null, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash)) { violations++; console.log('violation: non-object input lost its hash'); }
+    } catch (e) { violations++; console.log('violation: buildArtifact threw on non-object: ' + String(e.message).slice(0, 80)); }
+  }
+  return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -221,6 +258,7 @@ const properties = [
   checkRefusalsAndIndeterminate(mulberry32(5)),
   checkDeterminismAndWarningsMirror(mulberry32(6)),
   checkIncompleteNeverTies(mulberry32(7)),
+  await checkBuildArtifactNeverThrows(mulberry32(8)),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test`);
 const ok = summarize(KERNEL_ID, oracle, properties);
