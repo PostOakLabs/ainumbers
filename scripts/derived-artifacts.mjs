@@ -1899,6 +1899,15 @@ export const DERIVED_ROOT_GATES = new Set([
   // fixture proofs that never overlay, so they stay out of the set).
   'node scripts/check-ask-agent-block.mjs',                  // ask-agent block freshness (registry, pages, manifests overlay)
   'node scripts/check-output-schema-coverage.mjs',           // output-schema coverage (registry, manifests overlay)
+  // OBLIGATION-PAGE-1 (2026-11-17): obligation gate O6 overlay-reads the twin
+  // (and the registry) through derivedResolve, so the merge_group tree is
+  // exactly the tree that will be main: the assembled tree's twins are the
+  // freshly regenerated single-writer output, and the gate's STALE findings go
+  // HARD there instead of ejecting every coverage-affecting PR on the stale
+  // committed twin a PR is forbidden to fix. Spelled exactly as preflight.mjs
+  // runs it; the .selftest.mjs sibling is a hermetic fixture proof that never
+  // overlays, so it stays out of the set.
+  'node scripts/check-obligation-page.mjs',                  // obligation page agreement (registry, twin overlay)
   // VERIFYBINDING-DIGEST-DEFAULT-1 (2026-11-12): check-ledger-hermetic.mjs NAMES the published
   // kernel-digest list (chaingraph/kernel-digests.json) in its fetch allowlist, so the derived-reader
   // text-match classifies it as reading main-regen derived bytes (DERIVED-READER-COVERAGE-1). It
