@@ -1448,6 +1448,16 @@ const PREFLIGHT_ONLY = new Map([
     "chaingraph/standard/clause-snapshot-registry.json) - no network, no CI-only input. " +
     "Those input paths are in the scripts-verify relevance list (scripts/ci-paths.json), so a " +
     "PR that changes only a vintage table still runs the full preflight."],
+  // ── VINTAGE-CALENDAR-1 (2026-11-16) ─────────────────────────────────────────
+  ["gen-vintage-calendar.mjs",
+    "Vintage-calendar page writer and its --check / --self-test. Hard in preflight; its CI " +
+    "route is scripts-verify.yml full preflight (the workflow runs `node scripts/preflight.mjs`), " +
+    "so a named workflow step would only duplicate the same suite. Reads only tracked repo files " +
+    "(data/vintages.json, chaingraph/standard/clause-snapshot-registry.json) - no network, no " +
+    "CI-only input. data/vintages.json is in the scripts-verify relevance list " +
+    "(scripts/ci-paths.json), so a PR that changes only a vintage table still runs the full " +
+    "preflight and the stale page is caught. The page is PR-carried on purpose: declaring it a " +
+    "derived-artifacts COVERED artifact would make it main-only and refuse its own birth PR."],
 ]);
 
 // ── DECLARATION SYNTAX (axis 2) ───────────────────────────────────────────────
