@@ -336,7 +336,7 @@ function validate(pp) {
     if (p.allowed_chain_ids !== undefined && !listIsArray(p.allowed_chain_ids, SETS_MAX)) r.push(refusal('BOUND_EXCEEDED', 'policy.allowed_chain_ids', 'allowed_chain_ids must be a list of at most ' + SETS_MAX + ' uint256 decimal strings'));
     if (Array.isArray(p.allowed_chain_ids)) {
       for (let i = 0; i < p.allowed_chain_ids.length && i < SETS_MAX; i++) {
-        if (toUint256String(p.allowed_chain_ids[i]) === null) r.push(refusal('BAD_CHAIN_ID', 'policy.allowed_chain_ids[' + i + ']', 'each allowed chain id must be a uint256 decimal string'));
+        if (typeof p.allowed_chain_ids[i] !== 'string' || toUint256String(p.allowed_chain_ids[i]) === null) r.push(refusal('BAD_CHAIN_ID', 'policy.allowed_chain_ids[' + i + ']', 'each allowed chain id must be a uint256 decimal string'));
       }
     }
     if (p.allowed_tokens !== undefined && !listIsArray(p.allowed_tokens, SETS_MAX)) r.push(refusal('BOUND_EXCEEDED', 'policy.allowed_tokens', 'allowed_tokens must be a list of at most ' + SETS_MAX + ' token contract addresses'));
@@ -361,7 +361,7 @@ function validate(pp) {
         if (!isObj(w) || unknownKeys(w, ['window_seconds', 'cap']).length > 0) r.push(refusal('BAD_ENTRY', 'policy.window_caps[' + i + ']', 'each window cap must be an object with exactly window_seconds and cap'));
         else {
           if (!isSafeNonNegativeInt(w.window_seconds) || w.window_seconds <= 0) r.push(refusal('BAD_WINDOW', 'policy.window_caps[' + i + '].window_seconds', 'window_seconds must be a positive integer second count'));
-          if (toUint256String(w.cap) === null) r.push(refusal('BAD_AMOUNT', 'policy.window_caps[' + i + '].cap', 'cap must be a uint256 decimal string'));
+          if (typeof w.cap !== 'string' || toUint256String(w.cap) === null) r.push(refusal('BAD_AMOUNT', 'policy.window_caps[' + i + '].cap', 'cap must be a uint256 decimal string'));
         }
       }
     }
@@ -902,10 +902,46 @@ function distinctRuleCount(notEvaluated) {
   return n;
 }
 
+// Hashability walk: mirrors the classes _hash.mjs refuses before canonicalizing (a non-finite
+// number, an integer outside the 2^53 safe range, nesting past MAX_DEPTH, more values than
+// MAX_ELEMENTS). Reports path and kind only, never the value; null when safe to hash.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // The walked object is the exact execution_hash preimage. When the shared canonicalizer
+  // would refuse it, mint the artifact with a null execution_hash and the reason beside it
+  // instead of letting the hash throw.
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const hash = unhashable === null ? await executionHash(pp, output_payload) : null;
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -921,4 +957,6 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }
