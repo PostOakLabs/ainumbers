@@ -171,7 +171,7 @@ function refused(verdict_because, extra, compliance_flags, refusedField) {
     verdict: 'refused',
     refused_because: verdict_because,
   };
-  payload[verdict_because] = true; // reachable-path marker: the refusal reason is also a truthy member
+  if (!Object.hasOwn(payload, verdict_because)) payload[verdict_because] = true; // reachable-path marker: the refusal reason is also a truthy member (own-key guard; kernel refusal reasons never collide with the payload's own keys)
   payload.kpis = []; payload.data_quality = []; payload.deltas = []; payload.profile_notes = [];
   payload.evidence = {
     record_type: 'payment_system_mi_pack', tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -179,7 +179,7 @@ function refused(verdict_because, extra, compliance_flags, refusedField) {
   };
   payload.manual_review_required = true;
   if (refusedField !== undefined && refusedField !== null) payload.refused_field = refusedField;
-  if (extra) { for (const k in extra) payload[k] = extra[k]; }
+  if (extra) { for (const k in extra) if (!Object.hasOwn(payload, k)) payload[k] = extra[k]; } // own-key guard; kernel extras never overwrite the refusal payload's own keys
   return { output_payload: payload, compliance_flags };
 }
 
@@ -336,7 +336,7 @@ export function compute(pp) {
     dq.push({ flag: 'NEGATIVE_DECLARED_VALUE', detail: { fields: negatives } });
     compliance_flags.push('NEGATIVE_DECLARED_VALUE');
   }
-  const neg = {};
+  const neg = Object.create(null); // no prototype: caller-key-safe accumulator (constant-key reads below)
   for (let i = 0; i < negatives.length; i++) neg[negatives[i]] = true;
 
   // -- Data quality: fractional declared count fields (METHOD 1: declared
@@ -536,7 +536,7 @@ export function compute(pp) {
       priorOut = compute({ profile: profile, transactions: prior.transactions, failures: prior.failures, availability: prior.availability, fraud: prior.fraud, complaints: prior.complaints, adoption: prior.adoption, cost: prior.cost, transparency: prior.transparency });
     } catch (e) { priorOut = null; }
     if (priorOut && priorOut.output_payload && priorOut.output_payload.verdict === 'completed') {
-      const priorMap = {};
+      const priorMap = Object.create(null); // no prototype: caller-key-safe accumulator
       const pk = priorOut.output_payload.kpis;
       for (let i = 0; i < pk.length; i++) priorMap[pk[i].kpi_id] = pk[i];
       for (let i = 0; i < kpis.length; i++) {

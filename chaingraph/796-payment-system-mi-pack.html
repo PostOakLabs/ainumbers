@@ -9,7 +9,7 @@
 <meta name="ain:category" content="run">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/796-payment-system-mi-pack.html">
-<meta name="kernel-digest" content="sha256:1edf9b8af2109b7ec5315e78771f357eec4d214173dc49d38dcf19afd07d5f49">
+<meta name="kernel-digest" content="sha256:fd0ea66f269e94eee121b769cc0d0312697a8c7c1c79db90039bfab9bc5b15eb">
 <meta name="ai-tool" content="compute_payment_system_mi_pack">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
@@ -443,7 +443,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       verdict: 'refused',
       refused_because: verdict_because,
     };
-    payload[verdict_because] = true; // reachable-path marker: the refusal reason is also a truthy member
+    if (!Object.hasOwn(payload, verdict_because)) payload[verdict_because] = true; // reachable-path marker: the refusal reason is also a truthy member (own-key guard; kernel refusal reasons never collide with the payload's own keys)
     payload.kpis = []; payload.data_quality = []; payload.deltas = []; payload.profile_notes = [];
     payload.evidence = {
       record_type: 'payment_system_mi_pack', tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -451,7 +451,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     };
     payload.manual_review_required = true;
     if (refusedField !== undefined && refusedField !== null) payload.refused_field = refusedField;
-    if (extra) { for (const k in extra) payload[k] = extra[k]; }
+    if (extra) { for (const k in extra) if (!Object.hasOwn(payload, k)) payload[k] = extra[k]; } // own-key guard; kernel extras never overwrite the refusal payload's own keys
     return { output_payload: payload, compliance_flags };
   }
 
@@ -608,7 +608,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       dq.push({ flag: 'NEGATIVE_DECLARED_VALUE', detail: { fields: negatives } });
       compliance_flags.push('NEGATIVE_DECLARED_VALUE');
     }
-    const neg = {};
+    const neg = Object.create(null); // no prototype: caller-key-safe accumulator (constant-key reads below)
     for (let i = 0; i < negatives.length; i++) neg[negatives[i]] = true;
 
     // -- Data quality: fractional declared count fields (METHOD 1: declared
@@ -808,7 +808,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
         priorOut = compute({ profile: profile, transactions: prior.transactions, failures: prior.failures, availability: prior.availability, fraud: prior.fraud, complaints: prior.complaints, adoption: prior.adoption, cost: prior.cost, transparency: prior.transparency });
       } catch (e) { priorOut = null; }
       if (priorOut && priorOut.output_payload && priorOut.output_payload.verdict === 'completed') {
-        const priorMap = {};
+        const priorMap = Object.create(null); // no prototype: caller-key-safe accumulator
         const pk = priorOut.output_payload.kpis;
         for (let i = 0; i < pk.length; i++) priorMap[pk[i].kpi_id] = pk[i];
         for (let i = 0; i < kpis.length; i++) {

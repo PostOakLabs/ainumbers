@@ -6,7 +6,7 @@
 // totality claim is made over it. Properties below run over a committed
 // mulberry32 seed (deterministic) plus a fixed corpus of structural cases.
 //
-// kernel_digest_at_authoring: sha256:1edf9b8af2109b7ec5315e78771f357eec4d214173dc49d38dcf19afd07d5f49
+// kernel_digest_at_authoring: sha256:fd0ea66f269e94eee121b769cc0d0312697a8c7c1c79db90039bfab9bc5b15eb
 // spec: PAYMENT-SYSTEM-MI-PACK-1 — compute a payment system's management-information
 //   pack (speed, availability, failure, fraud, complaints, adoption, cost,
 //   transparency KPIs) from declared aggregate counts, against the pinned FSB
