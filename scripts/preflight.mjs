@@ -2021,6 +2021,15 @@ const GATES = [
   // twins and their <link rel=alternate> head tags are SO #35 single-writer
   // artifacts written main-side) while it stays BLOCKING on main.
   ['Markdown twin freshness (PAGE-MD-TWINS-1)', 'node scripts/gen-page-md-twins.mjs --check'],
+  // OBLIGATION-PAGE-1: obligation map gate O6 — the generated md twin's Not
+  // covered block equals the coverage file's out_of_scope list. In-gate
+  // isMainContext() split (the MAINONLY-REMOVAL-ADVISORY-ON-PR-1 pattern):
+  // twin-staleness findings are advisory on a PR (the twin is SO #35
+  // single-writer output a PR must not commit) and HARD on main and on
+  // merge_group, where the gate overlay-reads the assembled tree's fresh twins
+  // (a DERIVED_ROOT_GATES member in derived-artifacts.mjs).
+  ['Obligation page agreement (O6, OBLIGATION-PAGE-1)', 'node scripts/check-obligation-page.mjs'],
+  ['Obligation page gate controls (RED/GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-obligation-page.selftest.mjs'],
   // AI-CATALOG-1 (AGENT-REACH-BUILD-SPEC §3.2): both well-known catalogs from one
   // generator. Freshness is advisory on a PR via the generic ADVISORY_ON_PR
   // categorisation (derived-artifacts.mjs COVERED ids ai-catalog + api-catalog):
