@@ -7,7 +7,7 @@
 <title>Stablecoin Admin Role Lint · OpenChainGraph · AINumbers.co</title>
 <meta name="description" content="Lint a stablecoin token's declared admin-role configuration for separation of duties, key concentration and issuance-policy fit, over role labels only.">
 <meta name="ain:category" content="verify">
-<meta name="kernel-digest" content="sha256:cf27a354da0203275f25015284d1001bcc9181deff2340e0cafb15c4fd7b2336">
+<meta name="kernel-digest" content="sha256:1d8dc320e692bcf3b25c7a2833247811b0847f2a992e8ce3f0e38abfb7de359b">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/art-789-stablecoin-admin-role-lint.html">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -444,10 +444,14 @@ function computeLint(pp) {
   const minters = Array.isArray(pp.minters) ? pp.minters : [];
   const policy = pp.policy && typeof pp.policy === 'object' ? pp.policy : {};
   const flags = [];
-  if (!Object.hasOwn(PROFILES, pp.profile) || !roles || !holders.length) {
+  if (!Object.hasOwn(PROFILES, pp.profile) || !roles || !Object.keys(roles).length || !holders.length) {
     return { manual_review_required: true, verdict: 'REFUSED', reason: 'profile must be fiattoken, usdp or generic; roles map and at least one holder are required', findings: [] };
   }
-  const prof = PROFILES[pp.profile];
+  for (const h of holders) {
+    if (!h || typeof h !== 'object' || typeof h.label !== 'string' || !h.label) {
+      return { manual_review_required: true, verdict: 'REFUSED', reason: 'holders must be non-null objects with a label', findings: [] };
+    }
+  }
   const refused = [];
   for (const h of holders) {
     const hit = h && h.label != null ? labelIsKeyMaterial(h.label) : null;
@@ -459,6 +463,13 @@ function computeLint(pp) {
   }
   if (refused.length) {
     return { manual_review_required: true, verdict: 'REFUSED', reason: 'a holder or role value looks like an address, public key or private key. This tool accepts role labels only.', refused: refused };
+  }
+  const prof = PROFILES[pp.profile];
+  if (pp.profile !== 'generic') {
+    const missingRoles = prof.roles.filter((r) => roles[r] == null);
+    if (missingRoles.length > 0) {
+      return { manual_review_required: true, verdict: 'REFUSED', reason: 'partial role map: missing required roles (' + missingRoles.join(', ') + ')', findings: [] };
+    }
   }
   const holderByLabel = new Map();
   for (const h of holders) holderByLabel.set(String(h.label), h);
@@ -477,6 +488,12 @@ function computeLint(pp) {
   }
 
   const findings = [];
+  if (pp.profile !== 'generic') {
+    const unknownRoles = Object.keys(roles).filter((r) => !prof.roles.includes(r));
+    for (const ur of unknownRoles) {
+      findings.push({ domain: 'roles', severity: 'warn', message: 'unknown or misspelled role "' + ur + '" in roles map', cite: prof.cite });
+    }
+  }
   const separation = { checked_pairs: [], violations: [] };
   for (const [a, b, cite] of pairs) {
     if (roles[a] == null || roles[b] == null) continue;

@@ -79,7 +79,7 @@ export function compute(pp) {
   const compliance_flags = [];
 
   // ---- input validation ----
-  if (!Object.hasOwn(PROFILES, profileName) || !roles || !holders.length) {
+  if (!Object.hasOwn(PROFILES, profileName) || !roles || !Object.keys(roles).length || !holders.length) {
     compliance_flags.push('MALFORMED_INPUT_REFUSED');
     return {
       output_payload: {
@@ -92,6 +92,21 @@ export function compute(pp) {
       },
       compliance_flags,
     };
+  }
+
+  for (const h of holders) {
+    if (!h || typeof h !== 'object' || typeof h.label !== 'string' || !h.label) {
+      compliance_flags.push('MALFORMED_INPUT_REFUSED');
+      return {
+        output_payload: {
+          manual_review_required: true,
+          verdict: 'REFUSED',
+          reason: 'holders must be non-null objects with a label',
+          findings: [],
+        },
+        compliance_flags,
+      };
+    }
   }
 
   // ---- refusal branch (role labels only, never key material) ----
@@ -120,6 +135,22 @@ export function compute(pp) {
   }
 
   const prof = PROFILES[profileName];
+  if (profileName !== 'generic') {
+    const missingRoles = prof.roles.filter((r) => roles[r] == null);
+    if (missingRoles.length > 0) {
+      compliance_flags.push('MALFORMED_INPUT_REFUSED');
+      return {
+        output_payload: {
+          manual_review_required: true,
+          verdict: 'REFUSED',
+          reason: 'partial role map: missing required roles (' + missingRoles.join(', ') + ')',
+          findings: [],
+        },
+        compliance_flags,
+      };
+    }
+  }
+
   const holderByLabel = new Map();
   for (const h of holders) holderByLabel.set(String(h.label), h);
 
@@ -146,6 +177,13 @@ export function compute(pp) {
   const pushFinding = (domain, severity, message, cite) => {
     findings.push({ domain, severity, message, cite });
   };
+
+  if (profileName !== 'generic') {
+    const unknownRoles = Object.keys(roles).filter((r) => !prof.roles.includes(r));
+    for (const ur of unknownRoles) {
+      pushFinding('roles', 'warn', 'unknown or misspelled role "' + ur + '" in roles map', prof.cite);
+    }
+  }
 
   // ---- separation: distinctness pairs held by the same label ----
   const separation = { checked_pairs: [], violations: [] };
