@@ -1,5 +1,5 @@
 // art-789-stablecoin-admin-role-lint — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:cf27a354da0203275f25015284d1001bcc9181deff2340e0cafb15c4fd7b2336
+// kernel_digest_at_authoring: sha256:1d8dc320e692bcf3b25c7a2833247811b0847f2a992e8ce3f0e38abfb7de359b
 // spec: board/queued/STABLECOIN-ADMIN-ROLE-LINT-1.md — role-label-only stablecoin admin-role linter
 // human_sign_off: PENDING
 //
