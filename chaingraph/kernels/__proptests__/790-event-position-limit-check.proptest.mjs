@@ -241,6 +241,267 @@ function checkDeclaredMaxLossUsedAsGiven() {
   return { name: 'caller_declared_max_loss_minor_used_as_given', checked, violations };
 }
 
+// ---------- round-3 cure: exact-value assertions (mutation floor) ----------
+const POSN = (side, quantity, avg_price_micro, extra = {}) => ({
+  contract_label: 'C-1', event_label: 'E-1', series_label: 'S-1', side, quantity, avg_price_micro,
+  max_loss_minor: null, accountability_level_minor: null, limit_minor: null, limit_basis: 'max_loss',
+  ...extra,
+});
+const RUN = (pp) => compute(pp).output_payload;
+const FLAGRUN = (pp) => compute(pp).compliance_flags;
+
+function checkAsOfCalendarAndWindow() {
+  let checked = 0, violations = 0;
+  const refusedAsOf = (asOf, profile = 'generic') => {
+    checked++;
+    const op = RUN({ profile, as_of: asOf, aggregation: 'per_contract', participant_class: 'standard', positions: [POSN('yes', 1, 500000)] });
+    if (op.verdict !== 'REFUSED' || !FLAGRUN({ profile, as_of: asOf, aggregation: 'per_contract', participant_class: 'standard', positions: [POSN('yes', 1, 500000)] }).includes('AS_OF_REFUSED') || op.refusal.field !== 'as_of'
+      || op.refusal.reason !== 'as_of must be an ISO-8601 date YYYY-MM-DD; the kernel never reads a wall clock') {
+      violations++; console.log('  as_of not refused:', asOf, profile, op.refusal && op.refusal.reason);
+    }
+  };
+  const acceptedAsOf = (asOf, profile = 'generic') => {
+    checked++;
+    const pp = { profile, as_of: asOf, aggregation: 'per_contract', participant_class: 'standard', positions: [POSN('yes', 1, 500000)] };
+    const op = RUN(pp);
+    if (op.verdict === 'REFUSED' || FLAGRUN(pp).includes('AS_OF_REFUSED') || FLAGRUN(pp).includes('PROFILE_NOT_EFFECTIVE') || op.as_of !== asOf) {
+      violations++; console.log('  valid as_of refused:', asOf, profile, op.refusal && op.refusal.flag);
+    }
+  };
+  // impossible calendar dates refuse; leap and month-length boundaries resolve both ways
+  for (const bad of ['2026-02-30', '2026-13-01', '2026-00-10', '2026-04-31', '2026-01-00', '2100-02-29', '2026-12-32']) refusedAsOf(bad);
+  for (const good of ['2028-02-29', '2000-02-29', '2026-04-30', '2026-12-31', '0000-01-01']) acceptedAsOf(good);
+  // kalshi window: as_of ON effective_from is in scope, the day before is refused with the exact window reason
+  checked++;
+  let op = RUN({ ...BASE, as_of: '2026-10-30', positions: [POSN('yes', 1, 500000)] });
+  if (op.verdict === 'REFUSED') { violations++; console.log('  as_of on effective_from refused:', op.refusal && op.refusal.flag); }
+  checked++;
+  op = RUN({ ...BASE, as_of: '2026-10-29', positions: [POSN('yes', 1, 500000)] });
+  if (op.verdict !== 'REFUSED' || op.refusal.field !== 'as_of'
+    || op.refusal.reason !== 'as_of falls outside the pinned profile window 2026-10-30..open') {
+    violations++; console.log('  pre-window as_of not refused with exact reason:', op.refusal && op.refusal.reason);
+  }
+  return { name: 'as_of_calendar_and_profile_window_boundaries', checked, violations };
+}
+
+function checkLabelShapes() {
+  let checked = 0, violations = 0;
+  const withLabel = (v, field) => {
+    const pos = POSN('yes', 1, 500000);
+    pos[field] = v;
+    return { ...BASE, positions: [pos] };
+  };
+  const refusedLabel = (v, field, why) => {
+    checked++;
+    const pp = withLabel(v, field);
+    const op = RUN(pp);
+    if (op.verdict !== 'REFUSED' || !FLAGRUN(pp).includes('LABEL_IDENTIFIER_SUSPECTED') || op.refusal.field !== field
+      || op.refusal.reason !== 'label field looks like an account id, member id, address, email or hash (' + why + '); labels must be synthetic contract, event or series designators') {
+      violations++; console.log('  label not refused as', why, ':', JSON.stringify(v), field, op.refusal && op.refusal.reason);
+    }
+  };
+  const acceptedLabel = (v, field) => {
+    checked++;
+    const op = RUN(withLabel(v, field));
+    if (op.verdict === 'REFUSED') { violations++; console.log('  near-miss label refused:', JSON.stringify(v), field, op.refusal && op.refusal.reason); }
+  };
+  // each shape fires on a hit; the exact near-miss under each guard edge accepts
+  refusedLabel('acct:1001', 'contract_label', 'account-or-member-id-shape');
+  refusedLabel('0x' + 'a1'.repeat(20), 'contract_label', 'address-shape');   // 42-char 0x hex
+  refusedLabel('a'.repeat(32), 'event_label', 'hash-shape');
+  refusedLabel('WXID123456789', 'series_label', 'id-token-shape');           // 4 letters + 6+ digits, >=12 chars, has ID
+  refusedLabel('synthetic@label', 'contract_label', 'email-shape');
+  refusedLabel('', 'event_label', 'empty');
+  refusedLabel('A'.repeat(65), 'contract_label', 'over-64-chars');
+  acceptedLabel('0xdeadbeef', 'contract_label');    // 0x hex but under 20 chars
+  acceptedLabel('a'.repeat(31), 'event_label');     // 31 hex chars, under the 32 floor
+  acceptedLabel('WXID123456', 'series_label');      // letters+digits with ID but under 12 chars
+  acceptedLabel('ABCD123456', 'contract_label');    // letters+digits but no ID substring
+  acceptedLabel('123456ID789012', 'series_label');  // digits+ID but no 4-letters-then-digits run
+  acceptedLabel('Z'.repeat(64), 'event_label');     // exactly 64 non-hex chars is allowed
+  return { name: 'label_identifier_shapes_refused_and_near_misses_accepted', checked, violations };
+}
+
+function checkFieldValidationBoundaries() {
+  let checked = 0, violations = 0;
+  const refusedField = (mut, flag, field) => {
+    checked++;
+    const op = RUN({ ...BASE, positions: [POSN('yes', 1, 500000, mut)] });
+    if (op.verdict !== 'REFUSED' || !FLAGRUN({ ...BASE, positions: [POSN('yes', 1, 500000, mut)] }).includes(flag) || op.refusal.field !== field) {
+      violations++; console.log('  field not refused:', flag, JSON.stringify(mut), op.refusal && op.refusal.flag);
+    }
+  };
+  // quantity: positive integer only
+  refusedField({ quantity: 0 }, 'QUANTITY_REFUSED', 'quantity');
+  refusedField({ quantity: -1 }, 'QUANTITY_REFUSED', 'quantity');
+  refusedField({ quantity: 1.5 }, 'QUANTITY_REFUSED', 'quantity');
+  refusedField({ quantity: '2' }, 'QUANTITY_REFUSED', 'quantity');
+  // price: integer on the closed 0..1000000 micro grid
+  refusedField({ avg_price_micro: -1 }, 'PRICE_REFUSED', 'avg_price_micro');
+  refusedField({ avg_price_micro: 1000001 }, 'PRICE_REFUSED', 'avg_price_micro');
+  refusedField({ avg_price_micro: 1.5 }, 'PRICE_REFUSED', 'avg_price_micro');
+  checked++;
+  if (RUN({ ...BASE, positions: [POSN('yes', 1, 0)] }).positions[0].max_loss_minor !== 0) violations++;      // price floor 0 accepted
+  checked++;
+  if (RUN({ ...BASE, positions: [POSN('yes', 1, 1000000)] }).positions[0].max_loss_minor !== 100) violations++; // price ceiling -> 100 minor
+  // declared fields, when present, must be non-negative integers; zero is valid and used as given
+  refusedField({ max_loss_minor: -1 }, 'MAX_LOSS_REFUSED', 'max_loss_minor');
+  refusedField({ max_loss_minor: '5' }, 'MAX_LOSS_REFUSED', 'max_loss_minor');
+  refusedField({ accountability_level_minor: -1 }, 'ACCOUNTABILITY_LEVEL_REFUSED', 'accountability_level_minor');
+  refusedField({ limit_minor: -1 }, 'LIMIT_REFUSED', 'limit_minor');
+  checked++;
+  const zero = RUN({ ...BASE, positions: [POSN('yes', 1, 500000, { max_loss_minor: 0, accountability_level_minor: 0, limit_minor: 0 })] });
+  if (zero.positions[0].max_loss_minor !== 0 || zero.verdict !== 'WITHIN') violations++;
+  return { name: 'field_validation_integer_and_range_boundaries', checked, violations };
+}
+
+function checkNettingExactConservativeAllocation() {
+  let checked = 0, violations = 0;
+  // YES residual: 5 yes (3 @400000, 2 @700000) against 1 no @300000 -> net 4; the conservative
+  // allocation offsets cheapest-first, leaving the 2 highest-price yes plus 2 of the cheap ones:
+  // spend 2*700000 + 2*400000 = 2200000 micro over 4 contracts -> avg 550000 -> 220 minor.
+  const cheap = ['yes', 3, 400000], exp = ['yes', 2, 700000], noMid = ['no', 1, 300000];
+  const outs = [[cheap, exp, noMid], [exp, cheap, noMid], [exp, noMid, cheap]].map((order) =>
+    RUN({ ...BASE, netting: 'per_contract_net', positions: order.map(([s, q, p]) => POSN(s, q, p)) }));
+  checked += outs.length;
+  if (!deepEqual(outs[0], outs[1]) || !deepEqual(outs[0], outs[2])) { violations++; console.log('  netting output differs by position order'); }
+  const p0 = outs[0].positions[0];
+  if (p0.side !== 'yes' || p0.quantity !== 4 || p0.avg_price_micro !== 550000 || p0.max_loss_minor !== 220
+    || p0.rounding !== 'ceil_micro_to_minor' || p0.netted !== true || outs[0].verdict !== 'WITHIN') {
+    violations++; console.log('  yes-residual netting mismatch:', JSON.stringify(p0));
+  }
+  // NO residual: 5 no (3 @400000, 2 @700000) against 1 yes @500000 -> net -4; loss per no contract is
+  // (1000000 - price); the conservative residual keeps the highest-loss no contracts (3 @400000 at
+  // 600000/unit + 1 @700000 at 300000/unit) -> total loss 2100000 micro over 4 -> unit ceil 525000
+  // -> avg_price 475000 -> max loss 4*525000 = 210 minor.
+  checked++;
+  const outNo = RUN({ ...BASE, netting: 'per_contract_net', positions: [POSN('no', 3, 400000), POSN('no', 2, 700000), POSN('yes', 1, 500000)] });
+  const pn = outNo.positions[0];
+  if (pn.side !== 'no' || pn.quantity !== 4 || pn.avg_price_micro !== 475000 || pn.max_loss_minor !== 210 || pn.netted !== true) {
+    violations++; console.log('  no-residual netting mismatch:', JSON.stringify(pn));
+  }
+  // equal yes and no -> net 0 book with zero max loss
+  checked++;
+  const outZero = RUN({ ...BASE, netting: 'per_contract_net', positions: [POSN('yes', 2, 600000), POSN('no', 2, 600000)] });
+  const pz = outZero.positions[0];
+  if (pz.quantity !== 0 || pz.max_loss_minor !== 0 || pz.rounding !== 'netted_to_zero' || outZero.verdict !== 'WITHIN') {
+    violations++; console.log('  net-zero book mismatch:', JSON.stringify(pz));
+  }
+  // net 1: the residual is a single cheapest contract
+  checked++;
+  const outOne = RUN({ ...BASE, netting: 'per_contract_net', positions: [POSN('yes', 2, 400000), POSN('no', 1, 400000)] });
+  const p1 = outOne.positions[0];
+  if (p1.side !== 'yes' || p1.quantity !== 1 || p1.avg_price_micro !== 400000 || p1.max_loss_minor !== 40) {
+    violations++; console.log('  net-1 book mismatch:', JSON.stringify(p1));
+  }
+  return { name: 'per_contract_net_conservative_allocation_exact_values_order_independent', checked, violations };
+}
+
+function checkNettingBoundaryAgainstAccountabilityLevel() {
+  let checked = 0, violations = 0;
+  // net 40 at price 10000 micro/contract = 40 minor: exactly at the declared level is not a breach,
+  // one contract more (net 41 -> 41 minor) breaches with the exact effective level recorded.
+  // Both legs carry the same level so the netting group stays uniform.
+  checked++;
+  const at = RUN({ ...BASE, netting: 'per_contract_net', positions: [POSN('yes', 80, 10000, { accountability_level_minor: 40 }), POSN('no', 40, 10000, { accountability_level_minor: 40 })] });
+  if (at.verdict !== 'WITHIN' || at.groups[0].accountability_exceeded !== false
+    || at.groups[0].max_loss_minor !== 40 || at.groups[0].effective_accountability_level_minor !== 40) {
+    violations++; console.log('  net-at-level mismatch:', JSON.stringify(at.groups[0]));
+  }
+  checked++;
+  const over = compute({ ...BASE, netting: 'per_contract_net', positions: [POSN('yes', 81, 10000, { accountability_level_minor: 40 }), POSN('no', 40, 10000, { accountability_level_minor: 40 })] });
+  if (over.output_payload.verdict !== 'ACCOUNTABILITY_REVIEW'
+    || over.output_payload.groups[0].accountability_exceeded !== true
+    || over.output_payload.groups[0].max_loss_minor !== 41
+    || over.output_payload.accountability_breaches[0].effective_level_minor !== 40
+    || over.output_payload.accountability_breaches[0].market_maker_multiplier_applied !== null) {
+    violations++; console.log('  net-level-plus-1 mismatch:', JSON.stringify(over.output_payload.accountability_breaches));
+  }
+  return { name: 'netted_max_loss_at_level_is_within_and_level_plus_1_breaches', checked, violations };
+}
+
+function checkConflictingLevelsLimitsBases() {
+  let checked = 0, violations = 0;
+  const conflictCase = (extraA, extraB) => compute({
+    ...BASE, netting: 'per_contract_net',
+    positions: [POSN('yes', 1, 400000, extraA), POSN('no', 1, 400000, extraB)],
+  });
+  // conflicting accountability levels inside one netting group
+  checked++;
+  const cl = conflictCase({ accountability_level_minor: 10 }, { accountability_level_minor: 20 });
+  if (!cl.compliance_flags.includes('NON_UNIFORM_ACCOUNTABILITY_LEVELS') || !cl.compliance_flags.includes('AGG_LEVELS_NOT_UNIFORM_PER_GROUP_CHECKS_ONLY')
+    || cl.output_payload.manual_review_required !== true || cl.output_payload.positions[0].accountability_level_minor !== null
+    || cl.output_payload.groups[0].effective_accountability_level_minor !== null) {
+    violations++; console.log('  conflicting levels mismatch:', cl.compliance_flags.join(','), JSON.stringify(cl.output_payload.positions[0]));
+  }
+  // conflicting limit minors -> no effective limit, group checks only
+  checked++;
+  const climit = conflictCase({ limit_minor: 500 }, { limit_minor: 600 });
+  if (climit.output_payload.manual_review_required !== true || climit.output_payload.positions[0].limit_minor !== null
+    || climit.output_payload.groups[0].limit_applies !== false) {
+    violations++; console.log('  conflicting limits mismatch:', JSON.stringify(climit.output_payload.positions[0]));
+  }
+  // conflicting limit bases -> the netted book falls back to max_loss basis
+  checked++;
+  const cbasis = conflictCase({ limit_basis: 'max_loss' }, { limit_basis: 'contracts' }).output_payload;
+  if (cbasis.manual_review_required !== true || cbasis.positions[0].limit_basis !== 'max_loss') {
+    violations++; console.log('  conflicting bases mismatch:', JSON.stringify(cbasis.positions[0]));
+  }
+  // cross-book non-uniform levels inside one aggregation group (gross): two books at different
+  // levels, or one declared + one null, both set the flag and block an effective level
+  checked++;
+  const x1 = compute({ ...BASE, aggregation: 'per_event', positions: [POSN('yes', 1, 500000, { contract_label: 'C-1', accountability_level_minor: 10 }), POSN('yes', 1, 500000, { contract_label: 'C-2', accountability_level_minor: 20 })] });
+  if (!x1.compliance_flags.includes('NON_UNIFORM_ACCOUNTABILITY_LEVELS') || x1.output_payload.manual_review_required !== true
+    || x1.output_payload.groups[0].effective_accountability_level_minor !== null) {
+    violations++; console.log('  cross-book level conflict mismatch:', x1.compliance_flags.join(','));
+  }
+  checked++;
+  const x2 = compute({ ...BASE, aggregation: 'per_event', positions: [POSN('yes', 1, 500000, { contract_label: 'C-1' }), POSN('yes', 1, 500000, { contract_label: 'C-2', accountability_level_minor: 20 })] });
+  if (x2.output_payload.manual_review_required !== true || x2.output_payload.groups[0].effective_accountability_level_minor !== null) {
+    violations++; console.log('  null-vs-declared level mismatch');
+  }
+  // uniform books at one level keep an effective level and no flag
+  checked++;
+  const u = RUN({ ...BASE, aggregation: 'per_event', positions: [POSN('yes', 1, 500000, { contract_label: 'C-1', accountability_level_minor: 10 }), POSN('yes', 1, 500000, { contract_label: 'C-2', accountability_level_minor: 10 })] });
+  if (u.manual_review_required !== false || u.groups[0].effective_accountability_level_minor !== 10) {
+    violations++; console.log('  uniform levels mismatch:', JSON.stringify(u.groups[0]));
+  }
+  return { name: 'conflicting_levels_limits_bases_set_non_uniform_flag_and_null_effectives', checked, violations };
+}
+
+function checkMarketMakerMultiplierAndExemptionBoundaries() {
+  let checked = 0, violations = 0;
+  const posn = { quantity: 1, avg_price_micro: 400000, accountability_level_minor: 4, limit_minor: 30 }; // max loss 40 minor
+  // 10x default on level 4 -> effective 40 equals max loss 40 -> no breach
+  checked++;
+  const at = compute({ ...BASE, participant_class: 'market_maker', positions: [POSN('yes', posn.quantity, posn.avg_price_micro, posn)] });
+  if (at.output_payload.verdict !== 'WITHIN' || at.output_payload.accountability_breaches.length !== 0
+    || !at.compliance_flags.includes('MM_ACCOUNTABILITY_MULTIPLIER_APPLIED')) {
+    violations++; console.log('  mm at-multiplier-level mismatch:', at.output_payload.verdict);
+  }
+  // level 3 -> effective 30 < 40 -> breach with the exact effective level and multiplier
+  checked++;
+  const over = compute({ ...BASE, participant_class: 'market_maker', positions: [POSN('yes', 1, 400000, { accountability_level_minor: 3, limit_minor: 30 })] });
+  if (over.output_payload.verdict !== 'ACCOUNTABILITY_REVIEW' || over.output_payload.accountability_breaches[0].effective_level_minor !== 30
+    || over.output_payload.accountability_breaches[0].market_maker_multiplier_applied !== 10) {
+    violations++; console.log('  mm multiplier breach mismatch:', JSON.stringify(over.output_payload.accountability_breaches));
+  }
+  // exemption: a limit below max loss is a LIMIT_BREACH for standard, out of scope for an exempt MM
+  checked++;
+  const std = RUN({ ...BASE, participant_class: 'standard', positions: [POSN('yes', 1000, 400000, { limit_minor: 30 })] });
+  if (std.verdict !== 'LIMIT_BREACH' || std.groups[0].limit_applies !== true || std.limit_breaches[0].limit_minor !== 30) {
+    violations++; console.log('  standard limit breach mismatch:', std.verdict);
+  }
+  checked++;
+  const mm = compute({ ...BASE, participant_class: 'market_maker', positions: [POSN('yes', 1000, 400000, { limit_minor: 30 })] });
+  if (mm.output_payload.verdict !== 'WITHIN' || mm.output_payload.groups[0].limit_applies !== false
+    || mm.output_payload.market_maker_treatment.limit_exempt !== true
+    || !mm.compliance_flags.includes('LIMIT_CHECKS_SCOPE_NOTE_MM_EXEMPT')) {
+    violations++; console.log('  mm exemption mismatch:', mm.output_payload.verdict, mm.output_payload.groups[0].limit_applies);
+  }
+  return { name: 'market_maker_multiplier_boundary_and_limit_exemption_scope', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -258,6 +519,13 @@ const properties = [
   checkReachabilityFixturesAllFire(),
   checkDeterminismAndShape(),
   checkDeclaredMaxLossUsedAsGiven(),
+  checkAsOfCalendarAndWindow(),
+  checkLabelShapes(),
+  checkFieldValidationBoundaries(),
+  checkNettingExactConservativeAllocation(),
+  checkNettingBoundaryAgainstAccountabilityLevel(),
+  checkConflictingLevelsLimitsBases(),
+  checkMarketMakerMultiplierAndExemptionBoundaries(),
 ];
 const ok = summarize(KERNEL_ID, oracle, properties);
 process.exit(ok ? 0 : 1);
