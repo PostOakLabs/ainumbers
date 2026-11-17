@@ -6,6 +6,8 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>Stablecoin Admin Role Lint · OpenChainGraph · AINumbers.co</title>
 <meta name="description" content="Lint a stablecoin token's declared admin-role configuration for separation of duties, key concentration and issuance-policy fit, over role labels only.">
+<meta name="ain:category" content="verify">
+<meta name="kernel-digest" content="sha256:cf27a354da0203275f25015284d1001bcc9181deff2340e0cafb15c4fd7b2336">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/art-789-stablecoin-admin-role-lint.html">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -442,10 +444,10 @@ function computeLint(pp) {
   const minters = Array.isArray(pp.minters) ? pp.minters : [];
   const policy = pp.policy && typeof pp.policy === 'object' ? pp.policy : {};
   const flags = [];
-  const prof = PROFILES[pp.profile];
-  if (!prof || !roles || !holders.length) {
+  if (!Object.hasOwn(PROFILES, pp.profile) || !roles || !holders.length) {
     return { manual_review_required: true, verdict: 'REFUSED', reason: 'profile must be fiattoken, usdp or generic; roles map and at least one holder are required', findings: [] };
   }
+  const prof = PROFILES[pp.profile];
   const refused = [];
   for (const h of holders) {
     const hit = h && h.label != null ? labelIsKeyMaterial(h.label) : null;
@@ -458,16 +460,16 @@ function computeLint(pp) {
   if (refused.length) {
     return { manual_review_required: true, verdict: 'REFUSED', reason: 'a holder or role value looks like an address, public key or private key. This tool accepts role labels only.', refused: refused };
   }
-  const holderByLabel = {};
-  for (const h of holders) holderByLabel[String(h.label)] = h;
+  const holderByLabel = new Map();
+  for (const h of holders) holderByLabel.set(String(h.label), h);
   const declared = pp.profile === 'generic' ? Object.keys(roles).filter((r) => roles[r] != null) : prof.roles;
   const criticalSet = new Set(pp.profile === 'generic' ? declared : prof.critical);
 
   const pairs = [];
-  const seen = {};
+  const seen = new Set();
   const addPair = (a, b, cite) => {
     const k = [a, b].sort().join('|');
-    if (!seen[k]) { seen[k] = true; pairs.push([a, b, cite]); }
+    if (!seen.has(k)) { seen.add(k); pairs.push([a, b, cite]); }
   };
   if (pp.profile !== 'generic') for (const pr of prof.require_distinct) addPair(pr[0], pr[1], prof.cite);
   for (const pr of (Array.isArray(policy.require_distinct) ? policy.require_distinct : [])) {
@@ -486,22 +488,24 @@ function computeLint(pp) {
     }
   }
 
-  const labelRoles = {};
+  const labelRoles = new Map();
   for (const rn of declared) {
     const lbl = roles[rn];
     if (lbl == null) continue;
-    (labelRoles[String(lbl)] = labelRoles[String(lbl)] || []).push(rn);
+    const held = labelRoles.get(String(lbl)) || [];
+    held.push(rn);
+    labelRoles.set(String(lbl), held);
   }
   const concentration = { multi_role_labels: [], single_signer_critical: [] };
-  for (const lbl of Object.keys(labelRoles)) {
-    const held = labelRoles[lbl];
+  for (const lbl of labelRoles.keys()) {
+    const held = labelRoles.get(lbl);
     if (held.length > 1 && held.filter((r) => criticalSet.has(r)).length > 1) {
       concentration.multi_role_labels.push({ label: lbl, roles: held });
       findings.push({ domain: 'concentration', severity: held.length >= 3 ? 'fail' : 'warn', message: 'label "' + lbl + '" holds ' + held.length + ' critical roles (' + held.join(', ') + ')', cite: prof.cite });
     }
     for (const rn of held) {
       if (!criticalSet.has(rn)) continue;
-      const h = holderByLabel[lbl];
+      const h = holderByLabel.get(lbl);
       if (h && (h.kind === 'eoa' || (Number(h.signers_count || 0) === 1 && !h.threshold))) {
         concentration.single_signer_critical.push({ label: lbl, role: rn, kind: h.kind });
         findings.push({ domain: 'concentration', severity: 'warn', message: 'critical role "' + rn + '" held by single-signer "' + lbl + '" (kind ' + String(h.kind) + ')', cite: 'caller-declared policy (key concentration)' });
@@ -536,7 +540,7 @@ function computeLint(pp) {
   for (const rn of (Array.isArray(policy.require_multisig_for) ? policy.require_multisig_for : [])) {
     const lbl = roles[rn];
     if (lbl == null) continue;
-    const h = holderByLabel[String(lbl)];
+    const h = holderByLabel.get(String(lbl));
     if (!isMultisig(h)) findings.push({ domain: 'multisig', severity: 'fail', message: 'role "' + rn + '" requires a multisig holder but "' + String(lbl) + '" is kind ' + String(h && h.kind) + ' with threshold ' + String(h && h.threshold) + ' signers ' + String(h && h.signers_count), cite: 'caller-declared policy (require_multisig_for)' });
   }
 

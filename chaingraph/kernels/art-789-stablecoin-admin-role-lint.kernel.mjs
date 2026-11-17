@@ -79,13 +79,13 @@ export function compute(pp) {
   const compliance_flags = [];
 
   // ---- input validation ----
-  if (!PROFILES[profileName] || !roles || !holders.length) {
+  if (!Object.hasOwn(PROFILES, profileName) || !roles || !holders.length) {
     compliance_flags.push('MALFORMED_INPUT_REFUSED');
     return {
       output_payload: {
         manual_review_required: true,
         verdict: 'REFUSED',
-        reason: !PROFILES[profileName]
+        reason: !Object.hasOwn(PROFILES, profileName)
           ? 'profile must be one of fiattoken, usdp, generic'
           : 'roles map and at least one holder are required',
         findings: [],
@@ -120,8 +120,8 @@ export function compute(pp) {
   }
 
   const prof = PROFILES[profileName];
-  const holderByLabel = {};
-  for (const h of holders) holderByLabel[String(h.label)] = h;
+  const holderByLabel = new Map();
+  for (const h of holders) holderByLabel.set(String(h.label), h);
 
   const declaredRoles = profileName === 'generic'
     ? Object.keys(roles).filter((r) => roles[r] != null)
@@ -129,10 +129,10 @@ export function compute(pp) {
   const criticalSet = new Set(profileName === 'generic' ? declaredRoles : prof.critical);
 
   const distinctPairs = [];
-  const seenPair = {};
+  const seenPair = new Set();
   const addPair = (a, b, cite) => {
     const k = [a, b].sort().join('|');
-    if (!seenPair[k]) { seenPair[k] = true; distinctPairs.push({ pair: [a, b], cite }); }
+    if (!seenPair.has(k)) { seenPair.add(k); distinctPairs.push({ pair: [a, b], cite }); }
   };
   if (profileName !== 'generic') {
     for (const [a, b] of prof.require_distinct) addPair(a, b, prof.cite);
@@ -162,16 +162,17 @@ export function compute(pp) {
   }
 
   // ---- concentration: multi-role labels and single-signer critical holders ----
-  const labelRoleCount = {};
+  const labelRoleCount = new Map();
   for (const rn of declaredRoles) {
     const lbl = roles[rn];
     if (lbl == null) continue;
-    labelRoleCount[String(lbl)] = labelRoleCount[String(lbl)] || [];
-    labelRoleCount[String(lbl)].push(rn);
+    const held = labelRoleCount.get(String(lbl)) || [];
+    held.push(rn);
+    labelRoleCount.set(String(lbl), held);
   }
   const concentration = { multi_role_labels: [], single_signer_critical: [] };
-  for (const lbl of Object.keys(labelRoleCount)) {
-    const held = labelRoleCount[lbl];
+  for (const lbl of labelRoleCount.keys()) {
+    const held = labelRoleCount.get(lbl);
     if (held.length > 1 && held.filter((r) => criticalSet.has(r)).length > 1) {
       concentration.multi_role_labels.push({ label: lbl, roles: held });
       const severity = held.length >= 3 ? 'fail' : 'warn';
@@ -179,7 +180,7 @@ export function compute(pp) {
     }
     for (const rn of held) {
       if (!criticalSet.has(rn)) continue;
-      const h = holderByLabel[lbl];
+      const h = holderByLabel.get(lbl);
       const singleSigner = h && (h.kind === 'eoa' || (Number(h.signers_count || 0) === 1 && !h.threshold));
       if (singleSigner) {
         concentration.single_signer_critical.push({ label: lbl, role: rn, kind: h.kind });
@@ -221,7 +222,7 @@ export function compute(pp) {
   for (const rn of requireMultisig) {
     const lbl = roles[rn];
     if (lbl == null) continue;
-    const h = holderByLabel[String(lbl)];
+    const h = holderByLabel.get(String(lbl));
     if (!isMultisig(h)) {
       pushFinding('multisig', 'fail', 'role "' + rn + '" requires a multisig holder but "' + String(lbl) + '" is kind ' + String(h && h.kind) + ' with threshold ' + String(h && h.threshold) + ' signers ' + String(h && h.signers_count), 'caller-declared policy (require_multisig_for)');
     }
