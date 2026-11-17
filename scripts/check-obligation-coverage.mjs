@@ -2,6 +2,7 @@
 //
 // Row OBLIGATION-SCHEMA-1-RESUME-1 (2026-11-15). Spec: the obligation-map build
 // spec sections 3 to 6 (workspace research; never cited in public text).
+// Re-pin flow in O4: row OBLIGATION-REPIN-1 (2026-11-17).
 //
 // What this gate family claims and does not claim:
 //   It claims a vector exists that exercises an obligation. It never claims a
@@ -26,9 +27,13 @@
 //   O4  stale lists: a citing node whose cited digest has neither a list nor a
 //       baseline entry; a baseline entry whose digest now has a list (baseline
 //       only shrinks); a coverage file naming a digest the node no longer
-//       cites; a baseline entry no node cites. NOT in scope here: O3
-//       (nothing uncovered; advisory later), O5 (span bytes; needs the local
-//       excerpt), O6 (page agreement; the page block is a later row).
+//       cites; a baseline entry no node cites. Re-pin flow (row
+//       OBLIGATION-REPIN-1): when a clause digest changes, the old list does
+//       not carry over silently; the gate prints the old obligation list
+//       beside the digest the node now cites and requires a fresh split.
+//       NOT in scope here: O3 (nothing uncovered; advisory later), O5 (span
+//       bytes; needs the local excerpt), O6 (page agreement; the page block is
+//       a later row).
 //
 // Exit 0 green, 1 any red. Selftest: scripts/check-obligation-coverage.selftest.mjs
 import { readFileSync, existsSync, readdirSync, writeFileSync } from 'node:fs';
@@ -192,9 +197,40 @@ function citedDigestsOfShard(text) {
   return [...new Set(found.filter(Boolean))];
 }
 
+// Old-list reader for the re-pin flow: the obligation list file for one
+// digest, or null when it is absent or does not parse.
+function readListFile(obligationsDir, digest) {
+  if (typeof digest !== 'string' || !DIGEST_RE.test(digest)) return null;
+  const p = join(obligationsDir, hex(digest) + '.json');
+  if (!existsSync(p)) return null;
+  try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return null; }
+}
+
+// The re-pin flow (row OBLIGATION-REPIN-1): when a clause digest changes, the
+// gate prints the old obligation list beside the digest the node now cites and
+// requires a fresh split; the old list does not carry over. Labels are our own
+// paraphrases (never source text), so the printout is public-safe. Deduped per
+// (node, old digest, new digests): the same re-pin prints once even when both
+// the unlisted-new-digest red and the stale-coverage red fire for it.
+function repinLines(nid, oldDigest, newDigests, oldList, printed) {
+  const key = nid + '|' + oldDigest + '|' + [...newDigests].sort().join(',');
+  if (printed.has(key)) return [];
+  printed.add(key);
+  const obs = Array.isArray(oldList && oldList.obligations) ? oldList.obligations : [];
+  const news = [...new Set(newDigests)].sort().map((x) => x.slice(7, 15)).join(', ') || '(none)';
+  const lines = [`re-pin ${nid}: old list ${oldDigest.slice(7, 15)} (split by ${oldList.split_by || 'unknown'}, reviewed by ${oldList.reviewed_by || 'unknown'}, ${obs.length} obligations) beside new digest ${news}:`];
+  for (const o of obs) {
+    const s = o && o.span ? o.span : {};
+    lines.push(`  re-pin ${nid}: ${o.id || '?'} [${s.start},${s.end}) ${o.kind || '?'}: ${o.label || '(no label)'}`);
+  }
+  lines.push(`  re-pin ${nid}: the old list does not carry over; write a fresh split for ${news} (scripts/propose-obligation-split.mjs) before the coverage file may name it`);
+  return lines;
+}
+
 export function checkO4({ nodesDir, obligationsDir, coverageDir, baselinePath }) {
   const errors = [];
   const bad = (m) => errors.push(m);
+  const repinsPrinted = new Set();
 
   const listed = new Set();
   if (existsSync(obligationsDir)) {
@@ -221,10 +257,32 @@ export function checkO4({ nodesDir, obligationsDir, coverageDir, baselinePath })
     }
   } else bad(`nodes directory not found: ${nodesDir}`);
 
-  // 1. every cited digest is listed or baselined
+  // coverage inventory: read once, used by the stale-coverage sweep and by the
+  // re-pin flow under part 1
+  const covByNode = new Map(); // node id -> { cov, file }
+  if (existsSync(coverageDir)) {
+    for (const f of readdirSync(coverageDir)) {
+      if (!f.endsWith('.json')) continue;
+      let cov;
+      try { cov = JSON.parse(readFileSync(join(coverageDir, f), 'utf8')); } catch { bad(`coverage file ${f} does not parse`); continue; }
+      covByNode.set(cov.node_id || f.replace(/\.json$/, ''), { cov, file: f });
+    }
+  }
+
+  // 1. every cited digest is listed or baselined; when the citation is a
+  //    re-pin (the node's coverage file still names the old digest), the old
+  //    list prints beside the new digest
   for (const [d, nodes] of citedBy) {
     if (!listed.has(d) && !(d in baseline)) {
       bad(`citing node ${nodes[0]} cites ${d.slice(7, 15)} which has no obligation list and no o4-baseline entry (write the list, or add a baseline entry with a reason)`);
+      for (const nid of nodes) {
+        const hit = covByNode.get(nid);
+        const olds = hit && Array.isArray(hit.cov.clause_digests) ? hit.cov.clause_digests.filter((x) => x !== d) : [];
+        const oldList = olds.length ? readListFile(obligationsDir, olds[0]) : null;
+        if (!oldList) continue;
+        errors.push(...repinLines(nid, olds[0], [d], oldList, repinsPrinted));
+        break;
+      }
     }
   }
   // 2. baseline entries are live: their digest must be cited and unlisted
@@ -233,18 +291,19 @@ export function checkO4({ nodesDir, obligationsDir, coverageDir, baselinePath })
     if (listed.has(d)) bad(`stale o4-baseline entry ${d.slice(0, 8)}: an obligation list now exists, remove the entry (the baseline only shrinks)`);
     else if (!citedBy.has(d)) bad(`stale o4-baseline entry ${d.slice(0, 8)}: no node cites this digest any more, remove the entry`);
   }
-  // 3. a coverage file may not name a digest its node no longer cites
-  if (existsSync(coverageDir)) {
-    for (const f of readdirSync(coverageDir)) {
-      if (!f.endsWith('.json')) continue;
-      let cov;
-      try { cov = JSON.parse(readFileSync(join(coverageDir, f), 'utf8')); } catch { bad(`coverage file ${f} does not parse`); continue; }
-      const nid = cov.node_id || f.replace(/\.json$/, '');
-      const cites = nodeCites.get(nid);
-      if (!cites) { bad(`coverage file ${f} names node ${nid}, which has no shard or cites no digest`); continue; }
-      for (const d of Array.isArray(cov.clause_digests) ? cov.clause_digests : []) {
-        if (!cites.has(d)) bad(`stale coverage: ${nid} names ${d.slice(7, 15)} which it no longer cites (a re-pin needs a fresh split, the old list does not carry over)`);
-      }
+  // 3. a coverage file may not name a digest its node no longer cites; that is
+  //    the re-pin signal, and the old list prints beside the new digest
+  for (const [nid, hit] of covByNode) {
+    const cites = nodeCites.get(nid);
+    if (!cites) { bad(`coverage file ${hit.file} names node ${nid}, which has no shard or cites no digest`); continue; }
+    const named = Array.isArray(hit.cov.clause_digests) ? hit.cov.clause_digests : [];
+    for (const d of named) {
+      if (!cites.has(d)) bad(`stale coverage: ${nid} names ${d.slice(7, 15)} which it no longer cites (a re-pin needs a fresh split, the old list does not carry over)`);
+    }
+    for (const d of named) {
+      if (cites.has(d)) continue;
+      const oldList = readListFile(obligationsDir, d);
+      if (oldList) errors.push(...repinLines(nid, d, [...cites].filter((x) => x !== d), oldList, repinsPrinted));
     }
   }
   return errors;

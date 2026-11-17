@@ -75,4 +75,8 @@ prints the split prompt and a skeleton; it calls no model itself.
    its own follow-up row (add a vector, implement the branch, or declare out of
    scope); never fix one inside a backfill row.
 5. A clause digest re-pin does not carry the old list over: a new digest means a fresh
-   split (gate O4 lists coverage naming a digest the node no longer cites).
+   split (gate O4 lists coverage naming a digest the node no longer cites and prints the
+   old list beside the new digest). To see which obligation spans survived the re-pin
+   byte for byte, run `node scripts/compare-obligation-spans.mjs --list <old-list.json> --old-excerpt <old excerpt path> --new-excerpt <new excerpt path> [--new-digest <sha256:...>]`;
+   it calls no model and writes nothing: spans that still carry the same bytes print as
+   MATCH, everything else as DIFFERS.
