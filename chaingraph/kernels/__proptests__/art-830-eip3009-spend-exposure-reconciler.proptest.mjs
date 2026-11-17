@@ -1,6 +1,6 @@
 // art-830-eip3009-spend-exposure-reconciler — property-test FLOOR. Scaffolded by scripts/new-kernel.mjs
 // (KERNEL-SCAFFOLD-1), authored under board row EIP3009-SPEND-EXPOSURE-RECONCILER-1 (K-FULL).
-// kernel_digest_at_authoring: sha256:58a966726c983f28bd710045aaf468720f70737a1fd0e102bd0753a2d884e3a8
+// kernel_digest_at_authoring: sha256:efd4e9216f23a4af29fb30e2bac8e020fb1eda46c218b7e77a7f35f3e3b1f87d
 // spec: EIP3009-SPEND-EXPOSURE-RECONCILER-1 (board/claimed) — reconciles a caller-pasted
 // authorization ledger against caller-pasted AuthorizationUsed / AuthorizationCanceled
 // event rows on a caller clock; clause digests pinned from erc-3009 snapshot 2026-11-03.
@@ -19,7 +19,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-830-eip3009-spend-exposure-reconciler.proptest.mjs
 
-import { compute } from '../art-830-eip3009-spend-exposure-reconciler.kernel.mjs';
+import { compute, buildArtifact } from '../art-830-eip3009-spend-exposure-reconciler.kernel.mjs';
 import { runFixtureOracle, summarize } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-830-eip3009-spend-exposure-reconciler';
@@ -298,6 +298,39 @@ function checkP9_not_yet_valid_and_duplicate() {
   return { name: 'P9_not_yet_valid_excluded_duplicate_counted_once', trials: checked, violations };
 }
 
+// ---------- P10 (D6): buildArtifact_never_throws ----------
+// An input whose {policy_parameters, output_payload} preimage the shared canonicalizer would
+// reject mints an artifact with a null execution_hash and a hash_refusal beside it; a clean
+// input (accepted or refused) gets a 64-hex hash.
+async function checkP10_buildArtifact_never_throws() {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  /** @type {any} */ let deep511 = 1; for (let i = 0; i < 511; i++) deep511 = [deep511];
+  const wide = new Array(1000001).fill(0);
+  const hostile = [
+    { zzz: 1e300 }, { zzz: Infinity }, { zzz: -Infinity }, { zzz: NaN },
+    { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } }, { zzz: deep }, { zzz: deep511 }, { zzz: wide },
+  ];
+  const base = { ledger: [], used_events: [], canceled_events: [], now_unix: BASE_NOW };
+  for (const delta of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...base, ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) { violations++; console.log('P10 violation: artifact shape'); }
+      if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) { violations++; console.log('P10 violation: hostile value echoed'); }
+    } catch (e) { violations++; console.log('P10 violation: buildArtifact threw: ' + String(e.message).slice(0, 80)); }
+  }
+  for (const pp of [base, randomPP(rand), { ...base, extra: 1 }, null, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('P10 violation: clean input lost its hash'); }
+    } catch (e) { violations++; console.log('P10 violation: buildArtifact threw on clean input: ' + String(e.message).slice(0, 80)); }
+  }
+  return { name: 'P10_buildArtifact_never_throws_null_hash_plus_hash_refusal', trials: checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -315,6 +348,7 @@ const properties = [
   checkP7_negative_control_expired(),
   checkP8_flag_mirror(),
   checkP9_not_yet_valid_and_duplicate(),
+  await checkP10_buildArtifact_never_throws(),
 ];
 const ok = summarize(KERNEL_ID, oracle, properties);
 process.exit(ok ? 0 : 1);
