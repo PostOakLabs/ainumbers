@@ -126,7 +126,7 @@ export function validateSubset(schema, data, path, errs) {
   }
   if (isObj(schema.properties) && isObj(data)) {
     for (const [k, sub] of Object.entries(schema.properties)) {
-      if (k in data) validateSubset(sub, data[k], `${path}.${k}`, errs);
+      if (hasOwn(data, k)) validateSubset(sub, data[k], `${path}.${k}`, errs);
     }
   }
   if (Array.isArray(schema.items) === false && schema.items && Array.isArray(data)) {
@@ -135,12 +135,12 @@ export function validateSubset(schema, data, path, errs) {
   if (isObj(data)) {
     if (Array.isArray(schema.required)) {
       for (const k of schema.required) {
-        if (!(k in data)) errs.push(`${path}: missing required property '${k}'`);
+        if (!hasOwn(data, k)) errs.push(`${path}: missing required property '${k}'`);
       }
     }
     if (schema.additionalProperties === false && isObj(schema.properties)) {
       for (const k of Object.keys(data)) {
-        if (!(k in schema.properties)) errs.push(`${path}: additional property '${k}' not allowed`);
+        if (!hasOwn(schema.properties, k)) errs.push(`${path}: additional property '${k}' not allowed`);
       }
     }
   }
@@ -154,16 +154,20 @@ export function deriveSchema(fixtures) {
   return deriveObject(payloads);
 }
 
+// OWN keys only: `k in v` also sees inherited members, so a fixture key such as `constructor`
+// or `toString` made every payload lacking it "have" it (type `function`, falsely required).
+const hasOwn = (v, k) => Object.prototype.hasOwnProperty.call(v, k);
+
 function deriveObject(values) {
   const keys = new Set();
   for (const v of values) if (isObj(v)) for (const k of Object.keys(v)) keys.add(k);
-  const required = [...keys].filter((k) => values.every((v) => isObj(v) && k in v))
+  const required = [...keys].filter((k) => values.every((v) => isObj(v) && hasOwn(v, k)))
     // SWORN members present in every fixture output are required (§3.10) — the
     // generic rule already covers them; the sort keeps them visually first.
     .sort((a, b) => (SWORN_MEMBERS.includes(b) ? 1 : 0) - (SWORN_MEMBERS.includes(a) ? 1 : 0) || a.localeCompare(b));
-  const properties = {};
+  const properties = Object.create(null); // a `__proto__` key must land as data, not rewire the prototype
   for (const k of [...keys].sort()) {
-    const vals = values.filter((v) => isObj(v) && k in v).map((v) => v[k]);
+    const vals = values.filter((v) => isObj(v) && hasOwn(v, k)).map((v) => v[k]);
     properties[k] = deriveField(vals);
   }
   return { type: 'object', properties, required, additionalProperties: false };
