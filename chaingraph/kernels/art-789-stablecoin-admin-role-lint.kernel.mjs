@@ -151,6 +151,22 @@ export function compute(pp) {
     }
   }
 
+  if (profileName === 'generic') {
+    const badRoleNames = Object.keys(roles).filter((r) => !r.trim());
+    if (badRoleNames.length > 0) {
+      compliance_flags.push('MALFORMED_INPUT_REFUSED');
+      return {
+        output_payload: {
+          manual_review_required: true,
+          verdict: 'REFUSED',
+          reason: 'role names must be non-empty, non-whitespace labels',
+          findings: [],
+        },
+        compliance_flags,
+      };
+    }
+  }
+
   const holderByLabel = new Map();
   for (const h of holders) holderByLabel.set(String(h.label), h);
 
