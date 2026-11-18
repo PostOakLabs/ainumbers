@@ -46,6 +46,7 @@ import * as t837      from './837-issuer-yield-share.kernel.mjs';
 import * as t838      from './838-control-frequency-sample.kernel.mjs';
 import * as t841      from './841-planning-materiality.kernel.mjs';
 import * as t844      from './844-workload-identity-claims.kernel.mjs';
+import * as t845      from './845-je-period-lock-gate.kernel.mjs';
 import * as art01     from './art-01-ap2-mandate-chain-validator.kernel.mjs';
 import * as art02     from './art-02-agent-spend-policy-simulator.kernel.mjs';
 import * as art03     from './art-03-x402-settlement-modeler.kernel.mjs';
@@ -812,6 +813,7 @@ export const KERNELS = {
   '838-control-frequency-sample':                               t838,
   '841-planning-materiality':                                   t841,
   '844-workload-identity-claims':                               t844,
+  '845-je-period-lock-gate':                                    t845,
   'art-01-ap2-mandate-chain-validator':                         art01,
   'art-02-agent-spend-policy-simulator':                        art02,
   'art-03-x402-settlement-modeler':                             art03,
