@@ -3140,7 +3140,7 @@ function validateField(field) {
         BITS: 'number',
     };
     const opts = FIELD_FIELDS.reduce((map, val) => {
-        map[val] = 'function';
+        if (!Object.hasOwn(map, val)) map[val] = 'function';
         return map;
     }, initial);
     validateObject(field, opts);
