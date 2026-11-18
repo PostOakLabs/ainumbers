@@ -2194,6 +2194,13 @@ const GATES = [
   ['SSOT catalog-parity (no orphans)', 'node scripts/check-catalog-parity.mjs'],
   ['SSOT spec-page parity',        'node chaingraph/standard/spec-page-parity.mjs'],
   ['SSOT spec-page subsections',   'node chaingraph/standard/spec-page-subsection-parity.mjs'],
+  // TIEOUT-SPAN-SCHEMA-1: the ocg-document-span@1 sidecar profile (document-span records outside the
+  // envelope; the section 23 type list stays closed at four). Schema + fixtures + reference checker
+  // in one selftest: schema accept/reject per fixture, checker verdicts per fixture, two mutation
+  // red controls (row-key uniqueness guard, external-on-incomplete), CLI exit contract. Blocking in
+  // both contexts - hand-authored surface, this gate is its only drift guard; nothing here is a
+  // main-side derived artifact, so no ADVISORY_ON_PR entry applies.
+  ['Document-span profile fixtures + reference checker (TIEOUT-SPAN-SCHEMA-1)', 'node scripts/check-document-span.selftest.mjs'],
   ['verify_repo (PII/sitemap/AP2)', changedRef ? `python scripts/verify_repo.py --changed ${changedRef}` : 'python scripts/verify_repo.py'],
   ['verify_repo sitemap context controls (PR advisory / merge_group overlay / main hard, SITEMAP-DEPLOY-SPLIT-1)', 'node scripts/verify_repo_sitemap_context.test.mjs'],
   ['AP2 bulk contract-gap ratchet (AP2-DEBT-BASELINE-1)', 'node scripts/check-ap2-contract.mjs'],
