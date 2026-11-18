@@ -146,7 +146,7 @@ function evaluateEntry(e, ctx) {
       seenLineIds.add(lineId);
     }
     const ccy = ln.currency;
-    if (typeof ccy !== 'string' || !(ccy in exponents)) {
+    if (typeof ccy !== 'string' || !Object.hasOwn(exponents, ccy)) {
       firstRefusal = firstRefusal || 'UNKNOWN_CURRENCY';
       continue;
     }
