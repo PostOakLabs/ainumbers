@@ -1,5 +1,5 @@
 // 837-issuer-yield-share — class-K property-test floor. Authored per FV-PBT-FLOOR-BUILD-SPEC.md.
-// kernel_digest_at_authoring: sha256:b123b156ec3cde8bcfbafbee76cd95b0adccb12143c99741a90e9ee3c681ba5e
+// kernel_digest_at_authoring: sha256:32a5df7a7d778940d00ca00119638af45db6f188e16f110b05fbe43e3d9c8d32
 // spec: board/queued/ISSUER-YIELD-SHARE-CHECK-1.md (aggregate split recompute + issuer-yield trace)
 // human_sign_off: PENDING (node lands deferred)
 //
@@ -7,7 +7,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/837-issuer-yield-share.proptest.mjs
 
-import { compute } from '../837-issuer-yield-share.kernel.mjs';
+import { compute, buildArtifact } from '../837-issuer-yield-share.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, deepEqual, pick } from './_pbt-common.mjs';
 
 const KERNEL_ID = '837-issuer-yield-share';
@@ -128,6 +128,71 @@ function checkRefusals() {
   return { name: 'invalid_domain_refused_reachable', checked, violations };
 }
 
+// Class-B: BigInt oracle over large inputs. An independent BigInt recompute (written
+// here, not imported) must equal the kernel's income and bp shares, and a recomputed
+// income above MAX_SAFE_INTEGER must refuse with the named reason.
+function checkBigIntOracle() {
+  const rng = mulberry32(789006);
+  const MAX = BigInt(Number.MAX_SAFE_INTEGER);
+  let checked = 0, violations = 0;
+  for (let i = 0; i < 400; i++) {
+    // Spread across the whole safe range so both sides of the MAX_SAFE refusal are hit.
+    const avg = BigInt(Math.floor(rng() * Number.MAX_SAFE_INTEGER) % (2 ** (20 + Math.floor(rng() * 33))));
+    const bp = Math.floor(rng() * 100001);
+    const days = 1 + Math.floor(rng() * 366);
+    const shareBp = Math.floor(rng() * 10001);
+    const income = (avg * BigInt(bp) / 10000n) * BigInt(days) / 365n;
+    const r = compute(basePP({
+      period: { days, avg_reserve_value_minor: Number(avg), reserve_yield_bp: bp },
+      split: [{ party_role: 'issuer', share_bp: shareBp }],
+    })).output_payload;
+    checked++;
+    if (income > MAX) {
+      if (r.verdict !== 'refused' || r.refused_because !== 'reserve_income_minor_exceeds_max_safe_integer') violations++;
+      continue;
+    }
+    if (r.income === null || BigInt(r.income.reserve_income_minor) !== income) violations++;
+    else if (BigInt(r.income.shares[0].amount_minor) !== income * BigInt(shareBp) / 10000n) violations++;
+  }
+  // The verifier's counterexample: exact value is above MAX_SAFE, so it must refuse.
+  const ce = compute(basePP({ period: { days: 247, avg_reserve_value_minor: 8962929725646973, reserve_yield_bp: 67946 } })).output_payload;
+  if (ce.verdict !== 'refused' || ce.refused_because !== 'reserve_income_minor_exceeds_max_safe_integer') violations++;
+  checked++;
+  return { name: 'bigint_oracle_income_and_shares_exact_or_refused', checked, violations };
+}
+
+// Class-A (D6): buildArtifact never throws. Unhashable inputs (unsafe integer, 1e300,
+// non-finite, depth) mint a refusal artifact; compute() refuses the same inputs, so the
+// two entry points accept exactly the same domain. Clean inputs carry a real hash.
+async function checkBuildArtifactNeverThrows() {
+  let deep = {};
+  for (let i = 0; i < 600; i++) deep = { d: deep };
+  const unhashable = [
+    basePP({ period: { days: 30, avg_reserve_value_minor: 9007199254740992, reserve_yield_bp: 100 } }),
+    basePP({ period: { days: 30, reserve_income_minor: 1e300 } }),
+    basePP({ holder_rewards: [{ payer_role: 'platform', funded_from: 'other', value_minor: 9007199254740992, conditioned_on: 'holding' }] }),
+    basePP({ note: 1e300 }),
+    basePP({ note: Infinity }),
+    basePP({ note: deep }),
+  ];
+  let checked = 0, violations = 0;
+  for (const pp of unhashable) {
+    checked++;
+    try {
+      const a = await buildArtifact(pp);
+      if (a.execution_hash !== null || !a.hash_refusal || a.output_payload.verdict !== 'refused') violations++;
+    } catch (e) { violations++; }
+  }
+  for (const pp of [basePP({}), basePP({ period: { days: 30, reserve_income_minor: 9007199254740991 }, split: [{ party_role: 'issuer', share_bp: 10000 }] })]) {
+    checked++;
+    try {
+      const a = await buildArtifact(pp);
+      if (typeof a.execution_hash !== 'string' || a.hash_refusal !== undefined) violations++;
+    } catch (e) { violations++; }
+  }
+  return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -141,7 +206,9 @@ const properties = [
   checkConservation(),
   checkVerdictMapping(),
   checkRefusals(),
+  checkBigIntOracle(),
+  await checkBuildArtifactNeverThrows(),
 ];
-console.log(`[${KERNEL_ID}] class-K floor property test — authored (5 properties + golden fixture oracle).`);
+console.log(`[${KERNEL_ID}] class-K floor property test — authored (7 properties + golden fixture oracle).`);
 const ok = summarize(KERNEL_ID, oracle, properties);
 process.exit(ok ? 0 : 1);

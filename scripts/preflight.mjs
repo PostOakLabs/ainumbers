@@ -1787,6 +1787,7 @@ const GATES = [
   ['Vendored crypto digest pins (VENDOR-DIGEST-GATE-1)', 'node scripts/check-vendored-digests.mjs'],
   ['Vendored crypto digest fixture proof (1-byte perturbation RED, SO #34c)', 'node scripts/check-vendored-digests.test.mjs'],
   ['MANIFEST name parity',         'node scripts/check-manifest-parity.mjs'],
+  ['Manifest example/output-schema parity controls (advisory class, RED/GREEN pair, GATE-SELFTEST-META-1)', 'node scripts/check-manifest-parity.selftest.mjs'],
   ['Manifest schema (SSOT-SCHEMA-1)', 'node scripts/check-manifest-schema.mjs'],
   // OUTPUTSCHEMA-GAP-1: every live-node manifest either declares output_schema or sits under the
   // down-only baseline ceiling (scripts/output-schema-baseline.json); every declared output_schema
@@ -1931,6 +1932,16 @@ const GATES = [
   // fact and vintage agree) and V4 (every source digest resolves in the clause snapshot registry).
   ['Vintage table V1/V2/V4 (VINTAGE-TABLE-1)', 'node chaingraph/kernels/__vintages__/check-vintages.mjs'],
   ['Vintage table controls (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node chaingraph/kernels/__vintages__/check-vintages.mjs --self-test'],
+  // VINTAGE-CALENDAR-1: the public calendar page renders from the table through its
+  // writer; --check byte-compares the page against a fresh render (pure function, no
+  // wall clock), so a table edit without a page regen reds here and on main. The
+  // page itself is PR-carried: it is deliberately NOT a derived-artifacts COVERED
+  // artifact (a whole-file COVERED page is main-only and its birth PR could not
+  // carry it), and its count sentinels are registered in counts.mjs but the page is
+  // not in verify-counts.mjs's scan list (a counts-declared page classifies
+  // count-sentinel in check-main-only-paths.mjs, which refuses adding one in a PR).
+  ['Vintage calendar page freshness (VINTAGE-CALENDAR-1)', 'node scripts/gen-vintage-calendar.mjs --check'],
+  ['Vintage calendar page controls (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/gen-vintage-calendar.mjs --self-test'],
   // ADVISORY hostile-input census of kernels this diff adds or changes (always exits 0).
   ['Kernel hostile-input census (ADVISORY)', 'node scripts/check-kernel-hostile-census.mjs'],
   ['Kernel hostile-input census controls (RED+GREEN)', 'node scripts/check-kernel-hostile-census.mjs --self-test'],
@@ -2011,6 +2022,15 @@ const GATES = [
   // twins and their <link rel=alternate> head tags are SO #35 single-writer
   // artifacts written main-side) while it stays BLOCKING on main.
   ['Markdown twin freshness (PAGE-MD-TWINS-1)', 'node scripts/gen-page-md-twins.mjs --check'],
+  // OBLIGATION-PAGE-1: obligation map gate O6 — the generated md twin's Not
+  // covered block equals the coverage file's out_of_scope list. In-gate
+  // isMainContext() split (the MAINONLY-REMOVAL-ADVISORY-ON-PR-1 pattern):
+  // twin-staleness findings are advisory on a PR (the twin is SO #35
+  // single-writer output a PR must not commit) and HARD on main and on
+  // merge_group, where the gate overlay-reads the assembled tree's fresh twins
+  // (a DERIVED_ROOT_GATES member in derived-artifacts.mjs).
+  ['Obligation page agreement (O6, OBLIGATION-PAGE-1)', 'node scripts/check-obligation-page.mjs'],
+  ['Obligation page gate controls (RED/GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-obligation-page.selftest.mjs'],
   // AI-CATALOG-1 (AGENT-REACH-BUILD-SPEC §3.2): both well-known catalogs from one
   // generator. Freshness is advisory on a PR via the generic ADVISORY_ON_PR
   // categorisation (derived-artifacts.mjs COVERED ids ai-catalog + api-catalog):
@@ -2109,6 +2129,13 @@ const GATES = [
   // Sigsum submit token + SIGSUM-BUDGET-COUNTER-1 landed. See derived-artifacts.mjs
   // registration status alongside this gate for whether output now exists on disk.
   ['F1 registry errata log freshness (REGISTRY-ERRATA-RETRY-1)', 'node scripts/gen-registry-errata.mjs --check'],
+  // KERNEL-ERRATA-READER-1 (2026-11-16): the page-load errata snapshot the verify pages
+  // arm (chaingraph/errata/errata-snapshot.mjs + the generated regions on errata.html and
+  // chaingraph/receipt-bundle-verify.html). Wired here per the house pattern for --check
+  // generators (satisfies check-generator-coverage.mjs); its CI route is the workflows
+  // that run the full preflight, and its COVERED entry in derived-artifacts.mjs makes the
+  // main-side regen the single writer of those three surfaces after merge.
+  ['Kernel errata snapshot freshness (KERNEL-ERRATA-READER-1)', 'node scripts/gen-errata-snapshot.mjs --check'],
   // REGISTRY-ABSENCE-TREE-BUILD-1: the F2 absence lane. --check = tree.json freshness
   // (recomputed from registry/kernel/*, SO #34) PLUS the lineage binding (the lineage log's
   // ainumbers-absence-tree-v1 entry must equal the recomputed root + key count, BUILD-SPEC
@@ -2336,6 +2363,13 @@ const GATES = [
   ['Page-kernel digest fixture proof (SO #40b pairing)', 'node scripts/check-page-kernel-digest.test.mjs'],
   ['art-220 page/kernel TABLES single-writer parity (ART220-TABLE-SINGLE-WRITER-1)', 'node scripts/check-art220-table-parity.mjs'],
   ['art-220 TABLES parity mutation controls (SO #40b pairing)', 'node scripts/check-art220-table-parity.test.mjs'],
+  // REGZ-TABLE-SINGLE-WRITER-3: the art-218/art-234 node pages' year tables are GENERATED from the
+  // kernels' THRESHOLD_TABLES exports; a hand edit or a kernel change without --write reds these.
+  // Same mechanism as ART220-TABLE-SINGLE-WRITER-1's check-art220-table-parity.mjs (PR #1679).
+  ['art-218 page/kernel QM_TABLES single-writer parity (REGZ-TABLE-SINGLE-WRITER-3)', 'node scripts/check-art218-table-parity.mjs'],
+  ['art-218 QM_TABLES parity mutation controls (SO #40b pairing)', 'node scripts/check-art218-table-parity.test.mjs'],
+  ['art-234 page/kernel HOEPA_PF single-writer parity (REGZ-TABLE-SINGLE-WRITER-3)', 'node scripts/check-art234-table-parity.mjs'],
+  ['art-234 HOEPA_PF parity mutation controls (SO #40b pairing)', 'node scripts/check-art234-table-parity.test.mjs'],
   // §18 RECOMPUTE-EQUALITY (SO #34, ASYNC-VACUOUS-GATE-1). Re-executes every proven node's kernel in the
   // QuickJS sandbox and requires the receipt's journal.output to reproduce. ~8s over the full estate.
   ['§18 recompute-equality (SO #34)', 'node scripts/check-recompute-equality.mjs'],
