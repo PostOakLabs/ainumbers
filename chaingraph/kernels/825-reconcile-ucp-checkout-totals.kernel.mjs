@@ -31,8 +31,9 @@ import { executionHash } from './_hash.mjs';
 // ARITHMETIC: pure integer. price x quantity is computed as an exact base-10 digit-array
 // product (16x16 schoolbook digits, every partial <= 81) and divided by 10^scale by digit
 // shift, so the 32-digit intermediate never passes through a float; sums and differences use
-// base-10^7 limb add/sub with carries. No float arithmetic, no Date, no BigInt, no
-// TextEncoder anywhere in the guest path. The rounding rule is a declared policy parameter
+// base-10^7 limb add/sub with carries. No float arithmetic, no Date, no TextEncoder
+// anywhere in the guest path; sums accumulate in BigInt and are checked against 2^53-1
+// before any money number is emitted. The rounding rule is a declared policy parameter
 // (default half_even) applied at most once per line, and the output names the rule applied.
 //
 // REFUSALS: structural malformation (totals not an array or without exactly one subtotal and
@@ -153,19 +154,21 @@ function limbsValue(l) { // only for values known to fit <= MAX_MINOR
   for (let i = l.length - 1; i >= 0; i--) v = v * LIMB + l[i];
   return v;
 }
-// Signed exact sum of integers (each within +/-MAX_MINOR). Returns { neg, mag, fits } where
-// mag is limbs of the absolute value; fits says whether the magnitude is <= MAX_MINOR.
+// Signed exact sum of integers (each within +/-MAX_MINOR). Accumulates in BigInt so the
+// running total never passes through a float; returns { neg, mag, fits } where mag is the
+// exact base-1e7 limbs of the absolute value and fits is true ONLY when the magnitude is
+// <= MAX_MINOR (2^53-1). limbsValue() is safe only on a fitting magnitude: a total above
+// the safe range is refused by the named TOTALS_SUM_OUT_OF_RANGE / SUBTOTAL_SUM_OUT_OF_RANGE
+// findings, never emitted as a coerced or rounded Number.
 function exactSum(nums) {
-  let pos = [0], neg = [0];
-  for (let i = 0; i < nums.length; i++) {
-    const v = nums[i];
-    const d = limbsFromDigits(digitsOf(Math.abs(v)));
-    if (v >= 0) pos = addLimbs(pos, d);
-    else neg = addLimbs(neg, d);
-  }
-  const c = cmpLimbs(pos, neg);
-  const mag = c >= 0 ? subLimbs(pos, neg) : subLimbs(neg, pos);
-  return { neg: c < 0, mag, fits: mag.length <= 3 && (mag.length < 3 || cmpLimbs(mag, [8151873, 4343412, 194]) <= 0) };
+  let total = 0n;
+  for (let i = 0; i < nums.length; i++) total += BigInt(nums[i]);
+  const neg = total < 0n;
+  let m = neg ? -total : total;
+  const fits = m <= BigInt(MAX_MINOR);
+  const mag = [];
+  while (m > 0n) { mag.push(Number(m % 10000000n)); m /= 10000000n; }
+  return { neg, mag: mag.length ? mag : [0], fits };
 }
 // price * quantity / 10^scale exactly: { quotient, remainder, overflow }.
 // quantity <= MAX_MINOR, scale <= 15. Partials stay <= 81 so the product is exact.
@@ -522,12 +525,19 @@ export function compute(pp) {
     // refund bound
     if (adjNets.length && out.declared_total !== null && !out.truncated) {
       const net = exactSum(adjNets); // signed sum of adjustment totals
-      const returned = net.neg ? limbsValue(net.mag) : 0; // money returned = negative net
-      const paid = out.declared_total;
-      const ok = returned <= paid;
-      out.refunds = { net_refunded: net.neg ? returned : -limbsValue(net.mag), total_paid: paid, ok };
-      if (!ok) {
-        violations.push({ path: '$.adjustments', code: 'REFUND_EXCEEDS_TOTAL', reason: 'net refunded (' + returned + ') exceeds the declared order total paid (' + paid + ') (adjustment.json: negative adjustment totals are money returned to the buyer)' });
+      if (!net.fits) {
+        // Reuse the kernel's named sum-overflow finding (TOTALS_SUM_OUT_OF_RANGE): an unsafe
+        // net must never be emitted as a Number, including through refunds.net_refunded.
+        violations.push({ path: '$.adjustments', code: 'TOTALS_SUM_OUT_OF_RANGE', reason: 'the adjustment totals sum beyond 2^53-1 minor units, so no net refunded amount can be emitted as a safe integer' });
+        out.refunds = { net_refunded: null, total_paid: out.declared_total, ok: null };
+      } else {
+        const returned = net.neg ? limbsValue(net.mag) : 0; // money returned = negative net
+        const paid = out.declared_total;
+        const ok = returned <= paid;
+        out.refunds = { net_refunded: net.neg ? returned : -limbsValue(net.mag), total_paid: paid, ok };
+        if (!ok) {
+          violations.push({ path: '$.adjustments', code: 'REFUND_EXCEEDS_TOTAL', reason: 'net refunded (' + returned + ') exceeds the declared order total paid (' + paid + ') (adjustment.json: negative adjustment totals are money returned to the buyer)' });
+        }
       }
     } else {
       out.refunds = { net_refunded: null, total_paid: out.declared_total, ok: null };
