@@ -165,38 +165,118 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 </script>
 
 <script>
-const MODELS=['direct','sponsored_done_with','sponsored_done_away','agent_done_away'];
-const PARAMS={direct:{fee_bps:0.10,im_mult:1.00,capital_mult:0.10,ops_fixed:2000000,exec:1.00,net:0.00},sponsored_done_with:{fee_bps:0.30,im_mult:1.00,capital_mult:0.10,ops_fixed:150000,exec:0.40,net:0.00},sponsored_done_away:{fee_bps:0.28,im_mult:0.85,capital_mult:0.10,ops_fixed:250000,exec:0.90,net:0.15},agent_done_away:{fee_bps:0.25,im_mult:0.80,capital_mult:0.10,ops_fixed:400000,exec:0.95,net:0.20}};
-const IM_RATE=0.010, W={cost:0.40,exec:0.25,margin:0.25,ops:0.10};
-function compute(pp){
-  const feeBase=(+pp.cash_notional_annual||0)+(+pp.repo_notional_daily||0)*250;
-  const imNotional=(+pp.repo_notional_daily||0)+(+pp.cash_notional_annual||0)/250;
-  const dealers=Math.max(1,+pp.num_executing_dealers||1);
-  const dealerNet=Math.min(0.30,dealers*0.05);
-  const eligibility_gates=[];
-  const directEligible=(pp.firm_type==='bank-dealer'||pp.firm_type==='nonbank-dealer')&&feeBase>50e9;
-  if(!directEligible)eligibility_gates.push('DIRECT_MEMBERSHIP_INELIGIBLE');
-  const annual_cost_by_model={},im_estimate_by_model={},model_scores={};
-  for(const mdl of MODELS){const p=PARAMS[mdl];const netting=p.net+(mdl.includes('done_away')?dealerNet:0);const im=imNotional*IM_RATE*p.im_mult*(1-netting);const fees=feeBase*(p.fee_bps/10000);const imFunding=im*(+pp.im_funding_rate||0.05);const capital=(pp.capital_constrained===true||pp.capital_constrained==='true')?feeBase*(+pp.capital_charge_rate||0.005)*p.capital_mult:0;const total=fees+imFunding+capital+p.ops_fixed;annual_cost_by_model[mdl]=Math.round(total);im_estimate_by_model[mdl]=Math.round(im);model_scores[mdl]={_cost:total,_exec:p.exec,_margin:1-p.im_mult*(1-netting),_ops:p.ops_fixed};}
-  const costs=MODELS.map(m=>model_scores[m]._cost),minC=Math.min(...costs),maxC=Math.max(...costs);
-  const opsv=MODELS.map(m=>model_scores[m]._ops),minO=Math.min(...opsv),maxO=Math.max(...opsv);
-  const norm=(v,lo,hi,inv)=>{if(hi===lo)return 100;const t=(v-lo)/(hi-lo);return Math.round((inv?1-t:t)*100);};
-  const wantFlex=(pp.want_execution_flexibility===true||pp.want_execution_flexibility==='true');
-  let best=null,bestScore=-1;
-  for(const mdl of MODELS){const s=model_scores[mdl];const execAdj=s._exec*(wantFlex?1:0.7)*(dealers>=3?1:0.85);const blended=W.cost*norm(s._cost,minC,maxC,true)+W.exec*Math.round(execAdj*100)+W.margin*Math.round(s._margin/0.30*100)+W.ops*norm(s._ops,minO,maxO,true);model_scores[mdl]={blended:+blended.toFixed(1),cost_score:norm(s._cost,minC,maxC,true),exec_score:Math.round(execAdj*100),eligible:mdl==='direct'?directEligible:true};if(model_scores[mdl].eligible&&blended>bestScore){bestScore=blended;best=mdl;}}
-  const segregation_recommendation=pp.firm_type==='mmf'?'segregated':(pp.margin_segregation_pref!=='no-pref'?pp.margin_segregation_pref:(best==='agent_done_away'?'non-segregated (net CCP margining)':'segregated'));
-  const lienRequired=im_estimate_by_model[best]||0;
-  const collateralEligible=(pp.collateral_in_lieu_eligible===true||pp.collateral_in_lieu_eligible==='true')&&(+pp.repo_notional_daily||0)>0;
-  const collateralSufficient=collateralEligible&&(+pp.pledged_collateral_value||0)>=lienRequired;
-  const collateral_in_lieu={eligible:collateralEligible,lien_required_usd:lienRequired,pledged_collateral_value:+pp.pledged_collateral_value||0,collateral_sufficient:collateralSufficient,annual_funding_savings_usd:collateralSufficient?Math.round(lienRequired*(+pp.im_funding_rate||0.05)):0,note:'FICC Collateral-in-Lieu: a lien on pledged repo collateral substitutes for cash IM, saving IM funding cost. Repo-only; requires sufficient pledged collateral. Educational, not clearing advice.'};
-  const compliance_flags=[];
-  if(!directEligible)compliance_flags.push('DIRECT_MEMBERSHIP_INELIGIBLE');
-  if(best&&best.includes('done_away'))compliance_flags.push('DONE_AWAY_RECOMMENDED');
-  if(pp.firm_type==='mmf')compliance_flags.push('SEGREGATED_MARGIN_REQUIRED_2A7');
-  if(collateral_in_lieu.eligible&&!collateral_in_lieu.collateral_sufficient)compliance_flags.push('COLLATERAL_IN_LIEU_SHORTFALL');
-  if(collateral_in_lieu.collateral_sufficient)compliance_flags.push('COLLATERAL_IN_LIEU_APPLICABLE');
-  const cfo_memo=`Recommended access model: ${best}. Est. annual cost $${(annual_cost_by_model[best]/1e6).toFixed(2)}M (vs Direct $${(annual_cost_by_model.direct/1e6).toFixed(2)}M). Done-away netting uplift from ${dealers} dealer(s): ${(dealerNet*100).toFixed(0)}%. Segregation: ${segregation_recommendation}. Educational estimate; confirm with the CCP and sponsor.`;
-  return {output_payload:{recommended_model:best,model_scores,annual_cost_by_model,im_estimate_by_model,execution_access_score:Math.round(PARAMS[best].exec*100),netting_efficiency_pct:+((PARAMS[best].net+(best.includes('done_away')?dealerNet:0))*100).toFixed(1),segregation_recommendation,eligibility_gates,collateral_in_lieu,cfo_memo,note:'Educational access-model economics for the SEC US Treasury clearing mandate. Assumptions documented in-kernel; not clearing advice.'},compliance_flags};
+const MODELS = ['direct', 'sponsored_done_with', 'sponsored_done_away', 'agent_done_away'];
+// Per-model assumptions (documented, adjustable). Fees in bps of cleared volume.
+const PARAMS = {
+  direct:              { fee_bps: 0.10, im_mult: 1.00, capital_mult: 0.10, ops_fixed: 2_000_000, exec: 1.00, net: 0.00, seg: 'na' },
+  sponsored_done_with: { fee_bps: 0.30, im_mult: 1.00, capital_mult: 0.10, ops_fixed: 150_000,   exec: 0.40, net: 0.00, seg: 'segregated' },
+  sponsored_done_away: { fee_bps: 0.28, im_mult: 0.85, capital_mult: 0.10, ops_fixed: 250_000,   exec: 0.90, net: 0.15, seg: 'segregated' },
+  agent_done_away:     { fee_bps: 0.25, im_mult: 0.80, capital_mult: 0.10, ops_fixed: 400_000,   exec: 0.95, net: 0.20, seg: 'either' },
+};
+const IM_RATE = 0.010;          // FICC VaR-margin proxy: ~1% of outstanding (educational)
+// CW-4 extension: FICC's Collateral-in-Lieu service — a lien on already-pledged repo collateral
+// substitutes for cash IM, saving the IM funding cost (im * im_funding_rate). Repo-only, educational.
+const W = { cost: 0.40, exec: 0.25, margin: 0.25, ops: 0.10 };
+
+function compute(pp) {
+  const {
+    firm_type = 'hedge-fund',
+    cash_notional_annual = 0,
+    repo_notional_daily = 0,
+    current_access = 'none',
+    num_executing_dealers = 1,
+    want_execution_flexibility = true,
+    capital_constrained = false,
+    margin_segregation_pref = 'no-pref',
+    im_funding_rate = 0.05,
+    capital_charge_rate = 0.005,
+    collateral_in_lieu_eligible = false,
+    pledged_collateral_value = 0,
+  } = pp;
+
+  const feeBase = (Number(cash_notional_annual) || 0) + (Number(repo_notional_daily) || 0) * 250;
+  const imNotional = (Number(repo_notional_daily) || 0) + (Number(cash_notional_annual) || 0) / 250;
+  const dealers = Math.max(1, Number(num_executing_dealers) || 1);
+  const dealerNet = Math.min(0.30, dealers * 0.05); // cross-dealer netting uplift, capped 30%
+
+  const eligibility_gates = [];
+  const directEligible = (firm_type === 'bank-dealer' || firm_type === 'nonbank-dealer') && feeBase > 50e9;
+  if (!directEligible) eligibility_gates.push('DIRECT_MEMBERSHIP_INELIGIBLE');
+
+  const annual_cost_by_model = {}, im_estimate_by_model = {}, model_scores = {};
+  for (const mdl of MODELS) {
+    const p = PARAMS[mdl];
+    const netting = p.net + (mdl.includes('done_away') ? dealerNet : 0); // done-away gets cross-dealer netting
+    const im = imNotional * IM_RATE * p.im_mult * (1 - netting);
+    const fees = feeBase * (p.fee_bps / 10000);
+    const imFunding = im * (Number(im_funding_rate) || 0.05);
+    const capital = capital_constrained ? feeBase * (Number(capital_charge_rate) || 0.005) * p.capital_mult : 0;
+    const total = fees + imFunding + capital + p.ops_fixed;
+    annual_cost_by_model[mdl] = Math.round(total);
+    im_estimate_by_model[mdl] = Math.round(im);
+    model_scores[mdl] = { _cost: total, _exec: p.exec, _margin: 1 - p.im_mult * (1 - netting), _ops: p.ops_fixed };
+  }
+
+  // Normalize to 0-100 sub-scores and blend.
+  const costs = MODELS.map((m) => model_scores[m]._cost);
+  const minC = Math.min(...costs), maxC = Math.max(...costs);
+  const opsv = MODELS.map((m) => model_scores[m]._ops);
+  const minO = Math.min(...opsv), maxO = Math.max(...opsv);
+  const norm = (v, lo, hi, invert) => { if (hi === lo) return 100; const t = (v - lo) / (hi - lo); return Math.round((invert ? 1 - t : t) * 100); };
+
+  let best = null, bestScore = -1;
+  for (const mdl of MODELS) {
+    const s = model_scores[mdl];
+    const execAdj = s._exec * (want_execution_flexibility ? 1 : 0.7) * (dealers >= 3 ? 1 : 0.85);
+    const blended =
+      W.cost * norm(s._cost, minC, maxC, true) +
+      W.exec * Math.round(execAdj * 100) +
+      W.margin * Math.round(s._margin / 0.30 * 100) + // margin efficiency relative to max ~30%
+      W.ops * norm(s._ops, minO, maxO, true);
+    model_scores[mdl] = { blended: +blended.toFixed(1), cost_score: norm(s._cost, minC, maxC, true), exec_score: Math.round(execAdj * 100), eligible: mdl === 'direct' ? directEligible : true };
+    if (model_scores[mdl].eligible && blended > bestScore) { bestScore = blended; best = mdl; }
+  }
+
+  const segregation_recommendation = firm_type === 'mmf' ? 'segregated'
+    : (margin_segregation_pref !== 'no-pref' ? margin_segregation_pref : (best === 'agent_done_away' ? 'non-segregated (net CCP margining)' : 'segregated'));
+
+  const lienRequired = im_estimate_by_model[best] || 0;
+  const collateralSufficient = collateral_in_lieu_eligible && (Number(pledged_collateral_value) || 0) >= lienRequired && (Number(repo_notional_daily) || 0) > 0;
+  const collateral_in_lieu = {
+    eligible: !!collateral_in_lieu_eligible && (Number(repo_notional_daily) || 0) > 0,
+    lien_required_usd: lienRequired,
+    pledged_collateral_value: Number(pledged_collateral_value) || 0,
+    collateral_sufficient: collateralSufficient,
+    annual_funding_savings_usd: collateralSufficient ? Math.round(lienRequired * (Number(im_funding_rate) || 0.05)) : 0,
+    note: 'FICC Collateral-in-Lieu: a lien on pledged repo collateral substitutes for cash IM, saving IM funding cost. Repo-only; requires sufficient pledged collateral. Educational, not clearing advice.',
+  };
+
+  const compliance_flags = [];
+  if (!directEligible) compliance_flags.push('DIRECT_MEMBERSHIP_INELIGIBLE');
+  if (best && best.includes('done_away')) compliance_flags.push('DONE_AWAY_RECOMMENDED');
+  if (firm_type === 'mmf') compliance_flags.push('SEGREGATED_MARGIN_REQUIRED_2A7');
+  if (collateral_in_lieu.eligible && !collateral_in_lieu.collateral_sufficient) compliance_flags.push('COLLATERAL_IN_LIEU_SHORTFALL');
+  if (collateral_in_lieu.collateral_sufficient) compliance_flags.push('COLLATERAL_IN_LIEU_APPLICABLE');
+
+  const cfo_memo = `Recommended access model: ${best}. ` +
+    `Est. annual cost $${(annual_cost_by_model[best] / 1e6).toFixed(2)}M (vs Direct $${(annual_cost_by_model.direct / 1e6).toFixed(2)}M). ` +
+    `Done-away netting uplift from ${dealers} dealer(s): ${(dealerNet * 100).toFixed(0)}%. ` +
+    `Segregation: ${segregation_recommendation}. Educational estimate; confirm with the CCP and sponsor.`;
+
+  const output_payload = {
+    recommended_model: best,
+    model_scores,
+    annual_cost_by_model,
+    im_estimate_by_model,
+    execution_access_score: Math.round(PARAMS[best].exec * 100),
+    netting_efficiency_pct: +((PARAMS[best].net + (best.includes('done_away') ? dealerNet : 0)) * 100).toFixed(1),
+    segregation_recommendation,
+    eligibility_gates,
+    collateral_in_lieu,
+    cfo_memo,
+    note: 'Educational access-model economics for the SEC US Treasury clearing mandate. Assumptions documented in-kernel; not clearing advice.',
+  };
+  return { output_payload, compliance_flags };
 }
 const canon=v=>Array.isArray(v)?v.map(canon):(v&&typeof v==='object'?Object.keys(v).sort().reduce((o,k)=>(o[k]=canon(v[k]),o),{}):v);
 async function execHash(pp,op){const s=JSON.stringify(canon({policy_parameters:pp,output_payload:op}));const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');}
