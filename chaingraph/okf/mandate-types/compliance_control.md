@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-150"]
+tags: ["compliance_control", "count-154"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,14 +10,16 @@ status: stable
 
 # compliance_control
 
-150 tool(s) in this mandate-type group:
+154 tool(s) in this mandate-type group:
 
 - [EMV MPM QR Payload Validator](../tools/783-emv-mpm-qr-validator.md)
 - [QR Go-Live Readiness Assessor](../tools/785-qr-golive-readiness.md)
 - [Corridor Cost Averages](../tools/787-corridor-cost-averages.md)
+- [Event Contract Position Limit Check](../tools/790-event-position-limit-check.md)
 - [Curator Vault Cap Auditor](../tools/792-curator-vault-cap-auditor.md)
 - [Event Fee Recompute](../tools/794-event-fee-recompute.md)
 - [Stablecoin Refund Dispute Check](../tools/795-stablecoin-refund-dispute.md)
+- [Payment System MI Pack](../tools/796-payment-system-mi-pack.md)
 - [Stablecoin Cash Equivalent Test (FASB Proposed 2026-08)](../tools/797-stablecoin-cash-equivalent-test.md)
 - [Assess Sandbox Application Readiness](../tools/798-assess-sandbox-application-readiness.md)
 - [Event Contract Terms Lint](../tools/806-event-contract-terms-lint.md)
@@ -35,6 +37,7 @@ status: stable
 - [Control Frequency Sample](../tools/838-control-frequency-sample.md)
 - [Planning Materiality](../tools/841-planning-materiality.md)
 - [Workload Identity Claims Lint](../tools/844-workload-identity-claims.md)
+- [Je Period Lock Gate](../tools/845-je-period-lock-gate.md)
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
 - [Mastercard Agentic Token Scope Builder](../tools/art-24-mastercard-agentic-token-builder.md)
@@ -162,3 +165,4 @@ status: stable
 - [SOC Report Coverage and Bridge Gap](../tools/art-842-soc-report-coverage-gap.md)
 - [TAP Message Structure Check](../tools/art-843-tap-message-validator.md)
 - [PFMI proportional self-assessment scorer](../tools/art-846-assess-pfmi-proportional.md)
+- [Cash-Leg Window Exposure](../tools/art-847-cashleg-window-exposure.md)

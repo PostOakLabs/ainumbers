@@ -27,9 +27,11 @@ status: stable
 - [CBR Data Return Validator](./784-cbr-data-return-validator.md) — `validate_cbr_data_return`
 - [QR Go-Live Readiness Assessor](./785-qr-golive-readiness.md) — `assess_qr_golive_readiness`
 - [Corridor Cost Averages](./787-corridor-cost-averages.md) — `compute_corridor_cost_averages`
+- [Event Contract Position Limit Check](./790-event-position-limit-check.md) — `check_event_contract_position_limits`
 - [Curator Vault Cap Auditor](./792-curator-vault-cap-auditor.md) — `audit_curator_vault_caps`
 - [Event Fee Recompute](./794-event-fee-recompute.md) — `recompute_event_contract_fee`
 - [Stablecoin Refund Dispute Check](./795-stablecoin-refund-dispute.md) — `check_stablecoin_refunds`
+- [Payment System MI Pack](./796-payment-system-mi-pack.md) — `compute_payment_system_mi_pack`
 - [Stablecoin Cash Equivalent Test (FASB Proposed 2026-08)](./797-stablecoin-cash-equivalent-test.md) — `check_stablecoin_cash_equiv`
 - [Assess Sandbox Application Readiness](./798-assess-sandbox-application-readiness.md) — `assess_sandbox_readiness`
 - [Event Contract Terms Lint](./806-event-contract-terms-lint.md) — `lint_event_contract_terms`
@@ -49,6 +51,7 @@ status: stable
 - [Control Frequency Sample](./838-control-frequency-sample.md) — `plan_control_frequency_sample`
 - [Planning Materiality](./841-planning-materiality.md) — `compute_planning_materiality`
 - [Workload Identity Claims Lint](./844-workload-identity-claims.md) — `lint_workload_identity_token_claims`
+- [Je Period Lock Gate](./845-je-period-lock-gate.md) — `gate_je_period_lock`
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md) — `validate_ap2_mandate_chain`
 - [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md) — `simulate_spend_policy`
 - [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md) — `model_x402_settlement`
@@ -737,6 +740,7 @@ status: stable
 - [SOC Report Coverage and Bridge Gap](./art-842-soc-report-coverage-gap.md) — `compute_soc_report_coverage_gap`
 - [TAP Message Structure Check](./art-843-tap-message-validator.md) — `validate_tap_message`
 - [PFMI proportional self-assessment scorer](./art-846-assess-pfmi-proportional.md) — `assess_pfmi_proportional`
+- [Cash-Leg Window Exposure](./art-847-cashleg-window-exposure.md) — `cashleg_window_exposure`
 - [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md) — `run_pqc_timeline_fit`
 - [TLS / X.509 PKI Migration Planner](./art-86-tls-pki-migration-planner.md) — `plan_tls_pki_migration`
 - [SWIFT / ISO 20022 PQC Readiness Checker](./art-87-iso20022-pqc-readiness-checker.md) — `check_iso20022_pqc_readiness`

@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (764 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (768 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -224,6 +224,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "790-event-position-limit-check",
+    "display_name": "Event Contract Position Limit Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/790-event-position-limit-check.html",
+    "description": "Checks a book of event-contract positions, stated as quantities and prices only, against caller-declared position accountability levels and ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "792-curator-vault-cap-auditor",
     "display_name": "Curator Vault Cap Auditor",
     "mandate_type": "compliance_control",
@@ -249,6 +259,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/795-stablecoin-refund-dispute.html",
     "description": "Recomputes the expected refund and dispute outcome of stablecoin payments held under an escrowed refund protocol (lock period, refund reques",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "796-payment-system-mi-pack",
+    "display_name": "Payment System MI Pack",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/796-payment-system-mi-pack.html",
+    "description": "Computes a payment system's management-information pack from declared AGGREGATE counts only (no transaction-level records, no personal data)",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -444,6 +464,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/844-workload-identity-claims.html",
     "description": "Lints the DECODED claims of a workload-identity token and, optionally, of a token produced by an exchange, against a policy you declare: a m",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "845-je-period-lock-gate",
+    "display_name": "Je Period Lock Gate",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/845-je-period-lock-gate.html",
+    "description": "Evaluates caller-declared journal entries against a caller-declared, time-varying period-lock policy and reports, per entry, whether the dec",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -8468,6 +8498,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-846-assess-pfmi-proportional.html",
     "description": "Scores a payment system operator’s or overseer’s self-assessment against the 24 CPMI-IOSCO Principles (Apr 2012) or the 5 responsibilities o",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-847-cashleg-window-exposure",
+    "display_name": "Cash-Leg Window Exposure",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-847-cashleg-window-exposure.html",
+    "description": "Computes how long a token leg that settles at any hour waits for a cash leg that only moves while a payment rail is open. From a token leg i",
     "consumes": [],
     "feeds": [],
     "status": "live"

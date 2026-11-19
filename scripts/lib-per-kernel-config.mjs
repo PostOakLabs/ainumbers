@@ -14,6 +14,7 @@ import path from 'node:path';
 export const MUTATION_SIBLING_FIELDS = {
   namedLead: 'namedLeads',
   kernelTimeoutSeconds: 'kernelTimeoutSeconds',
+  mutationTrials: 'mutationTrials',
   mutateSurfaceSplit: 'mutateSurfaceSplits',
   excluded: 'excludedKernels',
   fixtureRidden: 'fixtureRidden',
