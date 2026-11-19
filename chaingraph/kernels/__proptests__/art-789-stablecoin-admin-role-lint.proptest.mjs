@@ -1,5 +1,5 @@
 // art-789-stablecoin-admin-role-lint — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:48b746fcbda9518af6fced31507c8c9f05c9eef3f29013652e4a029ff24aedb9
+// kernel_digest_at_authoring: sha256:22d832cff748eca7ef540907fb54fbdd43fde383ceecfdb64b62797b06fbb4e8
 // spec: board/queued/STABLECOIN-ADMIN-ROLE-LINT-1.md — role-label-only stablecoin admin-role linter
 // human_sign_off: PENDING
 //
@@ -10,12 +10,14 @@
 //   P4 concentration monotonicity — merging a second critical role onto one label never
 //      lowers the fail count
 //   P5 output shape — non-refused payloads carry all four analysis domains
+//   P6 buildArtifact_never_throws — unhashable input gives a null execution_hash plus
+//      hash_refusal; a clean input still hashes
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
 // Run: node chaingraph/kernels/__proptests__/art-789-stablecoin-admin-role-lint.proptest.mjs
 
-import { compute } from '../art-789-stablecoin-admin-role-lint.kernel.mjs';
+import { compute, buildArtifact } from '../art-789-stablecoin-admin-role-lint.kernel.mjs';
 import { runFixtureOracle, summarize } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-789-stablecoin-admin-role-lint';
@@ -128,6 +130,36 @@ function checkOutputShape() {
   return { name: 'P5_output_shape', checked, violations: violations.length, detail: violations.slice(0, 5) };
 }
 
+// P6 (D6) buildArtifact_never_throws: an input whose {policy_parameters, output_payload}
+// preimage the shared canonicalizer would reject mints an artifact with a null execution_hash
+// and a hash_refusal beside it; a clean input gets a 64-hex hash and no hash_refusal.
+async function checkBuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const hostile = [
+    { zzz: NaN }, { zzz: -Infinity }, { zzz: 1e300 }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } },
+    { zzz: deep }, { zzz: wide }, { zzz: 10n },
+  ];
+  for (const delta of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...basePP(), ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) { violations++; console.log('P6 violation: artifact shape'); }
+      if (r && /e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) { violations++; console.log('P6 violation: hostile value echoed'); }
+    } catch (e) { violations++; console.log(`P6 violation: buildArtifact threw: ${String(e.message).slice(0, 80)}`); }
+  }
+  for (const pp of [basePP(), { ...basePP(), profile: 'generic' }]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('P6 violation: clean input lost its hash'); }
+    } catch (e) { violations++; console.log(`P6 violation: buildArtifact threw on clean input: ${String(e.message).slice(0, 80)}`); }
+  }
+  return { name: 'buildArtifact_never_throws', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -141,7 +173,8 @@ const properties = [
   checkDeterminism(),
   checkConcentrationMonotonicity(),
   checkOutputShape(),
+  await checkBuildArtifactNeverThrows(),
 ];
-console.log(`[${KERNEL_ID}] class-K floor property test — 5 properties + fixture oracle.`);
+console.log(`[${KERNEL_ID}] class-K floor property test — 6 properties + fixture oracle.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
 process.exit(ok ? 0 : 1);
