@@ -71,7 +71,7 @@ function randomGarbageProofArray(rng, n) {
   return Array.from({ length: n }, () => randomHex(rng, 1 + Math.floor(rng() * 60)));
 }
 
-const TRIALS = 3000;
+const TRIALS = Number.isSafeInteger(Number(process.env.MUTATION_TIER_NUM_RUNS)) && Number(process.env.MUTATION_TIER_NUM_RUNS) > 0 ? Number(process.env.MUTATION_TIER_NUM_RUNS) : 3000; // MUTATION_TIER_NUM_RUNS: mutation-mode budget set per kernel by run-mutation-tier.mjs; unset = full 3000
 
 // ---------- P1: termination/boundedness -- proof_nodes_consumed never exceeds MAX_PROOF_NODES(32) ----------
 function checkP1_termination_bounded_proof_nodes() {
