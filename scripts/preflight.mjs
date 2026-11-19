@@ -1910,6 +1910,15 @@ const GATES = [
   // snippets are prose naming the API, not API usage).
   ['WebMCP API surface (bare navigator.modelContext sweep, WEBMCP-DOCCONTEXT-REGEN-1)', 'node scripts/check-webmcp-snippet.mjs --api-surface'],
   ['WebMCP snippet gate controls (RED+GREEN)', 'node scripts/check-webmcp-snippet.mjs --self-test'],
+  // WEBMCP-SPEC-ALIGN-1: the 13 Nov 2026 WebMCP CG draft alignment gate. Over
+  // every tracked HTML page: no navigator.modelContext, every registerTool call
+  // promise-handled, name <=128 chars in ^[A-Za-z0-9_.-]+$, and only the four
+  // spec annotation booleans. Generator-owned regions are always hard gated;
+  // hand-registered pages are tolerated only inside the shrink-only baseline
+  // scripts/webmcp-spec-baseline.json (7 hand pages plus one chain page whose
+  // shard is outside the generator's live population, all measured at this base).
+  ['WebMCP registration spec alignment (WEBMCP-SPEC-ALIGN-1)', 'node scripts/check-webmcp-spec.mjs'],
+  ['WebMCP spec gate controls (RED A/B/C/D + GREEN, SO #34c pairing)', 'node scripts/check-webmcp-spec.mjs --self-test'],
   // TOOLPAGE-ASK-AGENT-1 (AGENT-REACH-BUILD-SPEC 3.6): the ask-your-agent block
   // is a derived artifact. --check rebuilds every marker-delimited block from
   // its manifest and reds any hand-edit (byte drift), duplication, tool-name
