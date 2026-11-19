@@ -12,6 +12,12 @@ export const meta = {
 // Validates BIS CPMI d218 harmonised data requirements for pacs.008 party fields:
 // UETR (UUIDv4 format), debtor/creditor names, BIC format, LEI format (presence + format only;
 // full mod-97 check handled by lint_lei_payment_binding art-246), and purpose code presence.
+// Missing input (fail-closed): all eight manifest-required fields must be present. If one is absent or
+// null and no ERROR was found, output_payload.verdict is 'INDETERMINATE', compliant is null and
+// missing_required_fields lists them; compliance_flags carries INPUT_MISSING_INDETERMINATE. An
+// empty string still follows the existing WARNING/ERROR rules. buildArtifact never throws: an
+// unhashable input (non-finite number, unsafe integer, depth or size past the hash limits) returns
+// a refusal artifact with execution_hash null and hash_refusal.
 // table_version: "BIS-CPMI-D218-PARTY-COMPLETENESS-V1"
 // Source: BIS CPMI Paper d218 "Harmonised ISO 20022 data requirements for cross-border payments"
 //         (bis.org/cpmi/publ/d218.htm); ISO 20022 External Code Set (ExternalPurpose1Code).
@@ -20,6 +26,10 @@ export const meta = {
 
 const TABLE_VERSION = 'BIS-CPMI-D218-PARTY-COMPLETENESS-V1';
 const TABLE_SOURCE = 'BIS CPMI Paper d218 "Harmonised ISO 20022 data requirements for cross-border payments" (bis.org/cpmi/publ/d218.htm); ISO 20022 External Code Set ExternalPurpose1Code (iso20022.org)';
+
+// Required inputs per the manifest inputSchema.required. A missing or null one yields
+// INDETERMINATE (output_payload.verdict, compliant: null), never compliant: true.
+const REQUIRED_FIELDS = ['creditor_agent_bic', 'creditor_lei', 'creditor_name', 'debtor_agent_bic', 'debtor_lei', 'debtor_name', 'purpose_code', 'uetr'];
 
 function safeStr(v) { return typeof v === 'string' ? v.trim() : ''; }
 
@@ -113,7 +123,11 @@ export function compute(pp) {
 
   const error_count = issues.filter(function(i) { return i.severity === 'ERROR'; }).length;
   const warning_count = issues.filter(function(i) { return i.severity === 'WARNING'; }).length;
-  const compliant = error_count === 0;
+  // Fail-closed on missing input: a required field that is absent or null is not evidence of
+  // compliance. With no ERROR already found the verdict is INDETERMINATE (compliant: null).
+  const missing_required_fields = REQUIRED_FIELDS.filter(function(f) { return pp[f] === undefined || pp[f] === null; });
+  const indeterminate = missing_required_fields.length > 0 && error_count === 0;
+  const compliant = indeterminate ? null : error_count === 0;
 
   const field_status = {
     uetr: { present: uetr_present, valid: uetr_valid, value_note: uetr.length > 0 ? uetr.slice(0, 8) + '...' : 'absent' },
@@ -140,15 +154,71 @@ export function compute(pp) {
     regulatory_basis: 'BIS CPMI d218 "Harmonised ISO 20022 data requirements for cross-border payments"; SWIFT CBPR+ structured-address requirement (deferred by Swift 27 Aug 2026; SR2025 remains in effect); ISO 9362 BIC; ISO 17442 LEI',
   };
 
+  if (indeterminate) {
+    output_payload.missing_required_fields = missing_required_fields;
+    output_payload.verdict = 'INDETERMINATE';
+  }
+
   const compliance_flags = [];
-  if (!compliant) compliance_flags.push('CPMI_D218_NON_COMPLIANT');
+  if (indeterminate) compliance_flags.push('INPUT_MISSING_INDETERMINATE');
+  else if (!compliant) compliance_flags.push('CPMI_D218_NON_COMPLIANT');
   if (!uetr_valid && uetr.length > 0) compliance_flags.push('UETR_INVALID');
   if ((debtor_lei_present && !debtor_lei_format_valid) || (creditor_lei_present && !creditor_lei_format_valid)) compliance_flags.push('LEI_FORMAT_INVALID');
 
   return { output_payload, compliance_flags };
 }
 
+// Mirrors _hash.mjs limits so buildArtifact never throws: non-finite number, unsafe integer,
+// nesting past MAX_DEPTH, more values than MAX_ELEMENTS. Reports path and kind only.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > HASH_MAX_DEPTH) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > HASH_MAX_ELEMENTS) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const unhashable = findHashRefusal(pp, 'pp', 1, { n: 0 });
+  if (unhashable !== null) {
+    const refusal = {
+      '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+      chaingraph_version: '0.4.0',
+      mandate_type: meta.mandate_type,
+      tool_id: TOOL_ID,
+      tool_version: TOOL_VERSION,
+      generated_at: now ?? null,
+      execution_hash: null,
+      hash_refusal: { reason: unhashable.reason, detail: unhashable.detail },
+      chain: { parent_hashes, parent_tool_ids, chain_depth },
+      policy_parameters: null,
+      output_payload: { compliant: null, verdict: 'REFUSED', refusal: unhashable.reason },
+      compliance_flags: ['INPUT_REFUSED'],
+      compute_mode: 'server',
+      audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+    };
+    return refusal;
+  }
   const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {

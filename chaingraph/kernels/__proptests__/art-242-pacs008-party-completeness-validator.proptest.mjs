@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:2aac07c9bd6463db4571c1800f17c85d5c09ee00b62151b485113a1ddb02de8a
+// kernel_digest_at_authoring: sha256:0ddddcae8ad18cdbea7db6b87cff5ef275e820890db773446dd526b0147322b6
 //
 // FV-PROPFLOOR-SHARD-B27-1 — property-test floor for art-242-pacs008-party-completeness-validator.
 // Class B (bounded-numeric shape, format/presence validation logic). float:no — cpmi_d218_score is
@@ -72,7 +72,10 @@ function checkP1_boundedness() {
     checked++;
     const op = r.output_payload;
     if (op.cpmi_d218_score < 0 || op.cpmi_d218_score > 100) violations++;
-    if (op.compliant !== (op.error_count === 0)) violations++;
+    // compliant is null (verdict INDETERMINATE) only when a required field is missing and no ERROR was found
+    const expectCompliant = op.verdict === 'INDETERMINATE' ? null : op.error_count === 0;
+    if (op.compliant !== expectCompliant) violations++;
+    if (op.compliant === true && (op.missing_required_fields || []).length > 0) violations++;
   }
   return { name: 'P1_score_bounded_and_compliant_agrees_with_error_count', trials: checked, violations };
 }
@@ -124,10 +127,34 @@ function checkP4_forced() {
   for (const [pp, label] of FORCED_CASES) {
     const r = compute(pp);
     const op = r.output_payload;
-    const plausible = op.cpmi_d218_score >= 0 && op.cpmi_d218_score <= 100 && typeof op.compliant === 'boolean';
+    const plausible = op.cpmi_d218_score >= 0 && op.cpmi_d218_score <= 100 && (typeof op.compliant === 'boolean' || (op.compliant === null && op.verdict === 'INDETERMINATE'));
     rows.push({ label, input: pp, compliant: op.compliant, cpmi_d218_score: op.cpmi_d218_score, error_count: op.error_count, issues: op.issues.map((v) => v.code), plausible });
   }
   return rows;
+}
+
+// ---------- P5: buildArtifact_never_throws — one fixture per unhashable class ----------
+async function checkP5_buildArtifactNeverThrows() {
+  const { buildArtifact } = await import('../art-242-pacs008-party-completeness-validator.kernel.mjs');
+  let deep = {}; let cur = deep;
+  for (let i = 0; i < 511; i++) { cur.n = {}; cur = cur.n; }
+  const classes = [
+    ['junk_1e300', { uetr: 1e300 }],
+    ['nan', { uetr: NaN }],
+    ['neg_infinity', { uetr: -Infinity }],
+    ['depth_511', { uetr: deep }],
+    ['over_1e6_values', { uetr: new Array(1000001).fill(0) }],
+  ];
+  let violations = 0; const rows = [];
+  for (const [label, pp] of classes) {
+    try {
+      const a = await buildArtifact(pp, { now: null });
+      const ok = a.execution_hash === null && a.hash_refusal && typeof a.hash_refusal.reason === 'string';
+      if (!ok) violations++;
+      rows.push({ label, refused: !!ok });
+    } catch (e) { violations++; rows.push({ label, threw: String(e && e.message).slice(0, 80) }); }
+  }
+  return { name: 'buildArtifact_never_throws', trials: classes.length, violations, rows };
 }
 
 const oracleOk = runFixtureOracle();
@@ -139,6 +166,7 @@ if (!oracleOk) {
 results.properties.push(checkP1_boundedness());
 results.properties.push(checkP2_scoreExact());
 results.properties.push(checkP3_uuidMetamorphic());
+results.properties.push(await checkP5_buildArtifactNeverThrows());
 results.boundary_forced = checkP4_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
