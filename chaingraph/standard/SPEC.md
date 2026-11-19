@@ -4021,6 +4021,29 @@ and the `x-` form accepted, while a bare unknown scheme, an `lei` scheme, a miss
 This section adds no second gate and changes no existing gate; nothing emits the member yet, and
 adoption is a later decision.
 
+## §CTRLREF-1 Node control references — the `control_refs` field (NORMATIVE, OPTIONAL — additive, record stays at whatever `chaingraph.json` carries, same text-pass/record-bump separation as §30)
+
+A catalog node MAY carry `control_refs`, an array of `{framework, id}` objects naming the control
+identifiers in an external framework that the node's output is meant to be cited against by a GRC
+consumer. The `framework` enum is the one the OCG Execution Receipt predicate v0.2 uses for its
+`controlRefs` member (`nist-800-53r5`, `aiuc-1`, `nist-ai-rmf`, `soc2-tsc`, `iso27001-2022`).
+
+**§CTRLREF-1.1 Ids only.** `id` carries the control identifier and nothing else. An entry MUST NOT carry
+a control title, description, or any control text, and the object admits no other member. The
+standard never reproduces framework text.
+
+**§CTRLREF-1.2 Id shape.** A `nist-800-53r5` id matches `^[A-Z]{2}-\d+(\(\d+\))?$` and MUST exist in the
+published NIST SP 800-53 Rev. 5 catalog (a control `AC-6`, or an enhancement `AC-6(1)`). An `aiuc-1` id
+matches `^AIUC-[A-F]-\d{2}$`. The other frameworks accept any non-empty `id` in this version.
+
+**§CTRLREF-1.3 What a tag is.** A pointer for a human reviewer. It does not claim that any control is
+satisfied, certified, or accepted by anyone. The field is hash-excluded node metadata: no
+`execution_hash`, `required[]`, or `chaingraph_version` change, and absence is fully conformant.
+
+**§CTRLREF-1.4 Conformance (§15).** `schema-validate.mjs` checks the member's shape and the two id patterns;
+`check-control-refs.mjs` checks every node's entries against those patterns, checks each NIST id
+against a committed id list extracted from the CC0 OSCAL catalog, and rejects any entry carrying title or text.
+
 ## §14 Changelog
 See `standard/CHANGELOG.md`. **SPEC-TEXT PASS (2026-10-22: §REVOKE-1.1a status-list encoding, staged by
 `SPEC-REVOKE1-ENCODING-1`; the record `spec_version` stays at whatever `chaingraph.json` carries, same
@@ -4384,6 +4407,7 @@ A free, client-side, no-account checker (`chaingraph/conformance-gate.html`) run
 | §30 cited clause digest: a `chaingraph.json` `nodes[]` entry NEW or CHANGED on the current branch MUST declare `standards_basis` (`implements_standard`\|`not_applicable`) — undeclared FAILS, no silent default (§30.3); `implements_standard` MUST carry >=1 `cited_clause_digest[]` entry whose `digest` resolves to a registered `chaingraph/standard/clause-snapshot-registry.json` entry — a non-resolving digest FAILS (§30.5c); registry entries are written only by `pin-clause-snapshot.mjs`, which refuses any excerpt exceeding the clause-level size cap (§30.2, whole-document digests structurally impossible); a PRE-EXISTING/untouched node is NEVER retro-gated, reported as a count only (§30.4); hash-excluded, no `execution_hash`/`required[]` change (§30.6); gate output states plainly it proves retrieval, not correct interpretation (§30.0) | `check-clause-digest.mjs`, `check-clause-digest.test.mjs` | validate |
 | §NODEPAGE-1 pageless waiver: a node declaring `pageless` with no page owned PASSES (§NODEPAGE-1.1); a node declaring `pageless` while it OWNS a page (the canonical `chaingraph/<tool_id>.html`, or its own `url` resolving to an `.html` under `chaingraph/` or `tools/`) HARD FAILS naming the page that contradicts the waiver, with page existence RECOMPUTED from the filesystem and never read from the node's own claim (§NODEPAGE-1.3, SO #34); a page-bearing node with no declaration is untouched, reported as not-applicable rather than as a pass or a gap; a `pageless` key carrying a non-string or empty value is its own distinct FAIL, never a silent skip (SO #34c); page-ownership has ONE implementation, shared by the axis that accepts the waiver and the gate that polices it (§NODEPAGE-1.4); hash-excluded, no `execution_hash` or `required[]` change, `chaingraph_version` stays 0.4.0, and a catalog carrying a `pageless` node is schema-valid where the same catalog was invalid before the property was declared (§NODEPAGE-1.6) | `check-pageless-consistency.mjs`, `pageless-consistency.test.mjs`, `schema-validate.mjs` | validate |
 | §AGID-1 agent-identity binding: OPTIONAL hash-excluded `audit_signature.requesting_agent`, absence fully conformant and means NO CLAIM; shape: `scheme` + `id` REQUIRED when present, closed v1 scheme set (`did`, `rfc9421-keyid`, `webbotauth-card`, `mcp-i`) plus the `x-<vendor>` extension accepted, a bare unknown scheme (an organizational `lei` stays §9's slot, NOT admitted in v1) rejected, `agid_version` const `"1"`, `asserted_by` in (`producer`, `agent`), `evidence` an object when present; hash-EXCLUDED, add/remove/mutate leaves `execution_hash` byte-identical (both halves asserted), `$defs/artifact.required` + `chaingraph_version` 0.4.0 UNCHANGED | `schema-validate.mjs`, `agent-identity-binding.test.mjs` | validate |
+| §CTRLREF-1 node `control_refs`: OPTIONAL hash-excluded array of `{framework, id}`, ids only, never control title or text, framework enum shared with predicate v0.2, `nist-800-53r5` id pattern plus existence in the committed catalog id list, `aiuc-1` id pattern; absence fully conformant, `execution_hash`/`required[]`/`chaingraph_version` UNCHANGED | `check-control-refs.mjs`, `schema-validate.mjs` | validate |
 | every rule above has a gate (meta) | `spec-gate-coverage.mjs` | validate |
 
 **Meta-rule:** a PR that adds a normative MUST to this file without a referenced gate in this table
