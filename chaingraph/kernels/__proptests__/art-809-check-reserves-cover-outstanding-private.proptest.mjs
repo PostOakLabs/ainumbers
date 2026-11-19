@@ -117,7 +117,7 @@ async function p4() {
     if (s.includes(w.reserves_salt) || s.includes(w.outstanding_salt)) violations++;
     if (s.includes(pad(out))) violations++;
     for (const sl of slots) if (sl.category !== '00' && s.includes(sl.amount_minor)) violations++;
-    if (Object.keys(a.output_payload).join() !== 'reserves_cover_outstanding,basis,privacy_note,not_legal_advice') violations++;
+    if (Object.keys(a.output_payload).join() !== 'reserves_cover_outstanding,unit,as_of,basis,privacy_note,not_legal_advice') violations++;
     for (const e of a.private_inputs) if (a.policy_parameters[e.pointer.slice(1)] !== e.commitment) violations++;
   }
   return { name: 'P4_plaintext_and_salt_excluded_one_bit_output', trials: 200, violations };

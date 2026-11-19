@@ -136,6 +136,9 @@ export async function buildArtifact(raw, { now, parent_hashes = [], parent_tool_
   };
   const output_payload = {
     reserves_cover_outstanding: verdict,
+    // Public parameters repeated here so the prover journal (output only) binds them.
+    unit,
+    as_of,
     basis: BASIS,
     privacy_note: PRIVACY_NOTE,
     not_legal_advice: NOT_ADVICE,
