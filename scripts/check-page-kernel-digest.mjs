@@ -210,9 +210,16 @@ export const ART_PAGE_RE = /^art-.*\.html$/;
 export const NUMERIC_PAGE_RE = /^[0-9].*\.html$/;
 export const STALE_ELIGIBLE_STATES = new Set(['MISMATCH', 'MALFORMED', 'DUPLICATE', 'NO_KERNEL']);
 
-/** The part of a verdict a stale baseline entry pins. */
+/** The part of a verdict a stale baseline entry pins. A shielded verdict pins the FAILING state it
+ * was baselined as (carried as `pinnedState`), never the STALE_SHIELDED label itself: the label
+ * never byte-matches the pinned entry, so measuring it made every unchanged shielded page read as
+ * an addition and blocked --update from pruning genuinely fixed entries
+ * (PAGE-DIGEST-UPDATE-SHRINK-FIX-1). */
 export function staleEntryFor(rel, v) {
-  return { page: rel, state: v.state, declared: v.declared ?? null, recomputed: v.recomputed ?? null };
+  return { page: rel,
+    state: v.state === 'STALE_SHIELDED' ? (v.pinnedState ?? v.state) : v.state,
+    declared: v.declared ?? null,
+    recomputed: v.recomputed ?? null };
 }
 
 const sameStaleEntry = (a, b) =>
@@ -221,12 +228,15 @@ const sameStaleEntry = (a, b) =>
 /**
  * Numeric-scope classifier: classifyPage, then the stale shield. A failing verdict that exactly
  * matches its baseline entry becomes STALE_SHIELDED (not failing); a differing one stays red.
+ * The shielded verdict carries `pinnedState` (the underlying failing state) so the --update
+ * writer still measures the pinned failing state, not the shield label
+ * (PAGE-DIGEST-UPDATE-SHRINK-FIX-1).
  */
 export function classifyNumericPage({ rel, html, recomputedDigest = null, unstampedBaselined = false, staleEntry = null }) {
   const v = classifyPage({ html, recomputedDigest, baselined: unstampedBaselined });
   if (!STALE_ELIGIBLE_STATES.has(v.state) || !staleEntry) return v;
   if (sameStaleEntry(staleEntryFor(rel, v), staleEntry)) {
-    return { ...v, state: 'STALE_SHIELDED',
+    return { ...v, state: 'STALE_SHIELDED', pinnedState: v.state,
       detail: `baselined stale debt (${v.state}); burns down as the page is rebuilt and restamped` };
   }
   return { ...v, detail: `${v.detail}; baselined as ${staleEntry.state} (declared ${staleEntry.declared}, kernel ${staleEntry.recomputed}) but now differs, so the shield no longer applies` };
