@@ -25,7 +25,10 @@
 // Usage: node scripts/check-page-kernel-digest.test.mjs
 // Exit 0 = all assertions passed. Exit 1 = a fixture assertion failed.
 
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   classifyPage,
@@ -36,6 +39,8 @@ import {
   planBaselineUpdate,
   baselineCeilingBreach,
   FAILING_STATES,
+  NUMERIC_PAGE_RE,
+  planStaleUpdate,
   SENTINEL_OPEN,
   SENTINEL_CLOSE,
 } from './check-page-kernel-digest.mjs';
@@ -198,6 +203,158 @@ assert(
     baselineCeilingBreach({ max_unstamped: 3, unstamped: ['a', 'b'] }) === null,
     'COUNTS-ONLY-DOWN lock 2: a baseline at or under its ceiling is clean'
   );
+}
+
+// ── NUMERIC SCOPE (PAGE-KERNEL-DIGEST-NUMERIC-SCOPE-1) ────────────────────────────────────────
+// Each case builds a synthetic tree in a temp dir and drives the real CLI with --root, so the
+// scan, the baseline loader, the ceilings and the updater are all exercised end to end.
+const GATE = resolve(HERE, 'check-page-kernel-digest.mjs');
+const run = (root, ...args) => spawnSync(process.execPath, [GATE, '--root', root, ...args], { encoding: 'utf8' });
+const NUM_BASELINE = (root) => resolve(root, 'scripts', 'page-kernel-digest-numeric-baseline.json');
+const readNum = (root) => JSON.parse(readFileSync(NUM_BASELINE(root), 'utf8'));
+
+function makeTree(pages, kernels) {
+  const root = mkdtempSync(join(tmpdir(), 'pkd-numeric-'));
+  mkdirSync(join(root, 'chaingraph', 'kernels'), { recursive: true });
+  mkdirSync(join(root, 'scripts'), { recursive: true });
+  for (const [name, html] of Object.entries(pages)) writeFileSync(join(root, 'chaingraph', name), html);
+  for (const [name, src] of Object.entries(kernels)) writeFileSync(join(root, 'chaingraph', 'kernels', name), src);
+  return root;
+}
+const setPage = (root, name, html) => writeFileSync(join(root, 'chaingraph', name), html);
+
+const tmpRoots = [];
+try {
+  // (a) stale numeric page NOT baselined is RED
+  const rootA = makeTree({ '901-stale.html': metaPage(DIGEST_V1) }, { '901-stale.kernel.mjs': KERNEL_V2 });
+  tmpRoots.push(rootA);
+  {
+    const r = run(rootA);
+    assert(r.status === 1 && /901-stale\.html \[MISMATCH\]/.test(r.stderr), '(a) RED: a stale numeric page that is not baselined fails the strict gate');
+  }
+  // (b) the same page baselined is GREEN
+  {
+    const init = run(rootA, '--init-numeric');
+    assert(init.status === 0 && readNum(rootA).stale.length === 1 && readNum(rootA).max_stale === 1, '(b) --init-numeric records the stale page with ceiling 1');
+    const r = run(rootA);
+    assert(r.status === 0, '(b) GREEN: the same stale numeric page, once baselined, passes');
+    assert(run(rootA, '--init-numeric').status === 1, '(b) --init-numeric hard-refuses once the numeric baseline exists');
+  }
+  // baselined stale page that changes to a DIFFERENT failing state is RED again
+  {
+    setPage(rootA, '901-stale.html', metaPage('sha256:nothex'));
+    const r = run(rootA);
+    assert(r.status === 1 && /901-stale\.html \[MALFORMED\]/.test(r.stderr), 'a baselined stale page that changes failing state is RED again');
+    setPage(rootA, '901-stale.html', metaPage(DIGEST_V2.replace(/.$/, DIGEST_V2.endsWith('0') ? '1' : '0')));
+    assert(run(rootA).status === 1, 'a baselined stale page declaring a different wrong digest is RED again');
+    setPage(rootA, '901-stale.html', metaPage(DIGEST_V1));
+  }
+  // (d) --update refuses to ADD a newly failing numeric page
+  {
+    setPage(rootA, '902-new.html', metaPage(DIGEST_V1));
+    writeFileSync(join(rootA, 'chaingraph', 'kernels', '902-new.kernel.mjs'), KERNEL_V2);
+    const before = readFileSync(NUM_BASELINE(rootA), 'utf8');
+    const r = run(rootA, '--update');
+    assert(r.status === 1 && /902-new\.html/.test(r.stderr), '(d) --update REFUSES to add a newly failing numeric page');
+    assert(readFileSync(NUM_BASELINE(rootA), 'utf8') === before, '(d) the refused --update leaves the numeric baseline untouched');
+    assert(run(rootA).status === 1, '(d) the newly failing numeric page stays RED');
+    rmSync(join(rootA, 'chaingraph', '902-new.html'));
+    rmSync(join(rootA, 'chaingraph', 'kernels', '902-new.kernel.mjs'));
+  }
+  // lock 2: ceiling breach by hand edit
+  {
+    const obj = readNum(rootA);
+    writeFileSync(NUM_BASELINE(rootA), JSON.stringify({ ...obj, max_stale: 0 }, null, 2));
+    assert(run(rootA).status === 1, 'lock 2: a stale list above its max_stale ceiling fails the strict gate');
+    writeFileSync(NUM_BASELINE(rootA), JSON.stringify(obj, null, 2));
+  }
+  // (c) fixing the page lets --update lower the baseline and the ceiling
+  {
+    setPage(rootA, '901-stale.html', metaPage(DIGEST_V2));
+    const r = run(rootA, '--update');
+    const obj = readNum(rootA);
+    assert(r.status === 0 && obj.stale.length === 0 && obj.max_stale === 0, '(c) a fixed stale page is removed by --update and the max_stale ceiling drops');
+    assert(run(rootA).status === 0, '(c) the gate is green after the fix');
+  }
+
+  // (e) unstamped numeric page: RED unbaselined, GREEN baselined
+  const rootE = makeTree({ '903-bare.html': metaPage(null) }, { '903-bare.kernel.mjs': KERNEL_V1 });
+  tmpRoots.push(rootE);
+  {
+    const r = run(rootE);
+    assert(r.status === 1 && /903-bare\.html \[UNSTAMPED_NEW\]/.test(r.stderr), '(e) RED: an unstamped numeric page that is not baselined fails');
+    run(rootE, '--init-numeric');
+    assert(readNum(rootE).unstamped.length === 1 && readNum(rootE).max_unstamped === 1, '(e) --init-numeric shields the unstamped page with ceiling 1');
+    assert(run(rootE).status === 0, '(e) GREEN: the same unstamped numeric page, baselined, passes');
+  }
+  // (f) a baselined unstamped numeric page carrying a WRONG stamp is RED (absence-only shield)
+  {
+    setPage(rootE, '903-bare.html', metaPage(DIGEST_V2));
+    const r = run(rootE);
+    assert(r.status === 1 && /903-bare\.html \[MISMATCH\]/.test(r.stderr), '(f) RED: a baselined unstamped numeric page that carries a WRONG stamp fails (absence-only shield)');
+    setPage(rootE, '903-bare.html', metaPage(DIGEST_V1));
+    assert(run(rootE).status === 0, '(f) the same page with the RIGHT stamp passes');
+    const u = run(rootE, '--update');
+    assert(u.status === 0 && readNum(rootE).unstamped.length === 0 && readNum(rootE).max_unstamped === 0, '(f) --update drops the now-stamped page and lowers max_unstamped');
+  }
+  // (g) art-* behaviour unchanged, and non-numeric / other-prefix pages stay out of scope
+  {
+    const rootG = makeTree(
+      { 'art-1-x.html': metaPage(DIGEST_V1), 'cry-9-x.html': metaPage(DIGEST_V2), '904-ok.html': metaPage(DIGEST_V1) },
+      { 'art-1-x.kernel.mjs': KERNEL_V1, 'cry-9-x.kernel.mjs': KERNEL_V1, '904-ok.kernel.mjs': KERNEL_V1 }
+    );
+    tmpRoots.push(rootG);
+    const r = run(rootG, '--list');
+    assert(/OK\s+chaingraph\/art-1-x\.html/.test(r.stdout) && /OK\s+chaingraph\/904-ok\.html/.test(r.stdout), '(g) art-* and numeric pages are both scanned');
+    assert(!/cry-9-x/.test(r.stdout), '(g) other prefixes (cry-) stay unscanned');
+    assert(run(rootG).status === 0, '(g) art-* GREEN path is unchanged');
+    setPage(rootG, 'art-1-x.html', metaPage(DIGEST_V2));
+    assert(run(rootG).status === 1, '(g) art-* RED path is unchanged');
+  }
+  // (h) PAGE-DIGEST-UPDATE-SHRINK-FIX-1: --update must drop a now-OK stale entry even while a
+  // DIFFERENT entry is still stale inside the shield. Before the fix the still-shielded page was
+  // measured with the STALE_SHIELDED label, which never byte-matches its pinned MISMATCH entry,
+  // so the updater read it as an addition and refused the whole update (the PR-3140 shape — five
+  // restamped pages stuck behind still-stale neighbours, forcing a forbidden hand edit).
+  const rootH = makeTree(
+    { '905-was-stale.html': metaPage(DIGEST_V1), '906-still-stale.html': metaPage(DIGEST_V1) },
+    { '905-was-stale.kernel.mjs': KERNEL_V2, '906-still-stale.kernel.mjs': KERNEL_V2 }
+  );
+  tmpRoots.push(rootH);
+  {
+    run(rootH, '--init-numeric');
+    const before = readNum(rootH);
+    assert(before.stale.length === 2 && before.max_stale === 2, '(h) init records both stale pages, ceiling 2');
+    // 905 is rebuilt and restamped to the CURRENT kernel (verdict OK); 906 keeps serving the exact
+    // pinned wrong digest, so its verdict becomes STALE_SHIELDED.
+    setPage(rootH, '905-was-stale.html', metaPage(DIGEST_V2));
+    const u = run(rootH, '--update');
+    assert(u.status === 0, '(h) --update drops the fixed entry while another entry is still stale in the shield (was: refused)');
+    const after = readNum(rootH);
+    assert(after.stale.length === 1 && after.max_stale === 1, '(h) the fixed entry is removed and max_stale drops by one');
+    assert(after.stale[0]?.page === 'chaingraph/906-still-stale.html', '(h) the still-stale entry is the one that survives');
+    assert(
+      JSON.stringify(after.stale[0]) === JSON.stringify(before.stale.find((e) => e.page === 'chaingraph/906-still-stale.html')),
+      '(h) the surviving entry is byte-identical to its pinned state (kept, not re-pinned)'
+    );
+    assert(run(rootH).status === 0, '(h) the gate is green after the mixed-state shrink');
+    // the ratchet is intact: CHANGING the surviving page's wrong digest is a pinned-state change,
+    // still refused even though the baseline just shrank
+    const beforeChange = readFileSync(NUM_BASELINE(rootH), 'utf8');
+    setPage(rootH, '906-still-stale.html', metaPage('sha256:' + 'b'.repeat(64)));
+    assert(run(rootH, '--update').status === 1, '(h) --update still REFUSES a changed pinned state in the same mixed baseline');
+    assert(readFileSync(NUM_BASELINE(rootH), 'utf8') === beforeChange, '(h) the refused --update leaves the baseline untouched');
+  }
+} finally {
+  for (const d of tmpRoots) rmSync(d, { recursive: true, force: true });
+}
+
+// pure helpers
+assert(NUMERIC_PAGE_RE.test('732-x.html') && !NUMERIC_PAGE_RE.test('art-732.html') && !NUMERIC_PAGE_RE.test('cry-1.html'), 'NUMERIC_PAGE_RE matches digit-led names only');
+{
+  const e = { page: 'p', state: 'MISMATCH', declared: DIGEST_V1, recomputed: DIGEST_V2 };
+  assert(planStaleUpdate([e], [e]).ok && planStaleUpdate([], [e]).removals.length === 1, 'planStaleUpdate: same entry ok, fixed entry removed');
+  assert(!planStaleUpdate([{ ...e, state: 'MALFORMED' }], [e]).ok, 'planStaleUpdate: a changed state counts as an addition and is refused');
 }
 
 if (failures > 0) {

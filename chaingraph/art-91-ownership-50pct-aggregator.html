@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>Ownership 50%-Rule Aggregator · ART-91 · OpenChainGraph · AINumbers.co</title>
-<meta name="description" content="Synthetic ownership graph traversal. Computes aggregate beneficial ownership from listed entities. Applies OFAC, EU, and BIS Affiliates Rule (in force 29 Sep 2025) 50%-thresholds. OpenChainGraph v0.4.">
+<meta name="description" content="Synthetic ownership graph traversal. Computes aggregate beneficial ownership from listed entities. Applies OFAC, EU, and BIS Affiliates Rule (suspended until 10 Jan 2027) 50%-thresholds. OpenChainGraph v0.4.">
 <meta name="robots" content="index, follow">
 <meta name="author" content="Post Oak Labs">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/art-91-ownership-50pct-aggregator.html">
 <link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-91-ownership-50pct-aggregator.md">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Ownership 50%-Rule Aggregator · ART-91 · OpenChainGraph · AINumbers.co">
-<meta property="og:description" content="50%-rule aggregate-ownership traversal over a synthetic ownership graph. OFAC/EU/BIS constructive-blocking verdicts. BIS Affiliates Rule in force 29 Sep 2025. OpenChainGraph v0.4.">
+<meta property="og:description" content="50%-rule aggregate-ownership traversal over a synthetic ownership graph. OFAC/EU/BIS constructive-blocking verdicts. BIS Affiliates Rule suspended until 10 Jan 2027. OpenChainGraph v0.4.">
 <meta property="og:url" content="https://ainumbers.co/chaingraph/art-91-ownership-50pct-aggregator.html">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -157,11 +157,11 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
   <div class="eyebrow">ART-91 · Wave 19 · Sanctions · 50%-Rule Ownership · W-A Flagship</div>
   <h1>Ownership 50%-Rule Aggregator</h1>
-  <p class="sub">Walks a synthetic ownership graph; computes aggregate beneficial ownership from listed entities; applies OFAC, EU, and BIS Affiliates Rule (in force 29 Sep 2025) 50%-thresholds to determine constructively-blocked entities. Pure graph math — synthetic entities only. Part of the <code>sanctions-ownership</code> chain.</p>
+  <p class="sub">Walks a synthetic ownership graph; computes aggregate beneficial ownership from listed entities; applies OFAC, EU, and BIS Affiliates Rule (suspended until 10 Jan 2027) 50%-thresholds to determine constructively-blocked entities. Pure graph math — synthetic entities only. Part of the <code>sanctions-ownership</code> chain.</p>
   <div>
     <span class="flag">OFAC 50%-Rule · EU Reg. 833/2014</span>
     <span class="flag warn">BIS Affiliates Rule · 15 CFR §744</span>
-    <span class="flag red">BIS in force 29 Sep 2025 · EU 20th 23 Apr 2026</span>
+    <span class="flag warn">BIS suspended until 10 Jan 2027 · EU 20th 23 Apr 2026</span>
   </div>
   <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
 
@@ -234,7 +234,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
     <div class="notes-box">
       <div class="nb-title">Regulatory Notes — verify against current official sources</div>
-      <b>BIS Affiliates Rule</b> (15 CFR §744, in force <b>29 Sep 2025</b>): Entity List restrictions auto-extend to affiliates that are ≥50% in aggregate owned by a listed entity. · <b>OFAC 50% Rule</b>: entities ≥50% aggregate-owned by one or more SDNs are constructively blocked even if not individually named. · <b>EU 20th Sanctions Package</b> in force <b>23 Apr 2026</b> — anti-circumvention scope widened. · EDUCATIONAL: synthetic entities only — outputs are decision-support drafts.
+      <b>BIS Affiliates Rule</b> (15 CFR §744; published 30 Sep 2025, suspended by BIS until <b>10 Jan 2027</b>, 91 FR 70789): when in effect, Entity List restrictions auto-extend to affiliates that are ≥50% in aggregate owned by a listed entity. The BIS column below is shown for reference while the rule is suspended. · <b>OFAC 50% Rule</b>: entities ≥50% aggregate-owned by one or more SDNs are constructively blocked even if not individually named. · <b>EU 20th Sanctions Package</b> in force <b>23 Apr 2026</b> — anti-circumvention scope widened. · EDUCATIONAL: synthetic entities only — outputs are decision-support drafts.
     </div>
 
     <div class="muted-text" style="margin-top:14px">OpenChainGraph v0.4 artifact · execution_hash:</div>
@@ -272,26 +272,88 @@ const MANIFEST = {
 
 const DEFAULT_THRESHOLDS = { ofac_50: 0.50, eu_50: 0.50, bis_50: 0.50 };
 
-function aggregateOwnership(source, target, adjMap) {
-  if (source === target) return 1.0;
-  const contributions = new Map();
-  contributions.set(source, 1.0);
-  const queue = [source];
-  const visited = new Set([source]);
-  while (queue.length > 0) {
-    const current = queue.shift();
-    const currentFrac = contributions.get(current) || 0;
-    const neighbors = adjMap[current] || [];
-    for (const { to, pct } of neighbors) {
-      const edgeFrac = pct / 100;
-      const pathFrac = currentFrac * edgeFrac;
-      const existing = contributions.get(to) || 0;
-      contributions.set(to, existing + pathFrac);
-      if (!visited.has(to)) {
-        visited.add(to);
-        queue.push(to);
+// Hard round ceiling so a cyclic ownership graph can never spin forever. A directed
+// acyclic graph is exact after at most (node count) rounds; the constant is slack for
+// circular cross-holdings, whose contribution series converges geometrically.
+const MAX_RELAXATION_ROUNDS_SLACK = 1024;
+
+// Total order on the canonical sort key both edge lists carry.
+function byKey(a, b) {
+  if (a.key < b.key) return -1;
+  if (a.key > b.key) return 1;
+  return 0;
+}
+
+// Index an adjacency map: the sorted node id set, each node's incoming edges as
+// {from, frac}, and each node's outgoing neighbours. Every list here is sorted, so
+// nothing downstream depends on how the caller happened to serialize edges[].
+function buildTraversalIndex(adjMap) {
+  const inEdges = {};
+  const outEdges = {};
+  const ids = new Set();
+  for (const from of Object.keys(adjMap)) {
+    ids.add(from);
+    for (const { to, pct } of adjMap[from]) {
+      ids.add(to);
+      const frac = pct / 100; // pct is 0-100
+      // Sort key. A fraction never stringifies with a space in it, so the last space
+      // in the key always separates id from fraction.
+      if (!inEdges[to]) inEdges[to] = [];
+      inEdges[to].push({ from, frac, key: `${from} ${frac}` });
+      if (!outEdges[from]) outEdges[from] = [];
+      outEdges[from].push({ to, frac, key: `${to} ${frac}` });
+    }
+  }
+  const nodeIds = [...ids].sort();
+  for (const id of nodeIds) {
+    if (inEdges[id]) inEdges[id].sort(byKey);
+    if (outEdges[id]) outEdges[id].sort(byKey);
+  }
+  return { nodeIds, inEdges, outEdges };
+}
+
+// Solve the aggregate ownership held by `source` in every node of the graph: the fixpoint of
+//   c[source] = 1
+//   c[n]      = min(1, sum over in-edges (u -> n) of c[u] * frac(u, n))
+// solved by Jacobi relaxation: every round recomputes each node purely from the
+// PREVIOUS round's values, so the sweep order cannot affect the result. Values start
+// at 0, and a node is only ever written when its new value is strictly greater, so
+// the iteration is monotone and bounded above by 1 and therefore converges. A round
+// in which nothing rose is the fixpoint exactly.
+function solveContributions(source, graph) {
+  const { nodeIds, inEdges } = graph;
+  let contributions = new Map();
+  for (const id of nodeIds) contributions.set(id, 0);
+  contributions.set(source, 1.0); // the origin's stake in itself, pinned
+
+  const maxRounds = nodeIds.length + MAX_RELAXATION_ROUNDS_SLACK;
+  for (let round = 0; round < maxRounds; round++) {
+    const next = new Map(contributions);
+    let rose = false;
+    for (const id of nodeIds) {
+      if (id === source) continue; // pinned; an edge back into the origin cannot raise it
+      let sum = 0;
+      for (const { from, frac } of (inEdges[id] || [])) sum += (contributions.get(from) || 0) * frac;
+      sum = Math.min(sum, 1.0); // no entity is more than wholly owned; also what halts a cycle
+      if (sum > (contributions.get(id) || 0)) {
+        next.set(id, sum);
+        rose = true;
       }
     }
+    if (!rose) break; // nothing rose anywhere: this IS the fixpoint, exactly
+    contributions = next;
+  }
+  return contributions;
+}
+
+// Compute aggregate ownership from a listed entity (source) to a target entity.
+// Contributions are solved once per source and reused across targets.
+function aggregateOwnership(source, target, graph, cache) {
+  if (source === target) return 1.0;
+  let contributions = cache.get(source);
+  if (!contributions) {
+    contributions = solveContributions(source, graph);
+    cache.set(source, contributions);
   }
   return Math.min(contributions.get(target) || 0, 1.0);
 }
@@ -309,7 +371,10 @@ function listedNodes(nodes) {
   return nodes.filter(n => n.listed === true);
 }
 
-function findPath(source, target, adjMap) {
+// Recover a controlling path: the shortest ownership path from source to target,
+// ties broken by node id. Walking the sorted out-edge lists is what makes the tie
+// break, and therefore the reported path, independent of the caller's edges[] order.
+function findPath(source, target, graph) {
   if (source === target) return [source];
   const prev = new Map();
   const queue = [source];
@@ -318,7 +383,7 @@ function findPath(source, target, adjMap) {
   while (queue.length > 0) {
     const cur = queue.shift();
     if (cur === target) break;
-    for (const { to } of (adjMap[cur] || [])) {
+    for (const { to } of (graph.outEdges[cur] || [])) {
       if (!visited.has(to)) {
         visited.add(to);
         prev.set(to, cur);
@@ -356,8 +421,10 @@ function compute(pp) {
     };
   }
 
-  const adjMap = buildAdjMap(edges);
-  const listed = listedNodes(nodes);
+  const adjMap    = buildAdjMap(edges);
+  const graph     = buildTraversalIndex(adjMap);
+  const contribCache = new Map(); // source id → solved contributions, one solve per listed entity
+  const listed    = listedNodes(nodes);
   const allIds = nodes.map(n => n.id);
 
   const entity_verdicts = [];
@@ -369,12 +436,12 @@ function compute(pp) {
     let worst_path = [];
 
     for (const src of listed) {
-      const frac = aggregateOwnership(src.id, target, adjMap);
+      const frac = aggregateOwnership(src.id, target, graph, contribCache);
       if (frac <= 0) continue;
       total_ofac = Math.min(total_ofac + (src.list_source === 'ofac' || src.list_source === 'both' ? frac : 0), 1);
       total_eu   = Math.min(total_eu   + (src.list_source === 'eu'   || src.list_source === 'both' ? frac : 0), 1);
       total_bis  = Math.min(total_bis  + (src.list_source === 'bis'  || src.list_source === 'both' ? frac : 0), 1);
-      const path = findPath(src.id, target, adjMap);
+      const path = findPath(src.id, target, graph);
       if (path.length > 0) controlling_paths.push({ from: src.id, pct: +(frac * 100).toFixed(2), path });
     }
 
@@ -618,7 +685,7 @@ function exportPDF() {
     w.document.write('<tr' + cls + '><td>' + v.id + '</td><td>' + v.ofac_pct + '%</td><td>' + v.eu_pct + '%</td><td>' + v.bis_pct + '%</td><td>' + (v.blocked_under.join(', ') || '—') + '</td><td>' + (v.constructively_blocked ? 'YES' : 'No') + '</td><td>' + (v.controlling_path ? v.controlling_path.join(' → ') : '—') + '</td></tr>');
   });
   w.document.write('</table>');
-  w.document.write('<p style="font-size:.72rem;color:#666;margin-top:16px">BIS Affiliates Rule in force 29 Sep 2025 · EU 20th package 23 Apr 2026 — verify current. SYNTHETIC DATA ONLY — decision-support draft. Generated: ' + new Date().toISOString() + '</p>');
+  w.document.write('<p style="font-size:.72rem;color:#666;margin-top:16px">BIS Affiliates Rule suspended until 10 Jan 2027 · EU 20th package 23 Apr 2026 — verify current. SYNTHETIC DATA ONLY — decision-support draft. Generated: ' + new Date().toISOString() + '</p>');
   w.document.write('</body></html>');
   w.document.close();
   w.print();
@@ -640,7 +707,7 @@ function exportMD() {
     lines.push('| ' + v.id + ' | ' + v.ofac_pct + '% | ' + v.eu_pct + '% | ' + v.bis_pct + '% | ' + (v.blocked_under.join(', ') || '—') + ' | ' + (v.constructively_blocked ? '✓' : '✗') + ' | ' + (v.controlling_path ? v.controlling_path.join(' → ') : '—') + ' |');
   });
   lines.push('');
-  lines.push('> BIS Affiliates Rule in force 29 Sep 2025 · EU 20th package 23 Apr 2026 — verify current. SYNTHETIC DATA ONLY — decision-support draft.');
+  lines.push('> BIS Affiliates Rule suspended until 10 Jan 2027 · EU 20th package 23 Apr 2026 — verify current. SYNTHETIC DATA ONLY — decision-support draft.');
   const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
   const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
   const url  = URL.createObjectURL(blob);
@@ -700,6 +767,9 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-91-
     <div class="footer-cols">
       <div class="footer-col">
         <div class="footer-col-label">Platform</div>
+        <a href="../start.html">Start Here</a>
+        <a href="../front-to-back.html">Front-to-Back Prompts</a>
+        <a href="../prompts.html">Prompt Library</a>
         <a href="chaingraph-hub.html">ChainGraph Hub</a>
         <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
         <a href="openchain-graph-spec.html">Spec v0.8.13</a>
@@ -715,8 +785,10 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-91-
       <div class="footer-col">
         <div class="footer-col-label">Hubs</div>
         <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="visual-explainers-hub.html">Visual Explainers</a>
+        <a href="education-hub.html">Learn OpenChainGraph</a>
         <a href="../guides/web3-hub.html">Web3 Hub</a>
-        <a href="../guides/solana-hub.html">Solana</a>
+        <a href="../guides/canton-tmf-hub.html">Canton</a>
         <a href="../guides/ethereum-hub.html">Ethereum</a>
         <a href="../guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
         <a href="../guides/token-standards-hub.html">Token Standards</a>
@@ -730,6 +802,8 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-91-
         <div class="footer-col-label">Developers</div>
         <a href="../mcp.html">MCP Docs</a>
         <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../webmcp.html">WebMCP</a>
+        <a href="../mcp-benchmark.html">MCP Benchmark</a>
         <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
         <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
         <a href="../openapi.json" target="_blank">openapi.json</a>
@@ -737,6 +811,7 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-91-
         <a href="okf/index.md" target="_blank">OKF bundle</a>
         <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
         <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../verification-desk.html">Verification Desk</a>
         <a href="verify.html">Artifact Verifier</a>
         <a href="../ledger/index.html">Receipt Ledger</a>
       </div>
@@ -749,6 +824,8 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-91-
         <a href="../fv-explainer.html">FV Process Explainer</a>
         <a href="../errata.html">FV Errata</a>
         <a href="../suggest.html">Suggest</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="../privacy.html">Privacy</a>
         <a href="../contact.html">Contact</a>
         <a href="../sitemap.html">Sitemap</a>
         <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>

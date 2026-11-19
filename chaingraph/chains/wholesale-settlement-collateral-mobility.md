@@ -1,13 +1,13 @@
 # 24/7 Tokenized Collateral Mobility
 
-W-D. Tokenized-collateral eligibility (505) -> 24/7 cross-network collateral mobilization (513) -> haircut/valuation (508). Frames the DTCC tokenized-collateral wedge: moving eligible collateral across networks on a 24/7 basis. Educational estimator, not a settlement instruction.
+Tokenized-collateral eligibility (505) -> 24/7 cross-network collateral mobilization (513) -> haircut/valuation (508). Frames the DTCC tokenized-collateral wedge: moving eligible collateral across networks on a 24/7 basis. Educational estimator, not a settlement instruction. The DTCC Tokenization Service, live October 28, 2026 on the Canton Network and DTCC's private Besu network (additional networks planned for 2027), moves this from concept to production; as of November 2026 its cash leg settles by wire or ACH over fiat rails.
 
 - Page: https://ainumbers.co/chaingraph/chains/wholesale-settlement-collateral-mobility.html
 - Markdown twin: https://ainumbers.co/chaingraph/chains/wholesale-settlement-collateral-mobility.md
 
 ## Workflow chain: 24/7 Tokenized Collateral Mobility
 
-W-D. Tokenized-collateral eligibility (505) -> 24/7 cross-network collateral mobilization (513) -> haircut/valuation (508). Frames the DTCC tokenized-collateral wedge: moving eligible collateral across networks on a 24/7 basis. Educational estimator, not a settlement instruction.
+Tokenized-collateral eligibility (505) -> 24/7 cross-network collateral mobilization (513) -> haircut/valuation (508). Frames the DTCC tokenized-collateral wedge: moving eligible collateral across networks on a 24/7 basis. Educational estimator, not a settlement instruction. The DTCC Tokenization Service, live October 28, 2026 on the Canton Network and DTCC's private Besu network (additional networks planned for 2027), moves this from concept to production; as of November 2026 its cash leg settles by wire or ACH over fiat rails.
 
 Domain: Wholesale Settlement
 

@@ -53,6 +53,26 @@ fi
 # refs/heads/wip/ now skips preflight outright (see below), so the sanctioned
 # path is strictly cheaper than the bypass.
 refs_stdin=$(cat)
+
+# PREPUSH-PR-FROM-PUSH-TARGET-1: export the branch this push TARGETS so
+# scripts/check-id-collision.mjs can resolve this push's open PR by the pushed
+# branch instead of the local worktree's branch name. The PR lives on the
+# REMOTE ref of the stdin line (`<local ref> <local sha> <remote ref> <remote
+# sha>`); a cure push is `git push origin HEAD:<pr-branch>` from a differently
+# named local branch, or from a detached worktree HEAD, where the checker's
+# local-branch fallback reads null and the pusher's own PR looks like a rival
+# claim on the id. Pure stdin parsing: no gh, no network, and it never fails a
+# push — zero refs/heads lines, several DIFFERENT targets (an ambiguous multi
+# push), or an unreadable line all leave the variable unset and the checker
+# fails closed exactly as before. A caller-preset value is never clobbered,
+# and PR_ID_COLLISION_PR still wins inside the checker (checked first there).
+if [ -z "$ID_COLLISION_PUSH_BRANCH" ] && [ -n "$refs_stdin" ]; then
+  _idpush=$(printf '%s\n' "$refs_stdin" | sed -n 's#^[^ ][^ ]* [^ ][^ ]* refs/heads/\([^ ][^ ]*\) .*$#\1#p' | sort -u)
+  if [ -n "$_idpush" ] && [ "$(printf '%s\n' "$_idpush" | wc -l)" -eq 1 ]; then
+    export ID_COLLISION_PUSH_BRANCH="$_idpush"
+    echo "pre-push: ID_COLLISION_PUSH_BRANCH=$_idpush (push destination; the id-collision gate resolves this PR by the pushed branch)"
+  fi
+fi
 quarantine_only=""
 if [ -f scripts/reconcile-guard.mjs ]; then
   guard_out=$(printf '%s\n' "$refs_stdin" | node scripts/reconcile-guard.mjs --prepush 2>&1)

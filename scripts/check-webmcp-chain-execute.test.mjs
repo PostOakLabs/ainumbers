@@ -31,8 +31,10 @@ import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, existsSync
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 import { executionHash } from '../chaingraph/kernels/_hash.mjs';
-import { runPlanChain, judgePart2, judgePart3, ratchet, verdictBlocks, resolveMonolith } from './check-webmcp-chain-execute.mjs';
+import { runPlanChain, judgePart2, judgePart3, ratchet, verdictBlocks, resolveMonolith, registeredNodeSet, failureKeys } from './check-webmcp-chain-execute.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -135,6 +137,36 @@ async function main() {
     }
   } finally {
     if (savedRoot === undefined) delete process.env.DERIVED_ROOT; else process.env.DERIVED_ROOT = savedRoot;
+  }
+
+  // MUSE52 presence matrix: the registry reads the overlay monolith, so a step is
+  // present iff the overlay carries its mcp_name (a bare kernel file is not
+  // presence). Verdict is identical on pull_request and merge_group.
+  const pRepo = mkdtempSync(join(tmpdir(), 'chain-exec-presence-'));
+  try {
+    mkdirSync(join(pRepo, 'chaingraph', 'kernels'), { recursive: true });
+    writeFileSync(join(pRepo, 'chaingraph', 'kernels', 'art-fxp.kernel.mjs'), '// fixture kernel, no page\n');
+    // listKernels enumerates through git ls-files, so the fixture is a real repo.
+    spawnSync('git', ['-C', pRepo, 'init', '-q'], { encoding: 'utf8', env: gitEnv() });
+    spawnSync('git', ['-C', pRepo, 'add', '.'], { encoding: 'utf8', env: gitEnv() });
+    const mkOverlay = (name, nodes) => { const p = join(pRepo, name); writeFileSync(p, JSON.stringify({ nodes, chains: [] })); return p; };
+    const present = mkOverlay('present.json', [{ tool_id: 'art-fxp', mcp_name: 'fx_presence' }]);
+    const absent = mkOverlay('absent.json', []);
+    const verdictFor = async (overlay, event) => {
+      const reg = await registeredNodeSet(pRepo, overlay);
+      const p3 = judgePart3(['art-fxp'], reg);
+      const keys = failureKeys({ chain: 'fx', part2: { ok: true }, part3: p3 });
+      const { fresh, stale } = ratchet(keys, new Map(), new Set(['fx']));
+      return verdictBlocks({ fresh: fresh.length, stale: stale.length, event });
+    };
+    for (const ev of ['pull_request', 'merge_group']) {
+      check(`Presence: step present in overlay does not block on ${ev}`, (await verdictFor(present, ev)) === false);
+      check(`Presence: step absent from overlay BLOCKS on ${ev}`, (await verdictFor(absent, ev)) === true);
+    }
+    const p2 = failureKeys({ chain: 'fx', part2: { ok: false, problem: 'x' }, part3: { unregistered: [] } });
+    check('Presence: a fresh part2 key still BLOCKS on pull_request', verdictBlocks({ fresh: ratchet(p2, new Map(), new Set(['fx'])).fresh.length, stale: 0, event: 'pull_request' }) === true);
+  } finally {
+    rmSync(pRepo, { recursive: true, force: true });
   }
 
   const liveRel = 'chaingraph/chains/2052a-classify-daily.html';

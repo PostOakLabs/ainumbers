@@ -78,8 +78,10 @@ export const SENTINEL_WRITER_IDS = new Set(['counts', 'stats']);
 export const REGION_WRITER_IDS = new Set([
   'chain-ask-agent',    // ask-agent block on chaingraph/chains/*.html (pr-autofix writes node-page blocks per PR)
   'hub-scenes',         // scene region on chaingraph/guide-*.html hub pages
+  'root-page-footers',  // ROOT-FOOTER region on the root pages in gen-root-chrome.mjs (FOOTER-LINKS-REFRESH-1)
   'node-page-footers',  // footer region on chaingraph/<n>-*.html node pages (a node PR authors its page)
   'mcp-activity-embed', // one HTML comment in index.html (index.html is whole-file via 'catalog' anyway)
+  'errata-page-regions', // KERNEL-ERRATA-READER-1: table region on errata.html + vendored reader/snapshot blocks on chaingraph/receipt-bundle-verify.html (the snapshot MODULE itself is whole-file via 'errata-reader-snapshot', prAbsentOk)
 ]);
 
 // pr-autofix.yml writer-scope containment: the writers' own baseline outputs a PR may carry.
@@ -361,7 +363,8 @@ function selfTest() {
   const toy = classify([
     { id: 'counts', artifacts: ['a.html', 'b.html'] }, { id: 'stats', artifacts: [] },
     { id: 'catalog', artifacts: ['b.html'] }, { id: 'chain-ask-agent', artifacts: ['c.html'] },
-    { id: 'hub-scenes', artifacts: [] }, { id: 'node-page-footers', artifacts: [] }, { id: 'mcp-activity-embed', artifacts: [] },
+    { id: 'hub-scenes', artifacts: [] }, { id: 'node-page-footers', artifacts: [] }, { id: 'root-page-footers', artifacts: [] }, { id: 'mcp-activity-embed', artifacts: [] },
+    { id: 'errata-page-regions', artifacts: [] },
     { id: 'tree', artifacts: ['dir/'] },
   ], (p) => p.endsWith('/'), []);
   check('toy: sentinel-only file is sentinel', toy.sentinel.has('a.html') && !toy.whole.has('a.html'));
