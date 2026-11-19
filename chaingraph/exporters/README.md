@@ -21,8 +21,9 @@ EBA taxonomy (core project rule).
 | `export.test.mjs` | Node smoke test; writes `sample-export.{xlsx,csv,pdf,xbrl}` + QR structural check + QR reference parity |
 
 **TODOs:** `qr.mjs` matches a reference encoder but no decoder runs in CI, so a phone scan is still the
-end-to-end check (`node qr-preview.mjs` renders a large symbol to scan from screen; it writes
-`qr-preview.html`/`.svg` untracked, run it when you need to scan). The PDF QR draw is restored with a
+end-to-end check (`node qr-preview.mjs` re-renders `qr-preview.html`/`.svg`; note the committed copies
+carry a CSP meta the generator does not emit — regenerate only together with the infra-registry
+listing, which main's derived regen owns). The PDF QR draw is restored with a
 4-module quiet zone and the symbol's box reserved out of the page-1 text column; `export.test.mjs`
 asserts both structurally from the emitted stream. `xbrl.mjs` COREP emission is wired (`buildCorep`)
 but `eba-corep-*` stay guarded until `COREP_MAPS` (and the JSON scaffold at `taxonomies/eba-corep-concept-map.json`)
