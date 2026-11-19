@@ -1,6 +1,6 @@
 # Reconcile UCP Checkout Totals
 
-Reconciles a pasted Universal Commerce Protocol (UCP 2026-08-25) cart, checkout or order totals block in integer minor units. Recomputes price x quantity per line (exact base-10 digit-array arithmetic, at most one rounding under the caller-declared policy, default half_even), rolls line subtotals into the document subtotal, checks the breakdown identity and the schema sign rules, and in order mode nets adjustment totals against the refund bound. Returns RECONCILED, MISMATCH or INDETERMINATE with per-finding JSON paths; structurally malformed input refuses the whole call with INPUT_REFUSED. Arithmetic consistency only: it never judges whether a tax, fee or discount amount itself was computed correctly, because UCP publishes no tax or rounding algorithm; Business-extension total types and lines priced on a different basis (item.unit_price) are skipped or reported indeterminate, never guessed. Negative totals are reported informationally (UCP issue #1025) and order discount attribution is reported as not evaluable (issue #1026). Verify-only, zero network calls, no fetched keys. Fixture provenance: derived from the UCP schema and issue material (github.com/Universal-Commerce-Protocol/ucp tag v2026-08-25, commit 7a5daa55313f8b468aba76caf01fb76851d37f84, Apache-2.0), including the repo's flower_shop reference storefront example.
+Reconciles a pasted Universal Commerce Protocol (UCP 2026-08-25) cart, checkout or order totals block in integer minor units. Recomputes price x quantity per line (exact base-10 digit-array arithmetic, at most one rounding under the caller-declared policy, default half_even), rolls line subtotals into the document subtotal, checks the breakdown identity and the schema sign rules, and in order mode nets adjustment totals against the refund bound. Returns RECONCILED, MISMATCH or INDETERMINATE with per-finding JSON paths; structurally malformed input refuses the whole call with INPUT_REFUSED. Arithmetic consistency only: it never judges whether a tax, fee or discount amount itself was computed correctly, because UCP publishes no tax or rounding algorithm; Business-extension total types, lines priced on a different basis (item.unit_price), lines without an assertable subtotal and reads truncated past a declared bound are skipped or reported indeterminate, never guessed: a partial evaluation is never RECONCILED. A present line_items or adjustments value that is not an array refuses the whole call (LINE_ITEMS_NOT_ARRAY, ADJUSTMENTS_NOT_ARRAY) instead of reading as empty, and every amount read is validated against the UCP 2^53-1 safe-integer domain (AMOUNT_NOT_INTEGER) rather than coerced. Negative totals are reported informationally (UCP issue #1025) and order discount attribution is reported as not evaluable (issue #1026). Verify-only, zero network calls, no fetched keys. Fixture provenance: derived from the UCP schema and issue material (github.com/Universal-Commerce-Protocol/ucp tag v2026-08-25, commit 7a5daa55313f8b468aba76caf01fb76851d37f84, Apache-2.0), including the repo's flower_shop reference storefront example.
 
 - Page: https://ainumbers.co/chaingraph/825-reconcile-ucp-checkout-totals.html
 - Markdown twin: https://ainumbers.co/chaingraph/825-reconcile-ucp-checkout-totals.md
@@ -16,12 +16,12 @@ Reconciles a pasted Universal Commerce Protocol (UCP 2026-08-25) cart, checkout 
 
 - verdict (string, optional)
 - mode (string, optional)
-- currency (string, optional)
+- currency (string,null, optional)
 - rounding_applied (string, optional)
 - rounding_exercised (boolean, optional)
-- totals_identity_ok (boolean, optional)
-- declared_total (integer, optional)
-- computed_total (integer, optional)
+- totals_identity_ok (boolean,null, optional)
+- declared_total (integer,null, optional)
+- computed_total (integer,null, optional)
 - negative_total (boolean, optional)
 - line_count (integer, optional)
 - line_results (array, optional)
