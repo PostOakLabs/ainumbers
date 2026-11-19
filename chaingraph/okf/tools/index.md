@@ -27,6 +27,7 @@ status: stable
 - [CBR Data Return Validator](./784-cbr-data-return-validator.md) — `validate_cbr_data_return`
 - [QR Go-Live Readiness Assessor](./785-qr-golive-readiness.md) — `assess_qr_golive_readiness`
 - [Corridor Cost Averages](./787-corridor-cost-averages.md) — `compute_corridor_cost_averages`
+- [Event Contract Position Limit Check](./790-event-position-limit-check.md) — `check_event_contract_position_limits`
 - [Curator Vault Cap Auditor](./792-curator-vault-cap-auditor.md) — `audit_curator_vault_caps`
 - [Event Fee Recompute](./794-event-fee-recompute.md) — `recompute_event_contract_fee`
 - [Stablecoin Refund Dispute Check](./795-stablecoin-refund-dispute.md) — `check_stablecoin_refunds`
