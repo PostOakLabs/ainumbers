@@ -6,7 +6,7 @@
 <!-- WEBMCP:OT-META-END -->
 <meta charset="UTF-8">
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-593-webbotauth-nonce-replay-check.kernel.mjs; restamp whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:138c2f487a173ef2bd8b97435481bbacafd2c216a9a9a9663f7526c835d8f57c">
+<meta name="kernel-digest" content="sha256:623982b2d822cb579d52ec523af4692f1138a1db301bd67852e832e1847489db">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>Web Bot Auth Nonce &amp; Replay-Window Checker · ART-593 · OpenChainGraph · AINumbers.co</title>
@@ -463,21 +463,26 @@ function nonceFormatOk(nonce){
 // non-numeric) the spread does not read as satisfied, so freshness fails and
 // the nonce is REFUSED instead of bypassing the 8-minute spread rule.
 async function compute(pp){
-  const{nonce,created,expires,now_unix,max_age_s=3600,seen_nonces=[],nonce_already_used=false}=pp;
+  const{nonce,created,expires,now_unix,max_age_s=3600,seen_nonces,nonce_already_used}=pp;
+  // Replay store supplied when seen_nonces is an array or nonce_already_used is a boolean.
+  const replay_evaluated=Array.isArray(seen_nonces)||typeof nonce_already_used==='boolean';
   const format_ok=nonceFormatOk(nonce);
   const spread_ok=(typeof created==='number'&&typeof expires==='number')
     ?(expires-created)>0&&(expires-created)<=480:null;
   const fresh=(typeof created==='number'&&typeof now_unix==='number')
     ?(now_unix-created)<=max_age_s&&(now_unix-created)>=-300&&spread_ok===true:null;
   const already_used=nonce_already_used===true||(Array.isArray(seen_nonces)&&typeof nonce==='string'&&seen_nonces.includes(nonce));
-  const nonce_valid=format_ok&&fresh===true&&!already_used;
-  const verdict=nonce_valid?'ACCEPT':'REFUSE';
+  const checks_pass=format_ok&&fresh===true&&!already_used;
+  const nonce_valid=checks_pass&&replay_evaluated;
+  // Expiry ordering (now_unix <= expires) is deliberately not checked: replay check, not a freshness verifier.
+  const verdict=nonce_valid?'ACCEPT':(checks_pass?'REPLAY_CHECK_NOT_EVALUATED':'REFUSE');
   const flags={NONCE_ASSESSED:true};
   if(!format_ok)flags.NONCE_MALFORMED=true;
   if(fresh===false)flags.NONCE_STALE=true;
   if(already_used)flags.NONCE_REPLAY_SUSPECTED=true;
-  flags[nonce_valid?'NONCE_ACCEPTED':'NONCE_REFUSED']=true;
-  return{output_payload:{format_ok,spread_ok,fresh,already_used,nonce_valid,verdict},compliance_flags:flags};
+  if(!replay_evaluated)flags.NONCE_REPLAY_STORE_ABSENT=true;
+  if(nonce_valid)flags.NONCE_ACCEPTED=true;else if(verdict==='REFUSE')flags.NONCE_REFUSED=true;
+  return{output_payload:{format_ok,spread_ok,fresh,already_used,replay_evaluated,nonce_valid,verdict},compliance_flags:flags};
 }
 
 function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
@@ -515,7 +520,7 @@ function renderResults(op,flags,execHash,artifact){
     '<div class="hero-stat"><div class="hero-val" style="color:'+(op.fresh?'var(--green)':'var(--red)')+'">'+(op.fresh?'✓':'✗')+'</div><div class="hero-lbl">Fresh</div></div>';
   const flagKeys=Object.keys(flags).filter(k=>flags[k]);
   document.getElementById('verdictDiv').innerHTML=
-    '<div class="verdict '+(vok?'pass':'fail')+'">'+(vok?'✓ ACCEPT: format, freshness, and caller-supplied replay check all pass.':'✗ REFUSE: one or more checks failed. See compliance flags.')+'</div>'+
+    '<div class="verdict '+(vok?'pass':'fail')+'">'+(vok?'✓ ACCEPT: format, freshness, and caller-supplied replay check all pass.':(op.verdict==='REPLAY_CHECK_NOT_EVALUATED'?'⚠ REPLAY CHECK NOT EVALUATED: no replay store was supplied, so this is not an accept.':'✗ REFUSE: one or more checks failed. See compliance flags.'))+'</div>'+
     '<div style="margin-top:6px">'+flagKeys.map(f=>{const ok=f==='NONCE_ASSESSED'||f==='NONCE_ACCEPTED';return'<span class="badge '+(ok?'ok':'err')+'">'+f+'</span>'}).join('')+'</div>';
   document.getElementById('detailDiv').innerHTML=
     '<table class="tbl" style="margin-top:12px"><thead><tr><th>Check</th><th>Result</th></tr></thead><tbody>'+

@@ -2,7 +2,7 @@
   "tool_id": "art-593-webbotauth-nonce-replay-check",
   "version": "1.0.0",
   "title": "Web Bot Auth Nonce & Replay-Window Checker",
-  "description": "Check a Visa TAP-shaped nonce for format (minimum entropy, base64url), freshness against the created/expires window (capped at TAP's 8-minute spread), and an optional caller-supplied seen-nonce record. Zero network, caller-supplied inputs only. Emits ACCEPT or REFUSE. Replay prevention depends on the caller supplying an accurate seen-nonce record from its own storage — this verifier is stateless and cannot detect replay on its own.",
+  "description": "Check a Visa TAP-shaped nonce for format (minimum entropy, base64url), freshness against the created/expires window (capped at TAP's 8-minute spread), and an optional caller-supplied seen-nonce record. Zero network, caller-supplied inputs only. Emits ACCEPT or REFUSE. Replay prevention depends on the caller supplying an accurate seen-nonce record from its own storage — this verifier is stateless and cannot detect replay on its own. When neither seen_nonces nor nonce_already_used is supplied the replay check is not evaluated: otherwise-valid input returns REPLAY_CHECK_NOT_EVALUATED with the NONCE_REPLAY_STORE_ABSENT flag, never ACCEPT (an empty seen_nonces list is a supplied, empty store). This node is a replay check, not a freshness verifier: it does not require now_unix to be at or before expires; freshness is bounded by created, max_age_s and the 8-minute spread.",
   "category": "chaingraph",
   "tags": [
     "visa-tap",
@@ -73,6 +73,9 @@
       "already_used": {
         "type": "boolean"
       },
+      "replay_evaluated": {
+        "type": "boolean"
+      },
       "nonce_valid": {
         "type": "boolean"
       },
@@ -80,7 +83,8 @@
         "type": "string",
         "enum": [
           "ACCEPT",
-          "REFUSE"
+          "REFUSE",
+          "REPLAY_CHECK_NOT_EVALUATED"
         ]
       }
     }
@@ -145,15 +149,17 @@
     "created": 1750000000,
     "expires": 1750000300,
     "now_unix": 1750000060,
-    "max_age_s": 3600
+    "max_age_s": 3600,
+    "seen_nonces": []
   },
   "output_example": {
     "format_ok": true,
     "spread_ok": true,
     "fresh": true,
     "already_used": false,
+    "replay_evaluated": true,
     "nonce_valid": true,
     "verdict": "ACCEPT"
   },
-  "example_execution_hash": "e151abf2f428e37636b80c19852ece5c168c0b6fc760ef8771cf74b49088e11f"
+  "example_execution_hash": "70ba28a8193f03dc7dfd0895d9b4502f0bde3680934917986c537e3b8ee6d9b0"
 }
