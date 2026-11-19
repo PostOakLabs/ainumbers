@@ -26,7 +26,7 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { copySandboxDeps, shortCircuitFixtureOracle, neutralizationTargets, decomposeMoneyMath, decomposedGateDecision, kernelTimeoutSecondsFromEnv, kernelTimeoutSecondsForKernel, runProcessBounded, findDetmathMarkerRange, surfaceSplitPatch, resolveSurfaceSplit, survivorLocations, assertSurvivorsComplete, buildJsonResult, artifactConstRanges, tierOfMutantWithArtifact, tierReportWithArtifact, loadConfig } from './run-mutation-tier.mjs';
+import { copySandboxDeps, shortCircuitFixtureOracle, neutralizationTargets, decomposeMoneyMath, decomposedGateDecision, kernelTimeoutSecondsFromEnv, kernelTimeoutSecondsForKernel, mutationTrialsForKernel, mutationEnvForKernel, runProcessBounded, findDetmathMarkerRange, surfaceSplitPatch, resolveSurfaceSplit, survivorLocations, assertSurvivorsComplete, buildJsonResult, artifactConstRanges, tierOfMutantWithArtifact, tierReportWithArtifact, loadConfig } from './run-mutation-tier.mjs';
 import { mergeMutationSiblings, loadOriginalAuthorshipAllowlist } from './lib-per-kernel-config.mjs';
 import { classifyKernelSource, tierReport } from '../chaingraph/kernels/mutation-tier-split.mjs';
 
@@ -834,6 +834,50 @@ test('R34 loadOriginalAuthorshipAllowlist keys a sibling as chaingraph/kernels/<
   let threw = null;
   try { loadOriginalAuthorshipAllowlist(root); } catch (e) { threw = e; }
   assert(threw && /already present/.test(threw.message), 'a duplicate legacy+sibling entry must be refused');
+});
+
+// ── per-kernel trial budget (MUTATION-TRIALS-BUDGET-458-1) ────────────────
+// The key is sibling-only (no global env override), validated as a positive
+// safe integer, and travels into the Stryker child env ONLY for the kernel that
+// declares it. No key = empty fragment = byte-identical behaviour.
+
+console.log('\nrun-mutation-tier controls — per-kernel trial budget (MUTATION-TRIALS-BUDGET-458-1)');
+
+test('R35 mutationTrials is allowlisted, merged, accepted and validated (bad values refused loudly)', () => {
+  const { dir } = siblingScratch({ 'k-a.mutation.json': { mutationTrials: 1000 }, 'k-b.mutation.json': { mutationTrials: 0 } });
+  let m;
+  try { m = mergeMutationSiblings({}, dir); } catch (e) { throw new Error(`mutationTrials key is not allowlisted: ${e.message}`); }
+  assert(m.mutationTrials['k-a'] === 1000 && m.mutationTrials['k-b'] === 0, 'mutationTrials must merge into its own map');
+  assert(mutationTrialsForKernel('k-a', m) === 1000, 'a positive safe integer must be accepted');
+  assert(mutationTrialsForKernel('k-z', m) === null, 'a kernel without the key resolves to null (no budget)');
+  for (const bad of [0, -1, 3.5, '1000', null, Number.MAX_SAFE_INTEGER + 1]) {
+    let threw = null;
+    try { mutationTrialsForKernel('k-a', { mutationTrials: { 'k-a': bad } }); } catch (e) { threw = e; }
+    assert(threw, `${JSON.stringify(bad)} must be refused, never silently accepted`);
+    assert(threw.message.includes('k-a') && /mutationTrials/.test(threw.message), `the refusal must name the kernel and the key: ${threw && threw.message}`);
+  }
+});
+
+test('R36 no key means no env var, and computing the fragment never writes global process.env', () => {
+  const config = { mutationTrials: { 'k-a': 1000 } };
+  const before = process.env.MUTATION_TIER_NUM_RUNS;
+  const eq = (a, b, msg) => assert(JSON.stringify(a) === JSON.stringify(b), `${msg}: got ${JSON.stringify(a)}`);
+  eq(mutationEnvForKernel('k-a', config), { MUTATION_TIER_NUM_RUNS: '1000' }, 'the keyed kernel gets exactly the budget var');
+  eq(mutationEnvForKernel('k-b', config), {}, 'an unkeyed kernel gets no var at all');
+  eq(mutationEnvForKernel('k-a', null), {}, 'no config means no var');
+  assert(process.env.MUTATION_TIER_NUM_RUNS === before, 'mutationEnvForKernel must never mutate global process.env');
+});
+
+await asyncTest('R37 the computed env reaches a spawned child for the keyed kernel only', async () => {
+  const config = { mutationTrials: { 'k-a': 1000 } };
+  const envForA = { ...process.env, ...mutationEnvForKernel('k-a', config) };
+  const envForB = { ...process.env };
+  delete envForB.MUTATION_TIER_NUM_RUNS;
+  const code = "process.stdout.write(String(process.env.MUTATION_TIER_NUM_RUNS || ''));";
+  const a = spawnSync(process.execPath, ['-e', code], { env: envForA, encoding: 'utf8' });
+  const b = spawnSync(process.execPath, ['-e', code], { env: envForB, encoding: 'utf8' });
+  assert(a.status === 0 && a.stdout === '1000', `the keyed kernel's child must see 1000 (got ${a.stdout})`);
+  assert(b.status === 0 && b.stdout === '', `the unkeyed kernel's child must see no var (got ${b.stdout})`);
 });
 
 console.log(`\nrun-mutation-tier controls: ${passed} passed, ${failed} failed`);

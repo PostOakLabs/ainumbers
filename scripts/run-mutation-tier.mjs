@@ -246,6 +246,30 @@ export function kernelTimeoutSecondsForKernel(id, env = process.env, config = nu
   return DEFAULT_KERNEL_TIMEOUT_S;
 }
 
+// MUTATION-TRIALS-BUDGET-458-1: the opt-in per-kernel trial budget. Unlike the
+// wall-clock bound there is deliberately NO global env override — the ONLY
+// source is `<id>.mutation.json`'s `mutationTrials` key (merged into the config
+// by PER-KERNEL-CONFIG-SHARD-1). A present value must be a positive safe integer
+// or the run fails LOUDLY naming the kernel and the bad value, in the same
+// shape as kernelTimeoutSecondsForKernel above. Absent = no budget at all.
+export function mutationTrialsForKernel(id, config = null) {
+  const trials = (config && config.mutationTrials) || {};
+  if (!Object.prototype.hasOwnProperty.call(trials, id)) return null;
+  const v = trials[id];
+  if (!Number.isSafeInteger(v) || v <= 0) {
+    throw new Error(`mutationTrials["${id}"] (per-kernel sibling) must be a positive safe integer, got ${JSON.stringify(v)}`);
+  }
+  return v;
+}
+
+// The child-only env fragment. The caller merges it into the Stryker child's
+// env; it is NEVER written to the global process.env, so a multi-kernel run
+// cannot leak one kernel's budget into another's mutants.
+export function mutationEnvForKernel(id, config = null) {
+  const n = mutationTrialsForKernel(id, config);
+  return n === null ? {} : { MUTATION_TIER_NUM_RUNS: String(n) };
+}
+
 export function timeoutMessage(id, elapsedS) {
   return `MUTATION-TIER TIMEOUT ${id} after ${elapsedS}s — treat as FAIL, see MUTATION-TIER-HANG-MMS03-PNR01-1`;
 }
@@ -283,14 +307,19 @@ const KILL_GRACE_MS = 15000;
  * @returns {Promise<{ crashed: boolean, error: string | null, timedOut: boolean,
  *                     killConfirmed: boolean, elapsedS: number }>}
  */
-export function runProcessBounded({ cmd, args, cwd, budgetS }) {
+export function runProcessBounded({ cmd, args, cwd, budgetS, env }) {
   return new Promise((resolve) => {
     const t0 = Date.now();
     let settled = false;
     let timedOut = false;
     let killConfirmed = true;
     let spawnError = null;
-    const child = spawn(cmd, args, { cwd, stdio: 'inherit', detached: process.platform !== 'win32' });
+    const spawnOpts = { cwd, stdio: 'inherit', detached: process.platform !== 'win32' };
+    // No env fragment = inherit process.env exactly as before (byte-identical
+    // behaviour for kernels with no trial budget). A fragment is a per-child
+    // override only — process.env itself is never mutated.
+    if (env) spawnOpts.env = env;
+    const child = spawn(cmd, args, spawnOpts);
     const killGrace = setTimeout(() => {
       // The tree kill did not close the child within grace — stop waiting (the
       // direct child may leak; the verdict is still the loud FAIL).
@@ -317,7 +346,7 @@ export function runProcessBounded({ cmd, args, cwd, budgetS }) {
   });
 }
 
-function runStryker(configPath, cwd, strykerVersion, budgetS) {
+function runStryker(configPath, cwd, strykerVersion, budgetS, extraEnv = {}) {
   const { cmd, prefixArgs } = process.platform === 'win32'
     ? resolveWindowsNpxInvocation()
     : { cmd: 'npx', prefixArgs: [] };
@@ -326,6 +355,10 @@ function runStryker(configPath, cwd, strykerVersion, budgetS) {
     args: [...prefixArgs, '--yes', `--package=@stryker-mutator/core@${strykerVersion}`, 'stryker', 'run', configPath],
     cwd,
     budgetS,
+    // Copy process.env into a NEW object so the override reaches this Stryker
+    // child (and every per-mutant command it spawns) without ever touching the
+    // run-wide global env. Undefined when empty = inherit as before.
+    env: Object.keys(extraEnv).length ? { ...process.env, ...extraEnv } : undefined,
   });
 }
 
@@ -1195,8 +1228,17 @@ export async function runOneKernel(id, scratchRoot, opts, strykerVersion, repoRo
   const configPath = path.join(scratchRoot, `stryker.${id}.json`);
   writeFileSync(configPath, JSON.stringify(config, null, 2));
 
+  // MUTATION-TRIALS-BUDGET-458-1: the opt-in budget travels ONLY into this
+  // kernel's Stryker child env. The per-mutant command is
+  // `node chaingraph/kernels/__proptests__/<proptest>`, so the override reaches
+  // every mutant (and the dry run) without touching global process.env.
+  const mutationEnv = mutationEnvForKernel(id, tierConfig);
+  if (mutationEnv.MUTATION_TIER_NUM_RUNS !== undefined) {
+    console.log(`  mutation trials budget: ${mutationEnv.MUTATION_TIER_NUM_RUNS} (per-kernel sibling)`);
+  }
+
   const t0 = Date.now();
-  const { crashed, error, timedOut, elapsedS } = await runStryker(configPath, scratchRoot, strykerVersion, budgetS());
+  const { crashed, error, timedOut, elapsedS } = await runStryker(configPath, scratchRoot, strykerVersion, budgetS(), mutationEnv);
   if (timedOut) {
     const msg = timeoutMessage(id, elapsedS);
     console.error(`  ${msg}`);
@@ -1406,6 +1448,16 @@ export async function runTier(argv, repoRoot = REPO) {
   // (same loud-failure shape as the env check above).
   try {
     for (const id of toRun) kernelTimeoutSecondsForKernel(id, process.env, config);
+  } catch (e) {
+    console.error(`run-mutation-tier: ${e.message}`);
+    process.exit(1);
+  }
+
+  // MUTATION-TRIALS-BUDGET-458-1: validate every examined kernel's opt-in trial
+  // budget up-front too — a bad sibling value fails LOUDLY here, before any
+  // Stryker work, naming the kernel and the bad value.
+  try {
+    for (const id of toRun) mutationTrialsForKernel(id, config);
   } catch (e) {
     console.error(`run-mutation-tier: ${e.message}`);
     process.exit(1);
