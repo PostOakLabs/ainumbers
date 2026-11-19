@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:decfd41bf3e450e1251e6cf36e4c3286f4008c9c8cfa831220b10804b8da7cb6
+// kernel_digest_at_authoring: sha256:09e9f68d93b69dfde091d9432376641f8e8c789d9e615e9a9e2851e9016ef3dd
 //
 // Property-test floor for art-811-check-dti-within-policy-private.
 // Class K (integer decision kernel, BigInt arithmetic, no floats; exact-shape refusals).
@@ -118,7 +118,7 @@ async function p4() {
     if (s.includes(w.income_salt) || s.includes(w.debts_salt)) violations++;
     if (s.includes(pad(inc))) violations++;
     for (const d of ds) if (s.includes(pad(d))) violations++;
-    if (Object.keys(a.output_payload).join() !== 'dti_within_policy,basis,privacy_note,not_legal_advice') violations++;
+    if (Object.keys(a.output_payload).join() !== 'dti_within_policy,dti_max_bps,unit,as_of,basis,privacy_note,not_legal_advice') violations++;
     if (Object.keys(a.policy_parameters).join() !== 'income_commitment,debts_commitment,dti_max_bps,unit,as_of,citation') violations++;
     for (const e of a.private_inputs) if (a.policy_parameters[e.pointer.slice(1)] !== e.commitment) violations++;
   }
