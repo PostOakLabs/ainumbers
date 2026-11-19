@@ -383,6 +383,13 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── WEBMCP-SPEC-ALIGN-1 (2026-11-19) ───────────────────────────────────────
+  ["check-webmcp-spec.mjs",
+    "WebMCP registration conformance gate (13 Nov 2026 draft shape) plus its RED/GREEN " +
+    "self-test. Preflight-only because scripts-verify.yml's path-scoped full preflight already " +
+    "runs this gate on every PR that can change its inputs (scripts/** for the gate and its " +
+    "generator, and the tracked *.html pages it scans), so a separate workflow step would " +
+    "only duplicate that call. The gate is BLOCKING in preflight, not advisory."],
   // ── TIEOUT-SPAN-SCHEMA-1 (2026-11-17) ───────────────────────────────────────
   ["check-document-span.selftest.mjs", SELF_TEST],
   // ── STALE-STAMP-WRITERS-1 (2026-11-14) ──────────────────────────────────────
