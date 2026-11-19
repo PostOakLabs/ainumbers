@@ -10,7 +10,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-791-check-je-multicurrency-balance.proptest.mjs
 
-import { compute } from '../art-791-check-je-multicurrency-balance.kernel.mjs';
+import { compute, buildArtifact } from '../art-791-check-je-multicurrency-balance.kernel.mjs';
 import { runFixtureOracle, findShapeViolations, summarize, mulberry32, deepEqual } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-791-check-je-multicurrency-balance';
@@ -182,6 +182,30 @@ function checkShape() {
   return { name: 'P6 output shape (no NaN/undefined/non-finite in any payload)', checked, violations };
 }
 
+// P7 (D6) -- buildArtifact_never_throws: junk the shared canonicalizer cannot hash, placed in
+// an extra pp key, mints an artifact with a null execution_hash and a hash_refusal beside it;
+// a clean pp still gets a 64-hex hash and no hash_refusal.
+async function checkBuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  let deep = 'x';
+  for (let i = 0; i < 600; i++) deep = { d: deep };
+  const wide = new Array(1000001).fill(0);
+  const junk = [NaN, -Infinity, 1e300, deep, wide, 10n];
+  for (const j of junk) {
+    checked++;
+    try {
+      const art = await buildArtifact(twoLine({ extra: j }, 1, -1));
+      if (art.execution_hash !== null || !art.hash_refusal || typeof art.hash_refusal.reason !== 'string' || typeof art.hash_refusal.detail !== 'string') violations++;
+    } catch (e) { violations++; console.log('P7 violation: buildArtifact threw on junk: ' + String(e.message).slice(0, 80)); }
+  }
+  checked++;
+  try {
+    const art = await buildArtifact(twoLine({}, 1, -1));
+    if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) violations++;
+  } catch (e) { violations++; console.log('P7 violation: buildArtifact threw on clean pp: ' + String(e.message).slice(0, 80)); }
+  return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -196,6 +220,7 @@ const properties = [
   checkRefusalDomain(),
   checkToleranceMonotonicity(),
   checkShape(),
+  await checkBuildArtifactNeverThrows(),
 ];
 const ok = summarize(KERNEL_ID, oracle, properties);
 process.exit(ok ? 0 : 1);
