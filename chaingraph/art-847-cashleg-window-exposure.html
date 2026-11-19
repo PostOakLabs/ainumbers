@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Cash-Leg Window Exposure · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Compute how long a token leg that settles around the clock waits for a cash leg that only moves while a payment rail is open, against a rail calendar you declare.">
+<meta name="robots" content="index, follow">
+<meta name="ain:category" content="run">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-847-cashleg-window-exposure.html">
+<link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-847-cashleg-window-exposure.md">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--muted:#3A5270;--body:#6888A8;
+  --text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);
+  --radius:6px;--radius-lg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:680px;line-height:1.8}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin-bottom:1.25rem}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem}
+label{display:block;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--bright);margin-bottom:.35rem}
+.help{font-size:.68rem;color:var(--muted);margin-bottom:.5rem}
+textarea,input[type=text]{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.6rem;outline:none}
+textarea:focus,input[type=text]:focus{border-color:var(--teal)}
+textarea{min-height:220px;resize:vertical}
+button{font-family:'JetBrains Mono',monospace;font-size:.66rem;background:var(--teal-dim);color:var(--teal);border:1px solid rgba(20,184,166,.35);border-radius:var(--radius);padding:.55rem 1rem;cursor:pointer;letter-spacing:.05em}
+button:hover{background:rgba(20,184,166,.22)}
+.verdict{font-family:'JetBrains Mono',monospace;font-size:.8rem;padding:.8rem 1rem;border-radius:var(--radius);margin:.9rem 0}
+.verdict.ok{color:#34D399;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.4)}
+.verdict.bad{color:#F87171;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.4)}
+.badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.56rem;border:1px solid var(--border);border-radius:3px;padding:.15rem .5rem;margin:0 .35rem .35rem 0;color:var(--body)}
+.badge.ok{color:#34D399;border-color:rgba(52,211,153,.4)}
+.badge.bad{color:#F87171;border-color:rgba(248,113,113,.4)}
+table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.64rem}
+th,td{text-align:left;padding:.4rem .6rem;border-bottom:1px solid var(--border);color:var(--text)}
+th{color:var(--muted);font-weight:400;text-transform:uppercase;letter-spacing:.1em;font-size:.52rem}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--text);margin-top:10px;max-height:380px;white-space:pre-wrap;word-break:break-all}
+.kv{display:flex;justify-content:space-between;gap:1rem;font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.3rem 0;border-bottom:1px dashed var(--border)}
+.kv-k{color:var(--muted)}.kv-v{color:var(--bright)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+</style>
+<!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-847-cashleg-window-exposure.kernel.mjs. -->
+<meta name="kernel-digest" content="sha256:9d32e9011c337eb49339ba5a1df9f3151a7ace948e9dcbf053c7d4578a7ed33e">
+<style>
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+<style>#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal,#14B8A6);color:var(--bright,#D4E8F8)}#ap2ExportBtn:disabled{opacity:.55;cursor:not-allowed}</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-847 · Cash-Leg Window Exposure</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="hero"><div class="container">
+  <h1>Cash-Leg Window Exposure</h1>
+  <p class="hero-desc">When a token leg settles at any hour but the cash leg only moves while a payment rail is open, the principal sits unsettled until the rail next opens. This node measures that wait in seconds, multiplies it by the principal, and prices it at a funding rate you state. You declare the token leg time and either a list of UTC open windows or a rail calendar (weekday hours, UTC offsets by date, holidays). The node carries no calendar of its own and never reads a clock.</p>
+</div></div>
+<div class="container">
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="panel">
+    <div class="panel-label">Inputs</div>
+    <div class="field"><label for="token_leg_time">Token leg time (UTC)</label><input type="text" id="token_leg_time" aria-label="token_leg_time" aria-description="Instant the token leg settles, strict UTC YYYY-MM-DDTHH:MM:SSZ with a valid calendar date. Offsets, fractions and impossible dates are refused."></div>
+    <div class="field"><label for="as_of">As of (UTC)</label><input type="text" id="as_of" aria-label="as_of" aria-description="Caller-declared evaluation instant, same strict UTC shape. No clock is read; a token leg after as_of is flagged."></div>
+    <div class="field"><label for="principal_minor_units">Principal (minor units, decimal string)</label><input type="text" id="principal_minor_units" aria-label="principal_minor_units" aria-description="Principal in integer minor units as a positive decimal string of at most 18 digits. Numbers and floats are refused, never coerced."></div>
+    <div class="field"><label for="funding_rate_bp">Funding rate (basis points, optional)</label><input type="text" id="funding_rate_bp" aria-label="funding_rate_bp" aria-description="Optional funding rate in whole basis points, 0 to 100000, for the carry cost. Leave blank for none; a float is refused."></div>
+    <div class="field"><label for="horizon_days">Horizon (days, optional)</label><input type="text" id="horizon_days" aria-label="horizon_days" aria-description="Optional search horizon in whole days, 1 to 60; 14 when blank."></div>
+    <div class="field"><label for="cash_instrument">Cash instrument (optional label)</label><select id="cash_instrument" aria-label="cash_instrument" aria-description="Optional label echoed on the receipt: fiat_bank_money, stablecoin, deposit_token or future_instrument."><option value="">(none)</option><option value="fiat_bank_money">fiat_bank_money</option><option value="stablecoin">stablecoin</option><option value="deposit_token">deposit_token</option><option value="future_instrument">future_instrument</option></select></div>
+    <div class="field"><label for="cash_leg_open_windows">Cash-leg open windows (JSON list, or leave blank and declare a rail calendar)</label><textarea id="cash_leg_open_windows" aria-label="cash_leg_open_windows" aria-description="Declared UTC cash windows of open_utc and close_utc. Declare exactly one of this or rail_calendar." spellcheck="false" style="min-height:70px"></textarea></div>
+    <div class="field"><label for="rail_calendar">Rail calendar (JSON object, or leave blank and declare windows)</label><textarea id="rail_calendar" aria-label="rail_calendar" aria-description="Declared versioned rail table: weekday window rules, UTC offsets by date range and holidays." spellcheck="false" style="min-height:300px"></textarea></div>
+    <div class="help">Keys: token_leg_time and as_of (UTC, YYYY-MM-DDTHH:MM:SSZ), principal_minor_units (integer string), funding_rate_bp (optional integer basis points), horizon_days (optional, 1 to 60, default 14), cash_instrument (optional: fiat_bank_money, stablecoin, deposit_token, future_instrument), and exactly one of cash_leg_open_windows (a list of open_utc and close_utc) or rail_calendar (rail_id, calendar_version, source_pin, covers_from, covers_to, window_rules, utc_offset_segments, holidays). A window is open from its open instant up to, not including, its close instant. All inputs are caller-asserted.</div>
+    <div style="margin-top:14px">
+      <button onclick="runCheck()">&#9654; Compute exposure</button>
+      <button onclick="loadSample('fedwire')" style="margin-left:8px">Load Fedwire sample</button>
+      <button onclick="loadSample('fednow')" style="margin-left:8px">Load FedNow sample</button>
+    </div>
+  </div>
+
+  <div class="panel" id="resultsPanel" style="display:none">
+    <div class="panel-label">Result</div>
+    <div id="verdict" class="verdict"></div>
+    <div id="flagRow"></div>
+    <div id="kvDiv"></div>
+    <div class="panel-label" style="margin-top:16px">Execution Hash (SHA-256)</div>
+    <div class="kv"><span class="kv-k">execution_hash</span><span class="kv-v" id="execHash">,</span></div>
+    <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;margin-top:12px;border-top:1px solid var(--border)">
+      <button onclick="exportArtifact()">Export §4 Artifact</button>
+      <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Compute the exposure above to generate a Policy Mandate">{} Export Policy Mandate</button>
+    </div>
+    <pre id="artifactPre" style="display:none"></pre>
+  </div>
+
+  <div class="panel" id="basisPanel">
+    <div class="panel-label">Basis and declarations</div>
+    <div class="help">This node implements no published standard. It is date and time arithmetic over a calendar you declare. Every figure is a value you asserted; the node cannot tell whether a rail table is current or complete, and it never hardcodes one.</div>
+    <div class="help" style="margin-top:8px">Exposure runs from the token leg instant to the next instant the declared cash windows are open. A token leg inside an open window has zero exposure (ATOMIC_POSSIBLE). A later window inside the horizon gives WINDOWED. No window inside the horizon gives NO_WINDOW_IN_HORIZON and no figures. exposure_principal_seconds is the principal times the exposure in seconds, as a decimal string. The optional carry cost is principal times rate times exposure over 10000 times 31536000 (actual over 365), rounded half to even to a whole minor unit. crosses_weekend is true when the exposure interval contains any Saturday or Sunday instant in UTC.</div>
+    <div class="help" style="margin-top:8px">Rail calendars: a rail_calendar lists weekday rules (the business-day weekdays, and the local open and close clock times with day offsets, so a rail that opens the evening before its business day is expressible), UTC offsets declared by date range so a daylight-saving change is your statement and not a library lookup, and holidays as business-day dates with no window. Endpoints between local midnight and 02:00 on a clock-change day are not supported; keep rail hours clear of them or use cash_leg_open_windows in UTC.</div>
+    <div class="help" style="margin-top:8px">The Fedwire sample declares what the Federal Reserve Financial Services pages state as retrieved on 2026-11-12: the Fedwire Funds Service opens at 9:00 p.m. ET on the preceding calendar day and closes at 7:00 p.m. ET (the customer-transfer cutoff is 6:45 p.m. ET, so declare 18:45 as the close if that is the cutoff you mean), Monday to Friday, closed on the Federal Reserve holidays in the K.8 table. K.8 weekend rules: a holiday on a Saturday leaves the Reserve Banks open the preceding Friday (July 4, 2026 is a Saturday, so Friday July 3 is a business day); a holiday on a Sunday closes all offices the following Monday (July 4, 2027 is a Sunday, so Monday July 5 is closed). The Federal Reserve Board's adopted extension of Fedwire to 22 hours on six days (Sunday to Friday, including weekday holidays) is not yet effective, with implementation in 2028 or 2029; the samples model today's Monday to Friday service. An older Operating Circular page still states a 6:30 p.m. ET close and disagrees with the current schedule; it is not used here.</div>
+    <div class="help" style="margin-top:8px">The FedNow sample declares a 24x7x365 service in UTC. FedNow publishes no maintenance window, so none is declared. The sample does not model the roughly 7:01 p.m. ET business-day roll.</div>
+    <div class="help" style="margin-top:8px">On the cash leg of tokenized Treasuries: DTCC's own text says distributions and maturities are paid in fiat to Participants' traditional accounts and lists digital cash as a roadmap item for 2027 and beyond; its launch release states no cash leg. The node takes no position on which rail a given cash leg uses. You declare the rail whose hours apply. The 2 a.m. to 6 p.m. ET window DTCC states for token conversion on business days is a different clock from any payment rail and is not modelled.</div>
+    <div class="help" style="margin-top:8px">The node never computes a balance-sheet saving or any marketing figure, and it names no unannounced product. Limits: principal up to 18 digits, rate up to 100000 basis points, at most 500 windows and 400 holidays. Every refusal names its code and nothing is coerced: floats, numeric principals, nulls, offsets inside time strings and impossible dates all refuse.</div>
+  </div>
+</div>
+
+<!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=manifests/art-847-cashleg-window-exposure.manifest.json -->
+<section id="ask-agent" style="max-width:900px;margin:32px auto 0;border:1px solid var(--border);border-radius:10px;padding:14px 18px;background:var(--bg-2)">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:.85rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em">Ask your agent</h2>
+    <button type="button" aria-label="Copy the ask-your-agent paragraph" onclick="(function(b){var t=document.getElementById('ask-agent-copy').textContent;function d(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy';},1200);}if(navigator.clipboard&amp;&amp;navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){});}else{var r=document.createRange();r.selectNodeContents(document.getElementById('ask-agent-copy'));var s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('copy');s.removeAllRanges();d();}})(this)" style="margin-left:auto;background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .8rem;cursor:pointer">Copy</button>
+  </div>
+  <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
+  <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `cashleg_window_exposure`. Task: Compute how long a token leg that settles at any hour waits for a cash leg that only moves while a payment rail is open, against a rail calendar or UTC windows the caller declares: exposure seconds, principal-seconds, next window open and close, weekend crossing and an optional carry cost (actual over 365, half-even).
+Call it with arguments: {"policy_parameters":{"principal_minor_units":"100000000000","as_of":"2026-10-01T00:00:00Z","token_leg_time":"2026-10-03T00:00:00Z","rail_calendar":{"rail_id":"fedwire-funds-service","calendar_version":"fedwire-hours-and-k8-pinned-2026-11-12","source_pin":"fedwire-nss-operating-hours-2026-11-12 (hours); fed-holiday-k8-2026-11-12 (holidays)","covers_from":"2026-01-01","covers_to":"2027-12-31","window_rules":[{"weekdays":[1,2,3,4,5],"open_day_offset":-1,"open_local":"21:00","close_day_offset":0,"close_local":"19:00"}],"utc_offset_segments":[{"from_date":"2026-01-01","to_date":"2026-03-07","offset_minutes":-300},{"from_date":"2026-03-08","to_date":"2026-10-31","offset_minutes":-240},{"from_date":"2026-11-01","to_date":"2027-03-13","offset_minutes":-300},{"from_date":"2027-03-14","to_date":"2027-11-06","offset_minutes":-240},{"from_date":"2027-11-07","to_date":"2027-12-31","offset_minutes":-300}],"holidays":["2026-01-01","2026-01-19","2026-02-16","2026-05-25","2026-06-19","2026-09-07","2026-10-12","2026-11-11","2026-11-26","2026-12-25","2027-01-01","2027-01-18","2027-02-15","2027-05-31","2027-07-05","2027-09-06","2027-10-11","2027-11-11","2027-11-25"]},"cash_instrument":"fiat_bank_money","funding_rate_bp":450}}
+Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string.
+Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.
+PII rule: All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
+Over MCP, the run happens on the AINumbers worker. No AINumbers server stores your inputs.
+Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-847-cashleg-window-exposure.html#p=v1.H4sIAAAAAAAA_wG0BEv7eyJwcmluY2lwYWxfbWlub3JfdW5pdHMiOiIxMDAwMDAwMDAwMDAiLCJhc19vZiI6IjIwMjYtMTAtMDFUMDA6MDA6MDBaIiwidG9rZW5fbGVnX3RpbWUiOiIyMDI2LTEwLTAzVDAwOjAwOjAwWiIsInJhaWxfY2FsZW5kYXIiOnsicmFpbF9pZCI6ImZlZHdpcmUtZnVuZHMtc2VydmljZSIsImNhbGVuZGFyX3ZlcnNpb24iOiJmZWR3aXJlLWhvdXJzLWFuZC1rOC1waW5uZWQtMjAyNi0xMS0xMiIsInNvdXJjZV9waW4iOiJmZWR3aXJlLW5zcy1vcGVyYXRpbmctaG91cnMtMjAyNi0xMS0xMiAoaG91cnMpOyBmZWQtaG9saWRheS1rOC0yMDI2LTExLTEyIChob2xpZGF5cykiLCJjb3ZlcnNfZnJvbSI6IjIwMjYtMDEtMDEiLCJjb3ZlcnNfdG8iOiIyMDI3LTEyLTMxIiwid2luZG93X3J1bGVzIjpbeyJ3ZWVrZGF5cyI6WzEsMiwzLDQsNV0sIm9wZW5fZGF5X29mZnNldCI6LTEsIm9wZW5fbG9jYWwiOiIyMTowMCIsImNsb3NlX2RheV9vZmZzZXQiOjAsImNsb3NlX2xvY2FsIjoiMTk6MDAifV0sInV0Y19vZmZzZXRfc2VnbWVudHMiOlt7ImZyb21fZGF0ZSI6IjIwMjYtMDEtMDEiLCJ0b19kYXRlIjoiMjAyNi0wMy0wNyIsIm9mZnNldF9taW51dGVzIjotMzAwfSx7ImZyb21fZGF0ZSI6IjIwMjYtMDMtMDgiLCJ0b19kYXRlIjoiMjAyNi0xMC0zMSIsIm9mZnNldF9taW51dGVzIjotMjQwfSx7ImZyb21fZGF0ZSI6IjIwMjYtMTEtMDEiLCJ0b19kYXRlIjoiMjAyNy0wMy0xMyIsIm9mZnNldF9taW51dGVzIjotMzAwfSx7ImZyb21fZGF0ZSI6IjIwMjctMDMtMTQiLCJ0b19kYXRlIjoiMjAyNy0xMS0wNiIsIm9mZnNldF9taW51dGVzIjotMjQwfSx7ImZyb21fZGF0ZSI6IjIwMjctMTEtMDciLCJ0b19kYXRlIjoiMjAyNy0xMi0zMSIsIm9mZnNldF9taW51dGVzIjotMzAwfV0sImhvbGlkYXlzIjpbIjIwMjYtMDEtMDEiLCIyMDI2LTAxLTE5IiwiMjAyNi0wMi0xNiIsIjIwMjYtMDUtMjUiLCIyMDI2LTA2LTE5IiwiMjAyNi0wOS0wNyIsIjIwMjYtMTAtMTIiLCIyMDI2LTExLTExIiwiMjAyNi0xMS0yNiIsIjIwMjYtMTItMjUiLCIyMDI3LTAxLTAxIiwiMjAyNy0wMS0xOCIsIjIwMjctMDItMTUiLCIyMDI3LTA1LTMxIiwiMjAyNy0wNy0wNSIsIjIwMjctMDktMDYiLCIyMDI3LTEwLTExIiwiMjAyNy0xMS0xMSIsIjIwMjctMTEtMjUiXX0sImNhc2hfaW5zdHJ1bWVudCI6ImZpYXRfYmFua19tb25leSIsImZ1bmRpbmdfcmF0ZV9icCI6NDUwfWPFDhO0BAAA</pre>
+</section>
+<!-- ASK-AGENT:END -->
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="../start.html">Start Here</a>
+        <a href="../front-to-back.html">Front-to-Back Prompts</a>
+        <a href="../prompts.html">Prompt Library</a>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="../helm.html">Helm</a>
+        <a href="../convert.html">Conversion Suite</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Hubs</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="visual-explainers-hub.html">Visual Explainers</a>
+        <a href="education-hub.html">Learn OpenChainGraph</a>
+        <a href="../guides/web3-hub.html">Web3 Hub</a>
+        <a href="../guides/canton-tmf-hub.html">Canton</a>
+        <a href="../guides/ethereum-hub.html">Ethereum</a>
+        <a href="../guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
+        <a href="../guides/token-standards-hub.html">Token Standards</a>
+        <a href="../guides/tradetech-hub.html">TradeTech</a>
+        <a href="../guides/capital-markets-settlement-hub.html">Capital Markets Settlement</a>
+        <a href="../guides/broker-dealer-ops-hub.html">Broker-Dealer Ops</a>
+        <a href="../guides/treasury-liquidity-hub.html">Treasury and Strategy</a>
+        <a href="../guides/wealthtech-hub.html">WealthTech</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Developers</div>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../webmcp.html">WebMCP</a>
+        <a href="../mcp-benchmark.html">MCP Benchmark</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../verification-desk.html">Verification Desk</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">About</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="../privacy.html">Privacy</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var TOOL_ID = 'art-847-cashleg-window-exposure';
+var TOOL_VERSION = '1.0.0';
+
+// ---- kernel logic, embedded verbatim from the art-847 kernel (pure; integer seconds and BigInt) ----
+
+// art-847-cashleg-window-exposure -- unsettled-principal exposure when a token leg settles
+// around the clock but the cash leg only moves while a payment rail is open.
+//
+// The node answers one question: given the instant a token leg settles and a caller-declared
+// rail calendar (or a list of UTC open windows), how long is the principal unsettled on the
+// cash side, and what does that cost at a stated funding rate? Every rail fact (hours, UTC
+// offsets, holidays) is an input; the kernel hardcodes no calendar and reads no clock.
+//
+// DETERMINISM: compute() is a pure function of pp. It uses integer seconds, BigInt for the
+// principal-seconds product and the carry rounding, and Date.UTC only as a pure calendar
+// conversion. No Date.now(), no Math.random(), no network, no filesystem.
+
+
+
+
+
+const DAY = 86400;
+const YEAR_SECONDS = 31536000; // ACT/365, stated on the output
+const DEFAULT_HORIZON_DAYS = 14;
+const MAX_HORIZON_DAYS = 60;
+const MAX_WINDOWS = 500;
+const MAX_HOLIDAYS = 400;
+const MAX_RATE_BP = 100000;
+const CASH_INSTRUMENTS = ['fiat_bank_money', 'stablecoin', 'deposit_token', 'future_instrument'];
+
+// ── hashability walk (D6) ────────────────────────────────────────────────────────
+// Mirrors the classes _hash.mjs refuses before canonicalizing: a non-finite number or an
+// integer outside the 2^53 safe range, nesting past MAX_DEPTH, more values than
+// MAX_ELEMENTS. Reports { reason, detail } with path and kind only, never the value.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+const PP_MAX_DEPTH = HASH_MAX_DEPTH - 8;
+const PP_MAX_ELEMENTS = 199000;
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
+function isPlainObject(v) {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
+
+// ── strict date and time parsing ─────────────────────────────────────────────────
+function daysInMonth(y, m) {
+  if (m === 2) return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0 ? 29 : 28;
+  return (m === 4 || m === 6 || m === 9 || m === 11) ? 30 : 31;
+}
+
+// "YYYY-MM-DD" with a calendar check; returns a day number (days from 1970-01-01) or null.
+function parseDate(s) {
+  if (typeof s !== 'string') return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (m === null) return null;
+  const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+  if (y < 1970 || y > 2999 || mo < 1 || mo > 12 || d < 1 || d > daysInMonth(y, mo)) return null;
+  return Date.UTC(y, mo - 1, d) / 86400000;
+}
+
+// "YYYY-MM-DDTHH:MM:SSZ" (UTC only, no offsets, no fractions); returns epoch seconds or null.
+function parseInstant(s) {
+  if (typeof s !== 'string') return null;
+  const m = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})Z$/.exec(s);
+  if (m === null) return null;
+  const dn = parseDate(m[1]);
+  const hh = Number(m[2]), mi = Number(m[3]), ss = Number(m[4]);
+  if (dn === null || hh > 23 || mi > 59 || ss > 59) return null;
+  return dn * DAY + hh * 3600 + mi * 60 + ss;
+}
+
+// "HH:MM" (00:00 to 23:59); returns seconds into the day or null.
+function parseClock(s) {
+  if (typeof s !== 'string') return null;
+  const m = /^(\d{2}):(\d{2})$/.exec(s);
+  if (m === null) return null;
+  const hh = Number(m[1]), mi = Number(m[2]);
+  if (hh > 23 || mi > 59) return null;
+  return hh * 3600 + mi * 60;
+}
+
+function isoOf(sec) {
+  return new Date(sec * 1000).toISOString().slice(0, 19) + 'Z';
+}
+
+function weekdayOfDay(dn) { return (dn + 4) % 7; } // 0 = Sunday ... 6 = Saturday
+
+// Does [a, b) contain any Saturday or Sunday instant (UTC)?
+function crossesWeekend(a, b) {
+  if (b <= a) return false;
+  for (let dn = Math.floor(a / DAY); dn * DAY < b; dn++) {
+    const wd = weekdayOfDay(dn);
+    if (wd === 0 || wd === 6) return true;
+  }
+  return false;
+}
+
+const hasOwn = (o, k) => Object.hasOwn(o, k);
+
+// ── input validation: name the violated rule, never coerce ───────────────────────
+function refuse(errors, code, detail) { errors.push(code + ': ' + detail); }
+
+function validateCalendar(cal, errors) {
+  if (!isPlainObject(cal)) { refuse(errors, 'REFUSED_CALENDAR_INVALID', 'rail_calendar must be an object'); return null; }
+  const out = { before: errors.length };
+  for (const k of ['rail_id', 'calendar_version', 'source_pin']) {
+    if (!hasOwn(cal, k) || typeof cal[k] !== 'string' || cal[k].length < 1 || cal[k].length > 200) {
+      refuse(errors, 'REFUSED_CALENDAR_INVALID', k + ' must be a non-empty string up to 200 characters');
+    }
+  }
+  const covFrom = hasOwn(cal, 'covers_from') ? parseDate(cal.covers_from) : null;
+  const covTo = hasOwn(cal, 'covers_to') ? parseDate(cal.covers_to) : null;
+  if (covFrom === null || covTo === null || covFrom > covTo) {
+    refuse(errors, 'REFUSED_CALENDAR_INVALID', 'covers_from and covers_to must be valid YYYY-MM-DD dates with covers_from <= covers_to');
+  }
+  // window rules
+  const rules = [];
+  if (!hasOwn(cal, 'window_rules') || !Array.isArray(cal.window_rules) || cal.window_rules.length < 1 || cal.window_rules.length > 50) {
+    refuse(errors, 'REFUSED_CALENDAR_INVALID', 'window_rules must be an array of 1 to 50 rules');
+  } else {
+    for (let i = 0; i < cal.window_rules.length; i++) {
+      const r = cal.window_rules[i];
+      let ok = isPlainObject(r);
+      let wds = [], open = null, close = null;
+      if (ok) {
+        wds = r.weekdays;
+        ok = Array.isArray(wds) && wds.length >= 1 && wds.length <= 7
+          && wds.every((w) => typeof w === 'number' && Number.isSafeInteger(w) && w >= 0 && w <= 6)
+          && new Set(wds).size === wds.length
+          && (r.open_day_offset === -1 || r.open_day_offset === 0)
+          && (r.close_day_offset === 0 || r.close_day_offset === 1);
+        open = parseClock(r.open_local);
+        close = parseClock(r.close_local);
+        if (open === null || close === null) ok = false;
+        if (ok) {
+          const o = r.open_day_offset * DAY + open, c = r.close_day_offset * DAY + close;
+          if (c <= o) ok = false;
+        }
+      }
+      if (!ok) refuse(errors, 'REFUSED_CALENDAR_INVALID', 'window_rules[' + i + '] must carry weekdays (distinct integers 0 to 6), open_day_offset -1 or 0, close_day_offset 0 or 1, HH:MM open_local and close_local, and close strictly after open');
+      else rules.push({ wds, openOff: r.open_day_offset * DAY + open, closeOff: r.close_day_offset * DAY + close });
+    }
+  }
+  // UTC offset segments (declared by date, so the DST transition is the caller's statement)
+  const segs = [];
+  if (!hasOwn(cal, 'utc_offset_segments') || !Array.isArray(cal.utc_offset_segments) || cal.utc_offset_segments.length < 1 || cal.utc_offset_segments.length > 100) {
+    refuse(errors, 'REFUSED_CALENDAR_INVALID', 'utc_offset_segments must be an array of 1 to 100 segments');
+  } else {
+    for (let i = 0; i < cal.utc_offset_segments.length; i++) {
+      const s = cal.utc_offset_segments[i];
+      const f = isPlainObject(s) ? parseDate(s.from_date) : null;
+      const t = isPlainObject(s) ? parseDate(s.to_date) : null;
+      const okOff = isPlainObject(s) && typeof s.offset_minutes === 'number' && Number.isSafeInteger(s.offset_minutes) && s.offset_minutes >= -720 && s.offset_minutes <= 840;
+      if (f === null || t === null || f > t || !okOff) {
+        refuse(errors, 'REFUSED_CALENDAR_INVALID', 'utc_offset_segments[' + i + '] must carry valid from_date <= to_date and an integer offset_minutes from -720 to 840');
+      } else segs.push({ f, t, off: s.offset_minutes * 60 });
+    }
+    segs.sort((a, b) => a.f - b.f);
+    for (let i = 1; i < segs.length; i++) {
+      if (segs[i].f <= segs[i - 1].t) { refuse(errors, 'REFUSED_CALENDAR_INVALID', 'utc_offset_segments overlap'); break; }
+    }
+  }
+  // holidays (dates on which the rail has no business day)
+  const hol = new Set();
+  if (!hasOwn(cal, 'holidays') || !Array.isArray(cal.holidays) || cal.holidays.length > MAX_HOLIDAYS) {
+    refuse(errors, 'REFUSED_CALENDAR_INVALID', 'holidays must be an array of at most ' + MAX_HOLIDAYS + ' YYYY-MM-DD dates (empty is allowed)');
+  } else {
+    for (let i = 0; i < cal.holidays.length; i++) {
+      const d = parseDate(cal.holidays[i]);
+      if (d === null) { refuse(errors, 'REFUSED_CALENDAR_INVALID', 'holidays[' + i + '] is not a valid YYYY-MM-DD date'); break; }
+      hol.add(d);
+    }
+  }
+  if (errors.length > out.before) return null;
+  return { rules, segs, hol, covFrom, covTo, rail_id: cal.rail_id, calendar_version: cal.calendar_version, source_pin: cal.source_pin };
+}
+
+function validate(pp) {
+  const errors = [];
+
+  const tokenT = hasOwn(pp, 'token_leg_time') ? parseInstant(pp.token_leg_time) : null;
+  if (tokenT === null) refuse(errors, 'REFUSED_INPUT_TIME', 'token_leg_time must be a strict UTC instant YYYY-MM-DDTHH:MM:SSZ with a valid calendar date');
+  const asOf = hasOwn(pp, 'as_of') ? parseInstant(pp.as_of) : null;
+  if (asOf === null) refuse(errors, 'REFUSED_INPUT_TIME', 'as_of must be a strict UTC instant YYYY-MM-DDTHH:MM:SSZ with a valid calendar date');
+
+  if (!hasOwn(pp, 'principal_minor_units') || typeof pp.principal_minor_units !== 'string' || !/^[1-9][0-9]{0,17}$/.test(pp.principal_minor_units)) {
+    refuse(errors, 'REFUSED_INPUT_PRINCIPAL', 'principal_minor_units must be a positive integer string of at most 18 digits (a JSON number or a float is never accepted)');
+  }
+
+  let rate = null;
+  if (hasOwn(pp, 'funding_rate_bp')) {
+    const v = pp.funding_rate_bp;
+    if (typeof v !== 'number' || !Number.isSafeInteger(v) || v < 0 || v > MAX_RATE_BP) {
+      refuse(errors, 'REFUSED_INPUT_RATE', 'funding_rate_bp must be an integer from 0 to ' + MAX_RATE_BP + ' basis points when present (a float or null is never accepted)');
+    } else rate = v;
+  }
+
+  let horizon = DEFAULT_HORIZON_DAYS;
+  if (hasOwn(pp, 'horizon_days')) {
+    const v = pp.horizon_days;
+    if (typeof v !== 'number' || !Number.isSafeInteger(v) || v < 1 || v > MAX_HORIZON_DAYS) {
+      refuse(errors, 'REFUSED_INPUT_HORIZON', 'horizon_days must be an integer from 1 to ' + MAX_HORIZON_DAYS + ' when present');
+    } else horizon = v;
+  }
+
+  let instrument = null;
+  if (hasOwn(pp, 'cash_instrument')) {
+    if (typeof pp.cash_instrument !== 'string' || !CASH_INSTRUMENTS.includes(pp.cash_instrument)) {
+      refuse(errors, 'REFUSED_INPUT_ENUM', 'cash_instrument must be exactly one of ' + CASH_INSTRUMENTS.join(', ') + ' when present');
+    } else instrument = pp.cash_instrument;
+  }
+
+  const hasWin = hasOwn(pp, 'cash_leg_open_windows');
+  const hasCal = hasOwn(pp, 'rail_calendar');
+  let windows = null, cal = null;
+  if (!hasWin && !hasCal) {
+    refuse(errors, 'REFUSED_CALENDAR_MISSING', 'declare exactly one of cash_leg_open_windows or rail_calendar; the node carries no default rail calendar');
+  } else if (hasWin && hasCal) {
+    refuse(errors, 'REFUSED_CALENDAR_AMBIGUOUS', 'declare cash_leg_open_windows or rail_calendar, not both');
+  } else if (hasWin) {
+    const w = pp.cash_leg_open_windows;
+    if (!Array.isArray(w) || w.length < 1 || w.length > MAX_WINDOWS) {
+      refuse(errors, 'REFUSED_CALENDAR_INVALID', 'cash_leg_open_windows must be an array of 1 to ' + MAX_WINDOWS + ' windows');
+    } else {
+      windows = [];
+      for (let i = 0; i < w.length; i++) {
+        const o = isPlainObject(w[i]) ? parseInstant(w[i].open_utc) : null;
+        const c = isPlainObject(w[i]) ? parseInstant(w[i].close_utc) : null;
+        if (o === null || c === null || c <= o) { refuse(errors, 'REFUSED_CALENDAR_INVALID', 'cash_leg_open_windows[' + i + '] needs strict UTC open_utc < close_utc'); windows = null; break; }
+        windows.push({ open: o, close: c });
+      }
+    }
+  } else {
+    cal = validateCalendar(pp.rail_calendar, errors);
+  }
+  return { errors, tokenT, asOf, rate, horizon, instrument, windows, cal };
+}
+
+// Windows implied by a rail calendar for business days D from lo to hi (day numbers).
+// A holiday D has no window. The offset used for an endpoint is the segment containing that
+// endpoint's local date; a local date outside every segment refuses.
+function calendarWindows(cal, lo, hi, errors) {
+  const out = [];
+  const offsetFor = (dn) => {
+    for (let i = 0; i < cal.segs.length; i++) if (dn >= cal.segs[i].f && dn <= cal.segs[i].t) return cal.segs[i].off;
+    return null;
+  };
+  for (let d = lo; d <= hi; d++) {
+    if (cal.hol.has(d)) continue;
+    const wd = weekdayOfDay(d);
+    for (let i = 0; i < cal.rules.length; i++) {
+      const r = cal.rules[i];
+      if (!r.wds.includes(wd)) continue;
+      const openLocal = d * DAY + r.openOff, closeLocal = d * DAY + r.closeOff;
+      const oo = offsetFor(Math.floor(openLocal / DAY)), co = offsetFor(Math.floor(closeLocal / DAY));
+      if (oo === null || co === null) {
+        refuse(errors, 'REFUSED_CALENDAR_OFFSET_UNDECLARED', 'no utc_offset_segments entry covers a window endpoint near ' + isoOf(openLocal).slice(0, 10));
+        return null;
+      }
+      out.push({ open: openLocal - oo, close: closeLocal - co });
+    }
+  }
+  return out;
+}
+
+function emptyPayload() {
+  return {
+    valid_input: false, domain_errors: [], refusal_code: null,
+    verdict: null, exposure_seconds: null, exposure_principal_seconds: null,
+    next_cash_window_open: null, next_cash_window_close: null,
+    carry_cost_minor_units: null, carry_rounding: 'half-even', day_count: 'ACT/365',
+    crosses_weekend: null, rail_id: null, calendar_version: null, source_pin: null,
+    cash_instrument: null, token_leg_time: null, as_of: null, principal_minor_units: null,
+    funding_rate_bp: null, horizon_days: null, warnings: [],
+  };
+}
+
+function refusedResult(errors) {
+  const output_payload = emptyPayload();
+  output_payload.domain_errors = errors;
+  output_payload.refusal_code = errors[0].split(':')[0];
+  const compliance_flags = [];
+  if (errors.length > 0) compliance_flags.push('INPUT_REFUSED');
+  output_payload.warnings = compliance_flags.slice();
+  return { output_payload, compliance_flags };
+}
+
+/**
+ * Round-half-even of num / den for BigInt num >= 0, den > 0.
+ * @param {bigint} num
+ * @param {bigint} den
+ * @returns {bigint}
+ */
+function divHalfEven(num, den) {
+  const q = num / den, r = num % den, twice = r * 2n;
+  if (twice > den) return q + 1n;
+  if (twice < den) return q;
+  return q % 2n === 0n ? q : q + 1n;
+}
+
+function compute(pp) {
+  if (!isPlainObject(pp)) return refusedResult(['REFUSED_INPUT_WRONG_TYPE: policy_parameters must be an object']);
+  const unhashable = findHashRefusal(pp, 'pp', 1, { maxDepth: PP_MAX_DEPTH, maxElements: PP_MAX_ELEMENTS, n: 0 });
+  if (unhashable !== null) return refusedResult([unhashable.reason + ': ' + unhashable.detail]);
+
+  const v = validate(pp);
+  if (v.errors.length > 0) return refusedResult(v.errors);
+
+  const errors = [];
+  const t = v.tokenT;
+  const horizonEnd = t + v.horizon * DAY;
+  let windows;
+  if (v.windows !== null) {
+    windows = v.windows;
+  } else {
+    const lo = Math.floor(t / DAY) - 2, hi = Math.floor(horizonEnd / DAY) + 2;
+    // the declared coverage must reach both the token day and the end of the horizon
+    if (Math.floor(t / DAY) < v.cal.covFrom || Math.floor(horizonEnd / DAY) > v.cal.covTo) {
+      return refusedResult(['REFUSED_CALENDAR_NOT_COVERED: the calendar covers ' + isoOf(v.cal.covFrom * DAY).slice(0, 10) + ' to ' + isoOf(v.cal.covTo * DAY).slice(0, 10) + ', which does not reach the token leg day plus the horizon']);
+    }
+    windows = calendarWindows(v.cal, lo, hi, errors);
+    if (windows === null) return refusedResult(errors);
+  }
+  windows = windows.slice().sort((a, b) => a.open - b.open || a.close - b.close);
+
+  const compliance_flags = [];
+  let verdict = 'NO_WINDOW_IN_HORIZON';
+  let nextOpen = null, nextClose = null;
+  for (let i = 0; i < windows.length; i++) {
+    const w = windows[i];
+    if (w.open <= t && t < w.close) { verdict = 'ATOMIC_POSSIBLE'; nextOpen = t; nextClose = w.close; break; }
+    if (w.open > t && w.open <= horizonEnd) { verdict = 'WINDOWED'; nextOpen = w.open; nextClose = w.close; break; }
+    if (w.open > horizonEnd) break;
+  }
+
+  const principal = BigInt(pp.principal_minor_units);
+  const exposure = nextOpen === null ? null : nextOpen - t;
+  const weekend = nextOpen === null ? null : crossesWeekend(t, nextOpen);
+  let principalSeconds = null, carry = null;
+  if (exposure !== null) {
+    principalSeconds = (principal * BigInt(exposure)).toString();
+    if (v.rate !== null) carry = divHalfEven(principal * BigInt(exposure) * BigInt(v.rate), BigInt(10000 * YEAR_SECONDS)).toString();
+  }
+
+  if (verdict === 'WINDOWED') compliance_flags.push('CASH_LEG_LAGS_TOKEN_LEG');
+  if (weekend === true) compliance_flags.push('EXPOSURE_CROSSES_WEEKEND');
+  if (verdict === 'NO_WINDOW_IN_HORIZON') compliance_flags.push('NO_CASH_WINDOW_IN_HORIZON');
+  if (t > v.asOf) compliance_flags.push('TOKEN_LEG_AFTER_AS_OF');
+  const warnings = compliance_flags.slice();
+
+  const output_payload = {
+    valid_input: true, domain_errors: [], refusal_code: null,
+    verdict, exposure_seconds: exposure, exposure_principal_seconds: principalSeconds,
+    next_cash_window_open: nextOpen === null ? null : isoOf(nextOpen),
+    next_cash_window_close: nextClose === null ? null : isoOf(nextClose),
+    carry_cost_minor_units: carry, carry_rounding: 'half-even', day_count: 'ACT/365',
+    crosses_weekend: weekend,
+    rail_id: v.cal === null ? null : v.cal.rail_id,
+    calendar_version: v.cal === null ? null : v.cal.calendar_version,
+    source_pin: v.cal === null ? null : v.cal.source_pin,
+    cash_instrument: v.instrument,
+    token_leg_time: pp.token_leg_time, as_of: pp.as_of,
+    principal_minor_units: pp.principal_minor_units,
+    funding_rate_bp: v.rate, horizon_days: v.horizon, warnings,
+  };
+  return { output_payload, compliance_flags };
+}
+
+
+function bytesToHexStr(bytes) { return Array.from(bytes).map(function (b) { return b.toString(16).padStart(2, '0'); }).join(''); }
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function (o, k) { o[k] = cgCanon(v[k]); return o; }, {}) : v; }
+// D6: an unhashable preimage mints a null hash and a reason instead of throwing.
+async function computeExecHash(pp, op) {
+  if (findHashRefusal({ policy_parameters: pp, output_payload: op }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 }) !== null) return null;
+  var payload = JSON.stringify(cgCanon({ policy_parameters: pp, output_payload: op }));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  return bytesToHexStr(new Uint8Array(buf));
+}
+
+var _lastResult = null;
+var SAMPLES = { fedwire: {
+  "principal_minor_units": "100000000000",
+  "as_of": "2026-10-01T00:00:00Z",
+  "token_leg_time": "2026-10-03T00:00:00Z",
+  "rail_calendar": {
+    "rail_id": "fedwire-funds-service",
+    "calendar_version": "fedwire-hours-and-k8-pinned-2026-11-12",
+    "source_pin": "Federal Reserve Financial Services Fedwire Funds Service hours and Federal Reserve K.8 holiday table, both retrieved 2026-11-12",
+    "covers_from": "2026-01-01",
+    "covers_to": "2027-12-31",
+    "window_rules": [
+      {
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "open_day_offset": -1,
+        "open_local": "21:00",
+        "close_day_offset": 0,
+        "close_local": "19:00"
+      }
+    ],
+    "utc_offset_segments": [
+      {
+        "from_date": "2026-01-01",
+        "to_date": "2026-03-07",
+        "offset_minutes": -300
+      },
+      {
+        "from_date": "2026-03-08",
+        "to_date": "2026-10-31",
+        "offset_minutes": -240
+      },
+      {
+        "from_date": "2026-11-01",
+        "to_date": "2027-03-13",
+        "offset_minutes": -300
+      },
+      {
+        "from_date": "2027-03-14",
+        "to_date": "2027-11-06",
+        "offset_minutes": -240
+      },
+      {
+        "from_date": "2027-11-07",
+        "to_date": "2027-12-31",
+        "offset_minutes": -300
+      }
+    ],
+    "holidays": [
+      "2026-01-01",
+      "2026-01-19",
+      "2026-02-16",
+      "2026-05-25",
+      "2026-06-19",
+      "2026-09-07",
+      "2026-10-12",
+      "2026-11-11",
+      "2026-11-26",
+      "2026-12-25",
+      "2027-01-01",
+      "2027-01-18",
+      "2027-02-15",
+      "2027-05-31",
+      "2027-07-05",
+      "2027-09-06",
+      "2027-10-11",
+      "2027-11-11",
+      "2027-11-25"
+    ]
+  },
+  "cash_instrument": "fiat_bank_money",
+  "funding_rate_bp": 450
+}, fednow: {
+  "principal_minor_units": "100000000000",
+  "as_of": "2026-10-01T00:00:00Z",
+  "token_leg_time": "2026-10-03T03:00:00Z",
+  "rail_calendar": {
+    "rail_id": "fednow-service",
+    "calendar_version": "fednow-24x7x365-pinned-2026-11-12",
+    "source_pin": "Federal Reserve Financial Services FedNow Service operating hours, retrieved 2026-11-12",
+    "covers_from": "2026-01-01",
+    "covers_to": "2027-12-31",
+    "window_rules": [
+      {
+        "weekdays": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "open_day_offset": 0,
+        "open_local": "00:00",
+        "close_day_offset": 1,
+        "close_local": "00:00"
+      }
+    ],
+    "utc_offset_segments": [
+      {
+        "from_date": "2026-01-01",
+        "to_date": "2027-12-31",
+        "offset_minutes": 0
+      }
+    ],
+    "holidays": []
+  }
+} };
+
+function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+var FIELDS = ['token_leg_time', 'as_of', 'principal_minor_units', 'funding_rate_bp', 'horizon_days', 'cash_instrument', 'cash_leg_open_windows', 'rail_calendar'];
+var JSON_FIELDS = ['cash_leg_open_windows', 'rail_calendar'];
+var NUMBER_FIELDS = ['funding_rate_bp', 'horizon_days'];
+function loadSample(which) {
+  FIELDS.forEach(function (k) {
+    var v = SAMPLES[which][k];
+    document.getElementById(k).value = v === undefined ? '' : (JSON_FIELDS.indexOf(k) >= 0 ? JSON.stringify(v, null, 2) : String(v));
+  });
+}
+// Blank means the key is absent. A JSON or number field that does not parse is passed through
+// as the raw string, so the kernel refuses it by name instead of the page guessing.
+function readInputs() {
+  var pp = {};
+  FIELDS.forEach(function (k) {
+    var raw = document.getElementById(k).value;
+    if (raw.trim() === '') return;
+    if (JSON_FIELDS.indexOf(k) >= 0 || NUMBER_FIELDS.indexOf(k) >= 0) { try { pp[k] = JSON.parse(raw); } catch (e) { pp[k] = raw; } } else pp[k] = raw;
+  });
+  return pp;
+}
+
+async function runCheck() {
+  var pp = readInputs();
+  document.getElementById('resultsPanel').style.display = 'block';
+  var v = document.getElementById('verdict');
+  var r = compute(pp);
+  var o = r.output_payload;
+  _lastResult = { pp: pp, output_payload: o, compliance_flags: r.compliance_flags };
+  if (o.verdict === 'ATOMIC_POSSIBLE') { v.className = 'verdict ok'; v.textContent = 'ATOMIC POSSIBLE, the cash leg window is open at the token leg time; exposure 0 seconds.'; }
+  else if (o.verdict === 'WINDOWED') { v.className = 'verdict bad'; v.textContent = 'WINDOWED, the cash leg waits ' + o.exposure_seconds + ' seconds until ' + o.next_cash_window_open + '.'; }
+  else if (o.verdict === 'NO_WINDOW_IN_HORIZON') { v.className = 'verdict bad'; v.textContent = 'NO WINDOW IN HORIZON, no cash window opens within ' + o.horizon_days + ' days of the token leg.'; }
+  else { v.className = 'verdict bad'; v.textContent = 'INPUT REFUSED, ' + o.refusal_code + '; nothing computed.'; }
+  document.getElementById('flagRow').innerHTML = r.compliance_flags.map(function (f) { return '<span class="badge bad">' + esc(f) + '</span>'; }).join('');
+  var kv = o.valid_input
+    ? [['verdict', o.verdict], ['exposure_seconds', o.exposure_seconds], ['exposure_principal_seconds', o.exposure_principal_seconds], ['next_cash_window_open', o.next_cash_window_open], ['next_cash_window_close', o.next_cash_window_close], ['carry_cost_minor_units', o.carry_cost_minor_units], ['carry_rounding', o.carry_rounding], ['day_count', o.day_count], ['crosses_weekend', o.crosses_weekend], ['rail_id', o.rail_id], ['calendar_version', o.calendar_version]]
+    : [['refusal_code', o.refusal_code], ['domain_errors', o.domain_errors.join(' | ')]];
+  document.getElementById('kvDiv').innerHTML = kv.map(function (x) { return '<div class="kv"><span class="kv-k">' + x[0] + '</span><span class="kv-v">' + esc(x[1]) + '</span></div>'; }).join('');
+  var h = await computeExecHash(pp, o);
+  document.getElementById('execHash').textContent = h === null ? 'not hashable (input outside the hash limits)' : h;
+  document.getElementById('artifactPre').style.display = 'none';
+  window._ap2Result = { verdict: o.verdict, output_payload: o, inputs: pp };
+  window.enableAP2Btn();
+}
+
+async function exportArtifact() {
+  if (!_lastResult) return;
+  var h = document.getElementById('execHash').textContent;
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_control',
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: new Date().toISOString(),
+    execution_hash: /^[0-9a-f]{64}$/.test(h) ? h : null,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp,
+    output_payload: _lastResult.output_payload,
+    compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    compute_proof_ready: 'deferred',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  if (artifact.execution_hash === null) artifact.hash_refusal = { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: 'pp: outside the hash limits' };
+  document.getElementById('artifactPre').textContent = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(artifact, null, 2)], { type: 'application/json' }));
+  a.download = TOOL_ID + '.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+/* Policy Mandate export (CONTRACT section 3.1); identifiers are the retained legacy names */
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  var RE_UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function _f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')_f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')_f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)_f('missing mandate_type');
+  if('mandate_id' in m&&!RE_UUID4.test(m.mandate_id))_f('mandate_id must be UUIDv4');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))_f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){
+  var b=document.getElementById('ap2ExportBtn');
+  if(b){b.disabled=false;b.classList.add('ready');}
+};
+window._ap2Result=window._ap2Result||null;
+window.exportAP2=function(){
+  if(!window._ap2Result){alert('Compute the exposure first to generate results.');return;}
+  var ts=new Date().toISOString();
+  var mandate={
+    mandate_id:crypto.randomUUID(),
+    issued_at:ts,issued_by:'ainumbers.co',
+    tool_id:TOOL_ID,tool_version:TOOL_VERSION,
+    mandate_type:'settlement_risk_mandate',
+    jurisdiction:['ZZ'],regulatory_frameworks:[],
+    payload:window._ap2Result,
+    summary:'Cash-leg window exposure assessment '+ts.slice(0,10),
+    agent_instructions:['Review the exported exposure and apply indicated controls per your settlement risk framework.'],
+    valid_from:ts.slice(0,10),
+    source_tool_inputs:{},regulatory_citations:[],
+    audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  AP2Schema.validate(mandate);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(mandate,null,2)],{type:'application/json'}));
+  a.download=TOOL_ID+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';
+  a.click();URL.revokeObjectURL(a.href);
+};
+})();
+loadSample('fedwire');
+</script>
+</body></html>
