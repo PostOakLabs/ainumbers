@@ -125,7 +125,17 @@ export function compute(pp) {
   const warning_count = issues.filter(function(i) { return i.severity === 'WARNING'; }).length;
   // Fail-closed on missing input: a required field that is absent or null is not evidence of
   // compliance. With no ERROR already found the verdict is INDETERMINATE (compliant: null).
-  const missing_required_fields = REQUIRED_FIELDS.filter(function(f) { return pp[f] === undefined || pp[f] === null; });
+  const raw_present = {
+    creditor_agent_bic: pp.creditor_agent_bic != null,
+    creditor_lei: pp.creditor_lei != null,
+    creditor_name: pp.creditor_name != null,
+    debtor_agent_bic: pp.debtor_agent_bic != null,
+    debtor_lei: pp.debtor_lei != null,
+    debtor_name: pp.debtor_name != null,
+    purpose_code: pp.purpose_code != null,
+    uetr: pp.uetr != null,
+  };
+  const missing_required_fields = REQUIRED_FIELDS.filter(function(f) { return !raw_present[f]; });
   const indeterminate = missing_required_fields.length > 0 && error_count === 0;
   const compliant = indeterminate ? null : error_count === 0;
 

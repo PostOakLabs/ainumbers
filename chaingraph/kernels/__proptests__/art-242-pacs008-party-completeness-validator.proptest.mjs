@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:0ddddcae8ad18cdbea7db6b87cff5ef275e820890db773446dd526b0147322b6
+// kernel_digest_at_authoring: sha256:56e272ccc9eedbb867fdde426ae24a98c8c95f8155ea4241e36cccd5f0766260
 //
 // FV-PROPFLOOR-SHARD-B27-1 — property-test floor for art-242-pacs008-party-completeness-validator.
 // Class B (bounded-numeric shape, format/presence validation logic). float:no — cpmi_d218_score is
@@ -148,7 +148,7 @@ async function checkP5_buildArtifactNeverThrows() {
   let violations = 0; const rows = [];
   for (const [label, pp] of classes) {
     try {
-      const a = await buildArtifact(pp, { now: null });
+      const a = await buildArtifact(pp);
       const ok = a.execution_hash === null && a.hash_refusal && typeof a.hash_refusal.reason === 'string';
       if (!ok) violations++;
       rows.push({ label, refused: !!ok });
