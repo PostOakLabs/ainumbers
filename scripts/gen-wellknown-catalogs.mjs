@@ -103,7 +103,7 @@ const entries = [
     identifier: 'urn:air:ainumbers.co:mcp:anchor',
     type: 'application/mcp-server-card+json',
     url: 'https://anchor.ainumbers.co/mcp',
-    description: 'Anchor MCP server (anchor-suite).',
+    description: 'Anchor MCP server (anchor-suite): anchors a SHA-256 hash to public timestamp authorities and verifies the binding later, with tools such as anchor_hash, verify_anchor_binding, anchor_batch and create_signature_envelope.',
   },
 ];
 if (webmcpExists)
