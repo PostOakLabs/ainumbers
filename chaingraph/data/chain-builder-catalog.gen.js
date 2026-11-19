@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (765 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (766 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -249,6 +249,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/795-stablecoin-refund-dispute.html",
     "description": "Recomputes the expected refund and dispute outcome of stablecoin payments held under an escrowed refund protocol (lock period, refund reques",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "796-payment-system-mi-pack",
+    "display_name": "Payment System MI Pack",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/796-payment-system-mi-pack.html",
+    "description": "Computes a payment system's management-information pack from declared AGGREGATE counts only (no transaction-level records, no personal data)",
     "consumes": [],
     "feeds": [],
     "status": "live"
