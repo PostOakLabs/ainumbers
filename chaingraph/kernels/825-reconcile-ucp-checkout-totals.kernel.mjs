@@ -31,8 +31,9 @@ import { executionHash } from './_hash.mjs';
 // ARITHMETIC: pure integer. price x quantity is computed as an exact base-10 digit-array
 // product (16x16 schoolbook digits, every partial <= 81) and divided by 10^scale by digit
 // shift, so the 32-digit intermediate never passes through a float; sums and differences use
-// base-10^7 limb add/sub with carries. No float arithmetic, no Date, no BigInt, no
-// TextEncoder anywhere in the guest path. The rounding rule is a declared policy parameter
+// base-10^7 limb add/sub with carries. No float arithmetic, no Date, no TextEncoder
+// anywhere in the guest path; sums accumulate in BigInt and are checked against 2^53-1
+// before any money number is emitted. The rounding rule is a declared policy parameter
 // (default half_even) applied at most once per line, and the output names the rule applied.
 //
 // REFUSALS: structural malformation (totals not an array or without exactly one subtotal and
@@ -41,6 +42,15 @@ import { executionHash } from './_hash.mjs';
 // reconciliation over a malformed document could misstate the totals. Value-level findings
 // (sign violations, identity mismatches, out-of-range amounts, unknown total types) are
 // reported per entry and drive MISMATCH/INDETERMINATE.
+//
+// VERDICT RULE: a partial evaluation is never RECONCILED. Skipped lines, unevaluated
+// pieces or a truncated read leave the document INDETERMINATE even when every examined
+// identity held, and a truncated pass never reports truncated false. A present line_items
+// or adjustments value that is not an array refuses the call (LINE_ITEMS_NOT_ARRAY /
+// ADJUSTMENTS_NOT_ARRAY): a malformed value must never read as absent. Amounts are integer
+// minor units within +/-2^53-1 (amount.json): a totals-entry integer outside the safe
+// range, or an unsafe numeric discount-extension amount, refuses (AMOUNT_NOT_INTEGER) so
+// compute and buildArtifact never disagree on an unhashable value.
 
 const TOOL_ID = '825-reconcile-ucp-checkout-totals';
 const TOOL_VERSION = '1.0.0';
@@ -74,6 +84,9 @@ const SCOPE_NOTE = 'Arithmetic-consistency reconcile only: the node recomputes i
 const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isInt = (v) => typeof v === 'number' && isFinite(v) && Math.floor(v) === v;
+// Safe-integer predicate for surfaces whose value flows into the hashed payload: an integer
+// outside +/-2^53-1 is outside the UCP amount domain (amount.json) and must refuse.
+const isSafeInt = (v) => typeof v === 'number' && Number.isSafeInteger(v);
 
 // ── exact integer arithmetic (base-10 digits for multiply, base-1e7 limbs for add/sub) ────────
 
@@ -141,19 +154,21 @@ function limbsValue(l) { // only for values known to fit <= MAX_MINOR
   for (let i = l.length - 1; i >= 0; i--) v = v * LIMB + l[i];
   return v;
 }
-// Signed exact sum of integers (each within +/-MAX_MINOR). Returns { neg, mag, fits } where
-// mag is limbs of the absolute value; fits says whether the magnitude is <= MAX_MINOR.
+// Signed exact sum of integers (each within +/-MAX_MINOR). Accumulates in BigInt so the
+// running total never passes through a float; returns { neg, mag, fits } where mag is the
+// exact base-1e7 limbs of the absolute value and fits is true ONLY when the magnitude is
+// <= MAX_MINOR (2^53-1). limbsValue() is safe only on a fitting magnitude: a total above
+// the safe range is refused by the named TOTALS_SUM_OUT_OF_RANGE / SUBTOTAL_SUM_OUT_OF_RANGE
+// findings, never emitted as a coerced or rounded Number.
 function exactSum(nums) {
-  let pos = [0], neg = [0];
-  for (let i = 0; i < nums.length; i++) {
-    const v = nums[i];
-    const d = limbsFromDigits(digitsOf(Math.abs(v)));
-    if (v >= 0) pos = addLimbs(pos, d);
-    else neg = addLimbs(neg, d);
-  }
-  const c = cmpLimbs(pos, neg);
-  const mag = c >= 0 ? subLimbs(pos, neg) : subLimbs(neg, pos);
-  return { neg: c < 0, mag, fits: mag.length <= 3 && (mag.length < 3 || cmpLimbs(mag, [8151873, 4343412, 194]) <= 0) };
+  let total = 0n;
+  for (let i = 0; i < nums.length; i++) total += BigInt(nums[i]);
+  const neg = total < 0n;
+  let m = neg ? -total : total;
+  const fits = m <= BigInt(MAX_MINOR);
+  const mag = [];
+  while (m > 0n) { mag.push(Number(m % 10000000n)); m /= 10000000n; }
+  return { neg, mag: mag.length ? mag : [0], fits };
 }
 // price * quantity / 10^scale exactly: { quotient, remainder, overflow }.
 // quantity <= MAX_MINOR, scale <= 15. Partials stay <= 81 so the product is exact.
@@ -238,12 +253,12 @@ function readTotalEntry(entry, path, violations) {
   if (!hasOwn(entry, 'type') || typeof entry.type !== 'string' || entry.type.length === 0 || entry.type.length > MAX_STR) return { refuse: 'ENTRY_TYPE_MISSING' };
   if (!hasOwn(entry, 'amount')) return { refuse: 'ENTRY_AMOUNT_MISSING' };
   const a = entry.amount;
-  if (!isInt(a)) return { refuse: 'AMOUNT_NOT_INTEGER' };
+  // An unsafe integer is not a UCP minor-unit amount (the domain ends at +/-2^53-1), so it
+  // refuses like any other non-integer; declared_total echoes this value into the hashed
+  // payload, and compute must never accept what the hash layer would throw on.
+  if (!isSafeInt(a)) return { refuse: 'AMOUNT_NOT_INTEGER' };
   const out = { path, type: entry.type, amount: a, known: CANONICAL_TYPES.indexOf(entry.type) !== -1 };
-  if (a > MAX_MINOR || a < -MAX_MINOR) {
-    violations.push({ path: path + '.amount', code: 'AMOUNT_OUT_OF_RANGE', reason: 'amount is an integer but outside the UCP bound of +/- 2^53-1 minor units (amount.json / signed_amount.json)' });
-    out.out_of_range = true;
-  } else if (NEG_TYPES.indexOf(entry.type) !== -1 && a >= 0) {
+  if (NEG_TYPES.indexOf(entry.type) !== -1 && a >= 0) {
     violations.push({ path: path + '.amount', code: 'SIGN_VIOLATION', reason: entry.type + ' entries MUST be strictly negative (total.json: exclusiveMaximum 0)' });
     out.sign_violation = true;
   } else if (NONNEG_TYPES.indexOf(entry.type) !== -1 && a < 0) {
@@ -257,19 +272,24 @@ function readTotalEntry(entry, path, violations) {
 // strictCardinality: refuse when the exactly-one-subtotal/one-total rule fails (document
 // level). Otherwise report indeterminate and skip the identity (adjustment level).
 function reconcileTotalsArray(entries, pathPrefix, violations, indeterminate, out, strictCardinality) {
-  let count = 0, anyOutOfRange = false;
+  let count = 0;
   let subtotalCount = 0, totalCount = 0;
   let subtotalEntry = null, totalEntry = null;
   const known = [], unknownTypes = [];
   for (let i = 0; i < entries.length; i++) {
-    if (count >= MAX_TOTAL_ENTRIES) { out.truncated = true; break; }
+    if (count >= MAX_TOTAL_ENTRIES) {
+      // Truncation is honest incompleteness: the unread entries are named and the flag
+      // propagates, so a truncated pass can never report a complete reconciliation.
+      out.truncated = true;
+      indeterminate.push({ code: 'INPUT_BOUND_EXCEEDED', reason: pathPrefix + ' exceeds the declared bound of ' + MAX_TOTAL_ENTRIES + ' entries; entries beyond it were not examined' });
+      break;
+    }
     const rec = readTotalEntry(entries[i], pathPrefix + '[' + i + ']', violations);
     if (rec.refuse) return { refuse: rec.refuse };
     count++;
     if (rec.type === 'subtotal') { subtotalCount++; subtotalEntry = rec; }
     else if (rec.type === 'total') { totalCount++; totalEntry = rec; }
-    if (rec.out_of_range) anyOutOfRange = true;
-    if (rec.known && rec.type !== 'total' && !rec.out_of_range) known.push(rec.amount);
+    if (rec.known && rec.type !== 'total') known.push(rec.amount);
     if (!rec.known && unknownTypes.indexOf(rec.type) === -1) unknownTypes.push(rec.type);
   }
   out.declared_total = totalEntry ? totalEntry.amount : null;
@@ -284,10 +304,6 @@ function reconcileTotalsArray(entries, pathPrefix, violations, indeterminate, ou
     for (let u = 0; u < unknownTypes.length; u++) {
       indeterminate.push({ code: 'UNKNOWN_TOTAL_TYPE', reason: 'totals entry type "' + unknownTypes[u] + '" is a Business extension value whose sign semantics this node does not assert; the breakdown identity was not evaluated over it' });
     }
-    out.identity_ok = null;
-    return { subtotalEntry, totalEntry, identityEvaluated: false };
-  }
-  if (anyOutOfRange) {
     out.identity_ok = null;
     return { subtotalEntry, totalEntry, identityEvaluated: false };
   }
@@ -340,11 +356,19 @@ export function compute(pp) {
   out.computed_total = top.computed_total === undefined ? null : top.computed_total;
   out.negative_total = top.negative_total;
   out.totals_identity_ok = top.identity_ok;
+  // A truncated breakdown was not fully examined: the flag propagates and the verdict rule
+  // holds the document at INDETERMINATE, never a complete reconciliation.
+  if (top.truncated) out.truncated = true;
   if (out.negative_total) {
     out.notes.push('NEGATIVE_TOTAL: the declared total is negative; UCP issue #1025 records that the total entry carries no sign bound and such documents pass schema validation. Reported informationally, not a mismatch.');
   }
 
   // ── line items ─────────────────────────────────────────────────────────────
+  // A present line_items that is not an array refuses: malformed must never read as
+  // absent (absent means undefined; a present null or wrong type is a refusal).
+  if (doc.line_items !== undefined && !Array.isArray(doc.line_items)) {
+    return result(shell('INDETERMINATE', { mode, rounding_applied: policy, refusal: 'LINE_ITEMS_NOT_ARRAY' }), true);
+  }
   const lines = Array.isArray(doc.line_items) ? doc.line_items : [];
   if (lines.length > MAX_LINES) {
     indeterminate.push({ code: 'INPUT_BOUND_EXCEEDED', reason: 'line_items exceed the declared bound of ' + MAX_LINES });
@@ -382,7 +406,7 @@ export function compute(pp) {
       continue;
     }
     lr.subtotal_declared = sub.amount;
-    if (!sub.out_of_range && !sub.sign_violation) lineSubtotals.push(sub.amount);
+    if (!sub.sign_violation) lineSubtotals.push(sub.amount);
     const hasUnitPrice = !!(item && hasOwn(item, 'unit_price'));
     const price = item && isInt(item.price) ? item.price : null;
     const qty = isInt(line.quantity) ? line.quantity : null;
@@ -468,6 +492,10 @@ export function compute(pp) {
 
   // ── mode order: adjustments, refund bound, discount attribution ─────────────
   if (mode === 'order') {
+    // A present adjustments value that is not an array refuses, same rule as line_items.
+    if (doc.adjustments !== undefined && !Array.isArray(doc.adjustments)) {
+      return result(shell('INDETERMINATE', { mode, rounding_applied: policy, refusal: 'ADJUSTMENTS_NOT_ARRAY' }), true);
+    }
     if (!Array.isArray(doc.adjustments)) {
       out.notes.push('NOT_EVALUATED: the order document carries no adjustments array; nothing to reconcile post-order');
     }
@@ -484,6 +512,7 @@ export function compute(pp) {
       const aout = { declared_total: null, computed_total: null, identity_ok: null, negative_total: false };
       const res = reconcileTotalsArray(adj.totals, p + '.totals', violations, indeterminate, aout, false);
       if (res.refuse) { adjRefusal = res.refuse; break; }
+      if (aout.truncated) out.truncated = true;
       if (aout.identity_ok !== null && aout.declared_total !== null) adjNets.push(aout.declared_total);
       else if (aout.identity_ok === null && aout.declared_total !== null) skipped.push({ path: p + '.totals', code: 'ADJUSTMENT_IDENTITY_UNKNOWN', reason: 'this adjustment totals identity could not be evaluated; its net was not counted toward the refund bound' });
     }
@@ -496,12 +525,19 @@ export function compute(pp) {
     // refund bound
     if (adjNets.length && out.declared_total !== null && !out.truncated) {
       const net = exactSum(adjNets); // signed sum of adjustment totals
-      const returned = net.neg ? limbsValue(net.mag) : 0; // money returned = negative net
-      const paid = out.declared_total;
-      const ok = returned <= paid;
-      out.refunds = { net_refunded: net.neg ? returned : -limbsValue(net.mag), total_paid: paid, ok };
-      if (!ok) {
-        violations.push({ path: '$.adjustments', code: 'REFUND_EXCEEDS_TOTAL', reason: 'net refunded (' + returned + ') exceeds the declared order total paid (' + paid + ') (adjustment.json: negative adjustment totals are money returned to the buyer)' });
+      if (!net.fits) {
+        // Reuse the kernel's named sum-overflow finding (TOTALS_SUM_OUT_OF_RANGE): an unsafe
+        // net must never be emitted as a Number, including through refunds.net_refunded.
+        violations.push({ path: '$.adjustments', code: 'TOTALS_SUM_OUT_OF_RANGE', reason: 'the adjustment totals sum beyond 2^53-1 minor units, so no net refunded amount can be emitted as a safe integer' });
+        out.refunds = { net_refunded: null, total_paid: out.declared_total, ok: null };
+      } else {
+        const returned = net.neg ? limbsValue(net.mag) : 0; // money returned = negative net
+        const paid = out.declared_total;
+        const ok = returned <= paid;
+        out.refunds = { net_refunded: net.neg ? returned : -limbsValue(net.mag), total_paid: paid, ok };
+        if (!ok) {
+          violations.push({ path: '$.adjustments', code: 'REFUND_EXCEEDS_TOTAL', reason: 'net refunded (' + returned + ') exceeds the declared order total paid (' + paid + ') (adjustment.json: negative adjustment totals are money returned to the buyer)' });
+        }
       }
     } else {
       out.refunds = { net_refunded: null, total_paid: out.declared_total, ok: null };
@@ -516,7 +552,13 @@ export function compute(pp) {
       let codeCount = 0;
       for (let i = 0; i < applied.length && i < MAX_TOTAL_ENTRIES; i++) {
         const a = applied[i];
-        if (!isObj(a) || !isInt(a.amount)) continue;
+        if (!isObj(a)) continue;
+        // An unsafe numeric amount would be echoed into the hashed payload and silently
+        // dropped from applied_sum, misstating attribution: it refuses the whole call.
+        if (isInt(a.amount) && !isSafeInt(a.amount)) {
+          return result(shell('INDETERMINATE', { mode, rounding_applied: policy, refusal: 'AMOUNT_NOT_INTEGER' }), true);
+        }
+        if (!isInt(a.amount)) continue;
         rows.push({ code: typeof a.code === 'string' && a.code.length <= MAX_STR ? a.code : null, title: typeof a.title === 'string' && a.title.length <= MAX_STR ? a.title : null, amount: a.amount });
         if (typeof a.code === 'string' && a.code.length <= MAX_STR) codeCount++;
         sumNums.push(a.amount);
@@ -525,7 +567,8 @@ export function compute(pp) {
       out.discount_attribution = {
         status: codeCount > 0 ? 'REPORTED' : 'REPORTED_NO_CODES',
         applied: rows,
-        applied_sum: (s.neg ? -1 : 1) * (s.fits ? limbsValue(s.mag) : null),
+        // A sum beyond the safe range reports null, never a coerced 0.
+        applied_sum: s.fits ? (s.neg ? -1 : 1) * limbsValue(s.mag) : null,
         note: 'applied discounts come from the dev.ucp.shopping.discount extension; code is omitted for automatic discounts (discount.json). Reported, not judged.',
       };
     } else {
@@ -535,18 +578,58 @@ export function compute(pp) {
   }
 
   // ── verdict ────────────────────────────────────────────────────────────────
+  // A partial evaluation is never RECONCILED: skipped lines, unevaluated pieces or a
+  // truncated read leave the document INDETERMINATE even when every examined identity held.
   let verdict;
   if (violations.length) verdict = 'MISMATCH';
-  else if (indeterminate.length || out.totals_identity_ok === null) verdict = 'INDETERMINATE';
+  else if (indeterminate.length || skipped.length || out.truncated || out.totals_identity_ok === null) verdict = 'INDETERMINATE';
   else verdict = 'RECONCILED';
   out.verdict = verdict;
   return result(out, false);
 }
 
+// ── hashability walk (D6) ────────────────────────────────────────────────────────
+// Mirrors the classes _hash.mjs assertIJson() refuses before canonicalizing: a non-finite
+// number or an integer outside the 2^53 safe range, nesting past its MAX_DEPTH, more values
+// than its MAX_ELEMENTS. Reports { reason, detail } with the path and kind only, never the
+// value; null when the subtree is safe to hash. The shared _hash.mjs stays untouched.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // The object walked below is the exact execution_hash preimage. When the shared
+  // canonicalizer would refuse it, mint the artifact with a null execution_hash and the
+  // reason beside it instead of letting the hash throw (D6): buildArtifact never throws.
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const hash = unhashable === null ? await executionHash(pp, output_payload) : null;
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -562,4 +645,6 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }
