@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (767 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (768 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -8498,6 +8498,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-846-assess-pfmi-proportional.html",
     "description": "Scores a payment system operator’s or overseer’s self-assessment against the 24 CPMI-IOSCO Principles (Apr 2012) or the 5 responsibilities o",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-847-cashleg-window-exposure",
+    "display_name": "Cash-Leg Window Exposure",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-847-cashleg-window-exposure.html",
+    "description": "Computes how long a token leg that settles at any hour waits for a cash leg that only moves while a payment rail is open. From a token leg i",
     "consumes": [],
     "feeds": [],
     "status": "live"
