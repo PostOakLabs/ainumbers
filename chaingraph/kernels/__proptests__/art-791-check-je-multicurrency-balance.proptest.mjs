@@ -187,6 +187,7 @@ function checkShape() {
 // a clean pp still gets a 64-hex hash and no hash_refusal.
 async function checkBuildArtifactNeverThrows() {
   let checked = 0, violations = 0;
+  /** @type {any} */
   let deep = 'x';
   for (let i = 0; i < 600; i++) deep = { d: deep };
   const wide = new Array(1000001).fill(0);
