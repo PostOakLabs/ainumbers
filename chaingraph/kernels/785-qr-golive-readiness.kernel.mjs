@@ -85,7 +85,7 @@ export function compute(pp) {
   if (!PROFILES.includes(profile)) {
     return refused('profile must be one of ' + PROFILES.join(', '), 'REFUSED_INVALID_PROFILE');
   }
-  const def = PROFILE_DEFS[profile];
+  const def = Object.hasOwn(PROFILE_DEFS, profile) ? PROFILE_DEFS[profile] : null;
   const CATALOGUE = def.catalogue;
   const PHASES = def.phases;
   const PHASE_NEXT = def.phase_next;
