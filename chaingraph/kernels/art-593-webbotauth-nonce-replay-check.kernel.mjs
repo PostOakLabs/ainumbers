@@ -66,7 +66,7 @@ export function compute(pp) {
   else if (verdict === 'REFUSE') compliance_flags.push('NONCE_REFUSED');
 
   return {
-    output_payload: { format_ok, spread_ok, fresh, already_used, replay_evaluated, nonce_valid, verdict },
+    output_payload: { format_ok, spread_ok, fresh, already_used, nonce_valid, verdict },
     compliance_flags,
   };
 }

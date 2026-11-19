@@ -1,5 +1,5 @@
 // art-593-webbotauth-nonce-replay-check property-test floor (ADJACENT-HOOKS-ASSEMBLE-LAND-2).
-// kernel_digest_at_authoring: sha256:623982b2d822cb579d52ec523af4692f1138a1db301bd67852e832e1847489db
+// kernel_digest_at_authoring: sha256:f3470256d6053732a98911c95987c2019b957f73ecb8bce762ad0013b48063c1
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- cheap invariant subset over the DECLARED domain,
@@ -129,11 +129,11 @@ async function checkP6_absentStoreNeverAccepts() {
   const absent = { ...BASE_PP }; delete absent.seen_nonces;
   const r = await compute(absent);
   checked++; if (r.output_payload.verdict !== 'REPLAY_CHECK_NOT_EVALUATED') violations++;
-  checked++; if (r.output_payload.replay_evaluated !== false || r.output_payload.nonce_valid !== false) violations++;
+  checked++; if (r.output_payload.nonce_valid !== false) violations++;
   checked++; if (!r.compliance_flags.includes('NONCE_REPLAY_STORE_ABSENT') || r.compliance_flags.includes('NONCE_ACCEPTED')) violations++;
   for (const pp of [BASE_PP, { ...absent, nonce_already_used: false }]) {
     const { output_payload } = await compute(pp);
-    checked++; if (output_payload.verdict !== 'ACCEPT' || output_payload.replay_evaluated !== true) violations++;
+    checked++; if (output_payload.verdict !== 'ACCEPT') violations++;
   }
   return { name: 'P6_absent_store_never_accepts', trials: checked, violations };
 }
