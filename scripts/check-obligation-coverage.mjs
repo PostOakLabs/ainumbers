@@ -31,14 +31,19 @@
 //       OBLIGATION-REPIN-1): when a clause digest changes, the old list does
 //       not carry over silently; the gate prints the old obligation list
 //       beside the digest the node now cites and requires a fresh split.
-//       NOT in scope here: O3 (nothing uncovered; advisory later), O5 (span
+//   O3  nothing uncovered (see the O3 section below): advisory with a shrinking
+//       baseline for existing nodes, blocking for new nodes behind
+//       chaingraph/obligations/o3-settings.json (shipped off).
+//       NOT in scope here: O5 (span
 //       bytes; needs the local excerpt), O6 (page agreement; the page block is
 //       a later row).
 //
 // Exit 0 green, 1 any red. Selftest: scripts/check-obligation-coverage.selftest.mjs
 import { readFileSync, existsSync, readdirSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gitEnv } from './_git-env-lib.mjs';
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIGEST_RE = /^sha256:[0-9a-f]{64}$/;
@@ -309,6 +314,88 @@ export function checkO4({ nodesDir, obligationsDir, coverageDir, baselinePath })
   return errors;
 }
 
+// ── O3: nothing uncovered (row OBLIGATION-NEWNODE-1) ─────────────────────────
+// A gap is an obligation of a cited list that a node's coverage file does not
+// account for. Gap kinds (one key per gap, "<obligation id>:<kind>"):
+//   unaccounted  the obligation is in no covers, out_of_scope or uncovered entry
+//   uncovered    the coverage file declares it uncovered (a known, recorded gap)
+//   one-sided    covers names it but lacks an accept or a refuse vector
+//   boundary     a threshold or deadline obligation whose covers entry lacks a
+//                boundary vector on each side: boundary.below and boundary.at_or_above,
+//                each a non-empty array of vector names that exist in the fixtures
+// Definition obligations need no vector and never gap.
+// Modes (the row's two modes):
+//   existing nodes  advisory with a baseline (o3-baseline.json: node -> gap keys)
+//                   that only shrinks: a gap outside the baseline is RED, a
+//                   baseline key that is no longer a gap is RED (remove it).
+//   new nodes       a node a PR newly adds: every gap is RED when
+//                   o3-settings.json block_new_nodes is true; with the setting
+//                   false (the shipped default) the gaps print as advisory lines.
+//                   A new node that cites a digest and has no coverage file has
+//                   one "no-coverage-file" gap. Flipping the setting is the owner's call.
+export function o3Gaps(cov, lists, fixtures) {
+  const gaps = [];
+  const digs = Array.isArray(cov && cov.clause_digests) ? cov.clause_digests : [];
+  const obs = [];
+  for (const d of digs) for (const o of (lists && lists.get(d)) || []) obs.push(o);
+  const covers = (cov && cov.covers) || {};
+  const oos = new Set((Array.isArray(cov && cov.out_of_scope) ? cov.out_of_scope : []).map((x) => x.id));
+  const unc = new Set((Array.isArray(cov && cov.uncovered) ? cov.uncovered : []).map((x) => x.id));
+  const names = new Set(fixtures && Array.isArray(fixtures.vectors) ? fixtures.vectors.map((v) => v.name) : []);
+  for (const o of obs) {
+    if (o.kind === 'definition') continue;
+    const e = covers[o.id];
+    if (!e) {
+      if (oos.has(o.id)) continue;
+      gaps.push(unc.has(o.id) ? `${o.id}:uncovered` : `${o.id}:unaccounted`);
+      continue;
+    }
+    const acc = Array.isArray(e.accept) ? e.accept.length : 0;
+    const ref = Array.isArray(e.refuse) ? e.refuse.length : 0;
+    if (!acc || !ref) gaps.push(`${o.id}:one-sided`);
+    if (o.kind === 'threshold' || o.kind === 'deadline') {
+      const b = e.boundary || {};
+      const sideOk = (s) => Array.isArray(b[s]) && b[s].length > 0 && b[s].every((n) => names.has(n));
+      if (!sideOk('below') || !sideOk('at_or_above')) gaps.push(`${o.id}:boundary`);
+    }
+  }
+  return gaps;
+}
+
+export function readO3Settings(path) {
+  if (!existsSync(path)) return { block_new_nodes: false };
+  const j = JSON.parse(readFileSync(path, 'utf8'));
+  return { block_new_nodes: j.block_new_nodes === true };
+}
+
+// Pure decision over precomputed gaps. gapsByNode: node -> gap keys;
+// baseline: node -> gap keys; newNodes: Set of node ids a PR newly adds.
+// Returns { errors, advisories }.
+export function checkO3({ gapsByNode, baseline, newNodes, blockNew }) {
+  const errors = [], advisories = [];
+  for (const [nid, gaps] of gapsByNode) {
+    if (newNodes.has(nid)) {
+      for (const g of gaps) (blockNew ? errors : advisories).push(`new node ${nid}: ${g}${blockNew ? ' (block_new_nodes is on)' : ' (advisory, block_new_nodes is off)'}`);
+      continue;
+    }
+    const base = new Set(baseline[nid] || []);
+    for (const g of gaps) if (!base.has(g)) errors.push(`${nid}: new gap ${g} is not in o3-baseline.json (the baseline only shrinks; close the gap or declare it out of scope with a reason)`);
+    for (const g of base) if (!gaps.includes(g)) errors.push(`${nid}: stale o3-baseline entry ${g}, the gap is closed, remove the entry`);
+    if (gaps.length) advisories.push(`${nid}: ${gaps.length} known gap(s) ${gaps.join(', ')}`);
+  }
+  for (const nid of Object.keys(baseline)) {
+    if (!gapsByNode.has(nid)) errors.push(`stale o3-baseline node ${nid}: no coverage file, remove the entry`);
+  }
+  return { errors, advisories };
+}
+
+function newNodeShards(root, base) {
+  try {
+    const out = execFileSync('git', ['-C', root, 'diff', '--name-only', '--diff-filter=A', `${base}...HEAD`, '--', 'chaingraph/graph/nodes'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], env: gitEnv() });
+    return new Set(out.split('\n').filter((l) => l.endsWith('.json')).map((l) => basename(l, '.json')));
+  } catch { return new Set(); }
+}
+
 // ── CLI ──────────────────────────────────────────────────────────────────────
 function loadListFor(obligationsDir, digest) {
   const p = join(obligationsDir, hex(digest) + '.json');
@@ -397,6 +484,47 @@ function main() {
     const errs = checkO4({ nodesDir, obligationsDir, coverageDir, baselinePath });
     if (errs.length) errs.forEach((m) => red('O4', m));
     else console.log(`O4 OK: every cited digest is listed or baselined; baseline entries all live`);
+  }
+
+  // O3 nothing uncovered: advisory with a shrinking baseline, blocking for new nodes
+  if (!only || only === 'O3') {
+    const o3BaselinePath = join(obligationsDir, 'o3-baseline.json');
+    const settings = readO3Settings(join(obligationsDir, 'o3-settings.json'));
+    const blockNew = settings.block_new_nodes || argv.includes('--block-new-nodes');
+    const newNodes = argv.includes('--new-nodes')
+      ? new Set(argv[argv.indexOf('--new-nodes') + 1].split(',').filter(Boolean))
+      : newNodeShards(root, argv.includes('--base') ? argv[argv.indexOf('--base') + 1] : 'origin/main');
+    const gapsByNode = new Map();
+    const files = existsSync(coverageDir) ? readdirSync(coverageDir).filter((f) => f.endsWith('.json')) : [];
+    for (const f of files) {
+      let cov;
+      try { cov = JSON.parse(readFileSync(join(coverageDir, f), 'utf8')); } catch { continue; } // O2 reds the parse
+      const fxPath = join(fixturesDir, `${cov.node_id}.fixtures.json`);
+      let fixtures = null;
+      if (existsSync(fxPath)) { try { fixtures = JSON.parse(readFileSync(fxPath, 'utf8')); } catch { /* O2 reds it */ } }
+      const lists = new Map();
+      for (const d of Array.isArray(cov.clause_digests) ? cov.clause_digests : []) {
+        const l = loadListFor(obligationsDir, d);
+        if (l) lists.set(d, l);
+      }
+      gapsByNode.set(cov.node_id || f.replace(/\.json$/, ''), o3Gaps(cov, lists, fixtures));
+    }
+    for (const nid of newNodes) {
+      if (gapsByNode.has(nid)) continue;
+      const sp = join(nodesDir, `${nid}.json`);
+      if (existsSync(sp) && (citedDigestsOfShard(readFileSync(sp, 'utf8')) || []).length) gapsByNode.set(nid, ['no-coverage-file']);
+    }
+    if (argv.includes('--write-o3-baseline')) {
+      const next = {};
+      for (const [nid, gaps] of gapsByNode) if (!newNodes.has(nid) && gaps.length) next[nid] = gaps;
+      writeFileSync(o3BaselinePath, JSON.stringify(next, null, 2) + '\n');
+      console.log(`O3 baseline written: ${Object.keys(next).length} node(s)`);
+    }
+    const baseline = existsSync(o3BaselinePath) ? JSON.parse(readFileSync(o3BaselinePath, 'utf8')) : {};
+    const { errors, advisories } = checkO3({ gapsByNode, baseline, newNodes, blockNew });
+    advisories.forEach((m) => console.log(`O3 ADVISORY: ${m}`));
+    if (errors.length) errors.forEach((m) => red('O3', m));
+    else console.log(`O3 OK: no gap outside the baseline (${newNodes.size} new node(s), block_new_nodes ${blockNew ? 'on' : 'off'})`);
   }
 
   if (failed) { console.log('check-obligation-coverage: RED'); process.exit(1); }
