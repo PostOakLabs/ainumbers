@@ -109,6 +109,46 @@ for (const f of qrParity.failures.slice(0, 10)) console.error('    ' + f);
 ok(qrParity.failures.length === 0, `qr matches the upstream reference encoder (${qrParity.matched} matrices, ${qrParity.refused} refusals, ${qrParity.failures.length} failures)`);
 ok(qrParity.versions.length === 40, `qr reference vectors cover all 40 versions (${qrParity.versions.length})`);
 
+// pdf page-1 QR draw — structural checks, all measured from the emitted stream:
+// the symbol's rectangles are present, the quiet zone is 4 modules clear on
+// every side (white underlay vs symbol bbox), and no page-1 text operator
+// starts inside the reserved box.
+const ptext = pbytes.toString('latin1');
+const streams = [...ptext.matchAll(/stream\n([\s\S]*?)endstream/g)].map((m) => m[1]);
+ok(streams.length >= 1, 'pdf has at least one content stream');
+const page1 = streams[0];   // objects write in numeric order; obj 5 is page 1's content
+const white = page1.match(/1 1 1 rg\n([\d.]+) ([\d.]+) ([\d.]+) ([\d.]+) re f\n0 0 0 rg/);
+ok(!!white, 'page 1 paints a white quiet-zone underlay');
+const blackSeg = white ? page1.slice(page1.indexOf('0 0 0 rg')) : '';
+const rects = [...blackSeg.matchAll(/^([\d.]+) ([\d.]+) ([\d.]+) ([\d.]+) re$/gm)]
+  .map((m) => ({ x: +m[1], y: +m[2], w: +m[3], h: +m[4] }));
+ok(rects.length > 0, `symbol drawn as module rectangles (${rects.length} in stream)`);
+const verifyOp = page1.match(/\(verify: ([^)]+)\)/);
+ok(!!verifyOp, 'page 1 prints the verify URL as text');
+if (white && verifyOp && rects.length) {
+  const box = { x0: +white[1], y0: +white[2], x1: +white[1] + +white[3], y1: +white[2] + +white[4] };
+  const mat = qrMatrix(verifyOp[1]);
+  let dark = 0;
+  for (const row of mat.modules) for (const v of row) if (v) dark++;
+  ok(rects.length === dark, `one rectangle per dark module (${dark} expected, ${rects.length} drawn)`);
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const r of rects) {
+    if (r.x < minX) minX = r.x;
+    if (r.y < minY) minY = r.y;
+    if (r.x + r.w > maxX) maxX = r.x + r.w;
+    if (r.y + r.h > maxY) maxY = r.y + r.h;
+  }
+  const ms = (maxX - minX) / mat.size;              // module size, measured from the stream
+  const clear = Math.min(minX - box.x0, box.x1 - maxX, minY - box.y0, box.y1 - maxY);
+  ok(box.x0 <= minX && box.y0 <= minY && box.x1 >= maxX && box.y1 >= maxY, 'underlay covers the symbol bbox');
+  ok(clear >= 4 * ms - 0.05 && clear <= 4 * ms + 0.05, `quiet zone is 4 modules clear on every side (measured ${clear.toFixed(2)} pt vs ${(4 * ms).toFixed(2)})`);
+  const textOps = [...page1.matchAll(/^BT \/F\d [\d.]+ Tf 1 0 0 1 (-?[\d.]+) (-?[\d.]+) Tm/gm)]
+    .map((m) => ({ x: +m[1], y: +m[2] }));
+  ok(textOps.length > 0, `page-1 text operators parsed (${textOps.length})`);
+  const inBox = textOps.filter((t) => t.x >= box.x0 && t.x <= box.x1 && t.y >= box.y0 && t.y <= box.y1);
+  ok(inBox.length === 0, 'no page-1 text operator starts inside the reserved box');
+}
+
 // guards
 ok(!exportArtifact({ artifact, format: 'xbrl' }).ok, 'xbrl without taxonomy rejected');
 ok(!exportArtifact({ format: 'xlsx' }).ok, 'missing artifact rejected');
