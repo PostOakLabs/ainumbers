@@ -206,7 +206,20 @@ jobs:
         run: node scripts/check-ci-relevant.mjs --key scripts-verify
 
   scripts-verify:
-    name: Full preflight gate suite
+    # PREFLIGHT SHARDING (2026-11-05, ported to this tree 2026-11-16):
+    # the suite runs as a matrix of 4 shards. Measured before: merge_group run
+    # 42115294848's "Preflight (full gate suite)" step took 9 m 24 s of this job's
+    # 10 m 37 s. Each leg runs preflight with PREFLIGHT_SHARD=<i>/<N>: preflight
+    # computes the FULL gate list exactly as an unsharded run does, partitions it
+    # deterministically (scripts/lib/preflight-shard.mjs, balanced by
+    # scripts/ci/preflight-gate-timings.json) and runs only shard i's entries, so
+    # across the legs every gate runs exactly once (`node scripts/preflight.mjs
+    # --shard-plan 4` prints the plan and asserts union == whole). Shard 0 also
+    # carries the ordering-dependent work (the serial mutation-tier entry, the
+    # inline mfstSec check, the post-loop blocks) and the named per-PR steps
+    # below, which run once, on shard 0. N comes from strategy.job-total, so the
+    # matrix list is the only place the count lives.
+    name: Full preflight gate suite — shard ${{ matrix.shard }}/${{ strategy.job-total }}
     needs: relevant
     # DRAFTCI-2 (2026-07-20): expected-red proof/shard PRs open as drafts by
     # doctrine (they ride the next assemble-and-land step, which regenerates
@@ -242,10 +255,17 @@ jobs:
       (github.event_name != 'workflow_run' ||
         (github.event.workflow_run.conclusion == 'success' &&
          github.event.workflow_run.head_sha == github.sha))
+    # 60 = measured p95 of the slowest shard leg is 13.5 min (18 sharded runs across pull_request/merge_group/workflow_run, sampled 2026-11-16), so ~4x headroom; an overrunning shard dies as a VISIBLE timeout on its own leg, never as an unexplained 6h cancellation — same doctrine as tier-shard's 330 below.
+    timeout-minutes: 60
     runs-on: ubuntu-latest
     permissions:
       contents: read
       actions: write   # fail-fast step below cancels this merge_group run; no other event uses it
+    strategy:
+      # Every shard reports its own verdict; one red shard never cancels the others.
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     steps:
       - name: Report dispatch mode
         if: github.event_name == 'workflow_dispatch'
@@ -401,8 +421,12 @@ jobs:
         # scripts/ci/run-gate.mjs under this name ($RUNNER_TEMP/derived-root.txt
         # / s18-derived-root.txt). The literal env entries below stay — they are
         # constants, not resolved context.
+        #
+        # PREFLIGHT SHARDING: PREFLIGHT_SHARD scopes this leg to its slice of the
+        # full list (see the job comment); run-gate.mjs passes the env through.
         env:
           PREFLIGHT_TIER_LEG: skip
+          PREFLIGHT_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/ci/run-gate.mjs preflight
 
@@ -436,7 +460,11 @@ jobs:
       #     own name instead of a buried preflight failure.
       # Everything else keeps its downgrade: count-drift, sitemap, trust-signals
       # and the other main-side single-writer artifacts keep their downgrade untouched.
+      # PREFLIGHT SHARDING: these named steps (through Citation drift) run once,
+      # on shard 0 (`if: matrix.shard == 0`); the scratch-tree steps above and the
+      # clean-tree assertion run on every shard, because every shard builds its own.
       - name: §18 ratchet + provenance (HARD on pull_request — per-PR derivables promotion)
+        if: matrix.shard == 0
         # thin-YAML (2026-11-01): the body (S18_DERIVED_ROOT from steps.s18tree, plus the
         # shell-level GITHUB_EVENT_NAME=push presentation on pull_request — the
         # per-PR derivables promotion) moved verbatim into scripts/ci/run-gate.mjs
@@ -444,9 +472,11 @@ jobs:
         run: node scripts/ci/run-gate.mjs s18-ratchet
 
       - name: Manifest examples drift (HARD on pull_request — per-PR derivables promotion)
+        if: matrix.shard == 0
         run: node scripts/gen-manifest-examples.mjs --check
 
       - name: Ask-agent block freshness (HARD on pull_request — per-PR derivables promotion)
+        if: matrix.shard == 0
         # 2026-11-09: on merge_group this gate adjudicates
         # the assembled tree main will hold (the "Ephemeral derived tree" step above ran
         # first), exactly as the accessibility step below does. Without it the gate read the
@@ -465,7 +495,16 @@ jobs:
       # (SSOT scripts/derived-artifacts.mjs COVERED). HARD on pull_request; the script itself
       # reports "not run" on merge_group / push / workflow_run, which carry the regen's commits.
       - name: Main-only derived paths (HARD on pull_request)
+        if: matrix.shard == 0
         run: node scripts/check-main-only-paths.mjs
+
+      # Advisory hostile-input census of kernels the PR adds or
+      # changes; prints a table and always exits 0. The controls step is the only one that can fail.
+      - name: Kernel hostile-input census (ADVISORY)
+        run: node scripts/check-kernel-hostile-census.mjs
+
+      - name: Kernel hostile-input census controls
+        run: node scripts/check-kernel-hostile-census.mjs --self-test
 
       - name: Node page accessibility tree (HARD on pull_request — per-PR derivables promotion)
         # Queue/main a11y parity (2026-10-15): on merge_group this gate must
@@ -497,6 +536,7 @@ jobs:
         # check-workflow-gate-parity.mjs axis 3 reads workflow TEXT (comment-blind)
         # for reverse presence, so routing this gate through scripts/ci/run-gate.mjs
         # reads as "unwired". Its merge_group-only DERIVED_ROOT ternary stays here.
+        if: matrix.shard == 0
         env:
           DERIVED_ROOT: ${{ github.event_name == 'merge_group' && steps.derived.outputs.root || '' }}
         run: node scripts/check-a11y-tree.mjs
@@ -527,6 +567,7 @@ jobs:
         # workspace-root snapshot excerpts, so this always runs in the degraded
         # shape (digest-resolution only; the value-match check reports
         # SKIPPED-NO-SNAPSHOT, never a pass).
+        if: matrix.shard == 0
         run: node scripts/check-citation-drift.mjs
 
       # Fail-fast (merge_group only): a required job already failed, so the
@@ -743,6 +784,14 @@ jobs:
     # needs.*.result is `failure` if ANY leg failed, so one overrunning shard
     # dying at its own 330-min timeout is enough to red the required context —
     # and `skipped` never fails it, so the always-report shape is preserved.
+    #
+    # PREFLIGHT SHARDING: scripts-verify is now a 4-leg matrix too, and the
+    # same rule covers it: needs.scripts-verify.result is `success` only if
+    # EVERY leg succeeded. The check below is strict: anything other than
+    # success or skipped (failure, cancelled, or a leg that never reported)
+    # fails the required context. Skipped stays a pass because the legs share
+    # one `if:`; they skip together (irrelevant PR, draft, superseded run) or
+    # not at all.
     needs: [relevant, scripts-verify, scripts-verify-tier-shard]
     if: always()
     runs-on: ubuntu-latest
@@ -756,7 +805,10 @@ jobs:
         run: |
           echo "scripts-verify result: $RESULT"
           echo "scripts-verify-tier-shard result: $TIER_RESULT"
-          if [ "$RESULT" = "failure" ] || [ "$RESULT" = "cancelled" ] || [ "$TIER_RESULT" = "failure" ] || [ "$TIER_RESULT" = "cancelled" ]; then
-            exit 1
-          fi
+          for r in "$RESULT" "$TIER_RESULT"; do
+            case "$r" in
+              success|skipped) ;;
+              *) echo "::error::a required leg reported '${r:-<none>}' (not success/skipped)"; exit 1 ;;
+            esac
+          done
           exit 0

@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-132"]
+tags: ["compliance_control", "count-154"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,13 +10,18 @@ status: stable
 
 # compliance_control
 
-132 tool(s) in this mandate-type group:
+154 tool(s) in this mandate-type group:
 
+- [EMV MPM QR Payload Validator](../tools/783-emv-mpm-qr-validator.md)
+- [QR Go-Live Readiness Assessor](../tools/785-qr-golive-readiness.md)
 - [Corridor Cost Averages](../tools/787-corridor-cost-averages.md)
+- [Event Contract Position Limit Check](../tools/790-event-position-limit-check.md)
 - [Curator Vault Cap Auditor](../tools/792-curator-vault-cap-auditor.md)
 - [Event Fee Recompute](../tools/794-event-fee-recompute.md)
 - [Stablecoin Refund Dispute Check](../tools/795-stablecoin-refund-dispute.md)
+- [Payment System MI Pack](../tools/796-payment-system-mi-pack.md)
 - [Stablecoin Cash Equivalent Test (FASB Proposed 2026-08)](../tools/797-stablecoin-cash-equivalent-test.md)
+- [Assess Sandbox Application Readiness](../tools/798-assess-sandbox-application-readiness.md)
 - [Event Contract Terms Lint](../tools/806-event-contract-terms-lint.md)
 - [Liquid-Staking Share Rate Reconciler](../tools/808-lst-share-rate-reconciler.md)
 - [Contract Bytecode Identity Verifier](../tools/810-contract-bytecode-identity-verifier.md)
@@ -27,6 +32,12 @@ status: stable
 - [ZIP-317 Transfer Fee](../tools/824-zip317-transfer-fee.md)
 - [Reconcile UCP Checkout Totals](../tools/825-reconcile-ucp-checkout-totals.md)
 - [Safe Transaction Hash Recompute](../tools/829-safe-tx-hash-recompute.md)
+- [Payment Services Activity Classifier](../tools/836-payment-services-activity-classifier.md)
+- [Issuer Reserve Yield Share Check](../tools/837-issuer-yield-share.md)
+- [Control Frequency Sample](../tools/838-control-frequency-sample.md)
+- [Planning Materiality](../tools/841-planning-materiality.md)
+- [Workload Identity Claims Lint](../tools/844-workload-identity-claims.md)
+- [Je Period Lock Gate](../tools/845-je-period-lock-gate.md)
 - [MCP Developer Readiness Scorecard](../tools/art-18-mcp-developer-readiness-scorecard.md)
 - [Visa Trusted Agent Protocol (TAP) Signature Inspector](../tools/art-23-visa-trusted-agent-protocol-inspector.md)
 - [Mastercard Agentic Token Scope Builder](../tools/art-24-mastercard-agentic-token-builder.md)
@@ -140,7 +151,18 @@ status: stable
 - [Private-Input Reserves Cover Outstanding Check](../tools/art-809-check-reserves-cover-outstanding-private.md)
 - [Private-Input Debt-to-Income Within Policy Check](../tools/art-811-check-dti-within-policy-private.md)
 - [Quadratic Funding Round Recompute](../tools/art-814-qf-pairwise-recompute.md)
+- [EIP-3009 Agent Spend Gate](../tools/art-816-eip3009-agent-spend-gate.md)
 - [Ucp Request Constraints](../tools/art-819-ucp-request-constraints.md)
 - [Authenticator Assurance Level Evaluator](../tools/art-826-authenticator-assurance-level.md)
 - [Omnibus Token Position Reconciliation](../tools/art-828-reconcile-omnibus-token-position.md)
+- [EIP-3009 Spend Exposure Reconciler](../tools/art-830-eip3009-spend-exposure-reconciler.md)
 - [Receipt Export Envelopes](../tools/art-831-receipt-export-envelopes.md)
+- [Card Data Flow Worksheet](../tools/art-832-card-data-flow-scope.md)
+- [PAN and SAD Exposure Linter](../tools/art-833-lint-pan-sad-exposure.md)
+- [ASC 606 Transaction Price Allocator](../tools/art-834-asc606-transaction-price-allocator.md)
+- [Bank Reconciliation Recompute](../tools/art-835-bank-reconciliation-recompute.md)
+- [Statement Footing and Cross-Footing Check](../tools/art-839-statement-footing-crossfoot.md)
+- [SOC Report Coverage and Bridge Gap](../tools/art-842-soc-report-coverage-gap.md)
+- [TAP Message Structure Check](../tools/art-843-tap-message-validator.md)
+- [PFMI proportional self-assessment scorer](../tools/art-846-assess-pfmi-proportional.md)
+- [Cash-Leg Window Exposure](../tools/art-847-cashleg-window-exposure.md)

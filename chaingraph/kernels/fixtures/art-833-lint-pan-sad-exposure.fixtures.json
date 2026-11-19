@@ -1,0 +1,1378 @@
+{
+  "tool_id": "art-833-lint-pan-sad-exposure",
+  "note": "Conformance vectors for the PAN display-masking and SAD retention linter. Inputs are synthetic token-record SCHEMAS: field names, mask directive strings, digest declarations, and stored-element declarations. No PAN value, real or synthetic, appears in any vector (the kernel is value-free by design; the tools page demo carries a Luhn-valid synthetic test PAN only). Expectations are hand-derived from the pinned PCI DSS v4.0.1 excerpts registered in clause-snapshots/ under the digests named in the node shard's cited_clause_digest. human_sign_off: PENDING fill.",
+  "vectors": [
+    {
+      "name": "clean_token_record_at_ceiling",
+      "note": "Mask at the display ceiling (first six and last four), no SAD stored, no digest field: no findings and no manual review.",
+      "independent_oracle": {
+        "source": "PCI DSS v4.0.1, Requirement 3.4.1, as pinned 2026-11-03 (research/clause-snapshots/pcidss-v401-req-3.4.1-display-masking-excerpt-2026-11-03.txt, workspace copy of pcidss-v401-full.txt lines 2880-2915)",
+        "source_digest": "sha256:a45cd2bf9ebad90d43ad11fba7f9ab9777c71596cd125f7b15685777f7dafcdb",
+        "derivation": "The requirement states the BIN and last four digits are the maximum number of digits a display may reveal. A mask of prefix:6,suffix:4 sits exactly at that maximum, so the record is within the published rule; a stored element declared sad_class none carries no sensitive authentication data, so Requirement 3.3.1 is not engaged."
+      },
+      "policy_parameters": {
+        "record": {
+          "record_type": "card_token",
+          "container_path": "/pci/high/cards",
+          "alias_template": "suffix:4:card-alias",
+          "search_index_expressions": [
+            "suffix:4:pan-index"
+          ],
+          "fields": [
+            {
+              "name": "pan",
+              "value_class": "primary_account_number",
+              "mask_expression": "prefix:6,suffix:4"
+            },
+            {
+              "name": "cvc_display",
+              "value_class": "card_verification_code",
+              "mask_expression": "redact:all"
+            }
+          ]
+        },
+        "stored_elements": [
+          {
+            "name": "pan_index_store",
+            "sad_class": "none",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "no_findings",
+        "ceilings": {
+          "display_prefix": 6,
+          "display_suffix": 4
+        },
+        "field_exposure": [
+          {
+            "field": "pan",
+            "prefix_digits": 6,
+            "suffix_digits": 4,
+            "ceiling": {
+              "prefix": 6,
+              "suffix": 4
+            },
+            "verdict": "within_ceiling"
+          }
+        ],
+        "alias_analysis": {
+          "expression": "suffix:4:card-alias",
+          "recognized_directives": 1,
+          "prefix_digits": 0,
+          "suffix_digits": 4,
+          "full": false,
+          "analyzable": true,
+          "declared": true
+        },
+        "search_index_analysis": [
+          {
+            "expression": "suffix:4:pan-index",
+            "recognized_directives": 1,
+            "prefix_digits": 0,
+            "suffix_digits": 4,
+            "full": false,
+            "analyzable": true
+          }
+        ],
+        "retention_verdicts": [
+          {
+            "element": "pan_index_store",
+            "sad_class": "none",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true,
+            "verdict": "no_sad_element"
+          }
+        ],
+        "digest_verdicts": [],
+        "findings": [],
+        "manual_review": [],
+        "issues": [],
+        "manual_review_required": false,
+        "findings_count": 0,
+        "manual_review_count": 0,
+        "container_path": "/pci/high/cards",
+        "record_type": "card_token"
+      },
+      "golden_hash": "d44913e23dd81f9ea52a9f6a4a37a0ac051926a43fa5f38e8a53863a00679342"
+    },
+    {
+      "name": "mask_exceeds_display_ceiling",
+      "note": "Mask reveals eight prefix and six suffix digits: above the ceiling on both sides.",
+      "independent_oracle": {
+        "source": "PCI DSS v4.0.1, Requirement 3.4.1, as pinned 2026-11-03 (same excerpt, lines 2880-2915)",
+        "source_digest": "sha256:a45cd2bf9ebad90d43ad11fba7f9ab9777c71596cd125f7b15685777f7dafcdb",
+        "derivation": "3.4.1 fixes the maximum display at the BIN and last four digits. prefix:8,suffix:6 exceeds that maximum on both sides, so one MASK_DISPLAY_EXCEEDS_CEILING finding fires for the field and the field verdict is exceeds_ceiling."
+      },
+      "policy_parameters": {
+        "record": {
+          "record_type": "card_token",
+          "fields": [
+            {
+              "name": "pan",
+              "value_class": "primary_account_number",
+              "mask_expression": "prefix:8,suffix:6"
+            }
+          ]
+        },
+        "stored_elements": [
+          {
+            "name": "pan_index_store",
+            "sad_class": "none",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "findings_present",
+        "ceilings": {
+          "display_prefix": 6,
+          "display_suffix": 4
+        },
+        "field_exposure": [
+          {
+            "field": "pan",
+            "prefix_digits": 8,
+            "suffix_digits": 6,
+            "ceiling": {
+              "prefix": 6,
+              "suffix": 4
+            },
+            "verdict": "exceeds_ceiling"
+          }
+        ],
+        "alias_analysis": {
+          "expression": null,
+          "recognized_directives": 0,
+          "prefix_digits": 0,
+          "suffix_digits": 0,
+          "analyzable": false,
+          "declared": false
+        },
+        "search_index_analysis": [],
+        "retention_verdicts": [
+          {
+            "element": "pan_index_store",
+            "sad_class": "none",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true,
+            "verdict": "no_sad_element"
+          }
+        ],
+        "digest_verdicts": [],
+        "findings": [
+          {
+            "code": "MASK_DISPLAY_EXCEEDS_CEILING",
+            "subject": "pan",
+            "message": "mask reveals prefix=8 suffix=6 digits; the display ceiling is the first 6 (BIN) and last 4 digits",
+            "paragraph": "Requirement 3.4.1"
+          }
+        ],
+        "manual_review": [],
+        "issues": [
+          "MASK_DISPLAY_EXCEEDS_CEILING: mask reveals prefix=8 suffix=6 digits; the display ceiling is the first 6 (BIN) and last 4 digits"
+        ],
+        "manual_review_required": false,
+        "findings_count": 1,
+        "manual_review_count": 0,
+        "container_path": null,
+        "record_type": "card_token"
+      },
+      "golden_hash": "7f39c4fe909dde2cee60f31ed393a509945c12d8ef29d8ac309f615dcb3e9ed3"
+    },
+    {
+      "name": "unmasked_pan_display",
+      "note": "PAN field declares no mask at all: the field displays the full PAN.",
+      "independent_oracle": {
+        "source": "PCI DSS v4.0.1, Requirement 3.4.1, as pinned 2026-11-03 (same excerpt, lines 2880-2915)",
+        "source_digest": "sha256:a45cd2bf9ebad90d43ad11fba7f9ab9777c71596cd125f7b15685777f7dafcdb",
+        "derivation": "A primary account number field with no mask directive displays the full PAN, which the masking rule disallows for any display beyond the documented business-need roles. One MASK_DISPLAY_FULL_PAN finding fires; a role list asserting a business need is caller-owned documentation outside this check (declared out_of_scope_by_input in the branch inventory)."
+      },
+      "policy_parameters": {
+        "record": {
+          "record_type": "card_token",
+          "fields": [
+            {
+              "name": "pan",
+              "value_class": "primary_account_number",
+              "mask_expression": ""
+            }
+          ]
+        },
+        "stored_elements": [
+          {
+            "name": "pan_index_store",
+            "sad_class": "none",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "findings_present",
+        "ceilings": {
+          "display_prefix": 6,
+          "display_suffix": 4
+        },
+        "field_exposure": [
+          {
+            "field": "pan",
+            "prefix_digits": 0,
+            "suffix_digits": 0,
+            "ceiling": {
+              "prefix": 6,
+              "suffix": 4
+            },
+            "verdict": "full_display"
+          }
+        ],
+        "alias_analysis": {
+          "expression": null,
+          "recognized_directives": 0,
+          "prefix_digits": 0,
+          "suffix_digits": 0,
+          "analyzable": false,
+          "declared": false
+        },
+        "search_index_analysis": [],
+        "retention_verdicts": [
+          {
+            "element": "pan_index_store",
+            "sad_class": "none",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true,
+            "verdict": "no_sad_element"
+          }
+        ],
+        "digest_verdicts": [],
+        "findings": [
+          {
+            "code": "MASK_DISPLAY_FULL_PAN",
+            "subject": "pan",
+            "message": "no recognized mask directive: the field displays the full PAN",
+            "paragraph": "Requirement 3.4.1"
+          }
+        ],
+        "manual_review": [],
+        "issues": [
+          "MASK_DISPLAY_FULL_PAN: no recognized mask directive: the field displays the full PAN"
+        ],
+        "manual_review_required": false,
+        "findings_count": 1,
+        "manual_review_count": 0,
+        "container_path": null,
+        "record_type": "card_token"
+      },
+      "golden_hash": "0a247471be33cf9af7c5a5b1d2cb1c3ecc55590b6c7a3c819edc878984cd16e7"
+    },
+    {
+      "name": "cvc_stored_persistent_encrypted",
+      "note": "Card verification code stored past authorization, encrypted, persistent: the finding fires and encryption does not except it.",
+      "independent_oracle": {
+        "source": "PCI DSS v4.0.1, Requirements 3.3.1 and 3.3.1.2, as pinned 2026-11-03 (research/clause-snapshots/pcidss-v401-req-3.3.1.2-3.3.1.3-cvc-pin-excerpt-2026-11-03.txt, workspace copy lines 2695-2765; retention requirement lines 2615-2675)",
+        "source_digest": "sha256:267c4752c15d67c5e5d484db126fa2726d49b883ba92f99d2c096350e6ffa706",
+        "derivation": "3.3.1 requires SAD not to be stored after authorization even if encrypted; 3.3.1.2 names the card verification code specifically. The element declares after_authorization retention in persistent storage with encrypted true, so SAD_STORED_AFTER_AUTHORIZATION fires with the paragraph path Requirement 3.3.1 / 3.3.1.2 and the message notes encryption does not except it."
+      },
+      "policy_parameters": {
+        "record": {
+          "record_type": "card_token",
+          "fields": [
+            {
+              "name": "pan",
+              "value_class": "primary_account_number",
+              "mask_expression": "prefix:6,suffix:4"
+            }
+          ]
+        },
+        "stored_elements": [
+          {
+            "name": "cvc_store",
+            "sad_class": "card_verification_code",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "findings_present",
+        "ceilings": {
+          "display_prefix": 6,
+          "display_suffix": 4
+        },
+        "field_exposure": [
+          {
+            "field": "pan",
+            "prefix_digits": 6,
+            "suffix_digits": 4,
+            "ceiling": {
+              "prefix": 6,
+              "suffix": 4
+            },
+            "verdict": "within_ceiling"
+          }
+        ],
+        "alias_analysis": {
+          "expression": null,
+          "recognized_directives": 0,
+          "prefix_digits": 0,
+          "suffix_digits": 0,
+          "analyzable": false,
+          "declared": false
+        },
+        "search_index_analysis": [],
+        "retention_verdicts": [
+          {
+            "element": "cvc_store",
+            "sad_class": "card_verification_code",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true,
+            "verdict": "sad_stored_after_authorization"
+          }
+        ],
+        "digest_verdicts": [],
+        "findings": [
+          {
+            "code": "SAD_STORED_AFTER_AUTHORIZATION",
+            "subject": "cvc_store",
+            "message": "stores card_verification_code after authorization in persistent storage (stored encrypted, which the rule does not except)",
+            "paragraph": "Requirement 3.3.1 / 3.3.1.2"
+          }
+        ],
+        "manual_review": [],
+        "issues": [
+          "SAD_STORED_AFTER_AUTHORIZATION: stores card_verification_code after authorization in persistent storage (stored encrypted, which the rule does not except)"
+        ],
+        "manual_review_required": false,
+        "findings_count": 1,
+        "manual_review_count": 0,
+        "container_path": null,
+        "record_type": "card_token"
+      },
+      "golden_hash": "2665b71592df2ef7b8f96d4c7fdc2879c8bbb95b6bcbcdcb20461b77a96d1661"
+    },
+    {
+      "name": "pin_block_stored_encrypted",
+      "note": "PIN block stored past authorization, encrypted: still a finding; the text calls out re-encryption explicitly.",
+      "independent_oracle": {
+        "source": "PCI DSS v4.0.1, Requirement 3.3.1.3, as pinned 2026-11-03 (same CVC/PIN excerpt, lines 2695-2765)",
+        "source_digest": "sha256:267c4752c15d67c5e5d484db126fa2726d49b883ba92f99d2c096350e6ffa706",
+        "derivation": "3.3.1.3 states PIN blocks are encrypted during the natural course of transaction processes but even if an entity encrypts the PIN block again it is still not allowed to be stored after authorization completes. The element is a pin_or_pin_block stored after_authorization persistently with encrypted true, so SAD_STORED_AFTER_AUTHORIZATION fires citing Requirement 3.3.1 / 3.3.1.3."
+      },
+      "policy_parameters": {
+        "record": {
+          "record_type": "card_token",
+          "fields": [
+            {
+              "name": "pan",
+              "value_class": "primary_account_number",
+              "mask_expression": "prefix:6,suffix:4"
+            }
+          ]
+        },
+        "stored_elements": [
+          {
+            "name": "pin_block_store",
+            "sad_class": "pin_or_pin_block",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "findings_present",
+        "ceilings": {
+          "display_prefix": 6,
+          "display_suffix": 4
+        },
+        "field_exposure": [
+          {
+            "field": "pan",
+            "prefix_digits": 6,
+            "suffix_digits": 4,
+            "ceiling": {
+              "prefix": 6,
+              "suffix": 4
+            },
+            "verdict": "within_ceiling"
+          }
+        ],
+        "alias_analysis": {
+          "expression": null,
+          "recognized_directives": 0,
+          "prefix_digits": 0,
+          "suffix_digits": 0,
+          "analyzable": false,
+          "declared": false
+        },
+        "search_index_analysis": [],
+        "retention_verdicts": [
+          {
+            "element": "pin_block_store",
+            "sad_class": "pin_or_pin_block",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true,
+            "verdict": "sad_stored_after_authorization"
+          }
+        ],
+        "digest_verdicts": [],
+        "findings": [
+          {
+            "code": "SAD_STORED_AFTER_AUTHORIZATION",
+            "subject": "pin_block_store",
+            "message": "stores pin_or_pin_block after authorization in persistent storage (stored encrypted, which the rule does not except)",
+            "paragraph": "Requirement 3.3.1 / 3.3.1.3"
+          }
+        ],
+        "manual_review": [],
+        "issues": [
+          "SAD_STORED_AFTER_AUTHORIZATION: stores pin_or_pin_block after authorization in persistent storage (stored encrypted, which the rule does not except)"
+        ],
+        "manual_review_required": false,
+        "findings_count": 1,
+        "manual_review_count": 0,
+        "container_path": null,
+        "record_type": "card_token"
+      },
+      "golden_hash": "6303e4a5e607c0226b037f02f53280a7029c34af0d7df741f694442242731fdf"
+    },
+    {
+      "name": "full_track_data_stored",
+      "note": "Full track contents stored past authorization, unencrypted: the clearest form of the finding.",
+      "independent_oracle": {
+        "source": "PCI DSS v4.0.1, Requirements 3.3.1 and 3.3.1.1, as pinned 2026-11-03 (research/clause-snapshots/pcidss-v401-req-3.3.1-sad-retention-excerpt-2026-11-03.txt, workspace copy lines 2615-2675)",
+        "source_digest": "sha256:fe9dd777936bc60e67908a9a120fafd5c75fd491f557ff485c180a338f960794",
+        "derivation": "3.3.1.1 requires that the full contents of any track are not stored upon completion of the authorization process. The element stores full_track_data after_authorization persistently, so SAD_STORED_AFTER_AUTHORIZATION fires citing Requirement 3.3.1 / 3.3.1.1."
+      },
+      "policy_parameters": {
+        "record": {
+          "record_type": "card_token",
+          "fields": [
+            {
+              "name": "pan",
+              "value_class": "primary_account_number",
+              "mask_expression": "prefix:6,suffix:4"
+            }
+          ]
+        },
+        "stored_elements": [
+          {
+            "name": "track_dump",
+            "sad_class": "full_track_data",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": false
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "findings_present",
+        "ceilings": {
+          "display_prefix": 6,
+          "display_suffix": 4
+        },
+        "field_exposure": [
+          {
+            "field": "pan",
+            "prefix_digits": 6,
+            "suffix_digits": 4,
+            "ceiling": {
+              "prefix": 6,
+              "suffix": 4
+            },
+            "verdict": "within_ceiling"
+          }
+        ],
+        "alias_analysis": {
+          "expression": null,
+          "recognized_directives": 0,
+          "prefix_digits": 0,
+          "suffix_digits": 0,
+          "analyzable": false,
+          "declared": false
+        },
+        "search_index_analysis": [],
+        "retention_verdicts": [
+          {
+            "element": "track_dump",
+            "sad_class": "full_track_data",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": false,
+            "verdict": "sad_stored_after_authorization"
+          }
+        ],
+        "digest_verdicts": [],
+        "findings": [
+          {
+            "code": "SAD_STORED_AFTER_AUTHORIZATION",
+            "subject": "track_dump",
+            "message": "stores full_track_data after authorization in persistent storage",
+            "paragraph": "Requirement 3.3.1 / 3.3.1.1"
+          }
+        ],
+        "manual_review": [],
+        "issues": [
+          "SAD_STORED_AFTER_AUTHORIZATION: stores full_track_data after authorization in persistent storage"
+        ],
+        "manual_review_required": false,
+        "findings_count": 1,
+        "manual_review_count": 0,
+        "container_path": null,
+        "record_type": "card_token"
+      },
+      "golden_hash": "581b4786b40e072650d019cba23407745bb802b70d4293af199942e23ce24ab3"
+    },
+    {
+      "name": "sad_nonpersistent_manual_review",
+      "note": "Card verification code held after authorization in non-persistent memory: structured manual review, not a clean pass and not a finding.",
+      "independent_oracle": {
+        "source": "PCI DSS v4.0.1, Requirement 3.3.1 non-persistent memory guidance, as pinned 2026-11-03 (same retention excerpt, lines 2615-2675)",
+        "source_digest": "sha256:fe9dd777936bc60e67908a9a120fafd5c75fd491f557ff485c180a338f960794",
+        "derivation": "The guidance states storing SAD in non-persistent memory for a short time after authorization may be acceptable only under conditions the entity must demonstrate: a legitimate business need, non-persistent state maintained by controls, and removal as soon as the business purpose is complete. None of those facts is present in caller input, so the kernel refuses to answer and raises SAD_NONPERSISTENT_MANUAL_REVIEW with manual_review_required true."
+      },
+      "policy_parameters": {
+        "record": {
+          "record_type": "card_token",
+          "fields": [
+            {
+              "name": "pan",
+              "value_class": "primary_account_number",
+              "mask_expression": "prefix:6,suffix:4"
+            }
+          ]
+        },
+        "stored_elements": [
+          {
+            "name": "cvc_in_ram",
+            "sad_class": "card_verification_code",
+            "retention": "after_authorization",
+            "storage_location_class": "non_persistent_memory",
+            "encrypted": false
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "manual_review_required",
+        "ceilings": {
+          "display_prefix": 6,
+          "display_suffix": 4
+        },
+        "field_exposure": [
+          {
+            "field": "pan",
+            "prefix_digits": 6,
+            "suffix_digits": 4,
+            "ceiling": {
+              "prefix": 6,
+              "suffix": 4
+            },
+            "verdict": "within_ceiling"
+          }
+        ],
+        "alias_analysis": {
+          "expression": null,
+          "recognized_directives": 0,
+          "prefix_digits": 0,
+          "suffix_digits": 0,
+          "analyzable": false,
+          "declared": false
+        },
+        "search_index_analysis": [],
+        "retention_verdicts": [
+          {
+            "element": "cvc_in_ram",
+            "sad_class": "card_verification_code",
+            "retention": "after_authorization",
+            "storage_location_class": "non_persistent_memory",
+            "encrypted": false,
+            "verdict": "manual_review_required"
+          }
+        ],
+        "digest_verdicts": [],
+        "findings": [],
+        "manual_review": [
+          {
+            "code": "SAD_NONPERSISTENT_MANUAL_REVIEW",
+            "subject": "cvc_in_ram",
+            "message": "holds card_verification_code after authorization in non_persistent_memory; the carve-out conditions (business need, non-persistent state controls, prompt removal) are caller-owned facts this check cannot verify",
+            "paragraph": "Requirement 3.3.1 (non-persistent memory guidance)"
+          }
+        ],
+        "issues": [
+          "SAD_NONPERSISTENT_MANUAL_REVIEW: holds card_verification_code after authorization in non_persistent_memory; the carve-out conditions (business need, non-persistent state controls, prompt removal) are caller-owned facts this check cannot verify"
+        ],
+        "manual_review_required": true,
+        "findings_count": 0,
+        "manual_review_count": 1,
+        "container_path": null,
+        "record_type": "card_token"
+      },
+      "golden_hash": "7449c6cb70f49032d27848b349ba6af701d17a023f903536ef41cbfce5c63fc7"
+    },
+    {
+      "name": "digest_over_pan_fragment",
+      "note": "Deterministic digest over a last-four fragment: a low-entropy target, not the entire PAN.",
+      "independent_oracle": {
+        "source": "PCI DSS v4.0.1, Requirement 3.5.1 first bullet and truncation bullet, as pinned 2026-11-03 (research/clause-snapshots/pcidss-v401-req-3.5.1-unreadable-entire-pan-excerpt-2026-11-03.txt, workspace copy lines 2984-3055)",
+        "source_digest": "sha256:24d9b959a668bb3271086905ca47eaa3ece8b6e8650d8c1ff9534f3b7520ea45",
+        "derivation": "3.5.1 admits one-way hashes based on strong cryptography of the entire PAN, and its truncation bullet states hashing cannot be used to replace the truncated segment of PAN. A digest declared over pan_last4 covers a fragment whose keyspace is at most ten thousand values, so DIGEST_TARGET_NOT_ENTIRE_PAN fires; no truncation correlation review fires because no digest over the entire PAN is declared."
+      },
+      "policy_parameters": {
+        "record": {
+          "record_type": "card_token",
+          "fields": [
+            {
+              "name": "pan",
+              "value_class": "primary_account_number",
+              "mask_expression": "prefix:6,suffix:4"
+            },
+            {
+              "name": "pan_last4_digest",
+              "value_class": "deterministic_digest",
+              "digest_target": "pan_last4",
+              "digest_keyed": true
+            }
+          ]
+        },
+        "stored_elements": [
+          {
+            "name": "pan_index_store",
+            "sad_class": "none",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "findings_present",
+        "ceilings": {
+          "display_prefix": 6,
+          "display_suffix": 4
+        },
+        "field_exposure": [
+          {
+            "field": "pan",
+            "prefix_digits": 6,
+            "suffix_digits": 4,
+            "ceiling": {
+              "prefix": 6,
+              "suffix": 4
+            },
+            "verdict": "within_ceiling"
+          }
+        ],
+        "alias_analysis": {
+          "expression": null,
+          "recognized_directives": 0,
+          "prefix_digits": 0,
+          "suffix_digits": 0,
+          "analyzable": false,
+          "declared": false
+        },
+        "search_index_analysis": [],
+        "retention_verdicts": [
+          {
+            "element": "pan_index_store",
+            "sad_class": "none",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true,
+            "verdict": "no_sad_element"
+          }
+        ],
+        "digest_verdicts": [
+          {
+            "field": "pan_last4_digest",
+            "digest_target": "pan_last4",
+            "keyed": true,
+            "verdict": "digest_target_not_entire_pan"
+          }
+        ],
+        "findings": [
+          {
+            "code": "DIGEST_TARGET_NOT_ENTIRE_PAN",
+            "subject": "pan_last4_digest",
+            "message": "digest target \"pan_last4\" is a PAN fragment or a low-entropy value; a hash used to render PAN unreadable must be of the entire PAN, and a short keyspace is recoverable by brute force",
+            "paragraph": "Requirement 3.5.1 (one-way hashes of the entire PAN; truncation bullet)"
+          }
+        ],
+        "manual_review": [],
+        "issues": [
+          "DIGEST_TARGET_NOT_ENTIRE_PAN: digest target \"pan_last4\" is a PAN fragment or a low-entropy value; a hash used to render PAN unreadable must be of the entire PAN, and a short keyspace is recoverable by brute force"
+        ],
+        "manual_review_required": false,
+        "findings_count": 1,
+        "manual_review_count": 0,
+        "container_path": null,
+        "record_type": "card_token"
+      },
+      "golden_hash": "5fc9af9137493e91e3b0737c03b3f956d5fa326cc1dcd970956285f84d22e49d"
+    },
+    {
+      "name": "digest_unkeyed_entire_pan",
+      "note": "Unkeyed hash declared over the entire PAN, with no PAN display field in the record.",
+      "independent_oracle": {
+        "source": "PCI DSS v4.0.1, Requirement 3.5.1.1, as pinned 2026-11-03 (same unreadable-PAN excerpt, lines 2984-3055)",
+        "source_digest": "sha256:24d9b959a668bb3271086905ca47eaa3ece8b6e8650d8c1ff9534f3b7520ea45",
+        "derivation": "3.5.1.1 requires hashes used to render PAN unreadable per the first bullet of 3.5.1 to be keyed cryptographic hashes of the entire PAN with key management. The vector declares digest_target entire_pan with digest_keyed false, so DIGEST_UNKEYED_ENTIRE_PAN fires. The record carries no primary account number display field, so no masking or correlation verdicts engage."
+      },
+      "policy_parameters": {
+        "record": {
+          "record_type": "card_token",
+          "fields": [
+            {
+              "name": "pan_digest",
+              "value_class": "deterministic_digest",
+              "digest_target": "entire_pan",
+              "digest_keyed": false
+            }
+          ]
+        },
+        "stored_elements": [
+          {
+            "name": "pan_index_store",
+            "sad_class": "none",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "findings_present",
+        "ceilings": {
+          "display_prefix": 6,
+          "display_suffix": 4
+        },
+        "field_exposure": [],
+        "alias_analysis": {
+          "expression": null,
+          "recognized_directives": 0,
+          "prefix_digits": 0,
+          "suffix_digits": 0,
+          "analyzable": false,
+          "declared": false
+        },
+        "search_index_analysis": [],
+        "retention_verdicts": [
+          {
+            "element": "pan_index_store",
+            "sad_class": "none",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true,
+            "verdict": "no_sad_element"
+          }
+        ],
+        "digest_verdicts": [
+          {
+            "field": "pan_digest",
+            "digest_target": "entire_pan",
+            "keyed": false,
+            "verdict": "digest_unkeyed"
+          }
+        ],
+        "findings": [
+          {
+            "code": "DIGEST_UNKEYED_ENTIRE_PAN",
+            "subject": "pan_digest",
+            "message": "unkeyed hash of the entire PAN; hashes used to render PAN unreadable must be keyed cryptographic hashes",
+            "paragraph": "Requirement 3.5.1.1"
+          }
+        ],
+        "manual_review": [],
+        "issues": [
+          "DIGEST_UNKEYED_ENTIRE_PAN: unkeyed hash of the entire PAN; hashes used to render PAN unreadable must be keyed cryptographic hashes"
+        ],
+        "manual_review_required": false,
+        "findings_count": 1,
+        "manual_review_count": 0,
+        "container_path": null,
+        "record_type": "card_token"
+      },
+      "golden_hash": "bd453f06dafab6f66518239cad1ebb999c76ea56c90446b01341eab1adf866c3"
+    },
+    {
+      "name": "digest_and_truncation_correlation_review",
+      "note": "Keyed entire-PAN digest alongside a truncated PAN display: correlation-review refusal, no finding.",
+      "independent_oracle": {
+        "source": "PCI DSS v4.0.1, Requirement 3.5.1.c, as pinned 2026-11-03 (same unreadable-PAN excerpt, lines 2984-3055)",
+        "source_digest": "sha256:24d9b959a668bb3271086905ca47eaa3ece8b6e8650d8c1ff9534f3b7520ea45",
+        "derivation": "3.5.1.c requires additional controls such that hashed and truncated versions of the same PAN cannot be correlated to reconstruct the original PAN, and the guidance notes reconstruction from both versions is a trivial effort. Whether such controls exist is a caller-owned fact absent from the input, so the kernel raises DIGEST_TRUNCATION_CORRELATION_REVIEW with manual_review_required true and no findings."
+      },
+      "policy_parameters": {
+        "record": {
+          "record_type": "card_token",
+          "fields": [
+            {
+              "name": "pan",
+              "value_class": "primary_account_number",
+              "mask_expression": "prefix:6,suffix:4"
+            },
+            {
+              "name": "pan_digest",
+              "value_class": "deterministic_digest",
+              "digest_target": "entire_pan",
+              "digest_keyed": true
+            }
+          ]
+        },
+        "stored_elements": [
+          {
+            "name": "pan_index_store",
+            "sad_class": "none",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "manual_review_required",
+        "ceilings": {
+          "display_prefix": 6,
+          "display_suffix": 4
+        },
+        "field_exposure": [
+          {
+            "field": "pan",
+            "prefix_digits": 6,
+            "suffix_digits": 4,
+            "ceiling": {
+              "prefix": 6,
+              "suffix": 4
+            },
+            "verdict": "within_ceiling"
+          }
+        ],
+        "alias_analysis": {
+          "expression": null,
+          "recognized_directives": 0,
+          "prefix_digits": 0,
+          "suffix_digits": 0,
+          "analyzable": false,
+          "declared": false
+        },
+        "search_index_analysis": [],
+        "retention_verdicts": [
+          {
+            "element": "pan_index_store",
+            "sad_class": "none",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true,
+            "verdict": "no_sad_element"
+          }
+        ],
+        "digest_verdicts": [
+          {
+            "field": "pan_digest",
+            "digest_target": "entire_pan",
+            "keyed": true,
+            "verdict": "entire_pan_keyed"
+          }
+        ],
+        "findings": [],
+        "manual_review": [
+          {
+            "code": "DIGEST_TRUNCATION_CORRELATION_REVIEW",
+            "subject": "record",
+            "message": "a keyed digest of the entire PAN and a truncated PAN display coexist in one record; whether additional controls prevent correlation is a caller-owned fact this check cannot verify",
+            "paragraph": "Requirement 3.5.1.c"
+          }
+        ],
+        "issues": [
+          "DIGEST_TRUNCATION_CORRELATION_REVIEW: a keyed digest of the entire PAN and a truncated PAN display coexist in one record; whether additional controls prevent correlation is a caller-owned fact this check cannot verify"
+        ],
+        "manual_review_required": true,
+        "findings_count": 0,
+        "manual_review_count": 1,
+        "container_path": null,
+        "record_type": "card_token"
+      },
+      "golden_hash": "012132c915aaea54b748c9833a5af7fdb11b3a9a320cc53662c0a29a48861650"
+    },
+    {
+      "name": "cvc_property_inside_card_record",
+      "note": "Negative-fixture pattern: a card-type record schema whose example payload carries a card verification code property stored past authorization (documented generically; the pattern appears in published tokenization docs' own card-token examples).",
+      "independent_oracle": {
+        "source": "PCI DSS v4.0.1, Requirements 3.3.1 and 3.3.1.2, as pinned 2026-11-03 (same CVC/PIN excerpt, lines 2695-2765)",
+        "source_digest": "sha256:267c4752c15d67c5e5d484db126fa2726d49b883ba92f99d2c096350e6ffa706",
+        "derivation": "A card-type record that bundles a card verification code property with persistent after-authorization retention stores SAD regardless of how natural the bundling looks in a schema example. 3.3.1 and 3.3.1.2 make no exception for the record type, so SAD_STORED_AFTER_AUTHORIZATION fires for the bundled element."
+      },
+      "policy_parameters": {
+        "record": {
+          "record_type": "card",
+          "fields": [
+            {
+              "name": "pan",
+              "value_class": "primary_account_number",
+              "mask_expression": "prefix:6,suffix:4"
+            },
+            {
+              "name": "cvc",
+              "value_class": "card_verification_code",
+              "mask_expression": "redact:all"
+            }
+          ]
+        },
+        "stored_elements": [
+          {
+            "name": "card_record_with_cvc",
+            "sad_class": "card_verification_code",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": false
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "findings_present",
+        "ceilings": {
+          "display_prefix": 6,
+          "display_suffix": 4
+        },
+        "field_exposure": [
+          {
+            "field": "pan",
+            "prefix_digits": 6,
+            "suffix_digits": 4,
+            "ceiling": {
+              "prefix": 6,
+              "suffix": 4
+            },
+            "verdict": "within_ceiling"
+          }
+        ],
+        "alias_analysis": {
+          "expression": null,
+          "recognized_directives": 0,
+          "prefix_digits": 0,
+          "suffix_digits": 0,
+          "analyzable": false,
+          "declared": false
+        },
+        "search_index_analysis": [],
+        "retention_verdicts": [
+          {
+            "element": "card_record_with_cvc",
+            "sad_class": "card_verification_code",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": false,
+            "verdict": "sad_stored_after_authorization"
+          }
+        ],
+        "digest_verdicts": [],
+        "findings": [
+          {
+            "code": "SAD_STORED_AFTER_AUTHORIZATION",
+            "subject": "card_record_with_cvc",
+            "message": "stores card_verification_code after authorization in persistent storage",
+            "paragraph": "Requirement 3.3.1 / 3.3.1.2"
+          }
+        ],
+        "manual_review": [],
+        "issues": [
+          "SAD_STORED_AFTER_AUTHORIZATION: stores card_verification_code after authorization in persistent storage"
+        ],
+        "manual_review_required": false,
+        "findings_count": 1,
+        "manual_review_count": 0,
+        "container_path": null,
+        "record_type": "card"
+      },
+      "golden_hash": "f1232ea7c9bc9d73a89254bddce9e23a788c9eee7178a96a25fdbf277def5076"
+    },
+    {
+      "name": "alias_template_exceeds_ceiling",
+      "note": "Alias template declares an eight-digit prefix reveal: the masking ceiling applies to the alias surface too.",
+      "independent_oracle": {
+        "source": "PCI DSS v4.0.1, Requirement 3.4.1, as pinned 2026-11-03 (same masking excerpt, lines 2880-2915)",
+        "source_digest": "sha256:a45cd2bf9ebad90d43ad11fba7f9ab9777c71596cd125f7b15685777f7dafcdb",
+        "derivation": "3.4.1 governs PAN displays wherever they occur; an alias template that reveals eight prefix digits is a PAN display above the maximum. ALIAS_DISPLAY_EXCEEDS_CEILING fires for the template while the field mask itself stays within the ceiling."
+      },
+      "policy_parameters": {
+        "record": {
+          "record_type": "card_token",
+          "alias_template": "prefix:8:card-alias",
+          "fields": [
+            {
+              "name": "pan",
+              "value_class": "primary_account_number",
+              "mask_expression": "prefix:6,suffix:4"
+            }
+          ]
+        },
+        "stored_elements": [
+          {
+            "name": "pan_index_store",
+            "sad_class": "none",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "findings_present",
+        "ceilings": {
+          "display_prefix": 6,
+          "display_suffix": 4
+        },
+        "field_exposure": [
+          {
+            "field": "pan",
+            "prefix_digits": 6,
+            "suffix_digits": 4,
+            "ceiling": {
+              "prefix": 6,
+              "suffix": 4
+            },
+            "verdict": "within_ceiling"
+          }
+        ],
+        "alias_analysis": {
+          "expression": "prefix:8:card-alias",
+          "recognized_directives": 1,
+          "prefix_digits": 8,
+          "suffix_digits": 0,
+          "full": false,
+          "analyzable": true,
+          "declared": true
+        },
+        "search_index_analysis": [],
+        "retention_verdicts": [
+          {
+            "element": "pan_index_store",
+            "sad_class": "none",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true,
+            "verdict": "no_sad_element"
+          }
+        ],
+        "digest_verdicts": [],
+        "findings": [
+          {
+            "code": "ALIAS_DISPLAY_EXCEEDS_CEILING",
+            "subject": "alias_template",
+            "message": "alias template reveals prefix=8 suffix=0 digits, above the display ceiling",
+            "paragraph": "Requirement 3.4.1"
+          }
+        ],
+        "manual_review": [],
+        "issues": [
+          "ALIAS_DISPLAY_EXCEEDS_CEILING: alias template reveals prefix=8 suffix=0 digits, above the display ceiling"
+        ],
+        "manual_review_required": false,
+        "findings_count": 1,
+        "manual_review_count": 0,
+        "container_path": null,
+        "record_type": "card_token"
+      },
+      "golden_hash": "56aa4da2d6c5cfa87c7769ddca69d1186e02113aabde94f31c025e684459075a"
+    },
+    {
+      "name": "search_index_exceeds_ceiling",
+      "note": "Search index expression declares an eight-digit suffix reveal.",
+      "independent_oracle": {
+        "source": "PCI DSS v4.0.1, Requirement 3.4.1, as pinned 2026-11-03 (same masking excerpt, lines 2880-2915)",
+        "source_digest": "sha256:a45cd2bf9ebad90d43ad11fba7f9ab9777c71596cd125f7b15685777f7dafcdb",
+        "derivation": "A search index expression that reveals eight suffix digits exceeds the last-four display maximum, so SEARCH_INDEX_DISPLAY_EXCEEDS_CEILING fires for the expression."
+      },
+      "policy_parameters": {
+        "record": {
+          "record_type": "card_token",
+          "search_index_expressions": [
+            "suffix:8:pan-search"
+          ],
+          "fields": [
+            {
+              "name": "pan",
+              "value_class": "primary_account_number",
+              "mask_expression": "prefix:6,suffix:4"
+            }
+          ]
+        },
+        "stored_elements": [
+          {
+            "name": "pan_index_store",
+            "sad_class": "none",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "findings_present",
+        "ceilings": {
+          "display_prefix": 6,
+          "display_suffix": 4
+        },
+        "field_exposure": [
+          {
+            "field": "pan",
+            "prefix_digits": 6,
+            "suffix_digits": 4,
+            "ceiling": {
+              "prefix": 6,
+              "suffix": 4
+            },
+            "verdict": "within_ceiling"
+          }
+        ],
+        "alias_analysis": {
+          "expression": null,
+          "recognized_directives": 0,
+          "prefix_digits": 0,
+          "suffix_digits": 0,
+          "analyzable": false,
+          "declared": false
+        },
+        "search_index_analysis": [
+          {
+            "expression": "suffix:8:pan-search",
+            "recognized_directives": 1,
+            "prefix_digits": 0,
+            "suffix_digits": 8,
+            "full": false,
+            "analyzable": true
+          }
+        ],
+        "retention_verdicts": [
+          {
+            "element": "pan_index_store",
+            "sad_class": "none",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true,
+            "verdict": "no_sad_element"
+          }
+        ],
+        "digest_verdicts": [],
+        "findings": [
+          {
+            "code": "SEARCH_INDEX_DISPLAY_EXCEEDS_CEILING",
+            "subject": "search_index_expressions",
+            "message": "search index expression reveals prefix=0 suffix=8 digits, above the display ceiling",
+            "paragraph": "Requirement 3.4.1"
+          }
+        ],
+        "manual_review": [],
+        "issues": [
+          "SEARCH_INDEX_DISPLAY_EXCEEDS_CEILING: search index expression reveals prefix=0 suffix=8 digits, above the display ceiling"
+        ],
+        "manual_review_required": false,
+        "findings_count": 1,
+        "manual_review_count": 0,
+        "container_path": null,
+        "record_type": "card_token"
+      },
+      "golden_hash": "6bfe42b296fc4fe569f7f1b8b8f89d341dae6e615c87883cf4c4041352bcedad"
+    },
+    {
+      "name": "alias_template_plain_full_pan",
+      "note": "Alias template declares plain display while the field mask stays within the ceiling: the alias surface shows the full PAN.",
+      "independent_oracle": {
+        "source": "PCI DSS v4.0.1, Requirement 3.4.1, as pinned 2026-11-03 (same masking excerpt, lines 2880-2915)",
+        "source_digest": "sha256:a45cd2bf9ebad90d43ad11fba7f9ab9777c71596cd125f7b15685777f7dafcdb",
+        "derivation": "3.4.1 allows the BIN and last four digits at most. A plain alias template displays the whole PAN, so MASK_DISPLAY_FULL_PAN fires for the alias surface exactly as it does for a plain field mask."
+      },
+      "policy_parameters": {
+        "record": {
+          "record_type": "card_token",
+          "alias_template": "plain",
+          "fields": [
+            {
+              "name": "pan",
+              "value_class": "primary_account_number",
+              "mask_expression": "prefix:6,suffix:4"
+            }
+          ]
+        },
+        "stored_elements": [
+          {
+            "name": "pan_index_store",
+            "sad_class": "none",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "findings_present",
+        "ceilings": {
+          "display_prefix": 6,
+          "display_suffix": 4
+        },
+        "field_exposure": [
+          {
+            "field": "pan",
+            "prefix_digits": 6,
+            "suffix_digits": 4,
+            "ceiling": {
+              "prefix": 6,
+              "suffix": 4
+            },
+            "verdict": "within_ceiling"
+          }
+        ],
+        "alias_analysis": {
+          "expression": "plain",
+          "recognized_directives": 1,
+          "prefix_digits": 0,
+          "suffix_digits": 0,
+          "full": true,
+          "analyzable": true,
+          "declared": true
+        },
+        "search_index_analysis": [],
+        "retention_verdicts": [
+          {
+            "element": "pan_index_store",
+            "sad_class": "none",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true,
+            "verdict": "no_sad_element"
+          }
+        ],
+        "digest_verdicts": [],
+        "findings": [
+          {
+            "code": "MASK_DISPLAY_FULL_PAN",
+            "subject": "alias_template",
+            "message": "the expression declares plain display: it shows the full PAN",
+            "paragraph": "Requirement 3.4.1"
+          }
+        ],
+        "manual_review": [],
+        "issues": [
+          "MASK_DISPLAY_FULL_PAN: the expression declares plain display: it shows the full PAN"
+        ],
+        "manual_review_required": false,
+        "findings_count": 1,
+        "manual_review_count": 0,
+        "container_path": null,
+        "record_type": "card_token"
+      },
+      "golden_hash": "df96048fd58fbb7a4e54663bc39b12fa9b3214f80bd74a3a2602127706ec9814"
+    },
+    {
+      "name": "search_index_plain_full_pan",
+      "note": "Search index expression declares plain display while the field mask stays within the ceiling.",
+      "independent_oracle": {
+        "source": "PCI DSS v4.0.1, Requirement 3.4.1, as pinned 2026-11-03 (same masking excerpt, lines 2880-2915)",
+        "source_digest": "sha256:a45cd2bf9ebad90d43ad11fba7f9ab9777c71596cd125f7b15685777f7dafcdb",
+        "derivation": "A search index expression of plain displays the whole PAN, above the BIN plus last four maximum, so MASK_DISPLAY_FULL_PAN fires for the search index surface."
+      },
+      "policy_parameters": {
+        "record": {
+          "record_type": "card_token",
+          "search_index_expressions": [
+            "plain"
+          ],
+          "fields": [
+            {
+              "name": "pan",
+              "value_class": "primary_account_number",
+              "mask_expression": "prefix:6,suffix:4"
+            }
+          ]
+        },
+        "stored_elements": [
+          {
+            "name": "pan_index_store",
+            "sad_class": "none",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true
+          }
+        ]
+      },
+      "output_payload": {
+        "verdict": "findings_present",
+        "ceilings": {
+          "display_prefix": 6,
+          "display_suffix": 4
+        },
+        "field_exposure": [
+          {
+            "field": "pan",
+            "prefix_digits": 6,
+            "suffix_digits": 4,
+            "ceiling": {
+              "prefix": 6,
+              "suffix": 4
+            },
+            "verdict": "within_ceiling"
+          }
+        ],
+        "alias_analysis": {
+          "expression": null,
+          "recognized_directives": 0,
+          "prefix_digits": 0,
+          "suffix_digits": 0,
+          "analyzable": false,
+          "declared": false
+        },
+        "search_index_analysis": [
+          {
+            "expression": "plain",
+            "recognized_directives": 1,
+            "prefix_digits": 0,
+            "suffix_digits": 0,
+            "full": true,
+            "analyzable": true
+          }
+        ],
+        "retention_verdicts": [
+          {
+            "element": "pan_index_store",
+            "sad_class": "none",
+            "retention": "after_authorization",
+            "storage_location_class": "persistent",
+            "encrypted": true,
+            "verdict": "no_sad_element"
+          }
+        ],
+        "digest_verdicts": [],
+        "findings": [
+          {
+            "code": "MASK_DISPLAY_FULL_PAN",
+            "subject": "search_index_expressions",
+            "message": "the expression declares plain display: it shows the full PAN",
+            "paragraph": "Requirement 3.4.1"
+          }
+        ],
+        "manual_review": [],
+        "issues": [
+          "MASK_DISPLAY_FULL_PAN: the expression declares plain display: it shows the full PAN"
+        ],
+        "manual_review_required": false,
+        "findings_count": 1,
+        "manual_review_count": 0,
+        "container_path": null,
+        "record_type": "card_token"
+      },
+      "golden_hash": "34528b887c0c576ae6ce0b4a135bd8867a3070046a35cab0bf76ddec91920132"
+    }
+  ]
+}
