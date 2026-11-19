@@ -1,6 +1,6 @@
 // @ts-nocheck — floor file: node:crypto/Buffer reference section needs it (precedent art-780).
 // art-781-x402-svm-payment-outcome property-test floor.
-// kernel_digest_at_authoring: sha256:02a44c3eef6c57bef88e337628c957117e55abd25fceff0927f83a36aa69b5fa
+// kernel_digest_at_authoring: sha256:4f5bae2b41de82ece147ef21e0f3947d10a0c85aec0af7fb420ee8b87202759c
 // (re-pinned X402-SVM-OUTCOME-CI-HEAL-1: the KERNEL-INPUT-USAGE-CHECK-1 heal removed the dead
 //  `const mintDecimals = pp.mint.decimals;` local at old line 444 — behavior-neutral, all 27
 //  fixture goldens deep-equal byte-identically before and after)
@@ -11,6 +11,7 @@
 //  caller-key lint, whose single hit is the vendored validateField reduce write;
 //  cured with an Object.hasOwn guard — behavior-neutral, all 27 fixture goldens
 //  deep-equal before and after)
+// (re-pinned D6 never-throw cure: buildArtifact walks the execution_hash preimage and refuses unhashable input with a null hash + hash_refusal, compute refusal text is BigInt-safe; behavior-neutral on hashable inputs, all 40 fixture goldens deep-equal byte-identically)
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md section 3. Shape:
@@ -36,12 +37,16 @@
 //     verify path on random messages, and a bit-flip fails both.
 //   - P6 determinism and vocabulary: identical pp in, byte-identical result out, twice; the
 //     serialized output never contains risk or safe wording.
+//   - P7 buildArtifact_never_throws: one fixture per unhashable class (nesting past MAX_DEPTH,
+//     more values than MAX_ELEMENTS, a non-finite number, an integer outside 2^53, a BigInt)
+//     mints an artifact with a null execution_hash and a hash_refusal naming path and kind
+//     only, never the value; a clean input keeps a 64-hex execution_hash and no hash_refusal.
 // float:no — no floating point anywhere. ZERO external dependencies — pure Node built-ins.
 // READ-ONLY w.r.t. the kernel it imports.
 //
 // Run: node chaingraph/kernels/__proptests__/art-781-x402-svm-payment-outcome.proptest.mjs
 
-import { compute } from '../art-781-x402-svm-payment-outcome.kernel.mjs';
+import { compute, buildArtifact } from '../art-781-x402-svm-payment-outcome.kernel.mjs';
 import { createHash, generateKeyPairSync, sign as edSign, verify as edVerify } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -292,6 +297,52 @@ for (let i = 0; i < 6; i++) {
   ok('P6.vocab.safe', !/safe/i.test(all));
   ok('P6.vocab.intent', !/intent/i.test(all));
   ok('P6.vocab.malicious', !/malicious/i.test(all));
+}
+
+// ---- P7 buildArtifact_never_throws (D6) --------------------------------------
+// One fixture per unhashable class: a preimage the shared canonicalizer would reject
+// (nesting past MAX_DEPTH, more values than MAX_ELEMENTS, a non-finite number, an integer
+// outside the 2^53 safe range, a BigInt, which the serializer throws on) must mint an
+// artifact with a null execution_hash and a hash_refusal { reason, detail } beside it that
+// carries the path and kind only, never the value. A clean input keeps a 64-hex
+// execution_hash and carries no hash_refusal.
+{
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const cleanBase = JSON.parse(JSON.stringify(fixtures.vectors.find(v => v.name.startsWith('F30_')).policy_parameters));
+  const hostile = [
+    ['too_deep', 'REFUSED_INPUT_HASH_LIMIT', (pp) => { pp.pp_pad = deep; }],
+    ['too_many_values', 'REFUSED_INPUT_HASH_LIMIT', (pp) => { pp.pp_pad = wide; }],
+    ['non_finite', 'REFUSED_INPUT_UNSAFE_NUMBER', (pp) => { pp.pp_pad = Infinity; }],
+    ['non_finite_nan', 'REFUSED_INPUT_UNSAFE_NUMBER', (pp) => { pp.pp_pad = NaN; }],
+    ['unsafe_integer', 'REFUSED_INPUT_UNSAFE_NUMBER', (pp) => { pp.pp_pad = Number.MAX_SAFE_INTEGER + 2; }],
+    ['bigint_ignored_key', 'REFUSED_INPUT_UNSAFE_NUMBER', (pp) => { pp.pp_pad = 5n; }],
+    ['bigint_validated_field', 'REFUSED_INPUT_UNSAFE_NUMBER', (pp) => { pp.requirements.amount = 5n; }],
+  ];
+  for (const [cls, reason, mut] of hostile) {
+    const pp = JSON.parse(JSON.stringify(cleanBase));
+    mut(pp);
+    let art = null, threw = null;
+    try { art = await buildArtifact(pp); } catch (e) { threw = String(e && e.message).slice(0, 80); }
+    ok('P7.' + cls + '.nothrow', threw === null, threw ?? undefined);
+    if (threw === null) {
+      ok('P7.' + cls + '.nullhash', art.execution_hash === null, String(art.execution_hash).slice(0, 20));
+      ok('P7.' + cls + '.refusal', !!art.hash_refusal && art.hash_refusal.reason === reason
+        && typeof art.hash_refusal.detail === 'string' && art.hash_refusal.detail.length > 0,
+        JSON.stringify(art.hash_refusal ?? null));
+      ok('P7.' + cls + '.noecho', !/e\+3\d\d|Infinity|NaN|9007199254740992|\d{15,}/.test(JSON.stringify(art.hash_refusal ?? null)),
+        JSON.stringify(art.hash_refusal ?? null));
+    }
+  }
+  for (const [label, pp] of [['clean_vector', cleanBase], ['clean_null', null], ['clean_number', 5], ['clean_empty_array', []]]) {
+    let art = null, threw = null;
+    try { art = await buildArtifact(pp); } catch (e) { threw = String(e && e.message).slice(0, 80); }
+    ok('P7.' + label + '.nothrow', threw === null, threw ?? undefined);
+    if (threw === null) {
+      ok('P7.' + label + '.hash', typeof art.execution_hash === 'string' && /^[0-9a-f]{64}$/.test(art.execution_hash), String(art.execution_hash).slice(0, 20));
+      ok('P7.' + label + '.norefusal', art.hash_refusal === undefined, JSON.stringify(art.hash_refusal ?? null));
+    }
+  }
 }
 
 console.log(failed === 0 ? 'PROPTEST GREEN (' + fixtures.vectors.length + ' vectors resolved)' : 'PROPTEST RED: ' + failed + ' failure(s)');

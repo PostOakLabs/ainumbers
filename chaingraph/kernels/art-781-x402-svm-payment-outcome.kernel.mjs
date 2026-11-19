@@ -276,6 +276,14 @@ function refusal(code, detail) {
   };
 }
 
+// BigInt-safe JSON echo for refusal detail strings (D6): JSON.stringify throws a TypeError
+// when the value carries a BigInt, so a malformed input carrying one must still produce a
+// named refusal, never a throw. Values the serializer accepts are echoed byte-identically;
+// only a value it would throw on falls back to String().
+function jsonEcho(v) {
+  try { return JSON.stringify(v); } catch { return String(v); }
+}
+
 const VALID_INSTRUCTION_KINDS = ['transfer_checked', 'memo', 'compute_unit_limit', 'compute_unit_price', 'create_idempotent', 'other'];
 const VALID_TOKEN_PROGRAMS = ['spl-token', 'token-2022'];
 function tokenProgramAddress(tp) {
@@ -329,11 +337,11 @@ export function compute(pp) {
   }
   const rq = pp.requirements;
   const assetBytes = parseAddress(rq.asset);
-  if (assetBytes === null) return refusal('REQUIREMENTS_MALFORMED', 'requirements.asset must be a base58 string decoding to 32 bytes (the mint address); got ' + JSON.stringify(rq.asset ?? null) + '.');
+  if (assetBytes === null) return refusal('REQUIREMENTS_MALFORMED', 'requirements.asset must be a base58 string decoding to 32 bytes (the mint address); got ' + jsonEcho(rq.asset ?? null) + '.');
   const requiredAmount = parseU64Decimal(rq.amount);
-  if (requiredAmount === null) return refusal('AMOUNT_INVALID', 'requirements.amount must be a decimal string in u64 range (base units); got ' + JSON.stringify(rq.amount ?? null) + '.');
+  if (requiredAmount === null) return refusal('AMOUNT_INVALID', 'requirements.amount must be a decimal string in u64 range (base units); got ' + jsonEcho(rq.amount ?? null) + '.');
   const payToBytes = parseAddress(rq.pay_to);
-  if (payToBytes === null) return refusal('REQUIREMENTS_MALFORMED', 'requirements.pay_to must be a base58 string decoding to 32 bytes (the recipient wallet); got ' + JSON.stringify(rq.pay_to ?? null) + '.');
+  if (payToBytes === null) return refusal('REQUIREMENTS_MALFORMED', 'requirements.pay_to must be a base58 string decoding to 32 bytes (the recipient wallet); got ' + jsonEcho(rq.pay_to ?? null) + '.');
 
   const ex = rq.extra && typeof rq.extra === 'object' && !Array.isArray(rq.extra) ? rq.extra : {};
   if (ex.splits !== undefined) {
@@ -343,7 +351,7 @@ export function compute(pp) {
     return refusal('EXTRA_MALFORMED', 'requirements.extra carries unsupported fields; this version reads fee_payer, memo and transaction_versions only.');
   }
   const feePayerBytes = parseAddress(ex.fee_payer);
-  if (feePayerBytes === null) return refusal('EXTRA_MALFORMED', 'requirements.extra.fee_payer must be a base58 string decoding to 32 bytes (the sponsor fee payer; the facilitator /supported response carries it); got ' + JSON.stringify(ex.fee_payer ?? null) + '.');
+  if (feePayerBytes === null) return refusal('EXTRA_MALFORMED', 'requirements.extra.fee_payer must be a base58 string decoding to 32 bytes (the sponsor fee payer; the facilitator /supported response carries it); got ' + jsonEcho(ex.fee_payer ?? null) + '.');
   if (ex.memo !== undefined && typeof ex.memo !== 'string') {
     return refusal('EXTRA_MALFORMED', 'requirements.extra.memo, when present, must be a string (the memo text the transfer must carry).');
   }
@@ -351,11 +359,11 @@ export function compute(pp) {
   let versionsField = ex.transaction_versions;
   if (versionsField === undefined) versionsField = [0];
   if (!Array.isArray(versionsField)) {
-    return refusal('EXTRA_MALFORMED', 'requirements.extra.transaction_versions, when present, must be an array of the JSON integers 0 and/or 1 (spec S1.5); got ' + JSON.stringify(ex.transaction_versions ?? null) + '.');
+    return refusal('EXTRA_MALFORMED', 'requirements.extra.transaction_versions, when present, must be an array of the JSON integers 0 and/or 1 (spec S1.5); got ' + jsonEcho(ex.transaction_versions ?? null) + '.');
   }
   for (const v of versionsField) {
     if (typeof v !== 'number' || !Number.isInteger(v) || (v !== 0 && v !== 1)) {
-      return refusal('EXTRA_MALFORMED', 'requirements.extra.transaction_versions entries must be the JSON integers 0 and/or 1; a string, null, "legacy" or any other integer is invalid and fails closed (spec S1.5); got ' + JSON.stringify(v) + '.');
+      return refusal('EXTRA_MALFORMED', 'requirements.extra.transaction_versions entries must be the JSON integers 0 and/or 1; a string, null, "legacy" or any other integer is invalid and fails closed (spec S1.5); got ' + jsonEcho(v) + '.');
     }
   }
   const acceptedVersions = versionsField;
@@ -369,7 +377,7 @@ export function compute(pp) {
   let txVersion;
   if (txVersionRaw === 'legacy') txVersion = 'legacy';
   else if (txVersionRaw === 0 || txVersionRaw === 1) txVersion = txVersionRaw;
-  else return refusal('TRANSACTION_MALFORMED', 'transaction.version must be "legacy", 0 or 1; got ' + JSON.stringify(txVersionRaw ?? null) + '.');
+  else return refusal('TRANSACTION_MALFORMED', 'transaction.version must be "legacy", 0 or 1; got ' + jsonEcho(txVersionRaw ?? null) + '.');
   if (!Array.isArray(pp.transaction.instructions)) {
     return refusal('TRANSACTION_MALFORMED', 'transaction.instructions must be an array of decoded instruction objects.');
   }
@@ -380,7 +388,7 @@ export function compute(pp) {
       return refusal('INSTRUCTION_MALFORMED', 'transaction.instructions[' + i + '] must be an object.');
     }
     if (!VALID_INSTRUCTION_KINDS.includes(raw.kind)) {
-      return refusal('INSTRUCTION_MALFORMED', 'transaction.instructions[' + i + '].kind must be one of ' + VALID_INSTRUCTION_KINDS.map(k => JSON.stringify(k)).join(', ') + '; got ' + JSON.stringify(raw.kind ?? null) + '.');
+      return refusal('INSTRUCTION_MALFORMED', 'transaction.instructions[' + i + '].kind must be one of ' + VALID_INSTRUCTION_KINDS.map(k => JSON.stringify(k)).join(', ') + '; got ' + jsonEcho(raw.kind ?? null) + '.');
     }
     const ins = { index: i, kind: raw.kind, is_inner: raw.is_inner === true };
     if (raw.is_inner !== undefined && raw.is_inner !== true && raw.is_inner !== false) {
@@ -388,7 +396,7 @@ export function compute(pp) {
     }
     if (raw.kind === 'transfer_checked') {
       if (!VALID_TOKEN_PROGRAMS.includes(raw.token_program)) {
-        return refusal('INSTRUCTION_MALFORMED', 'transaction.instructions[' + i + '].token_program must be "spl-token" or "token-2022" for a transfer_checked instruction; got ' + JSON.stringify(raw.token_program ?? null) + '.');
+        return refusal('INSTRUCTION_MALFORMED', 'transaction.instructions[' + i + '].token_program must be "spl-token" or "token-2022" for a transfer_checked instruction; got ' + jsonEcho(raw.token_program ?? null) + '.');
       }
       ins.token_program = raw.token_program;
       ins.source = parseAddress(raw.source);
@@ -831,10 +839,52 @@ export function compute(pp) {
   return { output_payload, compliance_flags };
 }
 
+// ── hashability walk (D6) ────────────────────────────────────────────────────────
+// Mirrors the classes the shared canonicalizer refuses before serializing (walkIJson in
+// _hash.mjs: nesting past MAX_DEPTH, more values than MAX_ELEMENTS, a non-finite number,
+// an integer outside the 2^53 safe range) plus the one class the serializer itself throws
+// on: a BigInt anywhere in the preimage (JSON serialization TypeError). Reports
+// { reason, detail } with the path and kind only, never the value; null when the subtree
+// is safe to hash. -0 is hashable: no class refuses it and the canonicalizer emits 0.
+// The shared _hash.mjs stays untouched.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'bigint') return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': bigint' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // The object walked below is the exact execution_hash preimage. When the shared
+  // canonicalizer would refuse it, mint the artifact with a null execution_hash and the
+  // reason beside it instead of letting the hash throw (D6): buildArtifact never throws.
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const hash = unhashable === null ? await executionHash(pp, output_payload) : null;
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -850,6 +900,8 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }
 
 /* ===== BEGIN deterministic transcendental math (vendored noble ed25519 + sha256 bundle, inlined; excluded from the mutation surface by the named mutateSurfaceSplits entry in mutation-tiers.config.json) ===== */
