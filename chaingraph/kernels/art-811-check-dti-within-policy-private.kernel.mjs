@@ -134,6 +134,12 @@ export async function buildArtifact(raw, { now, parent_hashes = [], parent_tool_
   };
   const output_payload = {
     dti_within_policy: verdict,
+    // Public parameters the verdict depends on, repeated here so the prover journal (which carries
+    // output but not policy_parameters) binds them: a receipt for one share cannot be attached to
+    // an artifact that claims another.
+    dti_max_bps: r.dti_max_bps,
+    unit,
+    as_of,
     basis: BASIS,
     privacy_note: PRIVACY_NOTE,
     not_legal_advice: NOT_ADVICE,
