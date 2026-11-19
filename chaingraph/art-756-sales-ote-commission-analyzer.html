@@ -99,7 +99,6 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 .social-row svg{width:18px;height:18px;fill:currentColor}
 </style>
 <meta name="kernel-digest" content="sha256:b16c64afb3ceeef8652c4aa0d61ba66b70be5f669ed8970d4a480b4e6aa8b87f">
-<meta name="ai-tool" content="analyze_sales_ote_commission">
 <style>
 /* OCG-CHROME-CSS:v1 */
 /* Canonical nav — derived from chaingraph-hub.html */
@@ -138,6 +137,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 .related-topics{max-width:900px;margin:0 auto}
 
 </style>
+<meta name="ai-tool" content="analyze_sales_ote_commission">
 </head>
 <body>
 <nav>
@@ -171,7 +171,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     </div>
   </div>
 </nav>
-<div class="wrap" role="main" aria-description="Gross W-2 model for a sales OTE offer: base salary plus variable pay as a function of quota attainment, with an optional accelerator tier and an optional recoverable draw. Reports the base commission rate, the at-target variable and total, a flat-rate after-tax figure, the base/variable split with a risk label, a six-level attainment scenario ladder, and draw payback in months with a clawback-elevated flag. Models gross pay only: no tax liability, no FLSA regular rate, no overtime. Refuses ote at or below base and base at or below zero with named reasons. as_of is an input; the node reads no clock.">
+<div class="wrap" role="main" aria-description="Gross W-2 model for a sales OTE offer: base plus variable by quota attainment, with an optional accelerator tier and recoverable draw. Reports the base commission rate, at-target variable and total, a flat-rate after-tax figure, the split with a risk label, a six-level attainment ladder and draw payback months with a clawback flag. No tax liability, no FLSA regular rate, no overtime. Refuses ote &lt;= base and base &lt;= 0 by name. The Apex || zero-coercion is reproduced and reported per field.">
   <div class="eyebrow">OpenChainGraph Suite · ART-756</div>
   <h1>Sales OTE &amp; Commission Analyzer</h1>
   <p class="sub">Gross W-2 model for an On-Target-Earnings offer: base plus variable as a function of quota attainment, with an optional accelerator tier and an optional recoverable draw. Ported from Apex #89 (AL-96).</p>
@@ -182,17 +182,17 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <div class="section-head">OTE structure, attainment and options</div>
     <div class="muted-txt" style="margin-bottom:8px">Edit any field and run. The defaults are the Apex page's own defaults.</div>
     <div class="field-grid">
-      <div class="field"><label for="as_of">as_of</label><input id="as_of" value="2026-10-13" aria-label="as_of" aria-description="Calendar date as YYYY-MM-DD. The node reads no clock."></div>
-      <div class="field"><label for="base_salary">base_salary ($/yr)</label><input id="base_salary" value="75000" aria-label="base_salary"><div class="hint">Must be &gt; 0 and &lt; ote.</div></div>
-      <div class="field"><label for="ote">ote ($/yr)</label><input id="ote" value="150000" aria-label="ote"><div class="hint">On-Target Earnings = total target W-2.</div></div>
-      <div class="field"><label for="quota">quota ($/yr)</label><input id="quota" value="1000000" aria-label="quota"><div class="hint">Scales the displayed base commission rate only :  see DIFFERS D-4.</div></div>
-      <div class="field"><label for="attainment_pct">attainment_pct (%)</label><input id="attainment_pct" value="100" aria-label="attainment_pct"><div class="hint">Selects the highlighted scenario row. Does NOT change the at-target column, which is always exactly 100%.</div></div>
-      <div class="field"><label for="federal_tax_rate_pct">federal_tax_rate_pct (%)</label><input id="federal_tax_rate_pct" value="32" aria-label="federal_tax_rate_pct"><div class="hint">Flat rate on gross W-2. Not a tax computation.</div></div>
-      <div class="field"><label for="has_accelerator">has_accelerator</label><select id="has_accelerator" aria-label="has_accelerator"><option value="true" selected>true :  accelerator tier applies</option><option value="false">false :  linear variable only</option></select></div>
-      <div class="field"><label for="accelerator_threshold_pct">accelerator_threshold_pct (%)</label><input id="accelerator_threshold_pct" value="100" aria-label="accelerator_threshold_pct"><div class="hint">Inactive AT the threshold; active strictly above it.</div></div>
-      <div class="field"><label for="accelerator_multiplier">accelerator_multiplier (×)</label><input id="accelerator_multiplier" value="1.5" aria-label="accelerator_multiplier"><div class="hint">e.g. 1.5 = 150% of the base commission rate above the threshold.</div></div>
-      <div class="field"><label for="has_draw">has_draw</label><select id="has_draw" aria-label="has_draw"><option value="false" selected>false :  no recoverable draw</option><option value="true">true :  model a recoverable draw</option></select></div>
-      <div class="field"><label for="draw_monthly">draw_monthly ($/mo)</label><input id="draw_monthly" value="5000" aria-label="draw_monthly"><div class="hint">Advanced against future commissions. Annual draw = ×12.</div></div>
+      <div class="field"><label for="as_of">as_of</label><input id="as_of" value="2026-10-13" aria-label="as_of" aria-description="Calendar date as YYYY-MM-DD, a real date. The node reads no clock; this is the only date the kernel sees. Invalid dates are refused REFUSED_BAD_AS_OF."></div>
+      <div class="field"><label for="base_salary">base_salary ($/yr)</label><input id="base_salary" value="75000" aria-label="base_salary" aria-description="Annual base salary USD, strictly positive and below ote, else refused BASE_NOT_POSITIVE or OTE_NOT_ABOVE_BASE. Explicit 0 coerces to default 0."><div class="hint">Must be &gt; 0 and &lt; ote.</div></div>
+      <div class="field"><label for="ote">ote ($/yr)</label><input id="ote" value="150000" aria-label="ote" aria-description="On-Target Earnings USD: total target W-2. Must strictly exceed base_salary; equal is refused OTE_NOT_ABOVE_BASE."><div class="hint">On-Target Earnings = total target W-2.</div></div>
+      <div class="field"><label for="quota">quota ($/yr)</label><input id="quota" value="1000000" aria-label="quota" aria-description="Annual quota in USD. Scales only the displayed base commission rate (ote - base)/quota; it cancels in the accelerated branch. Coerced to 1 when 0."><div class="hint">Scales the displayed base commission rate only :  see DIFFERS D-4.</div></div>
+      <div class="field"><label for="attainment_pct">attainment_pct (%)</label><input id="attainment_pct" value="100" aria-label="attainment_pct" aria-description="Quota attainment percent (100 = 100%). At-target column always uses 100%; this selects the highlighted ladder row. Coerced to 100 when 0."><div class="hint">Selects the highlighted scenario row. Does NOT change the at-target column, which is always exactly 100%.</div></div>
+      <div class="field"><label for="federal_tax_rate_pct">federal_tax_rate_pct (%)</label><input id="federal_tax_rate_pct" value="32" aria-label="federal_tax_rate_pct" aria-description="Flat federal rate percent on gross W-2. NOT a tax computation: no standard deduction, bracket stacking, state tax or FICA. Coerced to 32 when 0."><div class="hint">Flat rate on gross W-2. Not a tax computation.</div></div>
+      <div class="field"><label for="has_accelerator">has_accelerator</label><select id="has_accelerator" aria-label="has_accelerator" aria-description="True to apply the accelerator tier. The accelerator fields are still read unconditionally but never affect any output when false."><option value="true" selected>true :  accelerator tier applies</option><option value="false">false :  linear variable only</option></select></div>
+      <div class="field"><label for="accelerator_threshold_pct">accelerator_threshold_pct (%)</label><input id="accelerator_threshold_pct" value="100" aria-label="accelerator_threshold_pct" aria-description="Attainment percent above which the multiplier applies; STRICTLY inactive at the threshold. Coerced to 100 when 0."><div class="hint">Inactive AT the threshold; active strictly above it.</div></div>
+      <div class="field"><label for="accelerator_multiplier">accelerator_multiplier (×)</label><input id="accelerator_multiplier" value="1.5" aria-label="accelerator_multiplier" aria-description="Multiplier on the base commission rate above the threshold, e.g. 1.5 = 150%. Applied only when has_accelerator is true. Coerced to 1.5 when 0."><div class="hint">e.g. 1.5 = 150% of the base commission rate above the threshold.</div></div>
+      <div class="field"><label for="has_draw">has_draw</label><select id="has_draw" aria-label="has_draw" aria-description="True to model a recoverable draw against future commissions. When false the draw block is absent and draw_monthly is read but unused."><option value="false" selected>false :  no recoverable draw</option><option value="true">true :  model a recoverable draw</option></select></div>
+      <div class="field"><label for="draw_monthly">draw_monthly ($/mo)</label><input id="draw_monthly" value="5000" aria-label="draw_monthly" aria-description="Monthly draw advance in USD, applied only when has_draw is true and &gt; 0. Annual draw is draw_monthly * 12. Coerced to 0 when 0, disabling the block."><div class="hint">Advanced against future commissions. Annual draw = ×12.</div></div>
     </div>
     <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
       <button onclick="run()">Run</button>
@@ -239,13 +239,88 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
   <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `analyze_sales_ote_commission`. Task: Gross W-2 model for a sales OTE offer: base plus variable by quota attainment, with an optional accelerator tier and recoverable draw.
 Call it with arguments: {"policy_parameters":{"as_of":"2026-10-13","base_salary":75000,"ote":150000,"quota":1000000,"attainment_pct":100,"federal_tax_rate_pct":32,"accelerator_threshold_pct":100,"accelerator_multiplier":1.5,"draw_monthly":5000,"has_accelerator":true,"has_draw":false}}
-Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string.
+Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string, or re-run the in-page WebMCP tool `analyze_sales_ote_commission`.
 Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.
 PII rule: All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
 Over MCP, the run happens on the AINumbers worker. No AINumbers server stores your inputs.
 Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-756-sales-ote-commission-analyzer.html#p=v1.H4sIAAAAAAAA_wHvABD_eyJhc19vZiI6IjIwMjYtMTAtMTMiLCJiYXNlX3NhbGFyeSI6NzUwMDAsIm90ZSI6MTUwMDAwLCJxdW90YSI6MTAwMDAwMCwiYXR0YWlubWVudF9wY3QiOjEwMCwiZmVkZXJhbF90YXhfcmF0ZV9wY3QiOjMyLCJhY2NlbGVyYXRvcl90aHJlc2hvbGRfcGN0IjoxMDAsImFjY2VsZXJhdG9yX211bHRpcGxpZXIiOjEuNSwiZHJhd19tb250aGx5Ijo1MDAwLCJoYXNfYWNjZWxlcmF0b3IiOnRydWUsImhhc19kcmF3IjpmYWxzZX105pf17wAAAA</pre>
 </section>
 <!-- ASK-AGENT:END -->
+
+<!-- A11Y-TREE:BEGIN generator=scripts/check-a11y-tree.mjs manifest=manifests/art-756-sales-ote-commission-analyzer.manifest.json -->
+<script>
+/* OCG-A11Y-TREE v1 */
+/* Accessibility-tree enhancement for this node page. DO NOT hand-edit; emitted
+   by scripts/check-a11y-tree.mjs from chaingraph/_page-chrome.mjs (row
+   TOOLPAGE-A11Y-1). Form-control labels are emitted statically from the
+   manifest (aria-label = property name); this script owns the single
+   aria-live status region and the post-compute announcement. */
+(function () {
+  'use strict';
+  var RUN_TARGET = "run";
+  var TABLE = {"as_of":["as_of","Calendar date as YYYY-MM-DD, a real date. The node reads no clock; this is the only date the kernel sees. Invalid dates are refused REFUSED_BAD_AS_OF."],"base_salary":["base_salary","Annual base salary USD, strictly positive and below ote, else refused BASE_NOT_POSITIVE or OTE_NOT_ABOVE_BASE. Explicit 0 coerces to default 0."],"ote":["ote","On-Target Earnings USD: total target W-2. Must strictly exceed base_salary; equal is refused OTE_NOT_ABOVE_BASE."],"quota":["quota","Annual quota in USD. Scales only the displayed base commission rate (ote - base)/quota; it cancels in the accelerated branch. Coerced to 1 when 0."],"attainment_pct":["attainment_pct","Quota attainment percent (100 = 100%). At-target column always uses 100%; this selects the highlighted ladder row. Coerced to 100 when 0."],"federal_tax_rate_pct":["federal_tax_rate_pct","Flat federal rate percent on gross W-2. NOT a tax computation: no standard deduction, bracket stacking, state tax or FICA. Coerced to 32 when 0."],"has_accelerator":["has_accelerator","True to apply the accelerator tier. The accelerator fields are still read unconditionally but never affect any output when false."],"accelerator_threshold_pct":["accelerator_threshold_pct","Attainment percent above which the multiplier applies; STRICTLY inactive at the threshold. Coerced to 100 when 0."],"accelerator_multiplier":["accelerator_multiplier","Multiplier on the base commission rate above the threshold, e.g. 1.5 = 150%. Applied only when has_accelerator is true. Coerced to 1.5 when 0."],"has_draw":["has_draw","True to model a recoverable draw against future commissions. When false the draw block is absent and draw_monthly is read but unused."],"draw_monthly":["draw_monthly","Monthly draw advance in USD, applied only when has_draw is true and > 0. Annual draw is draw_monthly * 12. Coerced to 0 when 0, disabling the block."]};
+  var VERDICT_KEYS = ["verdict","final_verdict","overall_verdict","significance_verdict","classification","entity_classification","conclusion","outcome","decision","grade","overall_status","status"];
+  var st = null;
+  function ensureRegion() {
+    if (st && document.body && typeof document.body.contains === 'function' && document.body.contains(st)) return st;
+    st = document.createElement('div');
+    st.id = 'ocg-a11y-status';
+    st.setAttribute('role', 'status');
+    st.setAttribute('aria-live', 'polite');
+    st.style.cssText = 'position:absolute!important;width:1px!important;height:1px!important;margin:-1px!important;padding:0!important;border:0!important;clip:rect(0 0 0 0)!important;clip-path:inset(50%)!important;overflow:hidden!important;white-space:nowrap!important';
+    (document.body || document.documentElement).appendChild(st);
+    return st;
+  }
+  function artifact() {
+    var cands = ['_lastResult', '_lastArtifact'];
+    for (var i = 0; i < cands.length; i++) {
+      try {
+        var v = window[cands[i]];
+        if (v && typeof v === 'object' && typeof v.execution_hash === 'string' && v.execution_hash) return v;
+      } catch (e) { /* pages without either global simply expose nothing */ }
+    }
+    return null;
+  }
+  function verdictOf(payload) {
+    if (!payload || typeof payload !== 'object') return null;
+    for (var i = 0; i < VERDICT_KEYS.length; i++) {
+      var v = payload[VERDICT_KEYS[i]];
+      if (typeof v === 'string' && v) return v;
+      if (typeof v === 'boolean' || typeof v === 'number') return VERDICT_KEYS[i] + ': ' + v;
+    }
+    for (var k in payload) {
+      var v2 = payload[k];
+      if (typeof v2 === 'boolean') return k + ': ' + v2;
+    }
+    return null;
+  }
+  function announce() {
+    var region = ensureRegion();
+    var a = artifact();
+    if (!a) { region.textContent = 'Run complete. See the result panel for the full verdict.'; return; }
+    var msg = 'Run complete. execution_hash ' + a.execution_hash;
+    var v = verdictOf(a.output_payload);
+    if (v) msg += '. Verdict: ' + v;
+    region.textContent = msg;
+  }
+  function wrap() {
+    try {
+      var orig = window[RUN_TARGET];
+      if (typeof orig !== 'function' || orig.__ocgA11yWrapped) return;
+      var wrapped = function () {
+        var r = orig.apply(this, arguments);
+        Promise.resolve(r).then(announce, function () { /* the page's own error surface reports failures */ });
+        return r;
+      };
+      wrapped.__ocgA11yWrapped = true;
+      window[RUN_TARGET] = wrapped;
+    } catch (e) { /* a chrome-less harness must never break the tool itself */ }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wrap);
+  else wrap();
+})();
+</script>
+<!-- A11Y-TREE:END -->
 
 <footer>
   <div class="footer-inner">
