@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1324 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1325 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -4791,6 +4791,9 @@
       "name": "mcp:caregiver_income_impact"
     },
     {
+      "name": "mcp:cashleg_window_exposure"
+    },
+    {
       "name": "mcp:check_force_placed_notice"
     },
     {
@@ -5362,6 +5365,9 @@
     },
     {
       "name": "openzeppelin"
+    },
+    {
+      "name": "operating-hours"
     },
     {
       "name": "operational resilience"
@@ -6643,6 +6649,9 @@
     },
     {
       "name": "settlement summary"
+    },
+    {
+      "name": "settlement-risk"
     },
     {
       "name": "settlement-terms"
@@ -53486,8 +53495,11 @@
                       "type": "string"
                     },
                     "currency": {
-                      "description": "The document currency when a string of 16 characters or fewer",
-                      "type": "string"
+                      "description": "The document currency when a string of 16 characters or fewer, null when the call is refused",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "rounding_applied": {
                       "description": "The rounding rule applied to lines",
@@ -53498,16 +53510,25 @@
                       "type": "boolean"
                     },
                     "totals_identity_ok": {
-                      "description": "True when the declared breakdown entries sum to the declared total",
-                      "type": "boolean"
+                      "description": "True when the declared breakdown entries sum to the declared total, null when not evaluated",
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
                     },
                     "declared_total": {
-                      "description": "The declared total entry amount in minor units",
-                      "type": "integer"
+                      "description": "The declared total entry amount in minor units, null when not evaluated",
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
                     },
                     "computed_total": {
                       "description": "The recomputed breakdown sum in minor units, null when not evaluated",
-                      "type": "integer"
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
                     },
                     "negative_total": {
                       "description": "True when the declared total is negative, reported informationally per UCP issue #1025",
@@ -140003,6 +140024,263 @@
         },
         "x-mcp-tool-name": "assess_pfmi_proportional",
         "x-tool-url": "https://ainumbers.co/chaingraph/art-846-assess-pfmi-proportional.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
+    "/v1/tools/cashleg_window_exposure": {
+      "post": {
+        "operationId": "cashleg_window_exposure",
+        "summary": "Cash-Leg Window Exposure",
+        "description": "Computes how long a token leg that settles at any hour waits for a cash leg that only moves while a payment rail is open, against a rail calendar or UTC windows the caller declares: exposure seconds, principal-seconds, next window open and close, weekend crossing and an optional carry cost (actual over 365, half-even). The node hardcodes no calendar and reads no clock.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-847-cashleg-window-exposure.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "settlement-risk",
+          "cash-leg",
+          "operating-hours",
+          "tokenization",
+          "mcp:cashleg_window_exposure"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token_leg_time": {
+                    "type": "string",
+                    "description": "Instant the token leg settles, strict UTC YYYY-MM-DDTHH:MM:SSZ."
+                  },
+                  "as_of": {
+                    "type": "string",
+                    "description": "Caller-declared evaluation instant, strict UTC."
+                  },
+                  "principal_minor_units": {
+                    "type": "string",
+                    "description": "Principal in integer minor units, decimal string, at most 18 digits."
+                  },
+                  "funding_rate_bp": {
+                    "type": "number",
+                    "description": "Optional funding rate in whole basis points, 0 to 100000."
+                  },
+                  "horizon_days": {
+                    "type": "number",
+                    "description": "Optional search horizon in whole days, 1 to 60; 14 when absent."
+                  },
+                  "cash_instrument": {
+                    "type": "string",
+                    "description": "Optional label: fiat_bank_money, stablecoin, deposit_token or future_instrument."
+                  },
+                  "cash_leg_open_windows": {
+                    "type": "array",
+                    "description": "Declared UTC cash windows of open_utc and close_utc. Declare exactly one of this or rail_calendar."
+                  },
+                  "rail_calendar": {
+                    "type": "object",
+                    "description": "Declared versioned rail table: weekday window rules, UTC offsets by date range and holidays."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "as_of": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "calendar_version": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "carry_cost_minor_units": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "carry_rounding": {
+                      "type": "string"
+                    },
+                    "cash_instrument": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "fiat_bank_money",
+                        "future_instrument",
+                        null
+                      ]
+                    },
+                    "crosses_weekend": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ],
+                      "enum": [
+                        false,
+                        true,
+                        null
+                      ]
+                    },
+                    "day_count": {
+                      "type": "string"
+                    },
+                    "domain_errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "exposure_principal_seconds": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "exposure_seconds": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "funding_rate_bp": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "horizon_days": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "next_cash_window_close": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "next_cash_window_open": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "principal_minor_units": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "rail_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "fednow-service",
+                        "fedwire-funds-service",
+                        null
+                      ]
+                    },
+                    "refusal_code": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "source_pin": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "token_leg_time": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "valid_input": {
+                      "type": "boolean",
+                      "enum": [
+                        false,
+                        true
+                      ]
+                    },
+                    "verdict": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "ATOMIC_POSSIBLE",
+                        "NO_WINDOW_IN_HORIZON",
+                        "WINDOWED",
+                        null
+                      ]
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "CASH_LEG_LAGS_TOKEN_LEG",
+                          "EXPOSURE_CROSSES_WEEKEND",
+                          "INPUT_REFUSED",
+                          "NO_CASH_WINDOW_IN_HORIZON",
+                          "TOKEN_LEG_AFTER_AS_OF"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "as_of",
+                    "calendar_version",
+                    "carry_cost_minor_units",
+                    "carry_rounding",
+                    "cash_instrument",
+                    "crosses_weekend",
+                    "day_count",
+                    "domain_errors",
+                    "exposure_principal_seconds",
+                    "exposure_seconds",
+                    "funding_rate_bp",
+                    "horizon_days",
+                    "next_cash_window_close",
+                    "next_cash_window_open",
+                    "principal_minor_units",
+                    "rail_id",
+                    "refusal_code",
+                    "source_pin",
+                    "token_leg_time",
+                    "valid_input",
+                    "verdict",
+                    "warnings"
+                  ],
+                  "additionalProperties": false,
+                  "x-derived-from": "fixture"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "cashleg_window_exposure",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-847-cashleg-window-exposure.html",
         "x-source": "manifest",
         "x-ap2-export": true
       }
