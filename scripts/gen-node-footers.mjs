@@ -116,7 +116,10 @@ async function normalizer() {
 async function run({ apply, dir = CG, targets = ownedBasenames() }) {
   await exemptParseMatches();
   const { normalizeChrome } = await normalizer();
-  return normalizeChrome({ dir, targets, apply, footerOnly: true });
+  // SITE-CHROME-GAPS-1: pages whose print template carries an in-script
+  // <footer> now also carry a rendered canonical footer. 'add' keeps the
+  // template bytes untouched and refreshes only the rendered region.
+  return normalizeChrome({ dir, targets, apply, footerOnly: true, scriptFooterMode: 'add' });
 }
 
 function footerSpan(html) {
