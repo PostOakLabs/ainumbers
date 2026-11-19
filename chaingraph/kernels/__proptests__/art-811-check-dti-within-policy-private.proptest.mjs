@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:decfd41bf3e450e1251e6cf36e4c3286f4008c9c8cfa831220b10804b8da7cb6
+// kernel_digest_at_authoring: sha256:09e9f68d93b69dfde091d9432376641f8e8c789d9e615e9a9e2851e9016ef3dd
 //
 // Property-test floor for art-811-check-dti-within-policy-private.
 // Class K (integer decision kernel, BigInt arithmetic, no floats; exact-shape refusals).
