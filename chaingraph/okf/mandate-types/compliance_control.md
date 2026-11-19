@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-151"]
+tags: ["compliance_control", "count-152"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-151 tool(s) in this mandate-type group:
+152 tool(s) in this mandate-type group:
 
 - [EMV MPM QR Payload Validator](../tools/783-emv-mpm-qr-validator.md)
 - [QR Go-Live Readiness Assessor](../tools/785-qr-golive-readiness.md)
@@ -18,6 +18,7 @@ status: stable
 - [Curator Vault Cap Auditor](../tools/792-curator-vault-cap-auditor.md)
 - [Event Fee Recompute](../tools/794-event-fee-recompute.md)
 - [Stablecoin Refund Dispute Check](../tools/795-stablecoin-refund-dispute.md)
+- [Payment System MI Pack](../tools/796-payment-system-mi-pack.md)
 - [Stablecoin Cash Equivalent Test (FASB Proposed 2026-08)](../tools/797-stablecoin-cash-equivalent-test.md)
 - [Assess Sandbox Application Readiness](../tools/798-assess-sandbox-application-readiness.md)
 - [Event Contract Terms Lint](../tools/806-event-contract-terms-lint.md)

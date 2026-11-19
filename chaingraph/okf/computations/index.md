@@ -32,6 +32,7 @@ status: stable
 - [Curator Vault Cap Auditor](./792-curator-vault-cap-auditor.md)
 - [Event Fee Recompute](./794-event-fee-recompute.md)
 - [Stablecoin Refund Dispute Check](./795-stablecoin-refund-dispute.md)
+- [Payment System MI Pack](./796-payment-system-mi-pack.md)
 - [Stablecoin Cash Equivalent Test (FASB Proposed 2026-08)](./797-stablecoin-cash-equivalent-test.md)
 - [Assess Sandbox Application Readiness](./798-assess-sandbox-application-readiness.md)
 - [Event Contract Terms Lint](./806-event-contract-terms-lint.md)
