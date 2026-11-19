@@ -5,8 +5,8 @@
 // so output is reproducible artifact-to-artifact.
 //
 // Reference implementation: single Helvetica/Helvetica-Bold Type1 font, WinAnsi,
-// Letter page. QR of the verify_url is a TODO (needs a QR encoder) — the URL is
-// rendered as text for now. Harden before GA.
+// Letter page. Page 1 carries the verify_url QR (reference-parity encoder) and
+// the URL is printed as text in the provenance footer. Harden before GA.
 
 import { metaBlock, exportFilename, flattenPayload } from './_meta.mjs';
 import { qrMatrix } from './qr.mjs';
@@ -47,8 +47,8 @@ function asciiSafe(s) {
 function escapePdf(s) { return asciiSafe(s).replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)'); }
 
 // Approximate character wrap (no font metrics): Helvetica avg width ~0.5em.
-function wrap(text, size) {
-  const max = Math.max(8, Math.floor(USABLE_W / (size * 0.5)));
+function wrap(text, size, usable = USABLE_W) {
+  const max = Math.max(8, Math.floor(usable / (size * 0.5)));
   const words = asciiSafe(text).split(/\s+/);
   const lines = [];
   let cur = '';
@@ -104,14 +104,24 @@ function layoutLines(artifact) {
   return L;
 }
 
-function paginate(lines) {
+function paginate(lines, reserve) {
   const pages = [];
-  let cur = [], y = Y_TOP;
-  for (const ln of lines) {
+  let cur = [], y = Y_TOP, pageIdx = 0;
+  const place = (ln) => {
     const lead = Math.max(ln.size, 8) * 1.6;
-    if (y - lead < Y_BOTTOM) { pages.push(cur); cur = []; y = Y_TOP; }
+    if (y - lead < Y_BOTTOM) { pages.push(cur); cur = []; y = Y_TOP; pageIdx++; }
     y -= lead;
     cur.push({ ...ln, x: X_LEFT, y: Math.round(y) });
+  };
+  for (const ln of lines) {
+    // Page 1 only: a line whose glyph box shares the QR reserved band lays out
+    // in the narrowed column left of the box, so no body line prints through
+    // the symbol. Glyph box approximated as baseline -0.25*size .. +0.75*size.
+    const base = y - Math.max(ln.size, 8) * 1.6;
+    const inBand = pageIdx === 0 && reserve && ln.text &&
+      (base - 0.25 * ln.size) <= reserve.box.y1 && (base + 0.75 * ln.size) >= reserve.box.y0;
+    if (inBand) for (const piece of wrap(ln.text, ln.size, reserve.box.x0 - X_LEFT)) place({ ...ln, text: piece });
+    else place(ln);
   }
   if (cur.length) pages.push(cur);
   return pages.length ? pages : [[]];
@@ -126,17 +136,40 @@ function pageContent(pageLines) {
   return s;
 }
 
-// Top-right QR of the verify_url, drawn as filled module squares. Additive — the
-// verify URL is also printed as text, so a non-scanning QR never loses information.
-function qrOps(artifact) {
+// QR geometry, shared by the page-1 draw (qrOps) and the text reservation
+// (paginate). The symbol needs 4 clear modules on every side (ISO/IEC 18004
+// quiet zone): 9.2 pt at the 2.3 pt module size. Returns null when there is no
+// verify URL or the URL does not encode — no symbol, no reservation.
+const QR_MS = 2.3, QR_QUIET = QR_MS * 4;
+function qrGeometry(artifact) {
   const url = metaBlock(artifact).verify_url;
-  if (!url) return '';
+  if (!url) return null;
   let mat;
-  try { mat = qrMatrix(url); } catch { return ''; } // too long / encode error → skip QR
-  const ms = 2.3, n = mat.size;
-  const x0 = PAGE_W - X_LEFT - n * ms;     // right-aligned in the right margin
-  const yTop = Y_TOP - 4;                   // just below the top margin
-  let s = `BT /F1 7 Tf 1 0 0 1 ${x0.toFixed(2)} ${(yTop + 8).toFixed(2)} Tm (${escapePdf('Scan to verify')}) Tj ET\n0 0 0 rg\n`;
+  try { mat = qrMatrix(url); } catch { return null; } // too long / encode error → skip QR
+  const ms = QR_MS, n = mat.size;
+  const x = PAGE_W - X_LEFT - n * ms;   // right-aligned in the right margin
+  const yTop = Y_TOP - 4;               // just below the top margin
+  return {
+    mat, ms, n, x, yTop,
+    // Symbol plus quiet zone: the box nothing else on page 1 may touch.
+    box: {
+      x0: x - QR_QUIET, x1: x + n * ms + QR_QUIET,
+      y0: yTop - n * ms - QR_QUIET, y1: yTop + QR_QUIET,
+    },
+  };
+}
+
+// Top-right QR of the verify_url on page 1, drawn as filled module squares over
+// a white quiet-zone underlay. Additive — the verify URL is also printed as text
+// in the provenance footer, so a non-scanning QR never loses information. The
+// draw carries no label: it would sit inside the quiet zone, which ISO/IEC 18004
+// requires clear of every other mark.
+function qrOps(g) {
+  const { mat, ms, n, x: x0, yTop, box } = g;
+  // White underlay first, so the quiet zone is clean even if anything earlier
+  // in the stream reached into the box; then the black module squares.
+  let s = `1 1 1 rg\n${box.x0.toFixed(2)} ${box.y0.toFixed(2)} ` +
+    `${(box.x1 - box.x0).toFixed(2)} ${(box.y1 - box.y0).toFixed(2)} re f\n0 0 0 rg\n`;
   for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
     if (!mat.modules[i][j]) continue;
     const x = x0 + j * ms, y = yTop - (i + 1) * ms;
@@ -154,7 +187,8 @@ function latin1Bytes(str) {
 
 /** buildPdf(artifact) -> { bytes, filename, media_type } */
 export function buildPdf(artifact) {
-  const pages = paginate(layoutLines(artifact));
+  const geo = qrGeometry(artifact);
+  const pages = paginate(layoutLines(artifact), geo);
 
   // Object plan: 1 Catalog, 2 Pages, 3 Font(reg), 4 Font(bold), then per page: content + page obj.
   const all = [];
@@ -168,17 +202,10 @@ export function buildPdf(artifact) {
   for (const pl of pages) {
     const contentNum = objNum++, pageNum = objNum++;
     let stream = pageContent(pl);
-    // QR STILL PARKED. The verify URL is printed as text, so nothing is lost.
-    // History: two encoder attempts (hand-rolled, then a Nayuki port) did not reliably scan.
-    // 2026-11: the port was compared against upstream's own encoder and three defects were
-    // fixed; qr.mjs now matches the reference on every vector (qr-reference-parity.test.mjs).
-    // Before restoring the line below, two things in qrOps() above still need doing:
-    //   1. Quiet zone. The "Scan to verify" label sits about 6.5 pt above the symbol; the
-    //      symbol needs 4 modules (9.2 pt at ms = 2.3) clear on every side.
-    //   2. Overlap. The symbol spans x 436..540, inside the body text column (72..540), so
-    //      a long line near the top of page 1 can print through it.
-    // Then scan a printed sample-export.pdf with a phone, and restore:
-    //   if (pageIdx === 0) stream += qrOps(artifact);
+    // Page-1 QR. qr.mjs is pinned to upstream's own encoder on all 40 versions
+    // by qr-reference-parity.test.mjs; paginate() reserved this symbol's box
+    // out of the page-1 text column and qrOps() paints the 4-module quiet zone.
+    if (pageIdx === 0 && geo) stream += qrOps(geo);
     pageIdx++;
     all[contentNum] = `<< /Length ${stream.length} >>\nstream\n${stream}endstream`;
     all[pageNum] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_W} ${PAGE_H}] ` +
