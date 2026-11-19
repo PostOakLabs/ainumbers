@@ -1,7 +1,7 @@
 // art-750-diff-evidence-bundles.proptest.mjs — class-K property-test FLOOR
 // (FV-PBT-FLOOR-BUILD-SPEC.md). Authored against the port of the root
 // bundle-diff.html comparison engine (kernel art-750, row BUNDLE-DIFF-KERNEL-1).
-// kernel_digest_at_authoring: sha256:693b7edea3f0a7a3d0123d9918e30abee3503aa91c3cf880d882c89fb78aab16
+// kernel_digest_at_authoring: sha256:f3e30744a005023a5cb1afdcef877f24562d6452ebe35737b28f4ee98c6d4350
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof. Internal engineering QC only.
@@ -218,6 +218,23 @@ function checkP7DepthCap() {
   return { name: 'P7 depth cap refusal', checked, violations };
 }
 
+// P8 — type-preserving walk: values of different JSON types never compare equal.
+function checkP8TypePreserved() {
+  let checked = 0, violations = 0;
+  for (const n of [0, 1, 111, 42.5, -7]) {
+    const out = compute({ bundle_a: { execution_hash: n }, bundle_b: { execution_hash: String(n) } }).output_payload;
+    checked++;
+    if (out.bundles_identical !== false || out.hashes.status !== 'changed') violations++;
+    checked++;
+    const row = out.hashes.rows[0];
+    if (!row || row.kind !== 'changed' || row.from !== n || row.to !== String(n)) violations++;
+    // same type on both sides stays identical
+    checked++;
+    if (compute({ bundle_a: { execution_hash: n }, bundle_b: { execution_hash: n } }).output_payload.bundles_identical !== true) violations++;
+  }
+  return { name: 'P8 number vs string never compare equal', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -233,6 +250,7 @@ const properties = [
   checkP5VerdictRegression(),
   checkP6ShapeMigrationInvariance(),
   checkP7DepthCap(),
+  checkP8TypePreserved(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — bundle-diff kernel.`);
 const ok = summarize(KERNEL_ID, oracle, properties);

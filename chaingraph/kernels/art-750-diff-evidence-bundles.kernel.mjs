@@ -63,8 +63,10 @@ function walk(obj, matcher, prefix, out, depth) {
   for (const k of keys) {
     const v = obj[k];
     const path = prefix ? prefix + '.' + k : k;
-    if (matcher(k) && (typeof v === 'string' || typeof v === 'number') && String(v).length) {
-      out[path] = String(v);
+    // Type-preserving: the raw JSON value is kept, so 111 (number) and "111"
+    // (string) never compare equal downstream.
+    if (matcher(k) && ((typeof v === 'string' && v.length > 0) || typeof v === 'number')) {
+      out[path] = v;
     }
     if (v && typeof v === 'object') walk(v, matcher, path, out, depth + 1);
   }
