@@ -311,6 +311,40 @@ try {
     setPage(rootG, 'art-1-x.html', metaPage(DIGEST_V2));
     assert(run(rootG).status === 1, '(g) art-* RED path is unchanged');
   }
+  // (h) PAGE-DIGEST-UPDATE-SHRINK-FIX-1: --update must drop a now-OK stale entry even while a
+  // DIFFERENT entry is still stale inside the shield. Before the fix the still-shielded page was
+  // measured with the STALE_SHIELDED label, which never byte-matches its pinned MISMATCH entry,
+  // so the updater read it as an addition and refused the whole update (the PR-3140 shape — five
+  // restamped pages stuck behind still-stale neighbours, forcing a forbidden hand edit).
+  const rootH = makeTree(
+    { '905-was-stale.html': metaPage(DIGEST_V1), '906-still-stale.html': metaPage(DIGEST_V1) },
+    { '905-was-stale.kernel.mjs': KERNEL_V2, '906-still-stale.kernel.mjs': KERNEL_V2 }
+  );
+  tmpRoots.push(rootH);
+  {
+    run(rootH, '--init-numeric');
+    const before = readNum(rootH);
+    assert(before.stale.length === 2 && before.max_stale === 2, '(h) init records both stale pages, ceiling 2');
+    // 905 is rebuilt and restamped to the CURRENT kernel (verdict OK); 906 keeps serving the exact
+    // pinned wrong digest, so its verdict becomes STALE_SHIELDED.
+    setPage(rootH, '905-was-stale.html', metaPage(DIGEST_V2));
+    const u = run(rootH, '--update');
+    assert(u.status === 0, '(h) --update drops the fixed entry while another entry is still stale in the shield (was: refused)');
+    const after = readNum(rootH);
+    assert(after.stale.length === 1 && after.max_stale === 1, '(h) the fixed entry is removed and max_stale drops by one');
+    assert(after.stale[0]?.page === 'chaingraph/906-still-stale.html', '(h) the still-stale entry is the one that survives');
+    assert(
+      JSON.stringify(after.stale[0]) === JSON.stringify(before.stale.find((e) => e.page === 'chaingraph/906-still-stale.html')),
+      '(h) the surviving entry is byte-identical to its pinned state (kept, not re-pinned)'
+    );
+    assert(run(rootH).status === 0, '(h) the gate is green after the mixed-state shrink');
+    // the ratchet is intact: CHANGING the surviving page's wrong digest is a pinned-state change,
+    // still refused even though the baseline just shrank
+    const beforeChange = readFileSync(NUM_BASELINE(rootH), 'utf8');
+    setPage(rootH, '906-still-stale.html', metaPage('sha256:' + 'b'.repeat(64)));
+    assert(run(rootH, '--update').status === 1, '(h) --update still REFUSES a changed pinned state in the same mixed baseline');
+    assert(readFileSync(NUM_BASELINE(rootH), 'utf8') === beforeChange, '(h) the refused --update leaves the baseline untouched');
+  }
 } finally {
   for (const d of tmpRoots) rmSync(d, { recursive: true, force: true });
 }
