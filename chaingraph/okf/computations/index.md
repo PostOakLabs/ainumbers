@@ -29,6 +29,7 @@ status: stable
 - [CBR Data Return Validator](./784-cbr-data-return-validator.md)
 - [QR Go-Live Readiness Assessor](./785-qr-golive-readiness.md)
 - [Corridor Cost Averages](./787-corridor-cost-averages.md)
+- [Event Contract Position Limit Check](./790-event-position-limit-check.md)
 - [Curator Vault Cap Auditor](./792-curator-vault-cap-auditor.md)
 - [Event Fee Recompute](./794-event-fee-recompute.md)
 - [Stablecoin Refund Dispute Check](./795-stablecoin-refund-dispute.md)
