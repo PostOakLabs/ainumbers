@@ -738,6 +738,7 @@ import * as art840    from './art-840-gl-flux-explainer.kernel.mjs';
 import * as art842    from './art-842-soc-report-coverage-gap.kernel.mjs';
 import * as art843    from './art-843-tap-message-validator.kernel.mjs';
 import * as art846    from './art-846-assess-pfmi-proportional.kernel.mjs';
+import * as art847    from './art-847-cashleg-window-exposure.kernel.mjs';
 import * as art85     from './art-85-pqc-timeline-fit-diagnostic.kernel.mjs';
 import * as art86     from './art-86-tls-pki-migration-planner.kernel.mjs';
 import * as art87     from './art-87-iso20022-pqc-readiness-checker.kernel.mjs';
@@ -1507,6 +1508,7 @@ export const KERNELS = {
   'art-842-soc-report-coverage-gap':                            art842,
   'art-843-tap-message-validator':                              art843,
   'art-846-assess-pfmi-proportional':                           art846,
+  'art-847-cashleg-window-exposure':                            art847,
   'art-85-pqc-timeline-fit-diagnostic':                         art85,
   'art-86-tls-pki-migration-planner':                           art86,
   'art-87-iso20022-pqc-readiness-checker':                      art87,
