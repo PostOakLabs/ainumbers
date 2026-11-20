@@ -34,6 +34,11 @@ export const meta = {
 // an explicit empty list is the caller's own statement that nothing is
 // required, trusted or bound, and evaluates as such.
 //
+// Token state is required for a mint without a supply-limit module: an absent,
+// null, non-object or empty token_state refuses with TOKEN_STATE_MISSING rather
+// than evaluating against a defaulted empty state. Mints that already carry a
+// supply-limit module, and all transfers, keep their previous verdicts.
+//
 // Modules re-implemented as pure rules over declared params:
 //   max_balance          deny if amount > max, or receiver identity balance
 //                        (params.identity_balance, else balances[to]) plus
@@ -218,11 +223,14 @@ function parseInputs(pp, refuse) {
     }
   }
 
+  // A mint with no supply-limit module has no other gate that forces the caller
+  // to declare token state. Defer the non-object refusal until the module set is
+  // known so that case classifies an absent, null, non-object or empty state as
+  // TOKEN_STATE_MISSING rather than recomputing from a defaulted empty state.
   const ts = pp.token_state === undefined ? {} : pp.token_state;
+  const tokenStateMissing = !isObj(pp.token_state) || Object.keys(pp.token_state).length === 0;
   const token = { paused: false, frozen: {}, frozen_tokens: {}, balances: {}, total_supply: null };
-  if (!isObj(ts)) {
-    refuse('TOKEN_STATE_MALFORMED');
-  } else {
+  if (isObj(ts)) {
     if (ts.paused !== undefined && typeof ts.paused !== 'boolean') refuse('TOKEN_STATE_MALFORMED');
     token.paused = ts.paused === true;
     token.frozen = addrMap(ts.frozen, 'bool', refuse, 'FROZEN');
@@ -268,6 +276,16 @@ function parseInputs(pp, refuse) {
       }
       modules.push(mod);
     }
+  }
+
+  // A mint without a supply-limit module has no other gate that would force the
+  // caller to declare token state, so recomputing against a defaulted empty state
+  // fails open. Refuse with the named reason instead. Every other verdict (all
+  // transfers, and mints already fail-closed on TOTAL_SUPPLY_MISSING) is unchanged.
+  if (from === ZERO && !modules.some((m) => m.type === 'supply_limit')) {
+    if (tokenStateMissing) refuse('TOKEN_STATE_MISSING');
+  } else if (!isObj(ts)) {
+    refuse('TOKEN_STATE_MALFORMED');
   }
 
   let covenant = null;

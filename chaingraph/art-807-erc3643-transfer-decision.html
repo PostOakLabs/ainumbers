@@ -103,7 +103,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <style>textarea{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.66rem;padding:.6rem .7rem;outline:none;line-height:1.5}textarea:focus{border-color:var(--teal)}.gate-list{margin:6px 0}</style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-807-erc3643-transfer-decision.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:8414998d60f89bb7841e516b0d9fedf7aa8038973a47ecf91876fc8105c6f899">
+<meta name="kernel-digest" content="sha256:146c9e18b46a50b7cddeb6b842b39e6a0d31cfd2588ded6c32679746192b6ad6">
 </head>
 <body>
 <nav>
@@ -169,7 +169,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     </div>
     <div class="q">
       <label class="q-label" for="ppJson">Declared state (policy_parameters JSON)</label>
-      <div class="q-help">Keys: transfer {from, to, amount}; identity_registry [{address, identity_present, country, claims [{topic, issuer, claim_valid}]}]; required_claim_topics; trusted_issuers {topic: [issuer]}; compliance_modules [{id, type, params}] with type max_balance, supply_limit, country_restriction, country_whitelist or pass_through; token_state {paused, frozen, frozen_tokens, balances, total_supply}; optional fund_covenant. Addresses are lowercase hex; amounts are decimal strings. A from address of all zeros is a mint.</div>
+      <div class="q-help">Keys: transfer {from, to, amount}; identity_registry [{address, identity_present, country, claims [{topic, issuer, claim_valid}]}]; required_claim_topics; trusted_issuers {topic: [issuer]}; compliance_modules [{id, type, params}] with type max_balance, supply_limit, country_restriction, country_whitelist or pass_through; token_state {paused, frozen, frozen_tokens, balances, total_supply}; optional fund_covenant. Addresses are lowercase hex; amounts are decimal strings. A from address of all zeros is a mint. A mint without a supply_limit module needs token_state declared; a deleted, null or empty one refuses.</div>
       <textarea id="ppJson" rows="18" spellcheck="false">{
   "transfer": {
     "from": "0x1111111111111111111111111111111111111111",
@@ -371,12 +371,12 @@ var MANIFEST = {
   version: '1.0.0',
   mcp_name: 'recompute_erc3643_transfer_decision',
   title: 'ERC-3643 Transfer Decision Recompute',
-  description: 'Recompute whether one proposed ERC-3643 (T-REX) transfer or mint would go through, from declared identity registry, claim topics, trusted issuers, compliance modules and token state. Declared-state recompute only; no chain is read.',
+  description: 'Recompute whether one proposed ERC-3643 (T-REX) transfer or mint would go through, from declared identity registry, claim topics, trusted issuers, compliance modules and token state. Declared-state recompute only; no chain is read. A mint without a supply_limit module needs token_state declared; a deleted, null or empty one refuses.',
   spec_version: '0.8.0',
   chaingraph_version: '0.4.0',
   mcp_tool_definition: {
     name: 'recompute_erc3643_transfer_decision',
-    description: 'Recompute whether one proposed ERC-3643 (T-REX) transfer or mint would go through, from declared identity registry, claim topics, trusted issuers, compliance modules and token state. Declared-state recompute only; no chain is read.',
+    description: 'Recompute whether one proposed ERC-3643 (T-REX) transfer or mint would go through, from declared identity registry, claim topics, trusted issuers, compliance modules and token state. Declared-state recompute only; no chain is read. A mint without a supply_limit module needs token_state declared; a deleted, null or empty one refuses.',
     inputSchema: {
       type: 'object',
       required: ['transfer', 'identity_registry', 'required_claim_topics', 'trusted_issuers', 'compliance_modules', 'token_state'],
@@ -443,6 +443,11 @@ const meta = {
 // trusted_issuers or compliance_modules refuses (INPUT_REFUSED, no decision);
 // an explicit empty list is the caller's own statement that nothing is
 // required, trusted or bound, and evaluates as such.
+//
+// Token state is required for a mint without a supply-limit module: an absent,
+// null, non-object or empty token_state refuses with TOKEN_STATE_MISSING rather
+// than evaluating against a defaulted empty state. Mints that already carry a
+// supply-limit module, and all transfers, keep their previous verdicts.
 //
 // Modules re-implemented as pure rules over declared params:
 //   max_balance          deny if amount > max, or receiver identity balance
@@ -628,11 +633,14 @@ function parseInputs(pp, refuse) {
     }
   }
 
+  // A mint with no supply-limit module has no other gate that forces the caller
+  // to declare token state. Defer the non-object refusal until the module set is
+  // known so that case classifies an absent, null, non-object or empty state as
+  // TOKEN_STATE_MISSING rather than recomputing from a defaulted empty state.
   const ts = pp.token_state === undefined ? {} : pp.token_state;
+  const tokenStateMissing = !isObj(pp.token_state) || Object.keys(pp.token_state).length === 0;
   const token = { paused: false, frozen: {}, frozen_tokens: {}, balances: {}, total_supply: null };
-  if (!isObj(ts)) {
-    refuse('TOKEN_STATE_MALFORMED');
-  } else {
+  if (isObj(ts)) {
     if (ts.paused !== undefined && typeof ts.paused !== 'boolean') refuse('TOKEN_STATE_MALFORMED');
     token.paused = ts.paused === true;
     token.frozen = addrMap(ts.frozen, 'bool', refuse, 'FROZEN');
@@ -678,6 +686,16 @@ function parseInputs(pp, refuse) {
       }
       modules.push(mod);
     }
+  }
+
+  // A mint without a supply-limit module has no other gate that would force the
+  // caller to declare token state, so recomputing against a defaulted empty state
+  // fails open. Refuse with the named reason instead. Every other verdict (all
+  // transfers, and mints already fail-closed on TOTAL_SUPPLY_MISSING) is unchanged.
+  if (from === ZERO && !modules.some((m) => m.type === 'supply_limit')) {
+    if (tokenStateMissing) refuse('TOKEN_STATE_MISSING');
+  } else if (!isObj(ts)) {
+    refuse('TOKEN_STATE_MALFORMED');
   }
 
   let covenant = null;

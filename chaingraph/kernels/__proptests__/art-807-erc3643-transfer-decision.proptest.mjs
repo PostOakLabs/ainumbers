@@ -1,5 +1,5 @@
 // art-807-erc3643-transfer-decision — class-K property-test FLOOR (KERNEL-SCAFFOLD-1 scaffold, authored).
-// kernel_digest_at_authoring: sha256:8414998d60f89bb7841e516b0d9fedf7aa8038973a47ecf91876fc8105c6f899
+// kernel_digest_at_authoring: sha256:146c9e18b46a50b7cddeb6b842b39e6a0d31cfd2588ded6c32679746192b6ad6
 // spec: permissioned-token transfer decision recomputed from declared registry, claim, module and token state
 // human_sign_off: PENDING
 //
@@ -11,6 +11,8 @@
 // ALLOWED into DENIED; max_balance differential against the plain integer rule; zero amount
 // and zero receiver always refuse; deleting a required input (required_claim_topics,
 // trusted_issuers, compliance_modules) always refuses, never a positive verdict;
+// a mint without a supply-limit module refuses with TOKEN_STATE_MISSING when token_state
+// is deleted, null or an empty object, while a declared state still decides;
 // errors mirrors compliance_flags; no NaN/Infinity anywhere; determinism.
 // Zero external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
@@ -199,6 +201,33 @@ function checkRequiredInputsFailClosed() {
   return { name: 'required_inputs_fail_closed', checked, violations };
 }
 
+// A mint without a supply-limit module has no other gate that forces token_state
+// to be declared: a deleted, null or empty object must refuse with the named reason
+// and no decision, while a declared non-empty state still evaluates.
+function checkTokenStateRequiredForMint() {
+  let checked = 0, violations = 0;
+  for (let i = 0; i < 200; i++) {
+    const pp = randomPP();
+    pp.transfer.from = Z;
+    pp.compliance_modules = pp.compliance_modules.filter((m) => m.type !== 'supply_limit');
+    for (const mode of ['delete', 'null', 'empty']) {
+      const q = JSON.parse(JSON.stringify(pp));
+      if (mode === 'delete') delete q.token_state;
+      else if (mode === 'null') q.token_state = null;
+      else q.token_state = {};
+      const { output_payload } = compute(q);
+      if (output_payload.decision !== null) violations++;
+      if (!output_payload.refusal_reasons.includes('TOKEN_STATE_MISSING')) violations++;
+      checked++;
+    }
+    const declared = compute(pp).output_payload;
+    if (declared.decision === null) violations++;
+    if (declared.refusal_reasons.includes('TOKEN_STATE_MISSING')) violations++;
+    checked++;
+  }
+  return { name: 'token_state_required_for_mint_without_supply_limit', checked, violations };
+}
+
 function checkDeterminism() {
   let checked = 0, violations = 0;
   for (let i = 0; i < 100; i++) {
@@ -223,6 +252,7 @@ const properties = [
   checkMaxBalanceDifferential(),
   checkRefusals(),
   checkRequiredInputsFailClosed(),
+  checkTokenStateRequiredForMint(),
   checkFlagMirrorAndShape(),
   checkDeterminism(),
 ];
