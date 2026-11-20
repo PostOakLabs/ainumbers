@@ -151,6 +151,49 @@ function isIsoDate(v) {
   return d <= dim;
 }
 
+// Hard domain bounds (cure of Muse 72 761-B1/B2/F1). The UI bounds above stay advisory
+// and flag-only; these are the outer limits inside which every money term is an exact
+// cent count and every payload integer is a safe I-JSON integer, so buildArtifact can
+// always hash what compute() accepts. MAX_RESULT_CENTS keeps the float64 cent terms
+// far below the 2^53 range where Math.round(x * 100) stops being exact.
+export const MAX_SALARY_USD = 1000000000;
+export const MAX_AGE = 150;
+export const MAX_CARE_YEARS = 100;
+export const MAX_RESULT_CENTS = 10000000000000;
+
+// hashability walk (RIDER-KERNEL D6): mirrors the classes _hash.mjs refuses, so compute()
+// and buildArtifact() never disagree. Reports the path and kind only, never the value.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+const PP_MAX_DEPTH = HASH_MAX_DEPTH - 8;
+const PP_MAX_ELEMENTS = 199000;
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return path + ': too_deep';
+  if (++budget.n > budget.maxElements) return path + ': too_many_values';
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return path + ': non_finite';
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return path + ': unsafe_integer';
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 const REFUSAL_FLAG = 'ART761_INPUT_REFUSED';
 
 /** @type {(reason: string, text: string) => { output_payload: object, compliance_flags: string[] }} */
@@ -177,6 +220,10 @@ function refused(reason, text) {
 
 /** @type {(pp: object) => object | null} */
 function validate(pp) {
+  const unhashable = findHashRefusal(pp, 'pp', 1, { maxDepth: PP_MAX_DEPTH, maxElements: PP_MAX_ELEMENTS, n: 0 });
+  if (unhashable !== null) {
+    return refused('REFUSED_INPUT_UNHASHABLE', 'policy_parameters cannot be hashed (' + unhashable + '); integers must be safe, numbers finite');
+  }
   if (!isIsoDate(pp.as_of)) {
     return refused('REFUSED_BAD_AS_OF', 'as_of must be a real calendar date as a YYYY-MM-DD string; the node never reads a clock');
   }
@@ -202,9 +249,16 @@ function validate(pp) {
     ['investment_return_pct', -100, 100],
     ['marginal_tax_rate_pct', 0, 100],
   ];
+  const hard = { salary_usd: MAX_SALARY_USD, current_age: MAX_AGE, retirement_age: MAX_AGE, care_years: MAX_CARE_YEARS };
   for (const [key, lo, hi] of numeric) {
     if (!isFiniteNumber(pp[key])) {
       return refused('REFUSED_MISSING_INPUT', key + ' is required and must be a finite number');
+    }
+    if (Object.hasOwn(hard, key) && pp[key] > hard[key]) {
+      return refused('REFUSED_OUT_OF_DOMAIN', key + ' must be at most ' + hard[key] + '; got ' + pp[key]);
+    }
+    if ((key === 'current_age' || key === 'retirement_age') && !Number.isInteger(pp[key])) {
+      return refused('REFUSED_OUT_OF_DOMAIN', key + ' must be a whole number of years; got ' + pp[key]);
     }
     if (lo !== null && pp[key] < lo) {
       return refused('REFUSED_OUT_OF_DOMAIN', key + ' must be at least ' + lo + '; got ' + pp[key]);
@@ -286,6 +340,15 @@ export function compute(pp) {
   const totalImpact = directIncomeLoss + retirementGap + setbackCost;
   const totalImpactWithSS = totalImpact + annualSSReduction * SS_LIFETIME_YEARS;
 
+  // 761-B1/B2: every derived money term must be finite and inside the exact cent range,
+  // otherwise the estimate is refused instead of certified as approximate or Infinity.
+  const moneyTerms = [annualIncomeLoss, directIncomeLoss, annual401kLost, retirementGap, setbackCost,
+    annualSSReduction, annualSSReduction * SS_LIFETIME_YEARS, totalImpact, totalImpactWithSS];
+  if (moneyTerms.some((t) => !Number.isFinite(t) || Math.abs(t) * 100 > MAX_RESULT_CENTS)) {
+    return refused('REFUSED_RESULT_OUT_OF_RANGE',
+      'a derived money term is non-finite or exceeds ' + (MAX_RESULT_CENTS / 100) + ' USD, past the range where cents stay exact; narrow the horizon or the rates');
+  }
+
   const strategies = STRATEGY_BASE.slice();
   if (setbackPct > SETBACK_STRATEGY_BRANCH_PCT) {
     strategies.push('Invest in a credential or certification during or after caregiving to offset the '
@@ -354,8 +417,12 @@ export function compute(pp) {
 
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // The walked object is the exact execution_hash preimage. compute() already refuses the
+  // same inputs; this is the backstop so buildArtifact never throws (RIDER-KERNEL D6).
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1,
+    { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const hash = unhashable === null ? await executionHash(pp, output_payload) : null;
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -371,4 +438,6 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: 'REFUSED_INPUT_UNHASHABLE', detail: unhashable };
+  return artifact;
 }
