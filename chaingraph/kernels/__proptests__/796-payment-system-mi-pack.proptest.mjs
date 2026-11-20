@@ -6,7 +6,7 @@
 // totality claim is made over it. Properties below run over a committed
 // mulberry32 seed (deterministic) plus a fixed corpus of structural cases.
 //
-// kernel_digest_at_authoring: sha256:fd0ea66f269e94eee121b769cc0d0312697a8c7c1c79db90039bfab9bc5b15eb
+// kernel_digest_at_authoring: sha256:5a23e77b1729631c48f23920516d828a4b085a1e13b53406c358778107bbf46b
 // spec: PAYMENT-SYSTEM-MI-PACK-1 — compute a payment system's management-information
 //   pack (speed, availability, failure, fraud, complaints, adoption, cost,
 //   transparency KPIs) from declared aggregate counts, against the pinned FSB
@@ -623,6 +623,7 @@ async function checkBuildArtifactNeverThrows() {
   /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
   const wide = new Array(1000001).fill(0);
   const base = () => ({ profile: 'generic', transactions: { count: 10 } });
+  /** @type {Array<[any, RegExp]>} */
   const hostile = [
     [{ transactions: { count: 1e300 } }, /^REFUSED_INPUT_UNSAFE_NUMBER$/],
     [{ transactions: { count: NaN } }, /^REFUSED_INPUT_UNSAFE_NUMBER$/],
