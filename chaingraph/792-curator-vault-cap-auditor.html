@@ -7,6 +7,7 @@
 <title>Curator Vault Cap Auditor · OpenChainGraph · AINumbers.co</title>
 <meta name="description" content="Audit a vault curator's allocation snapshot against per-market absolute and relative caps and a declared mandate: concentration, idle liquidity, redemption coverage and conservation, from declared values only.">
 <meta name="robots" content="index, follow">
+<meta name="kernel-digest" content="sha256:4acc868648ee3b4a2e474aa09cced8aa966e36dbc2500a40698f3218d4498a72">
 <meta name="ain:category" content="run">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/792-curator-vault-cap-auditor.html">
 <link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/792-curator-vault-cap-auditor.md">
@@ -410,11 +411,19 @@ function compute(pp) {
   });
   const man = pp.mandate || {};
   if (!isInt(man.max_per_market_bp) || man.max_per_market_bp < 0 || man.max_per_market_bp > 1000000) reasons.push('mandate.max_per_market_bp must be an integer in [0, 1000000]');
-  const classCaps = man.max_per_asset_class_bp || {};
-  Object.keys(classCaps).forEach(function (k) {
-    if (!ASSET_CLASSES.includes(k)) reasons.push('mandate.max_per_asset_class_bp key "' + k + '" is outside the declared asset_class enum');
-    else if (!isInt(classCaps[k]) || classCaps[k] < 0 || classCaps[k] > 1000000) reasons.push('mandate.max_per_asset_class_bp.' + k + ' must be an integer in [0, 1000000]');
-  });
+  const rawClassCaps = man.max_per_asset_class_bp;
+  let classCaps = {};
+  if (rawClassCaps !== undefined) {
+    if (rawClassCaps === null || typeof rawClassCaps !== 'object' || Array.isArray(rawClassCaps)) {
+      reasons.push('mandate.max_per_asset_class_bp must be an object of asset_class -> integer bp when declared (present null or wrong type refuses)');
+    } else {
+      Object.keys(rawClassCaps).forEach(function (k) {
+        if (!ASSET_CLASSES.includes(k)) reasons.push('mandate.max_per_asset_class_bp key "' + k + '" is outside the declared asset_class enum');
+        else if (!isInt(rawClassCaps[k]) || rawClassCaps[k] < 0 || rawClassCaps[k] > 1000000) reasons.push('mandate.max_per_asset_class_bp.' + k + ' must be an integer in [0, 1000000]');
+      });
+      classCaps = rawClassCaps;
+    }
+  }
   if (!isInt(man.min_idle_bp) || man.min_idle_bp < 0 || man.min_idle_bp > 1000000) reasons.push('mandate.min_idle_bp must be an integer in [0, 1000000]');
   if (man.min_rwa_bp !== undefined && (!isInt(man.min_rwa_bp) || man.min_rwa_bp < 0 || man.min_rwa_bp > 1000000)) reasons.push('mandate.min_rwa_bp must be an integer in [0, 1000000] when declared');
   if (man.max_defi_bp !== undefined && (!isInt(man.max_defi_bp) || man.max_defi_bp < 0 || man.max_defi_bp > 1000000)) reasons.push('mandate.max_defi_bp must be an integer in [0, 1000000] when declared');
