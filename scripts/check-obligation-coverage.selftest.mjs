@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { checkO1, checkO2, checkO4, expectedVerdictClass } from './check-obligation-coverage.mjs';
+import { checkO1, checkO2, checkO3, o3Gaps, checkO4, expectedVerdictClass } from './check-obligation-coverage.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const failures = [];
@@ -223,6 +223,62 @@ console.log('O4 re-pin flow (old list printed beside the new digest, red then gr
     else fail('unlisted red fired despite the baseline entry');
   }
   rmSync(tmp2, { recursive: true, force: true });
+}
+
+// ── O3 nothing uncovered (row OBLIGATION-NEWNODE-1) ──────────────────────────
+console.log('O3 nothing uncovered (red controls, then green, both modes):');
+{
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const dA = 'sha256:' + 'a'.repeat(64);
+  const o3List = [
+    { id: 'O1', label: 'a plain condition obligation', span: { start: 0, end: 10 }, kind: 'condition' },
+    { id: 'O2', label: 'a threshold obligation here', span: { start: 10, end: 20 }, kind: 'threshold' },
+    { id: 'O3', label: 'a definition obligation here', span: { start: 20, end: 30 }, kind: 'definition' },
+  ];
+  const lists3 = new Map([[dA, o3List]]);
+  const fx3 = { vectors: ['hit', 'quiet', 'below_edge', 'at_edge'].map((name) => ({ name })) };
+  const full = {
+    node_id: 'n', clause_digests: [dA],
+    covers: {
+      O1: { accept: ['hit'], refuse: ['quiet'] },
+      O2: { accept: ['hit'], refuse: ['quiet'], boundary: { below: ['below_edge'], at_or_above: ['at_edge'] } },
+    },
+    out_of_scope: [], uncovered: [],
+  };
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  if (same(o3Gaps(full, lists3, fx3), [])) ok('fully covered node has no gap (definition needs no vector)'); else fail('full coverage reported a gap: ' + o3Gaps(full, lists3, fx3));
+  const unacc = clone(full); delete unacc.covers.O1;
+  if (same(o3Gaps(unacc, lists3, fx3), ['O1:unaccounted'])) ok('obligation in no list is red-controlled as unaccounted'); else fail('unaccounted gap missed');
+  const oosFix = clone(unacc); oosFix.out_of_scope = [{ id: 'O1', reason: 'declared out of scope with a reason' }];
+  if (same(o3Gaps(oosFix, lists3, fx3), [])) ok('out of scope with a reason clears the gap'); else fail('out_of_scope did not clear the gap');
+  const uncd = clone(unacc); uncd.uncovered = [{ id: 'O1', reason: 'declared uncovered, a recorded defect' }];
+  if (same(o3Gaps(uncd, lists3, fx3), ['O1:uncovered'])) ok('declared uncovered is a gap'); else fail('uncovered gap missed');
+  const oneSided = clone(full); oneSided.covers.O1.refuse = [];
+  if (same(o3Gaps(oneSided, lists3, fx3), ['O1:one-sided'])) ok('missing refuse vector is a one-sided gap'); else fail('one-sided gap missed');
+  const noBound = clone(full); delete noBound.covers.O2.boundary;
+  if (same(o3Gaps(noBound, lists3, fx3), ['O2:boundary'])) ok('threshold with no boundary vectors is a boundary gap'); else fail('boundary gap missed');
+  const oneSide = clone(full); oneSide.covers.O2.boundary = { below: ['below_edge'] };
+  if (same(o3Gaps(oneSide, lists3, fx3), ['O2:boundary'])) ok('boundary vector on one side only is a gap'); else fail('one-sided boundary missed');
+  const ghostB = clone(full); ghostB.covers.O2.boundary.below = ['no_such_vector'];
+  if (same(o3Gaps(ghostB, lists3, fx3), ['O2:boundary'])) ok('boundary vector absent from fixtures is a gap'); else fail('ghost boundary vector missed');
+
+  // existing-node mode: advisory with a baseline that only shrinks
+  const gm = (nid, gaps) => new Map([[nid, gaps]]);
+  const none = new Set();
+  expectGreen('existing node, gap inside the baseline', checkO3({ gapsByNode: gm('n', ['O1:uncovered']), baseline: { n: ['O1:uncovered'] }, newNodes: none, blockNew: false }).errors);
+  expectRed('existing node, gap outside the baseline', checkO3({ gapsByNode: gm('n', ['O1:uncovered', 'O2:boundary']), baseline: { n: ['O1:uncovered'] }, newNodes: none, blockNew: false }).errors, 'not in o3-baseline.json');
+  expectRed('existing node, closed gap still baselined', checkO3({ gapsByNode: gm('n', []), baseline: { n: ['O1:uncovered'] }, newNodes: none, blockNew: false }).errors, 'stale o3-baseline entry');
+  expectRed('baseline names a node with no coverage file', checkO3({ gapsByNode: new Map(), baseline: { gone: ['O1:uncovered'] }, newNodes: none, blockNew: false }).errors, 'stale o3-baseline node');
+  // new-node mode: off is advisory, on is blocking
+  const newSet = new Set(['n']);
+  const off = checkO3({ gapsByNode: gm('n', ['O1:unaccounted']), baseline: {}, newNodes: newSet, blockNew: false });
+  expectGreen('new node with a gap, blocking off', off.errors);
+  if (off.advisories.some((a) => a.includes('advisory, block_new_nodes is off'))) ok('blocking off prints the gap as advisory'); else fail('no advisory line with blocking off');
+  expectRed('new node with a gap, blocking on', checkO3({ gapsByNode: gm('n', ['O1:unaccounted']), baseline: {}, newNodes: newSet, blockNew: true }).errors, 'block_new_nodes is on');
+  expectRed('new node citing a digest with no coverage file, blocking on', checkO3({ gapsByNode: gm('n', ['no-coverage-file']), baseline: {}, newNodes: newSet, blockNew: true }).errors, 'no-coverage-file');
+  expectGreen('new node with no gap, blocking on', checkO3({ gapsByNode: gm('n', []), baseline: {}, newNodes: newSet, blockNew: true }).errors);
+  const set = JSON.parse(readFileSync(join(HERE, '..', 'chaingraph', 'obligations', 'o3-settings.json'), 'utf8'));
+  if (set.block_new_nodes === false) ok('shipped o3-settings.json has block_new_nodes off'); else fail('block_new_nodes is not off in the shipped setting');
 }
 
 // ── schema drift guard ───────────────────────────────────────────────────────
