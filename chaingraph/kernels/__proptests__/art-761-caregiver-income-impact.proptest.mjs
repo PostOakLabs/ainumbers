@@ -2,7 +2,7 @@
 // (FV-PBT-FLOOR-BUILD-SPEC.md). Authored against the APEXPORT-117 porting payload
 // (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES PASS-PENDING-XV
 // 2026-10-14, Builder-verifies-at-land 64/64, APEX-PORT-117-LAND-1).
-// kernel_digest_at_authoring: sha256:bae9e36268ac108df324d80f876981fd05436acf6bb21bab46ca1884f18ce145
+// kernel_digest_at_authoring: sha256:3c16e24e31e72a555c95d70f83aa49d3ab203f17b706617b020df1491a5601ef
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.
@@ -277,6 +277,63 @@ function checkP7Flags() {
   return { name: 'P7 compliance-flag surface (flags not refusals; cap, clamp, setback branch)', checked, violations };
 }
 
+// P8 — cure of Muse 72 761-B1/B2/F1/N1 + D6: hard bounds, exact cent range, and
+// buildArtifact_never_throws. Every accepted input has every money term a safe
+// integer inside MAX_RESULT_CENTS, and buildArtifact succeeds for every input
+// compute() accepts (and for unhashable ones mints execution_hash null).
+async function checkP8HardBoundsAndNeverThrows() {
+  let checked = 0, violations = 0;
+  const { buildArtifact } = await import('../art-761-caregiver-income-impact.kernel.mjs');
+  const MONEY = ['annual_income_loss_cents', 'direct_income_loss_cents', 'annual_401k_lost_cents',
+    'retirement_savings_gap_cents', 'career_setback_cost_cents', 'annual_ss_reduction_cents',
+    'ss_lifetime_reduction_cents', 'total_impact_cents', 'total_impact_with_ss_cents'];
+  const rng = mulberry32(76108);
+  const draws = [];
+  for (let i = 0; i < 60; i++) {
+    draws.push({
+      ...basePP(),
+      salary_usd: Math.floor(rng() * 1.2e9),
+      current_age: Math.floor(rng() * 160),
+      retirement_age: Math.floor(rng() * 160),
+      care_years: Math.floor(rng() * 120),
+      income_reduction_pct: Math.floor(rng() * 101),
+      career_setback_pct: Math.floor(rng() * 101),
+      contribution_401k_pct: Math.floor(rng() * 101),
+      investment_return_pct: Math.floor(rng() * 201) - 100,
+    });
+  }
+  // counterexamples from the report, at and past each class
+  for (const over of [
+    { salary_usd: 9007199254740990, income_reduction_pct: 99 }, { salary_usd: 9007199254740994, income_reduction_pct: 67 },
+    { salary_usd: 9007199254740991 }, { salary_usd: 1e300 }, { retirement_age: 1e300 }, { care_years: 1e300 },
+    { current_age: 42.5, retirement_age: 67.5 }, { extra_note: 9007199254740993 }, { extra_note: Infinity },
+    { salary_usd: 1e9, income_reduction_pct: 99 },
+    { salary_usd: 1e9, current_age: 0, retirement_age: 150, care_years: 100, investment_return_pct: 100, income_reduction_pct: 100, contribution_401k_pct: 100 },
+  ]) draws.push({ ...basePP(), ...over });
+  for (const pp of draws) {
+    let r, art;
+    checked++;
+    try { r = compute(pp); art = await buildArtifact(pp); } catch (e) { violations++; console.log(`P8 violation: compute/buildArtifact threw (${e.message})`); continue; }
+    const out = r.output_payload;
+    if (isRefused(r)) {
+      if (art.execution_hash !== null && typeof art.execution_hash !== 'string') { violations++; console.log('P8 violation: refusal artifact has a malformed hash'); }
+      continue;
+    }
+    if (typeof art.execution_hash !== 'string') { violations++; console.log('P8 violation: accepted input minted no execution_hash'); }
+    for (const col of MONEY) {
+      if (!Number.isSafeInteger(out[col]) || Math.abs(out[col]) > 10000000000000) { violations++; console.log(`P8 violation: ${col} = ${out[col]} outside the exact cent range`); }
+    }
+  }
+  // BigInt oracle: the linear direct-loss term is exact at the bound (salary x pct x years, integer pct)
+  for (const [salary, pct, years] of [[1000000000, 99, 5], [999999999, 67, 20], [123456789, 33, 7]]) {
+    checked++;
+    const want = (BigInt(salary) * BigInt(pct) * BigInt(years) * 100n + 50n) / 100n;
+    const got = compute({ ...basePP(), salary_usd: salary, income_reduction_pct: pct, care_years: years }).output_payload.direct_income_loss_cents;
+    if (!Number.isSafeInteger(got) || BigInt(got) !== want) { violations++; console.log(`P8 violation: direct loss ${got} != BigInt oracle ${want} at salary ${salary}`); }
+  }
+  return { name: 'P8 hard bounds, exact cent range, BigInt oracle, buildArtifact_never_throws', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -292,6 +349,7 @@ const properties = [
   checkP5ZeroKept(),
   checkP6VintageAndOverride(),
   checkP7Flags(),
+  await checkP8HardBoundsAndNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test`);
 const ok = summarize(KERNEL_ID, oracle, properties);
