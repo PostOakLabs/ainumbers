@@ -709,6 +709,7 @@ status: stable
 - [BNPL Plan Comparator](./art-779-bnpl-plan-comparator.md) — `compare_bnpl_plans`
 - [CSDR Cash-Penalty Calculator](./art-78-csdr-penalty-calculator.md) — `calculate_csdr_penalty`
 - [Solana PDA Bump and ATA Audit](./art-780-solana-pda-ata-audit.md) — `audit_solana_pda_ata`
+- [x402 Exact Solana Payment Outcome Recompute](./art-781-x402-svm-payment-outcome.md) — `verify_x402_svm_outcome`
 - [Modified Premium Calculator](./art-782-modified-premium.md) — `compute_modified_premium`
 - [RFC 4180 CSV Parser](./art-788-csv-rfc4180-parser.md) — `parse_csv_table`
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md) — `predict_settlement_fail`
