@@ -388,7 +388,7 @@ const LOCAL_FACT_ENUMS = {
 const REVOCATION_MECHANISMS = ['authoritative_party_revoke_call','expiry_rule_only','account_validation_state','module_uninstall','declared_not_revocable','unknown_or_undeclared'];
 const LEARN_FIELDS = ['opaque_credential','learns_identity','learns_action','publicly_visible','credential_persisted_or_logged'];
 const RAILS = ['mastercard_agent_pay','visa_tap','web_bot_auth'];
-const FLAGS = ['RAIL_VERDICT_INVALID','UNKNOWN_CREDENTIAL_CLASS','MISSING_CHAINED_SOURCE','UNKNOWN_CHAIN_SOURCE','CHAINED_CELL_FOR_LOCAL_CLASS','UNKNOWN_LOCAL_FACT','LOCAL_FACT_UNPINNED','REVOCATION_UNDECLARED','UNKNOWN_REVOCATION_MECHANISM','INCOMPLETE_LEARN_FACTS'];
+const FLAGS = ['RAIL_VERDICT_INVALID','UNKNOWN_CREDENTIAL_CLASS','MISSING_CHAINED_SOURCE','UNKNOWN_CHAIN_SOURCE','CHAINED_CELL_FOR_LOCAL_CLASS','UNKNOWN_LOCAL_FACT','LOCAL_FACT_UNPINNED','MALFORMED_CLASS_ENTRY','MISSING_LOCAL_FACTS','REVOCATION_UNDECLARED','UNKNOWN_REVOCATION_MECHANISM','INCOMPLETE_LEARN_FACTS'];
 
 function isPlainObject(v){ return v !== null && typeof v === 'object' && !Array.isArray(v); }
 function refusedCell(reason){ return { kind:'refused', reason: reason }; }
@@ -437,7 +437,12 @@ function localCells(cls, entry, addFlag){
   }
   var lf = entry.local_facts;
   if (!isPlainObject(lf)) {
-    for (var k = 0; k < COLUMNS.length; k++) cells[COLUMNS[k]] = { kind:'not_declared' };
+    if (lf !== undefined) {
+      addFlag('MISSING_LOCAL_FACTS', cls + ': local_facts present but not a plain object');
+      for (var k = 0; k < COLUMNS.length; k++) cells[COLUMNS[k]] = refusedCell('MISSING_LOCAL_FACTS');
+    } else {
+      for (var k = 0; k < COLUMNS.length; k++) cells[COLUMNS[k]] = { kind:'not_declared' };
+    }
     return cells;
   }
   for (var i = 0; i < COLUMNS.length; i++) {
@@ -495,9 +500,16 @@ function computeMatrix(pp){
   for (var ci = 0; ci < CLASSES.length; ci++) {
     var cls = CLASSES[ci], entry = declared[cls], cells = {};
     if (!isPlainObject(entry)) {
-      for (var j = 0; j < COLUMNS.length; j++) cells[COLUMNS[j]] = { kind:'not_declared' };
-      cells.revocability = { kind:'not_declared' };
-      cells.learn = { kind:'not_declared' };
+      if (entry !== undefined) {
+        addFlag('MALFORMED_CLASS_ENTRY', cls + ': class entry present but not a plain object');
+        for (var j = 0; j < COLUMNS.length; j++) cells[COLUMNS[j]] = refusedCell('MALFORMED_CLASS_ENTRY');
+        cells.revocability = refusedCell('MALFORMED_CLASS_ENTRY');
+        cells.learn = refusedCell('MALFORMED_CLASS_ENTRY');
+      } else {
+        for (var j = 0; j < COLUMNS.length; j++) cells[COLUMNS[j]] = { kind:'not_declared' };
+        cells.revocability = { kind:'not_declared' };
+        cells.learn = { kind:'not_declared' };
+      }
     } else {
       var built = CHAINED_CLASSES.indexOf(cls) !== -1 ? chainedCells(cls, entry, addFlag) : localCells(cls, entry, addFlag);
       var names = Object.keys(built);
