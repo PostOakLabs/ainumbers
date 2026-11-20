@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_mandate"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_mandate\"."
-tags: ["compliance_mandate", "count-347"]
+tags: ["compliance_mandate", "count-348"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_mandate
 
-347 tool(s) in this mandate-type group:
+348 tool(s) in this mandate-type group:
 
 - [Canton Party Allowlist Validator](../tools/509-canton-party-allowlist-validator.md)
 - [Digital Asset Regulatory Classifier](../tools/510-digital-asset-regulatory-classifier.md)
@@ -351,6 +351,7 @@ status: stable
 - [PSP Dispute Reason Crosswalk](../tools/art-777-psp-dispute-reason-crosswalk.md)
 - [BNPL Plan Comparator](../tools/art-779-bnpl-plan-comparator.md)
 - [Solana PDA Bump and ATA Audit](../tools/art-780-solana-pda-ata-audit.md)
+- [x402 Exact Solana Payment Outcome Recompute](../tools/art-781-x402-svm-payment-outcome.md)
 - [Modified Premium Calculator](../tools/art-782-modified-premium.md)
 - [RFC 4180 CSV Parser](../tools/art-788-csv-rfc4180-parser.md)
 - [ERC-3643 Transfer Decision Recompute](../tools/art-807-erc3643-transfer-decision.md)
