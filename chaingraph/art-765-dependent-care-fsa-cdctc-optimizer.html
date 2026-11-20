@@ -9,8 +9,8 @@
 <meta name="ain:category" content="run">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/art-765-dependent-care-fsa-cdctc-optimizer.html">
 <link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-765-dependent-care-fsa-cdctc-optimizer.md">
-<!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against workbuddy/APEXPORT-130/.d/kernel.draft.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:96cb71d2b11c805572ba28f74fbbf54b7f78610048317107148f162d394ddf90">
+<!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-765-dependent-care-fsa-cdctc-optimizer.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
+<meta name="kernel-digest" content="sha256:49ff910047ac0cb8468390e069089a20c1f5637f956b1e223cc23c9c10ac77f5">
 <meta name="ai-tool" content="estimate_dc_fsa_cdctc_split">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -232,19 +232,21 @@ function isIsoDate(v) {
   return d <= dim;
 }
 function isFiniteNumber(v) { return typeof v === 'number' && isFinite(v); }
-function isNonNegMoney(v) { return isFiniteNumber(v) && v >= 0; }
+var MAX_MONEY_USD = 1000000000;
+var MAX_CHILDREN = 1000;
+function isNonNegMoney(v) { return isFiniteNumber(v) && v >= 0 && v <= MAX_MONEY_USD; }
 function isPercent(v) { return isFiniteNumber(v) && v >= 0 && v <= 100; }
 function validate(pp) {
   if (!isIsoDate(pp.as_of)) return refused('REFUSED_BAD_AS_OF', 'as_of must be a real calendar date as a YYYY-MM-DD string; the node never reads a clock');
   if (pp.filing_status !== 'single' && pp.filing_status !== 'mfj' && pp.filing_status !== 'mfs') return refused('REFUSED_BAD_FILING_STATUS', "filing_status must be 'single', 'mfj' or 'mfs'");
-  if (!isNonNegMoney(pp.agi)) return refused('REFUSED_BAD_AGI', 'policy_parameters.agi must be a finite non-negative number of USD dollars');
+  if (!isNonNegMoney(pp.agi)) return refused('REFUSED_BAD_AGI', 'policy_parameters.agi must be a finite number of USD dollars from 0 to ' + MAX_MONEY_USD);
   if (!isPercent(pp.marginal_rate_pct)) return refused('REFUSED_BAD_MARGINAL_RATE', 'marginal_rate_pct must be a finite number in [0, 100]');
   if (!isPercent(pp.state_rate_pct)) return refused('REFUSED_BAD_STATE_RATE', 'state_rate_pct must be a finite number in [0, 100]');
-  if (typeof pp.num_children !== 'number' || Math.floor(pp.num_children) !== pp.num_children || pp.num_children < 1) return refused('REFUSED_BAD_NUM_CHILDREN', 'num_children must be an integer >= 1 (number of qualifying individuals)');
-  if (!isNonNegMoney(pp.childcare_cost)) return refused('REFUSED_BAD_CHILDCARE_COST', 'childcare_cost must be a finite non-negative number of USD dollars');
+  if (typeof pp.num_children !== 'number' || !Number.isSafeInteger(pp.num_children) || pp.num_children < 1 || pp.num_children > MAX_CHILDREN) return refused('REFUSED_BAD_NUM_CHILDREN', 'num_children must be an integer from 1 to ' + MAX_CHILDREN + ' (number of qualifying individuals)');
+  if (!isNonNegMoney(pp.childcare_cost)) return refused('REFUSED_BAD_CHILDCARE_COST', 'childcare_cost must be a finite number of USD dollars from 0 to ' + MAX_MONEY_USD);
   if (typeof pp.fsa_available !== 'boolean') return refused('REFUSED_BAD_FSA_AVAILABLE', 'fsa_available must be a boolean (is a dependent care FSA available through the employer?)');
-  if (pp.fsa_contrib !== undefined && !isNonNegMoney(pp.fsa_contrib)) return refused('REFUSED_BAD_FSA_CONTRIB', 'fsa_contrib must be a finite non-negative number of USD dollars');
-  if (pp.ruleset !== undefined && pp.ruleset !== 'statutory' && pp.ruleset !== 'apex_page') return refused('REFUSED_BAD_RULESET', "ruleset must be 'statutory' (default) or 'apex_page'");
+  if (pp.fsa_contrib != null && !isNonNegMoney(pp.fsa_contrib)) return refused('REFUSED_BAD_FSA_CONTRIB', 'fsa_contrib must be a finite number of USD dollars from 0 to ' + MAX_MONEY_USD);
+  if (pp.ruleset != null && pp.ruleset !== 'statutory' && pp.ruleset !== 'apex_page') return refused('REFUSED_BAD_RULESET', "ruleset must be 'statutory' (default) or 'apex_page'");
   return null;
 }
 function tablesFor(taxYear) {
@@ -284,7 +286,7 @@ function compute(pp) {
   pp = pp || {};
   var bad = validate(pp);
   if (bad) return bad;
-  var ruleset = pp.ruleset === undefined ? 'statutory' : pp.ruleset;
+  var ruleset = pp.ruleset == null ? 'statutory' : pp.ruleset;
   var taxYear = Number(pp.as_of.slice(0, 4));
   var tables = tablesFor(taxYear);
   var joint = pp.filing_status === 'mfj', mfs = pp.filing_status === 'mfs';
@@ -321,7 +323,7 @@ function compute(pp) {
         tier_b: { from_nonjoint: isFinite(t.tier_b_from_nonjoint) ? t.tier_b_from_nonjoint : null, from_joint: isFinite(t.tier_b_from_joint) ? t.tier_b_from_joint : null, step_nonjoint: t.tier_b_step_nonjoint, step_joint: t.tier_b_step_joint, floor: t.tier_b_floor } };
   return { output_payload: { as_of: pp.as_of, tax_year: taxYear, ruleset: ruleset, filing_status: pp.filing_status,
     agi: pp.agi, marginal_rate_pct: pp.marginal_rate_pct, state_rate_pct: pp.state_rate_pct, num_children: pp.num_children,
-    childcare_cost: pp.childcare_cost, fsa_available: pp.fsa_available, fsa_contrib_input: pp.fsa_contrib,
+    childcare_cost: pp.childcare_cost, fsa_available: pp.fsa_available, fsa_contrib_input: pp.fsa_contrib == null ? undefined : pp.fsa_contrib,
     fsa_limit: fsaLimit, cdctc_expense_cap: expenseCapOf(ctx.num_children), cdctc_rate: rate, rate_schedule: schedule,
     credit_base_rule: ruleset === 'apex_page' ? 'apex_min_cap_cost_minus_exclusion' : 'statutory_cap_minus_exclusion_then_expenses',
     strategies: { fsa_only: stratFsaOnly, cdctc_only: stratCdctcOnly, optimal_combo: optimal },
