@@ -6,7 +6,7 @@
 // Properties below run over a committed mulberry32 seed (deterministic) plus a fixed corpus of
 // structural cases.
 //
-// kernel_digest_at_authoring: sha256:e2d5d08e405afae1d2cab46a7b1515cc6601a57fa0ae3c0facbda452b65e8346
+// kernel_digest_at_authoring: sha256:b8ce8e7e260662d41e52573c9cff9e684216e412ea9adc1fe1f514c70c207960
 // spec: the row EVENT-POSITION-LIMIT-CHECK-1 contract plus the pinned primary text mapped in
 //   research/EVENT-POSITION-LIMIT-PIN-2026-10-30.md — per-contract/per-event/per-series max
 //   loss against CALLER-SUPPLIED accountability levels and position limits; market-maker
@@ -20,7 +20,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { compute } from '../790-event-position-limit-check.kernel.mjs';
+import { compute, buildArtifact } from '../790-event-position-limit-check.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, deepEqual, findShapeViolations } from './_pbt-common.mjs';
 
 const KERNEL_ID = '790-event-position-limit-check';
@@ -502,6 +502,36 @@ function checkMarketMakerMultiplierAndExemptionBoundaries() {
   return { name: 'market_maker_multiplier_boundary_and_limit_exemption_scope', checked, violations };
 }
 
+// (D6) buildArtifact_never_throws: an input whose {policy_parameters, output_payload} preimage the
+// shared canonicalizer would reject mints an artifact with a null execution_hash and a
+// hash_refusal beside it; a clean input (accepted or refused) gets a 64-hex hash.
+async function checkBuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const hostile = [
+    { zzz: NaN }, { zzz: -Infinity }, { zzz: Infinity }, { zzz: 1e300 }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } },
+    { zzz: deep }, { zzz: wide }, { zzz: 10n }, { positions: [POSN('yes', 10n, 500000)] },
+  ];
+  for (const delta of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...BASE, ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) { violations++; console.log(`  never-throw violation: ${Object.keys(delta)[0]} artifact shape`); }
+      if (art.output_payload.verdict !== 'REFUSED') { violations++; console.log('  never-throw violation: hostile input not refused'); }
+    } catch (e) { violations++; console.log(`  never-throw violation: buildArtifact threw: ${String(e.message).slice(0, 80)}`); }
+  }
+  for (const pp of [{ ...BASE, positions: [POSN('yes', 10, 500000)] }, { ...BASE, profile: 'nope' }, null, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('  never-throw violation: clean input lost its hash'); }
+    } catch (e) { violations++; console.log(`  never-throw violation: buildArtifact threw on clean input: ${String(e.message).slice(0, 80)}`); }
+  }
+  return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -526,6 +556,7 @@ const properties = [
   checkNettingBoundaryAgainstAccountabilityLevel(),
   checkConflictingLevelsLimitsBases(),
   checkMarketMakerMultiplierAndExemptionBoundaries(),
+  await checkBuildArtifactNeverThrows(),
 ];
 const ok = summarize(KERNEL_ID, oracle, properties);
 process.exit(ok ? 0 : 1);
