@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (769 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (770 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -8187,6 +8187,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/mcp.html",
     "description": "Parses a CSV table supplied as a plain string and returns the decoded records plus a per-column summary, over the shared _csv.bundle.mjs (a ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-789-stablecoin-admin-role-lint",
+    "display_name": "Stablecoin Admin Role Lint",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-789-stablecoin-admin-role-lint.html",
+    "description": "Lints a stablecoin token's declared admin-role configuration for separation of duties, key concentration and issuance-policy fit, over ROLE ",
     "consumes": [],
     "feeds": [],
     "status": "live"
