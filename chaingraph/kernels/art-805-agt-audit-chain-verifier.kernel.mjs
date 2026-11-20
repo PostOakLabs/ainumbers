@@ -134,7 +134,7 @@ function pyJsonDumps(obj) {
   if (obj === null) return 'null';
   if (typeof obj === 'string') return _pyEscape(obj);
   if (typeof obj === 'number') {
-    if (!Number.isInteger(obj)) throw new Error('pyJsonDumps: non-integer number is outside the pinned schema');
+    if (!Number.isInteger(obj)) throw new SubjectSerialisationError('pyJsonDumps: non-integer number is outside the pinned schema', 'NON_INTEGER_NUMBER');
     return String(obj);
   }
   if (Array.isArray(obj)) return '[' + obj.map(pyJsonDumps).join(', ') + ']';
@@ -142,7 +142,7 @@ function pyJsonDumps(obj) {
     const keys = Object.keys(obj).sort();
     return '{' + keys.map(k => _pyEscape(k) + ': ' + pyJsonDumps(obj[k])).join(', ') + '}';
   }
-  throw new Error('pyJsonDumps: value type outside the pinned schema: ' + typeof obj);
+  throw new SubjectSerialisationError('pyJsonDumps: value type outside the pinned schema: ' + typeof obj, 'UNSUPPORTED_VALUE_TYPE');
 }
 
 // Serialise one entry exactly as delta.py _build_hash_input does
@@ -160,9 +160,9 @@ function hashInputFor(e) {
     changes: (e.changes || []).map(c => ({
       path: c.path,
       operation: c.operation,
-      content_hash: c.content_hash === undefined ? null : c.content_hash,
-      previous_hash: c.previous_hash === undefined ? null : c.previous_hash,
-      agent_did: c.agent_did === undefined ? null : c.agent_did,
+      content_hash: c.content_hash,
+      previous_hash: c.previous_hash,
+      agent_did: c.agent_did,
     })),
   });
 }
@@ -172,9 +172,66 @@ const CHANGE_KEYS = ['path', 'operation', 'content_hash', 'previous_hash', 'agen
 const HEX64 = /^[0-9a-f]{64}$/;
 const ISO_TS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?([+-]\d{2}:\d{2}|Z)$/;
 
+// ── hashability walk (D6) ────────────────────────────────────────────────────────
+// Mirrors _hash.mjs assertIJson(): a non-finite number, an integer outside 2^53,
+// nesting past MAX_DEPTH or more than MAX_ELEMENTS values is unhashable. compute()
+// refuses such input and buildArtifact() mints a null hash with hash_refusal, so
+// neither ever throws on caller input. The shared hash layer stays untouched.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+const PP_MAX_DEPTH = HASH_MAX_DEPTH - 8;
+const PP_MAX_ELEMENTS = 199000;
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const keys = Object.keys(v).sort();
+    for (let i = 0; i < keys.length; i++) {
+      const r = findHashRefusal(v[keys[i]], path + '.' + keys[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+  }
+  return null;
+}
+
 function isStr(v) { return typeof v === 'string'; }
-function isInt(v) { return typeof v === 'number' && Number.isInteger(v); }
+function isInt(v) { return typeof v === 'number' && Number.isSafeInteger(v); }
 function isNull(v) { return v === null; }
+
+function isValidIsoTs(v) {
+  if (!isStr(v) || !ISO_TS.test(v)) return false;
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/.exec(v);
+  if (m === null) return false;
+  const y = +m[1], mo = +m[2], d = +m[3], hh = +m[4], mi = +m[5], ss = +m[6];
+  if (mo < 1 || mo > 12 || d < 1 || hh > 23 || mi > 59 || ss > 59) return false;
+  const leap = y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0);
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mo - 1];
+  if (d > days) return false;
+  const off = /([+-])(\d{2}):(\d{2})$/.exec(v);
+  if (off !== null && (+off[2] > 23 || +off[3] > 59)) return false;
+  return true;
+}
+
+export class SubjectSerialisationError extends Error {
+  constructor(message, code) {
+    super(message);
+    this.name = 'SubjectSerialisationError';
+    this.code = code || 'SUBJECT_SERIALISATION_REFUSED';
+  }
+}
 
 // Strict schema validation; fail-closed naming every rejected field.
 // Any field outside the pinned schema is refused, so no free-form payload
@@ -191,7 +248,7 @@ function validateEntries(entries) {
     if ('turn_id' in e && !isInt(e.turn_id)) rejected.push(`${at}.turn_id`);
     if ('session_id' in e && !isStr(e.session_id)) rejected.push(`${at}.session_id`);
     if ('agent_did' in e && !isStr(e.agent_did)) rejected.push(`${at}.agent_did`);
-    if ('timestamp' in e && !(isStr(e.timestamp) && ISO_TS.test(e.timestamp))) rejected.push(`${at}.timestamp`);
+    if ('timestamp' in e && !isValidIsoTs(e.timestamp)) rejected.push(`${at}.timestamp`);
     if ('parent_hash' in e && !(isNull(e.parent_hash) || (isStr(e.parent_hash) && HEX64.test(e.parent_hash)))) rejected.push(`${at}.parent_hash`);
     if ('delta_hash' in e && !(isStr(e.delta_hash) && HEX64.test(e.delta_hash))) rejected.push(`${at}.delta_hash`);
     if ('changes' in e) {
@@ -200,6 +257,7 @@ function validateEntries(entries) {
         const cat = `${at}.changes[${j}]`;
         if (c === null || typeof c !== 'object' || Array.isArray(c)) { rejected.push(cat); return; }
         for (const k of Object.keys(c)) if (!CHANGE_KEYS.includes(k)) rejected.push(`${cat}.${k}`);
+        for (const k of CHANGE_KEYS) if (!(k in c)) rejected.push(`${cat}.${k}(missing)`);
         if ('path' in c && !isStr(c.path)) rejected.push(`${cat}.path`);
         if ('operation' in c && !isStr(c.operation)) rejected.push(`${cat}.operation`);
         for (const k of ['content_hash', 'previous_hash', 'agent_did']) {
@@ -251,11 +309,15 @@ function baseOutput() {
  * pp.claimed_root: optional claimed chain root (hex, optional sha256:/0x prefix).
  */
 export function compute(pp) {
-  pp = pp || {};
+  const rawPp = pp;
+  if (pp === null || typeof pp !== 'object' || Array.isArray(pp)) pp = {};
   const out = baseOutput();
 
   // Fail-closed on anything malformed, naming each rejected field.
   const rejectedFields = [];
+  if (rawPp !== pp) rejectedFields.push('policy_parameters(wrong_type)');
+  const unhashable = findHashRefusal(pp, 'pp', 1, { maxDepth: PP_MAX_DEPTH, maxElements: PP_MAX_ELEMENTS, n: 0 });
+  if (unhashable !== null) rejectedFields.push(`${unhashable.reason}:${unhashable.detail}`);
   const extraTop = Object.keys(pp).filter(k => k !== 'entries' && k !== 'claimed_root');
   for (const k of extraTop) rejectedFields.push(k);
   if ('claimed_root' in pp && pp.claimed_root !== null && !isStr(pp.claimed_root)) rejectedFields.push('claimed_root');
@@ -277,6 +339,7 @@ export function compute(pp) {
   // verify_chain order (delta.py 114-127): hash first, then linkage.
   const breaks = [];
   let previousHash = null;
+  let lastRecomputed = null;
   for (let i = 0; i < entries.length; i++) {
     const e = entries[i];
     let recomputed = null;
@@ -292,15 +355,17 @@ export function compute(pp) {
       breaks.push({ index: i, reason: 'CHAIN_BROKEN' });
     }
     previousHash = e.delta_hash;
+    lastRecomputed = recomputed;
   }
 
   out.breaks = breaks;
-  out.chain_intact = entries.length === 0 || breaks.length === 0; // upstream: empty chain verifies
+  out.chain_intact = entries.length > 0 && breaks.length === 0;
   out.first_break_index = breaks.length > 0 ? breaks[0].index : null;
 
-  // Root = last link hash (delta.py compute_hash_chain_root), reported from
-  // the stored delta_hash values the recomputation just checked.
-  if (entries.length > 0) out.recomputed_root = entries[entries.length - 1].delta_hash;
+  // Root = last link hash (delta.py compute_hash_chain_root). It comes from the
+  // recomputation above, never from the stored delta_hash: a tampered last link
+  // must not be able to report its own stored hash as the recomputed root.
+  if (entries.length > 0) out.recomputed_root = lastRecomputed;
 
   if ('claimed_root' in pp && isStr(pp.claimed_root)) {
     const stripped = pp.claimed_root.replace(/^(sha256:|0x)/, '').toLowerCase();
@@ -308,7 +373,10 @@ export function compute(pp) {
   }
 
   const flags = [];
-  if (out.chain_intact) flags.push('AGT_AUDIT_CHAIN_INTACT');
+  if (entries.length === 0) {
+    flags.push('AGT_AUDIT_EMPTY_CHAIN');
+    out.issues.push('AGT_AUDIT_EMPTY_CHAIN');
+  } else if (out.chain_intact) flags.push('AGT_AUDIT_CHAIN_INTACT');
   else {
     flags.push('AGT_AUDIT_CHAIN_BREAK_DETECTED');
     for (const b of breaks) out.issues.push(`AGT_AUDIT_CHAIN_BREAK:${b.index}:${b.reason}`);
@@ -322,15 +390,19 @@ export function compute(pp) {
 
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // The walked object is the exact execution_hash preimage. When the shared
+  // canonicalizer would refuse it, mint the artifact with a null hash and the
+  // reason beside it instead of throwing (D6). compute() already refuses the
+  // same input, so this is the backstop: buildArtifact never throws on any input.
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
     tool_id: TOOL_ID,
     tool_version: TOOL_VERSION,
     generated_at: now ?? null,
-    execution_hash: hash,
+    execution_hash: unhashable === null ? await executionHash(pp, output_payload) : null,
     chain: { parent_hashes, parent_tool_ids, chain_depth },
     policy_parameters: pp,
     output_payload,
@@ -339,4 +411,6 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }
