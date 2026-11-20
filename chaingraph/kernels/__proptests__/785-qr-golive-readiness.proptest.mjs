@@ -1,5 +1,5 @@
 // 785-qr-golive-readiness — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:5f6d4f0dabd1435299ed3c56a8e3237a7991da822543467c1813a0a1cec44676
+// kernel_digest_at_authoring: sha256:b58f3a1db322c0acaf1938fc79d763d616f6143c5806a4cfa456fbf285cd2ecc
 // spec: research/QR-GOLIVE-PIN-2026-10-29.md (gate catalogue + Level One principles)
 // human_sign_off: PENDING
 //
