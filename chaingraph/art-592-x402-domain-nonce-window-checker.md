@@ -1,6 +1,6 @@
 # x402 Domain & Nonce Window Checker
 
-Checks an EIP-3009 TransferWithAuthorization's domain separation and replay-defense-adjacent fields against caller-supplied expectations. Takes expected_chain_id and expected_verifying_contract as separate, mandatory policy parameters - distinct from the chainId/verifyingContract actually baked into the signed domain - and refuses hard (never a soft warning) on either mismatch, the cross-domain replay defect class EIP-712 domain separation exists to prevent. Also checks the validAfter/validBefore window against a caller-supplied now_unix, and the nonce's format (bytes32, non-zero). Accepts an optional caller-supplied nonce_already_used boolean computed against the caller's own on-chain record; this kernel never queries a chain, so on-chain nonce uniqueness is enforced by the token contract at settlement time, not by this verifier. Zero network calls; never a facilitator, proxy, or settlement relay.
+Checks an EIP-3009 TransferWithAuthorization's domain separation and replay-defense-adjacent fields against caller-supplied expectations. Takes expected_chain_id and expected_verifying_contract as separate, mandatory policy parameters - distinct from the chainId/verifyingContract actually baked into the signed domain - and refuses hard (never a soft warning) on either mismatch, the cross-domain replay defect class EIP-712 domain separation exists to prevent. Also checks the validAfter/validBefore window against a caller-supplied now_unix, and the nonce's format (bytes32, non-zero). Accepts an optional caller-supplied nonce_already_used boolean computed against the caller's own on-chain record, and an optional signature/s form input for the EIP-2 low-s (malleability) check -- a supplied signature with s above half the secp256k1 order is a hard refuse with flag X402_SIGNATURE_HIGH_S, because low-s enforcing tokens reject it at settlement (signature_form is emitted only when the signature is supplied); this kernel never queries a chain, so on-chain nonce uniqueness is enforced by the token contract at settlement time, not by this verifier. Zero network calls; never a facilitator, proxy, or settlement relay.
 
 - Page: https://ainumbers.co/chaingraph/art-592-x402-domain-nonce-window-checker.html
 - Markdown twin: https://ainumbers.co/chaingraph/art-592-x402-domain-nonce-window-checker.md
@@ -17,6 +17,8 @@ Checks an EIP-3009 TransferWithAuthorization's domain separation and replay-defe
 - now_unix (number, optional)
 - nonce (string, optional)
 - nonce_already_used (boolean, optional)
+- signature (string, optional)
+- s (string, optional)
 
 ## Outputs
 
@@ -33,6 +35,7 @@ Checks an EIP-3009 TransferWithAuthorization's domain separation and replay-defe
 - nonce (string,null, optional)
 - nonce_well_formed (boolean,null, optional)
 - nonce_already_used (boolean,null, optional)
+- signature_form (object,null, optional)
 - disclosure (string, optional)
 
 ## Sample
