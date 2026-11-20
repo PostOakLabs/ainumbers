@@ -15,6 +15,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { derivedResolve } from './_derived-resolve-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -74,7 +75,9 @@ const DOMAIN_ENUM = new Set([
   'Wholesale Settlement',
 ]);
 
-const cg = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'), 'utf8'));
+// DERIVED-READER-BURNDOWN-CHAIN-DOMAIN-1: read the monolith through derivedResolve so the
+// merge_group queue judges the assembled tree (DERIVED_ROOT); unset, it is the committed file.
+const cg = JSON.parse(readFileSync(derivedResolve('chaingraph', 'chaingraph.json'), 'utf8'));
 const chains = cg.chains || [];
 
 const bad = chains.filter((c) => !c.domain || !DOMAIN_ENUM.has(c.domain));

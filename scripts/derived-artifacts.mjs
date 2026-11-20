@@ -1920,6 +1920,9 @@ export const DERIVED_ROOT_GATES = new Set([
   // assembled tree. The file itself is hand-signed (EXCLUDED, never regen-written); the gate is not
   // COVERED, so membership is awareness classification only.
   'node scripts/check-webmcp-snapshot-fresh.mjs',            // snapshot expiry freshness (overlay-reads the signed snapshot)
+  // DERIVED-READER-BURNDOWN-CHAIN-DOMAIN-1 (2026-11-05): chain-domain reads the monolith through
+  // derivedResolve, so a new chain's missing/invalid domain reds in the queue, not post-regen.
+  'node scripts/check-chain-domain.mjs',                     // chain domain enum (reads the monolith's chains)
 ]);
 
 // S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1 (2026-10-31): derivedRoot/derivedResolve moved VERBATIM
