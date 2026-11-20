@@ -20,11 +20,17 @@ export function buildMarkdownAlternateLink(pageAbsUrl) {
   return `<link ${MD_TWIN_LINK_REL} href="${pageAbsUrl.replace(/\.html$/, '.md')}">`;
 }
 
-/** Build the canonical nav for a node page. breadcrumbCurrent = "ART-NN · Title" */
-export function buildNav(breadcrumbCurrent) {
+/**
+ * Build the canonical nav. breadcrumbCurrent = "ART-NN · Title".
+ * SITE-CHROME-GAPS-1: path-parameterized so the SAME template serves root pages
+ * (root='', cg='chaingraph/'), one-level pages (root='../', cg='../chaingraph/')
+ * and two-level pages (root='../../', cg='../../chaingraph/'). The defaults are
+ * the original node-page values, so existing callers emit byte-identical bytes.
+ */
+export function buildNav(breadcrumbCurrent, { root = '../', cg = '' } = {}) {
   return `<nav>
   <div class="nav-inner">
-    <a href="../index.html" class="logo">
+    <a href="${root}index.html" class="logo">
       <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
         <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
         <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
@@ -41,15 +47,15 @@ export function buildNav(breadcrumbCurrent) {
       <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
     </a>
     <div class="nav-breadcrumb">
-      <a href="../index.html">All Tools</a>
+      <a href="${root}index.html">All Tools</a>
       <span>›</span>
-      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <a href="${cg}chaingraph-hub.html">OpenChainGraph Suite</a>
       <span>›</span>
       <span style="color:var(--gold)">${breadcrumbCurrent}</span>
     </div>
     <div class="nav-right">
-      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
-      <a href="../start.html" class="nav-cta">Start</a>
+      <a href="${cg}chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="${root}start.html" class="nav-cta">Start</a>
     </div>
   </div>
 </nav>`;
@@ -180,6 +186,41 @@ export const FOOTER = buildFooter({ root: '../', cg: '' });
 
 /** Root-page footer (depth: repo root, e.g. index.html / start.html). */
 export const ROOT_FOOTER = buildFooter({ root: '', cg: 'chaingraph/' });
+
+/**
+ * SITE-CHROME-GAPS-1: path prefixes for a repo-relative page path, derived from
+ * the path itself (never hand-copied per page). Root pages have no directory and
+ * reach root assets directly; nested pages need one '../' per path segment.
+ */
+export function chromePrefixes(repoRelativePath) {
+  const slash = repoRelativePath.lastIndexOf('/');
+  const dir = slash === -1 ? '' : repoRelativePath.slice(0, slash);
+  const depth = dir === '' ? 0 : dir.split('/').length;
+  const root = depth === 0 ? '' : '../'.repeat(depth);
+  // A page already inside chaingraph/ needs NO chaingraph/ prefix: a top-level
+  // node page uses 'chaingraph-hub.html', not '../chaingraph/chaingraph-hub.html'.
+  const inCg = repoRelativePath === 'chaingraph' || repoRelativePath.startsWith('chaingraph/');
+  const cg = inCg ? (depth <= 1 ? '' : '../'.repeat(depth - 1)) : `${root}chaingraph/`;
+  return { root, cg, depth };
+}
+
+/**
+ * SITE-CHROME-GAPS-1: canonical values of the CSS custom properties the chrome
+ * CSS consumes. Injected only for tokens a page does not already define, so a
+ * page's own palette wins and a token-poor page still renders the same chrome.
+ */
+export const CHROME_TOKENS = {
+  '--bg-2': '#0D1627',
+  '--border': '#1E2F4A',
+  '--border-2': '#263855',
+  '--muted': '#3A5270',
+  '--body': '#6888A8',
+  '--text': '#A8C4DE',
+  '--bright': '#D4E8F8',
+  '--teal': '#14B8A6',
+  '--gold': '#D4A847',
+  '--radius': '6px',
+};
 
 /** Unique marker injected into <style> — used by both normalizer and gate to detect presence */
 export const CSS_MARKER = '/* OCG-CHROME-CSS:v1 */';
