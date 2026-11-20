@@ -712,6 +712,7 @@ import * as art782    from './art-782-modified-premium.kernel.mjs';
 import * as art788    from './art-788-csv-rfc4180-parser.kernel.mjs';
 import * as art789    from './art-789-stablecoin-admin-role-lint.kernel.mjs';
 import * as art79     from './art-79-settlement-fail-predictor.kernel.mjs';
+import * as art791    from './art-791-check-je-multicurrency-balance.kernel.mjs';
 import * as art793    from './art-793-government-stablecoin-acceptance.kernel.mjs';
 import * as art80     from './art-80-ssi-conformance-checker.kernel.mjs';
 import * as art805    from './art-805-agt-audit-chain-verifier.kernel.mjs';
@@ -1484,6 +1485,7 @@ export const KERNELS = {
   'art-788-csv-rfc4180-parser':                                 art788,
   'art-789-stablecoin-admin-role-lint':                         art789,
   'art-79-settlement-fail-predictor':                           art79,
+  'art-791-check-je-multicurrency-balance':                     art791,
   'art-793-government-stablecoin-acceptance':                   art793,
   'art-80-ssi-conformance-checker':                             art80,
   'art-805-agt-audit-chain-verifier':                           art805,
