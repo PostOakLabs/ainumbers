@@ -1,6 +1,6 @@
 // art-820-negotiate-ucp-capabilities — class-K property-test FLOOR. Authored for row
 // UCP-NEGOTIATE-1 per FV-PBT-FLOOR-BUILD-SPEC.md.
-// kernel_digest_at_authoring: sha256:f09fdc7369978626a800a5464785c62999cad6868894f8be97db94225f52dc7a
+// kernel_digest_at_authoring: sha256:4bf8c1c94f2d796552616b0e418ce67afff331e03138e3990851bba4fde8be2c
 // spec: UCP Overview (serves release 2026-08-25), Intersection Algorithm + requires
 // bounds + namespace authority binding — pinned digests in the node shard's
 // cited_clause_digest[]; build row board/claimed/UCP-NEGOTIATE-1.md.
@@ -38,7 +38,7 @@ try {
 } catch { /* shape property covers fixtures + compute({}) when the file is absent */ }
 
 function reverseKeys(o) {
-  const out = {};
+  const out = Object.create(null); // a caller-named __proto__ key must survive the permutation
   for (const k of Object.keys(o).reverse()) out[k] = o[k];
   return out;
 }
@@ -150,6 +150,24 @@ function checkReachabilityPinned() {
   return { name: 'reachability_vectors_recompute_exactly', checked, violations: violations.length };
 }
 
+// 6. prototype-name capabilities are carried as data (standing regression for the
+// __proto__ drop: a plain-object accumulator silently loses that key)
+function checkPrototypeNamesCarried() {
+  let checked = 0;
+  const violations = [];
+  for (const name of ['__proto__', 'constructor', 'toString', 'hasOwnProperty', 'valueOf']) {
+    const mk = () => JSON.parse(`{"ucp":{"version":"2026-08-25","services":{},"payment_handlers":{},"capabilities":{"${name}":[{"version":"2026-08-25"}]}}}`);
+    const out = compute({ business_profile: mk(), platform_profile: mk() }).output_payload;
+    checked++;
+    const ac = out.agreed_capabilities;
+    if (out.verdict !== 'AGREED') violations.push(`${name}: verdict ${out.verdict}`);
+    if (Object.keys(ac).length !== 1 || !Object.hasOwn(ac, name) || ac[name].version !== '2026-08-25') {
+      violations.push(`${name}: not carried as an own agreed_capabilities key`);
+    }
+  }
+  return { name: 'prototype_name_capabilities_carried_as_data', checked, violations: violations.length };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -163,6 +181,7 @@ const properties = [
   checkOutputShape(),
   checkDeterminism(),
   checkReachabilityPinned(),
+  checkPrototypeNamesCarried(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — UCP capability negotiation.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
