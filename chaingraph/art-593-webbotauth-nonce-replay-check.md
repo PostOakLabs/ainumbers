@@ -1,6 +1,6 @@
 # Web Bot Auth Nonce & Replay-Window Checker
 
-Checks a Visa TAP-shaped nonce for format (minimum entropy, base64url), freshness against a caller-supplied now_unix (created/expires spread capped at TAP's 8-minute limit), and an optional caller-supplied seen-nonce record. Fail-closed on required inputs: nonce, created, expires and now_unix are required, and a created/expires spread that cannot be evaluated (expires absent, null or non-numeric) never reads as satisfied, so the nonce is REFUSED rather than the 8-minute spread rule being bypassed. This kernel is a pure function invoked fresh per call with zero persistent storage - it cannot itself remember whether a nonce was seen on a prior invocation. Replay prevention depends entirely on the caller supplying an accurate seen-nonce record from its own storage; this verifier is stateless and cannot detect replay on its own. Zero network calls; never a facilitator, proxy, or settlement relay. Feeds the signatures-directory validator (art-130) in the visa-tap-agent-verification chain.
+Checks a Visa TAP-shaped nonce for format (minimum entropy, base64url), freshness against a caller-supplied now_unix (created/expires spread capped at TAP's 8-minute limit), and an optional caller-supplied seen-nonce record. Fail-closed on required inputs: nonce, created, expires and now_unix are required, and a created/expires spread that cannot be evaluated (expires absent, null or non-numeric) never reads as satisfied, so the nonce is REFUSED rather than the 8-minute spread rule being bypassed. This kernel is a pure function invoked fresh per call with zero persistent storage - it cannot itself remember whether a nonce was seen on a prior invocation. Replay prevention depends entirely on the caller supplying an accurate seen-nonce record from its own storage; this verifier is stateless and cannot detect replay on its own. When neither seen_nonces nor nonce_already_used is supplied the replay check is not evaluated: otherwise-valid input returns REPLAY_CHECK_NOT_EVALUATED with the NONCE_REPLAY_STORE_ABSENT flag, never ACCEPT (an empty seen_nonces list is a supplied, empty store). This node is a replay check, not a freshness verifier: it does not require now_unix to be at or before expires; freshness is bounded by created, max_age_s and the 8-minute spread. Zero network calls; never a facilitator, proxy, or settlement relay. Feeds the signatures-directory validator (art-130) in the visa-tap-agent-verification chain.
 
 - Page: https://ainumbers.co/chaingraph/art-593-webbotauth-nonce-replay-check.html
 - Markdown twin: https://ainumbers.co/chaingraph/art-593-webbotauth-nonce-replay-check.md
@@ -33,7 +33,8 @@ Checks a Visa TAP-shaped nonce for format (minimum entropy, base64url), freshnes
   "created": 1750000000,
   "expires": 1750000300,
   "now_unix": 1750000060,
-  "max_age_s": 3600
+  "max_age_s": 3600,
+  "seen_nonces": []
 }
 ```
 
