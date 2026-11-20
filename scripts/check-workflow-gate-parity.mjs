@@ -383,6 +383,17 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── SITE-CHROME-GAPS-1 (2026-11-19) ────────────────────────────────────────
+  ["check-site-chrome.mjs",
+    "Published-page nav/footer gate, wired into preflight.mjs only by this row's fence " +
+    "(chrome pages, generator scope, the gate and preflight wiring; no CI workflow is in scope). " +
+    "It reads tracked repo files and the shared published-dirs.json manifest only. " +
+    "scripts-verify.yml's path-scoped full preflight runs it on every PR touching scripts/**, " +
+    "which includes the gate, its exemption map and baseline, so a change that can red this " +
+    "gate by editing the checker is independently caught in CI; html-verify.yml's full " +
+    "preflight covers the tools/, guides/, chaingraph/ and root pages the gate scans. " +
+    "Preflight-only here is a row-scope decision, not an unreachability claim."],
+  ["check-site-chrome.selftest.mjs", SELF_TEST],
   // ── TIEOUT-SPAN-SCHEMA-1 (2026-11-17) ───────────────────────────────────────
   ["check-document-span.selftest.mjs", SELF_TEST],
   // ── STALE-STAMP-WRITERS-1 (2026-11-14) ──────────────────────────────────────
