@@ -8,6 +8,7 @@ Assesses a QR payment scheme's pilot, production, or cross-border go-live readin
 
 ## Inputs
 
+- profile (string, optional)
 - phase (string, required)
 - gates (array, required)
 - uat_summary (object, optional)
