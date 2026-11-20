@@ -1,5 +1,5 @@
 // art-349-fedwire-structured-address-linter.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C14-1).
-// kernel_digest_at_authoring: sha256:809f84acec184e0f58a1ba119c5745f23171d8f0138189902c8da6e5d93452ea
+// kernel_digest_at_authoring: sha256:a9015c5298bcb4a4dafe43c10c6c703010518e2b1912240f5d40f5f35331f11d
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -70,6 +70,11 @@ function randomPP(rng) {
 
 const TRIALS = 4000;
 
+// Fail-closed required-field set (manifest inputSchema.required) recomputed from pp here, never
+// read from the artifact under test (SO #34 independent derivation).
+const REQUIRED = ['address_lines', 'as_of_date', 'building_number', 'country', 'country_subdivision', 'network', 'post_code', 'street_name', 'town_name'];
+const filled = (v) => v != null && !(typeof v === 'string' && v.trim() === '');
+
 // ---------- P1: termination — violations bounded, readiness_pct in [0,100] ----------
 function checkP1_termination() {
   let violations = 0, checked = 0;
@@ -97,9 +102,16 @@ function checkP2_error_count_differential() {
     // Map §4 formula: fully-structured is the only default-compliant state; hybrid joins only
     // under a caller-asserted as_of_date on/after a PUBLISHED enforcement date — that branch is
     // inert while the kernel's enforcement constant is null, and randomPP never asserts one.
-    const expectedCompliant = expectedErrors === 0 && output_payload.structure_type === 'FULLY_STRUCTURED';
+    const missing = REQUIRED.filter((f) => !filled(pp[f]));
+    const expectedIndeterminate = missing.length > 0 && expectedErrors === 0;
+    const expectedCompliant = expectedIndeterminate ? null : (expectedErrors === 0 && output_payload.structure_type === 'FULLY_STRUCTURED');
     if (output_payload.compliant !== expectedCompliant) violations++;
-    if (!expectedCompliant !== compliance_flags.includes('FEDWIRE_ADDRESS_NON_COMPLIANT')) violations++;
+    if (expectedIndeterminate !== (output_payload.verdict === 'INDETERMINATE')) violations++;
+    if (expectedIndeterminate) {
+      if (JSON.stringify(output_payload.missing_required_fields || []) !== JSON.stringify(missing)) violations++;
+      if (!compliance_flags.includes('INPUT_MISSING_INDETERMINATE')) violations++;
+      if (compliance_flags.includes('FEDWIRE_ADDRESS_NON_COMPLIANT')) violations++;
+    } else if (!expectedCompliant !== compliance_flags.includes('FEDWIRE_ADDRESS_NON_COMPLIANT')) violations++;
     const expectedReadiness = expectedCompliant ? 100 : Math.max(0, 100 - expectedErrors * 20);
     if (output_payload.readiness_pct !== expectedReadiness) violations++;
   }
@@ -178,6 +190,53 @@ function checkP4_status_not_date() {
   return { name: 'P4_deadline_null_status_string_as_of_inert', trials: checked, violations };
 }
 
+// ---------- P6: fail-closed — every positive fixture vector with one required field deleted, nulled, "" or "   " never stays compliant ----------
+function checkP6_blankFieldsNeverCompliant() {
+  const fixturesPath = path.join(__dirname, '..', 'fixtures', 'art-349-fedwire-structured-address-linter.fixtures.json');
+  const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
+  let violations = 0, checked = 0, positives = 0;
+  for (const vec of fixtures.vectors) {
+    if (compute(vec.policy_parameters).output_payload.compliant !== true) continue;
+    positives++;
+    for (const f of REQUIRED) {
+      for (const mode of ['delete', 'null', 'empty', 'blank']) {
+        const pp = JSON.parse(JSON.stringify(vec.policy_parameters));
+        if (mode === 'delete') delete pp[f];
+        else pp[f] = mode === 'null' ? null : mode === 'empty' ? '' : '   ';
+        checked++;
+        const verdict = compute(pp).output_payload;
+        if (verdict.compliant === true) violations++;
+      }
+    }
+  }
+  if (positives === 0) violations++;
+  return { name: 'P6_blank_required_field_never_positive', trials: checked, positives, violations };
+}
+
+// ---------- P5: buildArtifact_never_throws — one fixture per unhashable class ----------
+async function checkP5_buildArtifactNeverThrows() {
+  const { buildArtifact } = await import('../art-349-fedwire-structured-address-linter.kernel.mjs');
+  let deep = {}; let cur = deep;
+  for (let i = 0; i < 511; i++) { cur.n = {}; cur = cur.n; }
+  const classes = [
+    ['junk_1e300', { network: 1e300 }],
+    ['nan', { network: NaN }],
+    ['neg_infinity', { network: -Infinity }],
+    ['depth_511', { network: deep }],
+    ['over_1e6_values', { network: new Array(1000001).fill(0) }],
+  ];
+  let violations = 0; const rows = [];
+  for (const [label, pp] of classes) {
+    try {
+      const a = await buildArtifact(pp);
+      const ok = a.execution_hash === null && a.hash_refusal && typeof a.hash_refusal.reason === 'string';
+      if (!ok) violations++;
+      rows.push({ label, refused: !!ok });
+    } catch (e) { violations++; rows.push({ label, threw: String(e && e.message).slice(0, 80) }); }
+  }
+  return { name: 'buildArtifact_never_throws', trials: classes.length, violations, rows };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -189,6 +248,8 @@ results.properties.push(checkP1_termination());
 results.properties.push(checkP2_error_count_differential());
 results.properties.push(checkP3_categorical_boundary_forcing());
 results.properties.push(checkP4_status_not_date());
+results.properties.push(checkP6_blankFieldsNeverCompliant());
+results.properties.push(await checkP5_buildArtifactNeverThrows());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
