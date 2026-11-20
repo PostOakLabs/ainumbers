@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:73f7c3c049de7635ae66cf29bf86a1bef0c8cc9a4e52ce6c1ae66c27e4c90f4d
+// kernel_digest_at_authoring: sha256:7729bc02bdb9611366c7f1d7352c9bf657dd4ace6f3bf8e54e23d1872f6589b0
 //
 // FV-PROPFLOOR-SHARD-B28-1 — property-test floor for art-245-mt-mx-translation-fidelity-scorer.
 // Class B (bounded-numeric), NOT float-sensitive per the WU row's classification (fidelity_score
@@ -134,6 +134,61 @@ function checkP4_forced() {
   return rows;
 }
 
+// ---------- P5: buildArtifact_never_throws — one fixture per unhashable class ----------
+async function checkP5_buildArtifactNeverThrows() {
+  const { buildArtifact } = await import('../art-245-mt-mx-translation-fidelity-scorer.kernel.mjs');
+  let deep = {}; let cur = deep;
+  for (let i = 0; i < 511; i++) { cur.n = {}; cur = cur.n; }
+  const classes = [
+    ['junk_1e300', { mt_f20: 1e300 }],
+    ['nan', { mt_f20: NaN }],
+    ['neg_infinity', { mt_f20: -Infinity }],
+    ['depth_511', { mt_f20: deep }],
+    ['over_1e6_values', { mt_f20: new Array(1000001).fill(0) }],
+  ];
+  let violations = 0; const rows = [];
+  for (const [label, pp] of classes) {
+    try {
+      const a = await buildArtifact(pp);
+      const ok = a.execution_hash === null && a.hash_refusal && typeof a.hash_refusal.reason === 'string';
+      if (!ok) violations++;
+      rows.push({ label, refused: !!ok });
+    } catch (e) { violations++; rows.push({ label, threw: String(e && e.message).slice(0, 80) }); }
+  }
+  return { name: 'buildArtifact_never_throws', trials: classes.length, violations, rows };
+}
+
+// ---------- P6: a required field deleted, nulled, blanked or whitespace-only never stays positive ----------
+function checkP6_requiredFieldsFailClosed() {
+  const REQUIRED = [
+    'mt_f20', 'mt_f23b', 'mt_f32a', 'mt_f50', 'mt_f52a', 'mt_f57a', 'mt_f59', 'mt_f70', 'mt_f71a',
+    'mx_cdtr_agt', 'mx_cdtr_nm', 'mx_chrg_br', 'mx_dbtr_agt', 'mx_dbtr_nm', 'mx_rmt_ustrd', 'mx_uetr',
+  ];
+  const fixturesPath = path.join(__dirname, '..', 'fixtures', 'art-245-mt-mx-translation-fidelity-scorer.fixtures.json');
+  const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
+  const modes = ['delete', 'null', 'empty', 'whitespace'];
+  let violations = 0, checked = 0; const rows = [];
+  for (const v of fixtures.vectors) {
+    const basePP = v.policy_parameters;
+    if (compute(basePP).output_payload.compliant !== true) continue;
+    for (const f of REQUIRED) {
+      if (!(f in basePP)) continue;
+      for (const mode of modes) {
+        const pp = structuredClone(basePP);
+        if (mode === 'delete') delete pp[f];
+        else if (mode === 'null') pp[f] = null;
+        else if (mode === 'empty') pp[f] = '';
+        else pp[f] = '   ';
+        const op = compute(pp).output_payload;
+        checked++;
+        const ok = op.compliant !== true && op.verdict === 'INDETERMINATE' && (op.missing_required_fields || []).includes(f);
+        if (!ok) { violations++; rows.push({ vector: v.name, field: f, mode, compliant: op.compliant, verdict: op.verdict }); }
+      }
+    }
+  }
+  return { name: 'required_field_delete_null_empty_whitespace_never_positive', trials: checked, violations, rows: rows.slice(0, 20) };
+}
+
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
   console.error('FIXTURE ORACLE FAILED — spec/harness not trusted. Failures:', JSON.stringify(results.fixture_oracle.failures, null, 2));
@@ -143,6 +198,8 @@ if (!oracleOk) {
 results.properties.push(checkP1_scoreBounded());
 results.properties.push(checkP2_tierMatchesScore());
 results.properties.push(checkP3_scoreExactRatio());
+results.properties.push(await checkP5_buildArtifactNeverThrows());
+results.properties.push(checkP6_requiredFieldsFailClosed());
 results.boundary_forced = checkP4_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
