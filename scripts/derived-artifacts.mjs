@@ -1920,6 +1920,13 @@ export const DERIVED_ROOT_GATES = new Set([
   // assembled tree. The file itself is hand-signed (EXCLUDED, never regen-written); the gate is not
   // COVERED, so membership is awareness classification only.
   'node scripts/check-webmcp-snapshot-fresh.mjs',            // snapshot expiry freshness (overlay-reads the signed snapshot)
+  // PR-3187-DERIVED-READER-CURE-1 (DERIVED-READER-COVERAGE-1): the WebMCP registration
+  // spec gate reads every tracked *.html page, among them the regen-written reader
+  // surfaces (chaingraph/chaingraph-hub.html, sitemap.html, tools.html, mcp.html), so its
+  // page reads resolve through derivedResolve and a merge_group overlay judges the
+  // assembled tree. Spelled exactly as preflight.mjs's GATES list runs it; the
+  // --self-test sibling is a fixture proof and stays out of the set.
+  'node scripts/check-webmcp-spec.mjs',                      // WebMCP registration spec (page reads overlay-resolve)
 ]);
 
 // S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1 (2026-10-31): derivedRoot/derivedResolve moved VERBATIM

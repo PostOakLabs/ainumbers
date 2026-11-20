@@ -28,12 +28,20 @@
  *
  * Enumeration is git ls-files '*.html' (SO #52), every git child uses gitEnv
  * (SO #57). Zero dependencies (SO #10).
+ *
+ * DERIVED-READER-COVERAGE-1 (PR-3187-DERIVED-READER-CURE-1): the scanned page set
+ * includes regen-written reader surfaces (chaingraph/chaingraph-hub.html,
+ * sitemap.html, tools.html, mcp.html), so each page's BYTES resolve through
+ * derivedResolve: with DERIVED_ROOT set (the merge_group assembled tree) the
+ * regen-written pages are judged from the overlay, hand pages fall back to the
+ * checkout per overlay semantics. The enumeration itself stays checkout-based.
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gitEnv } from './_git-env-lib.mjs';
+import { derivedResolve } from './_derived-resolve-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -199,7 +207,9 @@ export function listTrackedPages(repoRoot) {
 
 function livePages() {
   const pages = new Map();
-  for (const p of listTrackedPages(REPO)) pages.set(p, readFileSync(resolve(REPO, p), 'utf8'));
+  // Overlay-aware byte reads (DERIVED-READER-COVERAGE-1, see header): the
+  // regen-written surfaces come from the DERIVED_ROOT tree when one is mounted.
+  for (const p of listTrackedPages(REPO)) pages.set(p, readFileSync(derivedResolve(...p.split('/')), 'utf8'));
   return pages;
 }
 
