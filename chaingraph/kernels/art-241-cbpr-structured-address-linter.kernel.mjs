@@ -1,7 +1,7 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-241-cbpr-structured-address-linter';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.0.1';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -16,6 +16,14 @@ export const meta = {
 //   - Unstructured: AdrLine-only -- will be prohibited once the structured-address requirement
 //     takes effect (deferred by Swift on 27 Aug 2026, new date not published).
 //   - Silent-fail rule: AdrLine must NOT duplicate structured field values verbatim.
+// Missing input (fail-closed): all seven manifest-required address fields must be present. An
+// absent, null, empty or whitespace-only required field is never evidence of compliance. When a
+// required field is missing and no ERROR was found, output_payload.verdict is 'INDETERMINATE',
+// compliant is null, readiness_pct is 0 and missing_required_fields lists the fields;
+// compliance_flags carries INPUT_MISSING_INDETERMINATE. A field already producing an ERROR keeps
+// the existing non-compliant verdict. buildArtifact never throws: an unhashable input (non-finite
+// number, unsafe integer, depth or size past the hash limits) returns a refusal artifact with
+// execution_hash null and hash_refusal.
 // table_version: "CBPR-PLUS-STRUCTURED-ADDRESS-NOV2026-V1"
 // Source: SWIFT CBPR+ Structured Address Migration Bulletin (swift.com/cbpr-plus-migration);
 //         ISO 20022 PostalAddress24 element set (MX catalogue).
@@ -27,8 +35,15 @@ const MAX_ADR_LINES = 2;
 const TABLE_VERSION = 'CBPR-PLUS-STRUCTURED-ADDRESS-NOV2026-V1';
 const TABLE_SOURCE = 'SWIFT CBPR+ Structured Address Migration Bulletin (verify current guidance at swift.com/cbpr-plus-migration); ISO 20022 PostalAddress24 element set (iso20022.org MX catalogue)';
 
+// Required inputs per the manifest mcp_tool_definition.inputSchema.required. A missing,
+// null, empty or whitespace-only one yields INDETERMINATE (verdict, compliant: null), never
+// compliant: true. Every required input is read with a LITERAL property access so the static
+// schema-read sweep sees it (no dynamic key reads).
+const REQUIRED_FIELDS = ['address_lines', 'building_number', 'country', 'country_subdivision', 'post_code', 'street_name', 'town_name'];
+
 function safeStr(v) { return typeof v === 'string' ? v.trim() : ''; }
 function safeArr(v) { return Array.isArray(v) ? v : (v && typeof v === 'string' ? [v] : []); }
+function isFilled(v) { return v != null && !(typeof v === 'string' && v.trim() === ''); }
 
 export function compute(pp) {
   pp = pp || {};
@@ -105,8 +120,24 @@ export function compute(pp) {
   }
 
   const error_count = violations.filter(function(v) { return v.severity === 'ERROR'; }).length;
-  const compliant = error_count === 0 && (structure_type === 'FULLY_STRUCTURED' || structure_type === 'HYBRID');
-  const readiness_pct = compliant ? 100 : Math.max(0, 100 - error_count * 20);
+
+  // Fail-closed on missing input: a required field that is absent, null, empty or
+  // whitespace-only is not evidence of compliance. With no ERROR already found the verdict
+  // is INDETERMINATE (compliant: null, readiness_pct: 0). An already-found ERROR keeps the
+  // existing non-compliant verdict.
+  const required_checks = [
+    ['address_lines', isFilled(pp.address_lines)],
+    ['building_number', isFilled(pp.building_number)],
+    ['country', isFilled(pp.country)],
+    ['country_subdivision', isFilled(pp.country_subdivision)],
+    ['post_code', isFilled(pp.post_code)],
+    ['street_name', isFilled(pp.street_name)],
+    ['town_name', isFilled(pp.town_name)],
+  ];
+  const missing_required_fields = required_checks.filter(function(pair) { return !pair[1]; }).map(function(pair) { return pair[0]; });
+  const indeterminate = missing_required_fields.length > 0 && error_count === 0;
+  const compliant = indeterminate ? null : (error_count === 0 && (structure_type === 'FULLY_STRUCTURED' || structure_type === 'HYBRID'));
+  const readiness_pct = indeterminate ? 0 : (compliant ? 100 : Math.max(0, 100 - error_count * 20));
 
   const output_payload = {
     structure_type,
@@ -123,15 +154,70 @@ export function compute(pp) {
     regulatory_basis: 'SWIFT CBPR+ Structured Address Migration Bulletin; ISO 20022 PostalAddress24 element set (MX catalogue); SEPA and CHAPS aligned; Swift notice of 27 Aug 2026 (structured-address date deferred, no new date published)',
   };
 
+  if (indeterminate) {
+    output_payload.missing_required_fields = missing_required_fields;
+    output_payload.verdict = 'INDETERMINATE';
+  }
+
   const compliance_flags = [];
-  if (!compliant) compliance_flags.push('CBPR_ADDRESS_NON_COMPLIANT');
+  if (indeterminate) compliance_flags.push('INPUT_MISSING_INDETERMINATE');
+  else if (!compliant) compliance_flags.push('CBPR_ADDRESS_NON_COMPLIANT');
   if (violations.some(function(v) { return v.code === 'SILENT_FAIL_DUPLICATION'; })) compliance_flags.push('SILENT_FAIL_DUPLICATION_DETECTED');
   if (violations.some(function(v) { return v.code === 'UNSTRUCTURED_ADDRESS'; })) compliance_flags.push('UNSTRUCTURED_ADDRESS_PROHIBITED');
 
   return { output_payload, compliance_flags };
 }
 
+// Mirrors _hash.mjs limits so buildArtifact never throws: non-finite number, unsafe integer,
+// nesting past MAX_DEPTH, more values than MAX_ELEMENTS. Reports path and kind only.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > HASH_MAX_DEPTH) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > HASH_MAX_ELEMENTS) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const unhashable = findHashRefusal(pp, 'pp', 1, { n: 0 });
+  if (unhashable !== null) {
+    return {
+      '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+      chaingraph_version: '0.4.0',
+      mandate_type: meta.mandate_type,
+      tool_id: TOOL_ID,
+      tool_version: TOOL_VERSION,
+      generated_at: now ?? null,
+      execution_hash: null,
+      hash_refusal: { reason: unhashable.reason, detail: unhashable.detail },
+      chain: { parent_hashes, parent_tool_ids, chain_depth },
+      policy_parameters: null,
+      output_payload: { compliant: null, verdict: 'REFUSED', refusal: unhashable.reason },
+      compliance_flags: ['INPUT_REFUSED'],
+      compute_mode: 'server',
+      audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+    };
+  }
   const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
