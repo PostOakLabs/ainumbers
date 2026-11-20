@@ -121,6 +121,7 @@ function checkSeededRefusals() {
     ['EFFECTIVE_BALANCE_NOT_INCREMENT_MULTIPLE', (p) => { p.effective_balance_gwei = '1500000000'; p.withdrawal_credential_prefix = 1; }],
     ['EFFECTIVE_BALANCE_EXCEEDS_MAXEB', (p) => { p.effective_balance_gwei = '2049000000000'; p.withdrawal_credential_prefix = 2; }],
     ['PARTICIPATING_EXCEEDS_TOTAL', (p) => { p.unslashed_participating_balance_gwei = [p.total_active_balance_gwei, p.total_active_balance_gwei, '18446744073709551615']; }],
+    ['EFFECTIVE_BALANCE_EXCEEDS_TOTAL', (p) => { p.effective_balance_gwei = '32000000000'; p.withdrawal_credential_prefix = 1; p.total_active_balance_gwei = '1000000000'; p.unslashed_participating_balance_gwei = ['1000000000', '1000000000', '1000000000']; p.inclusion_attestations = []; }],
     ['SLOTS_COUNTED_EXCEEDS_EPOCH', (p) => { p.sync.slots_counted = 33; p.sync.slots_set = 0; }],
     ['INCLUSION_LIST_TOO_LONG', (p) => { p.inclusion_attestations = Array.from({ length: 65 }, () => ({ effective_balance_gwei: '32000000000', newly_set_flags: [true, false, false] })); }],
     ['NON_NEGATIVE_INTEGER_INPUTS', (p) => { p.inactivity_score = -1; }],
