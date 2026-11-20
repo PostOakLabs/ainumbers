@@ -71,7 +71,7 @@ const REQUIRED_BOOLS = [
   'issuer_reserve_short_term_liquid_one_to_one',
 ];
 const OPTIONAL_BOOLS = ['laws_prohibit_cash_equivalent_treatment'];
-const OPTIONAL_NUMBERS = ['redemption_fees_bp', 'redemption_min_minor', 'redemption_settlement_days', 'original_maturity_days'];
+const OPTIONAL_NUMBERS = ['redemption_fees_bp', 'redemption_min_minor', 'original_maturity_days'];
 
 const STATUS = { PASS: 'PASS', FAIL: 'FAIL', NOT_DETERMINABLE: 'NOT_DETERMINABLE' };
 const CLASS_MEETS = 'MEETS_PROPOSED_EXAMPLES';
@@ -271,7 +271,6 @@ export function compute(pp) {
       redemption_amount_known: holding.redemption_amount_known,
       redemption_fees_bp: holding.redemption_fees_bp === undefined ? null : holding.redemption_fees_bp,
       redemption_min_minor: holding.redemption_min_minor === undefined ? null : holding.redemption_min_minor,
-      redemption_settlement_days: holding.redemption_settlement_days === undefined ? null : holding.redemption_settlement_days,
       gates_or_suspension_terms: holding.gates_or_suspension_terms,
       access_via_intermediary_only: holding.access_via_intermediary_only,
       original_maturity_days: holding.original_maturity_days === undefined ? null : holding.original_maturity_days,

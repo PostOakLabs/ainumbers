@@ -1,5 +1,5 @@
 // 797-stablecoin-cash-equivalent-test — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:643f5a36069f70daa86c7d7bbee6a65e227f4de5813fe2974819c3e8899de17d
+// kernel_digest_at_authoring: sha256:c33b78c678ed50ec0e139bf2296edb397afac3677f9879c70192ce4e5ecf360e
 // spec: holder-side cash-equivalent classification for a declared stablecoin holding under the
 //       FASB proposed Update of 2026-08-18 (Topic 230); criteria pinned from the exposure draft's
 //       illustrative Example 2 (paragraph cites in the node shard metadata and on the node page —
@@ -36,7 +36,6 @@ function randomInput(rand) {
   const h = clone(BASE);
   if (rand() < 0.5) h.redemption_fees_bp = Math.floor(rand() * 200);
   if (rand() < 0.5) h.redemption_min_minor = Math.floor(rand() * 2) * 500000 + 1000000;
-  if (rand() < 0.5) h.redemption_settlement_days = Math.floor(rand() * 3);
   if (rand() < 0.5) h.original_maturity_days = Math.floor(rand() * 200);
   if (rand() < 0.5) h.laws_prohibit_cash_equivalent_treatment = rand() < 0.2;
   if (rand() < 0.6) h.token_label = 'Synth-token-' + Math.floor(rand() * 1e6);
@@ -180,6 +179,31 @@ function checkDeterminismAndLabelCap() {
   return { name: 'P6_determinism_and_token_label_cap', checked, violations };
 }
 
+// P7 (retired field is ignored, never echoed; NODE-797-SETTLEMENT-DAYS-CURE-1): a caller that
+// still sends redemption_settlement_days (0, 1e6, a wrong type, null) gets the exact output of an
+// input without it, and neither holding_declared nor the export carries the key. The
+// exposure-draft examples state no settlement bound, so the field never moves a result.
+function checkRetiredSettlementDaysIgnored() {
+  const rand = mulberry32(79707);
+  let checked = 0, violations = 0;
+  const values = [0, 1, 1e6, -1, 'x', null, true, 1e300];
+  for (let i = 0; i < 100; i++) {
+    const pp = randomInput(rand);
+    const want = JSON.stringify(compute(clone(pp)).output_payload);
+    for (const v of values) {
+      const withField = clone(pp);
+      withField.holding.redemption_settlement_days = v;
+      const got = compute(withField).output_payload;
+      checked++;
+      if (JSON.stringify(got) !== want) violations++;
+      if (got.refused) continue;
+      if (Object.hasOwn(got.holding_declared, 'redemption_settlement_days')) violations++;
+      if (Object.hasOwn(got.policy_mandate_export.declared_terms, 'redemption_settlement_days')) violations++;
+    }
+  }
+  return { name: 'P7_retired_settlement_days_field_ignored_never_echoed', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -194,7 +218,8 @@ const properties = [
   checkInvalidDomainAndMissingFieldBranches(),
   checkFeeThresholdBoundary(),
   checkDeterminismAndLabelCap(),
+  checkRetiredSettlementDaysIgnored(),
 ];
-console.log(`[${KERNEL_ID}] class-K floor property test — 6 properties over the declared-terms classification surface.`);
+console.log(`[${KERNEL_ID}] class-K floor property test — 7 properties over the declared-terms classification surface.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
 process.exit(ok ? 0 : 1);
