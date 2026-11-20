@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:56e272ccc9eedbb867fdde426ae24a98c8c95f8155ea4241e36cccd5f0766260
+// kernel_digest_at_authoring: sha256:1992eefa054bfeb91ddb3725101be07b62a8db02cbbcd092c2096d8c47b09a5a
 //
 // FV-PROPFLOOR-SHARD-B27-1 — property-test floor for art-242-pacs008-party-completeness-validator.
 // Class B (bounded-numeric shape, format/presence validation logic). float:no — cpmi_d218_score is
@@ -133,6 +133,28 @@ function checkP4_forced() {
   return rows;
 }
 
+// ---------- P6: fail-closed — every positive fixture vector with one required field deleted, nulled, "" or "   " never stays compliant ----------
+function checkP6_blankFieldsNeverCompliant() {
+  const fixtures = JSON.parse(readFileSync(path.join(__dirname, '..', 'fixtures', 'art-242-pacs008-party-completeness-validator.fixtures.json'), 'utf8'));
+  const required = ['creditor_agent_bic', 'creditor_lei', 'creditor_name', 'debtor_agent_bic', 'debtor_lei', 'debtor_name', 'purpose_code', 'uetr'];
+  let violations = 0, checked = 0, positives = 0;
+  for (const vec of fixtures.vectors) {
+    if (compute(vec.policy_parameters).output_payload.compliant !== true) continue;
+    positives++;
+    for (const f of required) {
+      for (const mode of ['delete', 'null', 'empty', 'blank']) {
+        const pp = JSON.parse(JSON.stringify(vec.policy_parameters));
+        if (mode === 'delete') delete pp[f];
+        else pp[f] = mode === 'null' ? null : mode === 'empty' ? '' : '   ';
+        checked++;
+        if (compute(pp).output_payload.compliant === true) violations++;
+      }
+    }
+  }
+  if (positives === 0) violations++;
+  return { name: 'P6_blank_required_field_never_compliant', trials: checked, violations };
+}
+
 // ---------- P5: buildArtifact_never_throws — one fixture per unhashable class ----------
 async function checkP5_buildArtifactNeverThrows() {
   const { buildArtifact } = await import('../art-242-pacs008-party-completeness-validator.kernel.mjs');
@@ -166,6 +188,7 @@ if (!oracleOk) {
 results.properties.push(checkP1_boundedness());
 results.properties.push(checkP2_scoreExact());
 results.properties.push(checkP3_uuidMetamorphic());
+results.properties.push(checkP6_blankFieldsNeverCompliant());
 results.properties.push(await checkP5_buildArtifactNeverThrows());
 results.boundary_forced = checkP4_forced();
 

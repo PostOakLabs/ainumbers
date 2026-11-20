@@ -33,6 +33,8 @@ const REQUIRED_FIELDS = ['creditor_agent_bic', 'creditor_lei', 'creditor_name', 
 
 function safeStr(v) { return typeof v === 'string' ? v.trim() : ''; }
 
+function isFilled(v) { return v != null && !(typeof v === 'string' && v.trim() === ''); }
+
 function isUUIDv4(s) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
 }
@@ -125,15 +127,16 @@ export function compute(pp) {
   const warning_count = issues.filter(function(i) { return i.severity === 'WARNING'; }).length;
   // Fail-closed on missing input: a required field that is absent or null is not evidence of
   // compliance. With no ERROR already found the verdict is INDETERMINATE (compliant: null).
+  // A blank or whitespace-only string counts as missing, same as absent or null.
   const raw_present = {
-    creditor_agent_bic: pp.creditor_agent_bic != null,
-    creditor_lei: pp.creditor_lei != null,
-    creditor_name: pp.creditor_name != null,
-    debtor_agent_bic: pp.debtor_agent_bic != null,
-    debtor_lei: pp.debtor_lei != null,
-    debtor_name: pp.debtor_name != null,
-    purpose_code: pp.purpose_code != null,
-    uetr: pp.uetr != null,
+    creditor_agent_bic: isFilled(pp.creditor_agent_bic),
+    creditor_lei: isFilled(pp.creditor_lei),
+    creditor_name: isFilled(pp.creditor_name),
+    debtor_agent_bic: isFilled(pp.debtor_agent_bic),
+    debtor_lei: isFilled(pp.debtor_lei),
+    debtor_name: isFilled(pp.debtor_name),
+    purpose_code: isFilled(pp.purpose_code),
+    uetr: isFilled(pp.uetr),
   };
   const missing_required_fields = REQUIRED_FIELDS.filter(function(f) { return !raw_present[f]; });
   const indeterminate = missing_required_fields.length > 0 && error_count === 0;
