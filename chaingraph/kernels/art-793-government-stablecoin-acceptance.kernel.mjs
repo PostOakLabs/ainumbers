@@ -43,7 +43,49 @@ function refused(reason, text) {
   };
 }
 
-function isNonNegInt(v) { return typeof v === 'number' && Number.isInteger(v) && v >= 0; }
+// Every accepted integer is a safe integer: an input above 2^53 - 1 is already rounded
+// before the kernel sees it, so a verdict could rest on a value the caller never sent.
+function isNonNegInt(v) { return typeof v === 'number' && Number.isSafeInteger(v) && v >= 0; }
+
+// ---------- hashability walk (D6) ----------
+// Mirrors the classes _hash.mjs assertIJson() refuses before canonicalizing: a non-finite
+// number or an integer outside the 2^53 safe range, nesting past its MAX_DEPTH, more values
+// than its MAX_ELEMENTS. Reports { reason, detail } with path and kind only, never the
+// value; null when the subtree is safe to hash. The shared _hash.mjs stays untouched.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+// pp alone is held to tighter margins than the full preimage: the {policy_parameters,
+// output_payload} envelope wraps pp two levels deeper and output_payload carries values too.
+const PP_MAX_DEPTH = HASH_MAX_DEPTH - 8;
+const PP_MAX_ELEMENTS = 199000;
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
+const UNSAFE_SUM_TEXT = 'a running total or carry exceeds Number.MAX_SAFE_INTEGER (9007199254740991); the verdict would rest on a rounded sum';
 
 function isDayStr(v) { return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v); }
 
@@ -66,6 +108,9 @@ function isDayStr(v) { return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.tes
 // null receipt day take the absent/default path, not a refusal third state.
 export function compute(pp) {
   pp = pp || {};
+  // D6: refuse anything buildArtifact could not hash (unsafe integer, non-finite, too deep).
+  const unhashable = findHashRefusal(pp, 'pp', 1, { maxDepth: PP_MAX_DEPTH, maxElements: PP_MAX_ELEMENTS, n: 0 });
+  if (unhashable !== null) return refused(unhashable.reason, unhashable.detail);
   const policy = pp.policy;
   const receipts = pp.receipts;
 
@@ -142,9 +187,15 @@ export function compute(pp) {
     totals.converted_value += r.converted_value;
     totals.fiat_credited_value += r.fiat_credited_value;
     totals.refunds_value += r.refunds_value;
+    if (!Number.isSafeInteger(totals.received_value) || !Number.isSafeInteger(totals.converted_value)
+      || !Number.isSafeInteger(totals.fiat_credited_value) || !Number.isSafeInteger(totals.refunds_value)) {
+      return refused('REFUSED_SUM_UNSAFE', UNSAFE_SUM_TEXT);
+    }
 
     if (!eligible.has(r.token_code)) {
-      ineligibleTotals.set(r.token_code, (ineligibleTotals.get(r.token_code) || 0) + r.received_value);
+      const inel = (ineligibleTotals.get(r.token_code) || 0) + r.received_value;
+      if (!Number.isSafeInteger(inel)) return refused('REFUSED_SUM_UNSAFE', UNSAFE_SUM_TEXT);
+      ineligibleTotals.set(r.token_code, inel);
     }
     if (r.max_hours_to_conversion > policy.conversion_window_hours) {
       outsideWindow.push({
@@ -161,7 +212,9 @@ export function compute(pp) {
 
     // token carry reconciliation, in array order per token
     const opening = carry[r.token_code] || 0;
-    let closing = opening + r.received_value - r.converted_value - r.refunds_value;
+    const gross = opening + r.received_value;
+    if (!Number.isSafeInteger(gross)) return refused('REFUSED_SUM_UNSAFE', UNSAFE_SUM_TEXT);
+    let closing = gross - r.converted_value - r.refunds_value;
     if (closing < 0) {
       breaks.push({
         kind: 'RECEIPT_IDENTITY_BREAK', token_code: r.token_code, day: r.day || null,
@@ -188,6 +241,7 @@ export function compute(pp) {
     }
   }
   totals.closing_unconverted_value = Object.values(carry).reduce((a, b) => a + b, 0);
+  if (!Number.isSafeInteger(totals.closing_unconverted_value)) return refused('REFUSED_SUM_UNSAFE', UNSAFE_SUM_TEXT);
 
   const policy_conformance = {
     ineligible_tokens_received: Array.from(ineligibleTotals.entries()).map(([token_code, total_received_value]) => ({ token_code, total_received_value })),
@@ -237,8 +291,13 @@ export function compute(pp) {
 
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // The object walked here is the exact execution_hash preimage. When the shared
+  // canonicalizer would refuse it, mint the artifact with a null execution_hash and the
+  // reason beside it instead of letting the hash throw (D6); compute() already refuses
+  // the same inputs, so this is the backstop: buildArtifact never throws.
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const hash = unhashable === null ? await executionHash(pp, output_payload) : null;
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -254,4 +313,6 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }
