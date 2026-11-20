@@ -1,5 +1,5 @@
 // 797-stablecoin-cash-equivalent-test — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:c33b78c678ed50ec0e139bf2296edb397afac3677f9879c70192ce4e5ecf360e
+// kernel_digest_at_authoring: sha256:de6a5d338d3e22fb37b68a9ee9707fc38c51ffe8839c61331e1db4f69579f3c0
 // spec: holder-side cash-equivalent classification for a declared stablecoin holding under the
 //       FASB proposed Update of 2026-08-18 (Topic 230); criteria pinned from the exposure draft's
 //       illustrative Example 2 (paragraph cites in the node shard metadata and on the node page —
@@ -11,7 +11,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/797-stablecoin-cash-equivalent-test.proptest.mjs
 
-import { compute } from '../797-stablecoin-cash-equivalent-test.kernel.mjs';
+import { compute, buildArtifact } from '../797-stablecoin-cash-equivalent-test.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, deepEqual } from './_pbt-common.mjs';
 
 const KERNEL_ID = '797-stablecoin-cash-equivalent-test';
@@ -204,6 +204,55 @@ function checkRetiredSettlementDaysIgnored() {
   return { name: 'P7_retired_settlement_days_field_ignored_never_echoed', checked, violations };
 }
 
+// P8 (D6 / D6-ANYKERNEL) — buildArtifact_never_throws: an input whose {policy_parameters,
+// output_payload} preimage the shared canonicalizer would refuse (non-finite, unsafe integer,
+// BigInt, over-depth, over-element) mints execution_hash === null plus hash_refusal {reason,
+// detail} with the path only (never the value) instead of throwing; a clean pp still hashes.
+async function checkBuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const junk = [
+    ['nan', NaN], ['neg_inf', -Infinity], ['pos_inf', Infinity],
+    ['huge_1e300', 1e300], ['unsafe_int', Math.pow(2, 60)],
+    ['deep_600', deep], ['wide_1000001', wide], ['bigint', 1n],
+  ];
+  const numericFields = ['redemption_fees_bp', 'redemption_min_minor', 'original_maturity_days'];
+  const cleanPp = () => ({ profile: 'fasb_proposed_2026_08', holding: clone(BASE) });
+  const expectRefusal = (label, art) => {
+    const r = art.hash_refusal;
+    if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)
+        || typeof r.detail !== 'string' || r.detail.indexOf('pp') !== 0) {
+      violations++; console.log(`P8 violation: ${label} artifact shape`);
+    }
+    if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) {
+      violations++; console.log(`P8 violation: ${label} hostile value echoed`);
+    }
+  };
+  for (const [label, value] of junk) {
+    const ppExtra = cleanPp(); ppExtra.junk = value;
+    checked++;
+    try { expectRefusal(label + '/extra', await buildArtifact(ppExtra)); }
+    catch (e) { violations++; console.log(`P8 violation: buildArtifact threw (${label}/extra): ${String(e.message).slice(0, 80)}`); }
+    for (const field of numericFields) {
+      const ppField = cleanPp(); ppField.holding[field] = value;
+      checked++;
+      try { expectRefusal(label + '/' + field, await buildArtifact(ppField)); }
+      catch (e) { violations++; console.log(`P8 violation: buildArtifact threw (${label}/${field}): ${String(e.message).slice(0, 80)}`); }
+    }
+  }
+  for (const pp of [cleanPp(), { profile: 'fasb_final', holding: clone(BASE) }, null, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) {
+        violations++; console.log('P8 violation: clean input lost its hash');
+      }
+    } catch (e) { violations++; console.log(`P8 violation: buildArtifact threw on clean input: ${String(e.message).slice(0, 80)}`); }
+  }
+  return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -219,7 +268,8 @@ const properties = [
   checkFeeThresholdBoundary(),
   checkDeterminismAndLabelCap(),
   checkRetiredSettlementDaysIgnored(),
+  await checkBuildArtifactNeverThrows(),
 ];
-console.log(`[${KERNEL_ID}] class-K floor property test — 7 properties over the declared-terms classification surface.`);
+console.log(`[${KERNEL_ID}] class-K floor property test — 8 properties over the declared-terms classification surface plus the D6 never-throw backstop.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
 process.exit(ok ? 0 : 1);
