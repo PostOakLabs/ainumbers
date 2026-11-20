@@ -153,6 +153,7 @@ function checkSafeIntegerGate() {
 async function checkBuildArtifactNeverThrows() {
   let checked = 0, violations = 0;
   const rcpt = (rv) => ({ token_code: 'USDC', day: '2026-03-02', received_value: rv, converted_value: 0, fiat_credited_value: 0, refunds_value: 0, max_hours_to_conversion: 0, conversion_rate_variance_bp: 0 });
+  /** @type {any} */
   let deep = { x: 1 };
   for (let i = 0; i < 600; i++) deep = { x: deep };
   const junk = [
