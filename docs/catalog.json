@@ -2,10 +2,10 @@
   "schema_version": "mcp-catalog-v1",
   "server_id": "ainumbers-fintech-suite",
   "name": "AINumbers Fintech Intelligence Suite",
-  "description": "1275 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
+  "description": "1277 client-side fintech tools covering ISO 20022, A2A payments, CFPB \u00a71033, EU AI Act, DORA, AML/KYC, BaaS, DLT, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), and MCP developer tooling. All tools run in the browser \u2014 execution_type is browser-reference: provide the URL and inputs to the user for interactive use.",
   "base_url": "https://ainumbers.co",
-  "generated": "2026-11-19",
-  "tool_count": 1274,
+  "generated": "2026-11-20",
+  "tool_count": 1276,
   "tools": [
     {
       "name": "calculate_a2a_fee_route",
@@ -25561,12 +25561,22 @@
           "gates"
         ],
         "properties": {
+          "profile": {
+            "type": "string",
+            "enum": [
+              "qr_scheme",
+              "gov_payment_programme"
+            ]
+          },
           "phase": {
             "type": "string",
             "enum": [
               "pilot",
               "production",
-              "cross_border"
+              "cross_border",
+              "agency_pilot",
+              "agency_wave",
+              "full_rollout"
             ]
           },
           "gates": {
@@ -56419,6 +56429,276 @@
       }
     },
     {
+      "name": "verify_x402_svm_outcome",
+      "description": "Recompute, clause by clause, whether a pasted x402 exact-scheme Solana payment met its requirements: the decoded instructions, the PaymentRequirements, the mint token program and optional Token-2022 fee config, and optional Ed25519 checks. Each clause reports the pinned spec reading, the pinned reference-code reading, and a verdict of PASS, FAIL or DIVERGES, plus the recipient ATA under both token programs and the net amount after any withheld fee. Values only; nothing on-chain is read.",
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "requirements",
+          "transaction",
+          "mint"
+        ],
+        "properties": {
+          "requirements": {
+            "type": "object",
+            "required": [
+              "asset",
+              "amount",
+              "pay_to",
+              "extra"
+            ],
+            "description": "The x402 PaymentRequirements for the exact scheme.",
+            "properties": {
+              "asset": {
+                "type": "string",
+                "description": "The mint address, base58 (decodes to 32 bytes)."
+              },
+              "amount": {
+                "type": "string",
+                "description": "The required amount in base units, decimal string, u64 range.",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "pay_to": {
+                "type": "string",
+                "description": "The recipient wallet, base58 (32 bytes). The destination ATA derives from this."
+              },
+              "extra": {
+                "type": "object",
+                "required": [
+                  "fee_payer"
+                ],
+                "description": "Scheme extras. fee_payer is required; memo and transaction_versions are optional. splits is refused (out of scope for this version).",
+                "properties": {
+                  "fee_payer": {
+                    "type": "string",
+                    "description": "The sponsor fee payer, base58 (32 bytes), as carried by the facilitator /supported response."
+                  },
+                  "memo": {
+                    "type": "string",
+                    "description": "When present, exactly one Memo instruction must carry this text byte for byte."
+                  },
+                  "transaction_versions": {
+                    "type": "array",
+                    "description": "The message versions the requirements advertise: JSON integers 0 and/or 1 only. Absent means [0].",
+                    "items": {
+                      "type": "integer",
+                      "enum": [
+                        0,
+                        1
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "transaction": {
+            "type": "object",
+            "required": [
+              "version",
+              "instructions"
+            ],
+            "description": "The decoded transaction message fields, pasted by the caller. Lookup-table accounts must be pasted resolved.",
+            "properties": {
+              "version": {
+                "type": [
+                  "integer",
+                  "string"
+                ],
+                "enum": [
+                  0,
+                  1,
+                  "legacy"
+                ],
+                "description": "The message version: 0, 1 or \"legacy\" (legacy is deprecated and fails the version clause)."
+              },
+              "instructions": {
+                "type": "array",
+                "description": "Decoded instructions in order. transfer_checked carries its parsed fields; is_inner: true marks a caller-pasted inner (CPI) instruction.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "transfer_checked",
+                        "memo",
+                        "compute_unit_limit",
+                        "compute_unit_price",
+                        "other"
+                      ],
+                      "description": "The decoded instruction kind."
+                    },
+                    "token_program": {
+                      "type": "string",
+                      "enum": [
+                        "spl-token",
+                        "token-2022"
+                      ],
+                      "description": "For transfer_checked: the token program the instruction runs under."
+                    },
+                    "source": {
+                      "type": "string",
+                      "description": "For transfer_checked: the source token account, base58."
+                    },
+                    "mint": {
+                      "type": "string",
+                      "description": "For transfer_checked: the mint the transfer moves, base58."
+                    },
+                    "destination": {
+                      "type": "string",
+                      "description": "For transfer_checked: the destination token account, base58."
+                    },
+                    "authority": {
+                      "type": "string",
+                      "description": "For transfer_checked: the authority (owner or delegate) signing the transfer, base58."
+                    },
+                    "amount": {
+                      "type": "string",
+                      "description": "For transfer_checked: the transferred amount in base units, decimal string.",
+                      "pattern": "^(0|[1-9][0-9]*)$"
+                    },
+                    "decimals": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9,
+                      "description": "For transfer_checked: the decimals operand of TransferChecked."
+                    },
+                    "is_inner": {
+                      "type": "boolean",
+                      "description": "True when the caller pastes this as an inner (CPI) instruction rather than a top-level one."
+                    },
+                    "text": {
+                      "type": "string",
+                      "description": "For memo: the memo text."
+                    },
+                    "units": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "For compute_unit_limit: the CU limit."
+                    },
+                    "micro_lamports": {
+                      "type": "string",
+                      "description": "For compute_unit_price: the price in microlamports, decimal string.",
+                      "pattern": "^(0|[1-9][0-9]*)$"
+                    },
+                    "program_id": {
+                      "type": "string",
+                      "description": "For other: the program id, base58."
+                    },
+                    "accounts": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "For other: the instruction accounts, base58, ALT-resolved."
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                }
+              }
+            }
+          },
+          "mint": {
+            "type": "object",
+            "required": [
+              "token_program",
+              "decimals"
+            ],
+            "description": "The mint configuration for requirements.asset.",
+            "properties": {
+              "token_program": {
+                "type": "string",
+                "enum": [
+                  "spl-token",
+                  "token-2022"
+                ],
+                "description": "The token program the mint lives under."
+              },
+              "decimals": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9,
+                "description": "The mint decimals."
+              },
+              "transfer_fee": {
+                "type": "object",
+                "required": [
+                  "transfer_fee_basis_points",
+                  "maximum_fee"
+                ],
+                "description": "Optional Token-2022 transfer-fee extension configuration. When absent, no fee is withheld.",
+                "properties": {
+                  "transfer_fee_basis_points": {
+                    "type": "string",
+                    "description": "The fee in basis points, u16 range.",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "maximum_fee": {
+                    "type": "string",
+                    "description": "The fee cap in base units, u64 range.",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  }
+                }
+              }
+            }
+          },
+          "signature_checks": {
+            "type": "array",
+            "description": "Optional Ed25519 checks over caller-pasted bytes; the node never re-serializes anything.",
+            "items": {
+              "type": "object",
+              "required": [
+                "public_key",
+                "message_hex",
+                "signature_hex"
+              ],
+              "properties": {
+                "public_key": {
+                  "type": "string",
+                  "description": "The Ed25519 public key, base58 (32 bytes)."
+                },
+                "message_hex": {
+                  "type": "string",
+                  "pattern": "^[0-9a-fA-F]*$",
+                  "description": "The signed bytes, even-length hex."
+                },
+                "signature_hex": {
+                  "type": "string",
+                  "pattern": "^[0-9a-fA-F]{128}$",
+                  "description": "The 64-byte Ed25519 signature, 128 hex characters."
+                }
+              }
+            }
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-781-x402-svm-payment-outcome",
+        "category": "chaingraph",
+        "tags": [
+          "x402",
+          "solana",
+          "svm",
+          "payment-outcome",
+          "transfer-checked",
+          "token-2022",
+          "transfer-fee",
+          "associated-token-account",
+          "fee-payer-isolation",
+          "ed25519",
+          "mcp:verify_x402_svm_outcome"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-781-x402-svm-payment-outcome.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
       "name": "compute_modified_premium",
       "description": "Apply an NCCI experience modification factor to a caller-supplied subject premium (total manual premium plus premium items subject to experience rating) to get the modified premium, rounded to whole dollars. Subject premium composition is the caller's responsibility; manual premium is never computed from payrolls and rates, and no NCCI or state rate table is vendored.",
       "inputSchema": {
@@ -56818,6 +57098,63 @@
           "mcp:assess_pfmi_proportional"
         ],
         "url": "https://ainumbers.co/chaingraph/art-846-assess-pfmi-proportional.html",
+        "ap2_export": true,
+        "execution_type": "browser-reference",
+        "version": "1.0.0",
+        "prefill": false
+      }
+    },
+    {
+      "name": "cashleg_window_exposure",
+      "description": "Computes how long a token leg that settles at any hour waits for a cash leg that only moves while a payment rail is open, against a rail calendar or UTC windows the caller declares: exposure seconds, principal-seconds, next window open and close, weekend crossing and an optional carry cost (actual over 365, half-even). The node hardcodes no calendar and reads no clock.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "token_leg_time": {
+            "type": "string",
+            "description": "Instant the token leg settles, strict UTC YYYY-MM-DDTHH:MM:SSZ."
+          },
+          "as_of": {
+            "type": "string",
+            "description": "Caller-declared evaluation instant, strict UTC."
+          },
+          "principal_minor_units": {
+            "type": "string",
+            "description": "Principal in integer minor units, decimal string, at most 18 digits."
+          },
+          "funding_rate_bp": {
+            "type": "number",
+            "description": "Optional funding rate in whole basis points, 0 to 100000."
+          },
+          "horizon_days": {
+            "type": "number",
+            "description": "Optional search horizon in whole days, 1 to 60; 14 when absent."
+          },
+          "cash_instrument": {
+            "type": "string",
+            "description": "Optional label: fiat_bank_money, stablecoin, deposit_token or future_instrument."
+          },
+          "cash_leg_open_windows": {
+            "type": "array",
+            "description": "Declared UTC cash windows of open_utc and close_utc. Declare exactly one of this or rail_calendar."
+          },
+          "rail_calendar": {
+            "type": "object",
+            "description": "Declared versioned rail table: weekday window rules, UTC offsets by date range and holidays."
+          }
+        }
+      },
+      "metadata": {
+        "tool_id": "art-847-cashleg-window-exposure",
+        "category": "chaingraph",
+        "tags": [
+          "settlement-risk",
+          "cash-leg",
+          "operating-hours",
+          "tokenization",
+          "mcp:cashleg_window_exposure"
+        ],
+        "url": "https://ainumbers.co/chaingraph/art-847-cashleg-window-exposure.html",
         "ap2_export": true,
         "execution_type": "browser-reference",
         "version": "1.0.0",

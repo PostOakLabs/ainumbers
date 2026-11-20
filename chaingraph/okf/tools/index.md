@@ -709,8 +709,10 @@ status: stable
 - [BNPL Plan Comparator](./art-779-bnpl-plan-comparator.md) — `compare_bnpl_plans`
 - [CSDR Cash-Penalty Calculator](./art-78-csdr-penalty-calculator.md) — `calculate_csdr_penalty`
 - [Solana PDA Bump and ATA Audit](./art-780-solana-pda-ata-audit.md) — `audit_solana_pda_ata`
+- [x402 Exact Solana Payment Outcome Recompute](./art-781-x402-svm-payment-outcome.md) — `verify_x402_svm_outcome`
 - [Modified Premium Calculator](./art-782-modified-premium.md) — `compute_modified_premium`
 - [RFC 4180 CSV Parser](./art-788-csv-rfc4180-parser.md) — `parse_csv_table`
+- [Stablecoin Admin Role Lint](./art-789-stablecoin-admin-role-lint.md) — `lint_stablecoin_admin_roles`
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md) — `predict_settlement_fail`
 - [Government Stablecoin Acceptance Audit](./art-793-government-stablecoin-acceptance.md) — `assess_gov_stablecoin_accept`
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md) — `check_ssi_conformance`
@@ -740,6 +742,7 @@ status: stable
 - [SOC Report Coverage and Bridge Gap](./art-842-soc-report-coverage-gap.md) — `compute_soc_report_coverage_gap`
 - [TAP Message Structure Check](./art-843-tap-message-validator.md) — `validate_tap_message`
 - [PFMI proportional self-assessment scorer](./art-846-assess-pfmi-proportional.md) — `assess_pfmi_proportional`
+- [Cash-Leg Window Exposure](./art-847-cashleg-window-exposure.md) — `cashleg_window_exposure`
 - [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md) — `run_pqc_timeline_fit`
 - [TLS / X.509 PKI Migration Planner](./art-86-tls-pki-migration-planner.md) — `plan_tls_pki_migration`
 - [SWIFT / ISO 20022 PQC Readiness Checker](./art-87-iso20022-pqc-readiness-checker.md) — `check_iso20022_pqc_readiness`

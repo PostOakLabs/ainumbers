@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1324 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1327 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -3864,6 +3864,9 @@
       "name": "fee recompute"
     },
     {
+      "name": "fee-payer-isolation"
+    },
+    {
       "name": "fee-recompute"
     },
     {
@@ -4791,6 +4794,9 @@
       "name": "mcp:caregiver_income_impact"
     },
     {
+      "name": "mcp:cashleg_window_exposure"
+    },
+    {
       "name": "mcp:check_force_placed_notice"
     },
     {
@@ -5023,6 +5029,9 @@
     },
     {
       "name": "mcp:verify_x402_signer_recovery"
+    },
+    {
+      "name": "mcp:verify_x402_svm_outcome"
     },
     {
       "name": "mcp:workforce_board_roi_report"
@@ -5364,6 +5373,9 @@
       "name": "openzeppelin"
     },
     {
+      "name": "operating-hours"
+    },
+    {
       "name": "operational resilience"
     },
     {
@@ -5551,6 +5563,9 @@
     },
     {
       "name": "payment-fraud"
+    },
+    {
+      "name": "payment-outcome"
     },
     {
       "name": "payment-rails"
@@ -6645,6 +6660,9 @@
       "name": "settlement summary"
     },
     {
+      "name": "settlement-risk"
+    },
+    {
       "name": "settlement-terms"
     },
     {
@@ -7156,6 +7174,9 @@
     },
     {
       "name": "transaction-reporting"
+    },
+    {
+      "name": "transfer-checked"
     },
     {
       "name": "transfer-fee"
@@ -51236,12 +51257,22 @@
                   "gates"
                 ],
                 "properties": {
+                  "profile": {
+                    "type": "string",
+                    "enum": [
+                      "qr_scheme",
+                      "gov_payment_programme"
+                    ]
+                  },
                   "phase": {
                     "type": "string",
                     "enum": [
                       "pilot",
                       "production",
-                      "cross_border"
+                      "cross_border",
+                      "agency_pilot",
+                      "agency_wave",
+                      "full_rollout"
                     ]
                   },
                   "gates": {
@@ -138254,6 +138285,401 @@
         "x-ap2-export": true
       }
     },
+    "/v1/tools/verify_x402_svm_outcome": {
+      "post": {
+        "operationId": "verify_x402_svm_outcome",
+        "summary": "x402 Exact Solana Payment Outcome Recompute",
+        "description": "Recompute, clause by clause, whether a pasted x402 exact-scheme Solana payment met its requirements: the decoded instructions, the PaymentRequirements, the mint token program and optional Token-2022 fee config, and optional Ed25519 checks. Each clause reports the pinned spec reading, the pinned reference-code reading, and a verdict of PASS, FAIL or DIVERGES, plus the recipient ATA under both token programs and the net amount after any withheld fee. Values only; nothing on-chain is read.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-781-x402-svm-payment-outcome.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "x402",
+          "solana",
+          "svm",
+          "payment-outcome",
+          "transfer-checked",
+          "token-2022",
+          "transfer-fee",
+          "associated-token-account",
+          "fee-payer-isolation",
+          "ed25519",
+          "mcp:verify_x402_svm_outcome"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "requirements",
+                  "transaction",
+                  "mint"
+                ],
+                "properties": {
+                  "requirements": {
+                    "type": "object",
+                    "required": [
+                      "asset",
+                      "amount",
+                      "pay_to",
+                      "extra"
+                    ],
+                    "description": "The x402 PaymentRequirements for the exact scheme.",
+                    "properties": {
+                      "asset": {
+                        "type": "string",
+                        "description": "The mint address, base58 (decodes to 32 bytes)."
+                      },
+                      "amount": {
+                        "type": "string",
+                        "description": "The required amount in base units, decimal string, u64 range.",
+                        "pattern": "^(0|[1-9][0-9]*)$"
+                      },
+                      "pay_to": {
+                        "type": "string",
+                        "description": "The recipient wallet, base58 (32 bytes). The destination ATA derives from this."
+                      },
+                      "extra": {
+                        "type": "object",
+                        "required": [
+                          "fee_payer"
+                        ],
+                        "description": "Scheme extras. fee_payer is required; memo and transaction_versions are optional. splits is refused (out of scope for this version).",
+                        "properties": {
+                          "fee_payer": {
+                            "type": "string",
+                            "description": "The sponsor fee payer, base58 (32 bytes), as carried by the facilitator /supported response."
+                          },
+                          "memo": {
+                            "type": "string",
+                            "description": "When present, exactly one Memo instruction must carry this text byte for byte."
+                          },
+                          "transaction_versions": {
+                            "type": "array",
+                            "description": "The message versions the requirements advertise: JSON integers 0 and/or 1 only. Absent means [0].",
+                            "items": {
+                              "type": "integer",
+                              "enum": [
+                                0,
+                                1
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "transaction": {
+                    "type": "object",
+                    "required": [
+                      "version",
+                      "instructions"
+                    ],
+                    "description": "The decoded transaction message fields, pasted by the caller. Lookup-table accounts must be pasted resolved.",
+                    "properties": {
+                      "version": {
+                        "type": [
+                          "integer",
+                          "string"
+                        ],
+                        "enum": [
+                          0,
+                          1,
+                          "legacy"
+                        ],
+                        "description": "The message version: 0, 1 or \"legacy\" (legacy is deprecated and fails the version clause)."
+                      },
+                      "instructions": {
+                        "type": "array",
+                        "description": "Decoded instructions in order. transfer_checked carries its parsed fields; is_inner: true marks a caller-pasted inner (CPI) instruction.",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "transfer_checked",
+                                "memo",
+                                "compute_unit_limit",
+                                "compute_unit_price",
+                                "other"
+                              ],
+                              "description": "The decoded instruction kind."
+                            },
+                            "token_program": {
+                              "type": "string",
+                              "enum": [
+                                "spl-token",
+                                "token-2022"
+                              ],
+                              "description": "For transfer_checked: the token program the instruction runs under."
+                            },
+                            "source": {
+                              "type": "string",
+                              "description": "For transfer_checked: the source token account, base58."
+                            },
+                            "mint": {
+                              "type": "string",
+                              "description": "For transfer_checked: the mint the transfer moves, base58."
+                            },
+                            "destination": {
+                              "type": "string",
+                              "description": "For transfer_checked: the destination token account, base58."
+                            },
+                            "authority": {
+                              "type": "string",
+                              "description": "For transfer_checked: the authority (owner or delegate) signing the transfer, base58."
+                            },
+                            "amount": {
+                              "type": "string",
+                              "description": "For transfer_checked: the transferred amount in base units, decimal string.",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "decimals": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9,
+                              "description": "For transfer_checked: the decimals operand of TransferChecked."
+                            },
+                            "is_inner": {
+                              "type": "boolean",
+                              "description": "True when the caller pastes this as an inner (CPI) instruction rather than a top-level one."
+                            },
+                            "text": {
+                              "type": "string",
+                              "description": "For memo: the memo text."
+                            },
+                            "units": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "description": "For compute_unit_limit: the CU limit."
+                            },
+                            "micro_lamports": {
+                              "type": "string",
+                              "description": "For compute_unit_price: the price in microlamports, decimal string.",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "program_id": {
+                              "type": "string",
+                              "description": "For other: the program id, base58."
+                            },
+                            "accounts": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "For other: the instruction accounts, base58, ALT-resolved."
+                            }
+                          },
+                          "required": [
+                            "kind"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "mint": {
+                    "type": "object",
+                    "required": [
+                      "token_program",
+                      "decimals"
+                    ],
+                    "description": "The mint configuration for requirements.asset.",
+                    "properties": {
+                      "token_program": {
+                        "type": "string",
+                        "enum": [
+                          "spl-token",
+                          "token-2022"
+                        ],
+                        "description": "The token program the mint lives under."
+                      },
+                      "decimals": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9,
+                        "description": "The mint decimals."
+                      },
+                      "transfer_fee": {
+                        "type": "object",
+                        "required": [
+                          "transfer_fee_basis_points",
+                          "maximum_fee"
+                        ],
+                        "description": "Optional Token-2022 transfer-fee extension configuration. When absent, no fee is withheld.",
+                        "properties": {
+                          "transfer_fee_basis_points": {
+                            "type": "string",
+                            "description": "The fee in basis points, u16 range.",
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "maximum_fee": {
+                            "type": "string",
+                            "description": "The fee cap in base units, u64 range.",
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "signature_checks": {
+                    "type": "array",
+                    "description": "Optional Ed25519 checks over caller-pasted bytes; the node never re-serializes anything.",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "public_key",
+                        "message_hex",
+                        "signature_hex"
+                      ],
+                      "properties": {
+                        "public_key": {
+                          "type": "string",
+                          "description": "The Ed25519 public key, base58 (32 bytes)."
+                        },
+                        "message_hex": {
+                          "type": "string",
+                          "pattern": "^[0-9a-fA-F]*$",
+                          "description": "The signed bytes, even-length hex."
+                        },
+                        "signature_hex": {
+                          "type": "string",
+                          "pattern": "^[0-9a-fA-F]{128}$",
+                          "description": "The 64-byte Ed25519 signature, 128 hex characters."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requirements_echo": {
+                      "type": [
+                        "object",
+                        "array",
+                        "null"
+                      ],
+                      "description": "See the tool page output table for the shape of requirements_echo."
+                    },
+                    "transaction_version": {
+                      "type": [
+                        "object",
+                        "array",
+                        "null"
+                      ],
+                      "description": "See the tool page output table for the shape of transaction_version."
+                    },
+                    "instruction_summary": {
+                      "type": [
+                        "object",
+                        "array",
+                        "null"
+                      ],
+                      "description": "See the tool page output table for the shape of instruction_summary."
+                    },
+                    "recipient_atas": {
+                      "type": [
+                        "object",
+                        "array",
+                        "null"
+                      ],
+                      "description": "See the tool page output table for the shape of recipient_atas."
+                    },
+                    "matching_transfers": {
+                      "type": [
+                        "object",
+                        "array",
+                        "null"
+                      ],
+                      "description": "See the tool page output table for the shape of matching_transfers."
+                    },
+                    "net_received": {
+                      "type": [
+                        "object",
+                        "array",
+                        "null"
+                      ],
+                      "description": "See the tool page output table for the shape of net_received."
+                    },
+                    "signature_checks": {
+                      "type": [
+                        "object",
+                        "array",
+                        "null"
+                      ],
+                      "description": "See the tool page output table for the shape of signature_checks."
+                    },
+                    "verdicts": {
+                      "type": [
+                        "object",
+                        "array",
+                        "null"
+                      ],
+                      "description": "See the tool page output table for the shape of verdicts."
+                    },
+                    "clause_summary": {
+                      "type": [
+                        "object",
+                        "array",
+                        "null"
+                      ],
+                      "description": "See the tool page output table for the shape of clause_summary."
+                    },
+                    "error": {
+                      "type": "string",
+                      "description": "Lowercase refusal code when the input is refused."
+                    },
+                    "detail": {
+                      "type": "string",
+                      "description": "Human-readable refusal detail."
+                    },
+                    "domain_errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "text": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "note": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Pins and limits, restated with every output."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "verify_x402_svm_outcome",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-781-x402-svm-payment-outcome.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
     "/v1/tools/compute_modified_premium": {
       "post": {
         "operationId": "compute_modified_premium",
@@ -138788,6 +139214,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "as_of": {
+                      "type": "string"
+                    },
                     "basis": {
                       "type": "string"
                     },
@@ -138803,13 +139232,18 @@
                         false,
                         true
                       ]
+                    },
+                    "unit": {
+                      "type": "string"
                     }
                   },
                   "required": [
+                    "as_of",
                     "basis",
                     "not_legal_advice",
                     "privacy_note",
-                    "reserves_cover_outstanding"
+                    "reserves_cover_outstanding",
+                    "unit"
                   ],
                   "additionalProperties": false,
                   "x-derived-from": "fixture"
@@ -140015,6 +140449,263 @@
         },
         "x-mcp-tool-name": "assess_pfmi_proportional",
         "x-tool-url": "https://ainumbers.co/chaingraph/art-846-assess-pfmi-proportional.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
+    "/v1/tools/cashleg_window_exposure": {
+      "post": {
+        "operationId": "cashleg_window_exposure",
+        "summary": "Cash-Leg Window Exposure",
+        "description": "Computes how long a token leg that settles at any hour waits for a cash leg that only moves while a payment rail is open, against a rail calendar or UTC windows the caller declares: exposure seconds, principal-seconds, next window open and close, weekend crossing and an optional carry cost (actual over 365, half-even). The node hardcodes no calendar and reads no clock.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-847-cashleg-window-exposure.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "settlement-risk",
+          "cash-leg",
+          "operating-hours",
+          "tokenization",
+          "mcp:cashleg_window_exposure"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token_leg_time": {
+                    "type": "string",
+                    "description": "Instant the token leg settles, strict UTC YYYY-MM-DDTHH:MM:SSZ."
+                  },
+                  "as_of": {
+                    "type": "string",
+                    "description": "Caller-declared evaluation instant, strict UTC."
+                  },
+                  "principal_minor_units": {
+                    "type": "string",
+                    "description": "Principal in integer minor units, decimal string, at most 18 digits."
+                  },
+                  "funding_rate_bp": {
+                    "type": "number",
+                    "description": "Optional funding rate in whole basis points, 0 to 100000."
+                  },
+                  "horizon_days": {
+                    "type": "number",
+                    "description": "Optional search horizon in whole days, 1 to 60; 14 when absent."
+                  },
+                  "cash_instrument": {
+                    "type": "string",
+                    "description": "Optional label: fiat_bank_money, stablecoin, deposit_token or future_instrument."
+                  },
+                  "cash_leg_open_windows": {
+                    "type": "array",
+                    "description": "Declared UTC cash windows of open_utc and close_utc. Declare exactly one of this or rail_calendar."
+                  },
+                  "rail_calendar": {
+                    "type": "object",
+                    "description": "Declared versioned rail table: weekday window rules, UTC offsets by date range and holidays."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "as_of": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "calendar_version": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "carry_cost_minor_units": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "carry_rounding": {
+                      "type": "string"
+                    },
+                    "cash_instrument": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "fiat_bank_money",
+                        "future_instrument",
+                        null
+                      ]
+                    },
+                    "crosses_weekend": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ],
+                      "enum": [
+                        false,
+                        true,
+                        null
+                      ]
+                    },
+                    "day_count": {
+                      "type": "string"
+                    },
+                    "domain_errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "exposure_principal_seconds": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "exposure_seconds": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "funding_rate_bp": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "horizon_days": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "next_cash_window_close": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "next_cash_window_open": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "principal_minor_units": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "rail_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "fednow-service",
+                        "fedwire-funds-service",
+                        null
+                      ]
+                    },
+                    "refusal_code": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "source_pin": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "token_leg_time": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "valid_input": {
+                      "type": "boolean",
+                      "enum": [
+                        false,
+                        true
+                      ]
+                    },
+                    "verdict": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "ATOMIC_POSSIBLE",
+                        "NO_WINDOW_IN_HORIZON",
+                        "WINDOWED",
+                        null
+                      ]
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "CASH_LEG_LAGS_TOKEN_LEG",
+                          "EXPOSURE_CROSSES_WEEKEND",
+                          "INPUT_REFUSED",
+                          "NO_CASH_WINDOW_IN_HORIZON",
+                          "TOKEN_LEG_AFTER_AS_OF"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "as_of",
+                    "calendar_version",
+                    "carry_cost_minor_units",
+                    "carry_rounding",
+                    "cash_instrument",
+                    "crosses_weekend",
+                    "day_count",
+                    "domain_errors",
+                    "exposure_principal_seconds",
+                    "exposure_seconds",
+                    "funding_rate_bp",
+                    "horizon_days",
+                    "next_cash_window_close",
+                    "next_cash_window_open",
+                    "principal_minor_units",
+                    "rail_id",
+                    "refusal_code",
+                    "source_pin",
+                    "token_leg_time",
+                    "valid_input",
+                    "verdict",
+                    "warnings"
+                  ],
+                  "additionalProperties": false,
+                  "x-derived-from": "fixture"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "cashleg_window_exposure",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-847-cashleg-window-exposure.html",
         "x-source": "manifest",
         "x-ap2-export": true
       }
@@ -147038,11 +147729,51 @@
         "x-ocg-wave": 117
       }
     },
+    "/v1/tools/lint_stablecoin_admin_roles": {
+      "post": {
+        "operationId": "lint_stablecoin_admin_roles",
+        "summary": "Stablecoin Admin Role Lint",
+        "description": "Lints a stablecoin token's declared admin-role configuration for separation of duties, key concentration and issuance-policy fit, over ROLE LABELS ONLY (never addresses or key material). Given a profile (Circle FiatToken, Paxos USDP, or generic caller-declared), holder kinds (eoa, multisig, timelock, hsm_service), a role-to-holder map (owner, proxy_admin, master_minter, pauser, blacklister, rescuer, supply_controller, asset_protection as the profile defines), minter allowances and an issuance policy, it reports: distinctness pairs held by the same label; labels holding multiple critical roles and single-signer holders of critical roles; per-minter and total allowance breaches against the declared ceilings; and whether pause, freeze and upgrade capabilities exist and who holds them. Verdict is PASS, PASS_WITH_FINDINGS or FAIL, each finding cited to the pinned source or marked caller-declared policy. Scope limits: configuration lint only: no live-chain reads, no key custody advice, no statutory claims (no lawful-order or GENIUS Act obligations are asserted); reserve-evidence questions are out of scope (art-06, art-275 cover reserve evidence; art-45 is the sibling linter for Arc xReserve bridge configuration). Any label resembling an address, public key or private key is refused.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-789-stablecoin-admin-role-lint.html\n**Wave:** 140\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "compliance_control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "See tool page for full input schema: https://ainumbers.co/chaingraph/art-789-stablecoin-admin-role-lint.html"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenChainGraph v0.4 artifact envelope. mandate_type: compliance_control. Verify execution_hash at https://ainumbers.co/chaingraph/verify.html"
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "lint_stablecoin_admin_roles",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-789-stablecoin-admin-role-lint.html",
+        "x-source": "chaingraph",
+        "x-ap2-export": true,
+        "x-mandate-type": "compliance_control",
+        "x-ocg-wave": 140
+      }
+    },
     "/v1/tools/verify_agent_governance_audit_chain": {
       "post": {
         "operationId": "verify_agent_governance_audit_chain",
         "summary": "Open-Source Agent-Governance Audit-Chain Verifier",
-        "description": "Recomputes the hash chain of an exported agent-governance audit log offline, from the exported entries alone, and reports exactly where it breaks. Subject format: the open-source agent-governance-toolkit audit-log format (MIT), pinned at upstream commit 3433fa7: each link hash is sha256 over a Python json.dumps(sort_keys=True) serialisation of the entry (default separators, ensure_ascii=True, parent_hash null coalesced to empty string) , deliberately not RFC 8785; the chain root is the last link hash, not a Merkle root. Input: the exported entries (values only) plus an optional claimed root. Output: entry_count, chain_intact, first_break_index, per-break reason codes (HASH_MISMATCH, CHAIN_BROKEN), recomputed_root, and claimed_root_match. Fail-closed: any field outside the pinned entry schema (including free-form payloads, floats, or unknown keys) rejects the whole input, naming each rejected field; entry content is never echoed , the output carries hashes and indices only. The format carries no keyed signature field, so signature_status is reported as not checkable. Scope limits: verifies structural hash integrity and linkage only; it does not attribute blame, interpret change semantics, or validate timestamps against wall-clock time.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-805-agt-audit-chain-verifier.html\n**Wave:** 142\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "description": "Recomputes the hash chain of an exported agent-governance audit log offline, from the exported entries alone, and reports exactly where it breaks. Subject format: the open-source agent-governance-toolkit audit-log format (MIT), pinned at upstream commit 3433fa7: each link hash is sha256 over a Python json.dumps(sort_keys=True) serialisation of the entry (default separators, ensure_ascii=True, parent_hash null coalesced to empty string) , deliberately not RFC 8785; the chain root is the last link hash, not a Merkle root. Input: the exported entries (values only) plus an optional claimed root. Output: entry_count, chain_intact, first_break_index, per-break reason codes (HASH_MISMATCH, CHAIN_BROKEN), recomputed_root, and claimed_root_match. Fail-closed: any field outside the pinned entry schema (including free-form payloads, floats, or unknown keys) rejects the whole input, naming each rejected field; entry content is never echoed , the output carries hashes and indices only. The format carries no keyed signature field, so signature_status is reported as not checkable. Scope limits: verifies structural hash integrity and linkage only; it does not attribute blame, interpret change semantics, or validate timestamps against wall-clock time. An intact verdict attests only to the entries presented, not to chain completeness; an empty entry list is reported as EMPTY_CHAIN and never as intact.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-805-agt-audit-chain-verifier.html\n**Wave:** 142\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
         "tags": [
           "compliance_control"
         ],

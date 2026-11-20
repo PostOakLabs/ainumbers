@@ -2,7 +2,7 @@
 // (FV-PBT-FLOOR-BUILD-SPEC.md). Authored against the APEXPORT-130 porting payload
 // (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES PASS-PENDING-XV
 // 2026-10-18, Builder-verifies-at-land 88/88).
-// kernel_digest_at_authoring: sha256:96cb71d2b11c805572ba28f74fbbf54b7f78610048317107148f162d394ddf90
+// kernel_digest_at_authoring: sha256:49ff910047ac0cb8468390e069089a20c1f5637f956b1e223cc23c9c10ac77f5
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.
@@ -194,6 +194,70 @@ function checkP6FsaContribEcho() {
   return { name: 'P6 fsa_contrib echoed only, never load-bearing', checked, violations };
 }
 
+// P7 — cure of 765-B1/B2/F1: every numeric field refuses NaN, Infinity, 2^53, 1e300 and a
+// value past the money bound; ruleset and fsa_contrib refuse a present null; the money
+// bound itself still computes.
+function checkP7NumericDomain() {
+  let checked = 0, violations = 0;
+  const fields = ['agi', 'marginal_rate_pct', 'state_rate_pct', 'num_children', 'childcare_cost', 'fsa_contrib'];
+  const hostile = [NaN, Infinity, -Infinity, 9007199254740992, 1e300];
+  for (const field of fields) {
+    for (const v of hostile) {
+      checked++;
+      const out = compute({ ...basePP(), [field]: v });
+      if (out.output_payload.refusal_reason === null || !out.compliance_flags.includes('ART765_INPUT_REFUSED')) {
+        violations++; console.log(`P7 violation: ${field}=${v} was not refused`);
+      }
+    }
+  }
+  for (const field of ['agi', 'childcare_cost', 'fsa_contrib']) {
+    checked += 2;
+    if (compute({ ...basePP(), [field]: 1000000001 }).output_payload.refusal_reason === null) { violations++; console.log(`P7 violation: ${field} past 1e9 not refused`); }
+    if (compute({ ...basePP(), [field]: 1000000000 }).output_payload.refusal_reason !== null) { violations++; console.log(`P7 violation: ${field}=1e9 refused`); }
+  }
+  // R4: an explicit null on the two optionals gives exactly the absent form's answer.
+  for (const field of ['ruleset', 'fsa_contrib']) {
+    checked++;
+    const absent = basePP();
+    const nulled = { ...basePP(), [field]: null };
+    if (!deepEqual(compute(absent).output_payload, compute(nulled).output_payload)) { violations++; console.log(`P7 violation: ${field}=null differs from absent`); }
+  }
+  return { name: 'P7 numeric domain (NaN/Infinity/2^53/1e300/past-bound refuse, bound computes, R4 null = absent)', checked, violations };
+}
+
+// P8 — buildArtifact_never_throws: one input per unhashable class mints an artifact with
+// a null execution_hash and hash_refusal beside it; a hashable input keeps its hash.
+async function checkP8BuildArtifactNeverThrows() {
+  const { buildArtifact } = await import('../art-765-dependent-care-fsa-cdctc-optimizer.kernel.mjs');
+  let checked = 0, violations = 0;
+  /** @type {Array<[string, Record<string, number>]>} */
+  const unhashable = [
+    ['NaN', { agi: NaN }], ['Infinity', { childcare_cost: Infinity }], ['2^53', { agi: 9007199254740992 }],
+    ['1e300', { num_children: 1e300 }],
+  ];
+  for (const [label, o] of unhashable) {
+    checked++;
+    try {
+      const a = await buildArtifact({ ...basePP(), ...o });
+      if (a.execution_hash !== null || !a.hash_refusal || a.output_payload.refusal_reason === null) { violations++; console.log(`P8 violation: ${label} did not mint a hash_refusal artifact`); }
+    } catch (e) { violations++; console.log(`P8 violation: ${label} threw: ${e.message}`); }
+  }
+  // nesting past the canonicalizer depth limit must not throw either
+  checked++;
+  try {
+    let deep = {}; const root = deep;
+    for (let i = 0; i < 600; i++) { deep.x = {}; deep = deep.x; }
+    const a = await buildArtifact({ ...basePP(), extra: root });
+    if (a.execution_hash !== null || !a.hash_refusal) { violations++; console.log('P8 violation: deep nesting did not mint a hash_refusal artifact'); }
+  } catch (e) { violations++; console.log(`P8 violation: deep nesting threw: ${e.message}`); }
+  checked++;
+  try {
+    const a = await buildArtifact(basePP());
+    if (typeof a.execution_hash !== 'string' || a.hash_refusal !== undefined) { violations++; console.log('P8 violation: a hashable input lost its hash'); }
+  } catch (e) { violations++; console.log(`P8 violation: hashable input threw: ${e.message}`); }
+  return { name: 'P8 buildArtifact_never_throws (one input per unhashable class)', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -208,6 +272,8 @@ const properties = [
   checkP4SweepContract(),
   checkP5ScheduleRestated(),
   checkP6FsaContribEcho(),
+  checkP7NumericDomain(),
+  await checkP8BuildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test`);
 const ok = summarize(KERNEL_ID, oracle, properties);
