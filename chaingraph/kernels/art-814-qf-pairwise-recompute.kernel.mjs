@@ -68,9 +68,10 @@ export function compute(pp) {
 
   // Aggregate repeated rows of the same contributor to the same project (the formula takes one
   // total per contributor and project).
-  const byKey = {};
-  const projSet = {};
-  const conSet = {};
+  // Maps, never plain objects: a project or contributor named __proto__ or constructor is data.
+  const byKey = new Map();
+  const projSet = new Set();
+  const conSet = new Set();
   for (let r = 0; r < rows.length; r++) {
     const row = rows[r];
     if (!row || typeof row !== 'object') return refuse('BAD_CONTRIBUTION', 'row ' + r + ' is not an object');
@@ -78,13 +79,14 @@ export function compute(pp) {
     if (typeof row.contributor !== 'string' || !ID_RE.test(row.contributor)) return refuse('BAD_CONTRIBUTOR_ID', 'row ' + r + ' contributor must be a pseudonymous label matching [A-Za-z0-9_-]{1,32}');
     if (!isNonNegInt(row.amount) || row.amount < 1 || row.amount > CAPS.amount) return refuse('BAD_AMOUNT', 'row ' + r + ' amount must be an integer of minor units from 1 to ' + CAPS.amount);
     const k = row.project + '\u0000' + row.contributor;
-    byKey[k] = (byKey[k] || 0) + row.amount;
-    if (!Number.isSafeInteger(byKey[k])) return refuse('BAD_AMOUNT', 'aggregate amount overflow');
-    projSet[row.project] = true;
-    conSet[row.contributor] = true;
+    const agg = (byKey.has(k) ? byKey.get(k) : 0) + row.amount;
+    if (!Number.isSafeInteger(agg)) return refuse('BAD_AMOUNT', 'aggregate amount overflow');
+    byKey.set(k, agg);
+    projSet.add(row.project);
+    conSet.add(row.contributor);
   }
-  const projects = Object.keys(projSet).sort();
-  const contributors = Object.keys(conSet).sort();
+  const projects = Array.from(projSet).sort();
+  const contributors = Array.from(conSet).sort();
   if (projects.length > CAPS.projects) return refuse('TOO_MANY_PROJECTS', 'at most ' + CAPS.projects + ' projects');
   if (contributors.length > CAPS.contributors) return refuse('TOO_MANY_CONTRIBUTORS', 'at most ' + CAPS.contributors + ' contributors');
 
@@ -102,7 +104,8 @@ export function compute(pp) {
     /** @type {number[]} */
     const rp = [];
     for (let c = 0; c < contributors.length; c++) {
-      const amt = byKey[projects[p] + '\u0000' + contributors[c]] || 0;
+      const ak = projects[p] + '\u0000' + contributors[c];
+      const amt = byKey.has(ak) ? byKey.get(ak) : 0;
       rp.push(amt);
       const a = BigInt(amt);
       const root = isqrt(a);
