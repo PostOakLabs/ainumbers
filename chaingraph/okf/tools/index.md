@@ -712,6 +712,7 @@ status: stable
 - [x402 Exact Solana Payment Outcome Recompute](./art-781-x402-svm-payment-outcome.md) — `verify_x402_svm_outcome`
 - [Modified Premium Calculator](./art-782-modified-premium.md) — `compute_modified_premium`
 - [RFC 4180 CSV Parser](./art-788-csv-rfc4180-parser.md) — `parse_csv_table`
+- [Stablecoin Admin Role Lint](./art-789-stablecoin-admin-role-lint.md) — `lint_stablecoin_admin_roles`
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md) — `predict_settlement_fail`
 - [Government Stablecoin Acceptance Audit](./art-793-government-stablecoin-acceptance.md) — `assess_gov_stablecoin_accept`
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md) — `check_ssi_conformance`
