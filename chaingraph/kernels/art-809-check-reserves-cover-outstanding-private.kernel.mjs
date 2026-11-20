@@ -44,6 +44,46 @@ export const meta = {
   private_input_profile: 'ocg-private-input@1',
 };
 
+// Every code this kernel throws on a bad witness. A private-input predicate kernel may refuse by
+// throwing one of these fixed names; nothing else may escape buildArtifact.
+export const REFUSAL_CODES = Object.freeze([
+  'AMOUNT_FORMAT', 'RESERVE_SLOTS', 'SLOT_SHAPE', 'PAD_NONZERO', 'CATEGORY',
+  'OUTSTANDING_SHAPE', 'UNIT', 'AS_OF', 'SALT_REUSE', 'SALT_FORMAT',
+]);
+
+// Hashability walk: mirrors the classes _hash.mjs refuses before canonicalizing (non-finite
+// number, unsafe integer, nesting past MAX_DEPTH, more values than MAX_ELEMENTS). Reports
+// { reason, detail } with the path and kind only, never a value; null when safe to hash.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (typeof v === 'bigint') return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': bigint' };
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 const RESERVE_SLOTS = 16;
 const AMOUNT_WIDTH  = 20;
 // Fixed-width category codes for GENIUS Act section 4(a)(1)(A)(i)-(viii); '00' = empty slot.
@@ -85,7 +125,7 @@ function coverVerdict(reserves, outstanding) {
 // section 25.1 commitment = sha256(salt ‖ cgCanon(input_value)), hex-encoded, "sha256:"-prefixed.
 async function commitPrivateInput(saltHex, inputValue) {
   if (typeof saltHex !== 'string' || saltHex.length < 64 || !/^[0-9a-f]+$/i.test(saltHex)) {
-    throw new Error('salt must be a hex string of at least 256 bits (64 hex chars)');
+    throw new Error('SALT_FORMAT');
   }
   const saltBytes = new Uint8Array(saltHex.length / 2);
   for (let i = 0; i < saltBytes.length; i++) saltBytes[i] = parseInt(saltHex.slice(i * 2, i * 2 + 2), 16);
@@ -136,14 +176,19 @@ export async function buildArtifact(raw, { now, parent_hashes = [], parent_tool_
   };
   const output_payload = {
     reserves_cover_outstanding: verdict,
+    // Public parameters repeated here so the prover journal (output only) binds them.
+    unit,
+    as_of,
     basis: BASIS,
     privacy_note: PRIVACY_NOTE,
     not_legal_advice: NOT_ADVICE,
   };
 
-  const hash = await executionHash(policy_parameters, output_payload);
+  // The walked object is the exact execution_hash preimage. Detail names a path only, never a value.
+  const unhashable = findHashRefusal({ policy_parameters, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const hash = unhashable === null ? await executionHash(policy_parameters, output_payload) : null;
 
-  return {
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -162,4 +207,6 @@ export async function buildArtifact(raw, { now, parent_hashes = [], parent_tool_
     compute_mode: 'server',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }

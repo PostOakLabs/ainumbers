@@ -2416,6 +2416,11 @@ const GATES = [
   ['Canvas up-to-date',           'node scripts/gen-canvas.mjs --check'],
   ['Wayfinder freshness',         'node scripts/gen-wayfinder.mjs --check'],
   ['Node-page chrome (nav/footer)', 'node scripts/check-node-page-chrome.mjs'],
+  // SITE-CHROME-GAPS-1: the published-page folders no other chrome gate covers.
+  // Universe is read from published-dirs.json so the gate cannot scope-drift
+  // from the sitemap publisher; the self-test is the RED+GREEN control pair.
+  ['Site chrome on published pages (SITE-CHROME-GAPS-1)', 'node scripts/check-site-chrome.mjs'],
+  ['Site chrome gate controls (RED+GREEN, SITE-CHROME-GAPS-1)', 'node scripts/check-site-chrome.selftest.mjs'],
   // FOOTER-INFRA-COLUMN-1 (footer plan v2 D1(b)): node-page footers are the derived
   // artifact 'node-page-footers' in derived-artifacts.mjs. The command string is
   // identical to that entry's `gate`, so the generic ADVISORY_ON_PR rule classifies
