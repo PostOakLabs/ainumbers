@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:dab6040704081c505af95dc176902c11f171b0199cd4b8b53dcaa11e4e429936
+// kernel_digest_at_authoring: sha256:7d26c1807e88bd5c3368722638e1ba801d2c7df098232731cf81f08af42cfa8c
 //
 // Property-test floor for art-809-check-reserves-cover-outstanding-private.
 // Class K (integer decision kernel, BigInt arithmetic, no floats; exact-shape refusals).
@@ -13,6 +13,7 @@
 // Run: node chaingraph/kernels/__proptests__/art-809-check-reserves-cover-outstanding-private.proptest.mjs
 
 import { compute, buildArtifact } from '../art-809-check-reserves-cover-outstanding-private.kernel.mjs';
+import * as K from '../art-809-check-reserves-cover-outstanding-private.kernel.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -117,7 +118,7 @@ async function p4() {
     if (s.includes(w.reserves_salt) || s.includes(w.outstanding_salt)) violations++;
     if (s.includes(pad(out))) violations++;
     for (const sl of slots) if (sl.category !== '00' && s.includes(sl.amount_minor)) violations++;
-    if (Object.keys(a.output_payload).join() !== 'reserves_cover_outstanding,basis,privacy_note,not_legal_advice') violations++;
+    if (Object.keys(a.output_payload).join() !== 'reserves_cover_outstanding,unit,as_of,basis,privacy_note,not_legal_advice') violations++;
     for (const e of a.private_inputs) if (a.policy_parameters[e.pointer.slice(1)] !== e.commitment) violations++;
   }
   return { name: 'P4_plaintext_and_salt_excluded_one_bit_output', trials: 200, violations };
@@ -169,6 +170,36 @@ async function p6() {
   return { name: 'P6_every_malformed_witness_is_refused', trials: cases.length, violations, missed };
 }
 
+// P8 (named refusals only): over the junk set, buildArtifact returns (a normal artifact, or a null
+// hash plus hash_refusal) or throws an Error whose message is a member of REFUSAL_CODES.
+async function p8() {
+  const codes = Array.isArray(K.REFUSAL_CODES) ? K.REFUSAL_CODES : [];
+  /** @param {number} n @returns {any} */
+  const deep = (n) => (n === 0 ? 'x' : [deep(n - 1)]);
+  const junk = [NaN, -Infinity, Infinity, 1e300, 2 ** 53, -(2 ** 53), deep(600), new Array(1000001).fill(0), 10n, undefined, null, '', {}, [], true];
+  const good = mk(fill([slot('01', 5)]), 5);
+  const fields = ['reserves', 'outstanding', 'reserves_salt', 'outstanding_salt', 'unit', 'as_of'];
+  const cases = [];
+  for (const j of junk) {
+    cases.push(['extra key', { ...good, extra: j }]);
+    for (const f of fields) cases.push([f, { ...good, [f]: j }]);
+    cases.push(['slot amount', { ...good, reserves: [{ category: '01', amount_minor: j }, ...good.reserves.slice(1)] }]);
+    cases.push(['slot category', { ...good, reserves: [{ category: j, amount_minor: pad(5) }, ...good.reserves.slice(1)] }]);
+    cases.push(['outstanding amount', { ...good, outstanding: { outstanding_minor: j } }]);
+    cases.push(['raw itself', j]);
+  }
+  let violations = 0; const offenders = new Set();
+  for (const [label, w] of cases) {
+    try {
+      const a = await buildArtifact(w);
+      if (a.execution_hash === null ? !a.hash_refusal : (typeof a.execution_hash !== 'string' || a.hash_refusal)) { violations++; offenders.add(label + ': bad artifact shape'); }
+    } catch (e) {
+      if (!(e instanceof Error) || !codes.includes(e.message)) { violations++; offenders.add(label + ': ' + String(e && e.message).slice(0, 60)); }
+    }
+  }
+  return { name: 'buildArtifact_throws_only_named_codes', trials: cases.length, violations, offenders: [...offenders] };
+}
+
 // P7 (mandatory boundary forcing): equality, one minor unit either side, zero, ceiling.
 async function p7() {
   const rows = [];
@@ -193,7 +224,7 @@ if (orc.failures.length) { console.error('FIXTURE ORACLE FAILED', JSON.stringify
 const decoy = compute({});
 if (decoy.reserves_cover_outstanding !== null) { console.error('compute() decoy returned a non-null verdict'); process.exit(1); }
 
-const properties = [await p1(), await p2(), await p3(), await p4(), await p5(), await p6()];
+const properties = [await p1(), await p2(), await p3(), await p4(), await p5(), await p6(), await p8()];
 const boundary = await p7();
 const anyViolation = properties.some((p) => p.violations > 0);
 const anyImplausible = boundary.some((b) => !b.plausible);
