@@ -31,7 +31,9 @@
 //     (differential test in the report: 0 mismatches).
 //
 // DEMONINATED: float USD dollars, exactly as the source page computes (money
-// enters as dollars, rates are /100, and the display layer rounds). Nothing in
+// enters as dollars, rates are /100, and the display layer rounds). Money inputs
+// are bounded to 0..1e9 dollars (MAX_MONEY_USD) so float64 stays exact to the
+// cent; larger values refuse rather than lose cents past 2^53. Nothing in
 // this kernel rounds; the page's own rounding (Math.round in the AP2 export) is
 // applied by the page draft, not here.
 //
@@ -191,9 +193,52 @@ function isIsoDate(v) {
 // validation
 // ---------------------------------------------------------------------------
 
+// Domain bounds (cure of 765-B1 and 765-B2). Money is float USD, and a float64 only keeps
+// the cent exact while the dollar figure stays far below 2^53 (the Muse oracle found a
+// 25 cent error at agi = cost = 2^53). Money inputs are therefore refused above
+// MAX_MONEY_USD (1e9 dollars, ten orders of magnitude of headroom under the point where
+// a cent is lost), so every accepted input is computed exactly to the cent and every
+// accepted input is also safe I-JSON for buildArtifact. num_children is capped by
+// MAX_CHILDREN for the same reason.
+export const MAX_MONEY_USD = 1000000000;
+export const MAX_CHILDREN = 1000;
+
 function isFiniteNumber(v) { return typeof v === 'number' && Number.isFinite(v); }
-function isNonNegMoney(v) { return isFiniteNumber(v) && v >= 0; }
+function isNonNegMoney(v) { return isFiniteNumber(v) && v >= 0 && v <= MAX_MONEY_USD; }
 function isPercent(v) { return isFiniteNumber(v) && v >= 0 && v <= 100; }
+
+// ---------------------------------------------------------------------------
+// hashability walk (D6): mirrors what _hash.mjs refuses before canonicalizing, so
+// buildArtifact never throws. Reports { reason, detail } (path and kind only).
+// ---------------------------------------------------------------------------
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
 
 function validate(pp) {
   if (!isIsoDate(pp.as_of)) {
@@ -203,7 +248,7 @@ function validate(pp) {
     return refused('REFUSED_BAD_FILING_STATUS', "filing_status must be 'single', 'mfj' or 'mfs'");
   }
   if (!isNonNegMoney(pp.agi)) {
-    return refused('REFUSED_BAD_AGI', 'policy_parameters.agi must be a finite non-negative number of USD dollars');
+    return refused('REFUSED_BAD_AGI', 'policy_parameters.agi must be a finite number of USD dollars from 0 to ' + MAX_MONEY_USD);
   }
   if (!isPercent(pp.marginal_rate_pct)) {
     return refused('REFUSED_BAD_MARGINAL_RATE', 'marginal_rate_pct must be a finite number in [0, 100]');
@@ -211,11 +256,11 @@ function validate(pp) {
   if (!isPercent(pp.state_rate_pct)) {
     return refused('REFUSED_BAD_STATE_RATE', 'state_rate_pct must be a finite number in [0, 100]');
   }
-  if (typeof pp.num_children !== 'number' || !Number.isInteger(pp.num_children) || pp.num_children < 1) {
-    return refused('REFUSED_BAD_NUM_CHILDREN', 'num_children must be an integer >= 1 (number of qualifying individuals)');
+  if (typeof pp.num_children !== 'number' || !Number.isSafeInteger(pp.num_children) || pp.num_children < 1 || pp.num_children > MAX_CHILDREN) {
+    return refused('REFUSED_BAD_NUM_CHILDREN', 'num_children must be an integer from 1 to ' + MAX_CHILDREN + ' (number of qualifying individuals)');
   }
   if (!isNonNegMoney(pp.childcare_cost)) {
-    return refused('REFUSED_BAD_CHILDCARE_COST', 'childcare_cost must be a finite non-negative number of USD dollars');
+    return refused('REFUSED_BAD_CHILDCARE_COST', 'childcare_cost must be a finite number of USD dollars from 0 to ' + MAX_MONEY_USD);
   }
   if (typeof pp.fsa_available !== 'boolean') {
     return refused('REFUSED_BAD_FSA_AVAILABLE', 'fsa_available must be a boolean (is a dependent care FSA available through the employer?)');
@@ -223,10 +268,11 @@ function validate(pp) {
   // fsa_contrib is echoed only: the source page reads this control (page line
   // 359) and never dereferences it in the arithmetic (DIFFERS shape S5). It is
   // therefore OPTIONAL and never changes a number. R4 (absent equals explicit
-  // null): a null fsa_contrib takes the absent form's answer — treated as not
-  // supplied, echoed as not supplied.
+  // null, gated by check-mr-r4-null-ratchet): a null fsa_contrib takes the absent
+  // form's answer, treated as not supplied, echoed as not supplied. A wrong type
+  // or an out-of-bound number refuses.
   if (pp.fsa_contrib != null && !isNonNegMoney(pp.fsa_contrib)) {
-    return refused('REFUSED_BAD_FSA_CONTRIB', 'fsa_contrib must be a finite non-negative number of USD dollars');
+    return refused('REFUSED_BAD_FSA_CONTRIB', 'fsa_contrib must be a finite number of USD dollars from 0 to ' + MAX_MONEY_USD);
   }
   if (pp.ruleset != null && pp.ruleset !== 'statutory' && pp.ruleset !== 'apex_page') {
     return refused('REFUSED_BAD_RULESET', "ruleset must be 'statutory' (default) or 'apex_page'");
@@ -484,8 +530,12 @@ function post2025Label(post2025) {
 
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // The walked object is the exact execution_hash preimage. When the shared canonicalizer
+  // would refuse it (NaN, Infinity, unsafe integer), mint the artifact with a null
+  // execution_hash and the reason beside it instead of throwing (D6, 765-B1).
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const hash = unhashable === null ? await executionHash(pp, output_payload) : null;
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -501,5 +551,7 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }
 
