@@ -1,5 +1,5 @@
 // 808-lst-share-rate-reconciler — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:f6044ca84c60dfa9079d6d27691a8f235605ba96458294298aaa0f4e6dc9a8ad
+// kernel_digest_at_authoring: sha256:330964aa99e13c91d491f4f54bbdfe8156cdd849024312d4d122a2353ec80e72
 // spec: research/ETH-LST-SHARERATE-BUILD-SPEC-AMENDED-2026-11.md (rules R1-R10, fixtures F1-F8)
 // human_sign_off: PENDING
 //
@@ -22,7 +22,11 @@
 //
 // Run: node chaingraph/kernels/__proptests__/808-lst-share-rate-reconciler.proptest.mjs
 
-import { compute } from '../808-lst-share-rate-reconciler.kernel.mjs';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
+import { compute, buildArtifact } from '../808-lst-share-rate-reconciler.kernel.mjs';
 import { runFixtureOracle, summarize } from './_pbt-common.mjs';
 
 const KERNEL_ID = '808-lst-share-rate-reconciler';
@@ -158,6 +162,55 @@ function p8() {
   return { name: 'P8_forced_boundaries', checked: checks.length, violations: checks.filter((c) => !c).length };
 }
 
+// P9 (808-FIX-1) -- the page's inline compute() mirrors the kernel on every
+// golden, including output_payload.issues on both the refused and clean paths.
+function p9PageParity() {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const html = readFileSync(join(here, '..', '..', '808-lst-share-rate-reconciler.html'), 'utf8');
+  const src = html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'));
+  const stub = { getElementById: () => ({ textContent: '', value: '', style: {}, classList: { add() {} } }), createElement: () => ({ click() {} }) };
+  const sandbox = /** @type {any} */ ({ console, crypto: globalThis.crypto, TextEncoder, URL, Blob: function () {}, document: stub });
+  vm.createContext(sandbox);
+  vm.runInContext(src, sandbox);
+  const fx = JSON.parse(readFileSync(join(here, '..', 'fixtures', KERNEL_ID + '.fixtures.json'), 'utf8'));
+  let violations = 0;
+  for (const v of fx.vectors) {
+    const a = JSON.stringify(sandbox.compute(structuredClone(v.policy_parameters)).output_payload);
+    const b = JSON.stringify(compute(structuredClone(v.policy_parameters)).output_payload);
+    if (a !== b) { violations++; console.error(`P9 page parity mismatch: ${v.name}`); }
+  }
+  return { name: 'page_compute_matches_kernel_on_all_goldens', checked: fx.vectors.length, violations };
+}
+
+// P10 (D6) -- buildArtifact_never_throws: unhashable preimages mint a null hash
+// with hash_refusal; clean inputs keep the 64-hex execution_hash.
+async function p10NeverThrow() {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const base = { holder_shares: '1', snapshots: [{ snapshot_id: 'A', internal_ether: '1000', internal_shares: '3' }] };
+  const hostile = [
+    { zzz: NaN }, { zzz: 1e300 }, { zzz: Infinity }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } },
+    { holder_shares: NaN }, { holder_shares: 1e300 }, { zzz: deep }, { zzz: new Array(1000001).fill(0) },
+  ];
+  for (const delta of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...base, ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) { violations++; console.log(`P10 violation: ${Object.keys(delta)[0]} artifact shape`); }
+      if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) { violations++; console.log('P10 violation: hostile value echoed'); }
+    } catch (e) { violations++; console.log(`P10 violation: buildArtifact threw: ${String(e.message).slice(0, 80)}`); }
+  }
+  for (const pp of [base, null, undefined, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('P10 violation: clean input lost its hash'); }
+    } catch (e) { violations++; console.log(`P10 violation: buildArtifact threw on clean input: ${String(e.message).slice(0, 80)}`); }
+  }
+  return { name: 'buildArtifact_never_throws', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -165,7 +218,7 @@ try {
 } catch (e) {
   oracle = { total: 1, failures: [{ name: 'fixture-oracle-load', expected: '(compute() implemented)', got: String((e && e.message) || e) }] };
 }
-const properties = [p1(), p2(), p3(), p4(), p5(), p6(), p7(), p8()];
+const properties = [p1(), p2(), p3(), p4(), p5(), p6(), p7(), p8(), p9PageParity(), await p10NeverThrow()];
 console.log(`[${KERNEL_ID}] class-K floor property test.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
 process.exit(ok ? 0 : 1);
