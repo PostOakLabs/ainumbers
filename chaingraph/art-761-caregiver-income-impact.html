@@ -100,7 +100,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
      landed by APEX-PORT-117-LAND-1 (Builder-verifies-at-land: 64/64 payload fixture vectors re-executed through compute()
      matching the stored outputs). Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-761-caregiver-income-impact.kernel.mjs;
      restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:bae9e36268ac108df324d80f876981fd05436acf6bb21bab46ca1884f18ce145">
+<meta name="kernel-digest" content="sha256:3c16e24e31e72a555c95d70f83aa49d3ab203f17b706617b020df1491a5601ef">
 <meta name="ai-tool" content="caregiver_income_impact">
 </head>
 <body>
@@ -226,7 +226,7 @@ flagged Social Security estimate &mdash; plus a total. Ported from ApexLogics di
    chaingraph/kernels/art-761-caregiver-income-impact.kernel.mjs minus its
    `import { executionHash } from './_hash.mjs'` line (the browser leg inlines the
    canonicalizer instead, identical algorithm). Kernel digest:
-   sha256:bae9e36268ac108df324d80f876981fd05436acf6bb21bab46ca1884f18ce145
+   sha256:3c16e24e31e72a555c95d70f83aa49d3ab203f17b706617b020df1491a5601ef
    Ported from ApexLogics #117 (AL-124); see DIFFERS.md D1-D5 and CITES.md.
    ============================================================================ */
 const MANIFEST = {
@@ -274,6 +274,33 @@ function isIsoDate(v){
   const dim=[31,leap?29:28,31,30,31,30,31,31,30,31,30,31][m-1];
   return d<=dim;
 }
+const MAX_SALARY_USD = 1000000000, MAX_AGE = 150, MAX_CARE_YEARS = 100, MAX_RESULT_CENTS = 10000000000000;
+const HASH_MAX_DEPTH = 512, HASH_MAX_ELEMENTS = 1000000, PP_MAX_DEPTH = HASH_MAX_DEPTH - 8, PP_MAX_ELEMENTS = 199000;
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return path + ': too_deep';
+  if (++budget.n > budget.maxElements) return path + ': too_many_values';
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return path + ': non_finite';
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return path + ': unsafe_integer';
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
 function refused(reason,text){
   return {
     output_payload:{
@@ -291,6 +318,8 @@ function refused(reason,text){
   };
 }
 function validate(pp){
+  const unhashable = findHashRefusal(pp, 'pp', 1, { maxDepth: PP_MAX_DEPTH, maxElements: PP_MAX_ELEMENTS, n: 0 });
+  if (unhashable !== null) return refused('REFUSED_INPUT_UNHASHABLE','policy_parameters cannot be hashed ('+unhashable+'); integers must be safe, numbers finite');
   if(!isIsoDate(pp.as_of)) return refused('REFUSED_BAD_AS_OF','as_of must be a real calendar date as a YYYY-MM-DD string; the node never reads a clock');
   const vintage=Number(pp.as_of.slice(0,4));
   if(!Object.prototype.hasOwnProperty.call(SS_WAGE_BASE_BY_VINTAGE,vintage)){
@@ -299,8 +328,11 @@ function validate(pp){
   const numeric=[['salary_usd',0,null],['current_age',null,null],['retirement_age',null,null],['care_years',0,null],
     ['income_reduction_pct',0,100],['career_setback_pct',0,100],['contribution_401k_pct',0,100],
     ['investment_return_pct',-100,100],['marginal_tax_rate_pct',0,100]];
+  const hard = { salary_usd: MAX_SALARY_USD, current_age: MAX_AGE, retirement_age: MAX_AGE, care_years: MAX_CARE_YEARS };
   for(const [key,lo,hi] of numeric){
     if(!isFiniteNumber(pp[key])) return refused('REFUSED_MISSING_INPUT',key+' is required and must be a finite number');
+    if (Object.hasOwn(hard, key) && pp[key] > hard[key]) return refused('REFUSED_OUT_OF_DOMAIN', key+' must be at most '+hard[key]+'; got '+pp[key]);
+    if ((key === 'current_age' || key === 'retirement_age') && !Number.isInteger(pp[key])) return refused('REFUSED_OUT_OF_DOMAIN', key+' must be a whole number of years; got '+pp[key]);
     if(lo!==null&&pp[key]<lo) return refused('REFUSED_OUT_OF_DOMAIN',key+' must be at least '+lo+'; got '+pp[key]);
     if(hi!==null&&pp[key]>hi) return refused('REFUSED_OUT_OF_DOMAIN',key+' must be at most '+hi+'; got '+pp[key]);
   }
@@ -355,6 +387,13 @@ function compute(pp){
 
   const totalImpact = directIncomeLoss + retirementGap + setbackCost;
   const totalImpactWithSS = totalImpact + annualSSReduction * SS_LIFETIME_YEARS;
+
+  const moneyTerms = [annualIncomeLoss, directIncomeLoss, annual401kLost, retirementGap, setbackCost,
+    annualSSReduction, annualSSReduction * SS_LIFETIME_YEARS, totalImpact, totalImpactWithSS];
+  if (moneyTerms.some((t) => !Number.isFinite(t) || Math.abs(t) * 100 > MAX_RESULT_CENTS)) {
+    return refused('REFUSED_RESULT_OUT_OF_RANGE',
+      'a derived money term is non-finite or exceeds ' + (MAX_RESULT_CENTS / 100) + ' USD, past the range where cents stay exact; narrow the horizon or the rates');
+  }
 
   const strategies = STRATEGY_BASE.slice();
   if (setbackPct > SETBACK_STRATEGY_BRANCH_PCT) {
