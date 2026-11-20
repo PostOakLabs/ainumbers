@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:3a611321fca01c490b5bf91489ba7bf44e4a97c1b74ae28e82cf1e047fc247d9
+// kernel_digest_at_authoring: sha256:9eeed9da09433da39e076f9d0cec01814facede4516175b457d8998e6bc5393f
 //
 // FV-PROPFLOOR-SHARD-B9-1 — property-test floor for art-247-prevalidation-readiness-scorer.
 // Class B (bounded categorical), float:no — IBAN mod-97/BIC/LEI/UETR/address structural checks and a
@@ -11,7 +11,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-247-prevalidation-readiness-scorer.proptest.mjs
 
-import { compute } from '../art-247-prevalidation-readiness-scorer.kernel.mjs';
+import { compute, buildArtifact } from '../art-247-prevalidation-readiness-scorer.kernel.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -114,7 +114,7 @@ function checkP3_readyAgreement() {
 // ---------- P4: forced categorical boundary cases (float:no exception — no ULP forcing applicable) ----------
 const CATEGORICAL_BOUNDARY_CASES = [
   [{}, 'fully empty input — no throw, ready=false, all optional checks pass=null-ish (not provided)'],
-  [{ iban: VALID_IBAN, bic: VALID_BIC, lei: VALID_LEI, uetr: VALID_UETR, address_street_name: 'Main St', address_building_number: '1', address_post_code: '00000', address_country: 'US' }, 'all fields valid — ready must be true'],
+  [{ iban: VALID_IBAN, bic: VALID_BIC, lei: VALID_LEI, uetr: VALID_UETR, address_street_name: 'Main St', address_building_number: '1', address_post_code: '00000', address_town_name: 'Springfield', address_country: 'US' }, 'all required fields present — ready must be true'],
   [{ uetr: VALID_UETR, address_country: 'US', address_town_name: 'City', address_lines: ['123 Main St'] }, 'hybrid address + valid uetr, no iban/bic/lei — ready must be true (optional checks not provided)'],
   [{ uetr: VALID_UETR, address_lines: ['Main St'], address_town_name: 'Main St', address_country: 'US' }, 'AdrLine duplicates town_name — HYBRID_SILENT_FAIL, ready must be false'],
   [{ uetr: 'not-a-uuid', address_country: 'US', address_street_name: 'Main St', address_building_number: '1' }, 'malformed UETR — ready must be false, uetr check_details.valid=false'],
@@ -133,6 +133,35 @@ function checkP4_forced() {
   return rows;
 }
 
+// ---------- D6: buildArtifact never throws on unhashable input (one case per hash-limit class) ----------
+// The hash-limit walk in buildArtifact must return a refusal artifact (execution_hash null plus
+// hash_refusal) rather than throw for every class _hash.mjs I-JSON canonicalisation would refuse.
+async function checkBuildArtifactNeverThrows() {
+  const deep = (n) => { let o = {}; const r = o; for (let i = 0; i < n; i++) { o.x = {}; o = o.x; } return r; };
+  const cases = [
+    ['junk_1e300', 1e300],
+    ['junk_NaN', NaN],
+    ['junk_-Infinity', -Infinity],
+    ['depth511', deep(511)],
+    ['array_over_1e6', new Array(1_000_001).fill(1)],
+  ];
+  const outcomes = [];
+  for (const [label, val] of cases) {
+    let threw = null, refused = false;
+    try {
+      const artifact = await buildArtifact(val);
+      refused = artifact != null && artifact.execution_hash === null &&
+        JSON.stringify(artifact).includes('hash_refusal');
+    } catch (e) { threw = (e && e.name ? e.name + ': ' : '') + String(e && e.message); }
+    outcomes.push({ label, threw, refused });
+  }
+  return {
+    name: 'buildArtifact_never_throws',
+    cases: outcomes,
+    violations: outcomes.filter((o) => o.threw !== null || !o.refused).length,
+  };
+}
+
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
   console.error('FIXTURE ORACLE FAILED — spec/harness not trusted. Failures:', JSON.stringify(results.fixture_oracle.failures, null, 2));
@@ -142,6 +171,7 @@ if (!oracleOk) {
 results.properties.push(checkP1_monotoneReadiness());
 results.properties.push(checkP2_boundedness());
 results.properties.push(checkP3_readyAgreement());
+results.properties.push(await checkBuildArtifactNeverThrows());
 results.boundary_forced = checkP4_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
