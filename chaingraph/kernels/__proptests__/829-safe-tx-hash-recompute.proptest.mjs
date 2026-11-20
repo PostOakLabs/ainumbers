@@ -1,5 +1,5 @@
 // 829-safe-tx-hash-recompute — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:60f4ab23d5ec5710081df25793e9ee65e04141114c12d370882a8cc288a54397
+// kernel_digest_at_authoring: sha256:fac28ca7f2d3a1d967e68d87358349cf8a682b930c83681cc9880eac22884a17
 // spec: research/SAFE-TX-PIN-2026-11.md (typehashes sections 2, selector table section 3)
 // human_sign_off: PENDING
 //
@@ -14,7 +14,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/829-safe-tx-hash-recompute.proptest.mjs
 
-import { compute } from '../829-safe-tx-hash-recompute.kernel.mjs';
+import { compute, buildArtifact } from '../829-safe-tx-hash-recompute.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32 } from './_pbt-common.mjs';
 
 const KERNEL_ID = '829-safe-tx-hash-recompute';
@@ -228,6 +228,36 @@ function checkComplianceFlags() {
   return { name: 'compliance_flags_mirror_risk_and_verdict', checked: n, violations: v };
 }
 
+// D6 -- buildArtifact_never_throws: the exact counterexamples (chainId NaN,
+// 1e300 and 2^53+1) were compute()-clean or gracefully refused but made the
+// artifact wrapper throw. They now mint a null hash plus hash_refusal.
+async function checkBuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const hostile = [
+    { chainId: NaN }, { chainId: 1e300 }, { chainId: 9007199254740993 },
+    { zzz: NaN }, { zzz: Infinity }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } },
+    { zzz: deep }, { zzz: new Array(1000001).fill(0) },
+  ];
+  for (const delta of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...BASE, ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) { violations++; console.log(`D6 violation: ${Object.keys(delta)[0]} artifact shape`); }
+      if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) { violations++; console.log('D6 violation: hostile value echoed'); }
+    } catch (e) { violations++; console.log(`D6 violation: buildArtifact threw: ${String(e.message).slice(0, 80)}`); }
+  }
+  for (const pp of [BASE, null, undefined, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('D6 violation: clean input lost its hash'); }
+    } catch (e) { violations++; console.log(`D6 violation: buildArtifact threw on clean input: ${String(e.message).slice(0, 80)}`); }
+  }
+  return { name: 'buildArtifact_never_throws', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -245,6 +275,7 @@ const properties = [
   checkFieldSensitivity(),
   checkMalformedAndDeterminism(),
   checkComplianceFlags(),
+  await checkBuildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test`);
 const ok = summarize(KERNEL_ID, oracle, properties);
