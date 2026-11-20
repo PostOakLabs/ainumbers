@@ -11,7 +11,7 @@ Clause-by-clause verdict recompute of an x402 exact-scheme Solana payment from p
 - requirements (object, required): The x402 PaymentRequirements for the exact scheme.
 - transaction (object, required): The decoded transaction message fields, pasted by the caller. Lookup-table accounts must be pasted resolved.
 - mint (object, required): The mint configuration for requirements.asset.
-- signature_checks (array, optional): Optional Ed25519 signature checks over caller-pasted bytes. Each check verifies the pasted signature against the pasted public key and message; the node never re-serializes anything.
+- signature_checks (array, optional): Optional Ed25519 checks over caller-pasted bytes; the node never re-serializes anything.
 
 ## Outputs
 
