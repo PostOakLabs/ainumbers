@@ -60,6 +60,10 @@ import { executionHash } from './_hash.mjs';
 // BOOK_LEG_ABSENT, EVENTS_ABSENT) and the arithmetic proceeds over whatever
 // legs remain, so a receipt always states exactly what it could and could not
 // reconcile. manual_review_required is true whenever any flag fired.
+// A declared empty wallets[] is not the same as an absent wallet leg: it is a
+// present declaration that cannot support the wallets leg, so it earns
+// WALLET_LEG_EMPTY and manual review instead of silently reconciling zero
+// wallets.
 //
 // Pure ECMA-262 + BigInt only -- no Date, no Math.random, no network, no
 // clock read (as_of is a caller-declared label). All digesting below is
@@ -159,6 +163,40 @@ function cgCanon(v) {
   return v;
 }
 
+// ---- hashability walk (D6) ----
+// Mirrors the refusal classes of _hash.mjs assertIJson before canonicalization:
+// non-finite numbers, integers outside the 2^53 safe range, nesting past
+// MAX_DEPTH and more than MAX_ELEMENTS values. Reports { reason, detail } with
+// the path and kind only, never the offending value. The shared _hash.mjs is
+// untouched and is still the only canonicalizer for the artifact hash.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+  }
+  return null;
+}
+
 function refused(field, because) {
   return { field, because };
 }
@@ -225,7 +263,7 @@ export function compute(pp) {
   let tolerance = 0n;
   if (pp.tolerance_units !== undefined && pp.tolerance_units !== null) {
     const t = pp.tolerance_units;
-    if (typeof t !== 'number' || !Number.isInteger(t) || t < 0) {
+    if (typeof t !== 'number' || !Number.isSafeInteger(t) || t < 0) {
       return buildRefusal(refused('tolerance_units', 'tolerance_out_of_domain'));
     }
     tolerance = BigInt(t);
@@ -244,6 +282,7 @@ export function compute(pp) {
   if (pp.wallets !== undefined && pp.wallets !== null) {
     if (!Array.isArray(pp.wallets)) return buildRefusal(refused('wallets', 'wallets_not_an_array'));
     wallets = [];
+    if (pp.wallets.length === 0) flags.push('WALLET_LEG_EMPTY');
     const seen = new Set();
     for (let i = 0; i < pp.wallets.length; i++) {
       const w = pp.wallets[i];
@@ -279,7 +318,7 @@ export function compute(pp) {
       if (ev === null || typeof ev !== 'object' || Array.isArray(ev)) {
         return buildRefusal(refused(ef, 'event_entry_not_object'));
       }
-      if (typeof ev.seq !== 'number' || !Number.isInteger(ev.seq) || ev.seq < 0) {
+      if (typeof ev.seq !== 'number' || !Number.isSafeInteger(ev.seq) || ev.seq < 0) {
         return buildRefusal(refused(ef + '.seq', 'event_seq_out_of_domain'));
       }
       if (seqs.has(ev.seq)) return buildRefusal(refused(ef + '.seq', 'event_seq_duplicate'));
@@ -434,15 +473,18 @@ function buildRefusal(r) {
 
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // The walked object is the exact execution_hash preimage. Where the shared
+  // canonicalizer would refuse it, mint the artifact with a null hash and the
+  // reason beside it instead of throwing (D6): buildArtifact never throws.
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
     tool_id: TOOL_ID,
     tool_version: TOOL_VERSION,
     generated_at: now ?? null,
-    execution_hash: hash,
+    execution_hash: unhashable === null ? await executionHash(pp, output_payload) : null,
     chain: { parent_hashes, parent_tool_ids, chain_depth },
     policy_parameters: pp,
     output_payload,
@@ -451,4 +493,6 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }
