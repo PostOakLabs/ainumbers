@@ -714,6 +714,7 @@ status: stable
 - [RFC 4180 CSV Parser](./art-788-csv-rfc4180-parser.md) — `parse_csv_table`
 - [Stablecoin Admin Role Lint](./art-789-stablecoin-admin-role-lint.md) — `lint_stablecoin_admin_roles`
 - [Settlement-Fail Predictor](./art-79-settlement-fail-predictor.md) — `predict_settlement_fail`
+- [Multicurrency JE Balance Check](./art-791-check-je-multicurrency-balance.md) — `check_je_multicurrency_balance`
 - [Government Stablecoin Acceptance Audit](./art-793-government-stablecoin-acceptance.md) — `assess_gov_stablecoin_accept`
 - [SSI Conformance Checker](./art-80-ssi-conformance-checker.md) — `check_ssi_conformance`
 - [Open-Source Agent-Governance Audit-Chain Verifier](./art-805-agt-audit-chain-verifier.md) — `verify_agent_governance_audit_chain`

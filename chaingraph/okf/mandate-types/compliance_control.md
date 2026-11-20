@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-155"]
+tags: ["compliance_control", "count-156"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-155 tool(s) in this mandate-type group:
+156 tool(s) in this mandate-type group:
 
 - [EMV MPM QR Payload Validator](../tools/783-emv-mpm-qr-validator.md)
 - [QR Go-Live Readiness Assessor](../tools/785-qr-golive-readiness.md)
@@ -147,6 +147,7 @@ status: stable
 - [Daycount Year Fraction](../tools/art-773-daycount-year-fraction.md)
 - [Beacon-Seeded Fair-Sampling Deriver V2](../tools/art-774-beacon-seeded-fair-sampling-v2.md)
 - [Stablecoin Admin Role Lint](../tools/art-789-stablecoin-admin-role-lint.md)
+- [Multicurrency JE Balance Check](../tools/art-791-check-je-multicurrency-balance.md)
 - [Government Stablecoin Acceptance Audit](../tools/art-793-government-stablecoin-acceptance.md)
 - [Open-Source Agent-Governance Audit-Chain Verifier](../tools/art-805-agt-audit-chain-verifier.md)
 - [Private-Input Reserves Cover Outstanding Check](../tools/art-809-check-reserves-cover-outstanding-private.md)
