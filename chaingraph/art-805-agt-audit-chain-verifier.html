@@ -58,7 +58,7 @@ pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius
 footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
 </style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-805-agt-audit-chain-verifier.kernel.mjs. -->
-<meta name="kernel-digest" content="sha256:d3a96683e60729156f0ca539f5eec22cd1d4facd9f5a4b397b7262bdad3e54fc">
+<meta name="kernel-digest" content="sha256:1b0aa1972e5c2e7936f07c6d4f263ac42c13cb7225e06f7ae794654ed5780156">
 <style>
 /* OCG-CHROME-CSS:v1 */
 /* Canonical nav — derived from chaingraph-hub.html */
@@ -132,7 +132,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 </nav>
 <div class="hero"><div class="container">
   <h1>Open-Source Agent-Governance Audit-Chain Verifier</h1>
-  <p class="hero-desc">Recompute the hash chain of an exported agent-governance audit log offline, from the exported entries alone, and report exactly where it breaks. Subject format: the open-source agent-governance-toolkit audit-log format (MIT) , each link hash is a SHA-256 over a Python json.dumps(sort_keys=True) serialisation of the entry (default separators, ensure_ascii=True, parent_hash null coalesced to the empty string; deliberately not RFC&nbsp;8785), and the chain root is the last link hash, not a Merkle root. Outputs chain_intact, first_break_index, per-break reason codes (HASH_MISMATCH, CHAIN_BROKEN), recomputed_root and claimed_root_match. Fail-closed: any field outside the pinned entry schema rejects the whole input, naming each rejected field, and entry content is never echoed , the output carries hashes and indices only.</p>
+  <p class="hero-desc">Recompute the hash chain of an exported agent-governance audit log offline, from the exported entries alone, and report exactly where it breaks. Subject format: the open-source agent-governance-toolkit audit-log format (MIT) , each link hash is a SHA-256 over a Python json.dumps(sort_keys=True) serialisation of the entry (default separators, ensure_ascii=True, parent_hash null coalesced to the empty string; deliberately not RFC&nbsp;8785), and the chain root is the last link hash, not a Merkle root. Outputs chain_intact, first_break_index, per-break reason codes (HASH_MISMATCH, CHAIN_BROKEN), recomputed_root and claimed_root_match. Fail-closed: any field outside the pinned entry schema rejects the whole input, naming each rejected field, and entry content is never echoed , the output carries hashes and indices only. An intact verdict attests only to the entries presented, not to chain completeness; an empty entry list is reported as EMPTY_CHAIN and never as intact.</p>
 </div></div>
 <div class="container">
   <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data , use synthetic or anonymised inputs only.</div>
@@ -308,8 +308,41 @@ var HEX64 = /^[0-9a-f]{64}$/;
 var ISO_TS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?([+-]\d{2}:\d{2}|Z)$/;
 var TOP_KEYS = ['delta_id', 'turn_id', 'session_id', 'agent_did', 'timestamp', 'parent_hash', 'delta_hash', 'changes'];
 var CHANGE_KEYS = ['path', 'operation', 'content_hash', 'previous_hash', 'agent_did'];
+var HASH_MAX_DEPTH = 512, HASH_MAX_ELEMENTS = 1000000;
+var PP_MAX_DEPTH = HASH_MAX_DEPTH - 8, PP_MAX_ELEMENTS = 199000;
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (var i = 0; i < v.length; i++) { var r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget); if (r !== null) return r; }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    var ks = Object.keys(v).sort();
+    for (var j = 0; j < ks.length; j++) { var q = findHashRefusal(v[ks[j]], path + '.' + ks[j], depth + 1, budget); if (q !== null) return q; }
+  }
+  return null;
+}
 function isStr(v) { return typeof v === 'string'; }
-function isInt(v) { return typeof v === 'number' && Number.isInteger(v); }
+function isInt(v) { return typeof v === 'number' && Number.isSafeInteger(v); }
+function isValidIsoTs(v) {
+  if (!isStr(v) || !ISO_TS.test(v)) return false;
+  var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/.exec(v);
+  if (m === null) return false;
+  var y = +m[1], mo = +m[2], d = +m[3], hh = +m[4], mi = +m[5], ss = +m[6];
+  if (mo < 1 || mo > 12 || d < 1 || hh > 23 || mi > 59 || ss > 59) return false;
+  var leap = y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0);
+  var days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mo - 1];
+  if (d > days) return false;
+  var off = /([+-])(\d{2}):(\d{2})$/.exec(v);
+  if (off !== null && (+off[2] > 23 || +off[3] > 59)) return false;
+  return true;
+}
 function validateEntries(entries) {
   var rejected = [];
   if (!Array.isArray(entries)) return ['entries'];
@@ -322,7 +355,7 @@ function validateEntries(entries) {
     if ('turn_id' in e && !isInt(e.turn_id)) rejected.push(at + '.turn_id');
     if ('session_id' in e && !isStr(e.session_id)) rejected.push(at + '.session_id');
     if ('agent_did' in e && !isStr(e.agent_did)) rejected.push(at + '.agent_did');
-    if ('timestamp' in e && !(isStr(e.timestamp) && ISO_TS.test(e.timestamp))) rejected.push(at + '.timestamp');
+    if ('timestamp' in e && !isValidIsoTs(e.timestamp)) rejected.push(at + '.timestamp');
     if ('parent_hash' in e && !(e.parent_hash === null || (isStr(e.parent_hash) && HEX64.test(e.parent_hash)))) rejected.push(at + '.parent_hash');
     if ('delta_hash' in e && !(isStr(e.delta_hash) && HEX64.test(e.delta_hash))) rejected.push(at + '.delta_hash');
     if ('changes' in e) {
@@ -331,6 +364,7 @@ function validateEntries(entries) {
         var cat = at + '.changes[' + j + ']';
         if (c === null || typeof c !== 'object' || Array.isArray(c)) { rejected.push(cat); return; }
         Object.keys(c).forEach(function (k) { if (CHANGE_KEYS.indexOf(k) < 0) rejected.push(cat + '.' + k); });
+        CHANGE_KEYS.forEach(function (k) { if (!(k in c)) rejected.push(cat + '.' + k + '(missing)'); });
         if ('path' in c && !isStr(c.path)) rejected.push(cat + '.path');
         if ('operation' in c && !isStr(c.operation)) rejected.push(cat + '.operation');
         ['content_hash', 'previous_hash', 'agent_did'].forEach(function (k) {
@@ -348,9 +382,9 @@ function hashInputFor(e) {
     parent_hash: (e.parent_hash === null || e.parent_hash === undefined) ? '' : e.parent_hash,
     changes: (e.changes || []).map(function (c) {
       return { path: c.path, operation: c.operation,
-        content_hash: c.content_hash === undefined ? null : c.content_hash,
-        previous_hash: c.previous_hash === undefined ? null : c.previous_hash,
-        agent_did: c.agent_did === undefined ? null : c.agent_did };
+        content_hash: c.content_hash,
+        previous_hash: c.previous_hash,
+        agent_did: c.agent_did };
     })
   });
 }
@@ -362,9 +396,13 @@ async function sha256Hex(str) {
   return bytesToHexStr(new Uint8Array(buf));
 }
 async function computeAsync(pp) {
-  pp = pp || {};
+  var rawPp = pp;
+  if (pp === null || typeof pp !== 'object' || Array.isArray(pp)) pp = {};
   var out = { entry_count: 0, chain_intact: false, first_break_index: null, breaks: [], recomputed_root: null, claimed_root_match: null, signature_status: 'no_keyed_signature_field_in_pinned_schema', rejected: false, rejected_fields: [], issues: [] };
   var rejectedFields = [];
+  if (rawPp !== pp) rejectedFields.push('policy_parameters(wrong_type)');
+  var unhashable = findHashRefusal(pp, 'pp', 1, { maxDepth: PP_MAX_DEPTH, maxElements: PP_MAX_ELEMENTS, n: 0 });
+  if (unhashable !== null) rejectedFields.push(unhashable.reason + ':' + unhashable.detail);
   Object.keys(pp).forEach(function (k) { if (k !== 'entries' && k !== 'claimed_root') rejectedFields.push(k); });
   if ('claimed_root' in pp && pp.claimed_root !== null && !isStr(pp.claimed_root)) rejectedFields.push('claimed_root');
   validateEntries(pp.entries).forEach(function (r) { rejectedFields.push(r); });
@@ -375,7 +413,7 @@ async function computeAsync(pp) {
   }
   var entries = pp.entries;
   out.entry_count = entries.length;
-  var breaks = [], previousHash = null;
+  var breaks = [], previousHash = null, lastRecomputed = null;
   for (var i = 0; i < entries.length; i++) {
     var e = entries[i], recomputed = null;
     try { recomputed = await sha256Hex(hashInputFor(e)); }
@@ -383,17 +421,21 @@ async function computeAsync(pp) {
     if (recomputed !== e.delta_hash) breaks.push({ index: i, reason: 'HASH_MISMATCH' });
     if ((e.parent_hash === undefined ? null : e.parent_hash) !== previousHash) breaks.push({ index: i, reason: 'CHAIN_BROKEN' });
     previousHash = e.delta_hash;
+    lastRecomputed = recomputed;
   }
   out.breaks = breaks;
-  out.chain_intact = entries.length === 0 || breaks.length === 0;
+  out.chain_intact = entries.length > 0 && breaks.length === 0;
   out.first_break_index = breaks.length > 0 ? breaks[0].index : null;
-  if (entries.length > 0) out.recomputed_root = entries[entries.length - 1].delta_hash;
+  if (entries.length > 0) out.recomputed_root = lastRecomputed;
   if ('claimed_root' in pp && isStr(pp.claimed_root)) {
     var stripped = pp.claimed_root.replace(/^(sha256:|0x)/, '').toLowerCase();
     out.claimed_root_match = out.recomputed_root !== null && stripped === out.recomputed_root;
   }
   var flags = [];
-  if (out.chain_intact) flags.push('AGT_AUDIT_CHAIN_INTACT');
+  if (entries.length === 0) {
+    flags.push('AGT_AUDIT_EMPTY_CHAIN');
+    out.issues.push('AGT_AUDIT_EMPTY_CHAIN');
+  } else if (out.chain_intact) flags.push('AGT_AUDIT_CHAIN_INTACT');
   else {
     flags.push('AGT_AUDIT_CHAIN_BREAK_DETECTED');
     breaks.forEach(function (b) { out.issues.push('AGT_AUDIT_CHAIN_BREAK:' + b.index + ':' + b.reason); });
@@ -457,6 +499,7 @@ async function runVerify() {
   var v = document.getElementById('verdict');
   if (o.rejected) { v.className = 'verdict bad'; v.textContent = 'INPUT REJECTED (fail-closed) , ' + o.rejected_fields.length + ' rejected field(s) named below.'; }
   else if (o.chain_intact) { v.className = 'verdict ok'; v.textContent = 'CHAIN INTACT , ' + o.entry_count + ' entr' + (o.entry_count === 1 ? 'y' : 'ies') + ' verified.'; }
+  else if (o.issues.indexOf('AGT_AUDIT_EMPTY_CHAIN') >= 0) { v.className = 'verdict bad'; v.textContent = 'EMPTY CHAIN , no entries were presented to verify.'; }
   else { v.className = 'verdict bad'; v.textContent = 'CHAIN BROKEN , first break at index ' + o.first_break_index + '.'; }
   document.getElementById('flagRow').innerHTML = r.compliance_flags.map(function (f) {
     return '<span class="badge ' + (f === 'AGT_AUDIT_CHAIN_INTACT' ? 'ok' : 'bad') + '">' + f + '</span>';
