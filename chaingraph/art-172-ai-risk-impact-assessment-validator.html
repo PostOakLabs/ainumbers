@@ -302,6 +302,9 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-172
     <div class="footer-cols">
       <div class="footer-col">
         <div class="footer-col-label">Platform</div>
+        <a href="../start.html">Start Here</a>
+        <a href="../front-to-back.html">Front-to-Back Prompts</a>
+        <a href="../prompts.html">Prompt Library</a>
         <a href="chaingraph-hub.html">ChainGraph Hub</a>
         <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
         <a href="openchain-graph-spec.html">Spec v0.8.13</a>
@@ -317,8 +320,10 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-172
       <div class="footer-col">
         <div class="footer-col-label">Hubs</div>
         <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="visual-explainers-hub.html">Visual Explainers</a>
+        <a href="education-hub.html">Learn OpenChainGraph</a>
         <a href="../guides/web3-hub.html">Web3 Hub</a>
-        <a href="../guides/solana-hub.html">Solana</a>
+        <a href="../guides/canton-tmf-hub.html">Canton</a>
         <a href="../guides/ethereum-hub.html">Ethereum</a>
         <a href="../guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
         <a href="../guides/token-standards-hub.html">Token Standards</a>
@@ -332,6 +337,8 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-172
         <div class="footer-col-label">Developers</div>
         <a href="../mcp.html">MCP Docs</a>
         <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../webmcp.html">WebMCP</a>
+        <a href="../mcp-benchmark.html">MCP Benchmark</a>
         <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
         <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
         <a href="../openapi.json" target="_blank">openapi.json</a>
@@ -339,6 +346,7 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-172
         <a href="okf/index.md" target="_blank">OKF bundle</a>
         <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
         <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../verification-desk.html">Verification Desk</a>
         <a href="verify.html">Artifact Verifier</a>
         <a href="../ledger/index.html">Receipt Ledger</a>
       </div>
@@ -351,6 +359,8 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-172
         <a href="../fv-explainer.html">FV Process Explainer</a>
         <a href="../errata.html">FV Errata</a>
         <a href="../suggest.html">Suggest</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="../privacy.html">Privacy</a>
         <a href="../contact.html">Contact</a>
         <a href="../sitemap.html">Sitemap</a>
         <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
@@ -377,39 +387,41 @@ const MANIFEST = {
     inputSchema: {
       type: 'object',
       properties: {
-        intended_use: {
-          type: 'string',
-          description: 'Description of the intended use of the AI system'
-        },
-        stakeholders_identified: {
-          description: 'Affected stakeholders identified — present, partial, or absent',
-          oneOf: [
-            {type: 'boolean'},
-            {type: 'string', enum: ['partial']}
-          ]
-        },
-        risk_treatment_defined: {
-          type: 'boolean',
-          description: 'Risk treatment plan documented'
-        },
-        monitoring_plan: {
-          type: 'string',
-          description: 'Description of the monitoring and review plan for the AI system'
-        },
-        approval_documented: {
-          type: 'boolean',
-          description: 'Formal approval on record'
-        },
-        risk_categories_identified: {
-          description: 'Risk categories identified — present, partial, or absent',
-          oneOf: [
-            {type: 'boolean'},
-            {type: 'string', enum: ['partial']}
-          ]
-        },
-        data_sources_listed: {
-          type: 'boolean',
-          description: 'All training/inference data sources documented'
+        assessment: {
+          type: 'object',
+          description: 'The impact assessment under validation',
+          properties: {
+            intended_use: {
+              type: 'string',
+              description: 'Description of the intended use of the AI system'
+            },
+            affected_stakeholders: {
+              type: 'array',
+              description: 'Affected stakeholders identified, at least one item',
+              items: { type: 'string' }
+            },
+            risk_treatment_defined: {
+              type: 'boolean',
+              description: 'Risk treatment plan documented'
+            },
+            monitoring_plan: {
+              type: 'string',
+              description: 'Description of the monitoring and review plan for the AI system'
+            },
+            approval_documented: {
+              type: 'boolean',
+              description: 'Formal approval on record'
+            },
+            risk_categories: {
+              type: 'array',
+              description: 'Risk categories identified, at least one item',
+              items: { type: 'string' }
+            },
+            data_sources_listed: {
+              type: 'boolean',
+              description: 'All training/inference data sources documented'
+            }
+          }
         }
       }
     }
@@ -420,76 +432,68 @@ const MANIFEST = {
 let _lastArtifact = null, _lastPP = null, _lastOP = null, _lastFlags = null;
 
 // Kernel compute() — faithful client-side copy of server kernel logic
-// Completeness check across 7 fields with tri-state scoring for clause fields
+// ISO 42005-style AI impact-assessment completeness check across 7 fields.
+// Returns completeness_score (0-100), gaps list, and compliance_flags.
+// Zero network; all computation is deterministic and finite.
 function compute(pp) {
-  const {
-    intended_use,
-    stakeholders_identified,
-    risk_treatment_defined,
-    monitoring_plan,
-    approval_documented,
-    risk_categories_identified,
-    data_sources_listed
-  } = pp;
+  const { assessment = {} } = pp;
 
-  // Score helper: tri-state fields (true=1.0, 'partial'=0.5, false/absent=0)
-  function triScore(v) {
-    if (v === true || v === 'true') return 1.0;
-    if (v === 'partial') return 0.5;
-    return 0;
-  }
+  // 1. intended_use — non-empty string
+  const check_intended_use =
+    typeof assessment.intended_use === 'string' && assessment.intended_use.trim().length > 0;
 
-  // Boolean field check
-  function boolScore(v) {
-    return (v === true) ? 1.0 : 0;
-  }
+  // 2. affected_stakeholders — array with at least 1 item
+  const check_affected_stakeholders =
+    Array.isArray(assessment.affected_stakeholders) &&
+    assessment.affected_stakeholders.length >= 1;
 
-  // Text field check — non-empty string
-  function textScore(v) {
-    return (typeof v === 'string' && v.trim().length > 0) ? 1.0 : 0;
-  }
+  // 3. risk_treatment_defined — boolean true
+  const check_risk_treatment_defined = assessment.risk_treatment_defined === true;
 
-  // Seven required elements per ISO/IEC 42005
-  const elements = {
-    intended_use: textScore(intended_use),
-    stakeholders_identified: triScore(stakeholders_identified),
-    risk_treatment_defined: boolScore(risk_treatment_defined),
-    monitoring_plan: textScore(monitoring_plan),
-    approval_documented: boolScore(approval_documented),
-    risk_categories_identified: triScore(risk_categories_identified),
-    data_sources_listed: boolScore(data_sources_listed)
+  // 4. monitoring_plan — non-empty string
+  const check_monitoring_plan =
+    typeof assessment.monitoring_plan === 'string' && assessment.monitoring_plan.trim().length > 0;
+
+  // 5. approval_documented — boolean true
+  const check_approval_documented = assessment.approval_documented === true;
+
+  // 6. risk_categories — array with at least 1 item
+  const check_risk_categories =
+    Array.isArray(assessment.risk_categories) && assessment.risk_categories.length >= 1;
+
+  // 7. data_sources_listed — boolean true
+  const check_data_sources_listed = assessment.data_sources_listed === true;
+
+  const CHECKS = {
+    intended_use: check_intended_use,
+    affected_stakeholders: check_affected_stakeholders,
+    risk_treatment_defined: check_risk_treatment_defined,
+    monitoring_plan: check_monitoring_plan,
+    approval_documented: check_approval_documented,
+    risk_categories: check_risk_categories,
+    data_sources_listed: check_data_sources_listed,
   };
 
-  const MAX_SCORE = 7.0;
-  const raw_score = Object.values(elements).reduce((a, b) => a + b, 0);
-  const completeness_score = Math.round((raw_score / MAX_SCORE) * 100);
+  const fields_checked = 7;
+  const fields_passed = Object.values(CHECKS).filter(Boolean).length;
+  const raw_score = fields_passed / fields_checked * 100;
+  const completeness_score = Number.isFinite(raw_score) ? Math.round(raw_score) : 0;
+  const complete = fields_passed === fields_checked;
+  const gaps = Object.entries(CHECKS)
+    .filter(([, pass]) => !pass)
+    .map(([field]) => field);
 
-  // Gaps: elements scoring less than 1.0
-  const gaps = Object.entries(elements)
-    .filter(([, s]) => s < 1.0)
-    .map(([k, s]) => ({ element: k, status: s === 0.5 ? 'partial' : 'absent' }));
-
-  const complete = gaps.length === 0;
-
-  const compliance_flags = ['ISO_42005_IMPACT_ASSESSMENT_EVALUATED'];
+  const compliance_flags = [];
+  compliance_flags.push('AI_IMPACT_ASSESSED');
   if (complete) {
-    compliance_flags.push('ISO_42005_IMPACT_ASSESSMENT_COMPLETE');
-  } else if (completeness_score >= 70) {
-    compliance_flags.push('ISO_42005_IMPACT_ASSESSMENT_SUBSTANTIALLY_COMPLETE');
+    compliance_flags.push('AI_IMPACT_ASSESSMENT_COMPLETE');
   } else {
-    compliance_flags.push('ISO_42005_IMPACT_ASSESSMENT_INCOMPLETE');
+    compliance_flags.push('AI_IMPACT_ASSESSMENT_INCOMPLETE');
   }
 
   return {
-    output_payload: {
-      completeness_score,
-      elements_checked: Object.keys(elements).length,
-      elements_complete: Object.values(elements).filter(s => s === 1.0).length,
-      elements_partial: Object.values(elements).filter(s => s === 0.5).length,
-      gaps,
-      complete
-    },
-    compliance_flags
+    output_payload: { complete, completeness_score, fields_checked, fields_passed, gaps },
+    compliance_flags,
   };
 }
 
@@ -516,15 +520,21 @@ function getSelectValue(id) {
   return raw; // 'partial'
 }
 
+// The kernel reads a single assessment{} object; the tri-state selects map to the
+// kernel's binary "array with at least 1 item" checks (partial counts as not listed).
 function getParams() {
+  const stakeholders = getSelectValue('stakeholders_identified');
+  const riskCategories = getSelectValue('risk_categories_identified');
   return {
-    intended_use: document.getElementById('intended_use').value.trim() || undefined,
-    stakeholders_identified: getSelectValue('stakeholders_identified'),
-    risk_treatment_defined: document.getElementById('risk_treatment_defined').checked,
-    monitoring_plan: document.getElementById('monitoring_plan').value.trim() || undefined,
-    approval_documented: document.getElementById('approval_documented').checked,
-    risk_categories_identified: getSelectValue('risk_categories_identified'),
-    data_sources_listed: document.getElementById('data_sources_listed').checked
+    assessment: {
+      intended_use: document.getElementById('intended_use').value.trim() || undefined,
+      affected_stakeholders: stakeholders === true ? ['identified-stakeholders'] : [],
+      risk_treatment_defined: document.getElementById('risk_treatment_defined').checked,
+      monitoring_plan: document.getElementById('monitoring_plan').value.trim() || undefined,
+      approval_documented: document.getElementById('approval_documented').checked,
+      risk_categories: riskCategories === true ? ['identified-risk-categories'] : [],
+      data_sources_listed: document.getElementById('data_sources_listed').checked
+    }
   };
 }
 
@@ -598,8 +608,8 @@ function renderResults(op, flags, rawHash, artifact) {
       <div class="hero-lbl">Completeness Score</div>
     </div>
     <div class="hero-stat">
-      <div class="hero-val" style="color:${op.elements_complete === op.elements_checked ? 'var(--green)' : 'var(--gold)'}">
-        ${op.elements_complete}/${op.elements_checked}
+      <div class="hero-val" style="color:${op.fields_passed === op.fields_checked ? 'var(--green)' : 'var(--gold)'}">
+        ${op.fields_passed}/${op.fields_checked}
       </div>
       <div class="hero-lbl">Elements Complete</div>
     </div>
@@ -623,7 +633,7 @@ function renderResults(op, flags, rawHash, artifact) {
   // Gaps
   if (op.gaps.length > 0) {
     const badges = op.gaps.map(g =>
-      `<span class="badge ${g.status === 'partial' ? 'warn' : 'err'}">${g.element} [${g.status}]</span>`
+      `<span class="badge err">${g}</span>`
     ).join('');
     document.getElementById('missingBox').innerHTML = `<div style="margin:10px 0"><div class="form-label" style="margin-bottom:6px">Gaps identified:</div><div class="missing-row">${badges}</div></div>`;
   } else {

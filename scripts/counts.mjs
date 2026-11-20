@@ -481,6 +481,26 @@ export async function deriveCounts() {
     showcasePrompts = Array.isArray(showcaseArr) ? showcaseArr.length : 0
   } catch { /* SSOT absent — sentinel stays unverified rather than guessing */ }
 
+  // vintage.* — VINTAGE-CALENDAR-1: the hero counts on chaingraph/vintage-calendar.html
+  // (facts tracked, dated entries, pinned sources), from data/vintages.json. The page
+  // renders the same three digits through its generator (gen-vintage-calendar.mjs,
+  // whose --check freshness gate pins every byte), so the sentinel sites cannot
+  // disagree with the table. Authored input — repo-rooted read, never the overlay.
+  // The page is NOT in verify-counts.mjs's scan list at birth: a page declared in the
+  // 'counts' COVERED entry classifies count-sentinel in check-main-only-paths.mjs,
+  // which refuses a PR that ADDS such a page; a successor row may move it under the
+  // counts entry with zero markup churn.
+  let vintageCountsDerived = { 'vintage.facts': 0, 'vintage.entries': 0, 'vintage.sources': 0 }
+  try {
+    const rawVintage = JSON.parse(readFileSync(resolve(repoRoot, 'data', 'vintages.json'), 'utf8'))
+    const vintageArr = Array.isArray(rawVintage.vintages) ? rawVintage.vintages : []
+    vintageCountsDerived = {
+      'vintage.facts': new Set(vintageArr.map(e => e.fact)).size,
+      'vintage.entries': vintageArr.length,
+      'vintage.sources': new Set(vintageArr.map(e => e.source && e.source.clause_digest)).size,
+    }
+  } catch { /* table absent — sentinel stays unverified rather than guessing */ }
+
   // trust.* -- ZK-TRUST-INVENTORY-1: stage ladder counts from the same chaingraph and L1 report read above.
   const trustInventory = await deriveFromGraph(chaingraph, l1ReportForL2, repoRoot)
 
@@ -521,6 +541,7 @@ export async function deriveCounts() {
     'infra_pages':       infraPages,
     'guide_pages':       guidePages,
     'showcase_prompts':  showcasePrompts,
+    ...vintageCountsDerived,
     ...trustCountKeys(trustInventory),
   }
 }

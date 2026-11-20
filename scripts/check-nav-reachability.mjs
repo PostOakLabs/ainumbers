@@ -156,7 +156,13 @@ const CHANGED = MODE === 'check'
 // checked out there (e.g. repo/.wt/<wu>/) is a full repo copy and must be excluded the
 // same way '.claude'/'worktrees' already are, or every page in it double-counts as an
 // island/reachable-baseline entry for someone else's in-progress WU.
-const SKIP_DIRS = new Set(['.git', 'node_modules', '.github', 'worktrees', '.claude', '.wt']);
+// '.tmp' added by NAV-ISLAND-TMP-SKIP-1 (2026-11-15): another preflight gate extracts
+// in-flight scratch under REPO/.tmp (mkdtemp 'ain-*' dir with a tools/widget.html inside)
+// while this gate walks the tree; the transient page counted as a new island and flaked
+// every parallel local preflight. Same race class already fixed in
+// check-inline-ssot-sync.mjs (VERIFYBINDING-DIGEST-DEFAULT-1, 2026-11-12); no real page
+// can ever live under .tmp, so skipping the dir cannot mask a genuine island.
+const SKIP_DIRS = new Set(['.git', 'node_modules', '.github', 'worktrees', '.claude', '.wt', '.tmp']);
 
 function collect(dir, out = []) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -489,6 +495,19 @@ if (createdOutsideScope.length) {
   for (const p of createdOutsideScope) console.warn(`  ${p}`);
 }
 if (createdFailing.length) {
+  // NAV-ISLAND-SCOPE-1 (2026-11-16): one machine-readable verdict line naming
+  // exactly the islands THIS run fails on, so a caller that must judge a page of
+  // its OWN (scripts/kernel-preflight.mjs's node-page check) can match against
+  // the failing set instead of substring-matching the whole combined output.
+  // The same output also names this branch's own PENDING-ASSEMBLE excused pages
+  // and the --changed outside-scope advisories; a substring match over all of it
+  // attributed an unrelated island's red to the wrong PR (measured: merge_group
+  // run 43389851037, 2026-11-13 — one unlinked page left on main by a failed
+  // regen failed the unrelated art-816 kernel preflight). Format: one line,
+  // `nav-reachability: FAILING-ISLANDS <n> <path> <path>...`, paths repo-relative
+  // and sorted, no spaces in paths. Exit codes and every pre-existing line are
+  // unchanged; the plain gate still fails here exactly as before.
+  console.log(`nav-reachability: FAILING-ISLANDS ${createdFailing.length} ${createdFailing.join(' ')}`);
   console.error(`\nnav-reachability: ${createdFailing.length} NEW island(s) — page(s) no nav path reaches:`);
   for (const p of createdFailing) console.error(`  ${p}`);
   console.error(`\nFix: link the page from a hub / nav / directory (e.g. guides/index.html), or`);
@@ -496,4 +515,8 @@ if (createdFailing.length) {
   console.error(`or (rarely) accept it as by-design with: node scripts/check-nav-reachability.mjs --update`);
   process.exit(1);
 }
+// NAV-ISLAND-SCOPE-1: the OK half of the verdict-line contract above — an empty
+// failing set is stated explicitly, never left for the caller to infer from the
+// OK prose line (a missing result is a distinct state, SO #34c).
+console.log('nav-reachability: FAILING-ISLANDS 0');
 console.log(`nav-reachability: OK — 0 new islands${CHANGED ? ' in touched scope' : ''} (${islands.length} accepted in baseline, ${reach.size} pages reachable).`);

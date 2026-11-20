@@ -1,5 +1,5 @@
 // art-593-webbotauth-nonce-replay-check property-test floor (ADJACENT-HOOKS-ASSEMBLE-LAND-2).
-// kernel_digest_at_authoring: sha256:4d4491d75002a02d8a1448ca25e0aa851ccd4ea646dccde0afdd5d745f48967b
+// kernel_digest_at_authoring: sha256:f3470256d6053732a98911c95987c2019b957f73ecb8bce762ad0013b48063c1
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- cheap invariant subset over the DECLARED domain,
@@ -23,6 +23,7 @@ const results = { fixture_oracle: null, properties: [] };
 const BASE_PP = {
   nonce: 'aB3dEfGhIjKlMnOpQrStUvWxYz012345',
   created: 1750000000, expires: 1750000300, now_unix: 1750000060, max_age_s: 3600,
+  seen_nonces: [],
 };
 
 // ---------- fixture-oracle gate (MANDATORY before any property is trusted) ----------
@@ -90,12 +91,51 @@ async function checkP4_outputShapeInvariant() {
   for (const pp of inputs) {
     const { output_payload } = await compute(pp);
     checked++;
-    if (output_payload.verdict !== 'ACCEPT' && output_payload.verdict !== 'REFUSE') violations++;
+    if (!['ACCEPT', 'REFUSE', 'REPLAY_CHECK_NOT_EVALUATED'].includes(output_payload.verdict)) violations++;
     if (typeof output_payload.format_ok !== 'boolean') violations++;
     if (typeof output_payload.nonce_valid !== 'boolean') violations++;
     if (typeof output_payload.already_used !== 'boolean') violations++;
   }
   return { name: 'P4_output_shape_invariant', trials: checked, violations };
+}
+
+// P5: fail-closed on required inputs -- deleting or nulling a required field
+// (nonce, created, expires, now_unix) never yields ACCEPT; an untestable spread
+// (expires absent, null or non-numeric) never reads as satisfied.
+async function checkP5_requiredInputsFailClosed() {
+  let violations = 0, checked = 0;
+  for (const field of ['nonce', 'created', 'expires', 'now_unix']) {
+    for (const mode of ['delete', 'null']) {
+      const pp = { ...BASE_PP };
+      if (mode === 'delete') delete pp[field]; else pp[field] = null;
+      const { output_payload } = await compute(pp);
+      checked++;
+      if (output_payload.verdict !== 'REFUSE') violations++;
+    }
+  }
+  for (const junk of ['abc', -1, NaN]) {
+    const { output_payload } = await compute({ ...BASE_PP, expires: junk });
+    checked++;
+    if (output_payload.verdict !== 'REFUSE') violations++;
+  }
+  return { name: 'P5_required_inputs_fail_closed', trials: checked, violations };
+}
+
+// P6: an absent replay store (neither seen_nonces nor nonce_already_used) never yields a clean
+// ACCEPT: otherwise-valid input gives the named not-evaluated verdict with the store-absent flag;
+// a supplied store (empty array, or boolean false) keeps ACCEPT.
+async function checkP6_absentStoreNeverAccepts() {
+  let violations = 0, checked = 0;
+  const absent = { ...BASE_PP }; delete absent.seen_nonces;
+  const r = await compute(absent);
+  checked++; if (r.output_payload.verdict !== 'REPLAY_CHECK_NOT_EVALUATED') violations++;
+  checked++; if (r.output_payload.nonce_valid !== false) violations++;
+  checked++; if (!r.compliance_flags.includes('NONCE_REPLAY_STORE_ABSENT') || r.compliance_flags.includes('NONCE_ACCEPTED')) violations++;
+  for (const pp of [BASE_PP, { ...absent, nonce_already_used: false }]) {
+    const { output_payload } = await compute(pp);
+    checked++; if (output_payload.verdict !== 'ACCEPT') violations++;
+  }
+  return { name: 'P6_absent_store_never_accepts', trials: checked, violations };
 }
 
 // ---------- run ----------
@@ -115,6 +155,8 @@ results.properties.push(await checkP1_determinism());
 results.properties.push(await checkP2_replaySuspectedAlwaysRefuses());
 results.properties.push(await checkP3_wideSpreadForcesRefuse());
 results.properties.push(await checkP4_outputShapeInvariant());
+results.properties.push(await checkP5_requiredInputsFailClosed());
+results.properties.push(await checkP6_absentStoreNeverAccepts());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 

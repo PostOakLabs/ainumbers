@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (749 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (771 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -184,6 +184,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "783-emv-mpm-qr-validator",
+    "display_name": "EMV MPM QR Payload Validator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/783-emv-mpm-qr-validator.html",
+    "description": "Decodes and validates an EMV merchant-presented-mode (MPM) QR payload against a pluggable national scheme profile - generic EMV MPM, Fiji FJ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "784-cbr-data-return-validator",
     "display_name": "CBR Data Return Validator",
     "mandate_type": "compliance_mandate",
@@ -194,11 +204,31 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "785-qr-golive-readiness",
+    "display_name": "QR Go-Live Readiness Assessor",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/785-qr-golive-readiness.html",
+    "description": "Assesses a QR payment scheme's pilot, production, or cross-border go-live readiness through weighted blocking and advisory gates: participan",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "787-corridor-cost-averages",
     "display_name": "Corridor Cost Averages",
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/787-corridor-cost-averages.html",
     "description": "Computes one remittance corridor's cost THREE ways from caller-declared provider quotes and reports each against the SDG 10.c 3% target and ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "790-event-position-limit-check",
+    "display_name": "Event Contract Position Limit Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/790-event-position-limit-check.html",
+    "description": "Checks a book of event-contract positions, stated as quantities and prices only, against caller-declared position accountability levels and ",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -234,11 +264,31 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "796-payment-system-mi-pack",
+    "display_name": "Payment System MI Pack",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/796-payment-system-mi-pack.html",
+    "description": "Computes a payment system's management-information pack from declared AGGREGATE counts only (no transaction-level records, no personal data)",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "797-stablecoin-cash-equivalent-test",
     "display_name": "Stablecoin Cash Equivalent Test (FASB Proposed 2026-08)",
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/797-stablecoin-cash-equivalent-test.html",
     "description": "Applies the FASB proposed Update of 2026-08-18 (Statement of Cash Flows (Topic 230): Cash Equivalents-Disclosure Enhancement and Evaluation ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "798-assess-sandbox-application-readiness",
+    "display_name": "Assess Sandbox Application Readiness",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/798-assess-sandbox-application-readiness.html",
+    "description": "Assesses a regulatory sandbox application against a declared regulator profile's eligibility criteria and test-parameter limits: the applica",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -394,6 +444,36 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/838-control-frequency-sample.html",
     "description": "Applies a table you declare. It ships no table, and is not guidance from any audit firm or standard-setter. The sample size is only as defen",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "841-planning-materiality",
+    "display_name": "Planning Materiality",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/841-planning-materiality.html",
+    "description": "Arithmetic on declared policy. It does not choose the benchmark, does not judge whether the percentage is appropriate, and is not a material",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "844-workload-identity-claims",
+    "display_name": "Workload Identity Claims Lint",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/844-workload-identity-claims.html",
+    "description": "Lints the DECODED claims of a workload-identity token and, optionally, of a token produced by an exchange, against a policy you declare: a m",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "845-je-period-lock-gate",
+    "display_name": "Je Period Lock Gate",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/845-je-period-lock-gate.html",
+    "description": "Evaluates caller-declared journal entries against a caller-declared, time-varying period-lock policy and reports, per entry, whether the dec",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -909,7 +989,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Content Credential Signature Verifier",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-124-content-credential-signature-verifier.html",
-    "description": "Deterministic policy core over a caller-attested signature result. The caller performs the COSE_Sign1 signature check over the manifest byte",
+    "description": "Deterministic policy core over a caller-attested signature result. Fail-closed on required inputs and allowlisted: alg and revocation_status",
     "consumes": [
       "art-123-c2pa-manifest-validator"
     ],
@@ -7801,6 +7881,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-753-home-office-augusta",
+    "display_name": "Home Office and Augusta Rule",
+    "mandate_type": "home_office_augusta_record",
+    "url": "https://ainumbers.co/chaingraph/art-753-home-office-augusta.html",
+    "description": "Home-office deduction and IRC 280A(g) Augusta-rule rental exclusion calculator ported from ApexLogics Apex #139 (AL-146). From a square-foot",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-754-equity-exit-waterfall",
     "display_name": "Equity Exit Waterfall Modeler",
     "mandate_type": "consumer_finance",
@@ -7901,6 +7991,36 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "dependent_care_fsa_cdctc_record",
     "url": "https://ainumbers.co/chaingraph/art-765-dependent-care-fsa-cdctc-optimizer.html",
     "description": "Compare a Dependent Care FSA (IRC section 129 exclusion) against the Child and Dependent Care Tax Credit (IRC section 21) plus the optimal c",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-766-parental-leave-income-gap",
+    "display_name": "Parental Leave Income Gap",
+    "mandate_type": "career_workforce",
+    "url": "https://ainumbers.co/chaingraph/art-766-parental-leave-income-gap.html",
+    "description": "Parental-leave income gap planner ported from ApexLogics Apex #131 (AL-138). From an annual base salary, an effective tax rate, monthly hous",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-768-medicare-plan-comparison",
+    "display_name": "Medicare Plan Comparison",
+    "mandate_type": "medicare_plan_comparison_record",
+    "url": "https://ainumbers.co/chaingraph/art-768-medicare-plan-comparison.html",
+    "description": "Medicare plan comparison ported from ApexLogics Apex #151 (AL-165). Prices two caller-declared Medicare enrollment paths for a full year, Pa",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-769-medicare-oop-exposure",
+    "display_name": "Medicare Out-of-Pocket Exposure",
+    "mandate_type": "retirement_projection",
+    "url": "https://ainumbers.co/chaingraph/art-769-medicare-oop-exposure.html",
+    "description": "Medicare out-of-pocket exposure modeler ported from ApexLogics Apex #152 (AL-166). For a declared plan year it walks a modelled year of util",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -8040,6 +8160,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-781-x402-svm-payment-outcome",
+    "display_name": "x402 Exact Solana Payment Outcome Recompute",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-781-x402-svm-payment-outcome.html",
+    "description": "Clause-by-clause verdict recompute of an x402 exact-scheme Solana payment from pasted values: the decoded instruction list, the PaymentRequi",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-782-modified-premium",
     "display_name": "Modified Premium Calculator",
     "mandate_type": "compliance_mandate",
@@ -8062,6 +8192,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-789-stablecoin-admin-role-lint",
+    "display_name": "Stablecoin Admin Role Lint",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-789-stablecoin-admin-role-lint.html",
+    "description": "Lints a stablecoin token's declared admin-role configuration for separation of duties, key concentration and issuance-policy fit, over ROLE ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-79-settlement-fail-predictor",
     "display_name": "Settlement-Fail Predictor",
     "mandate_type": "model_governance",
@@ -8075,6 +8215,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-84-settlement-efficiency-kpi",
       "cry-04-merkle-batch-verifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-791-check-je-multicurrency-balance",
+    "display_name": "Multicurrency JE Balance Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-791-check-je-multicurrency-balance.html",
+    "description": "Checks that structured journal entries balance, on a basis the caller declares: either every currency sums to zero separately (per_currency)",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
@@ -8307,6 +8457,26 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-835-bank-reconciliation-recompute",
+    "display_name": "Bank Reconciliation Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-835-bank-reconciliation-recompute.html",
+    "description": "Recomputes a bank-to-book reconciliation and an optional proof of cash from declared values, in integer minor units. The caller declares the",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-839-statement-footing-crossfoot",
+    "display_name": "Statement Footing and Cross-Footing Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-839-statement-footing-crossfoot.html",
+    "description": "Foots and cross-foots declared financial statement lines and ties declared note amounts to declared statement lines, in integer minor units,",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-84-settlement-efficiency-kpi",
     "display_name": "Settlement Efficiency KPI Engine",
     "mandate_type": "model_governance",
@@ -8320,6 +8490,56 @@ window.CHAINBUILDER_CATALOG = [
     "feeds": [
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-840-gl-flux-explainer",
+    "display_name": "GL Flux Explainer with Gate",
+    "mandate_type": "assurance",
+    "url": "https://ainumbers.co/chaingraph/art-840-gl-flux-explainer.html",
+    "description": "Computes period-over-period movement per declared general-ledger account from integer minor-unit balances, compares each movement to a decla",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-842-soc-report-coverage-gap",
+    "display_name": "SOC Report Coverage and Bridge Gap",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-842-soc-report-coverage-gap.html",
+    "description": "Recomputes coverage and gap arithmetic from declared values. It does not read the SOC report, does not assess whether any control is effecti",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-843-tap-message-validator",
+    "display_name": "TAP Message Structure Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-843-tap-message-validator.html",
+    "description": "Checks that a pasted Transaction Authorization Protocol message, or a short thread of them, has the structure the published TAIPs JSON Schem",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-846-assess-pfmi-proportional",
+    "display_name": "PFMI proportional self-assessment scorer",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-846-assess-pfmi-proportional.html",
+    "description": "Scores a payment system operator’s or overseer’s self-assessment against the 24 CPMI-IOSCO Principles (Apr 2012) or the 5 responsibilities o",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-847-cashleg-window-exposure",
+    "display_name": "Cash-Leg Window Exposure",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-847-cashleg-window-exposure.html",
+    "description": "Computes how long a token leg that settles at any hour waits for a cash leg that only moves while a payment rail is open. From a token leg i",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

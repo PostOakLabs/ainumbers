@@ -295,6 +295,42 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       </div>
     </div>
 
+    <div class="card" id="errataCard" style="display:none;">
+      <div class="card-label">Errata (optional due diligence)</div>
+      <div class="hash-block">
+        <div class="hash-row">
+          <div class="hash-lbl">Module errata</div>
+          <div class="hash-val" id="resultErrata" style="white-space:pre-wrap;"></div>
+        </div>
+      </div>
+      <p class="hero-sub" style="margin-top:8px;">Checked against the errata snapshot shipped with this page; nothing about your input is transmitted. This never changes the verdict above, and past the checkpoint's expiry it prints the log's own staleness sentence unchanged.</p>
+    </div>
+
+    <div class="card" id="tieoutCard">
+      <div class="card-label">Tie-out (SPEC.md §23.2, ocg-document-span@1 sidecar)</div>
+      <p class="hero-sub" style="margin-bottom:10px;">Paste a span record, or a JSON array of them, using the <code>ocg-document-span@1</code> sidecar shape. Per input, this block runs the four reference checks in this browser and reports one of three states: <code>verified</code> (a document was supplied and all four steps passed), <code>external</code> (no document was supplied; the record is complete, well formed and self-consistent, with step 4 checked from the recorded lexical alone) or <code>failed</code> (a step refused; the reason code is printed). Each span's <code>pointer</code> is resolved against the <code>policy_parameters</code> of the receipt verified above, and each span's <code>source_ref</code> names the document to supply below.</p>
+      <textarea id="tieoutSpansInput" placeholder='{"type": "document-span", "pointer": "/reserve_usd", "source_ref": "report.json", "proof": {"profile": "ocg-document-span@1", "document": {"sha256": "...", "media_type": "application/json", "bytes": 91}, "locator": {"scheme": "json-pointer", "pointer": "/reserve_usd"}, "extractor": {"tool_id": "art-788-csv-rfc4180-parser", "kernel_digest": "sha256:..."}, "lexical": "1250000.00", "normalization": "decimal-plain"}}  (or [ record, record, ... ])'></textarea>
+      <p class="hero-sub" style="margin:10px 0 6px;font-size:.68rem;">Optional documents, keyed by <code>source_ref</code>: a JSON map like <code>{"bank-statement.csv": "&lt;document text&gt;"}</code>. A name left out, or set to <code>null</code>, means that document was not supplied, and its spans stay honest about that.</p>
+      <textarea id="tieoutDocsInput" placeholder='{"bank-statement.csv": "account_id,date,balance\nOP-002,2026-10-31,900\n"}' style="min-height:80px;"></textarea>
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn btn-primary" onclick="runTieout()">Run tie-out</button>
+        <button class="btn btn-ghost" id="tieoutExampleVerifiedBtn">Example: verified</button>
+        <button class="btn btn-ghost" id="tieoutExampleExternalBtn">Example: external</button>
+        <button class="btn btn-ghost" id="tieoutExampleFailedBtn">Example: failed</button>
+      </div>
+      <div id="tieoutResult" style="display:none;margin-top:10px;" class="hash-block"></div>
+      <div class="hash-block" style="margin-top:10px;">
+        <div class="hash-row">
+          <div class="hash-lbl">Legend</div>
+          <div class="hash-val" style="white-space:pre-wrap;">✓ verified · a document was supplied and all four steps passed
+◐ external · no document was supplied; the record is complete, well formed and self-consistent (step 4 from the recorded lexical alone)
+✗ failed · a step refused; the reason code names why
+Digest and errata snapshots ride with this page; a digest published after the page shipped prints as unknown beside the stamp, not as a silent pass.</div>
+        </div>
+      </div>
+      <p class="hero-sub" style="margin-top:8px;">Zero-attestation caveat (SPEC.md §23.2, kept visible): a span binds one input value to one place in one document and claims nothing else. It does not attest who authored the document, who issued the value, whether the value is accurate, or that the extractor ran; an input with no span gains no attestation, and nothing here makes an un-attested input trusted. The execution_hash verdict above is computed independently of this block: a tie-out result never changes it, and it never changes a tie-out result.</p>
+    </div>
+
     <div class="card" id="anchorBindingsCard" style="display:none;">
       <div class="card-label">§20 Anchor Bindings</div>
       <p class="hero-sub" style="margin-bottom:10px;">This artifact carries one or more <code>anchor_bindings</code> entries. This page does not verify the binding itself; see the <a href="../tools/568-ocg-receipt-verifier.html" style="color:var(--teal)">OCG Receipt Verifier</a> or the <a href="../verification-desk.html" style="color:var(--teal)">Verification Desk</a> for that. It links out to the anchor's own verifier, pre-filled with this artifact's execution_hash.</p>
@@ -421,6 +457,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="hash-row"><div class="hash-lbl">Status</div><div class="hash-val" id="receiptStatus"></div></div>
       <div class="hash-row"><div class="hash-lbl">Checks</div><div class="hash-val" id="receiptChecks" style="white-space:pre-wrap;font-size:.64rem;"></div></div>
       <div class="hash-row"><div class="hash-lbl">Time</div><div class="hash-val" id="receiptTime"></div></div>
+      <div class="hash-row"><div class="hash-lbl">Errata</div><div class="hash-val" id="receiptErrata" style="white-space:pre-wrap;font-size:.64rem;"></div></div>
     </div>
   </div>
 </div>
@@ -457,6 +494,9 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <div class="footer-cols">
       <div class="footer-col">
         <div class="footer-col-label">Platform</div>
+        <a href="../start.html">Start Here</a>
+        <a href="../front-to-back.html">Front-to-Back Prompts</a>
+        <a href="../prompts.html">Prompt Library</a>
         <a href="chaingraph-hub.html">ChainGraph Hub</a>
         <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
         <a href="openchain-graph-spec.html">Spec v0.8.13</a>
@@ -472,8 +512,10 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="footer-col">
         <div class="footer-col-label">Hubs</div>
         <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="visual-explainers-hub.html">Visual Explainers</a>
+        <a href="education-hub.html">Learn OpenChainGraph</a>
         <a href="../guides/web3-hub.html">Web3 Hub</a>
-        <a href="../guides/solana-hub.html">Solana</a>
+        <a href="../guides/canton-tmf-hub.html">Canton</a>
         <a href="../guides/ethereum-hub.html">Ethereum</a>
         <a href="../guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
         <a href="../guides/token-standards-hub.html">Token Standards</a>
@@ -487,6 +529,8 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
         <div class="footer-col-label">Developers</div>
         <a href="../mcp.html">MCP Docs</a>
         <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../webmcp.html">WebMCP</a>
+        <a href="../mcp-benchmark.html">MCP Benchmark</a>
         <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
         <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
         <a href="../openapi.json" target="_blank">openapi.json</a>
@@ -494,6 +538,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
         <a href="okf/index.md" target="_blank">OKF bundle</a>
         <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
         <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../verification-desk.html">Verification Desk</a>
         <a href="verify.html">Artifact Verifier</a>
         <a href="../ledger/index.html">Receipt Ledger</a>
       </div>
@@ -506,6 +551,8 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
         <a href="../fv-explainer.html">FV Process Explainer</a>
         <a href="../errata.html">FV Errata</a>
         <a href="../suggest.html">Suggest</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="../privacy.html">Privacy</a>
         <a href="../contact.html">Contact</a>
         <a href="../sitemap.html">Sitemap</a>
         <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
@@ -658,6 +705,12 @@ function showResult(pass, storedRaw, computedHex, artifact) {
   } else {
     ancestryCard.style.display = 'none';
   }
+
+  // Kernel-errata reader (optional due diligence; defined by the module script at the foot
+  // of the page). Runs after the result above is fully rendered and can never block or
+  // qualify it; it prints one of the three errata states, the log's own staleness sentence
+  // past expiry, or nothing when the artifact names no module digest.
+  try { if (window.__errataUpdate) window.__errataUpdate(artifact, 'resultErrata', 'errataCard'); } catch { /* never blocks */ }
 
   document.getElementById('result').style.display = 'block';
 }
@@ -1786,6 +1839,9 @@ document.getElementById('receiptVerifyBtn').addEventListener('click', () => {
     (c.passed === true ? 'PASS ' : c.passed === false ? 'FAIL ' : '---- ') + c.name + ' — ' + c.detail);
   setPanel(out.valid ? 'VALID RECEIPT' : 'REJECTED', lines.join('\n'), out.valid ? 'var(--green)' : 'var(--red)');
   document.getElementById('receiptTime').textContent = ms + ' ms (browser, this device)';
+  // Errata line: printed beside the result, never blocking or qualifying it (see the
+  // module script at the foot of the page).
+  try { if (window.__errataUpdate) window.__errataUpdate(receipt, 'receiptErrata', null); } catch { /* never blocks */ }
 });
 document.getElementById('receiptExampleBtn').addEventListener('click', () => {
   document.getElementById('receiptInput').value = JSON.stringify(EXAMPLE_RECEIPT, null, 2);
@@ -1794,6 +1850,775 @@ document.getElementById('receiptClearBtn').addEventListener('click', () => {
   document.getElementById('receiptInput').value = '';
   document.getElementById('receiptResult').style.display = 'none';
 });
+</script>
+
+<script type="module">
+// Kernel-errata reader (KERNEL-ERRATA-READER-1): prints one of the three errata states
+// beside the hash result, from the snapshot shipped with this page. Optional due
+// diligence, same posture as the errata feed: it never blocks verification, never revokes
+// a receipt, and nothing about the input leaves the browser (page-load resources only,
+// CSP connect-src 'none'). Past the checkpoint's expiry it prints the log's own
+// staleness sentence unchanged.
+import { extractKernelDigest, extractPolicyParameters, errataCheck, errataSentence } from './errata-check.mjs';
+import { ERRATA_SNAPSHOT } from './errata/errata-snapshot.mjs';
+
+window.__errataUpdate = function (input, lineId, cardId) {
+  const line = document.getElementById(lineId);
+  if (!line) return;
+  let r;
+  try {
+    r = errataCheck(ERRATA_SNAPSHOT, { kernelDigest: extractKernelDigest(input), policyParameters: extractPolicyParameters(input) }, Date.now());
+  } catch (e) {
+    line.textContent = 'Errata check unavailable (' + e.message + '). The verification above is unaffected.';
+    if (cardId) document.getElementById(cardId).style.display = 'block';
+    return;
+  }
+  const s = errataSentence(r);
+  if (!s) {
+    line.textContent = '';
+    if (cardId) document.getElementById(cardId).style.display = 'none';
+    return;
+  }
+  line.textContent = s;
+  line.style.color = r.state === 'LISTED-AFFECTED' ? 'var(--red)' : '';
+  if (cardId) document.getElementById(cardId).style.display = 'block';
+};
+</script>
+
+<script type="module">
+// Tie-out block (TIEOUT-VERIFY-SURFACE-1): the read side of the workbench. Per input, one of
+// three states (SPEC.md §23.2 shape { pointer, type, structural, verifiable }), reported
+// alongside and never folded into the execution_hash verdict above.
+//
+// The checker between the __TIEOUT_CHECKER markers is a browser port of the reference checker
+// scripts/check-document-span.mjs: same four steps, same fail-closed verdicts, same reason
+// codes. Three adaptations only, all mechanical: the UTF-8 SHA-256 runs on WebCrypto instead of
+// node:crypto (so every digest step is awaited), the canonical JSON uses this page's one canon
+// (the OCG-CANON v1 __ocgJcs global, passed in as opts.jcs), and the published-digest list is
+// supplied by the caller (the vendored kernel-digests-snapshot.mjs) instead of read from the
+// registry directory. scripts/check-tieout-block.selftest.mjs proves verdict parity between
+// this port and the reference checker on every shipped fixture, and pins the snapshots and the
+// embedded examples against their sources.
+import { _csv } from './kernels/_csv.bundle.mjs';
+
+/* __TIEOUT_CHECKER_BEGIN (extracted verbatim by scripts/check-tieout-block.selftest.mjs; the
+   Node runner prepends its own imports, repointed to the repo copies: _csv from
+   chaingraph/kernels/_csv.bundle.mjs and jcsStringify from chaingraph/kernels/_hash.mjs bound
+   as __ocgJcs. In the browser the _csv import sits outside these markers, module scope.) */
+
+// ---- own-key helpers (the constructor/__proto__ rule) ----------------------
+
+function ownGet(obj, key) {
+  if (obj === null || typeof obj !== 'object') return undefined;
+  return Object.hasOwn(obj, key) ? obj[key] : undefined;
+}
+
+// ---- RFC 6901 ---------------------------------------------------------------
+
+// Decodes one reference token: ~1 -> '/', ~0 -> '~'. Returns null on an ill-formed
+// escape (a '~' followed by anything but 0 or 1): the pointer is refused, never guessed.
+function decodeToken(raw) {
+  let out = '';
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    if (c === '~') {
+      const next = raw[i + 1];
+      if (next === '0') { out += '~'; i++; continue; }
+      if (next === '1') { out += '/'; i++; continue; }
+      return null;
+    }
+    out += c;
+  }
+  return out;
+}
+
+// Walks an RFC 6901 pointer into `doc`. Returns {ok:true, value} or {ok:false, reason}.
+function resolveJsonPointer(pointer, doc) {
+  if (typeof pointer !== 'string') return { ok: false, reason: 'POINTER_NOT_A_STRING' };
+  if (pointer === '') return { ok: true, value: doc };
+  if (!pointer.startsWith('/')) return { ok: false, reason: 'POINTER_ILL_FORMED' };
+  let cur = doc;
+  const raws = pointer.split('/').slice(1);
+  for (const raw of raws) {
+    const token = decodeToken(raw);
+    if (token === null) return { ok: false, reason: 'POINTER_ILL_FORMED' };
+    if (cur === null || typeof cur !== 'object') return { ok: false, reason: 'POINTER_MISS' };
+    if (Array.isArray(cur)) {
+      const idx = /^[0-9]+$/.test(token) ? Number(token) : -1;
+      if (!Number.isInteger(idx) || idx < 0 || idx >= cur.length) return { ok: false, reason: 'POINTER_MISS' };
+      cur = cur[idx];
+      continue;
+    }
+    if (!Object.hasOwn(cur, token)) return { ok: false, reason: 'POINTER_MISS' };
+    cur = ownGet(cur, token);
+  }
+  return { ok: true, value: cur };
+}
+
+// ---- normalization (refusal first) ------------------------------------------
+
+const DECIMAL_RE = /^[+-]?[0-9]+(\.[0-9]+)?$/;
+const INTEGER_RE = /^[+-]?[0-9]+$/;
+const DATE_RE = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
+const COMMITMENT_RE = /^sha256:[0-9a-f]{64}$/;
+
+function daysInMonth(year, month) {
+  if (month === 1 || month === 3 || month === 5 || month === 7 || month === 8 || month === 10 || month === 12) return 31;
+  if (month === 4 || month === 6 || month === 9 || month === 11) return 30;
+  // February, with the mod-4 / mod-100 / mod-400 leap rule in plain arithmetic.
+  if (year % 4 !== 0) return 28;
+  if (year % 100 !== 0) return 29;
+  if (year % 400 !== 0) return 28;
+  return 29;
+}
+
+// Applies one of the four declared rules to `lexical`. Returns {ok:true, value} or
+// {ok:false, code}. Anything outside the declared grammar is refused, never guessed.
+function normalize(lexical, rule) {
+  if (rule === 'string-exact') return { ok: true, value: lexical };
+  if (rule === 'decimal-plain') {
+    if (!DECIMAL_RE.test(lexical)) return { ok: false, code: 'REFUSED_DECIMAL_GRAMMAR' };
+    const value = Number(lexical);
+    if (!Number.isFinite(value)) return { ok: false, code: 'REFUSED_DECIMAL_NOT_FINITE' };
+    return { ok: true, value };
+  }
+  if (rule === 'integer-plain') {
+    if (!INTEGER_RE.test(lexical)) return { ok: false, code: 'REFUSED_INTEGER_GRAMMAR' };
+    const value = Number(lexical);
+    if (!Number.isSafeInteger(value)) return { ok: false, code: 'REFUSED_INTEGER_NOT_SAFE' };
+    return { ok: true, value };
+  }
+  if (rule === 'date-iso') {
+    if (!DATE_RE.test(lexical)) return { ok: false, code: 'REFUSED_DATE_FORMAT' };
+    const year = Number(lexical.slice(0, 4));
+    const month = Number(lexical.slice(5, 7));
+    const day = Number(lexical.slice(8, 10));
+    if (month < 1 || month > 12) return { ok: false, code: 'REFUSED_DATE_NOT_CALENDAR' };
+    if (day < 1 || day > daysInMonth(year, month)) return { ok: false, code: 'REFUSED_DATE_NOT_CALENDAR' };
+    return { ok: true, value: lexical };
+  }
+  return { ok: false, code: 'REFUSED_NORMALIZATION_OFF_LIST' };
+}
+
+// ---- digests (WebCrypto port of the reference checker's node:crypto steps) ----
+
+async function sha256Hex(text) {
+  const bytes = new TextEncoder().encode(text);
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function canonicalDigest(value, canon) {
+  return 'sha256:' + await sha256Hex(canon(value));
+}
+
+// ---- record shape (mirrors chaingraph/standard/ocg-document-span-v1.schema.json) ----
+
+const MEDIA_TYPES = new Set(['text/csv', 'application/json']);
+const NORMALIZATIONS = new Set(['string-exact', 'decimal-plain', 'integer-plain', 'date-iso']);
+const HEX64_RE = /^[0-9a-f]{64}$/;
+const KERNEL_DIGEST_RE = /^sha256:[0-9a-f]{64}$/;
+const TOOL_ID_RE = /^art-[0-9]+-[a-z0-9-]+$/;
+const POINTER_RE = /^(\/([^/~]|~[01])*)*$/;
+const SOURCE_REF_RE = /^[^/\\]+$/;
+
+function isPlainInteger(v) {
+  return typeof v === 'number' && Number.isInteger(v) && v >= 0;
+}
+
+// Hand-coded structural validation, own-key everywhere. Returns {ok:true} or
+// {ok:false, reason_code, detail}. Mirrors the schema keyword-for-keyword so a
+// record the schema rejects is a record this refuses.
+function checkRecordShape(record) {
+  if (record === null || typeof record !== 'object' || Array.isArray(record)) {
+    return { ok: false, reason_code: 'RECORD_SHAPE_NOT_AN_OBJECT', detail: {} };
+  }
+  if (ownGet(record, 'type') !== 'document-span') {
+    return { ok: false, reason_code: 'RECORD_SHAPE_TYPE', detail: { path: 'type' } };
+  }
+  const pointer = ownGet(record, 'pointer');
+  if (typeof pointer !== 'string' || !POINTER_RE.test(pointer)) {
+    return { ok: false, reason_code: 'RECORD_SHAPE_POINTER', detail: { path: 'pointer' } };
+  }
+  const sourceRef = ownGet(record, 'source_ref');
+  if (typeof sourceRef !== 'string' || !SOURCE_REF_RE.test(sourceRef)) {
+    return { ok: false, reason_code: 'RECORD_SHAPE_SOURCE_REF', detail: { path: 'source_ref' } };
+  }
+  const proof = ownGet(record, 'proof');
+  if (proof === null || typeof proof !== 'object' || Array.isArray(proof)) {
+    return { ok: false, reason_code: 'RECORD_SHAPE_PROOF', detail: { path: 'proof' } };
+  }
+  if (ownGet(proof, 'profile') !== 'ocg-document-span@1') {
+    return { ok: false, reason_code: 'RECORD_SHAPE_PROFILE', detail: { path: 'proof.profile' } };
+  }
+  const document = ownGet(proof, 'document');
+  if (document === null || typeof document !== 'object' || Array.isArray(document)) {
+    return { ok: false, reason_code: 'RECORD_SHAPE_DOCUMENT', detail: { path: 'proof.document' } };
+  }
+  if (typeof ownGet(document, 'sha256') !== 'string' || !HEX64_RE.test(ownGet(document, 'sha256'))) {
+    return { ok: false, reason_code: 'RECORD_SHAPE_DOCUMENT_DIGEST', detail: { path: 'proof.document.sha256' } };
+  }
+  if (!MEDIA_TYPES.has(ownGet(document, 'media_type'))) {
+    return { ok: false, reason_code: 'RECORD_SHAPE_MEDIA_TYPE', detail: { path: 'proof.document.media_type' } };
+  }
+  if (!isPlainInteger(ownGet(document, 'bytes')) || ownGet(document, 'bytes') < 1) {
+    return { ok: false, reason_code: 'RECORD_SHAPE_DOCUMENT_BYTES', detail: { path: 'proof.document.bytes' } };
+  }
+  const locator = ownGet(proof, 'locator');
+  if (locator === null || typeof locator !== 'object' || Array.isArray(locator)) {
+    return { ok: false, reason_code: 'RECORD_SHAPE_LOCATOR', detail: { path: 'proof.locator' } };
+  }
+  const scheme = ownGet(locator, 'scheme');
+  if (scheme === 'csv-rfc4180-cell') {
+    if (!isPlainInteger(ownGet(locator, 'record'))) {
+      return { ok: false, reason_code: 'RECORD_SHAPE_LOCATOR_RECORD', detail: { path: 'proof.locator.record' } };
+    }
+    if (!isPlainInteger(ownGet(locator, 'column'))) {
+      return { ok: false, reason_code: 'RECORD_SHAPE_LOCATOR_COLUMN', detail: { path: 'proof.locator.column' } };
+    }
+    const header = ownGet(locator, 'header');
+    if (typeof header !== 'string' || header.length < 1) {
+      return { ok: false, reason_code: 'RECORD_SHAPE_LOCATOR_HEADER', detail: { path: 'proof.locator.header' } };
+    }
+    const rowKey = ownGet(locator, 'row_key');
+    if (rowKey !== undefined && rowKey !== null) {
+      if (typeof rowKey !== 'object' || Array.isArray(rowKey)) {
+        return { ok: false, reason_code: 'RECORD_SHAPE_ROW_KEY', detail: { path: 'proof.locator.row_key' } };
+      }
+      const rkColumn = ownGet(rowKey, 'column');
+      if (typeof rkColumn !== 'string' || rkColumn.length < 1) {
+        return { ok: false, reason_code: 'RECORD_SHAPE_ROW_KEY_COLUMN', detail: { path: 'proof.locator.row_key.column' } };
+      }
+      if (typeof ownGet(rowKey, 'value') !== 'string') {
+        return { ok: false, reason_code: 'RECORD_SHAPE_ROW_KEY_VALUE', detail: { path: 'proof.locator.row_key.value' } };
+      }
+    }
+  } else if (scheme === 'json-pointer') {
+    const sub = ownGet(locator, 'pointer');
+    if (typeof sub !== 'string' || !POINTER_RE.test(sub)) {
+      return { ok: false, reason_code: 'RECORD_SHAPE_LOCATOR_POINTER', detail: { path: 'proof.locator.pointer' } };
+    }
+  } else {
+    return { ok: false, reason_code: 'RECORD_SHAPE_LOCATOR_SCHEME', detail: { path: 'proof.locator.scheme' } };
+  }
+  const extractor = ownGet(proof, 'extractor');
+  if (extractor === null || typeof extractor !== 'object' || Array.isArray(extractor)) {
+    return { ok: false, reason_code: 'RECORD_SHAPE_EXTRACTOR', detail: { path: 'proof.extractor' } };
+  }
+  const toolId = ownGet(extractor, 'tool_id');
+  if (typeof toolId !== 'string' || !TOOL_ID_RE.test(toolId)) {
+    return { ok: false, reason_code: 'RECORD_SHAPE_EXTRACTOR_TOOL_ID', detail: { path: 'proof.extractor.tool_id' } };
+  }
+  const kernelDigest = ownGet(extractor, 'kernel_digest');
+  if (typeof kernelDigest !== 'string' || !KERNEL_DIGEST_RE.test(kernelDigest)) {
+    return { ok: false, reason_code: 'RECORD_SHAPE_EXTRACTOR_DIGEST', detail: { path: 'proof.extractor.kernel_digest' } };
+  }
+  if (typeof ownGet(proof, 'lexical') !== 'string') {
+    return { ok: false, reason_code: 'RECORD_SHAPE_LEXICAL', detail: { path: 'proof.lexical' } };
+  }
+  if (!NORMALIZATIONS.has(ownGet(proof, 'normalization'))) {
+    return { ok: false, reason_code: 'RECORD_SHAPE_NORMALIZATION', detail: { path: 'proof.normalization' } };
+  }
+  return { ok: true };
+}
+
+// ---- the report ---------------------------------------------------------------
+
+function report(record, structural, verifiable, reasonCode, detail) {
+  const proof = record && typeof record === 'object' && !Array.isArray(record) ? ownGet(record, 'proof') : undefined;
+  return {
+    pointer: record && typeof record === 'object' && !Array.isArray(record) ? ownGet(record, 'pointer') ?? null : null,
+    type: record && typeof record === 'object' && !Array.isArray(record) ? ownGet(record, 'type') ?? null : null,
+    profile: proof && typeof proof === 'object' && !Array.isArray(proof) ? ownGet(proof, 'profile') ?? null : null,
+    structural,
+    verifiable,
+    reason_code: reasonCode,
+    detail: detail || {},
+  };
+}
+
+// The one entry point. Pure: same record + same inputs give the same report; it never throws on
+// junk input and never writes anything. Browser adaptation of the reference checker: every
+// digest step is awaited (WebCrypto), the canonical JSON comes in as opts.jcs, and the
+// published digest list comes in as opts.digestHexes (a Set of bare lower-case hex digests).
+//
+// opts:
+//   documentText      string | null | undefined  (absent/undefined = no document was supplied)
+//   policyParameters  object | null | undefined
+//   digestHexes       Set<string>                (required here; there is no registry to read)
+//   jcs               (value) => string          (required here; the page canon, never a second one)
+export async function verifyDocumentSpan(record, opts) {
+  const options = opts || {};
+  const canon = typeof options.jcs === 'function' ? options.jcs : (typeof __ocgJcs === 'function' ? __ocgJcs : null);
+  const shape = checkRecordShape(record);
+  if (!shape.ok) return report(record, 'fail', 'failed', shape.reason_code, shape.detail);
+  if (!canon) return report(record, 'fail', 'failed', 'CANON_UNAVAILABLE', {});
+
+  const proof = ownGet(record, 'proof');
+  const document = ownGet(proof, 'document');
+  const locator = ownGet(proof, 'locator');
+  const extractor = ownGet(proof, 'extractor');
+  const lexical = ownGet(proof, 'lexical');
+  const normalization = ownGet(proof, 'normalization');
+
+  // Step 4 needs the policy side. Resolve the pointer FIRST (structural per SPEC.md §23.2).
+  const policy = Object.hasOwn(options, 'policyParameters') ? options.policyParameters : undefined;
+  let policyValue;
+  let policyPresent = false;
+  if (policy !== undefined && policy !== null) {
+    const resolved = resolveJsonPointer(ownGet(record, 'pointer'), policy);
+    if (!resolved.ok) {
+      return report(record, 'fail', 'failed', 'POINTER_NOT_IN_POLICY', { pointer_reason: resolved.reason });
+    }
+    // Private-input pointers (SPEC.md §25): the value at the pointer is a commitment, and
+    // this v1 profile refuses the combination with a plaintext lexical.
+    if (typeof resolved.value === 'string' && COMMITMENT_RE.test(resolved.value)) {
+      return report(record, 'fail', 'failed', 'PRIVATE_INPUT_COMMITMENT_REFUSED', {});
+    }
+    policyValue = resolved.value;
+    policyPresent = true;
+  }
+
+  // No document supplied: `external` only when the record is complete and well formed (it is,
+  // the shape passed) and nothing refuted. When policy_parameters are present, step 4 still
+  // runs from the lexical alone and its failure is honest.
+  const hasDocument = typeof options.documentText === 'string';
+  if (!hasDocument) {
+    if (policyPresent) {
+      const norm = normalize(lexical, normalization);
+      if (!norm.ok) return report(record, 'fail', 'failed', norm.code, {});
+      if (await canonicalDigest(norm.value, canon) !== await canonicalDigest(policyValue, canon)) {
+        return report(record, 'pass', 'failed', 'STEP4_DIGEST_MISMATCH', { from: 'lexical-only' });
+      }
+    }
+    return report(record, 'pass', 'external', policyPresent ? 'SELF_CONSISTENT_WITH_POLICY' : 'SELF_CONSISTENT_NO_POLICY', {});
+  }
+
+  // Step 1: the document digest binds. SHA-256 over the supplied text's UTF-8 bytes; the
+  // declared byte count must agree with the same counter.
+  const digestHex = await sha256Hex(options.documentText);
+  if (digestHex !== ownGet(document, 'sha256')) {
+    return report(record, 'fail', 'failed', 'DOCUMENT_DIGEST_MISMATCH', {});
+  }
+  const byteLength = _csv.utf8ByteLength(options.documentText);
+  if (byteLength !== ownGet(document, 'bytes')) {
+    return report(record, 'fail', 'failed', 'DOCUMENT_BYTES_MISMATCH', { declared: ownGet(document, 'bytes'), measured: byteLength });
+  }
+
+  // Step 2: extraction with the named locator. One parser for CSV (the shared bundle), an
+  // RFC 6901 walk for JSON. Both refuse rather than guess.
+  let extracted;
+  if (ownGet(document, 'media_type') === 'text/csv') {
+    const parsed = _csv.parseCsv(options.documentText);
+    if (!parsed.ok) {
+      return report(record, 'fail', 'failed', 'CSV_PARSE_REFUSED', { error: parsed.error, detail: parsed.detail ?? null });
+    }
+    const header = parsed.header;
+    if (!Array.isArray(header) || header.length === 0) {
+      return report(record, 'fail', 'failed', 'CSV_NO_HEADER', {});
+    }
+    // Duplicate header names are a refusal: an ambiguous column map is worse than no map.
+    const seen = new Map();
+    for (let i = 0; i < header.length; i++) {
+      const name = header[i];
+      if (typeof name !== 'string') return report(record, 'fail', 'failed', 'CSV_HEADER_NOT_A_STRING', { index: i });
+      if (seen.has(name)) return report(record, 'fail', 'failed', 'DUPLICATE_HEADER', { column: name, first_index: seen.get(name), duplicate_index: i });
+      seen.set(name, i);
+    }
+    if (ownGet(locator, 'scheme') !== 'csv-rfc4180-cell') {
+      return report(record, 'fail', 'failed', 'LOCATOR_SCHEME_MEDIA_TYPE_MISMATCH', {});
+    }
+    const recordIndex = ownGet(locator, 'record');
+    const columnIndex = ownGet(locator, 'column');
+    if (recordIndex >= parsed.records.length || columnIndex >= header.length) {
+      return report(record, 'fail', 'failed', 'CELL_OUT_OF_RANGE', {
+        record: recordIndex, column: columnIndex,
+        records: parsed.records.length, columns: header.length,
+      });
+    }
+    // Header-name agreement: the record names the header it was authored against; a disagreeing
+    // name is a refusal, never a silent re-map.
+    if (header[columnIndex] !== ownGet(locator, 'header')) {
+      return report(record, 'fail', 'failed', 'HEADER_NAME_MISMATCH', { declared: ownGet(locator, 'header'), actual: header[columnIndex] });
+    }
+    const rowKey = ownGet(locator, 'row_key');
+    if (rowKey !== undefined && rowKey !== null) {
+      const keyIndex = seen.get(ownGet(rowKey, 'column'));
+      if (keyIndex === undefined) {
+        return report(record, 'fail', 'failed', 'ROW_KEY_COLUMN_NOT_IN_HEADER', { column: ownGet(rowKey, 'column') });
+      }
+      // Count the keyed value's occurrences over the WHOLE column (own-key Map reads). More than
+      // one is a refusal: a reordered file with a repeated key must fail loudly, not resolve to
+      // the first match.
+      let rowKeyOccurrences = 0;
+      for (let r = 0; r < parsed.records.length; r++) {
+        const cell = parsed.records[r][keyIndex];
+        if (cell === ownGet(rowKey, 'value')) rowKeyOccurrences++;
+      }
+      if (rowKeyOccurrences > 1) {
+        return report(record, 'fail', 'failed', 'ROW_KEY_AMBIGUOUS', { column: ownGet(rowKey, 'column'), value: ownGet(rowKey, 'value'), occurrences: rowKeyOccurrences });
+      }
+      if (rowKeyOccurrences === 0) {
+        return report(record, 'fail', 'failed', 'ROW_KEY_NOT_FOUND', { column: ownGet(rowKey, 'column'), value: ownGet(rowKey, 'value') });
+      }
+      const keyedRecord = parsed.records[recordIndex];
+      if (keyedRecord[keyIndex] !== ownGet(rowKey, 'value')) {
+        return report(record, 'fail', 'failed', 'ROW_KEY_VALUE_MISMATCH', { record: recordIndex, column: ownGet(rowKey, 'column') });
+      }
+    }
+    extracted = parsed.records[recordIndex][columnIndex];
+  } else {
+    // application/json
+    let doc;
+    try {
+      doc = JSON.parse(options.documentText);
+    } catch (e) {
+      return report(record, 'fail', 'failed', 'JSON_PARSE_REFUSED', { error: String(e && e.message ? e.message : e) });
+    }
+    if (ownGet(locator, 'scheme') !== 'json-pointer') {
+      return report(record, 'fail', 'failed', 'LOCATOR_SCHEME_MEDIA_TYPE_MISMATCH', {});
+    }
+    const resolved = resolveJsonPointer(ownGet(locator, 'pointer'), doc);
+    if (!resolved.ok) {
+      return report(record, 'fail', 'failed', 'POINTER_MISS', { pointer_reason: resolved.reason });
+    }
+    if (typeof resolved.value !== 'string') {
+      return report(record, 'fail', 'failed', 'POINTER_TARGET_NOT_STRING', { js_type: resolved.value === null ? 'null' : typeof resolved.value });
+    }
+    extracted = resolved.value;
+  }
+
+  // The extractor digest must be on the published digest list carried by this page; an unknown
+  // digest is failed. There is no registry read here: the caller passes the vendored list, so a
+  // missing list is the honest DIGEST_LIST_UNAVAILABLE, not a silent pass.
+  const digestHexes = Object.hasOwn(options, 'digestHexes') ? options.digestHexes : null;
+  if (digestHexes === null) {
+    return report(record, 'fail', 'failed', 'DIGEST_LIST_UNAVAILABLE', {});
+  }
+  if (!digestHexes.has(ownGet(extractor, 'kernel_digest').slice('sha256:'.length))) {
+    return report(record, 'fail', 'failed', 'EXTRACTOR_DIGEST_UNKNOWN', { digest: ownGet(extractor, 'kernel_digest') });
+  }
+
+  // Step 3: byte-for-byte equality with the recorded lexical.
+  if (extracted !== lexical) {
+    return report(record, 'pass', 'failed', 'LEXICAL_MISMATCH', { extracted, recorded: lexical });
+  }
+
+  // Step 4: the declared normalization, then the §23 canonical-digest binding. Without
+  // policy_parameters the binding is uncheckable and the honest verdict is `external`.
+  if (!policyPresent) {
+    const norm = normalize(lexical, normalization);
+    if (!norm.ok) return report(record, 'fail', 'failed', norm.code, {});
+    return report(record, 'pass', 'external', 'SELF_CONSISTENT_NO_POLICY', {});
+  }
+  const norm = normalize(lexical, normalization);
+  if (!norm.ok) return report(record, 'fail', 'failed', norm.code, {});
+  if (await canonicalDigest(norm.value, canon) !== await canonicalDigest(policyValue, canon)) {
+    return report(record, 'pass', 'failed', 'STEP4_DIGEST_MISMATCH', { from: 'document' });
+  }
+  return report(record, 'pass', 'verified', 'ALL_FOUR_STEPS_PASSED', {});
+}
+/* __TIEOUT_CHECKER_END */
+
+// Wiring half: snapshots, embedded examples, rendering. Kept outside the extraction markers so
+// the Node parity runner takes only the checker above.
+import { errataCheck, errataSentence } from './errata-check.mjs';
+import { ERRATA_SNAPSHOT } from './errata/errata-snapshot.mjs';
+import { KERNEL_DIGEST_HEXES, KERNEL_DIGEST_LIST_STAMP } from './kernel-digests-snapshot.mjs';
+
+const KERNEL_DIGEST_SET = new Set(KERNEL_DIGEST_HEXES);
+const TIEOUT_MAX_CHARS = 2000000;
+
+/* __TIEOUT_EXAMPLES_BEGIN (extracted by scripts/check-tieout-block.selftest.mjs and compared
+   against the shipped fixtures in chaingraph/standard/fixtures/document-span/) */
+const TIEOUT_EXAMPLES = {
+  verified: {
+    name: 'pos-01-csv-cell-row-key',
+    note: 'CSV cell addressed by index with a row_key guard; integer-plain',
+    record: {
+      type: 'document-span',
+      pointer: '/cash_balance',
+      source_ref: 'bank-statement.csv',
+      proof: {
+        profile: 'ocg-document-span@1',
+        document: {
+          sha256: '9d431fbc93449357ae49494d1d8fef3209527333119d62739792b96eb7dd85a3',
+          media_type: 'text/csv',
+          bytes: 135
+        },
+        locator: {
+          scheme: 'csv-rfc4180-cell',
+          record: 1,
+          column: 2,
+          header: 'balance',
+          row_key: {
+            column: 'account_id',
+            value: 'OP-002'
+          }
+        },
+        extractor: {
+          tool_id: 'art-788-csv-rfc4180-parser',
+          kernel_digest: 'sha256:c34b449deffbcaba90e9e3d2df644f2bf51f90b1f9b31a00025de8ab6a836152'
+        },
+        lexical: '900',
+        normalization: 'integer-plain'
+      }
+    },
+    document: 'account_id,date,balance,note\r\nOP-001,2026-10-31,1250000.00,opening\r\nOP-002,2026-10-31,900,payment\r\nOP-003,2026-10-31,42.50,adjustment\r\n',
+    policy_parameters: {
+      cash_balance: 900
+    },
+    expect: {
+      structural: 'pass',
+      verifiable: 'verified',
+      reason_code: 'ALL_FOUR_STEPS_PASSED'
+    }
+  },
+  external: {
+    name: 'pos-09-no-document-external',
+    note: 'No document supplied, record well formed, step 4 holds from lexical alone: external',
+    record: {
+      type: 'document-span',
+      pointer: '/reserve_usd',
+      source_ref: 'report.json',
+      proof: {
+        profile: 'ocg-document-span@1',
+        document: {
+          sha256: 'ec8e2d3ec73849a0260e6e3871f7483fb55dca2b061be0b0a6754eded9ad6769',
+          media_type: 'application/json',
+          bytes: 91
+        },
+        locator: {
+          scheme: 'json-pointer',
+          pointer: '/reserve_usd'
+        },
+        extractor: {
+          tool_id: 'art-788-csv-rfc4180-parser',
+          kernel_digest: 'sha256:c34b449deffbcaba90e9e3d2df644f2bf51f90b1f9b31a00025de8ab6a836152'
+        },
+        lexical: '1250000.00',
+        normalization: 'decimal-plain'
+      }
+    },
+    document: null,
+    policy_parameters: {
+      reserve_usd: 1250000
+    },
+    expect: {
+      structural: 'pass',
+      verifiable: 'external',
+      reason_code: 'SELF_CONSISTENT_WITH_POLICY'
+    }
+  },
+  failed: {
+    name: 'neg-09-wrong-document-digest',
+    note: 'The digest names a different document',
+    record: {
+      type: 'document-span',
+      pointer: '/reserve_usd',
+      source_ref: 'report.json',
+      proof: {
+        profile: 'ocg-document-span@1',
+        document: {
+          sha256: '9d431fbc93449357ae49494d1d8fef3209527333119d62739792b96eb7dd85a3',
+          media_type: 'application/json',
+          bytes: 91
+        },
+        locator: {
+          scheme: 'json-pointer',
+          pointer: '/reserve_usd'
+        },
+        extractor: {
+          tool_id: 'art-788-csv-rfc4180-parser',
+          kernel_digest: 'sha256:c34b449deffbcaba90e9e3d2df644f2bf51f90b1f9b31a00025de8ab6a836152'
+        },
+        lexical: '1250000.00',
+        normalization: 'decimal-plain'
+      }
+    },
+    document: '{"period":"2026-10","reserve_usd":"1250000.00","counts":{"n_filed":"42"},"d":"2026-10-31"}\n',
+    policy_parameters: {
+      reserve_usd: 1250000
+    },
+    expect: {
+      structural: 'fail',
+      verifiable: 'failed',
+      reason_code: 'DOCUMENT_DIGEST_MISMATCH'
+    }
+  }
+};
+/* __TIEOUT_EXAMPLES_END */
+
+const TIEOUT_STATE_TEXT = { verified: 'verified', external: 'external', failed: 'failed' };
+const TIEOUT_STATE_GLYPH = { verified: '✓', external: '◐', failed: '✗' };
+const TIEOUT_STATE_COLOR = { verified: 'var(--green)', external: 'var(--gold)', failed: 'var(--red)' };
+
+function tieoutDomEl(tag, className, text) {
+  const el = document.createElement(tag);
+  if (className) el.className = className;
+  if (text !== undefined && text !== null && text !== '') el.textContent = text;
+  return el;
+}
+
+// One of the three errata states for the span's extractor digest, from the same snapshot the
+// errata card uses. Optional due diligence, exactly like the errata feed: it never changes the
+// tie-out verdict, and past the checkpoint's expiry it prints the log's own staleness sentence.
+function tieoutErrataSentence(record, policy) {
+  let digestHex = null;
+  if (record && typeof record === 'object' && !Array.isArray(record)) {
+    const proof = ownGet(record, 'proof');
+    if (proof && typeof proof === 'object' && !Array.isArray(proof)) {
+      const ex = ownGet(proof, 'extractor');
+      if (ex && typeof ex === 'object' && !Array.isArray(ex)) {
+        const d = ownGet(ex, 'kernel_digest');
+        if (typeof d === 'string' && KERNEL_DIGEST_RE.test(d)) digestHex = d.slice('sha256:'.length);
+      }
+    }
+  }
+  if (!digestHex) return '';
+  let r;
+  try {
+    r = errataCheck(ERRATA_SNAPSHOT, { kernelDigest: digestHex, policyParameters: policy ?? null }, Date.now());
+  } catch (e) {
+    return 'Errata check unavailable (' + e.message + '). The tie-out result above is unaffected.';
+  }
+  return errataSentence(r) || '';
+}
+
+function tieoutCompactDetail(detail) {
+  const keys = Object.keys(detail || {});
+  if (!keys.length) return '';
+  let text = JSON.stringify(detail);
+  if (text.length > 200) text = text.slice(0, 200) + '…';
+  return text;
+}
+
+async function loadTieoutExample(key) {
+  const ex = TIEOUT_EXAMPLES[key];
+  if (!ex) return;
+  try {
+    const pp = ex.policy_parameters && typeof ex.policy_parameters === 'object' ? ex.policy_parameters : {};
+    const artifact = {
+      tool_id: 'ocg-document-span-example',
+      chaingraph_version: '0.4.0',
+      generated_at: new Date().toISOString(),
+      policy_parameters: pp,
+      output_payload: { tieout_example: ex.name },
+    };
+    artifact.execution_hash = 'sha256:' + await executionHash(artifact.policy_parameters, artifact.output_payload);
+    document.getElementById('artifactInput').value = JSON.stringify(artifact, null, 2);
+    document.getElementById('tieoutSpansInput').value = JSON.stringify(ex.record, null, 2);
+    const docs = {};
+    docs[ex.record.source_ref] = typeof ex.document === 'string' ? ex.document : null;
+    document.getElementById('tieoutDocsInput').value = JSON.stringify(docs, null, 2);
+    hideError();
+    hideResult();
+    runVerify();
+    await runTieout();
+  } catch (e) {
+    showError('Example failed to load: ' + e.message);
+  }
+}
+
+async function runTieout() {
+  const out = document.getElementById('tieoutResult');
+  try {
+    const artifactRaw = document.getElementById('artifactInput').value.trim();
+    if (!artifactRaw) { showError('Paste and verify the receipt above first: each span is tied out against that receipt policy_parameters.'); return; }
+    let artifact;
+    try { artifact = JSON.parse(artifactRaw); } catch (e) { showError('The receipt above is not valid JSON: ' + e.message); return; }
+    if (!artifact || typeof artifact !== 'object' || Array.isArray(artifact)) { showError('The receipt above must be a JSON object.'); return; }
+    const policy = Object.hasOwn(artifact, 'policy_parameters')
+      && artifact.policy_parameters !== null
+      && typeof artifact.policy_parameters === 'object'
+      && !Array.isArray(artifact.policy_parameters)
+      ? artifact.policy_parameters
+      : undefined;
+
+    const spansRaw = document.getElementById('tieoutSpansInput').value.trim();
+    if (!spansRaw) { showError('Paste a span record, or a JSON array of them, first.'); return; }
+    if (spansRaw.length > TIEOUT_MAX_CHARS) { showError('The spans file is ' + spansRaw.length + ' characters, over the ' + TIEOUT_MAX_CHARS + '-character limit.'); return; }
+    let spansParsed;
+    try { spansParsed = JSON.parse(spansRaw); } catch (e) { showError('The spans file is not valid JSON: ' + e.message); return; }
+    const records = Array.isArray(spansParsed) ? spansParsed : [spansParsed];
+    if (!records.length) { showError('The spans file holds no records.'); return; }
+
+    let docs = {};
+    const docsRaw = document.getElementById('tieoutDocsInput').value.trim();
+    if (docsRaw) {
+      if (docsRaw.length > TIEOUT_MAX_CHARS) { showError('The documents input is ' + docsRaw.length + ' characters, over the ' + TIEOUT_MAX_CHARS + '-character limit.'); return; }
+      try { docs = JSON.parse(docsRaw); } catch (e) { showError('The documents input is not valid JSON: ' + e.message); return; }
+      if (!docs || typeof docs !== 'object' || Array.isArray(docs)) { showError('The documents input must be a JSON map of source_ref to document text.'); return; }
+      for (const k of Object.keys(docs)) {
+        const v = Object.hasOwn(docs, k) ? docs[k] : undefined;
+        if (v !== null && typeof v !== 'string') { showError('The documents map: "' + k + '" must hold document text or null.'); return; }
+      }
+    }
+
+    out.style.display = 'block';
+    out.textContent = '';
+    const counts = { verified: 0, external: 0, failed: 0 };
+
+    for (const rec of records) {
+      let verdict;
+      try {
+        const sourceRef = rec && typeof rec === 'object' && !Array.isArray(rec)
+          && Object.hasOwn(rec, 'source_ref') && typeof rec.source_ref === 'string' ? rec.source_ref : null;
+        const supplied = sourceRef !== null && Object.hasOwn(docs, sourceRef) ? docs[sourceRef] : undefined;
+        verdict = await verifyDocumentSpan(rec, {
+          documentText: typeof supplied === 'string' ? supplied : undefined,
+          policyParameters: policy,
+          digestHexes: KERNEL_DIGEST_SET,
+          jcs: window.__ocgJcs,
+        });
+      } catch (e) {
+        verdict = { pointer: null, type: null, profile: null, structural: 'fail', verifiable: 'failed', reason_code: 'CHECKER_THREW', detail: { error: String(e && e.message ? e.message : e) } };
+      }
+      const state = verdict.verifiable === 'verified' ? 'verified' : verdict.verifiable === 'external' ? 'external' : 'failed';
+      counts[state]++;
+
+      const row = tieoutDomEl('div', 'hash-block');
+      row.style.marginBottom = '10px';
+      const who = (verdict.pointer ?? '(no pointer)') + ' · ' + ((rec && typeof rec === 'object' && !Array.isArray(rec) && Object.hasOwn(rec, 'source_ref')) ? String(rec.source_ref) : '(no source_ref)');
+      const line = tieoutDomEl('div', 'hash-val', TIEOUT_STATE_GLYPH[state] + ' ' + TIEOUT_STATE_TEXT[state] + ' · ' + who);
+      line.style.whiteSpace = 'pre-wrap';
+      line.style.color = TIEOUT_STATE_COLOR[state];
+      row.appendChild(line);
+      row.appendChild(tieoutDomEl('div', 'hash-lbl', 'structural: ' + verdict.structural + ' · verifiable: ' + verdict.verifiable + ' · reason: ' + verdict.reason_code));
+      const compact = tieoutCompactDetail(verdict.detail);
+      if (compact) {
+        const d = tieoutDomEl('div', 'hash-lbl', 'detail: ' + compact);
+        d.style.color = 'var(--body)';
+        d.style.textTransform = 'none';
+        row.appendChild(d);
+      }
+      const errata = tieoutErrataSentence(rec, policy);
+      if (errata) {
+        const e2 = tieoutDomEl('div', 'hash-lbl', 'errata: ' + errata);
+        e2.style.color = 'var(--body)';
+        e2.style.textTransform = 'none';
+        row.appendChild(e2);
+      }
+      out.appendChild(row);
+    }
+
+    const summary = counts.verified + counts.external + counts.failed + ' span'
+      + (counts.verified + counts.external + counts.failed === 1 ? '' : 's') + ': '
+      + counts.verified + ' verified, ' + counts.external + ' external, ' + counts.failed + ' failed'
+      + ' · policy side: policy_parameters of the receipt above'
+      + ' · digest list: ' + KERNEL_DIGEST_SET.size + ' published digests as of ' + KERNEL_DIGEST_LIST_STAMP.date
+      + ' (' + KERNEL_DIGEST_LIST_STAMP.as_of + '); a digest published after that prints as unknown here';
+    out.insertBefore(tieoutDomEl('div', 'hash-lbl', summary), out.firstChild);
+  } catch (e) {
+    showError('Tie-out failed: ' + e.message);
+  }
+}
+
+window.runTieout = runTieout;
+for (const key of ['verified', 'external', 'failed']) {
+  const btn = document.getElementById('tieoutExample' + key.charAt(0).toUpperCase() + key.slice(1) + 'Btn');
+  if (btn) btn.addEventListener('click', () => { loadTieoutExample(key); });
+}
 </script>
 </body>
 </html>

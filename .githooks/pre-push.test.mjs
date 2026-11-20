@@ -33,10 +33,15 @@
  *      against the same red mock preflight blocks exactly as it did before this
  *      row existed, and appends NOTHING to the metrics log — proving nothing
  *      was written to disk by the flagged run that outlives its own process.
- *   6. DISCLOSURE SHAPE — the appended line is valid JSON carrying gate,
- *      mechanism, row and denied fields, so a later reader can fold it into
- *      GUARDRAIL-METRICS.jsonl mechanically, not by trusting a session's memory.
- *
+  *   6. DISCLOSURE SHAPE — the appended line is valid JSON carrying gate,
+  *      mechanism, row and denied fields, so a later reader can fold it into
+  *      GUARDRAIL-METRICS.jsonl mechanically, not by trusting a session's memory.
+  *   7. WORKTREE-ROOT FILE (PREPUSH-DECL-WORKTREE-FILE-1) — a gitignored
+  *      key=value file at the worktree root is honoured (id forwarded, PR id
+  *      exported, row disclosed) and never deleted; env and git-dir beat it; a
+  *      tracked or pushed file is refused outright; and a declared gate that
+  *      does not match the actual red still blocks the push.
+  *
  * This never touches the real scripts/preflight.mjs (a mock stands in, see
  * below) and never touches the real board/reference/GUARDRAIL-METRICS.jsonl
  * (AINUM_GUARDRAIL_METRICS_PATH points the hook at a sandboxed file instead —
@@ -113,6 +118,7 @@ if (args[0] === '--affected' && existsSync('tools/widget.html') && existsSync('d
 }
 if (process.env.MOCK_ARGV_LOG) appendFileSync(process.env.MOCK_ARGV_LOG, JSON.stringify(args) + '\\n');
 if (process.env.MOCK_ENV_LOG) appendFileSync(process.env.MOCK_ENV_LOG, 'PR=' + (process.env.PR_ID_COLLISION_PR || '') + '\\n');
+if (process.env.MOCK_ENV_LOG) appendFileSync(process.env.MOCK_ENV_LOG, 'PUSHBRANCH=' + (process.env.ID_COLLISION_PUSH_BRANCH || '') + '\\n');
 console.log('mock preflight received: ' + args.join(' '));
 process.exit(process.env.MOCK_PREFLIGHT_EXIT ? Number(process.env.MOCK_PREFLIGHT_EXIT) : 0);
 `;
@@ -156,6 +162,11 @@ function runHook(dir, envOverrides, input = '') {
       MOCK_ARGV_LOG: join(dir, 'argv-log.jsonl'),
       MOCK_ENV_LOG: join(dir, 'env-log.txt'),
       PR_ID_COLLISION_PR: '',
+      // PREPUSH-PR-FROM-PUSH-TARGET-1: the hook now EXPORTS this var, so a run
+      // inside a real pre-push invocation (the push-safety leg) has it set in
+      // the outer environment. A leaked value must never reach a scenario that
+      // expects it absent — same defence as the four vars below.
+      ID_COLLISION_PUSH_BRANCH: '',
       AINUM_GUARDRAIL_METRICS_PATH: metricsFile,
       // Explicitly unset — a leaked value from the outer shell must never
       // leak into a scenario that expects it absent (the no-persistence check).
@@ -526,6 +537,53 @@ function prFor(ghJson, branchInStdin, ghExit = 0) {
   assert(err.status === 0 && err.seen.includes('PR=\n'), `RED: gh failure ⇒ NOT exported and the push still proceeds (got ${JSON.stringify(err.seen)})`);
 }
 
+// ── 13b. PREPUSH-PR-FROM-PUSH-TARGET-1 — the hook parses the push DESTINATION
+//      branch from its stdin (the remote ref of the sole refs/heads line) and
+//      exports ID_COLLISION_PUSH_BRANCH so check-id-collision.mjs resolves this
+//      push's PR by the pushed branch, not by the local worktree branch name.
+//      Pure stdin parsing: no gh, no network, never blocks; zero or ambiguous
+//      lines leave it unset and an explicit preset value is never clobbered.
+function pushBranchSeen(dir, stdin, envOverrides = {}) {
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0', ...envOverrides }, stdin);
+  const f = join(dir, 'env-log.txt');
+  const seen = existsSync(f) ? readFileSync(f, 'utf8') : '';
+  return { status: r.status, seen };
+}
+{
+  const dir = makeSandbox();
+  const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: dir, env: isolatedChildEnv(), encoding: 'utf8' }).stdout.trim();
+  const sha = head || 'a'.repeat(40);
+  // (a) a cure push: local branch name differs from the pushed (PR head) branch.
+  const cure = pushBranchSeen(dir, `refs/heads/PR-3100-PORT-790-JE-CURE-1 ${sha} refs/heads/PORT-790-JE-PERIOD-LOCK-GATE-1 ${'0'.repeat(40)}\n`);
+  assert(cure.status === 0 && cure.seen.includes('PUSHBRANCH=PORT-790-JE-PERIOD-LOCK-GATE-1'),
+    `PUSH-TARGET: the push DESTINATION branch (remote ref) is exported, not the local branch name (got ${JSON.stringify(cure.seen.split('\n').filter((l) => l.startsWith('PUSHBRANCH'))[0])})`);
+  cleanup(dir);
+  // (b) a tag push has no refs/heads remote ref: nothing exported, push unaffected.
+  const dir2 = makeSandbox();
+  const tag = pushBranchSeen(dir2, `refs/tags/v1 ${sha} refs/tags/v1 ${'0'.repeat(40)}\n`);
+  assert(tag.status === 0 && tag.seen.includes('PUSHBRANCH=\n'),
+    `PUSH-TARGET: a tag push exports no push branch (got ${JSON.stringify(tag.seen.split('\n').filter((l) => l.startsWith('PUSHBRANCH'))[0])})`);
+  cleanup(dir2);
+  // (c) two branch targets in one push: ambiguous, nothing exported (fail closed downstream).
+  const dir3 = makeSandbox();
+  const two = pushBranchSeen(dir3, `refs/heads/a ${sha} refs/heads/br-one ${'0'.repeat(40)}\nrefs/heads/a ${sha} refs/heads/br-two ${'0'.repeat(40)}\n`);
+  assert(two.status === 0 && two.seen.includes('PUSHBRANCH=\n'),
+    `PUSH-TARGET: two branch targets stay unset (got ${JSON.stringify(two.seen.split('\n').filter((l) => l.startsWith('PUSHBRANCH'))[0])})`);
+  cleanup(dir3);
+  // (d) an explicit preset value is never clobbered by the stdin parse.
+  const dir4 = makeSandbox();
+  const preset = pushBranchSeen(dir4, `refs/heads/a ${sha} refs/heads/br-one ${'0'.repeat(40)}\n`, { ID_COLLISION_PUSH_BRANCH: 'PINNED-BRANCH' });
+  assert(preset.status === 0 && preset.seen.includes('PUSHBRANCH=PINNED-BRANCH'),
+    `PUSH-TARGET: a preset ID_COLLISION_PUSH_BRANCH is never clobbered (got ${JSON.stringify(preset.seen.split('\n').filter((l) => l.startsWith('PUSHBRANCH'))[0])})`);
+  cleanup(dir4);
+  // (e) empty stdin (the historical default in this file's older scenarios): unset, no crash.
+  const dir5 = makeSandbox();
+  const empty = pushBranchSeen(dir5, '');
+  assert(empty.status === 0 && empty.seen.includes('PUSHBRANCH=\n'),
+    'PUSH-TARGET: empty stdin stays unset and the hook proceeds');
+  cleanup(dir5);
+}
+
 // ── 14. PREPUSH-MERGE-RESULT-1, RED (load-bearing): the branch tree is green
 //      but MAIN MOVED with a commit that makes the branch stale — only the
 //      MERGE RESULT can see that, and the hook must BLOCK. Before this row the
@@ -598,6 +656,127 @@ exec "${resolveRealGit()}" "$@"
   assert(warns === 1, `UNSUPPORTED GIT: exactly ONE WARN line is printed (got ${warns})`);
   assert(r.judged !== null && r.judged.cwd === dir && r.judged.registry === null,
     'UNSUPPORTED GIT: the affected leg ran the unchanged branch-tree check');
+  cleanup(dir);
+}
+
+// ── 18. PREPUSH-DECL-WORKTREE-FILE-1: a gitignored key=value file at the
+//      worktree root is honoured — id forwarded, row disclosed, PR id exported,
+//      read line printed, and the file LEFT in place (unlike the git-dir form).
+{
+  const dir = makeSandbox();
+  writeFileSync(join(dir, 'metrics.jsonl'), '');
+  const decl = join(dir, '.ainum-push-decl');
+  writeFileSync(decl, 'expect_red=gate-wt\n' +
+    'expect_red_row=WT-ROW-1\n' +
+    'pr_id_collision_pr=3141\n');
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0' });
+  assert(JSON.stringify(r.argv) === JSON.stringify(['--quick', '--expect-red', 'gate-wt']),
+    `worktree-root file: declared id forwarded to preflight exactly like env/git-dir (got ${JSON.stringify(r.argv)})`);
+  assert(r.status === 0, 'worktree-root file: GREEN control — declared id + green preflight ⇒ push proceeds');
+  assert(/\.ainum-push-decl/.test(r.stdout) && /read/.test(r.stdout),
+    'worktree-root file: the hook prints one line saying the file was read');
+  assert(existsSync(decl), 'worktree-root file: NOT deleted after a successful push (left in place by design)');
+  const envLog = existsSync(join(dir, 'env-log.txt')) ? readFileSync(join(dir, 'env-log.txt'), 'utf8') : '';
+  assert(envLog.includes('PR=3141\n'), `worktree-root file: pr_id_collision_pr exported as PR_ID_COLLISION_PR (got ${JSON.stringify(envLog)})`);
+  assert(r.metricsLines.length === 1, `worktree-root file: exactly one disclosure event appended (got ${r.metricsLines.length})`);
+  if (r.metricsLines.length === 1) {
+    const parsed = JSON.parse(r.metricsLines[0]);
+    assert(parsed.source === 'worktree-file', `worktree-root file: logged source is "worktree-file" (got ${parsed.source})`);
+    assert(parsed.row === 'WT-ROW-1', `worktree-root file: row id disclosed from expect_red_row (got ${parsed.row})`);
+    assert(parsed.denied === false, 'worktree-root file: GREEN control logged denied:false');
+  }
+  cleanup(dir);
+}
+
+// ── 19. ENV BEATS THE WORKTREE-ROOT FILE (priority: env > git-dir > file).
+{
+  const dir = makeSandbox();
+  writeFileSync(join(dir, 'metrics.jsonl'), '');
+  const decl = join(dir, '.ainum-push-decl');
+  writeFileSync(decl, 'expect_red=gate-from-wt\n');
+  const r = runHook(dir, { AINUM_EXPECT_RED: 'gate-from-env', MOCK_PREFLIGHT_EXIT: '0' });
+  assert(JSON.stringify(r.argv) === JSON.stringify(['--quick', '--expect-red', 'gate-from-env']),
+    `env beats worktree-root file (got ${JSON.stringify(r.argv)})`);
+  assert(existsSync(decl), 'env beats worktree-root file: the file is left untouched, never consumed');
+  if (r.metricsLines.length === 1) {
+    assert(JSON.parse(r.metricsLines[0]).source === 'env', 'env wins: disclosure source stays "env"');
+  }
+  cleanup(dir);
+}
+
+// ── 20. GIT-DIR FILE BEATS THE WORKTREE-ROOT FILE (priority: env > git-dir > file).
+{
+  const dir = makeSandbox();
+  writeFileSync(join(dir, 'metrics.jsonl'), '');
+  writeFileSync(join(dir, '.git', 'AINUM_EXPECT_RED'), 'gate-from-gitdir\nWT-ROW-2\n');
+  const decl = join(dir, '.ainum-push-decl');
+  writeFileSync(decl, 'expect_red=gate-from-wt\n');
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0' });
+  assert(JSON.stringify(r.argv) === JSON.stringify(['--quick', '--expect-red', 'gate-from-gitdir']),
+    `git-dir file beats worktree-root file (got ${JSON.stringify(r.argv)})`);
+  assert(!existsSync(join(dir, '.git', 'AINUM_EXPECT_RED')), 'git-dir file still deleted after the one invocation');
+  assert(existsSync(decl), 'git-dir beats worktree-root file: the latter is left untouched');
+  if (r.metricsLines.length === 1) {
+    const parsed = JSON.parse(r.metricsLines[0]);
+    assert(parsed.source === 'file' && parsed.row === 'WT-ROW-2', 'git-dir wins: disclosure source/row come from the git-dir file');
+  }
+  cleanup(dir);
+}
+
+// ── 21. TRACKED DECLARATION FILE IS REFUSED — .gitignore cannot save a file
+//      that was already added to the index; preflight must never even run.
+{
+  const dir = makeSandbox();
+  writeFileSync(join(dir, 'metrics.jsonl'), '');
+  writeFileSync(join(dir, '.ainum-push-decl'), 'expect_red=gate-wt\n');
+  spawnSync('git', ['add', '.ainum-push-decl'], { cwd: dir, env: isolatedChildEnv(), encoding: 'utf8' });
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0' });
+  assert(r.status !== 0, 'tracked .ainum-push-decl ⇒ hook REFUSES the push (non-zero exit)');
+  assert(/REFUSED/.test(r.stdout + r.stderr) && /must never ship/.test(r.stdout + r.stderr),
+    'tracked-file refusal prints a clear message naming the reason');
+  assert(!existsSync(join(dir, 'argv-dump.json')), 'tracked-file refusal happens before preflight is invoked');
+  cleanup(dir);
+}
+
+// ── 22. DECLARATION PRESENT IN THE PUSHED COMMIT RANGE IS REFUSED — a later
+//      commit may have untracked it, so the index check alone is not enough.
+{
+  const dir = makeSandbox();
+  const g = (...a) => spawnSync('git', a, { cwd: dir, env: isolatedChildEnv(), encoding: 'utf8' });
+  g('config', 'user.email', 't@example.invalid'); g('config', 'user.name', 't');
+  writeFileSync(join(dir, 'seed.txt'), 'x\n');
+  g('add', 'seed.txt'); g('commit', '-q', '-m', 'base');
+  const base = g('rev-parse', 'HEAD').stdout.trim();
+  writeFileSync(join(dir, '.ainum-push-decl'), 'expect_red=gate-wt\n');
+  g('add', '.ainum-push-decl'); g('commit', '-q', '-m', 'commit declaration');
+  const head = g('rev-parse', 'HEAD').stdout.trim();
+  g('update-ref', 'refs/remotes/origin/main', base);
+  g('rm', '-q', '--cached', '.ainum-push-decl'); // no longer in the index
+  writeFileSync(join(dir, 'metrics.jsonl'), '');
+  const stdin = `refs/heads/topic ${head} refs/heads/topic ${'0'.repeat(40)}\n`;
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '0' }, stdin);
+  assert(r.status !== 0, 'declaration in the pushed commit range ⇒ hook REFUSES even when untracked at HEAD');
+  assert(/REFUSED/.test(r.stdout + r.stderr), 'pushed-range refusal prints the clear REFUSED message');
+  cleanup(dir);
+}
+
+// ── 23. WORKTREE-ROOT FILE, STILL BLOCKS (load-bearing) — a declaration is
+//      not a waiver: a genuine red (declared id matched no gate) still fails.
+{
+  const dir = makeSandbox();
+  writeFileSync(join(dir, 'metrics.jsonl'), '');
+  const decl = join(dir, '.ainum-push-decl');
+  writeFileSync(decl, 'expect_red=gate-wt\n');
+  const r = runHook(dir, { MOCK_PREFLIGHT_EXIT: '1' });
+  assert(r.status !== 0, 'worktree-root file + genuine red ⇒ push STILL BLOCKS (non-zero exit)');
+  assert(/did NOT clear/.test(r.stdout + r.stderr),
+    'worktree-root file: hook-level disclosure explains the declaration did not clear the push');
+  assert(existsSync(decl), 'worktree-root file: left in place even when the push is denied');
+  if (r.metricsLines.length === 1) {
+    const parsed = JSON.parse(r.metricsLines[0]);
+    assert(parsed.denied === true && parsed.source === 'worktree-file',
+      'worktree-root file: denied attempt logged with denied:true and source=worktree-file');
+  }
   cleanup(dir);
 }
 

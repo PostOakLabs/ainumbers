@@ -207,45 +207,128 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 <script>
 // --- compute (MUST mirror kernels/art-48-treasury-clearing-fit-diagnostic.kernel.mjs) ---
-const DEADLINE_CASH='2026-12-31', DEADLINE_REPO='2027-06-30';
-const EXEMPTIONS=new Set(['none','inter-affiliate','central-bank-sovereign','state-local-govt']);
-const CCP_NOTE='FICC (DTCC) is the UST cash/repo CCP under the mandate. CMESC/ICE Clear Credit clear adjacent products (rates futures / credit), relevant for cross-margin context, not as UST cash/repo alternates.';
-const S={activity_cash:{none:4,occasional:2,core:1},activity_repo:{none:4,'triparty-only':2,bilateral:1,both:0},current_access:{'direct-member':4,sponsored:3,agent:3,none:0},im_funding_ready:{'yes-segregated':4,'yes-omnibus':3,unsure:1,no:0},capital_constrained:{'bank-SLR':1,'non-bank':3,na:4},cross_product_hedges:{both:4,'cme-futures':3,sofr:3,none:2},agreements_status:{executed:4,drafting:2,'not-started':0},connectivity:{live:4,'in-progress':2,none:0},intraday_liquidity:{strong:4,adequate:2,thin:0}};
-const pick=(t,v,d=0)=>v in t?t[v]:d;
-const breadthScore=n=>n>=6?4:n>=3?3:n>=1?2:0;
-const letter=s=>s>=85?'A':s>=70?'B':s>=55?'C':s>=40?'D':'F';
-const ROUTE={scope:'treasury-clearing-access-model',access:'treasury-clearing-access-model',margin:'treasury-clearing-repo-margin',capital:'treasury-clearing-capital-relief',ops:'treasury-clearing-onboarding',liquidity:'treasury-clearing-liquidity'};
-const WEIGHTS={scope:.20,access:.20,margin:.15,capital:.15,ops:.15,liquidity:.15};
-const REMED={scope:'Inventory in-scope UST cash and repo activity and quantify cleared vs uncleared notional.',access:'Select an access model (Direct vs Sponsored vs Agent) — run treasury-clearing-access-model.',margin:'Establish CCP IM funding capability and HQLA inventory — run treasury-clearing-repo-margin.',capital:'Model SA-CCR/QCCP capital and RWA impact — run treasury-clearing-capital-relief.',ops:'Execute agreements and stand up connectivity — run treasury-clearing-onboarding.',liquidity:'Stress intraday liquidity for CCP margin calls — run treasury-clearing-liquidity.'};
+// SEC compliance dates (final rule 34-102487): cash 2026-12-31, repo 2027-06-30.
+const DEADLINE_CASH = '2026-12-31';
+const DEADLINE_REPO = '2027-06-30';
 
-function compute(pp){
-  const hqlaScore=Math.max(0,Math.min(4,(Number(pp.hqla_inventory_pct)||0)/25));
-  const sub={scope:[pick(S.activity_cash,pp.activity_cash),pick(S.activity_repo,pp.activity_repo)],access:[pick(S.current_access,pp.current_access),breadthScore(Number(pp.execution_breadth)||0)],margin:[pick(S.im_funding_ready,pp.im_funding_ready),hqlaScore],capital:[pick(S.capital_constrained,pp.capital_constrained),pick(S.cross_product_hedges,pp.cross_product_hedges)],ops:[pick(S.agreements_status,pp.agreements_status),pick(S.connectivity,pp.connectivity)],liquidity:[pick(S.intraday_liquidity,pp.intraday_liquidity)]};
-  const dim_scores={};
-  for(const k in sub){const avg=sub[k].reduce((a,b)=>a+b,0)/sub[k].length;dim_scores[k]={score:+(avg/4*100).toFixed(1),grade:letter(avg/4*100)};}
-  const overall=+Object.keys(WEIGHTS).reduce((a,k)=>a+dim_scores[k].score*WEIGHTS[k],0).toFixed(1);
-  const overall_grade=letter(overall);
-  const ranked=Object.keys(dim_scores).sort((a,b)=>dim_scores[a].score-dim_scores[b].score);
-  const primary_recommendation=ROUTE[ranked[0]];
-  const secondary_recommendations=[];
-  if(pp.cross_product_hedges!=='none')secondary_recommendations.push('treasury-clearing-cross-margin');
-  if(pp.activity_repo==='bilateral'||pp.activity_repo==='both')secondary_recommendations.push('treasury-clearing-collateral');
-  if(!secondary_recommendations.includes(ROUTE[ranked[1]])&&ROUTE[ranked[1]]!==primary_recommendation)secondary_recommendations.push(ROUTE[ranked[1]]);
-  const remediation_checklist=[];
-  for(const k in dim_scores)if(dim_scores[k].grade==='D'||dim_scores[k].grade==='F')remediation_checklist.push({dimension:k,grade:dim_scores[k].grade,action:REMED[k]});
-  const compliance_deadline=pp.primary_product==='repo'?DEADLINE_REPO:DEADLINE_CASH;
-  const compliance_flags=[];
-  if(pp.current_access==='none')compliance_flags.push('NO_ACCESS_MODEL_SELECTED');
-  if((Number(pp.execution_breadth)||0)>=3)compliance_flags.push('DONE_AWAY_CANDIDATE');
-  if(pp.cross_product_hedges!=='none')compliance_flags.push('CROSS_MARGIN_CANDIDATE');
-  if(overall_grade==='D'||overall_grade==='F')compliance_flags.push('LOW_READINESS');
-  compliance_flags.push(pp.primary_product==='repo'?'DEADLINE_REPO_2027_06_30':'DEADLINE_CASH_2026_12_31');
-  const exemption=EXEMPTIONS.has(pp.exemption_claimed)?pp.exemption_claimed:'none';
-  const scope_classification={cash:{in_scope:pp.activity_cash!=='none'&&exemption==='none',deadline:DEADLINE_CASH},repo:{in_scope:pp.activity_repo!=='none'&&exemption==='none',deadline:DEADLINE_REPO},exemption_claimed:exemption};
-  if(exemption!=='none')compliance_flags.push('EXEMPTION_CLAIMED');
-  if(!scope_classification.cash.in_scope&&!scope_classification.repo.in_scope)compliance_flags.push('OUT_OF_SCOPE');
-  return {output_payload:{overall_score:overall,overall_grade,dim_scores,primary_recommendation,secondary_recommendations,remediation_checklist,compliance_deadline,scope_classification,ccp_selection:{recommended:'FICC',note:CCP_NOTE},note:'Educational readiness diagnostic for the SEC US Treasury clearing mandate. Routes to the relevant tcm-* chain; not legal or clearing advice.'},compliance_flags};
+// CW-3 extension: documented SEC final-rule exemptions from the clearing mandate (educational summary).
+const EXEMPTIONS = new Set(['none', 'inter-affiliate', 'central-bank-sovereign', 'state-local-govt']);
+// CCP selection: FICC is the only agency-cleared UST cash/repo CCP today; CMESC/ICE noted per spec for
+// cross-product context (futures/credit) only — not alternate UST cash/repo clearers. Educational, not advice.
+const CCP_NOTE = 'FICC (DTCC) is the UST cash/repo CCP under the mandate. CMESC/ICE Clear Credit clear adjacent products (rates futures / credit), relevant for cross-margin context, not as UST cash/repo alternates.';
+
+// Each answer → a 0..4 readiness sub-score (4 = most ready / least work).
+const S = {
+  activity_cash:    { none: 4, occasional: 2, core: 1 },
+  activity_repo:    { none: 4, 'triparty-only': 2, bilateral: 1, both: 0 },
+  current_access:   { 'direct-member': 4, sponsored: 3, agent: 3, none: 0 },
+  im_funding_ready: { 'yes-segregated': 4, 'yes-omnibus': 3, unsure: 1, no: 0 },
+  capital_constrained: { 'bank-SLR': 1, 'non-bank': 3, na: 4 },
+  cross_product_hedges: { both: 4, 'cme-futures': 3, sofr: 3, none: 2 },
+  agreements_status: { executed: 4, drafting: 2, 'not-started': 0 },
+  connectivity:     { live: 4, 'in-progress': 2, none: 0 },
+  intraday_liquidity: { strong: 4, adequate: 2, thin: 0 },
+};
+const pick = (table, val, dflt = 0) => (val in table ? table[val] : dflt);
+const breadthScore = (n) => (n >= 6 ? 4 : n >= 3 ? 3 : n >= 1 ? 2 : 0);
+const letter = (s) => (s >= 85 ? 'A' : s >= 70 ? 'B' : s >= 55 ? 'C' : s >= 40 ? 'D' : 'F');
+
+// Dimension → the tcm-* chain that addresses a weak score there.
+const ROUTE = {
+  scope:     'tcm-access-model',
+  access:    'tcm-access-model',
+  margin:    'tcm-repo-margin',
+  capital:   'tcm-capital-relief',
+  ops:       'tcm-onboarding',
+  liquidity: 'tcm-liquidity',
+};
+const WEIGHTS = { scope: 0.20, access: 0.20, margin: 0.15, capital: 0.15, ops: 0.15, liquidity: 0.15 };
+
+function compute(pp) {
+  const {
+    activity_cash = 'occasional', activity_repo = 'triparty-only', current_access = 'none',
+    execution_breadth = 0, im_funding_ready = 'unsure', hqla_inventory_pct = 0,
+    capital_constrained = 'non-bank', cross_product_hedges = 'none', agreements_status = 'not-started',
+    connectivity = 'none', intraday_liquidity = 'adequate', primary_product = 'both',
+    exemption_claimed = 'none',
+  } = pp;
+
+  const exemption = EXEMPTIONS.has(exemption_claimed) ? exemption_claimed : 'none';
+  const scope_classification = {
+    cash: { in_scope: activity_cash !== 'none' && exemption === 'none', deadline: DEADLINE_CASH },
+    repo: { in_scope: activity_repo !== 'none' && exemption === 'none', deadline: DEADLINE_REPO },
+    exemption_claimed: exemption,
+  };
+
+  const hqlaScore = Math.max(0, Math.min(4, (Number(hqla_inventory_pct) || 0) / 25)); // 0..4
+  const sub = {
+    scope:     [pick(S.activity_cash, activity_cash), pick(S.activity_repo, activity_repo)],
+    access:    [pick(S.current_access, current_access), breadthScore(Number(execution_breadth) || 0)],
+    margin:    [pick(S.im_funding_ready, im_funding_ready), hqlaScore],
+    capital:   [pick(S.capital_constrained, capital_constrained), pick(S.cross_product_hedges, cross_product_hedges)],
+    ops:       [pick(S.agreements_status, agreements_status), pick(S.connectivity, connectivity)],
+    liquidity: [pick(S.intraday_liquidity, intraday_liquidity)],
+  };
+
+  const dim_scores = {};
+  for (const k of Object.keys(sub)) {
+    const avg = sub[k].reduce((a, b) => a + b, 0) / sub[k].length;     // 0..4
+    dim_scores[k] = { score: +(avg / 4 * 100).toFixed(1), grade: letter(avg / 4 * 100) };
+  }
+
+  const overall = +Object.keys(WEIGHTS).reduce((acc, k) => acc + dim_scores[k].score * WEIGHTS[k], 0).toFixed(1);
+  const overall_grade = letter(overall);
+
+  // Routing: weakest actionable dimension drives the primary recommendation.
+  const ranked = Object.keys(dim_scores).sort((a, b) => dim_scores[a].score - dim_scores[b].score);
+  const primary_recommendation = ROUTE[ranked[0]];
+  const secondary_recommendations = [];
+  if (cross_product_hedges !== 'none') secondary_recommendations.push('tcm-cross-margin');
+  if (activity_repo === 'bilateral' || activity_repo === 'both') secondary_recommendations.push('tcm-collateral');
+  if (!secondary_recommendations.includes(ROUTE[ranked[1]]) && ROUTE[ranked[1]] !== primary_recommendation) {
+    secondary_recommendations.push(ROUTE[ranked[1]]);
+  }
+
+  const remediation_checklist = [];
+  for (const k of Object.keys(dim_scores)) {
+    if (dim_scores[k].grade === 'D' || dim_scores[k].grade === 'F') {
+      remediation_checklist.push({ dimension: k, grade: dim_scores[k].grade, action: REMEDIATION[k] });
+    }
+  }
+
+  const compliance_deadline = primary_product === 'repo' ? DEADLINE_REPO : DEADLINE_CASH;
+  const compliance_flags = [];
+  if (current_access === 'none') compliance_flags.push('NO_ACCESS_MODEL_SELECTED');
+  if ((Number(execution_breadth) || 0) >= 3) compliance_flags.push('DONE_AWAY_CANDIDATE');
+  if (cross_product_hedges !== 'none') compliance_flags.push('CROSS_MARGIN_CANDIDATE');
+  if (overall_grade === 'D' || overall_grade === 'F') compliance_flags.push('LOW_READINESS');
+  compliance_flags.push(primary_product === 'repo' ? 'DEADLINE_REPO_2027_06_30' : 'DEADLINE_CASH_2026_12_31');
+  if (exemption !== 'none') compliance_flags.push('EXEMPTION_CLAIMED');
+  if (!scope_classification.cash.in_scope && !scope_classification.repo.in_scope) compliance_flags.push('OUT_OF_SCOPE');
+
+  const output_payload = {
+    overall_score: overall,
+    overall_grade,
+    dim_scores,
+    primary_recommendation,
+    secondary_recommendations,
+    remediation_checklist,
+    compliance_deadline,
+    scope_classification,
+    ccp_selection: { recommended: 'FICC', note: CCP_NOTE },
+    note: 'Educational readiness diagnostic for the SEC US Treasury clearing mandate. Routes to the relevant tcm-* chain; not legal or clearing advice.',
+  };
+  return { output_payload, compliance_flags };
 }
+
+const REMEDIATION = {
+  scope: 'Inventory in-scope UST cash and repo activity (bilateral + triparty) and quantify cleared vs uncleared notional.',
+  access: 'Select an access model (Direct vs Sponsored done-with vs Agent done-away) — run tcm-access-model.',
+  margin: 'Establish CCP initial-margin funding capability and HQLA inventory — run tcm-repo-margin.',
+  capital: 'Model the SA-CCR/QCCP capital and RWA impact of clearing — run tcm-capital-relief.',
+  ops: 'Execute clearing/sponsorship agreements and stand up CCP/triparty/vendor connectivity — run tcm-onboarding.',
+  liquidity: 'Stress intraday liquidity for meeting CCP margin calls — run tcm-liquidity.',
+};
 
 // Canonical hash — sorted-key JSON of {policy_parameters, output_payload} (OCG §2/§6).
 const canon=v=>Array.isArray(v)?v.map(canon):(v&&typeof v==='object'?Object.keys(v).sort().reduce((o,k)=>(o[k]=canon(v[k]),o),{}):v);
@@ -326,6 +409,9 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-48-
     <div class="footer-cols">
       <div class="footer-col">
         <div class="footer-col-label">Platform</div>
+        <a href="../start.html">Start Here</a>
+        <a href="../front-to-back.html">Front-to-Back Prompts</a>
+        <a href="../prompts.html">Prompt Library</a>
         <a href="chaingraph-hub.html">ChainGraph Hub</a>
         <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
         <a href="openchain-graph-spec.html">Spec v0.8.13</a>
@@ -341,8 +427,10 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-48-
       <div class="footer-col">
         <div class="footer-col-label">Hubs</div>
         <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="visual-explainers-hub.html">Visual Explainers</a>
+        <a href="education-hub.html">Learn OpenChainGraph</a>
         <a href="../guides/web3-hub.html">Web3 Hub</a>
-        <a href="../guides/solana-hub.html">Solana</a>
+        <a href="../guides/canton-tmf-hub.html">Canton</a>
         <a href="../guides/ethereum-hub.html">Ethereum</a>
         <a href="../guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
         <a href="../guides/token-standards-hub.html">Token Standards</a>
@@ -356,6 +444,8 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-48-
         <div class="footer-col-label">Developers</div>
         <a href="../mcp.html">MCP Docs</a>
         <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../webmcp.html">WebMCP</a>
+        <a href="../mcp-benchmark.html">MCP Benchmark</a>
         <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
         <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
         <a href="../openapi.json" target="_blank">openapi.json</a>
@@ -363,6 +453,7 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-48-
         <a href="okf/index.md" target="_blank">OKF bundle</a>
         <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
         <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../verification-desk.html">Verification Desk</a>
         <a href="verify.html">Artifact Verifier</a>
         <a href="../ledger/index.html">Receipt Ledger</a>
       </div>
@@ -375,6 +466,8 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-48-
         <a href="../fv-explainer.html">FV Process Explainer</a>
         <a href="../errata.html">FV Errata</a>
         <a href="../suggest.html">Suggest</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="../privacy.html">Privacy</a>
         <a href="../contact.html">Contact</a>
         <a href="../sitemap.html">Sitemap</a>
         <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
