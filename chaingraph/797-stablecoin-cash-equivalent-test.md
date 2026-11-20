@@ -21,7 +21,6 @@ Applies the FASB proposed Update of 2026-08-18 (Statement of Cash Flows (Topic 2
     "original_maturity_days": 1,
     "token_label": "Digital Asset B",
     "redemption_fees_bp": 0,
-    "redemption_settlement_days": 0,
     "laws_prohibit_cash_equivalent_treatment": false
   }
 }
