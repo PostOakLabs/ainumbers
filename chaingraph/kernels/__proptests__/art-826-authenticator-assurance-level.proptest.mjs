@@ -1,5 +1,5 @@
 // art-826-authenticator-assurance-level.proptest.mjs — class-K property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
-// kernel_digest_at_authoring: sha256:753097999c8df944333000a9093ba2448c0aec45306ed0f6aa21d19d8f437227
+// kernel_digest_at_authoring: sha256:3ce0581c025cb13769f20057a204b52e32e89ea248a894eaa20276285ed886c5
 // human_sign_off: PENDING
 //
 // spec: research/AUTHENTICATOR-ASSURANCE-PIN-2026-10-30.md (criterion→source-section map for the
@@ -22,7 +22,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-826-authenticator-assurance-level.proptest.mjs
 
-import { compute } from '../art-826-authenticator-assurance-level.kernel.mjs';
+import { compute, buildArtifact } from '../art-826-authenticator-assurance-level.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32 } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-826-authenticator-assurance-level';
@@ -219,11 +219,11 @@ function checkP6_ulp_boundaries() {
     if (c.exceeded && !u) violations++;
     if (!c.exceeded && u) violations++;
   }
-  { // NaN session value coerces to found:null shortfall -- must still be a shortfall, never a pass
+  { // NaN is non-I-JSON: compute() refuses the whole input (D6), never coerces it into a shortfall
     const { output_payload, compliance_flags } = compute({ ...base, session: { reauth_interval_minutes: NaN, idle_timeout_minutes: 15 } });
     checked++;
-    if (!compliance_flags.includes('AAL_REAUTH_INTERVAL_EXCEEDED')) violations++;
-    if (!output_payload.unmet_criteria.some((x) => x.criterion === 'max_reauth_interval_minutes' && x.found === null)) violations++;
+    if (!compliance_flags.includes('AAL_INPUT_REFUSED')) violations++;
+    if (output_payload.meets_target !== false) violations++;
   }
   return { name: 'P6_ulp_interval_boundaries', checked, violations };
 }
@@ -253,9 +253,144 @@ function checkP7_vacuous_and_walkdown() {
   {
     const { output_payload } = compute({ ...pp, target_level: 'l0' });
     checked++;
-    if (output_payload.meets_target !== true || output_payload.achieved_level !== 'l0') violations++;
+    // B2: a no-criteria level is never vacuously met, and cannot be an achieved level.
+    if (output_payload.meets_target !== false || output_payload.achieved_level !== null) violations++;
   }
   return { name: 'P7_vacuous_and_walkdown', checked, violations };
+}
+
+// ---------- B1: any undecidable criterion blocks MET (and achieved level) ----------
+function checkP8_undecidableNeverMet() {
+  let violations = 0, checked = 0;
+  const oneLevel = (criterion) => ({
+    framework: { id: 'x', version: '1', levels: [{ level_id: 'l1', min_factors: 1, ...criterion }] },
+    target_level: 'l1',
+    authenticators: [{ kind: 'password', factor_kinds: ['knowledge'] }],
+  });
+  const cases = [
+    oneLevel({ phishing_resistant_required: 'yes' }),
+    oneLevel({ restricted_authenticator_kinds: 'password' }),
+    oneLevel({ required_factor_kinds: 'knowledge' }),
+  ];
+  for (const pp of cases) {
+    const { output_payload: o } = compute(pp);
+    checked++;
+    if (o.undecidable_count === 0) violations++;
+    if (o.meets_target !== false) violations++;
+    if (o.achieved_level !== null) violations++;
+  }
+  for (let i = 0; i < TRIALS; i++) {
+    const pp = randomPP(rand);
+    const idx = pp.framework.levels.findIndex((l) => l.level_id === pp.target_level);
+    pp.framework.levels[idx].phishing_resistant_required = 'yes';
+    const { output_payload: o } = compute(pp);
+    checked++;
+    if (o.undecidable_count > 0 && o.meets_target !== false) violations++;
+  }
+  return { name: 'P8_undecidable_never_met', checked, violations };
+}
+
+// ---------- B2: no criteria / no authenticators never meet a level ----------
+function checkP9_noVacuousMet() {
+  let violations = 0, checked = 0;
+  const pps = [
+    { framework: { id: 'x', version: '1', levels: [{ level_id: 'l0' }] }, target_level: 'l0', authenticators: [{ kind: 'password', factor_kinds: ['knowledge'] }] },
+    { framework: { id: 'x', version: '1', levels: [{ level_id: 'l0', min_factors: 1 }] }, target_level: 'l0', authenticators: [] },
+    { framework: { id: 'x', version: '1', levels: [{ level_id: 'l0', phishing_resistant_required: false }] }, target_level: 'l0', authenticators: [] },
+  ];
+  for (const pp of pps) {
+    const { output_payload: o } = compute(pp);
+    checked++;
+    if (o.meets_target !== false) violations++;
+    if (o.achieved_level !== null) violations++;
+  }
+  const wd = {
+    framework: { id: 'x', version: '1', levels: [{ level_id: 'low' }, { level_id: 'high', min_factors: 9 }] },
+    target_level: 'high',
+    authenticators: [{ kind: 'password', factor_kinds: ['knowledge'] }],
+  };
+  const { output_payload: o } = compute(wd);
+  checked++;
+  if (o.achieved_level !== null) violations++;
+  return { name: 'P9_no_vacuous_met', checked, violations };
+}
+
+// ---------- B3: thresholds and session values are strictly typed, never coerced ----------
+function checkP10_strictTypedThresholds() {
+  let violations = 0, checked = 0;
+  for (const bad of ['2', true, 1.5, [], -1, '30']) {
+    const pp = {
+      framework: { id: 'x', version: '1', levels: [{ level_id: 'l1', min_factors: bad }] },
+      target_level: 'l1',
+      authenticators: [{ kind: 'password', factor_kinds: ['knowledge'] }, { kind: 'otp_device', factor_kinds: ['possession'] }],
+    };
+    const { output_payload: o } = compute(pp);
+    checked++;
+    if (o.meets_target !== false || o.undecidable_count !== 1) violations++;
+  }
+  const badInterval = {
+    framework: { id: 'x', version: '1', levels: [{ level_id: 'l1', max_reauth_interval_minutes: '30' }] },
+    target_level: 'l1',
+    authenticators: [{ kind: 'password', factor_kinds: ['knowledge'] }],
+  };
+  {
+    const { output_payload: o } = compute(badInterval);
+    checked++;
+    if (o.meets_target !== false || o.undecidable_count !== 1) violations++;
+  }
+  for (const s of [{ reauth_interval_minutes: '5' }, { reauth_interval_minutes: true }, { reauth_interval_minutes: -1 }]) {
+    const pp = {
+      framework: { id: 'x', version: '1', levels: [{ level_id: 'l1', min_factors: 1, max_reauth_interval_minutes: 30 }] },
+      target_level: 'l1',
+      authenticators: [{ kind: 'password', factor_kinds: ['knowledge'] }],
+      session: s,
+    };
+    const { output_payload: o } = compute(pp);
+    checked++;
+    if (o.meets_target !== false) violations++;
+    if (!o.unmet_criteria.some((u) => u.criterion === 'max_reauth_interval_minutes')) violations++;
+  }
+  return { name: 'P10_strict_typed_thresholds', checked, violations };
+}
+
+// ---------- D6: buildArtifact never throws ----------
+async function checkP11_buildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const cleanPP = {
+    framework: { id: 'x', version: '1', levels: [{ level_id: 'l1', min_factors: 1 }] },
+    target_level: 'l1',
+    authenticators: [{ kind: 'password', factor_kinds: ['knowledge'] }],
+  };
+  const hostile = [
+    { zzz: 1e300 }, { zzz: Infinity }, { zzz: NaN }, { zzz: Number.MAX_SAFE_INTEGER + 2 },
+    { zzz: deep }, { zzz: wide },
+    { framework: { id: 'x', version: '1', levels: [{ level_id: 'l1', min_factors: 1e300 }] } },
+  ];
+  for (const delta of hostile) {
+    checked++;
+    const pp = { ...cleanPP, ...delta };
+    try {
+      const art = await buildArtifact(pp);
+      if (art.execution_hash !== null || !art.hash_refusal || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(art.hash_refusal.reason)) {
+        violations++; console.log('never-throw violation: hostile input did not mint hash_refusal: ' + Object.keys(delta)[0]);
+      }
+      if (compute(pp).output_payload.meets_target !== false) {
+        violations++; console.log('never-throw violation: compute accepted hostile input: ' + Object.keys(delta)[0]);
+      }
+    } catch (e) { violations++; console.log('never-throw violation: buildArtifact threw: ' + String(e.message).slice(0, 80)); }
+  }
+  for (const pp of [cleanPP, null, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) {
+        violations++; console.log('never-throw violation: clean input lost its hash');
+      }
+    } catch (e) { violations++; console.log('never-throw violation: buildArtifact threw on clean input: ' + String(e.message).slice(0, 80)); }
+  }
+  return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
 }
 
 // ---------- run ----------
@@ -273,6 +408,10 @@ const properties = [
   checkP5_restricted_differential(),
   checkP6_ulp_boundaries(),
   checkP7_vacuous_and_walkdown(),
+  checkP8_undecidableNeverMet(),
+  checkP9_noVacuousMet(),
+  checkP10_strictTypedThresholds(),
+  await checkP11_buildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test`);
 const ok = summarize(KERNEL_ID, oracle, properties);

@@ -108,7 +108,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 </style>
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-826-authenticator-assurance-level.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:753097999c8df944333000a9093ba2448c0aec45306ed0f6aa21d19d8f437227">
+<meta name="kernel-digest" content="sha256:3ce0581c025cb13769f20057a204b52e32e89ea248a894eaa20276285ed886c5">
 </head>
 <body>
 <nav>
@@ -369,6 +369,7 @@ async function computeExecHash(pp, op) {
 }
 
 function safe(v, d) { var n = Number(v); return Number.isFinite(n) ? n : d; }
+function sessNum(v) { return (typeof v === 'number' && Number.isFinite(v) && v >= 0) ? v : null; }
 function tv(id, d) { var el = document.getElementById(id); return el && el.value ? el.value : d; }
 function nv(id, d) { var el = document.getElementById(id); if (!el || el.value === '') return d; return safe(el.value, d); }
 
@@ -386,16 +387,20 @@ var CAPABILITY_CRITERIA = [
   ['dynamic_authentication_required', 'dynamic', 'AAL_DYNAMIC_AUTHENTICATION_MISSING']
 ];
 
-function numCrit(level, key) {
+function numCrit(level, key, integer) {
   if (level[key] === undefined || level[key] === null) return { present: false };
-  var n = Number(level[key]);
-  if (!Number.isFinite(n) || n < 0) return { present: true, ok: false };
-  return { present: true, ok: true, required: n };
+  var v = level[key];
+  if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) return { present: true, ok: false };
+  if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { present: true, ok: false };
+  if (integer && !Number.isSafeInteger(v)) return { present: true, ok: false };
+  return { present: true, ok: true, required: v };
 }
 function arrCrit(level, key) {
   if (level[key] === undefined || level[key] === null) return { present: false };
   if (!Array.isArray(level[key])) return { present: true, ok: false };
-  return { present: true, ok: true, required: level[key].filter(function(k){ return typeof k === 'string' && k; }) };
+  var raw = level[key];
+  for (var i = 0; i < raw.length; i++) if (typeof raw[i] !== 'string' || !raw[i]) return { present: true, ok: false };
+  return { present: true, ok: true, required: raw.slice() };
 }
 function boolCrit(level, key) {
   if (level[key] === undefined || level[key] === null) return { present: false };
@@ -420,7 +425,7 @@ function declaredFactorKinds(authenticators) {
 
 function evalLevel(level, authenticators, session, factorKinds) {
   var unmet = [], undecidable = [], flags = [];
-  var mf = numCrit(level, 'min_factors');
+  var mf = numCrit(level, 'min_factors', true);
   if (mf.present) {
     if (!mf.ok) undecidable.push({ criterion: 'min_factors', reason: 'min_factors is not a finite non-negative number: the definition cannot express the factor floor it is asking for' });
     else if (factorKinds.size < mf.required) { flags.push('AAL_FACTOR_COUNT_SHORT'); unmet.push({ criterion: 'min_factors', required: mf.required, found: factorKinds.size }); }
@@ -449,8 +454,7 @@ function evalLevel(level, authenticators, session, factorKinds) {
   if (mr.present) {
     if (!mr.ok) undecidable.push({ criterion: 'max_reauth_interval_minutes', reason: 'max_reauth_interval_minutes is not a finite non-negative number: the definition cannot express the interval ceiling it is asking for' });
     else {
-      var raw = s.reauth_interval_minutes;
-      var foundR = (raw === undefined || raw === null) ? null : safe(raw, null);
+      var foundR = sessNum(s.reauth_interval_minutes);
       if (foundR === null || foundR > mr.required) { flags.push('AAL_REAUTH_INTERVAL_EXCEEDED'); unmet.push({ criterion: 'max_reauth_interval_minutes', required: mr.required, found: foundR }); }
     }
   }
@@ -458,8 +462,7 @@ function evalLevel(level, authenticators, session, factorKinds) {
   if (mi.present) {
     if (!mi.ok) undecidable.push({ criterion: 'max_idle_minutes', reason: 'max_idle_minutes is not a finite non-negative number: the definition cannot express the idle ceiling it is asking for' });
     else {
-      var rawI = s.idle_timeout_minutes;
-      var foundI = (rawI === undefined || rawI === null) ? null : safe(rawI, null);
+      var foundI = sessNum(s.idle_timeout_minutes);
       if (foundI === null || foundI > mi.required) { flags.push('AAL_IDLE_TIMEOUT_EXCEEDED'); unmet.push({ criterion: 'max_idle_minutes', required: mi.required, found: foundI }); }
     }
   }
@@ -557,14 +560,13 @@ function runCombined() {
     var tr = evalLevel(levelsArr[targetIdx], auths, sess, fk);
     unmet = tr.unmet; undecidable = tr.undecidable; criteriaEvaluated = tr.criteria_evaluated; levelFlags = tr.flags;
     var decidableAtTarget = tr.criteria_evaluated - tr.undecidable.length;
-    targetMet = decidableAtTarget > 0 && unmet.length === 0;
-    if (tr.criteria_evaluated === 0) targetMet = true;
+    targetMet = decidableAtTarget > 0 && tr.undecidable.length === 0 && unmet.length === 0 && auths.length > 0;
     if (targetMet) { achievedLevel = targetLevel; }
     else {
       for (var d = targetIdx - 1; d >= 0; d--) {
         var rr = evalLevel(levelsArr[d], auths, sess, fk);
         var decidable = rr.criteria_evaluated - rr.undecidable.length;
-        var passes = rr.criteria_evaluated === 0 || (decidable > 0 && rr.unmet.length === 0);
+        var passes = decidable > 0 && rr.undecidable.length === 0 && rr.unmet.length === 0 && auths.length > 0;
         if (passes) { achievedLevel = levelsArr[d].level_id; break; }
       }
     }
