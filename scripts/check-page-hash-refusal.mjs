@@ -64,7 +64,7 @@
  *   --root <dir>    directory holding chaingraph/ (default: this repo; selftests use a fixture)
  *   --baseline <f>  baseline file (default: <root>/scripts/page-hash-refusal-baseline.json)
  *
- * Node built-ins only; no network, no randomness, no chaingraph.json read.
+ * Node built-ins only; no network, no randomness, no read of the chaingraph SSOT.
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
