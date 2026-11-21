@@ -264,6 +264,22 @@ return { exp: exp, log: log };
 // VERDICT — MATCHES | DIVERGES | INDETERMINATE. Structural refusals and a missing disclosed
 // figure are INDETERMINATE; a disclosed figure outside the band is DIVERGES; otherwise MATCHES.
 //
+// FAIL-CLOSED INPUT CONTRACT (missing-input cure): the manifest declares exactly two REQUIRED
+// fields — interest_earned and days_in_period. Each is refused (INDETERMINATE,
+// manual_review_required true, no computed number) when absent, null, an empty string or a
+// whitespace-only string: a blank required field is treated exactly as a missing one and never
+// produces a positive verdict. All other inputs are OPTIONAL by the node's own manifest contract:
+// accuracy_band_pp (including a versioned tuple with its value removed) intentionally retains its
+// documented 0.05pp default when absent, and an absent optional field behaves exactly as before —
+// the missing-input sweep's "band deleted still MATCHES" observation is the documented default,
+// not a fail-open, so it is not cured here.
+//
+// NEVER-THROW CONTRACT (D6-ANYKERNEL): buildArtifact() walks the {policy_parameters, output_payload}
+// preimage against the _hash.mjs limits (non-finite / unsafe-integer numbers, MAX_DEPTH,
+// MAX_ELEMENTS) before hashing. On a hit it returns a refusal artifact with execution_hash null
+// and a hash_refusal marker, never throwing. The normal path still uses executionHash() from
+// _hash.mjs; this file never hand-builds a canonical preimage.
+//
 // DETERMINISM: compute() is a PURE function of pp — no Date.now()/Math.random(), no network, no
 // filesystem. It runs unmodified inside the QuickJS-ng zkVM guest, where TextEncoder/atob/btoa/URL
 // are ALL ABSENT. This kernel is pure arithmetic over numbers and needs none of them. Math.pow is
@@ -284,6 +300,9 @@ const MAX_SEGMENTS_CEILING = 512;
 const MAX_BAND_PP_CEILING = 1;
 const DEFAULT_BAND_PP = 0.05;
 
+// Manifest inputSchema.required (manifests/663-apy-earned-recompute.manifest.json).
+const REQUIRED_FIELDS = ['interest_earned', 'days_in_period'];
+
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
   mcp_name: 'compute_apy_earned_recompute',
@@ -297,6 +316,15 @@ function isFiniteNumber(v) {
 
 function isFiniteInt(v) {
   return isFiniteNumber(v) && Math.floor(v) === v;
+}
+
+/** Blank and whitespace-only strings count as missing for required fields, same as absent/null. */
+function isBlank(v) {
+  return typeof v === 'string' && v.trim() === '';
+}
+
+function isPresentRequired(v) {
+  return v !== undefined && v !== null && !isBlank(v);
 }
 
 /**
@@ -338,18 +366,18 @@ export function compute(pp) {
 
   // ---- 1. Declared inputs --------------------------------------------------------------
   const interest = isFiniteNumber(pp.interest_earned) ? pp.interest_earned : null;
-  if (interest === null) {
+  if (!isPresentRequired(pp.interest_earned) || interest === null) {
     refuse('MISSING_INTEREST_EARNED',
-      'policy_parameters.interest_earned is absent or not a finite number. Interest actually earned for the period is a required input and is never defaulted.');
+      'policy_parameters.interest_earned is absent, null, blank or whitespace-only, or not a finite number. Interest actually earned for the period is a required input and is never defaulted.');
   } else if (interest < 0) {
     refuse('NEGATIVE_INTEREST_EARNED',
       'interest_earned ' + interest + ' is negative. The recompute domain is interest actually earned for the period (non-negative); a net-negative figure is held for review rather than fed into the formula.');
   }
 
   const days = isFiniteNumber(pp.days_in_period) ? pp.days_in_period : null;
-  if (days === null) {
+  if (!isPresentRequired(pp.days_in_period) || days === null) {
     refuse('MISSING_DAYS_IN_PERIOD',
-      'policy_parameters.days_in_period is absent or not a finite number. The actual number of days in the period is a required input and is never defaulted.');
+      'policy_parameters.days_in_period is absent, null, blank or whitespace-only, or not a finite number. The actual number of days in the period is a required input and is never defaulted.');
   } else if (!isFiniteInt(days)) {
     refuse('DAYS_NOT_INTEGER',
       'days_in_period ' + days + ' is not an integer. The period length is an actual day count.');
@@ -514,7 +542,61 @@ export function compute(pp) {
   };
 }
 
+// Mirrors _hash.mjs limits so buildArtifact never throws: non-finite number, unsafe integer,
+// nesting past MAX_DEPTH, more values than MAX_ELEMENTS. Reports path and kind only.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > HASH_MAX_DEPTH) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > HASH_MAX_ELEMENTS) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const unhashable = findHashRefusal(pp, 'pp', 1, { n: 0 });
+  if (unhashable !== null) {
+    return {
+      '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+      chaingraph_version: '0.4.0',
+      mandate_type: meta.mandate_type,
+      tool_id: TOOL_ID,
+      tool_version: TOOL_VERSION,
+      generated_at: now ?? null,
+      execution_hash: null,
+      hash_refusal: { reason: unhashable.reason, detail: unhashable.detail },
+      chain: { parent_hashes, parent_tool_ids, chain_depth },
+      policy_parameters: null,
+      output_payload: {
+        verdict: 'INDETERMINATE',
+        manual_review_required: true,
+        refusal: unhashable.reason,
+      },
+      compliance_flags: ['INPUT_REFUSED', 'APY_EARNED_RECOMPUTE_INDETERMINATE', 'MANUAL_REVIEW_REQUIRED'],
+      compute_mode: 'server',
+      compute_proof_ready: 'deferred',
+      audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+    };
+  }
   const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {

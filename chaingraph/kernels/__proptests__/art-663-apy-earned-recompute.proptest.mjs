@@ -5,7 +5,7 @@
 // MONEY and RATE AXES are continuous, so no totality claim is made over them. Properties below
 // run over a committed mulberry32 seed (deterministic) plus a fixed corpus of structural cases.
 //
-// kernel_digest_at_authoring: sha256:8f873b59228d5260e6aaaf4c82cf1f455e515ad601dd4133e74517741edd7608
+// kernel_digest_at_authoring: sha256:dde5c49b64af40bd9877ee9dc0ee23dfa58a463ababd68806a3928a8f382238c
 // spec: CORE-VERIFY-BUILD-SPEC.md section 4 (apy-earned-recompute), built to the pinned primary
 //   text (12 CFR part 1030 Appendix A Part II) rather than the spec's simple-annualization variant
 // human_sign_off: PENDING
@@ -17,7 +17,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { compute } from '../art-663-apy-earned-recompute.kernel.mjs';
+import { compute, buildArtifact } from '../art-663-apy-earned-recompute.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, findShapeViolations, runDiscoveryLeg } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-663-apy-earned-recompute';
@@ -228,6 +228,65 @@ function checkNastyLeg() {
   return { name: 'P9-nasty-substitutions-never-throw-or-shape-violate', checked: Object.keys(baseline).length * 10, violations: findings.length, detail: findings.map((f) => f.key + ': ' + f.outcome.kind) };
 }
 
+// P10 — FAIL-CLOSED REQUIRED FIELDS: every positive fixture vector with one REQUIRED field
+// deleted, nulled, emptied or whitespace-only must never stay positive (never MATCHES/DIVERGES).
+// Required set is the manifest inputSchema.required literal-read via the kernel's own property reads.
+function checkRequiredFieldsFailClosed() {
+  const required = ['interest_earned', 'days_in_period'];
+  let positives = 0, checked = 0, violations = 0;
+  const detail = [];
+  for (const vec of FIXTURES.vectors) {
+    let base;
+    try { base = compute(structuredClone(vec.policy_parameters)).output_payload; } catch { continue; }
+    if (base.verdict !== 'MATCHES' && base.verdict !== 'DIVERGES') continue;
+    positives++;
+    for (const f of required) {
+      for (const mode of ['delete', 'null', 'empty', 'blank']) {
+        const pp = structuredClone(vec.policy_parameters);
+        if (mode === 'delete') delete pp[f];
+        else pp[f] = mode === 'null' ? null : mode === 'empty' ? '' : '   ';
+        checked++;
+        const out = compute(pp).output_payload;
+        const staysPositive = out.verdict === 'MATCHES' || out.verdict === 'DIVERGES';
+        if (staysPositive || out.verdict !== 'INDETERMINATE' || out.manual_review_required !== true || out.apy_earned_computed !== null) {
+          violations++;
+          detail.push(vec.name + '.' + f + '.' + mode + ': ' + JSON.stringify({ verdict: out.verdict, manual: out.manual_review_required, computed: out.apy_earned_computed }));
+        }
+      }
+    }
+  }
+  if (positives === 0) violations++;
+  return { name: 'P10-required-field-blank-or-deleted-never-positive', checked, violations, detail: detail.slice(0, 10) };
+}
+
+// P11 — buildArtifact_never_throws: one case per unhashable class; each returns a refusal
+// artifact with execution_hash null and a hash_refusal marker, never an exception.
+async function checkBuildArtifactNeverThrows() {
+  let deep = {}; let cur = deep;
+  for (let i = 0; i < 511; i++) { cur.n = {}; cur = cur.n; }
+  const classes = [
+    ['junk_1e300', { interest_earned: 1e300 }],
+    ['nan', { interest_earned: NaN }],
+    ['neg_infinity', { interest_earned: -Infinity }],
+    ['depth_511', { interest_earned: 5.25, days_in_period: 30, average_daily_balance: deep }],
+    ['over_1e6_values', { interest_earned: 5.25, days_in_period: 30, average_daily_balance: new Array(1000001).fill(0) }],
+  ];
+  let violations = 0;
+  const rows = [];
+  for (const [label, pp] of classes) {
+    try {
+      const art = await buildArtifact(pp);
+      const ok = art.execution_hash === null && art.hash_refusal && typeof art.hash_refusal.reason === 'string';
+      if (!ok) violations++;
+      rows.push({ label, refused: !!ok });
+    } catch (e) {
+      violations++;
+      rows.push({ label, threw: String(e && e.message).slice(0, 120) });
+    }
+  }
+  return { name: 'buildArtifact_never_throws', checked: classes.length, violations, rows };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -245,6 +304,8 @@ const properties = [
   checkIndependentOracles(),
   checkReachability(),
   checkNastyLeg(),
+  checkRequiredFieldsFailClosed(),
+  await checkBuildArtifactNeverThrows(),
 ];
 console.log('[' + KERNEL_ID + '] class-K floor property test — APY-earned recompute (Core Output Verification pack).');
 const ok = summarize(KERNEL_ID, oracle, properties);
