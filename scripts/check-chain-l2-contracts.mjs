@@ -98,6 +98,7 @@ import { readFileSync, existsSync, readdirSync, writeFileSync } from 'node:fs';
 import { resolve, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
+import { derivedResolve } from './_derived-resolve-lib.mjs';
 import {
   typesCompatible, schemaFromProperties, induceSchema, chainsContainingBothEndpoints,
 } from './check-chain-edge-contracts.mjs';
@@ -1038,7 +1039,9 @@ function computeTargetSet(l1Report) {
 }
 
 function loadEstate(root) {
-  const cgPath = resolve(root, 'chaingraph/chaingraph.json');
+  // DERIVED-READER-BURNDOWN-CHAIN-L2-CONTRACTS-1: read the monolith through derivedResolve so the
+  // merge_group queue judges the assembled tree (DERIVED_ROOT); unset, it is the committed file.
+  const cgPath = derivedResolve('chaingraph', 'chaingraph.json');
   const raw = readFileSync(cgPath, 'utf8');
   const cg = JSON.parse(raw);
 
