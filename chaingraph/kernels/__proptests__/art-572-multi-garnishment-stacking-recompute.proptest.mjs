@@ -1,6 +1,6 @@
 // art-572-multi-garnishment-stacking-recompute.proptest.mjs -- FV property-test FLOOR
 // (FV-PROPFLOOR-SHARD-C29-1).
-// kernel_digest_at_authoring: sha256:40566c4874e0229d5ecd0a9656e3643dfaabfb3bfdc79ddc78a332d900bec3bf
+// kernel_digest_at_authoring: sha256:8c136d165c60f037c99acb56b103c599d56337090c9d99a2e14739af14ff7a0c
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md Sec3, class C). NOT a proof, NOT Dafny.
@@ -18,7 +18,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-572-multi-garnishment-stacking-recompute.proptest.mjs
 
-import { compute } from '../art-572-multi-garnishment-stacking-recompute.kernel.mjs';
+import { compute, buildArtifact } from '../art-572-multi-garnishment-stacking-recompute.kernel.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -181,6 +181,65 @@ function checkP4_conservation_identity() {
   return { name: 'P4_withheld_plus_net_equals_disposable_conservation', trials: checked, violations };
 }
 
+// ---------- P6: fail-closed -- every required field deleted, nulled, empty or whitespace-only on a positive vector never stays positive ----------
+function checkP6_required_field_never_positive() {
+  const fixtures = JSON.parse(readFileSync(path.join(__dirname, '..', 'fixtures', 'art-572-multi-garnishment-stacking-recompute.fixtures.json'), 'utf8'));
+  const required = ['currency', 'employee_ref', 'gross_minor_units', 'orders', 'period_label'];
+  // These five have a defined no-value behavior: absent and null stay identical (R4 ratchet), so
+  // only the empty-string and whitespace-only forms are asserted to fail closed here.
+  const blankOnly = ['federal_minimum_wage_dated', 'federal_minimum_wage_minor_units', 'legally_required_deductions', 'noticed_amounts', 'state_overlay'];
+  const positive = new Set(['MATCHES', 'RECONCILED', 'CONSISTENT', 'VERIFIED']);
+  let violations = 0, checked = 0, positives = 0;
+  for (const vec of fixtures.vectors) {
+    if (!positive.has(compute(vec.policy_parameters).output_payload.verdict)) continue;
+    positives++;
+    for (const f of required) {
+      for (const mode of ['delete', 'null', 'empty', 'blank']) {
+        const pp = JSON.parse(JSON.stringify(vec.policy_parameters));
+        if (mode === 'delete') {
+          if (!(f in pp)) continue;
+          delete pp[f];
+        } else pp[f] = mode === 'null' ? null : mode === 'empty' ? '' : '   ';
+        checked++;
+        if (positive.has(compute(pp).output_payload.verdict)) violations++;
+      }
+    }
+    for (const f of blankOnly) {
+      for (const value of ['', '   ']) {
+        const pp = JSON.parse(JSON.stringify(vec.policy_parameters));
+        pp[f] = value;
+        checked++;
+        if (positive.has(compute(pp).output_payload.verdict)) violations++;
+      }
+    }
+  }
+  if (positives === 0) violations++;
+  return { name: 'P6_required_field_never_positive', positive_base_vectors: positives, trials: checked, violations };
+}
+
+// ---------- P5: buildArtifact_never_throws -- one fixture per unhashable class ----------
+async function checkP5_buildArtifactNeverThrows() {
+  let deep = {}; let cur = deep;
+  for (let i = 0; i < 511; i++) { cur.n = {}; cur = cur.n; }
+  const classes = [
+    ['junk_1e300', { employee_ref: 1e300 }],
+    ['nan', { employee_ref: NaN }],
+    ['neg_infinity', { employee_ref: -Infinity }],
+    ['depth_511', { employee_ref: deep }],
+    ['over_1e6_values', { employee_ref: new Array(1000001).fill(0) }],
+  ];
+  let violations = 0; const rows = [];
+  for (const [label, pp] of classes) {
+    try {
+      const a = await buildArtifact(pp);
+      const ok = a.execution_hash === null && a.hash_refusal && typeof a.hash_refusal.reason === 'string';
+      if (!ok) violations++;
+      rows.push({ label, refused: !!ok });
+    } catch (e) { violations++; rows.push({ label, threw: String(e && e.message).slice(0, 80) }); }
+  }
+  return { name: 'buildArtifact_never_throws', trials: classes.length, violations, rows };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -192,6 +251,8 @@ results.properties.push(checkP1_termination_bounded());
 results.properties.push(checkP2_cap_and_withhold_differential());
 results.properties.push(checkP3_ulp_boundary_forcing());
 results.properties.push(checkP4_conservation_identity());
+results.properties.push(checkP6_required_field_never_positive());
+results.properties.push(await checkP5_buildArtifactNeverThrows());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
