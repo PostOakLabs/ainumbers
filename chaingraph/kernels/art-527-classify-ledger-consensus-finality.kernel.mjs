@@ -149,11 +149,14 @@ function classifyFederatedBft(pp, compliance_flags, rationale) {
 }
 
 function classifyAlpenglow(pp, compliance_flags, rationale) {
-  const observed_epoch = num(pp.observed_epoch);
-  const observed_slot = num(pp.observed_slot);
-  const notarize_stake_pct = num(pp.notarize_stake_pct);
-  const finalize_stake_pct = num(pp.finalize_stake_pct);
-  const skip_stake_pct = num(pp.skip_stake_pct);
+  // Each of these is an optional caller fact: the null coalesce evidences absence to the input-schema
+  // derivation. The profile classifies a missing fact (assumption flag or pending outcome); it never
+  // fails closed on a missing optional.
+  const observed_epoch = num(pp.observed_epoch ?? null);
+  const observed_slot = num(pp.observed_slot ?? null);
+  const notarize_stake_pct = num(pp.notarize_stake_pct ?? null);
+  const finalize_stake_pct = num(pp.finalize_stake_pct ?? null);
+  const skip_stake_pct = num(pp.skip_stake_pct ?? null);
 
   // A stake percentage outside 0..100 is a malformed fact, same treatment as absent: the kernel
   // never invents a certificate from malformed input.

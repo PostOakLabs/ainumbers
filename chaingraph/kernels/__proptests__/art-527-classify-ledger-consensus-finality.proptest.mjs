@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:01febfc0bb85779062555aee99bc1993cfeef6c88fe91195a46bc7c638fdce52
+// kernel_digest_at_authoring: sha256:5a9efc576268ad97ddbeaec163d8b676479d3c15a446edd4a00bc0143fcadb98
 //
 // FV-PROPFLOOR-SHARD-B26-1 — property-test floor for art-527-classify-ledger-consensus-finality.
 // Class B (bounded-categorical), FLOAT:NO per the WU row — outcome is a terminal-branch enum
