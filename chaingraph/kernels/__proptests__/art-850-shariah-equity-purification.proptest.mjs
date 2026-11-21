@@ -1,5 +1,5 @@
 // art-850-shariah-equity-purification — class-K property-test floor.
-// kernel_digest_at_authoring: sha256:ef2f5b48d9a4910fc25797a4cb7e734234e70b43d2f2463a24f44f5db74022db
+// kernel_digest_at_authoring: sha256:336124b662d60c3873eba0e3d9aabc4159b16ea3668b54a2c005d5c7b4f35d68
 // spec: research/ISLAMIC-FINANCE-BUILD-SPEC-2026-11.md §5 node D (row ISLAMIC-EQUITY-SCREEN-1)
 // human_sign_off: PENDING
 //
