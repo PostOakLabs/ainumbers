@@ -247,13 +247,17 @@ function compute(pp){
   if(variable)flags.push('VARIABLE_RATE_APPLIED');
   var settlement=null;
   if(v.settlement!==null){
-    var r=schedule[v.settlement-1],deferred=BigInt(r.deferred_profit_minor),permitted=v.charges.reduce(function(a,c){return a+BigInt(c.amount_minor);},0n),ibra=deferred-permitted,due=v.due===null?0n:BigInt(v.due),late=v.late===null?0n:BigInt(v.late),amount=BigInt(r.outstanding_selling_price_minor)+due+late-ibra;
+    var r=schedule[v.settlement-1],deferred=BigInt(r.deferred_profit_minor),permitted=v.charges.reduce(function(a,c){return a+BigInt(c.amount_minor);},0n);
+    if(permitted>deferred)return refusedResult(['REFUSED_CHARGES_EXCEED_DEFERRED_PROFIT: permitted recovery costs exceed the deferred profit at the settlement point'],v.refusedChargeCodes);
+    var ibra=deferred-permitted,due=v.due===null?0n:BigInt(v.due),late=v.late===null?0n:BigInt(v.late),amount=BigInt(r.outstanding_selling_price_minor)+due+late-ibra;
     settlement={settlement_month:v.settlement,outstanding_selling_price_minor:r.outstanding_selling_price_minor,outstanding_cop_minor:r.outstanding_cop_minor,deferred_profit_minor:Number(deferred),ibra_minor:Number(ibra),permitted_charges_minor:Number(permitted),charges_applied:v.charges,instalment_due_minor:Number(due),late_payment_minor:Number(late),settlement_amount_minor:Number(amount)};
     flags.push('EARLY_SETTLEMENT_APPLIED');if(late>0n)flags.push('LATE_PAYMENT_PASSTHROUGH');
   }
   var nonDelivery=null;
   if(v.nonDelivery!==null){
-    var at=schedule[v.nonDelivery.first-1],row2=schedule[v.settlement-1],und=BigInt(v.nonDelivery.und),def2=BigInt(row2.deferred_profit_minor),permitted2=v.charges.reduce(function(a,c){return a+BigInt(c.amount_minor);},0n),waived=accrued-BigInt(at.profit_minor),ibra2=def2+und-permitted2,due2=v.due===null?0n:BigInt(v.due),late2=v.late===null?0n:BigInt(v.late),amount2=BigInt(row2.outstanding_selling_price_minor)+due2+late2-ibra2;
+    var at=schedule[v.nonDelivery.first-1],row2=schedule[v.settlement-1],und=BigInt(v.nonDelivery.und),def2=BigInt(row2.deferred_profit_minor),permitted2=v.charges.reduce(function(a,c){return a+BigInt(c.amount_minor);},0n);
+    if(permitted2>def2+und)return refusedResult(['REFUSED_CHARGES_EXCEED_DEFERRED_PROFIT: permitted recovery costs exceed the rebate available on settlement'],v.refusedChargeCodes);
+    var waived=accrued-BigInt(at.profit_minor>0?at.profit_minor:0),ibra2=def2+und-permitted2,due2=v.due===null?0n:BigInt(v.due),late2=v.late===null?0n:BigInt(v.late),amount2=BigInt(row2.outstanding_selling_price_minor)+due2+late2-ibra2;
     nonDelivery={first_sign_month:v.nonDelivery.first,undisbursed_principal_minor:Number(und),profit_accrued_to_first_sign_minor:at.profit_minor,profit_waived_minor:Number(waived<0n?0n:waived),ibra_on_undisbursed_minor:Number(und),ibra_on_deferred_profit_minor:Number(def2),ibra_total_minor:Number(ibra2),settlement_amount_minor:Number(amount2)};
     flags.push('NON_DELIVERY_APPLIED');
   }
