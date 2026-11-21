@@ -117,7 +117,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 </style>
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-584-proof-of-reserves-verifier.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:852795237d7839b503e955db5db49f8d87ff6dc9edeb5a31687fca2e6f660b66">
+<meta name="kernel-digest" content="sha256:a520181a18f687b07cce4f7425b1604a49251cc0730721086ed86302f3934cf4">
 </head>
 <body>
 <nav>
@@ -369,7 +369,16 @@ const NOT_PROVEN = [
   { item: 'PCAOB audit opinion', detail: 'This tool performs no audit and carries no PCAOB or other audit-firm opinion; it is a cryptographic consistency check only.' },
 ];
 
+const REQUIRED_FIELDS = ['reserve_proof', 'liability_branch', 'published_reserve_figures'];
+function isFilled(v) { return v != null && !(typeof v === 'string' && v.trim() === ''); }
+function requiredFieldPresent(f, v) {
+  if (!isFilled(v)) return false;
+  if (f === 'published_reserve_figures' && !isFilled(v.total_reserves_usd)) return false;
+  return true;
+}
+
 function compute(pp) {
+  pp = pp || {};
   const reserveProofRaw = pp.reserve_proof ?? null;
   const liabilityBranchRaw = pp.liability_branch ?? null;
   const publishedFigures = pp.published_reserve_figures ?? null;
@@ -444,7 +453,21 @@ function compute(pp) {
   else if (verdicts.includes('INDETERMINATE')) overall_determination = 'INDETERMINATE';
   else overall_determination = 'CONSISTENT';
 
+  const missing_required_fields = REQUIRED_FIELDS.filter((f) => !requiredFieldPresent(f, pp[f]));
+  const wrongTypeRequired = REQUIRED_FIELDS.some((f) => { const v = pp[f]; return v != null && (typeof v !== 'object' || Array.isArray(v)); });
+  const failClosed = wrongTypeRequired || (missing_required_fields.length > 0 && overall_determination !== 'INCONSISTENT');
+  if (failClosed) {
+    overall_determination = 'INDETERMINATE';
+    for (const f of findings) {
+      if (f.verdict === 'CONSISTENT' || f.verdict === 'INCONSISTENT') {
+        f.verdict = 'INDETERMINATE';
+        f.detail += ' Determination withheld: required input(s) missing or blank (' + missing_required_fields.join(', ') + ').';
+      }
+    }
+  }
+
   const compliance_flags = [];
+  if (failClosed) compliance_flags.push('INPUT_MISSING_INDETERMINATE');
   if (overall_determination === 'INCONSISTENT') compliance_flags.push('POR_INCONSISTENT');
   if (overall_determination === 'INDETERMINATE') compliance_flags.push('POR_INDETERMINATE');
   if (inclusionVerdict === 'INCONSISTENT') compliance_flags.push('RESERVE_INCLUSION_MISMATCH');
@@ -461,6 +484,7 @@ function compute(pp) {
     determination_note: 'Verdict language describes internal consistency of the published PoR data only, never a solvency claim or an audit opinion. The truth of the underlying published figures is the attestor\'s responsibility.',
     regulatory_framework: 'Voluntary Merkle-sum PoR attestation (Summa report structure); not a GENIUS Act §4 filing (see art-582/art-275/art-06) and not a PCAOB audit.',
   };
+  if (failClosed) output_payload.missing_required_fields = missing_required_fields;
   return { output_payload, compliance_flags };
 }
 

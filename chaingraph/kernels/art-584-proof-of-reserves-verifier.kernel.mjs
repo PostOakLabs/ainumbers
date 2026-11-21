@@ -38,6 +38,17 @@
 // truthful, or that the liability set is complete. The data's truth is the
 // attestor's problem; this kernel only checks internal consistency of what
 // was published.
+//
+// CURE (fail-closed): the three top-level inputs (reserve_proof,
+// liability_branch, published_reserve_figures) are required for a
+// determination. A missing, null, empty or whitespace-only required input is
+// never evidence of consistency: when one is absent and no INCONSISTENT
+// finding was reached, the determination is withheld as INDETERMINATE (never
+// CONSISTENT), every CONSISTENT sub-check is demoted, and the missing fields
+// are named. Empty/whitespace-only strings count as missing. buildArtifact
+// never throws: an unhashable input (non-finite or unsafe integer, nesting or
+// size past the _hash.mjs limits) returns a refusal artifact with
+// execution_hash null plus hash_refusal instead of throwing.
 
 import { executionHash } from './_hash.mjs';
 
@@ -51,6 +62,18 @@ export const meta = {
   mandate_type: 'compliance_mandate',
   gpu: false,
 };
+
+// ── required inputs (fail-closed) ──────────────────────────────────────────
+// The three top-level objects are required for a determination. Empty and
+// whitespace-only strings are treated exactly as missing. The optional
+// published-figure labels (as_of, source) are NOT required and are skipped.
+const REQUIRED_FIELDS = ['reserve_proof', 'liability_branch', 'published_reserve_figures'];
+function isFilled(v) { return v != null && !(typeof v === 'string' && v.trim() === ''); }
+function requiredFieldPresent(f, v) {
+  if (!isFilled(v)) return false;
+  if (f === 'published_reserve_figures' && !isFilled(v.total_reserves_usd)) return false;
+  return true;
+}
 
 // ── bounded-input limits (exec-check-friendly, art-201 lesson) ──────────
 const MAX_PATH_DEPTH = 40; // log2(N) for N up to ~1 trillion leaves; hard ceiling
@@ -207,6 +230,7 @@ const NOT_PROVEN = [
  * }
  */
 export function compute(pp) {
+  pp = pp || {};
   const reserveProofRaw = pp.reserve_proof ?? null;
   const liabilityBranchRaw = pp.liability_branch ?? null;
   const publishedFigures = pp.published_reserve_figures ?? null;
@@ -318,7 +342,31 @@ export function compute(pp) {
   else if (verdicts.includes('INDETERMINATE')) overall_determination = 'INDETERMINATE';
   else overall_determination = 'CONSISTENT';
 
+  // Fail-closed: a required input that is absent, null, empty or whitespace-only
+  // is not evidence of consistency. Withhold the determination unless a real
+  // INCONSISTENT was independently reached (that finding still stands).
+  const missing_required_fields = REQUIRED_FIELDS.filter((f) => !requiredFieldPresent(f, pp[f]));
+  // A required field supplied with the wrong shape (including an empty or
+  // whitespace-only string) is garbage evidence: it can drive a spurious
+  // INCONSISTENT below, so it always refuses. A merely absent/null required
+  // field keeps a real, independently reached INCONSISTENT finding standing.
+  const wrongTypeRequired = REQUIRED_FIELDS.some((f) => {
+    const v = pp[f];
+    return v != null && (typeof v !== 'object' || Array.isArray(v));
+  });
+  const failClosed = wrongTypeRequired || (missing_required_fields.length > 0 && overall_determination !== 'INCONSISTENT');
+  if (failClosed) {
+    overall_determination = 'INDETERMINATE';
+    for (const f of findings) {
+      if (f.verdict === 'CONSISTENT' || f.verdict === 'INCONSISTENT') {
+        f.verdict = 'INDETERMINATE';
+        f.detail += ` Determination withheld: required input(s) missing or blank (${missing_required_fields.join(', ')}).`;
+      }
+    }
+  }
+
   const compliance_flags = [];
+  if (failClosed) compliance_flags.push('INPUT_MISSING_INDETERMINATE');
   if (overall_determination === 'INCONSISTENT') compliance_flags.push('POR_INCONSISTENT');
   if (overall_determination === 'INDETERMINATE') compliance_flags.push('POR_INDETERMINATE');
   if (inclusionVerdict === 'INCONSISTENT') compliance_flags.push('RESERVE_INCLUSION_MISMATCH');
@@ -340,10 +388,62 @@ export function compute(pp) {
     regulatory_framework: 'Voluntary Merkle-sum PoR attestation (Summa report structure); not a GENIUS Act §4 filing (see art-582/art-275/art-06) and not a PCAOB audit.',
   };
 
+  if (failClosed) output_payload.missing_required_fields = missing_required_fields;
+
   return { output_payload, compliance_flags };
 }
 
+// Mirrors _hash.mjs limits so buildArtifact never throws: non-finite number,
+// unsafe integer, nesting past MAX_DEPTH, more values than MAX_ELEMENTS.
+// Reports path and kind only, never the offending value.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > HASH_MAX_DEPTH) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > HASH_MAX_ELEMENTS) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const unhashable = findHashRefusal(pp, 'pp', 1, { n: 0 });
+  if (unhashable !== null) {
+    return {
+      '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+      chaingraph_version: '0.4.0',
+      mandate_type: meta.mandate_type,
+      tool_id: TOOL_ID,
+      tool_version: TOOL_VERSION,
+      generated_at: now ?? null,
+      execution_hash: null,
+      hash_refusal: { reason: unhashable.reason, detail: unhashable.detail },
+      chain: { parent_hashes, parent_tool_ids, chain_depth },
+      policy_parameters: null,
+      output_payload: { overall_determination: 'INDETERMINATE', findings: [], refusal: unhashable.reason },
+      compliance_flags: ['INPUT_REFUSED'],
+      compute_mode: 'server',
+      audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+    };
+  }
   const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {

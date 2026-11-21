@@ -1,5 +1,5 @@
 // art-584-proof-of-reserves-verifier.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C30-1).
-// kernel_digest_at_authoring: sha256:852795237d7839b503e955db5db49f8d87ff6dc9edeb5a31687fca2e6f660b66
+// kernel_digest_at_authoring: sha256:a520181a18f687b07cce4f7425b1604a49251cc0730721086ed86302f3934cf4
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -13,34 +13,33 @@
 // caller-declared `Number(v)` with no integer coercion and no sign restriction, so this is a
 // continuous, unbounded, signed-float computation feeding a real decision boundary. ULP-boundary
 // forcing is mandatory per spec §3 and is provided below (P5).
-// Checks: fixture-oracle gate, termination/boundedness (P1: both Merkle-sum walks are capped at
-// MAX_PATH_DEPTH=40, INDETERMINATE beyond it -- a hard structural bound on the otherwise-unbounded
-// path array), a differential re-derivation of the Merkle-sum leaf/combine hash construction and the
-// coverage-ratio arithmetic against an INDEPENDENT SHA-256 reimplementation via node:crypto (P3: this
-// is the strongest form of differential check in this shard — a genuinely separate cryptographic
-// implementation, not merely a re-derived formula), a determinism metamorphic identity (P4: calling
-// compute() twice on identical inputs is byte-for-byte identical — the kernel is explicitly
-// deterministic-only, no clock/randomness/network), and mandatory ULP-boundary forcing on the
-// COVERAGE_TOLERANCE_PCT=0.01 delta-pct boundary, the reserveSum===0 special case, negative and
-// negative-zero leaf sums, and a denormal leaf sum (P5).
-// Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled; node:crypto
-// used ONLY for the independent P3 reimplementation's SHA-256, never imported by the kernel itself,
-// which inlines its own pure-JS SHA-256 for zkVM-guest compatibility per its own header comment).
+//
+// KERNEL-FAILOPEN-P3-ART584-1 amendment: the three top-level inputs (reserve_proof,
+// liability_branch, published_reserve_figures) are now REQUIRED. Positive-path properties
+// therefore build FULL inputs (all three present, published figure matching the recomputed
+// reserve sum). P6 proves buildArtifact never throws on junk (D6-ANYKERNEL-1115); P7 mutates
+// each required field of every positive vector to delete / null / '' / '   ' and asserts the
+// determination is never positive, at the overall level or any finding level.
+//
+// Checks: fixture-oracle gate, termination/boundedness (P1), differential re-derivation against
+// an independent node:crypto SHA-256 (P3), determinism (P4), ULP-boundary forcing (P5),
+// buildArtifact_never_throws (P6), required_fields_never_positive (P7).
+// Zero external dependencies — pure Node built-ins only.
 //
 // Run: node chaingraph/kernels/__proptests__/art-584-proof-of-reserves-verifier.proptest.mjs
 
-import { compute } from '../art-584-proof-of-reserves-verifier.kernel.mjs';
+import { compute, buildArtifact } from '../art-584-proof-of-reserves-verifier.kernel.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const FIXTURES_PATH = path.join(__dirname, '..', 'fixtures', 'art-584-proof-of-reserves-verifier.fixtures.json');
 const results = { fixture_oracle: null, properties: [] };
 
 function runFixtureOracle() {
-  const fixturesPath = path.join(__dirname, '..', 'fixtures', 'art-584-proof-of-reserves-verifier.fixtures.json');
-  const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
+  const fixtures = JSON.parse(readFileSync(FIXTURES_PATH, 'utf8'));
   const failures = [];
   for (const vec of fixtures.vectors) {
     const { output_payload } = compute(vec.policy_parameters);
@@ -77,9 +76,6 @@ function walkPath(leaf, path) {
   return current;
 }
 
-// Build a genuinely VALID (CONSISTENT) reserve_proof / liability_branch by walking the same
-// construction forward, so property tests exercise the real hash-matching path rather than only the
-// trivially-INDETERMINATE/missing-input path.
 function buildValidProof(rng, label, leafSum, depth) {
   let current = leafNode(label, leafSum);
   const path = [];
@@ -93,42 +89,54 @@ function buildValidProof(rng, label, leafSum, depth) {
   return { path, root: { hash: current.hash, sum: current.sum } };
 }
 
-function randomPP(rng) {
-  const reserveLeaf = Math.floor(rng() * 1_000_000);
-  const liabilityLeaf = Math.floor(rng() * 1_000_000);
-  const depth = Math.floor(rng() * 6);
+function validLiability(rng, leafSum) {
+  const p = buildValidProof(rng, 'liab-branch', leafSum, Math.floor(rng() * 6));
+  return { leaf_label: 'liab-branch', leaf_sum: leafSum, path: p.path, root: p.root };
+}
+
+// Full input: all three required fields present, published figure equal to the recomputed
+// reserve root sum (delta 0) so the positive path is exercised without a tolerance trip.
+function fullPP(rng, reserveLeaf, liabilityLeaf, depth) {
   const reserveProof = buildValidProof(rng, 'user-1', reserveLeaf, depth);
-  const liabilityBranch = buildValidProof(rng, 'liab-branch', liabilityLeaf, depth);
   return {
     reserve_proof: { leaf_user_id_hash: 'user-1', leaf_balance: reserveLeaf, path: reserveProof.path, root: reserveProof.root },
-    liability_branch: { leaf_label: 'liab-branch', leaf_sum: liabilityLeaf, path: liabilityBranch.path, root: liabilityBranch.root },
-    published_reserve_figures: rng() < 0.7 ? { total_reserves_usd: reserveProof.root.sum + (Math.floor(rng() * 200) - 100), as_of: '2026-08-01', source: 'synthetic' } : null,
+    liability_branch: validLiability(rng, liabilityLeaf),
+    published_reserve_figures: { total_reserves_usd: reserveProof.root.sum, as_of: '2026-08-01', source: 'synthetic' },
   };
+}
+
+function randomPP(rng) {
+  return fullPP(rng, Math.floor(rng() * 1_000_000), Math.floor(rng() * 1_000_000), Math.floor(rng() * 6));
 }
 
 const TRIALS = 1200;
 
-// ---------- P1: termination/boundedness — MAX_PATH_DEPTH=40 hard cap, INDETERMINATE beyond it ----------
+// ---------- P1: termination/boundedness — MAX_PATH_DEPTH=40 hard cap ----------
 function checkP1_boundedness() {
   let violations = 0, checked = 0;
   for (let i = 0; i < 800; i++) {
-    const pp = randomPP(rand);
-    const { output_payload: o } = compute(pp);
+    const { output_payload: o } = compute(randomPP(rand));
     checked++;
     if (o.coverage_ratio_pct !== null && !Number.isFinite(o.coverage_ratio_pct)) violations++;
   }
-  // Forced over-depth probe: 41 path steps must be rejected as INDETERMINATE, never processed.
   {
     const proof = buildValidProof(rand, 'x', 100, 41);
-    const pp = { reserve_proof: { leaf_user_id_hash: 'x', leaf_balance: 100, path: proof.path, root: proof.root } };
+    const pp = {
+      reserve_proof: { leaf_user_id_hash: 'x', leaf_balance: 100, path: proof.path, root: proof.root },
+      liability_branch: validLiability(rand, 100),
+      published_reserve_figures: { total_reserves_usd: proof.root.sum, as_of: 'x', source: 'x' },
+    };
     const { output_payload: o } = compute(pp);
     checked++;
     if (o.findings[0].verdict !== 'INDETERMINATE') violations++;
   }
-  // Exactly at the cap (40) must be processed, not rejected.
   {
     const proof = buildValidProof(rand, 'x', 100, 40);
-    const pp = { reserve_proof: { leaf_user_id_hash: 'x', leaf_balance: 100, path: proof.path, root: proof.root } };
+    const pp = {
+      reserve_proof: { leaf_user_id_hash: 'x', leaf_balance: 100, path: proof.path, root: proof.root },
+      liability_branch: validLiability(rand, 100),
+      published_reserve_figures: { total_reserves_usd: proof.root.sum, as_of: 'x', source: 'x' },
+    };
     const { output_payload: o } = compute(pp);
     checked++;
     if (o.findings[0].verdict !== 'CONSISTENT') violations++;
@@ -136,7 +144,7 @@ function checkP1_boundedness() {
   return { name: 'P1_termination_max_path_depth_boundary', trials: checked, violations };
 }
 
-// ---------- P3: differential — Merkle-sum construction + coverage ratio vs an independent node:crypto SHA-256 reimplementation ----------
+// ---------- P3: differential vs independent node:crypto SHA-256 ----------
 function checkP3_differential() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
@@ -156,7 +164,7 @@ function checkP3_differential() {
   return { name: 'P3_merkle_construction_and_coverage_ratio_differential', trials: checked, violations };
 }
 
-// ---------- P4: metamorphic — determinism (identical inputs -> byte-identical output) ----------
+// ---------- P4: determinism ----------
 function checkP4_determinism() {
   let violations = 0, checked = 0;
   for (let i = 0; i < 500; i++) {
@@ -169,7 +177,7 @@ function checkP4_determinism() {
   return { name: 'P4_determinism_identical_inputs', trials: checked, violations };
 }
 
-// ---------- P5: ULP-boundary forcing (mandatory, float_sensitive: yes — corrected classification) ----------
+// ---------- P5: ULP-boundary forcing ----------
 function checkP5_ulp_forcing() {
   let violations = 0, checked = 0;
   function makeSingleLeafProofs(reserveSum, liabilitySum) {
@@ -178,11 +186,9 @@ function checkP5_ulp_forcing() {
     return {
       reserve_proof: { leaf_user_id_hash: 'r', leaf_balance: reserveSum, path: [], root: { hash: rLeaf.hash, sum: rLeaf.sum } },
       liability_branch: { leaf_label: 'l', leaf_sum: liabilitySum, path: [], root: { hash: lLeaf.hash, sum: lLeaf.sum } },
+      published_reserve_figures: { total_reserves_usd: reserveSum, as_of: '2026-08-01', source: 'x' },
     };
   }
-  // (a) delta_pct exactly at the 0.01 tolerance boundary, and just inside/outside, against
-  // reserveSum=1,000,000: delta=100 -> deltaPct=0.01 exactly (boundary, inclusive); delta=101 ->
-  // 0.0101 (exceeds); delta=99 -> 0.0099 (within).
   for (const published of [1_000_100, 1_000_101, 1_000_099]) {
     const base = makeSingleLeafProofs(1_000_000, 500_000);
     const pp = { ...base, published_reserve_figures: { total_reserves_usd: published, as_of: '2026-08-01', source: 'x' } };
@@ -191,7 +197,6 @@ function checkP5_ulp_forcing() {
     const expectedWithin = published === 1_000_100 || published === 1_000_099;
     if (o.reserve_figure_cross_check.within_tolerance !== expectedWithin) violations++;
   }
-  // (b) reserveSum === 0, published === 0 -> deltaPct special-cased to 0, within tolerance.
   {
     const base = makeSingleLeafProofs(0, 500_000);
     const pp = { ...base, published_reserve_figures: { total_reserves_usd: 0, as_of: '2026-08-01', source: 'x' } };
@@ -200,7 +205,6 @@ function checkP5_ulp_forcing() {
     if (o.reserve_figure_cross_check.delta_pct !== 0) violations++;
     if (!o.reserve_figure_cross_check.within_tolerance) violations++;
   }
-  // (c) reserveSum === 0, published !== 0 -> deltaPct null, NOT within tolerance (n/a case).
   {
     const base = makeSingleLeafProofs(0, 500_000);
     const pp = { ...base, published_reserve_figures: { total_reserves_usd: 5, as_of: '2026-08-01', source: 'x' } };
@@ -209,7 +213,6 @@ function checkP5_ulp_forcing() {
     if (o.reserve_figure_cross_check.delta_pct !== null) violations++;
     if (o.reserve_figure_cross_check.within_tolerance) violations++;
   }
-  // (d) negative and negative-zero leaf sums must not crash and must produce finite results.
   {
     const base = makeSingleLeafProofs(-1000, 500);
     const { output_payload: o } = compute(base);
@@ -223,7 +226,6 @@ function checkP5_ulp_forcing() {
     checked++;
     if (o.findings[0].verdict !== 'CONSISTENT') violations++;
   }
-  // (e) denormal leaf sum (Number.MIN_VALUE) must not crash and must stay finite.
   {
     const base = makeSingleLeafProofs(Number.MIN_VALUE, 500);
     const { output_payload: o } = compute(base);
@@ -232,6 +234,51 @@ function checkP5_ulp_forcing() {
     if (o.coverage_ratio_pct !== null && !Number.isFinite(o.coverage_ratio_pct)) violations++;
   }
   return { name: 'P5_ulp_boundary_forcing_coverage_tolerance', trials: checked, violations };
+}
+
+// ---------- P6: buildArtifact_never_throws (D6-ANYKERNEL-1115) ----------
+function deepObj(n) { let o = JSON.parse('{}'); const r = o; for (let i = 0; i < n; i++) { o.x = {}; o = o.x; } return r; }
+async function checkP6_buildArtifactNeverThrows() {
+  const cases = [
+    ['1e300', 1e300], ['NaN', NaN], ['-Infinity', -Infinity],
+    ['depth511', deepObj(511)], ['depth600', deepObj(600)],
+    ['array>1e6', new Array(1_000_001).fill(1)],
+  ];
+  const detail = [];
+  let violations = 0;
+  for (const [name, junk] of cases) {
+    let a = null, threw = null;
+    try { a = await buildArtifact({ reserve_proof: junk }); }
+    catch (e) { threw = e.name + ': ' + String(e.message).slice(0, 80); }
+    if (threw) { violations++; detail.push(`${name}: THROW ${threw}`); continue; }
+    const h = a?.execution_hash ?? null;
+    const ref = JSON.stringify(a ?? {}).includes('hash_refusal');
+    detail.push(`${name}: hash=${h === null ? 'null' : 'set'} refusal=${ref}`);
+    if (name !== 'depth511' && !(h === null && ref)) violations++;
+  }
+  return { name: 'P6_buildArtifact_never_throws', trials: cases.length, violations, detail };
+}
+
+// ---------- P7: required_fields_never_positive ----------
+function checkP7_requiredFieldsNeverPositive() {
+  const fields = ['reserve_proof', 'liability_branch', 'published_reserve_figures'];
+  const modes = ['delete', 'null', 'empty', 'whitespace'];
+  const fixtures = JSON.parse(readFileSync(FIXTURES_PATH, 'utf8'));
+  let violations = 0, checked = 0;
+  for (const v of fixtures.vectors) {
+    if (compute(v.policy_parameters).output_payload.overall_determination !== 'CONSISTENT') continue;
+    for (const f of fields) for (const m of modes) {
+      const c = structuredClone(v.policy_parameters);
+      if (m === 'delete') delete c[f];
+      else if (m === 'null') c[f] = null;
+      else if (m === 'empty') c[f] = '';
+      else c[f] = '   ';
+      const { output_payload: o } = compute(c);
+      checked++;
+      if (o.overall_determination === 'CONSISTENT' || o.findings.some((x) => x.verdict === 'CONSISTENT')) violations++;
+    }
+  }
+  return { name: 'P7_required_fields_never_positive', trials: checked, violations };
 }
 
 // ---------- run ----------
@@ -245,6 +292,8 @@ results.properties.push(checkP1_boundedness());
 results.properties.push(checkP3_differential());
 results.properties.push(checkP4_determinism());
 results.properties.push(checkP5_ulp_forcing());
+results.properties.push(await checkP6_buildArtifactNeverThrows());
+results.properties.push(checkP7_requiredFieldsNeverPositive());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
