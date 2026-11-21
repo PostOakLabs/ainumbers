@@ -11,7 +11,7 @@ const TOOL_VERSION = '1.0.0';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
-  mcp_name: 'check_murabahah_tawarruq_sequence',
+  mcp_name: 'check_murabahah_tawarruq_seq',
   mandate_type: 'compliance_control', gpu: false,
 };
 

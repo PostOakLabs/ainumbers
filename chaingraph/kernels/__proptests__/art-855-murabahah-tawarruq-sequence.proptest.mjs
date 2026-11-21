@@ -1,5 +1,5 @@
 // art-855-murabahah-tawarruq-sequence: class-K property-test floor.
-// kernel_digest_at_authoring: sha256:3c37be0f2045e8299dc11dfd3b07b9eb7d56e99874fa51bb92bb98a3a153bc2f
+// kernel_digest_at_authoring: sha256:a36b839883247bd66e55f312cbc914f55ace480ec5dde2b1be0c771f6c7392eb
 // spec: the murabahah / tawarruq sequence checklist node (values only, BNM profile)
 // human_sign_off: PENDING
 //

@@ -4,7 +4,7 @@ Checks the order of steps and the content of a murabahah or tawarruq structure a
 
 - Page: https://ainumbers.co/chaingraph/art-855-murabahah-tawarruq-sequence.html
 - Markdown twin: https://ainumbers.co/chaingraph/art-855-murabahah-tawarruq-sequence.md
-- MCP tool: check_murabahah_tawarruq_sequence (endpoint https://mcp.ainumbers.co/mcp)
+- MCP tool: check_murabahah_tawarruq_seq (endpoint https://mcp.ainumbers.co/mcp)
 
 ## Inputs
 
@@ -67,4 +67,4 @@ Checks the order of steps and the content of a murabahah or tawarruq structure a
 
 ## Verify
 
-Run the sample policy_parameters through MCP tool `check_murabahah_tawarruq_sequence` at https://mcp.ainumbers.co/mcp (or the page form) and check the returned receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+Run the sample policy_parameters through MCP tool `check_murabahah_tawarruq_seq` at https://mcp.ainumbers.co/mcp (or the page form) and check the returned receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
