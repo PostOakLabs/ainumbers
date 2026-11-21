@@ -1,5 +1,5 @@
 // art-852-murabahah-ibra-settlement — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:ca79e5a1d0d1a47ed618496808021d1fefad63103ba684c8c70ed4996dc786f8
+// kernel_digest_at_authoring: sha256:44810c5aa94a2bd39dbb646172dd5b69de8f0fd6a65fabec4a6c3f9205efd1b6
 // spec: ISLAMIC-MURABAHAH-IBRA-1 (RESUME-1); pinned rule text retrieved 2026-11-20.
 // human_sign_off: PENDING
 //

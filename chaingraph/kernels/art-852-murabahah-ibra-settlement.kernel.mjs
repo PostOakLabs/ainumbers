@@ -10,7 +10,7 @@ const TOOL_VERSION = '1.0.0';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
-  mcp_name: 'compute_murabahah_ibra_settlement',
+  mcp_name: 'compute_murabahah_ibra_settle',
   mandate_type: 'compliance_control', gpu: false,
 };
 
