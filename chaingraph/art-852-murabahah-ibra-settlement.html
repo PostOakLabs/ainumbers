@@ -8,7 +8,7 @@
 <meta name="description" content="Compute a deferred-price instalment schedule, the rebate on early settlement, and the non-delivery case in integer minor units. Arithmetic only, not a ruling.">
 <meta name="ain:category" content="run">
 <meta name="robots" content="index, follow">
-<meta name="kernel-digest" content="sha256:44810c5aa94a2bd39dbb646172dd5b69de8f0fd6a65fabec4a6c3f9205efd1b6">
+<meta name="kernel-digest" content="sha256:eacd2d28a4d95809504122f3e16aea48ab079915dba032bf4229555278944320">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/art-852-murabahah-ibra-settlement.html">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
@@ -305,6 +305,7 @@ function findHashRefusal(v,path,depth,budget){
   if(depth>budget.maxDepth)return{reason:'REFUSED_INPUT_HASH_LIMIT',detail:path+': too_deep'};
   if(++budget.n>budget.maxElements)return{reason:'REFUSED_INPUT_HASH_LIMIT',detail:path+': too_many_values'};
   if(typeof v==='number'){if(!Number.isFinite(v))return{reason:'REFUSED_INPUT_UNSAFE_NUMBER',detail:path+': non_finite'};if(Number.isInteger(v)&&!Number.isSafeInteger(v))return{reason:'REFUSED_INPUT_UNSAFE_NUMBER',detail:path+': unsafe_integer'};return null;}
+  if(typeof v==='bigint')return{reason:'REFUSED_INPUT_UNSAFE_NUMBER',detail:path+': bigint'};
   if(Array.isArray(v)){for(var i=0;i<v.length;i++){var r=findHashRefusal(v[i],path+'['+i+']',depth+1,budget);if(r!==null)return r;}return null;}
   if(v!==null&&typeof v==='object'){var ks=Object.keys(v).sort();for(var j=0;j<ks.length;j++){var q=findHashRefusal(v[ks[j]],path+'.'+ks[j],depth+1,budget);if(q!==null)return q;}}
   return null;
@@ -393,29 +394,32 @@ function compute(pp){
   if(!isPlainObject(pp))return refusedResult(['REFUSED_INPUT_WRONG_TYPE: policy_parameters must be an object'],[]);
   var un=findHashRefusal(pp,'pp',1,{maxDepth:504,maxElements:199000,n:0});if(un!==null)return refusedResult([un.reason+': '+un.detail],[]);
   var v=validate(pp);if(v.errors.length>0)return refusedResult(v.errors,v.refusedChargeCodes);
-  var flags=[],cop0=BigInt(v.cop),cpr=BigInt(v.cpr),ins=BigInt(v.instalment),sp=BigInt(v.sellingPrice),cop=cop0,schedule=[],accrued=0n,variable=false;
+  var flags=[],cop0=BigInt(v.cop),cpr=BigInt(v.cpr),ins=BigInt(v.instalment),sp=BigInt(v.sellingPrice),cop=cop0,schedule=[],variable=false;
+  if(ins*BigInt(v.tenor)>sp)return refusedResult(['REFUSED_INSTALMENTS_EXCEED_SELLING_PRICE: instalment_minor times tenor_months exceeds selling_price_minor'],v.refusedChargeCodes);
   for(var k=1;k<=v.tenor;k++){
     var per=periodAt(v.eprPeriods,k),profit=divHalfEven(cop*cpr,RATE_DENOMINATOR),pay=ins-profit,before=cop;
-    cop=cop-pay;accrued+=profit;var osp=sp-ins*BigInt(k),def=osp-cop;
+    if(ins<profit)return refusedResult(['REFUSED_INSTALMENT_BELOW_PROFIT: instalment_minor does not cover the profit accruing in month '+k],v.refusedChargeCodes);
+    cop=cop-pay;var osp=sp-ins*BigInt(k),def=osp-cop;
     var row={month:k,instalment_minor:v.instalment,profit_minor:Number(profit),cop_payment_minor:Number(pay),outstanding_cop_minor:Number(cop),outstanding_selling_price_minor:Number(osp),deferred_profit_minor:Number(def)};
-    if(per!==null){variable=true;var ep=divHalfEven(before*BigInt(per.bp),RATE_DENOMINATOR);row.epr_instalment_minor=per.ins;row.epr_rate_bp=per.bp;row.epr_profit_minor=Number(ep);row.period_ibra_minor=Number(profit-ep);}
+    if(per!==null){variable=true;var ep=divHalfEven(before*BigInt(per.bp),RATE_DENOMINATOR);row.epr_instalment_minor=per.ins;row.epr_rate_bp=per.bp;row.epr_profit_minor=Number(ep);var pi=profit-ep;if(pi<0n){flags.push('EPR_NOT_BELOW_CPR_NO_IBRA');row.period_ibra_minor=0;}else{row.period_ibra_minor=Number(pi);}}
     schedule.push(row);
   }
   if(variable)flags.push('VARIABLE_RATE_APPLIED');
   var settlement=null;
   if(v.settlement!==null){
-    var r=schedule[v.settlement-1],deferred=BigInt(r.deferred_profit_minor),permitted=v.charges.reduce(function(a,c){return a+BigInt(c.amount_minor);},0n);
-    if(permitted>deferred)return refusedResult(['REFUSED_CHARGES_EXCEED_DEFERRED_PROFIT: permitted recovery costs exceed the deferred profit at the settlement point'],v.refusedChargeCodes);
+    var r=schedule[v.settlement-1],deferred=BigInt(r.deferred_profit_minor),permitted=v.charges.reduce(function(a,c){return a+BigInt(c.amount_minor);},0n),dcap=deferred<0n?0n:deferred;
+    if(permitted>dcap)return refusedResult(['REFUSED_CHARGES_EXCEED_DEFERRED_PROFIT: permitted recovery costs exceed the deferred profit at the settlement point'],v.refusedChargeCodes);
     var ibra=deferred-permitted,due=v.due===null?0n:BigInt(v.due),late=v.late===null?0n:BigInt(v.late),amount=BigInt(r.outstanding_selling_price_minor)+due+late-ibra;
     settlement={settlement_month:v.settlement,outstanding_selling_price_minor:r.outstanding_selling_price_minor,outstanding_cop_minor:r.outstanding_cop_minor,deferred_profit_minor:Number(deferred),ibra_minor:Number(ibra),permitted_charges_minor:Number(permitted),charges_applied:v.charges,instalment_due_minor:Number(due),late_payment_minor:Number(late),settlement_amount_minor:Number(amount)};
+    if(variable)settlement.epr_ibra_total_minor=schedule.slice(0,v.settlement).reduce(function(a,rw){return a+(rw.period_ibra_minor||0);},0);
     flags.push('EARLY_SETTLEMENT_APPLIED');if(late>0n)flags.push('LATE_PAYMENT_PASSTHROUGH');
   }
   var nonDelivery=null;
   if(v.nonDelivery!==null){
-    var at=schedule[v.nonDelivery.first-1],row2=schedule[v.settlement-1],und=BigInt(v.nonDelivery.und),def2=BigInt(row2.deferred_profit_minor),permitted2=v.charges.reduce(function(a,c){return a+BigInt(c.amount_minor);},0n);
-    if(permitted2>def2+und)return refusedResult(['REFUSED_CHARGES_EXCEED_DEFERRED_PROFIT: permitted recovery costs exceed the rebate available on settlement'],v.refusedChargeCodes);
-    var waived=accrued-BigInt(at.profit_minor>0?at.profit_minor:0),ibra2=def2+und-permitted2,due2=v.due===null?0n:BigInt(v.due),late2=v.late===null?0n:BigInt(v.late),amount2=BigInt(row2.outstanding_selling_price_minor)+due2+late2-ibra2;
-    nonDelivery={first_sign_month:v.nonDelivery.first,undisbursed_principal_minor:Number(und),profit_accrued_to_first_sign_minor:at.profit_minor,profit_waived_minor:Number(waived<0n?0n:waived),ibra_on_undisbursed_minor:Number(und),ibra_on_deferred_profit_minor:Number(def2),ibra_total_minor:Number(ibra2),settlement_amount_minor:Number(amount2)};
+    var row2=schedule[v.settlement-1],und=BigInt(v.nonDelivery.und),def2=BigInt(row2.deferred_profit_minor),permitted2=v.charges.reduce(function(a,c){return a+BigInt(c.amount_minor);},0n),dcap2=def2<0n?0n:def2;
+    if(permitted2>dcap2+und)return refusedResult(['REFUSED_CHARGES_EXCEED_DEFERRED_PROFIT: permitted recovery costs exceed the rebate available on settlement'],v.refusedChargeCodes);
+    var accruedToFirst=schedule.slice(0,v.nonDelivery.first).reduce(function(a,rw){return a+BigInt(rw.profit_minor);},0n),waived=schedule.slice(v.nonDelivery.first,v.settlement).reduce(function(a,rw){return a+BigInt(rw.profit_minor);},0n),ibra2=def2+und-permitted2,due2=v.due===null?0n:BigInt(v.due),late2=v.late===null?0n:BigInt(v.late),amount2=BigInt(row2.outstanding_selling_price_minor)+due2+late2-ibra2;
+    nonDelivery={first_sign_month:v.nonDelivery.first,undisbursed_principal_minor:Number(und),profit_accrued_to_first_sign_minor:Number(accruedToFirst),profit_waived_minor:Number(waived),ibra_on_undisbursed_minor:Number(und),ibra_on_deferred_profit_minor:Number(def2),ibra_total_minor:Number(ibra2),settlement_amount_minor:Number(amount2)};
     flags.push('NON_DELIVERY_APPLIED');
   }
   var conventional=null;
@@ -428,7 +432,7 @@ function compute(pp){
   return{output_payload:{valid_input:true,domain_errors:[],refusal_code:null,not_a_shariah_ruling:true,authority:pp.authority,authority_profile:pp.authority,cost_of_purchase_minor:v.cop,contracted_rate_bp:v.cpr,tenor_months:v.tenor,instalment_minor:v.instalment,selling_price_minor:v.sellingPrice,selling_price_stated_minor:stated,selling_price_residual_minor:Number(residual),markup_minor:Number(sp-cop0),profit_rounding:'half-even',schedule:schedule,settlement:settlement,non_delivery:nonDelivery,conventional_comparison:conventional,refused_cost_types:v.refusedChargeCodes,variable_rate_applied:variable,warnings:flags.slice()},compliance_flags:flags};
 }
 function bytesToHexStr(bytes){return Array.from(bytes).map(function(b){return b.toString(16).padStart(2,'0');}).join('');}
-function cgCanon(v){return Array.isArray(v)?v.map(cgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}):v;}
+function cgCanon(v){return Array.isArray(v)?v.map(cgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},Object.create(null)):v;}
 async function computeExecHash(pp,op){
   if(findHashRefusal({policy_parameters:pp,output_payload:op},'pp',1,{maxDepth:HASH_MAX_DEPTH,maxElements:HASH_MAX_ELEMENTS,n:0})!==null)return null;
   var payload=JSON.stringify(cgCanon({policy_parameters:pp,output_payload:op}));

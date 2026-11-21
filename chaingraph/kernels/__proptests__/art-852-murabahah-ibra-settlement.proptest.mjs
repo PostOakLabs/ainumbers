@@ -1,14 +1,17 @@
 // art-852-murabahah-ibra-settlement — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:44810c5aa94a2bd39dbb646172dd5b69de8f0fd6a65fabec4a6c3f9205efd1b6
+// kernel_digest_at_authoring: sha256:eacd2d28a4d95809504122f3e16aea48ab079915dba032bf4229555278944320
 // spec: ISLAMIC-MURABAHAH-IBRA-1 (RESUME-1); pinned rule text retrieved 2026-11-20.
 // human_sign_off: PENDING
 //
 // Checks: fixture oracle over every pinned vector; P1 determinism and output shape;
 // P2 the per-period annuity recurrence in integer minor units (half-even profit);
 // P3 the early-settlement identity (rebate = deferred profit less permitted charges,
-// settlement = outstanding price + instalment due + late charge minus rebate, rebate >= 0);
+// settlement = outstanding price + instalment due + late charge minus rebate, rebate
+// never above the deferred profit, zero charges never refused);
 // P4 every declared refusal branch is reachable and mirrored into warnings;
-// P5 the variable-rate per-period rebate is the difference between the two profit bases;
+// P5 the variable-rate per-period rebate is the difference between the two profit bases,
+// floored at zero with the EPR_NOT_BELOW_CPR_NO_IBRA flag per floored period, plus the
+// disclosed epr_ibra_total_minor over months 1..settlement that never moves the amount;
 // P6 the non-delivery rebate adds undisbursed principal; P7 buildArtifact_never_throws.
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
@@ -122,8 +125,12 @@ function checkP3Settlement() {
     checked++;
     if (s.permitted_charges_minor !== charges || s.ibra_minor !== s.deferred_profit_minor - charges) { violations++; console.log('P3 violation: rebate identity'); }
     if (s.settlement_amount_minor !== s.outstanding_selling_price_minor + s.instalment_due_minor + s.late_payment_minor - s.ibra_minor) { violations++; console.log('P3 violation: settlement identity'); }
-    if (s.ibra_minor < 0 || s.deferred_profit_minor !== row.deferred_profit_minor) { violations++; console.log('P3 violation: negative rebate or wrong deferred profit'); }
+    if (s.ibra_minor > s.deferred_profit_minor || s.deferred_profit_minor !== row.deferred_profit_minor) { violations++; console.log('P3 violation: rebate above deferred profit or wrong deferred profit'); }
   }
+  const zero = compute({ authority: 'bnm', cost_of_purchase_minor: 200000, cpr_bp: 900, tenor_months: 1, instalment_minor: 200000, selling_price_minor: 200000, settlement_month: 1 });
+  checked++;
+  const zs = zero.output_payload.settlement;
+  if (!zero.output_payload.valid_input || zs.ibra_minor !== zs.deferred_profit_minor || zs.settlement_amount_minor !== zs.outstanding_selling_price_minor - zs.ibra_minor) { violations++; console.log('P3 violation: zero-charge negative-deferred settlement'); }
   return { name: 'P3 early-settlement identity', checked, violations };
 }
 
@@ -142,6 +149,8 @@ function checkP4Refusals() {
     ['prototype key', { ...base, constructor: 1 }, 'REFUSED_FIELD_NOT_ALLOWED'],
     ['bad epr start', { ...base, epr_periods: [{ from_month: 2, epr_bp: 300, instalment_minor: 100 }] }, 'REFUSED_EPR_PERIOD_INVALID'],
     ['unsafe integer field', { ...base, instalment_minor: Number.MAX_SAFE_INTEGER + 2 }, 'REFUSED_INPUT_UNSAFE_NUMBER'],
+    ['instalment below profit', { authority: 'bnm', cost_of_purchase_minor: 200000, cpr_bp: 900, tenor_months: 12, instalment_minor: 1000, selling_price_minor: 218000 }, 'REFUSED_INSTALMENT_BELOW_PROFIT'],
+    ['instalments exceed selling price', { authority: 'bnm', cost_of_purchase_minor: 200000, cpr_bp: 900, tenor_months: 12, instalment_minor: 20000, selling_price_minor: 218000 }, 'REFUSED_INSTALMENTS_EXCEED_SELLING_PRICE'],
   ];
   let checked = 0, violations = 0;
   for (const [name, pp, code] of bad) {
@@ -156,16 +165,34 @@ function checkP5VariableRate() {
   const rng = mulberry32(SEED + 5); let checked = 0, violations = 0;
   for (let i = 0; i < N; i++) {
     const pp = randPP(rng, { epr: true });
-    const o = compute(pp).output_payload;
+    const r = compute(pp);
+    const o = r.output_payload;
     if (!o.valid_input) { violations++; console.log('P5 violation: valid variable-rate input refused'); continue; }
     if (!o.variable_rate_applied) { violations++; console.log('P5 violation: variable-rate flag missing'); }
     for (const row of o.schedule) {
       checked++;
-      if (row.period_ibra_minor !== row.profit_minor - row.epr_profit_minor) { violations++; console.log('P5 violation: per-period rebate'); break; }
+      const unfloored = row.profit_minor - row.epr_profit_minor;
+      if (row.period_ibra_minor !== (unfloored > 0 ? unfloored : 0)) { violations++; console.log('P5 violation: per-period rebate floor'); break; }
       if (row.epr_instalment_minor !== pp.epr_periods[0].instalment_minor) { violations++; console.log('P5 violation: EPR instalment mirror'); break; }
     }
+    const flooredRows = o.schedule.filter((rw) => rw.profit_minor - rw.epr_profit_minor < 0).length;
+    const flagCount = r.compliance_flags.filter((f) => f === 'EPR_NOT_BELOW_CPR_NO_IBRA').length;
+    checked++;
+    if (flooredRows !== flagCount) { violations++; console.log('P5 violation: no-ibra flag count'); }
   }
-  return { name: 'P5 variable-rate per-period rebate', checked, violations };
+  const above = compute({ authority: 'bnm', cost_of_purchase_minor: 200000, cpr_bp: 900, tenor_months: 12, instalment_minor: 18000, selling_price_minor: 218000, settlement_month: 6, epr_periods: [{ from_month: 1, epr_bp: 1200, instalment_minor: 18000 }] });
+  checked++;
+  const am1 = above.output_payload.schedule[0];
+  const aboveTotal = above.output_payload.schedule.slice(0, 6).reduce((a, rw) => a + rw.period_ibra_minor, 0);
+  const aboveFlags = above.compliance_flags.filter((f) => f === 'EPR_NOT_BELOW_CPR_NO_IBRA').length;
+  if (am1.period_ibra_minor !== 0 || aboveFlags !== 12 || above.output_payload.settlement.epr_ibra_total_minor !== aboveTotal || aboveTotal !== 0) { violations++; console.log('P5 violation: epr-above-cpr floor, flag count or disclosed total'); }
+  const below = compute({ authority: 'bnm', cost_of_purchase_minor: 200000, cpr_bp: 900, tenor_months: 12, instalment_minor: 18000, selling_price_minor: 218000, settlement_month: 6, epr_periods: [{ from_month: 1, epr_bp: 600, instalment_minor: 18000 }] });
+  const noEpr = compute({ authority: 'bnm', cost_of_purchase_minor: 200000, cpr_bp: 900, tenor_months: 12, instalment_minor: 18000, selling_price_minor: 218000, settlement_month: 6 });
+  checked++;
+  const bs = below.output_payload.settlement;
+  const belowTotal = below.output_payload.schedule.slice(0, 6).reduce((a, rw) => a + rw.period_ibra_minor, 0);
+  if (bs.epr_ibra_total_minor !== belowTotal || belowTotal <= 0 || bs.settlement_amount_minor !== noEpr.output_payload.settlement.settlement_amount_minor) { violations++; console.log('P5 violation: disclosed epr ibra total or settlement amount moved'); }
+  return { name: 'P5 variable-rate per-period rebate floor and disclosed total', checked, violations };
 }
 
 function checkP6NonDelivery() {
@@ -180,6 +207,10 @@ function checkP6NonDelivery() {
     checked++;
     if (nd.ibra_total_minor !== nd.ibra_on_deferred_profit_minor + pp.non_delivery.undisbursed_principal_minor - charges) { violations++; console.log('P6 violation: rebate composition'); }
     if (nd.ibra_on_undisbursed_minor !== pp.non_delivery.undisbursed_principal_minor) { violations++; console.log('P6 violation: undisbursed rebate'); }
+    const accruedToFirst = o.schedule.slice(0, pp.non_delivery.first_sign_month).reduce((a, r) => a + r.profit_minor, 0);
+    if (nd.profit_accrued_to_first_sign_minor !== accruedToFirst) { violations++; console.log('P6 violation: accrued profit to first sign'); }
+    const waived = o.schedule.slice(pp.non_delivery.first_sign_month, pp.settlement_month).reduce((a, r) => a + r.profit_minor, 0);
+    if (nd.profit_waived_minor !== waived) { violations++; console.log('P6 violation: waived profit after first sign'); }
     if (!r.compliance_flags.includes('NON_DELIVERY_APPLIED')) { violations++; console.log('P6 violation: flag'); }
   }
   return { name: 'P6 non-delivery rebate adds undisbursed principal', checked, violations };
@@ -190,7 +221,7 @@ async function checkP7NeverThrows() {
   let checked = 0, violations = 0;
   /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
   const wide = new Array(1000001).fill(0);
-  for (const delta of [{ zzz: Infinity }, { zzz: NaN }, { zzz: 1e300 }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } }, { zzz: deep }, { zzz: wide }]) {
+  for (const delta of [{ zzz: Infinity }, { zzz: NaN }, { zzz: 1e300 }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } }, { zzz: deep }, { zzz: wide }, { zzz: 9007199254740993n }, { zzz: { deep: 9007199254740993n } }]) {
     checked++;
     try {
       const art = await buildArtifact({ ...randPP(rng), ...delta });

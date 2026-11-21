@@ -31,6 +31,7 @@ function findHashRefusal(v, path, depth, budget) {
     if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
     return null;
   }
+  if (typeof v === 'bigint') return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': bigint' };
   if (Array.isArray(v)) {
     for (let i = 0; i < v.length; i++) {
       const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
@@ -265,18 +266,18 @@ export function compute(pp) {
   const cpr = BigInt(v.cpr);
   const instalment = BigInt(v.instalment);
   const sellingPrice = BigInt(v.sellingPrice);
+  if (instalment * BigInt(v.tenor) > sellingPrice) return refusedResult(['REFUSED_INSTALMENTS_EXCEED_SELLING_PRICE: instalment_minor times tenor_months exceeds selling_price_minor'], v.refusedChargeCodes);
   let cop = cop0;
   const schedule = [];
-  let accruedProfit = 0n;
   let variable = false;
 
   for (let k = 1; k <= v.tenor; k++) {
     const period = periodAt(v.eprPeriods, k);
     const profit = divHalfEven(cop * cpr, RATE_DENOMINATOR);
+    if (instalment < profit) return refusedResult(['REFUSED_INSTALMENT_BELOW_PROFIT: instalment_minor does not cover the profit accruing in month ' + k], v.refusedChargeCodes);
     const copPayment = instalment - profit;
     const copBefore = cop;
     cop = cop - copPayment;
-    accruedProfit += profit;
     const outstandingSP = sellingPrice - instalment * BigInt(k);
     const deferred = outstandingSP - cop;
     const row = {
@@ -294,7 +295,13 @@ export function compute(pp) {
       row.epr_instalment_minor = period.ins;
       row.epr_rate_bp = period.bp;
       row.epr_profit_minor = Number(eprProfit);
-      row.period_ibra_minor = Number(profit - eprProfit);
+      const periodIbra = profit - eprProfit;
+      if (periodIbra < 0n) {
+        compliance_flags.push('EPR_NOT_BELOW_CPR_NO_IBRA');
+        row.period_ibra_minor = 0;
+      } else {
+        row.period_ibra_minor = Number(periodIbra);
+      }
     }
     schedule.push(row);
   }
@@ -305,7 +312,8 @@ export function compute(pp) {
     const row = schedule[v.settlement - 1];
     const deferred = BigInt(row.deferred_profit_minor);
     const permitted = v.charges.reduce((a, c) => a + BigInt(c.amount_minor), 0n);
-    if (permitted > deferred) return refusedResult(['REFUSED_CHARGES_EXCEED_DEFERRED_PROFIT: permitted recovery costs exceed the deferred profit at the settlement point'], v.refusedChargeCodes);
+    const deferredCap = deferred < 0n ? 0n : deferred;
+    if (permitted > deferredCap) return refusedResult(['REFUSED_CHARGES_EXCEED_DEFERRED_PROFIT: permitted recovery costs exceed the deferred profit at the settlement point'], v.refusedChargeCodes);
     const ibra = deferred - permitted;
     const due = v.due === null ? 0n : BigInt(v.due);
     const late = v.late === null ? 0n : BigInt(v.late);
@@ -321,6 +329,7 @@ export function compute(pp) {
       instalment_due_minor: Number(due),
       late_payment_minor: Number(late),
       settlement_amount_minor: Number(amount),
+      ...(variable ? { epr_ibra_total_minor: schedule.slice(0, v.settlement).reduce((a, r) => a + (r.period_ibra_minor || 0), 0) } : {}),
     };
     compliance_flags.push('EARLY_SETTLEMENT_APPLIED');
     if (late > 0n) compliance_flags.push('LATE_PAYMENT_PASSTHROUGH');
@@ -328,13 +337,14 @@ export function compute(pp) {
 
   let nonDelivery = null;
   if (v.nonDelivery !== null) {
-    const at = schedule[v.nonDelivery.first - 1];
     const row = schedule[v.settlement - 1];
     const und = BigInt(v.nonDelivery.und);
     const deferred = BigInt(row.deferred_profit_minor);
     const permitted = v.charges.reduce((a, c) => a + BigInt(c.amount_minor), 0n);
-    if (permitted > deferred + und) return refusedResult(['REFUSED_CHARGES_EXCEED_DEFERRED_PROFIT: permitted recovery costs exceed the rebate available on settlement'], v.refusedChargeCodes);
-    const profitWaived = accruedProfit - BigInt(at.profit_minor > 0 ? at.profit_minor : 0);
+    const deferredCap = deferred < 0n ? 0n : deferred;
+    if (permitted > deferredCap + und) return refusedResult(['REFUSED_CHARGES_EXCEED_DEFERRED_PROFIT: permitted recovery costs exceed the rebate available on settlement'], v.refusedChargeCodes);
+    const accruedToFirst = schedule.slice(0, v.nonDelivery.first).reduce((a, r) => a + BigInt(r.profit_minor), 0n);
+    const profitWaived = schedule.slice(v.nonDelivery.first, v.settlement).reduce((a, r) => a + BigInt(r.profit_minor), 0n);
     const ibra = deferred + und - permitted;
     const due = v.due === null ? 0n : BigInt(v.due);
     const late = v.late === null ? 0n : BigInt(v.late);
@@ -342,8 +352,8 @@ export function compute(pp) {
     nonDelivery = {
       first_sign_month: v.nonDelivery.first,
       undisbursed_principal_minor: Number(und),
-      profit_accrued_to_first_sign_minor: at.profit_minor,
-      profit_waived_minor: Number(profitWaived < 0n ? 0n : profitWaived),
+      profit_accrued_to_first_sign_minor: Number(accruedToFirst),
+      profit_waived_minor: Number(profitWaived),
       ibra_on_undisbursed_minor: Number(und),
       ibra_on_deferred_profit_minor: Number(deferred),
       ibra_total_minor: Number(ibra),
