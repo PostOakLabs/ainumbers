@@ -81,8 +81,8 @@ export const meta = {
  * $184,500."). 2027: SSA Contribution and Benefit Base, announced 14 Oct 2026 ("For earnings
  * in 2027, this base is $192,300."). The optional tax_year input selects the entry; absent
  * means DEFAULT_TAX_YEAR so existing callers keep their results; an unlisted year is refused. */
-const SS_WAGE_BASES = { '2026': 184500, '2027': 192300 };
-const SUPPORTED_TAX_YEARS = Object.keys(SS_WAGE_BASES);
+const SS_WAGE_BASE_TABLE = [['2026', 184500], ['2027', 192300]];
+const SUPPORTED_TAX_YEARS = SS_WAGE_BASE_TABLE.map((e) => e[0]);
 const DEFAULT_TAX_YEAR = '2026';
 const SS_RATE      = 0.124;    // C2: IRS Pub 15 (2026): 6.2% each for employer and employee (12.4% total).
 const MC_RATE      = 0.029;    // C3: IRS Pub 15 (2026): 2.9% total; "There is no wage base limit for Medicare tax".
@@ -162,7 +162,8 @@ export function compute(pp) {
   // Optional tax_year selects the OASDI wage base. Absent (undefined/null) means the default
   // year; any other value outside the table is refused and nothing is computed.
   const rawYear = pp.tax_year === undefined || pp.tax_year === null ? DEFAULT_TAX_YEAR : pp.tax_year;
-  if (typeof rawYear !== 'string' || !SUPPORTED_TAX_YEARS.includes(rawYear)) {
+  const yearEntry = typeof rawYear === 'string' ? SS_WAGE_BASE_TABLE.find((e) => e[0] === rawYear) : undefined;
+  if (!yearEntry) {
     return {
       output_payload: {
         verdict: null,
@@ -174,8 +175,8 @@ export function compute(pp) {
       compliance_flags: ['ART713_TAX_YEAR_NOT_SUPPORTED'],
     };
   }
-  const taxYear = rawYear;
-  const SS_WAGE_BASE = SS_WAGE_BASES[taxYear];
+  const taxYear = yearEntry[0];
+  const SS_WAGE_BASE = yearEntry[1];
   const netIncome = num(pp.net_se_income, 150000);
   const salaryPct = num(pp.reasonable_salary_pct, 50) / 100;   // percent → fraction (Apex page line 297)
   const adminCost = num(pp.annual_admin_cost, 3000);

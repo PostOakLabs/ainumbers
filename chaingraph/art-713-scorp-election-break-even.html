@@ -102,7 +102,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 </style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-713-scorp-election-break-even.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:70b1480c62e770d2e3eb5aea7daf6b26ae6a0966ed618c40d4c300a9bcd0048d">
+<meta name="kernel-digest" content="sha256:f0279a74ebc880ffc860921673ce5a39cf05fc389ec0975b6f04e234f7c59728">
 <meta name="ai-tool" content="model_scorp_break_even">
 </head>
 <body>
@@ -385,8 +385,8 @@ const SAMPLE={"net_se_income":150000,"reasonable_salary_pct":50,"annual_admin_co
 
 /* ── inline port of chaingraph/kernels/art-713-scorp-election-break-even.kernel.mjs compute():
    same algorithm, same constants, same output key order. Pure function of pp. ── */
-const SS_WAGE_BASES={"2026":184500,"2027":192300},DEFAULT_TAX_YEAR="2026";
-const SUPPORTED_TAX_YEARS=Object.keys(SS_WAGE_BASES);
+const SS_WAGE_BASE_TABLE=[["2026",184500],["2027",192300]],DEFAULT_TAX_YEAR="2026";
+const SUPPORTED_TAX_YEARS=SS_WAGE_BASE_TABLE.map((e)=>e[0]);
 const SS_RATE=0.124,MC_RATE=0.029,SE_FACTOR=0.9235,FIVE_YEAR_HORIZON=5;
 const BE_SCAN_START=30000,BE_SCAN_END=1000000,BE_SCAN_STEP=500;
 const QBI_TRADEOFF_EFFECTIVE_RATE=0.198,QBI_DEDUCTION_RATE=0.20;
@@ -401,11 +401,12 @@ function scanBreakEven(savingsFn,adminCost){for(let inc=BE_SCAN_START;inc<=BE_SC
 function compute(pp){
   pp=pp||{};
   const rawYear=pp.tax_year===undefined||pp.tax_year===null?DEFAULT_TAX_YEAR:pp.tax_year;
-  if(typeof rawYear!=="string"||!SUPPORTED_TAX_YEARS.includes(rawYear)){
+  const yearEntry=typeof rawYear==="string"?SS_WAGE_BASE_TABLE.find((e)=>e[0]===rawYear):undefined;
+  if(!yearEntry){
     return{output_payload:{verdict:null,tax_year_applied:null,supported_tax_years:SUPPORTED_TAX_YEARS,error:"unsupported_tax_year",scope_note:"tax_year must be one of the supported years. No break-even was computed; this kernel does not fall back to another year."},compliance_flags:["ART713_TAX_YEAR_NOT_SUPPORTED"]};
   }
-  const taxYear=rawYear;
-  const SS_WAGE_BASE=SS_WAGE_BASES[taxYear];
+  const taxYear=yearEntry[0];
+  const SS_WAGE_BASE=yearEntry[1];
   const netIncome=num(pp.net_se_income,150000);
   const salaryPct=num(pp.reasonable_salary_pct,50)/100;
   const adminCost=num(pp.annual_admin_cost,3000);
@@ -533,12 +534,14 @@ function renderResults(){
   }else{
     vd.innerHTML="<div class=\"verdict "+(op.verdict==="SCORP_WINS"?"pass":"fail")+"\">"+(op.verdict==="SCORP_WINS"?"S-CORP WINS at the entered income":"SOLE PROP WINS at the entered income")+" — sole-prop SE tax "+usd(op.sole_prop_se_tax)+" vs S-Corp payroll tax "+usd(op.scorp_payroll_tax)+" on a "+usd(op.reasonable_w2_salary)+" salary, minus "+usd(op.annual_admin_cost)+" admin.</div>";
   }
+  const baseEntry=SS_WAGE_BASE_TABLE.find((e)=>e[0]===op.tax_year_applied);
+  const ssBase=baseEntry?baseEntry[1]:0;
   const tbl=document.getElementById("resultTbl");
   tbl.innerHTML="<thead><tr><th>Line</th><th>Sole proprietor</th><th>S-Corp election</th></tr></thead><tbody>"
     +"<tr><td>Net SE income</td><td>"+usd(op.net_se_income)+"</td><td>"+usd(op.net_se_income)+"</td></tr>"
     +"<tr><td>W-2 salary</td><td>—</td><td>"+usd(op.reasonable_w2_salary)+"</td></tr>"
     +"<tr><td>Distribution</td><td>—</td><td>"+usd(op.distribution)+"</td></tr>"
-    +"<tr><td>SS 12.4% (capped at "+usd(SS_WAGE_BASES[op.tax_year_applied]).replace(/\.00$/,"")+")</td><td>"+usd(Math.min(op.net_se_income*0.9235,SS_WAGE_BASES[op.tax_year_applied])*0.124)+"</td><td>"+usd(Math.min(op.reasonable_w2_salary,SS_WAGE_BASES[op.tax_year_applied])*0.124)+"</td></tr>"
+    +"<tr><td>SS 12.4% (capped at "+usd(ssBase).replace(/\.00$/,"")+")</td><td>"+usd(Math.min(op.net_se_income*0.9235,ssBase)*0.124)+"</td><td>"+usd(Math.min(op.reasonable_w2_salary,ssBase)*0.124)+"</td></tr>"
     +"<tr><td>Medicare 2.9% (uncapped)</td><td>"+usd(op.net_se_income*0.9235*0.029)+"</td><td>"+usd(op.reasonable_w2_salary*0.029)+"</td></tr>"
     +"<tr><td>SE / payroll tax</td><td>"+usd(op.sole_prop_se_tax)+"</td><td>"+usd(op.scorp_payroll_tax)+"</td></tr>"
     +"<tr><td>Admin cost</td><td>—</td><td>"+usd(op.annual_admin_cost)+"</td></tr>"

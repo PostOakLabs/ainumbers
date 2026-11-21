@@ -6,7 +6,7 @@
 // treatment) and Tim's three ADD/MODIFY items (2026 wage-base cap logic, QBI
 // section 199A trade-off at the adjudicated 19.8% effective rate with
 // threshold/SSTB caveats, admin-cost ~$1,500–3,000/yr guidance band).
-// kernel_digest_at_authoring: sha256:70b1480c62e770d2e3eb5aea7daf6b26ae6a0966ed618c40d4c300a9bcd0048d
+// kernel_digest_at_authoring: sha256:f0279a74ebc880ffc860921673ce5a39cf05fc389ec0975b6f04e234f7c59728
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.
 // float_sensitive: PARTIAL — the kernel is float arithmetic rounded to cents
