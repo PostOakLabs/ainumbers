@@ -1,5 +1,5 @@
 // art-620-summa-mst-inclusion-checker — class-B PROPERTY-TEST FLOOR (NODE-REG-UNBLOCK-1).
-// kernel_digest_at_authoring: sha256:2dc3bf8bb1f5ae7c1d3c1023fdd8c19a1abd94fae7105f93541303cf0f9c77a6
+// kernel_digest_at_authoring: sha256:b1d00b37e7585853e001320d57d046d9a9fde7008d810c8df91000726f21f864
 // spec: workspace-root SUMMA-MST-BUILD-SPEC.md (kernel header cites §5a/§4/§3/§2)
 // human_sign_off: PENDING
 //
@@ -36,11 +36,15 @@
 // against (P3, eprint 2022/043 §4.1 — an inflated leaf hidden by a negative sibling that cancels in
 // the sum), single-mutation tamper detection (P4), determinism (P5), forced categorical boundary
 // cases including the MAX_PATH_DEPTH and MAX_BALANCE edges (P6), and output-shape sanity (P7).
+// The fail-closed cure adds P8 (every required field of every positive vector, deleted, nulled,
+// blank or whitespace-only, must return NOT_VERIFIED) and P9 (buildArtifact_never_throws across
+// every hash-hostile number, depth and size class).
 //
 // Run: node chaingraph/kernels/__proptests__/art-620-summa-mst-inclusion-checker.proptest.mjs
 
 import { createHash } from 'node:crypto';
-import { compute } from '../art-620-summa-mst-inclusion-checker.kernel.mjs';
+import { compute, buildArtifact } from '../art-620-summa-mst-inclusion-checker.kernel.mjs';
+import { readFileSync } from 'node:fs';
 import { runFixtureOracle, findShapeViolations, summarize, mulberry32, pickNasty, nullProtoClone } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-620-summa-mst-inclusion-checker';
@@ -427,6 +431,65 @@ function checkP7_outputShape() {
   return { name: 'P7_output_shape_and_verify_only_notes', checked, violations };
 }
 
+// ---------- P8: required fields deleted / null / blank / whitespace never stay positive ----------
+const REQUIRED_PATHS = ['root', 'proof', 'root.hash', 'root.sum', 'proof.leaf.id', 'proof.leaf.balance',
+  'proof.path.0.side', 'proof.path.0.sibling_hash', 'proof.path.0.sibling_sum'];
+const FIXTURE_DOC = JSON.parse(readFileSync(new URL('../fixtures/art-620-summa-mst-inclusion-checker.fixtures.json', import.meta.url), 'utf8'));
+function setPath(p, fieldPath, value, remove) {
+  const parts = fieldPath.split('.');
+  let cur = p;
+  for (let i = 0; i < parts.length - 1; i++) cur = cur[parts[i]];
+  const last = parts[parts.length - 1];
+  if (remove) delete cur[last];
+  else cur[last] = value;
+}
+function checkP8_required_fields_never_positive() {
+  let violations = 0, checked = 0;
+  for (const v of FIXTURE_DOC.vectors) {
+    const pp = v.policy_parameters;
+    if (!pp || typeof pp !== 'object' || Array.isArray(pp)) continue;
+    if (compute(structuredClone(pp)).output_payload.verdict !== 'VERIFIED') continue;
+    for (const fieldPath of REQUIRED_PATHS) {
+      for (const mode of ['delete', 'null', 'empty', 'whitespace']) {
+        const c = structuredClone(pp);
+        try {
+          if (mode === 'delete') setPath(c, fieldPath, undefined, true);
+          else if (mode === 'null') setPath(c, fieldPath, null, false);
+          else if (mode === 'empty') setPath(c, fieldPath, '', false);
+          else setPath(c, fieldPath, '   ', false);
+          checked++;
+          if (compute(c).output_payload.verdict !== 'NOT_VERIFIED') violations++;
+        } catch (e) { violations++; }
+      }
+    }
+  }
+  return { name: 'P8_required_field_delete_null_blank_whitespace_never_positive', checked, violations };
+}
+
+// ---------- P9: buildArtifact never throws on hash-hostile input (D6) ----------
+async function checkP9_buildArtifact_never_throws() {
+  const deep = (n) => { let o = Object.create(null); const r = o; for (let i = 0; i < n; i++) { o.x = Object.create(null); o = o.x; } return r; };
+  const big = () => new Array(1000001).fill(1);
+  const junk = { NaN: NaN, negInfinity: -Infinity, huge: 1e300, deep600: deep(600), bigArray: big() };
+  const cases = [];
+  for (const [n, j] of Object.entries(junk)) cases.push(['top=' + n, j]);
+  const base = FIXTURE_DOC.vectors.find((v) => v.name === 'verified-2-leaf-inclusion').policy_parameters;
+  for (const key of Object.keys(base)) {
+    for (const [n, j] of Object.entries(junk)) {
+      cases.push([key + '=' + n, { ...structuredClone(base), [key]: j }]);
+    }
+  }
+  let violations = 0, refusals = 0;
+  for (const [label, pp] of cases) {
+    let a;
+    try { a = await buildArtifact(pp); }
+    catch (e) { violations++; console.error(`P9 THROW ${label}: ${e && e.name}: ${e && e.message}`); continue; }
+    if (a.execution_hash === null && a.hash_refusal && typeof a.hash_refusal.reason === 'string') refusals++;
+    else if (a.execution_hash === null) violations++;
+  }
+  return { name: 'buildArtifact_never_throws', checked: cases.length, violations, refusals };
+}
+
 // ---------- run ----------
 const oracle = runFixtureOracle(KERNEL_ID, compute);
 const properties = [
@@ -438,6 +501,8 @@ const properties = [
   checkP5_determinism(),
   checkP6_boundaryCases(),
   checkP7_outputShape(),
+  checkP8_required_fields_never_positive(),
+  await checkP9_buildArtifact_never_throws(),
 ];
 console.log(`[${KERNEL_ID}] class-B property floor — P2 differentials the kernel's hand-rolled SHA-256 against node:crypto`);
 const ok = summarize(KERNEL_ID, oracle, properties);
