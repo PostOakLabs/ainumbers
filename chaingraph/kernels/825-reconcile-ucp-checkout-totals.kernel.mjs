@@ -23,7 +23,9 @@ import { executionHash } from './_hash.mjs';
 //     price-per-step identity this node checks is not protocol-asserted on such lines
 //     (shopping/types/unit_price.json);
 //   - order adjustments carry signed totals, negative for money returned to the buyer
-//     (shopping/types/adjustment.json); net refunded MUST NOT exceed the paid total;
+//     (shopping/types/adjustment.json); the pinned schema states only that sign
+//     convention, so the refund bound applied below is this node's declared policy,
+//     not a protocol MUST;
 //   - discount attribution to a code exists on cart/checkout via the dev.ucp.shopping.discount
 //     extension (applied_discount[].code, omitted for automatic discounts) and is NOT carried
 //     on the durable order record (shopping/discount.json, issue #1026).
@@ -264,6 +266,33 @@ function readTotalEntry(entry, path, violations) {
   } else if (NONNEG_TYPES.indexOf(entry.type) !== -1 && a < 0) {
     violations.push({ path: path + '.amount', code: 'SIGN_VIOLATION', reason: entry.type + ' entries MUST be zero or positive (total.json: minimum 0)' });
     out.sign_violation = true;
+  }
+  // R9 (totals.json, `lines` property): an entry that carries an itemized `lines`
+  // breakdown states "Sum of line amounts MUST equal the parent entry amount".
+  // Sum the line amounts in integer minor units and flag LINES_SUM_MISMATCH with
+  // the expected parent amount and the observed sum when they differ. A malformed
+  // breakdown refuses the whole call, like any other structural malformation.
+  if (hasOwn(entry, 'lines')) {
+    if (!Array.isArray(entry.lines)) return { refuse: 'LINES_NOT_ARRAY' };
+    const amounts = [];
+    for (let i = 0; i < entry.lines.length; i++) {
+      const ln = entry.lines[i];
+      if (!isObj(ln) || !hasOwn(ln, 'amount') || !isSafeInt(ln.amount)) return { refuse: 'LINES_AMOUNT_NOT_INTEGER' };
+      amounts.push(ln.amount);
+    }
+    const sum = exactSum(amounts);
+    const observed = sum.fits ? (sum.neg ? -1 : 1) * limbsValue(sum.mag) : null;
+    out.lines_sum = observed;
+    out.lines_sum_ok = observed === a;
+    if (!out.lines_sum_ok) {
+      violations.push({
+        path: path + '.lines',
+        code: 'LINES_SUM_MISMATCH',
+        expected: a,
+        observed,
+        reason: 'the itemized line amounts sum to ' + (observed === null ? 'a magnitude beyond 2^53-1 minor units' : observed) + ', not the parent entry amount ' + a + ' (totals.json: Sum of line amounts MUST equal the parent entry amount)',
+      });
+    }
   }
   return out;
 }

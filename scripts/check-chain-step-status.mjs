@@ -79,11 +79,13 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isNonLive } from './_node-status.mjs';
+import { derivedResolve } from './_derived-resolve-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const REPO = resolve(HERE, '..');
 
-export const DEFAULT_GRAPH = resolve(REPO, 'chaingraph', 'chaingraph.json');
+// DERIVED-READER-BURNDOWN-CHAIN-STEP-STATUS-1: read the monolith through derivedResolve so the
+// merge_group queue judges the assembled tree (DERIVED_ROOT); unset, it is the committed file.
+export const DEFAULT_GRAPH = derivedResolve('chaingraph', 'chaingraph.json');
 export const DEFAULT_BASELINE = resolve(HERE, 'chain-step-status-baseline.json');
 
 /** A waiver must say WHY in a sentence, not in a word. */
