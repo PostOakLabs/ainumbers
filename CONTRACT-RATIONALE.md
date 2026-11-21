@@ -86,6 +86,8 @@ Two known holes are stated in the text rather than left to discovery. First, the
 
 The program target is worded as "chains censused", not "chains conformant", because three of the four chain parts have no instrument yet. A census against a written definition is honest today; a conformance claim is not.
 
+Contributor note (non-normative, 2026-11-19): registered tools can be inspected and run locally from Chrome DevTools. Open the Application tab and select WebMCP to see the tools a page has registered and to invoke one. This needs Chrome 149 or later with the origin trial active; the two testing flags are `#enable-webmcp-testing` and `#devtools-webmcp-support`. This is a debugging aid only, not part of the conformance definition above.
+
 ### repo/CLAUDE.md notes — non-normative build guidance
 
 - **`<link rel="canonical">`** uses absolute URLs intentionally — this is correct SEO practice, not a routing violation.

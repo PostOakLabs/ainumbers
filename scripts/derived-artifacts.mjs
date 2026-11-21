@@ -1927,6 +1927,13 @@ export const DERIVED_ROOT_GATES = new Set([
   'node scripts/check-chain-step-status.mjs',                 // chain step status (reads the monolith's chains + nodes)
   // DERIVED-READER-BURNDOWN-CHAIN-EDGE-CONTRACTS-1: the L1 edge-contract advisory overlay-reads the monolith's chains + adjacency through derivedResolve, so an edge-contradicting chain reds in the queue on the assembled tree, not post-regen.
   'node scripts/check-chain-edge-contracts.mjs --quiet --json', // L1 chain edge contracts (reads the monolith's chains + adjacency)
+  // PR-3187-DERIVED-READER-CURE-1 (DERIVED-READER-COVERAGE-1): the WebMCP registration
+  // spec gate reads every tracked *.html page, among them the regen-written reader
+  // surfaces (chaingraph/chaingraph-hub.html, sitemap.html, tools.html, mcp.html), so its
+  // page reads resolve through derivedResolve and a merge_group overlay judges the
+  // assembled tree. Spelled exactly as preflight.mjs's GATES list runs it; the
+  // --self-test sibling is a fixture proof and stays out of the set.
+  'node scripts/check-webmcp-spec.mjs',                      // WebMCP registration spec (page reads overlay-resolve)
   // DERIVED-READER-BURNDOWN-CHAIN-L2-CONTRACTS-1: the L2 contract-composition advisory overlay-reads the monolith through derivedResolve (its chain shards still overlay on top at run time), so a contract-composition red shows in the queue on the assembled tree, not post-regen.
   'node scripts/check-chain-l2-contracts.mjs --quiet --json', // L2 chain contract composition (reads the monolith's chains + nodes + manifests)
 ]);
