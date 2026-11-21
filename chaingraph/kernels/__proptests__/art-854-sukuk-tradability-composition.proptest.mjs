@@ -1,5 +1,5 @@
 // art-854-sukuk-tradability-composition — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:e55d83511ee3ee31dd6f667075e7ccb6ac981ada43a68bd7a78d9cc932cc3524
+// kernel_digest_at_authoring: sha256:1ce8d3adda42aeec33ed0bdc89246fdcbac71604f0558dac2287e5bc1d020415
 // spec: workspace research/ISLAMIC-FINANCE-BUILD-SPEC-2026-11 node E (sections 1, 6 and 9)
 // human_sign_off: PENDING
 //
@@ -11,7 +11,8 @@
 // compliance_flags is non-empty; P5 refusal contract (wrong type, null, missing, wrong-type
 // fields, negative amount, float amount, unsafe integer, prototype names, unpinned
 // authorities, no issuance period, empty period); P6 buildArtifact_never_throws on
-// unhashable input with a hash on clean input.
+// unhashable input (non-finite, unsafe integer, bigint, too deep, too wide) with a hash
+// on clean input.
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
@@ -209,7 +210,7 @@ async function checkP6BuildArtifactNeverThrows() {
   const wide = new Array(1000001).fill(0);
   const rng = mulberry32(SEED + 6);
   const clean = { sukuk_type: 'wakalah_bi_al_istithmar', authorities: ['sc_malaysia'], commingled_entity: false, periods: [{ non_debt_minor_units: 40000, debt_minor_units: 40000, cash_minor_units: 20000, is_issuance_date: true }] };
-  for (const delta of [{ zzz: 1e300 }, { zzz: Infinity }, { zzz: NaN }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } }, { zzz: deep }, { zzz: wide }]) {
+  for (const delta of [{ zzz: 1e300 }, { zzz: Infinity }, { zzz: NaN }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } }, { zzz: deep }, { zzz: wide }, { zzz: 123456789012345678901234567890n }]) {
     checked++;
     try {
       const art = await buildArtifact({ ...clean, ...delta });
