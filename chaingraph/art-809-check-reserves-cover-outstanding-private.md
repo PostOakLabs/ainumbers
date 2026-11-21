@@ -12,10 +12,12 @@ Pilot private-input predicate: 16 committed reserve slots, tagged by the eight G
 
 ## Outputs
 
+- as_of (string, required)
 - basis (string, required)
 - not_legal_advice (string, required)
 - privacy_note (string, required)
 - reserves_cover_outstanding (boolean, required)
+- unit (string, required)
 
 ## Sample
 
