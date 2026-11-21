@@ -6,7 +6,7 @@
 // totality claim is made over it. Properties below run over a committed
 // mulberry32 seed (deterministic) plus a fixed corpus of structural cases.
 //
-// kernel_digest_at_authoring: sha256:5a23e77b1729631c48f23920516d828a4b085a1e13b53406c358778107bbf46b
+// kernel_digest_at_authoring: sha256:55c21fb35d931deb93c587ac6e08422791fb39aa4a8e51372abef3a5dda38106
 // spec: PAYMENT-SYSTEM-MI-PACK-1 — compute a payment system's management-information
 //   pack (speed, availability, failure, fraud, complaints, adoption, cost,
 //   transparency KPIs) from declared aggregate counts, against the pinned FSB
@@ -630,7 +630,7 @@ async function checkBuildArtifactNeverThrows() {
     [{ transactions: { count: Infinity } }, /^REFUSED_INPUT_UNSAFE_NUMBER$/],
     [{ zzz: NaN }, /^REFUSED_INPUT_UNSAFE_NUMBER$/],
     [{ zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } }, /^REFUSED_INPUT_UNSAFE_NUMBER$/],
-    [{ zzz: 10n }, /^REFUSED_INPUT_UNSUPPORTED_TYPE$/],
+    [{ zzz: 10n }, /^REFUSED_INPUT_UNSAFE_NUMBER$/],
     [{ transactions: { count: 10, by_channel: deep } }, /^REFUSED_INPUT_HASH_LIMIT$/],
     [{ zzz: deep }, /^REFUSED_INPUT_HASH_LIMIT$/],
     [{ zzz: wide }, /^REFUSED_INPUT_HASH_LIMIT$/],

@@ -168,7 +168,7 @@ function findHashRefusal(v, path, depth, budget) {
     if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
     return null;
   }
-  if (t === 'bigint') return { reason: 'REFUSED_INPUT_UNSUPPORTED_TYPE', detail: path + ': bigint' };
+  if (t === 'bigint') return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': bigint' };
   if (v !== null && t === 'object') {
     const ks = Object.keys(v);
     for (let i = 0; i < ks.length; i++) {
