@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Ijarah IMBT Rental Schedule · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Compute a month-by-month rental schedule for an ijarah lease ending in ownership, with benchmark floor and cap clamps, lessor cost lines, takaful and total-loss branches, and the post-lease ownership transfer event.">
+<meta name="robots" content="index, follow">
+<meta name="ain:category" content="run">
+<meta name="kernel-digest" content="sha256:cfa22c770322cabb01b638a8453fab7c1d326e9e72cab595dcad7ec5b3af1e3f">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-856-ijarah-imbt-schedule.html">
+<link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-856-ijarah-imbt-schedule.md">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--muted:#5A7392;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--red:#F87171;--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2;color:var(--white)}
+a{color:inherit;text-decoration:none}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:760px;line-height:1.8}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:1.5rem 0}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem}
+p.note{font-size:.78rem;color:var(--body);margin-bottom:.7rem}
+code,textarea{font-family:'JetBrains Mono',monospace;font-size:.7rem}
+textarea{width:100%;min-height:190px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:.8rem;resize:vertical}
+button{font-family:'JetBrains Mono',monospace;font-size:.68rem;background:var(--bg-3);color:var(--bright);border:1px solid var(--border);border-radius:var(--radius);padding:.55rem .9rem;cursor:pointer;margin-right:.5rem}
+button:hover{border-color:var(--teal)}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}
+#ap2ExportBtn:disabled{opacity:.55;cursor:not-allowed}
+table{width:100%;border-collapse:collapse;font-size:.72rem;margin-top:.6rem}
+th,td{text-align:left;padding:.4rem .5rem;border-bottom:1px solid var(--border)}
+th{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);text-transform:uppercase}
+td.num{font-family:'JetBrains Mono',monospace;text-align:right}
+.breach{color:var(--red)}
+.ok{color:var(--teal)}
+pre{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--body);background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:.8rem;overflow:auto;max-height:260px}
+.status{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--muted);margin:.6rem 0}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+</style>
+<style>:root{--border-2:#263855;--gold:#D4A847}
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-856 · Ijarah IMBT Rental Schedule</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="page-main" role="main" aria-description="Ijarah lease-to-ownership rental schedule against one pinned Malaysian regulator profile.">
+<div class="hero"><div class="container">
+  <h1>Ijarah IMBT Rental Schedule</h1>
+  <p class="hero-desc">Computes a month-by-month rental schedule for an ijarah lease that ends with the lessee owning the asset, against one pinned authority profile: the Malaysian regulator's Ijarah policy document, paragraphs 14, 16 and 22. Fixed, benchmark and hybrid rental bases with required floor and cap clamps, lessor maintenance and takaful cost lines, the two total-loss branches, and the post-lease ownership transfer event. Outputs are arithmetic and rule checks, not a fatwa, Shariah certification, legal opinion or regulatory approval.</p>
+</div></div>
+<div class="container">
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="panel">
+    <div class="panel-label">What it checks</div>
+    <p class="note">Rental fixed at inception on a fixed, benchmark or hybrid basis; a benchmark-determined rental requires a floor and a cap and every benchmark-determined component is clamped into them; a rental revision without a declared mutual agreement is refused as a unilateral increase. Maintenance and takaful cost lines sit with the lessor, takaful is required unless a declared conventional-insurance circumstance is supplied with its own cost line. A total loss with a proven lessee fault keeps rent running and puts restoration on the lessee; without proven fault the rent stops from the loss month and takaful proceeds belong to the lessor. Ownership transfer is output as a separate post-lease event: sale at a declared price, conditional hibah, or wa'd to hibah; a wa'd to purchase triggered by anything other than default or breach of terms is refused.</p>
+    <p class="note">Out of scope in v1: forward ijarah, sub-lease, leaseback, advance or deferred rental timing, and any authority other than the pinned profile, which is refused by name.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">Try it locally</div>
+    <p class="note">Paste a policy_parameters object. Amounts are integer minor units; the schedule is capped at 360 monthly rows.</p>
+    <label for="ppInput" class="panel-label">Policy parameters (JSON)</label>
+    <textarea id="ppInput" spellcheck="false" aria-label="Policy parameters JSON"></textarea>
+    <div style="margin-top:.8rem">
+      <button id="runBtn" onclick="runCheck()">Compute schedule</button>
+      <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Compute the schedule first to generate a Policy Mandate">Export Policy Mandate</button>
+      <button onclick="exportArtifact()">Export artifact</button>
+    </div>
+    <div id="status" class="status" role="status" aria-live="polite">No result yet.</div>
+  </div>
+
+  <div class="panel" id="resultsPanel" style="display:none">
+    <div class="panel-label">Rental schedule</div>
+    <div style="max-height:320px;overflow:auto"><table><thead><tr><th>Month</th><th>Benchmark (bp)</th><th>Rental</th><th>Due</th><th>Maintenance (lessor)</th><th>Takaful (lessor)</th><th>Clamp</th></tr></thead><tbody id="scheduleBody"></tbody></table></div>
+    <div class="panel-label" style="margin-top:1.3rem">Totals</div>
+    <table><tbody id="totalsBody"></tbody></table>
+    <div class="panel-label" style="margin-top:1.3rem">Total loss and ownership transfer</div>
+    <table><tbody id="eventsBody"></tbody></table>
+    <div class="panel-label" style="margin-top:1.3rem">Execution hash</div>
+    <pre id="execHash">not computed</pre>
+  </div>
+
+  <div class="panel" id="manifest">
+    <div class="panel-label">Manifest</div>
+    <p class="note">tool_id <code>art-856-ijarah-imbt-schedule</code>, version 1.0.0, mandate <code>compliance_control</code>, compute mode server (browser copy on this page). Deterministic: the same inputs always produce the same schedule, cost lines and execution hash. Zero PII: the inputs are amounts, integer basis points, enum choices and month numbers only, and every identifier-like value is refused by name.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">Sample input</div>
+    <pre id="samplePre"></pre>
+  </div>
+</div>
+</div>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="../start.html">Start Here</a>
+        <a href="../front-to-back.html">Front-to-Back Prompts</a>
+        <a href="../prompts.html">Prompt Library</a>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="../helm.html">Helm</a>
+        <a href="../convert.html">Conversion Suite</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Hubs</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="visual-explainers-hub.html">Visual Explainers</a>
+        <a href="education-hub.html">Learn OpenChainGraph</a>
+        <a href="../guides/web3-hub.html">Web3 Hub</a>
+        <a href="../guides/canton-tmf-hub.html">Canton</a>
+        <a href="../guides/ethereum-hub.html">Ethereum</a>
+        <a href="../guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
+        <a href="../guides/token-standards-hub.html">Token Standards</a>
+        <a href="../guides/tradetech-hub.html">TradeTech</a>
+        <a href="../guides/capital-markets-settlement-hub.html">Capital Markets Settlement</a>
+        <a href="../guides/broker-dealer-ops-hub.html">Broker-Dealer Ops</a>
+        <a href="../guides/treasury-liquidity-hub.html">Treasury and Strategy</a>
+        <a href="../guides/wealthtech-hub.html">WealthTech</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Developers</div>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../webmcp.html">WebMCP</a>
+        <a href="../mcp-benchmark.html">MCP Benchmark</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../verification-desk.html">Verification Desk</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">About</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="../privacy.html">Privacy</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var TOOL_ID = 'art-856-ijarah-imbt-schedule';
+var TOOL_VERSION = '1.0.0';
+
+var MAX_TENOR = 360, MAX_ASSET = 1000000000000000, MAX_MONTHLY = 1000000000000, MAX_BP = 100000;
+var MAX_REVISIONS = 12;
+var HASH_MAX_DEPTH = 512, HASH_MAX_ELEMENTS = 1000000;
+var PP_MAX_DEPTH = HASH_MAX_DEPTH - 8, PP_MAX_ELEMENTS = 199000;
+var RENTAL_DENOM = 120000n;
+var BASES = ['fixed','benchmark','hybrid'];
+var TRANSFER_MODES = ['sale','conditional_hibah','wad_to_hibah'];
+var EXCEPTIONS = ['not_offered','rejected_by_all_operators','more_competitive_cost'];
+var WAD_TRIGGERS = ['default','breach','mutual_agreement','voluntary_early_purchase'];
+var WAD_ALLOWED = ['default','breach'];
+var AUTHORITY = 'bnm_malaysia';
+
+function findHashRefusal(v,path,depth,budget){
+  if(depth>budget.maxDepth)return{reason:'REFUSED_INPUT_HASH_LIMIT',detail:path+': too_deep'};
+  if(++budget.n>budget.maxElements)return{reason:'REFUSED_INPUT_HASH_LIMIT',detail:path+': too_many_values'};
+  if(typeof v==='number'){
+    if(!Number.isFinite(v))return{reason:'REFUSED_INPUT_UNSAFE_NUMBER',detail:path+': non_finite'};
+    if(Number.isInteger(v)&&!Number.isSafeInteger(v))return{reason:'REFUSED_INPUT_UNSAFE_NUMBER',detail:path+': unsafe_integer'};
+    return null;
+  }
+  if(Array.isArray(v)){for(var i=0;i<v.length;i++){var r=findHashRefusal(v[i],path+'['+i+']',depth+1,budget);if(r!==null)return r;}return null;}
+  if(v!==null&&typeof v==='object'){var ks=Object.keys(v).sort();for(var j=0;j<ks.length;j++){var q=findHashRefusal(v[ks[j]],path+'.'+ks[j],depth+1,budget);if(q!==null)return q;}}
+  return null;
+}
+function isPlainObject(v){if(v===null||typeof v!=='object'||Array.isArray(v))return false;var p=Object.getPrototypeOf(v);return p===Object.prototype||p===null;}
+function hasOwn(o,k){return Object.hasOwn(o,k);}
+function refuse(e,c,d){e.push(c+': '+d);}
+function divHalfEven(n,d){var q=n/d,r=n%d,t=r*2n;if(t>d)return q+1n;if(t<d)return q;return q%2n===0n?q:q+1n;}
+function moneyString(v){var neg=v<0n,a=neg?-v:v;return(neg?'-':'')+a.toString();}
+function readAmount(h,k,e,p,o){
+  if(!hasOwn(h,k)||h[k]===null){if(o.required)refuse(e,o.code,p+'.'+k+' is required');return null;}
+  var v=h[k];
+  if(typeof v!=='number'||!Number.isSafeInteger(v)||v<(o.min!==undefined?o.min:0)||v>(o.max!==undefined?o.max:MAX_MONTHLY)){refuse(e,o.code,p+'.'+k+' outside its declared integer bounds');return null;}
+  return v;
+}
+function readEnum(h,k,allowed,e,p,o){
+  if(!hasOwn(h,k)||h[k]===null){if(o.required)refuse(e,o.code,p+'.'+k+' is required and must be exactly one of '+allowed.join(', '));return null;}
+  var v=h[k];
+  if(typeof v!=='string'||!allowed.includes(v)){refuse(e,o.code,p+'.'+k+' must be exactly one of '+allowed.join(', '));return null;}
+  return v;
+}
+function optionalBool(h,k,e,p){
+  if(!hasOwn(h,k)||h[k]===null)return null;
+  var v=h[k];
+  if(typeof v!=='boolean'){refuse(e,'REFUSED_INPUT_TYPE',p+'.'+k+' must be a boolean when present');return null;}
+  return v;
+}
+function emptyPayload(){return{not_a_shariah_ruling:true,valid_input:false,domain_errors:[],refusal_code:null,authority:null,asset_cost_minor_units:null,tenor_months:null,rental_basis:null,rounding_rule:null,schedule:[],totals:null,total_loss:null,transfer:null,exception_used:null,mutual_revision_agreed:null,warnings:[]};}
+function refusedResult(errors){var o=emptyPayload();o.domain_errors=errors;o.refusal_code=errors[0].split(':')[0];var f=[];if(errors.length>0)f.push('INPUT_REFUSED',o.refusal_code);o.warnings=f.slice();return{output_payload:o,compliance_flags:f};}
+function validate(pp){
+  var errors=[];
+  var authority=AUTHORITY;
+  if(hasOwn(pp,'authority')&&pp.authority!==null){
+    if(typeof pp.authority!=='string')refuse(errors,'REFUSED_INPUT_TYPE','authority must be a string');
+    else if(pp.authority!==AUTHORITY)refuse(errors,'AUTHORITY_NOT_PINNED','authority '+pp.authority+' is not pinned; supported: '+AUTHORITY);
+    else authority=pp.authority;
+  }
+  var assetCost=readAmount(pp,'asset_cost_minor_units',errors,'pp',{required:true,code:'REFUSED_INPUT_ASSET_COST',min:1,max:MAX_ASSET});
+  var tenor=readAmount(pp,'tenor_months',errors,'pp',{required:true,code:'REFUSED_INPUT_TENOR',min:1,max:MAX_TENOR});
+  var basis=readEnum(pp,'rental_basis',BASES,errors,'pp',{required:true,code:'REFUSED_INPUT_BASIS'});
+  var transferMode=readEnum(pp,'transfer_mode',TRANSFER_MODES,errors,'pp',{required:true,code:'REFUSED_INPUT_TRANSFER_MODE'});
+  var marginBp=null;
+  if(basis==='fixed'||basis==='benchmark'){marginBp=readAmount(pp,'margin_bp',errors,'pp',{required:true,code:'REFUSED_INPUT_MARGIN',min:0,max:MAX_BP});}
+  else if(hasOwn(pp,'margin_bp')&&pp.margin_bp!==null){
+    if(typeof pp.margin_bp!=='number'||!Number.isSafeInteger(pp.margin_bp)||pp.margin_bp<0||pp.margin_bp>MAX_BP)refuse(errors,'REFUSED_INPUT_MARGIN','pp.margin_bp outside its declared integer bounds');
+    else marginBp=pp.margin_bp;
+  }
+  var hasFloor=hasOwn(pp,'floor_rental_minor_units')&&pp.floor_rental_minor_units!==null;
+  var hasCap=hasOwn(pp,'cap_rental_minor_units')&&pp.cap_rental_minor_units!==null;
+  var floor=null,cap=null;
+  if(basis==='benchmark'||basis==='hybrid'){
+    if(!hasFloor||!hasCap)refuse(errors,'REFUSED_BENCHMARK_BOUNDS_MISSING','a benchmark-determined rental requires both floor_rental_minor_units and cap_rental_minor_units');
+    else{
+      floor=readAmount(pp,'floor_rental_minor_units',errors,'pp',{code:'REFUSED_INPUT_FLOOR',max:MAX_MONTHLY});
+      cap=readAmount(pp,'cap_rental_minor_units',errors,'pp',{code:'REFUSED_INPUT_CAP',max:MAX_MONTHLY});
+      if(floor!==null&&cap!==null&&floor>cap)refuse(errors,'REFUSED_FLOOR_EXCEEDS_CAP','floor_rental_minor_units must not exceed cap_rental_minor_units');
+    }
+  }else if(hasFloor||hasCap)refuse(errors,'REFUSED_INPUT_INCONSISTENT','floor_rental_minor_units and cap_rental_minor_units apply only to a benchmark or hybrid rental basis');
+  var benchmarkPath=null;
+  var hasPath=hasOwn(pp,'benchmark_path_bp')&&pp.benchmark_path_bp!==null;
+  if(basis==='benchmark'||basis==='hybrid'){
+    if(!hasPath||!Array.isArray(pp.benchmark_path_bp)||pp.benchmark_path_bp.length!==tenor)refuse(errors,'REFUSED_INPUT_BENCHMARK_PATH','benchmark_path_bp must be an array with exactly tenor_months = '+tenor+' monthly values');
+    else{
+      benchmarkPath=[];
+      for(var i=0;i<pp.benchmark_path_bp.length;i++){
+        var bv=pp.benchmark_path_bp[i];
+        if(typeof bv!=='number'||!Number.isSafeInteger(bv)||bv<0||bv>MAX_BP){refuse(errors,'REFUSED_INPUT_BENCHMARK_PATH','benchmark_path_bp['+i+'] outside its declared integer bounds');benchmarkPath=null;break;}
+        benchmarkPath.push(bv);
+      }
+    }
+  }else if(hasPath)refuse(errors,'REFUSED_INPUT_INCONSISTENT','benchmark_path_bp applies only to a benchmark or hybrid rental basis');
+  var fixedComponent=null;
+  if(basis==='hybrid'){
+    if(!hasOwn(pp,'fixed_component_minor_units')||pp.fixed_component_minor_units===null)refuse(errors,'REFUSED_INPUT_FIXED_COMPONENT','pp.fixed_component_minor_units is required for a hybrid rental basis');
+    else fixedComponent=readAmount(pp,'fixed_component_minor_units',errors,'pp',{code:'REFUSED_INPUT_FIXED_COMPONENT',max:MAX_MONTHLY});
+  }else if(hasOwn(pp,'fixed_component_minor_units')&&pp.fixed_component_minor_units!==null)refuse(errors,'REFUSED_INPUT_INCONSISTENT','fixed_component_minor_units applies only to a hybrid rental basis');
+  var maintenance=readAmount(pp,'maintenance_minor_units_per_month',errors,'pp',{code:'REFUSED_INPUT_MAINTENANCE'});
+  var takaful=readAmount(pp,'takaful_minor_units_per_month',errors,'pp',{code:'REFUSED_INPUT_TAKAFUL'});
+  var insurance=readAmount(pp,'insurance_minor_units_per_month',errors,'pp',{code:'REFUSED_INPUT_INSURANCE'});
+  var exception=readEnum(pp,'conventional_insurance_exception',EXCEPTIONS,errors,'pp',{code:'REFUSED_INPUT_EXCEPTION'});
+  var takafulPresent=takaful!==null,exceptionSet=exception!==null,insurancePresent=insurance!==null;
+  if(takafulPresent&&exceptionSet)refuse(errors,'REFUSED_TAKAFUL_CONFLICT','conventional_insurance_exception applies only when no takaful line is declared');
+  if(exceptionSet&&!insurancePresent)refuse(errors,'REFUSED_INPUT_INSURANCE','insurance_minor_units_per_month is required when conventional_insurance_exception is set');
+  if(!takafulPresent&&!exceptionSet)refuse(errors,'REFUSED_TAKAFUL_MISSING','a schedule requires a takaful line (takaful_minor_units_per_month) or a declared conventional_insurance_exception with its insurance line');
+  var lossMonth=readAmount(pp,'total_loss_month',errors,'pp',{code:'REFUSED_INPUT_LOSS_MONTH',min:1});
+  var fault=optionalBool(pp,'lessee_fault',errors,'pp');
+  var recovery=readAmount(pp,'takaful_recovery_minor_units',errors,'pp',{code:'REFUSED_INPUT_RECOVERY'});
+  if(lossMonth!==null&&tenor!==null&&lossMonth>tenor)refuse(errors,'REFUSED_INPUT_LOSS_MONTH','total_loss_month must fall within the tenor');
+  if(fault!==null&&lossMonth===null)refuse(errors,'REFUSED_INPUT_FAULT_FLAG','lessee_fault applies only together with total_loss_month');
+  if(recovery!==null&&lossMonth===null)refuse(errors,'REFUSED_INPUT_RECOVERY','takaful_recovery_minor_units applies only together with total_loss_month');
+  var transferPrice=null;
+  if(transferMode==='sale'){transferPrice=readAmount(pp,'transfer_price_minor_units',errors,'pp',{required:true,code:'REFUSED_INPUT_TRANSFER_PRICE',max:MAX_ASSET});}
+  else if(hasOwn(pp,'transfer_price_minor_units')&&pp.transfer_price_minor_units!==null)refuse(errors,'REFUSED_INPUT_INCONSISTENT','transfer_price_minor_units applies only to the sale transfer mode');
+  var trigger=readEnum(pp,'wad_purchase_trigger',WAD_TRIGGERS,errors,'pp',{code:'REFUSED_INPUT_TRIGGER'});
+  if(trigger!==null&&!WAD_ALLOWED.includes(trigger))refuse(errors,'REFUSED_WAD_TRIGGER','wad_purchase_trigger '+trigger+' cannot trigger a promise to purchase; only default or breach of terms may');
+  var mutualRevision=optionalBool(pp,'mutual_revision_agreed',errors,'pp');
+  var revisions=null;
+  if(hasOwn(pp,'rental_revisions')&&pp.rental_revisions!==null){
+    if(!Array.isArray(pp.rental_revisions)||pp.rental_revisions.length<1||pp.rental_revisions.length>MAX_REVISIONS)refuse(errors,'REFUSED_INPUT_REVISIONS','rental_revisions must be an array of 1 to '+MAX_REVISIONS+' records when present');
+    else if(mutualRevision!==true)refuse(errors,'REFUSED_UNILATERAL_RENTAL_INCREASE','a rental revision requires mutual_revision_agreed: true; the lessor must not raise the rental unilaterally');
+    else{
+      revisions=[];
+      var months=new Map();
+      for(var r2=0;r2<pp.rental_revisions.length;r2++){
+        var rec=pp.rental_revisions[r2],rpath='rental_revisions['+r2+']';
+        if(!isPlainObject(rec)){refuse(errors,'REFUSED_INPUT_REVISIONS',rpath+' must be an object');revisions=null;break;}
+        var rMonth=readAmount(rec,'month',errors,rpath,{code:'REFUSED_INPUT_REVISIONS',min:1,max:MAX_TENOR});
+        var rAmount=readAmount(rec,'rental_minor_units',errors,rpath,{code:'REFUSED_INPUT_REVISIONS',min:0});
+        if(rMonth!==null&&tenor!==null&&rMonth>tenor)refuse(errors,'REFUSED_INPUT_REVISIONS',rpath+'.month must fall within the tenor');
+        if(rMonth!==null){
+          if(months.has(rMonth)){refuse(errors,'REFUSED_INPUT_REVISIONS','two rental_revisions records target month '+rMonth);revisions=null;break;}
+          months.set(rMonth,rAmount);
+        }
+        if(rMonth===null||rAmount===null){revisions=null;break;}
+        revisions.push({month:rMonth,amount:rAmount});
+      }
+    }
+  }
+  return{errors:errors,authority:authority,assetCost:assetCost,tenor:tenor,basis:basis,transferMode:transferMode,marginBp:marginBp,floor:floor,cap:cap,benchmarkPath:benchmarkPath,fixedComponent:fixedComponent,maintenance:maintenance,takaful:takaful,insurance:insurance,exception:exception,insurancePresent:insurancePresent,lossMonth:lossMonth,fault:fault,recovery:recovery,transferPrice:transferPrice,trigger:trigger,mutualRevision:mutualRevision,revisions:revisions};
+}
+function clampBp(raw,f,c,row){
+  if(raw<f){row.rental_minor_units=f;row.clamped_to_floor=true;return;}
+  if(raw>c){row.rental_minor_units=c;row.clamped_to_cap=true;return;}
+  row.rental_minor_units=raw;
+}
+function compute(pp){
+  if(!isPlainObject(pp))return refusedResult(['REFUSED_INPUT_WRONG_TYPE: policy_parameters must be an object']);
+  var unhashable=findHashRefusal(pp,'pp',1,{maxDepth:PP_MAX_DEPTH,maxElements:PP_MAX_ELEMENTS,n:0});
+  if(unhashable!==null)return refusedResult([unhashable.reason+': '+unhashable.detail]);
+  var v=validate(pp);
+  if(v.errors.length>0)return refusedResult(v.errors);
+  var cost=BigInt(v.assetCost),tenor=v.tenor,flags=[];
+  var schedule=[],revisionByMonth=new Map();
+  if(v.revisions!==null){for(var ri=0;ri<v.revisions.length;ri++)revisionByMonth.set(v.revisions[ri].month,BigInt(v.revisions[ri].amount));flags.push('RENTAL_REVISION_APPLIED');}
+  var scheduledTotal=0n,payableTotal=0n,maintenanceTotal=0n,protectionTotal=0n;
+  var perMaintenance=BigInt(v.maintenance!==null?v.maintenance:0);
+  var perProtection=BigInt(v.takaful!==null?v.takaful:(v.insurancePresent?v.insurance:0));
+  var floorMonths=0,capMonths=0;
+  for(var m=1;m<=tenor;m++){
+    var row={month:m,benchmark_bp:null,clamped_to_floor:false,clamped_to_cap:false};
+    if(v.basis==='fixed'){row.rental_minor_units=divHalfEven(cost*BigInt(v.marginBp),RENTAL_DENOM);}
+    else{
+      var bp=v.benchmarkPath[m-1];row.benchmark_bp=bp;
+      var raw=divHalfEven(cost*BigInt((v.basis==='benchmark'?v.marginBp:(v.marginBp!==null?v.marginBp:0))+bp),RENTAL_DENOM);
+      clampBp(raw,BigInt(v.floor),BigInt(v.cap),row);
+      if(row.clamped_to_floor)floorMonths+=1;
+      if(row.clamped_to_cap)capMonths+=1;
+    }
+    if(v.basis==='hybrid')row.rental_minor_units+=BigInt(v.fixedComponent);
+    if(revisionByMonth.has(m))row.rental_minor_units=revisionByMonth.get(m);
+    var lossStopsRent=v.lossMonth!==null&&v.fault!==true&&m>=v.lossMonth;
+    row.lessor_maintenance_minor_units=moneyString(perMaintenance);
+    row.lessor_protection_minor_units=moneyString(perProtection);
+    row.rental_due_minor_units=lossStopsRent?'0':moneyString(row.rental_minor_units);
+    row.rental_minor_units=moneyString(row.rental_minor_units);
+    scheduledTotal+=BigInt(row.rental_minor_units);
+    payableTotal+=BigInt(row.rental_due_minor_units);
+    maintenanceTotal+=perMaintenance;
+    protectionTotal+=perProtection;
+    schedule.push(row);
+  }
+  if(floorMonths>0)flags.push('RENTAL_CLAMPED_FLOOR');
+  if(capMonths>0)flags.push('RENTAL_CLAMPED_CAP');
+  var totalLoss=null;
+  if(v.lossMonth!==null){
+    totalLoss={month:v.lossMonth,lessee_fault:v.fault===true,rent_stops_from_loss_month:v.fault!==true,restoration_borne_by:v.fault===true?'lessee':'lessor',takaful_recovery_minor_units:moneyString(BigInt(v.recovery!==null?v.recovery:0))};
+    if(v.fault===true)flags.push('TOTAL_LOSS_WITH_FAULT');
+    else flags.push('TOTAL_LOSS_NO_FAULT_RENT_STOPPED');
+  }
+  var transfer={mode:v.transferMode,price_minor_units:null};
+  if(v.trigger!==null)transfer.wad_purchase_trigger=v.trigger;
+  if(v.transferMode==='sale'){transfer.timing='after_lease_expiry';transfer.execution='separate_sale_contract_after_expiry';transfer.price_minor_units=moneyString(BigInt(v.transferPrice));}
+  else if(v.transferMode==='conditional_hibah'){transfer.timing='when_condition_fulfilled';transfer.execution='conditional_hibah';}
+  else{transfer.timing='after_lease_expiry';transfer.execution='separate_hibah_contract';}
+  var exceptionUsed=null;
+  if(v.exception!==null){exceptionUsed={circumstance:v.exception};flags.push('INSURANCE_EXCEPTION_APPLIED');}
+  return{output_payload:{
+    not_a_shariah_ruling:true,valid_input:true,domain_errors:[],refusal_code:null,authority:v.authority,
+    asset_cost_minor_units:moneyString(cost),tenor_months:tenor,rental_basis:v.basis,
+    rounding_rule:'half_even_to_minor_unit_per_month',schedule:schedule,
+    totals:{scheduled_rentals_minor_units:moneyString(scheduledTotal),payable_rentals_minor_units:moneyString(payableTotal),lessor_maintenance_total_minor_units:moneyString(maintenanceTotal),lessor_protection_total_minor_units:moneyString(protectionTotal)},
+    total_loss:totalLoss,transfer:transfer,exception_used:exceptionUsed,
+    mutual_revision_agreed:v.mutualRevision===true,warnings:flags.slice()
+  },compliance_flags:flags};
+}
+
+function walk(v,depth,c){
+  if(depth>HASH_MAX_DEPTH)throw new Error('too deep');
+  if(++c.n>HASH_MAX_ELEMENTS)throw new Error('too many values');
+  if(typeof v==='number'){
+    if(!Number.isFinite(v))throw new Error('non finite');
+    if(Number.isInteger(v)&&!Number.isSafeInteger(v))throw new Error('unsafe integer');
+  }else if(Array.isArray(v)){for(var i=0;i<v.length;i++)walk(v[i],depth+1,c);}
+  else if(v!==null&&typeof v==='object'){Object.keys(v).forEach(function(k){walk(v[k],depth+1,c);});}
+}
+function jcs(v){
+  if(v===null||typeof v!=='object')return JSON.stringify(v);
+  if(Array.isArray(v)){var a='[';for(var i=0;i<v.length;i++){if(i)a+=',';var e=v[i];a+=(e===undefined||typeof e==='function'||typeof e==='symbol')?'null':jcs(e);}return a+']';}
+  var ks=Object.keys(v).sort(),s='{',first=true;
+  ks.forEach(function(k){var e=v[k];if(e===undefined||typeof e==='function'||typeof e==='symbol')return;if(!first)s+=',';first=false;s+=JSON.stringify(k)+':'+jcs(e);});
+  return s+'}';
+}
+async function computeHash(pp,output){
+  var preimage={policy_parameters:pp,output_payload:output};
+  var refusal=findHashRefusal(preimage,'preimage',1,{maxDepth:HASH_MAX_DEPTH,maxElements:HASH_MAX_ELEMENTS,n:0});
+  if(refusal!==null)return{hash:null,hash_refusal:{reason:refusal.reason,detail:refusal.detail}};
+  try{walk(preimage,1,{n:0});}catch(e){return{hash:null,hash_refusal:{reason:'REFUSED_INPUT_HASH_LIMIT',detail:'preimage: '+e.message}};}
+  var bytes=new TextEncoder().encode(jcs(preimage));
+  var digest=await globalThis.crypto.subtle.digest('SHA-256',bytes);
+  return{hash:Array.from(new Uint8Array(digest)).map(function(b){return b.toString(16).padStart(2,'0');}).join(''),hash_refusal:null};
+}
+
+var _lastResult=null,_lastHash=null;
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function setStatus(msg){document.getElementById('status').textContent=msg;}
+function rowCells(html){var tr=document.createElement('tr');tr.innerHTML=html;return tr;}
+async function runCheck(){
+  var pp;
+  try{pp=JSON.parse(document.getElementById('ppInput').value);}catch(e){setStatus('Invalid JSON: '+e.message);return;}
+  var r=compute(pp),o=r.output_payload;
+  _lastResult={pp:pp,output_payload:o,compliance_flags:r.compliance_flags};
+  var h=await computeHash(pp,o);_lastHash=h.hash;
+  if(!o.valid_input){setStatus('Refused: '+o.refusal_code+': '+o.domain_errors[0]);document.getElementById('resultsPanel').style.display='none';document.getElementById('ap2ExportBtn').disabled=true;return;}
+  var sb=document.getElementById('scheduleBody');sb.innerHTML='';
+  o.schedule.forEach(function(row){
+    var clampTxt=row.clamped_to_floor?'floor':(row.clamped_to_cap?'cap':'within');
+    sb.appendChild(rowCells('<td class="num">'+row.month+'</td><td class="num">'+(row.benchmark_bp===null?'-':row.benchmark_bp)+'</td><td class="num">'+esc(row.rental_minor_units)+'</td><td class="num">'+esc(row.rental_due_minor_units)+'</td><td class="num">'+esc(row.lessor_maintenance_minor_units)+'</td><td class="num">'+esc(row.lessor_protection_minor_units)+'</td><td class="'+(clampTxt==='within'?'ok':'breach')+'">'+clampTxt+'</td>'));
+  });
+  var tb=document.getElementById('totalsBody');tb.innerHTML='';
+  var t=o.totals;
+  tb.appendChild(rowCells('<td>Scheduled rentals over the tenor</td><td class="num">'+esc(t.scheduled_rentals_minor_units)+'</td>'));
+  tb.appendChild(rowCells('<td>Rentals actually payable</td><td class="num">'+esc(t.payable_rentals_minor_units)+'</td>'));
+  tb.appendChild(rowCells('<td>Lessor maintenance total</td><td class="num">'+esc(t.lessor_maintenance_total_minor_units)+'</td>'));
+  tb.appendChild(rowCells('<td>Lessor protection total</td><td class="num">'+esc(t.lessor_protection_total_minor_units)+'</td>'));
+  var eb=document.getElementById('eventsBody');eb.innerHTML='';
+  if(o.total_loss){
+    var L=o.total_loss;
+    eb.appendChild(rowCells('<td>Total loss at month '+L.month+'</td><td>'+(L.lessee_fault?'lessee fault proven; rent continues and restoration is borne by the lessee':'no proven lessee fault; rent stops from the loss month and restoration is borne by the lessor')+'</td>'));
+    eb.appendChild(rowCells('<td>Takaful recovery to the lessor</td><td class="num">'+esc(L.takaful_recovery_minor_units)+'</td>'));
+  }else{
+    eb.appendChild(rowCells('<td>Total loss</td><td>none declared</td>'));
+  }
+  var T=o.transfer;
+  var transferTxt=T.mode+'; '+T.execution.replace(/_/g,' ');
+  if(T.wad_purchase_trigger)transferTxt+='; promise trigger '+T.wad_purchase_trigger;
+  eb.appendChild(rowCells('<td>Ownership transfer</td><td>'+esc(transferTxt)+(T.price_minor_units!==null?'; price '+esc(T.price_minor_units):'')+'</td>'));
+  if(o.exception_used)eb.appendChild(rowCells('<td>Conventional insurance circumstance</td><td>'+esc(o.exception_used.circumstance.replace(/_/g,' '))+'</td>'));
+  document.getElementById('execHash').textContent=h.hash===null?('not hashable ('+h.hash_refusal.reason+')'):h.hash;
+  document.getElementById('resultsPanel').style.display='block';
+  setStatus('Schedule computed for '+o.tenor_months+' months on the '+o.rental_basis+' basis.');
+  var btn=document.getElementById('ap2ExportBtn');btn.disabled=false;btn.classList.add('ready');
+  window.enableAP2Btn();
+}
+function exportArtifact(){
+  if(!_lastResult)return;
+  var a={ '@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_control',tool_id:TOOL_ID,tool_version:TOOL_VERSION,generated_at:new Date().toISOString(),execution_hash:_lastHash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[],client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+  if(_lastHash===null)a.hash_refusal={reason:'REFUSED_INPUT_HASH_LIMIT',detail:'preimage: outside the hash limits'};
+  var url=URL.createObjectURL(new Blob([JSON.stringify(a,null,2)],{type:'application/json'}));
+  var link=document.createElement('a');link.href=url;link.download=TOOL_ID+'.json';link.click();URL.revokeObjectURL(url);
+}
+(function(){
+  if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+  var AP2Schema=window.AP2Schema;
+  AP2Schema.validate=function(m){
+    var uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    function fail(msg){throw new Error('AP2Schema: '+msg);}
+    if(!m||typeof m!=='object')fail('mandate must be an object');
+    if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')fail('missing identity field');
+    if(typeof m.mandate_type!=='string'||!m.mandate_type)fail('missing mandate_type');
+    if('mandate_id' in m&&!uuid.test(m.mandate_id))fail('mandate_id must be UUIDv4');
+    if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))fail('jurisdiction must be array');
+    return true;
+  };
+  window.enableAP2Btn=function(){var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}};
+  window.exportAP2=function(){
+    if(!_lastResult){alert('Compute the schedule first to generate results.');return;}
+    var ts=new Date().toISOString(),mandate={
+      mandate_id:crypto.randomUUID(),issued_at:ts,issued_by:'ainumbers.co',tool_id:TOOL_ID,tool_version:TOOL_VERSION,
+      mandate_type:'compliance_mandate',jurisdiction:['MY'],regulatory_frameworks:[],payload:_lastResult,
+      summary:'Ijarah lease-to-ownership rental schedule '+ts.slice(0,10),agent_instructions:['Review the exported schedule against your ijarah contract documentation.'],
+      valid_from:ts.slice(0,10),source_tool_inputs:{},regulatory_citations:[],audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+    };
+    AP2Schema.validate(mandate);
+    var url=URL.createObjectURL(new Blob([JSON.stringify(mandate,null,2)],{type:'application/json'}));
+    var link=document.createElement('a');link.href=url;link.download=TOOL_ID+'_policy.json';link.click();URL.revokeObjectURL(url);
+  };
+})();
+document.getElementById('samplePre').textContent=JSON.stringify({asset_cost_minor_units:100000000,tenor_months:60,rental_basis:'fixed',margin_bp:315,maintenance_minor_units_per_month:25000,takaful_minor_units_per_month:40000,transfer_mode:'sale',transfer_price_minor_units:1000000},null,2);
+</script>
+</body>
+</html>
