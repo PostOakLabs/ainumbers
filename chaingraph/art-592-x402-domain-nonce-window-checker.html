@@ -486,6 +486,8 @@ function _toUint256BigInt(v) {
 
 var SECP256K1_ORDER = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
 var HIGH_S_REASON = 'the supplied signature carries an s value greater than half the secp256k1 group order (high-s, malleable form): such authorizations are rejected at settlement by low-s enforcing tokens, so this verifier refuses regardless of the recovered signer';
+var ZERO_S_REASON = 'the supplied signature carries s = 0: an ECDSA signing operation cannot produce a zero s component, so a zero s is an invalid signature form and this verifier refuses it regardless of the recovered signer';
+var ZERO_R_REASON = 'the supplied signature carries r = 0: an ECDSA signing operation cannot produce a zero r component, so a zero r is an invalid signature form and this verifier refuses it regardless of the recovered signer';
 function _parseSignatureForm(pp) {
   var supplied = (pp.signature !== undefined && pp.signature !== null) || (pp.s !== undefined && pp.s !== null);
   if (!supplied) return null;
@@ -495,7 +497,7 @@ function _parseSignatureForm(pp) {
   if (has65) {
     var body = _stripHexPrefix(pp.signature.trim());
     if (!/^[0-9a-fA-F]{130}$/.test(body)) return { error: 'signature, when supplied, must be a 65-byte hex EIP-3009 signature (r||s||v, 130 hex characters)' };
-    return { sBig: BigInt('0x' + body.slice(64, 128)) };
+    return { rBig: BigInt('0x' + body.slice(0, 64)), sBig: BigInt('0x' + body.slice(64, 128)) };
   }
   var body2 = _stripHexPrefix(pp.s.trim());
   if (!/^[0-9a-fA-F]{64}$/.test(body2)) return { error: 's, when supplied, must be a 32-byte hex value (64 hex characters)' };
@@ -566,6 +568,13 @@ function compute(pp) {
   var sAboveHalfOrder = sigForm !== null && !sigForm.error ? sigForm.sBig > (SECP256K1_ORDER >> 1n) : null;
   if (sAboveHalfOrder === true) reasons.push(HIGH_S_REASON);
 
+  var sigParsed = sigForm !== null && !sigForm.error;
+  var zeroS = sigParsed ? sigForm.sBig === 0n : false;
+  var zeroR = sigParsed && sigForm.rBig !== undefined ? sigForm.rBig === 0n : false;
+  var zeroComponent = zeroS || zeroR;
+  if (zeroS) reasons.push(ZERO_S_REASON);
+  if (zeroR) reasons.push(ZERO_R_REASON);
+
   var compliance_flags = [
     domainChainMatch ? 'DOMAIN_CHAIN_MATCH' : 'DOMAIN_CHAIN_MISMATCH',
     domainContractMatch ? 'DOMAIN_CONTRACT_MATCH' : 'DOMAIN_CONTRACT_MISMATCH',
@@ -573,12 +582,13 @@ function compute(pp) {
     nonceWellFormed ? 'NONCE_WELL_FORMED' : 'NONCE_MALFORMED'
   ];
   if (sAboveHalfOrder === true) compliance_flags.push('X402_SIGNATURE_HIGH_S');
+  if (zeroComponent) compliance_flags.push('X402_SIGNATURE_ZERO_COMPONENT');
 
-  var hardRefuse = sAboveHalfOrder === true || !domainChainMatch || !domainContractMatch || !withinWindow || !nonceWellFormed || nonceAlreadyUsed === true;
+  var hardRefuse = sAboveHalfOrder === true || zeroComponent || !domainChainMatch || !domainContractMatch || !withinWindow || !nonceWellFormed || nonceAlreadyUsed === true;
   var verdict = hardRefuse ? 'REFUSE' : 'PASS';
   compliance_flags.push(hardRefuse ? 'X402_DOMAIN_NONCE_REFUSE' : 'X402_DOMAIN_NONCE_PASS');
 
-  var signature_form = sigForm !== null && !sigForm.error ? { present: true, s_above_half_order: sAboveHalfOrder } : null;
+  var signature_form = sigParsed ? { present: true, s_above_half_order: sAboveHalfOrder, zero_component: zeroComponent } : null;
 
   var output_payload = {
     verdict: verdict, reasons: reasons,

@@ -1,5 +1,5 @@
 // art-592-x402-domain-nonce-window-checker property-test floor (ADJACENT-HOOKS-ASSEMBLE-LAND-1).
-// kernel_digest_at_authoring: sha256:fa8518e439bbe1ed04ed5e3c36b0d1bd71986c5c710cd1a4a75f7fc93db082df
+// kernel_digest_at_authoring: sha256:13a983346c12f03c2626a1714a1c6e4b8df984252c8c5f68b8e853167ed52842
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- cheap invariant subset over the DECLARED domain,
@@ -245,6 +245,7 @@ async function checkBuildArtifactNeverThrows() {
     ['deep_600', deep], ['wide_1000001', wide], ['bigint', 1n],
   ];
   const numericFields = ['expected_chain_id', 'validAfter', 'validBefore', 'now_unix'];
+  const EXTRA_FIELD = 'junk';
   const cleanPp = () => ({ ...CLEAN_PP });
   const expectRefusal = (label, art) => {
     const r = art.hash_refusal;
@@ -257,7 +258,7 @@ async function checkBuildArtifactNeverThrows() {
     }
   };
   for (const [label, value] of junk) {
-    const ppExtra = cleanPp(); ppExtra.junk = value;
+    const ppExtra = cleanPp(); ppExtra[EXTRA_FIELD] = value;
     checked++;
     try { expectRefusal(label + '/extra', await buildArtifact(ppExtra)); }
     catch (e) { violations++; console.log(`P9 violation: buildArtifact threw (${label}/extra): ${String(e.message).slice(0, 80)}`); }
