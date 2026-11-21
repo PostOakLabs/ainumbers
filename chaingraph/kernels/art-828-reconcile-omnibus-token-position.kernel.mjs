@@ -64,6 +64,16 @@ import { executionHash } from './_hash.mjs';
 // Pure ECMA-262 + BigInt only -- no Date, no Math.random, no network, no
 // clock read (as_of is a caller-declared label). All digesting below is
 // synchronous via the inlined pure-JS core (see note at _sha256).
+//
+// MISSING-INPUT FAIL-CLOSED CURE: the six inputs below are required. A positive
+// verdict (RECONCILED) never survives when one of them is absent, null, an empty
+// string or a whitespace-only string: the kernel returns its existing structured
+// refusal instead, naming the first missing field. The refusal is emitted with
+// LITERAL property reads (a dynamic pp[f] read is invisible to the static schema
+// sweep). A verdict that is already MISMATCH or UNDECIDABLE is non-positive and
+// needs no downgrade. buildArtifact additionally never throws: any input outside
+// the I-JSON hash limits (non-finite or unsafe number, excessive depth or size)
+// yields a refusal artifact with execution_hash null and a hash_refusal reason.
 
 const TOOL_ID = 'art-828-reconcile-omnibus-token-position';
 const TOOL_VERSION = '1.0.0';
@@ -73,6 +83,13 @@ export const meta = {
   mcp_name: 'reconcile_omnibus_position',
   mandate_type: 'compliance_control', gpu: false,
 };
+
+// Required inputs per the node contract. An absent-but-well-formed value was
+// previously flagged and the arithmetic still returned a positive verdict;
+// that is the fail-open this cure closes. omnibus_balance is not in this list:
+// with no omnibus balance neither leg is computable and the verdict is already
+// UNDECIDABLE (non-positive), so it never produced a false agreement.
+const REQUIRED_FIELDS = ['profile', 'as_of', 'book_entry_position', 'tolerance_units', 'wallets', 'events'];
 
 const PROFILES = ['dtc_dts', 'generic_omnibus'];
 const EVENT_KINDS = ['mint', 'burn', 'forced_transfer', 'transfer'];
@@ -199,6 +216,17 @@ function readLabel(v, field) {
 
 export function compute(pp) {
   pp = pp || {};
+
+  // A blank or whitespace-only required field is missing, exactly as an absent
+  // or null one. This runs before field-specific validation so the refusal is
+  // uniform across the whole required set rather than a per-validator reason.
+  const isBlank = (v) => typeof v === 'string' && v.trim() === '';
+  if (isBlank(pp.profile)) return buildRefusal(refused('profile', 'required_field_missing'));
+  if (isBlank(pp.as_of)) return buildRefusal(refused('as_of', 'required_field_missing'));
+  if (isBlank(pp.book_entry_position)) return buildRefusal(refused('book_entry_position', 'required_field_missing'));
+  if (isBlank(pp.tolerance_units)) return buildRefusal(refused('tolerance_units', 'required_field_missing'));
+  if (isBlank(pp.wallets)) return buildRefusal(refused('wallets', 'required_field_missing'));
+  if (isBlank(pp.events)) return buildRefusal(refused('events', 'required_field_missing'));
 
   // -- Pass 1: profile, as_of, tolerance (scalars).
   let profile = 'generic_omnibus';
@@ -348,6 +376,25 @@ export function compute(pp) {
   const warnings = flags.slice();
   const manualReview = flags.length > 0;
 
+  // Missing required inputs fail closed. Literal property reads only. A blank or
+  // whitespace-only string is the same as a missing field. Only a verdict that
+  // would otherwise be positive is downgraded: MISMATCH and UNDECIDABLE are
+  // already non-positive and are left intact.
+  const present = (v) => v !== undefined && v !== null && !(typeof v === 'string' && v.trim() === '');
+  const rawPresent = {
+    profile: present(pp.profile),
+    as_of: present(pp.as_of),
+    book_entry_position: present(pp.book_entry_position),
+    tolerance_units: present(pp.tolerance_units),
+    wallets: present(pp.wallets),
+    events: present(pp.events),
+  };
+  if (verdict === 'RECONCILED') {
+    for (const f of REQUIRED_FIELDS) {
+      if (!rawPresent[f]) return buildRefusal(refused(f, 'required_field_missing'));
+    }
+  }
+
   return {
     output_payload: {
       verdict,
@@ -432,8 +479,65 @@ function buildRefusal(r) {
   };
 }
 
+// Mirrors the I-JSON limits in _hash.mjs so buildArtifact never throws: non-finite
+// number, unsafe integer, nesting past MAX_DEPTH, more values than MAX_ELEMENTS.
+// Reports path and kind only; never echoes the offending value.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > HASH_MAX_DEPTH) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > HASH_MAX_ELEMENTS) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const refusalArtifact = (unhashable) => ({
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: meta.mandate_type,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: null,
+    hash_refusal: { reason: unhashable.reason, detail: unhashable.detail },
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: null,
+    output_payload: { verdict: 'refused', refused_because: unhashable.reason, manual_review_required: true },
+    compliance_flags: unhashable.reason ? ['INPUT_REFUSED'] : [],
+    compute_mode: 'server',
+    compute_proof_ready: 'deferred',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  });
+
+  // The shared element budget spans both members, so refuse before executionHash
+  // could reach an unhashable value and throw.
+  const budget = { n: 0 };
+  const ppRefusal = findHashRefusal(pp, 'policy_parameters', 2, budget);
+  if (ppRefusal !== null) return refusalArtifact(ppRefusal);
+
   const { output_payload, compliance_flags } = compute(pp);
+  const outRefusal = findHashRefusal(output_payload, 'output_payload', 2, budget);
+  if (outRefusal !== null) return refusalArtifact(outRefusal);
+
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',

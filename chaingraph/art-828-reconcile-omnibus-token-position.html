@@ -12,7 +12,7 @@
 <meta name="ain:category" content="run">
 <meta name="robots" content="index, follow">
 <meta name="author" content="Post Oak Labs">
-<meta name="kernel-digest" content="sha256:244e06c7cefd3bae92387a5258f61abacd8262681516cdeb488e318b1cf588bf">
+<meta name="kernel-digest" content="sha256:2367781bf675b06d6b2e0de52088a1b7ee607e69860238f781b3f1962972b118">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/art-828-reconcile-omnibus-token-position.html">
 <link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-828-reconcile-omnibus-token-position.md">
 <meta property="og:type" content="website">
@@ -432,6 +432,7 @@ const MANIFEST = {"tool_id":"art-828-reconcile-omnibus-token-position","version"
 
 const PROFILES = ['dtc_dts', 'generic_omnibus'];
 const EVENT_KINDS = ['mint', 'burn', 'forced_transfer', 'transfer'];
+const REQUIRED_FIELDS = ['profile', 'as_of', 'book_entry_position', 'tolerance_units', 'wallets', 'events'];
 const LABEL_RE = /^[A-Za-z0-9_-]{1,40}$/;
 const AS_OF_RE = /^\d{4}-\d{2}-\d{2}$/;
 const DECIMAL_RE = /^(0|[1-9][0-9]*)$/;
@@ -551,6 +552,14 @@ function readLabel(v, field) {
 
 function compute(pp) {
   pp = pp || {};
+
+  const isBlank = (v) => typeof v === 'string' && v.trim() === '';
+  if (isBlank(pp.profile)) return buildRefusal(refused('profile', 'required_field_missing'));
+  if (isBlank(pp.as_of)) return buildRefusal(refused('as_of', 'required_field_missing'));
+  if (isBlank(pp.book_entry_position)) return buildRefusal(refused('book_entry_position', 'required_field_missing'));
+  if (isBlank(pp.tolerance_units)) return buildRefusal(refused('tolerance_units', 'required_field_missing'));
+  if (isBlank(pp.wallets)) return buildRefusal(refused('wallets', 'required_field_missing'));
+  if (isBlank(pp.events)) return buildRefusal(refused('events', 'required_field_missing'));
 
   // -- Pass 1: profile, as_of, tolerance (scalars).
   let profile = 'generic_omnibus';
@@ -696,6 +705,21 @@ function compute(pp) {
 
   const warnings = flags.slice();
   const manualReview = flags.length > 0;
+
+  const present = (v) => v !== undefined && v !== null && !(typeof v === 'string' && v.trim() === '');
+  const rawPresent = {
+    profile: present(pp.profile),
+    as_of: present(pp.as_of),
+    book_entry_position: present(pp.book_entry_position),
+    tolerance_units: present(pp.tolerance_units),
+    wallets: present(pp.wallets),
+    events: present(pp.events),
+  };
+  if (verdict === 'RECONCILED') {
+    for (const f of REQUIRED_FIELDS) {
+      if (!rawPresent[f]) return buildRefusal(refused(f, 'required_field_missing'));
+    }
+  }
 
   return {
     output_payload: {

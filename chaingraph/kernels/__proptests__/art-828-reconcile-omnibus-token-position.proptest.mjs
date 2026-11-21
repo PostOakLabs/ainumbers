@@ -7,7 +7,7 @@
 // Properties run over a committed mulberry32 seed (deterministic) plus a fixed
 // corpus of structural cases.
 //
-// kernel_digest_at_authoring: sha256:244e06c7cefd3bae92387a5258f61abacd8262681516cdeb488e318b1cf588bf
+// kernel_digest_at_authoring: sha256:2367781bf675b06d6b2e0de52088a1b7ee607e69860238f781b3f1962972b118
 // spec: reconcile a declared tokenized-securities omnibus position against the
 //   sum of declared wallet balances and the declared book-entry position, with a
 //   SHA-256 hash-chained head over declared mint/burn/forced-transfer/transfer
@@ -24,7 +24,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { compute } from '../art-828-reconcile-omnibus-token-position.kernel.mjs';
+import { compute, buildArtifact } from '../art-828-reconcile-omnibus-token-position.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, findShapeViolations } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-828-reconcile-omnibus-token-position';
@@ -278,6 +278,71 @@ function checkOutputShape() {
   return { name: 'completed_payload_exact_decimals_and_counts', checked, violations };
 }
 
+// ---------- P7: missing/blank required field never keeps a positive verdict ----------
+// The required-field cure is checked independently of the kernel's own view: every
+// positive fixture vector has each of its six required inputs mutated four ways
+// (deleted, null, empty string, whitespace-only); none may stay positive or stay
+// byte-identical to the unmutated positive output.
+const REQUIRED_FIELDS = ['profile', 'as_of', 'book_entry_position', 'tolerance_units', 'wallets', 'events'];
+const POSITIVE_VERDICTS = new Set(['RECONCILED', 'MATCHES', 'CONSISTENT', 'VERIFIED', 'READY', 'SPEND', 'MET', 'PASS']);
+
+function checkMissingRequiredNeverPositive() {
+  const doc = JSON.parse(fs.readFileSync(path.join(HERE, '..', 'fixtures', KERNEL_ID + '.fixtures.json'), 'utf8'));
+  let checked = 0;
+  let violations = 0;
+  const modes = ['delete', 'null', 'empty', 'space'];
+  for (const v of doc.vectors) {
+    const baseOut = compute(JSON.parse(JSON.stringify(v.policy_parameters))).output_payload;
+    if (!POSITIVE_VERDICTS.has(baseOut.verdict)) continue;
+    for (const f of REQUIRED_FIELDS) {
+      for (const mode of modes) {
+        const pp = JSON.parse(JSON.stringify(v.policy_parameters));
+        if (mode === 'delete') delete pp[f];
+        else if (mode === 'null') pp[f] = null;
+        else if (mode === 'empty') pp[f] = '';
+        else pp[f] = '   ';
+        checked++;
+        let out;
+        try { out = compute(pp).output_payload; }
+        catch (e) { violations++; console.error(`P7 ${v.name} ${f}/${mode} threw: ${e}`); continue; }
+        if (POSITIVE_VERDICTS.has(out.verdict) || JSON.stringify(out) === JSON.stringify(baseOut)) {
+          violations++;
+          console.error(`P7 ${v.name} ${f}/${mode} stayed positive: ${out.verdict}`);
+        }
+      }
+    }
+  }
+  return { name: 'missing_required_field_never_positive', checked, violations };
+}
+
+// ---------- P8: buildArtifact never throws on unhashable input ----------
+// One case per class the shared I-JSON canonicaliser refuses. Each must return a
+// refusal artifact (execution_hash null plus hash_refusal), never throw.
+async function checkBuildArtifactNeverThrows() {
+  const deep = (n) => { let o = /** @type {any} */ ({}); const r = o; for (let i = 0; i < n; i++) { o.x = {}; o = o.x; } return r; };
+  const cases = [
+    ['junk_1e300', 1e300],
+    ['junk_NaN', NaN],
+    ['junk_-Infinity', -Infinity],
+    ['depth511', deep(511)],
+    ['array_over_1e6', new Array(1_000_001).fill(1)],
+  ];
+  const outcomes = [];
+  for (const [label, val] of cases) {
+    let threw = null, refused = false;
+    try {
+      const a = await buildArtifact(val);
+      refused = a != null && a.execution_hash === null && JSON.stringify(a).includes('hash_refusal');
+    } catch (e) { threw = (e && e.name ? e.name + ': ' : '') + String(e && e.message); }
+    outcomes.push({ label, threw, refused });
+  }
+  return {
+    name: 'buildArtifact_never_throws',
+    checked: outcomes.length,
+    violations: outcomes.filter((o) => o.threw !== null || !o.refused).length,
+  };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -292,6 +357,8 @@ const properties = [
   checkEventChainConformance(),
   checkRefusalInvariants(),
   checkOutputShape(),
+  checkMissingRequiredNeverPositive(),
+  await checkBuildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — authored 2026-11-07 against the pinned no-action-letter excerpt.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
