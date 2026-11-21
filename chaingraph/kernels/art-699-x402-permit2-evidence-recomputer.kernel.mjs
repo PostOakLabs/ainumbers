@@ -1136,6 +1136,19 @@ const shake256_64 =
 genShake(0x1f, 136, 64, /* @__PURE__ */ oidNist(0x0c));
 //# sourceMappingURL=sha3.js.map
 
+// -- keccak256 host-function shim, inlined (the estate's inlined-shim pattern: the kernel never
+// imports the shim -- the vm's ESM-strip leaves any non-_hash import silently undefined in the
+// browser twin). Inside the art699guest zkVM the host answers globalThis.__ocg_keccak256_host
+// (tiny-keccak 2.0.2 Keccak::v256: keccak-f[1600], original Keccak padding -- by construction the
+// same function the vendored noble path above computes). Browser, worker and plain Node runs
+// feature-detect no such global and fall through to the vendored noble keccak_256, so guest and
+// browser sides hash byte-identically. Every hash call site below goes through keccak256(), never
+// through keccak_256 directly, so exactly one line decides which side serves the digest.
+function keccak256(bytes) {
+  const host = globalThis.__ocg_keccak256_host;
+  return typeof host === 'function' ? host(bytes) : keccak_256(bytes);
+}
+
 // The secp256k1 group order, copied from the vendored bundle's own curve literal. Used only to
 // report whether s sits above half the order; no curve arithmetic happens in this kernel.
 const SECP256K1_ORDER = BigInt('0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141');
@@ -1183,13 +1196,13 @@ let _TYPEHASH_MEMO = null;
 function _typehashes() {
   if (_TYPEHASH_MEMO === null) {
     _TYPEHASH_MEMO = {
-      domain: keccak_256(utf8ToBytes(DOMAIN_TYPE_STRING)),
-      tokenPermissions: keccak_256(utf8ToBytes(TOKEN_PERMISSIONS_TYPE_STRING)),
-      witness: keccak_256(utf8ToBytes(WITNESS_TYPE_STRING)),
-      permitWitnessTransferFrom: keccak_256(utf8ToBytes(PERMIT_WITNESS_TRANSFER_FROM_TYPE_STRING)),
-      permitTransferFrom: keccak_256(utf8ToBytes(PERMIT_TRANSFER_FROM_TYPE_STRING)),
-      permitDetails: keccak_256(utf8ToBytes(PERMIT_DETAILS_TYPE_STRING)),
-      permitSingle: keccak_256(utf8ToBytes(PERMIT_SINGLE_TYPE_STRING)),
+      domain: keccak256(utf8ToBytes(DOMAIN_TYPE_STRING)),
+      tokenPermissions: keccak256(utf8ToBytes(TOKEN_PERMISSIONS_TYPE_STRING)),
+      witness: keccak256(utf8ToBytes(WITNESS_TYPE_STRING)),
+      permitWitnessTransferFrom: keccak256(utf8ToBytes(PERMIT_WITNESS_TRANSFER_FROM_TYPE_STRING)),
+      permitTransferFrom: keccak256(utf8ToBytes(PERMIT_TRANSFER_FROM_TYPE_STRING)),
+      permitDetails: keccak256(utf8ToBytes(PERMIT_DETAILS_TYPE_STRING)),
+      permitSingle: keccak256(utf8ToBytes(PERMIT_SINGLE_TYPE_STRING)),
     };
   }
   return _TYPEHASH_MEMO;
@@ -1524,9 +1537,9 @@ export function compute(pp) {
   }
 
   // ---- domain separator ----
-  const domainSeparator = keccak_256(concatBytes_(
+  const domainSeparator = keccak256(concatBytes_(
     th.domain,
-    keccak_256(utf8ToBytes(DOMAIN_NAME)),
+    keccak256(utf8ToBytes(DOMAIN_NAME)),
     _uint256Word(chainId),
     _addressWord(verifyingContract),
   ));
@@ -1538,7 +1551,7 @@ export function compute(pp) {
   let message = null;
 
   if (variant === 'x402_witness_transfer' || variant === 'permit_transfer_from') {
-    const tokenPermissionsHash = keccak_256(concatBytes_(
+    const tokenPermissionsHash = keccak256(concatBytes_(
       th.tokenPermissions,
       _addressWord(permittedToken),
       _uint256Word(permittedAmount),
@@ -1546,12 +1559,12 @@ export function compute(pp) {
     if (variant === 'x402_witness_transfer') {
       typeString = PERMIT_WITNESS_TRANSFER_FROM_TYPE_STRING;
       typehash = th.permitWitnessTransferFrom;
-      const witnessHash = keccak_256(concatBytes_(
+      const witnessHash = keccak256(concatBytes_(
         th.witness,
         _addressWord(witnessTo),
         _uint256Word(witnessValidAfter),
       ));
-      structHash = keccak_256(concatBytes_(
+      structHash = keccak256(concatBytes_(
         typehash,
         tokenPermissionsHash,
         _addressWord(spender),
@@ -1572,7 +1585,7 @@ export function compute(pp) {
     } else {
       typeString = PERMIT_TRANSFER_FROM_TYPE_STRING;
       typehash = th.permitTransferFrom;
-      structHash = keccak_256(concatBytes_(
+      structHash = keccak256(concatBytes_(
         typehash,
         tokenPermissionsHash,
         _addressWord(spender),
@@ -1590,14 +1603,14 @@ export function compute(pp) {
   } else {
     typeString = PERMIT_SINGLE_TYPE_STRING;
     typehash = th.permitSingle;
-    const detailsHash = keccak_256(concatBytes_(
+    const detailsHash = keccak256(concatBytes_(
       th.permitDetails,
       _addressWord(detailsToken),
       _uint256Word(detailsAmount),
       _uint256Word(detailsExpiration),
       _uint256Word(detailsNonce),
     ));
-    structHash = keccak_256(concatBytes_(
+    structHash = keccak256(concatBytes_(
       typehash,
       detailsHash,
       _addressWord(spender),
@@ -1616,7 +1629,7 @@ export function compute(pp) {
     };
   }
 
-  const digest = keccak_256(concatBytes_(
+  const digest = keccak256(concatBytes_(
     Uint8Array.from([0x19, 0x01]),
     domainSeparator,
     structHash,
