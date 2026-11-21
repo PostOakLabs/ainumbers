@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (770 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (771 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -8215,6 +8215,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-84-settlement-efficiency-kpi",
       "cry-04-merkle-batch-verifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-791-check-je-multicurrency-balance",
+    "display_name": "Multicurrency JE Balance Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-791-check-je-multicurrency-balance.html",
+    "description": "Checks that structured journal entries balance, on a basis the caller declares: either every currency sums to zero separately (per_currency)",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

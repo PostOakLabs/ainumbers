@@ -371,92 +371,103 @@ async function sha256Hex(v){
 async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
 
 /* --- Mirror of chaingraph/kernels/art-559-attest-calc-agent-independence.kernel.mjs --- */
-var PARTY_ROLES = ['cedant', 'sponsor', 'reinsurer', 'other'];
-var TRIGGER_TOOL_IDS = [
+const PARTY_ROLES = ['cedant', 'sponsor', 'reinsurer', 'other'];
+const TRIGGER_TOOL_IDS = [
   'art-251-compute-parametric-trigger-payout',
   'art-252-validate-cat-bond-trigger-terms',
   'art-309-parametric-index-deriver',
 ];
-var SHA256_SALTED_SCHEME = 'sha256-salted@1';
-var SHA256_COMMITMENT_RE = /^sha256:[0-9a-f]{64}$/;
+const SHA256_SALTED_SCHEME = 'sha256-salted@1';
+const SHA256_COMMITMENT_RE = /^sha256:[0-9a-f]{64}$/;
 
-function safeStr(v){ return typeof v === 'string' ? v.trim() : ''; }
-function nonEmpty(v){ var s = safeStr(v); return s.length > 0 ? s : null; }
+function safeStr(v) { return typeof v === 'string' ? v.trim() : ''; }
+function nonEmpty(v) { const s = safeStr(v); return s.length > 0 ? s : null; }
 
-function compute(pp){
+function compute(pp) {
   pp = pp || {};
-  var rejected_inputs = [];
+  const rejected_inputs = [];
 
-  var calc_agent_id = nonEmpty(pp.calc_agent_id);
+  const calc_agent_id = nonEmpty(pp.calc_agent_id);
   if (!calc_agent_id) rejected_inputs.push({ where: 'calc_agent_id', reason: 'absent -- a free-text/DID identifier of the computing entity is required', supplied: null });
 
-  var declared_relationship = pp.relationship_declaration;
-  var relationship_declaration = declared_relationship === 'none' || declared_relationship === 'disclosed' ? declared_relationship : null;
-  if (!relationship_declaration) rejected_inputs.push({ where: 'relationship_declaration', reason: 'absent or not one of "none"/"disclosed" -- must be explicitly declared, never assumed', supplied: declared_relationship === undefined ? null : declared_relationship });
-  var disclosure_note = relationship_declaration === 'disclosed' ? nonEmpty(pp.disclosure_note) : null;
+  const declared_relationship = pp.relationship_declaration;
+  const relationship_declaration = declared_relationship === 'none' || declared_relationship === 'disclosed' ? declared_relationship : null;
+  if (!relationship_declaration) {
+    rejected_inputs.push({ where: 'relationship_declaration', reason: 'absent or not one of "none"/"disclosed" -- must be explicitly declared, never assumed', supplied: declared_relationship === undefined ? null : declared_relationship });
+  }
+  const disclosure_note = relationship_declaration === 'disclosed' ? nonEmpty(pp.disclosure_note) : null;
 
-  var trigger_ref_in = (pp.trigger_ref && typeof pp.trigger_ref === 'object') ? pp.trigger_ref : {};
-  var trigger_execution_hash = nonEmpty(trigger_ref_in.execution_hash);
+  const trigger_ref_in = (pp.trigger_ref && typeof pp.trigger_ref === 'object') ? pp.trigger_ref : {};
+  const trigger_execution_hash = nonEmpty(trigger_ref_in.execution_hash);
   if (!trigger_execution_hash) rejected_inputs.push({ where: 'trigger_ref.execution_hash', reason: 'absent -- the execution_hash of the art-251/art-252/art-309 artifact this independence claim covers is required', supplied: null });
-  var trigger_tool_id_raw = nonEmpty(trigger_ref_in.tool_id);
-  var trigger_tool_id = trigger_tool_id_raw && TRIGGER_TOOL_IDS.indexOf(trigger_tool_id_raw) !== -1 ? trigger_tool_id_raw : null;
+  const trigger_tool_id_raw = nonEmpty(trigger_ref_in.tool_id);
+  const trigger_tool_id = trigger_tool_id_raw && TRIGGER_TOOL_IDS.includes(trigger_tool_id_raw) ? trigger_tool_id_raw : null;
   if (!trigger_tool_id) {
-    rejected_inputs.push({ where: 'trigger_ref.tool_id', reason: trigger_tool_id_raw ? ('not one of the trigger-computation tool_ids this attestation may cite: ' + TRIGGER_TOOL_IDS.join(', ')) : 'absent -- must name which trigger-computation artifact this independence claim covers', supplied: trigger_tool_id_raw || null });
+    rejected_inputs.push({
+      where: 'trigger_ref.tool_id',
+      reason: trigger_tool_id_raw
+        ? 'not one of the trigger-computation tool_ids this attestation may cite: ' + TRIGGER_TOOL_IDS.join(', ')
+        : 'absent -- must name which trigger-computation artifact this independence claim covers',
+      supplied: trigger_tool_id_raw || null,
+    });
   }
 
-  var private_input_candidates = [];
-  var parties_in = Array.isArray(pp.interested_parties) ? pp.interested_parties : [];
-  var interested_parties = parties_in.map(function(raw, i){
-    var p = raw && typeof raw === 'object' ? raw : {};
-    var party_role = PARTY_ROLES.indexOf(p.party_role) !== -1 ? p.party_role : null;
-    if (!party_role) rejected_inputs.push({ where: 'interested_parties[' + i + '].party_role', reason: 'absent or not one of cedant/sponsor/reinsurer/other', supplied: p.party_role === undefined ? null : p.party_role });
+  const private_input_candidates = [];
+  const parties_in = Array.isArray(pp.interested_parties) ? pp.interested_parties : [];
+  const interested_parties = parties_in.map((raw, i) => {
+    const p = raw && typeof raw === 'object' ? raw : {};
+    const party_role = PARTY_ROLES.includes(p.party_role) ? p.party_role : null;
+    if (!party_role) rejected_inputs.push({ where: `interested_parties[${i}].party_role`, reason: 'absent or not one of cedant/sponsor/reinsurer/other', supplied: p.party_role === undefined ? null : p.party_role });
 
-    var declaredScheme = nonEmpty(p.party_id_commitment_scheme);
-    var schemeKnown = declaredScheme === null || declaredScheme === SHA256_SALTED_SCHEME;
-    var party_id = nonEmpty(p.party_id);
-    var party_id_is_commitment = false;
+    const declaredScheme = nonEmpty(p.party_id_commitment_scheme);
+    const schemeKnown = declaredScheme === null || declaredScheme === SHA256_SALTED_SCHEME;
+    let party_id = nonEmpty(p.party_id);
+    let party_id_is_commitment = false;
 
     if (!party_id) {
-      rejected_inputs.push({ where: 'interested_parties[' + i + '].party_id', reason: 'absent', supplied: null });
+      rejected_inputs.push({ where: `interested_parties[${i}].party_id`, reason: 'absent', supplied: null });
     } else if (declaredScheme !== null) {
       if (!schemeKnown) {
-        rejected_inputs.push({ where: 'interested_parties[' + i + '].party_id_commitment_scheme', reason: 'unknown commitment scheme -- "' + SHA256_SALTED_SCHEME + '" is the sole scheme accepted (SPEC.md §25.1); the declared party_id is excluded rather than trusted as opaque', supplied: declaredScheme });
+        rejected_inputs.push({ where: `interested_parties[${i}].party_id_commitment_scheme`, reason: `unknown commitment scheme -- "${SHA256_SALTED_SCHEME}" is the sole scheme accepted (SPEC.md §25.1); the declared party_id is excluded rather than trusted as opaque`, supplied: declaredScheme });
         party_id = null;
       } else if (!SHA256_COMMITMENT_RE.test(party_id)) {
-        rejected_inputs.push({ where: 'interested_parties[' + i + '].party_id', reason: 'declared commitment_scheme "' + SHA256_SALTED_SCHEME + '" but the value is not a well-formed sha256: commitment (^sha256:[0-9a-f]{64}$)', supplied: party_id });
+        rejected_inputs.push({ where: `interested_parties[${i}].party_id`, reason: `declared commitment_scheme "${SHA256_SALTED_SCHEME}" but the value is not a well-formed sha256: commitment (^sha256:[0-9a-f]{64}$)`, supplied: party_id });
         party_id = null;
       } else {
         party_id_is_commitment = true;
       }
     }
 
-    var entry = { party_role: party_role, party_id: party_id, label: party_id_is_commitment ? 'private-commitment' : 'asserted' };
+    const entry = { party_role, party_id, label: party_id_is_commitment ? 'private-commitment' : 'asserted' };
     if (declaredScheme !== null) {
       entry.party_id_commitment_scheme = declaredScheme;
-      if (party_id_is_commitment) private_input_candidates.push({ pointer: '/interested_parties/' + i + '/party_id', commitment: party_id, commitment_scheme: SHA256_SALTED_SCHEME });
+      if (party_id_is_commitment) {
+        private_input_candidates.push({ pointer: `/interested_parties/${i}/party_id`, commitment: party_id, commitment_scheme: SHA256_SALTED_SCHEME });
+      }
     }
     return entry;
   });
   if (interested_parties.length === 0) rejected_inputs.push({ where: 'interested_parties', reason: 'absent or empty -- at least one interested party the trigger outcome could pay or receive from is required', supplied: null });
 
-  var independence_asserted = relationship_declaration === 'none';
+  const independence_asserted = relationship_declaration === 'none';
 
-  var compliance_flags = ['CALC_AGENT_INDEPENDENCE_DECLARATION_RECORDED'];
+  const compliance_flags = ['CALC_AGENT_INDEPENDENCE_DECLARATION_RECORDED'];
   compliance_flags.push(independence_asserted ? 'CALC_AGENT_INDEPENDENCE_ASSERTED' : 'CALC_AGENT_INDEPENDENCE_NOT_ASSERTED');
   if (private_input_candidates.length > 0) compliance_flags.push('CALC_AGENT_INDEPENDENCE_PARTY_ID_PRIVATE_INPUT');
   if (rejected_inputs.length > 0) compliance_flags.push('CALC_AGENT_INDEPENDENCE_INPUTS_REJECTED');
 
-  var output_payload = {
-    calc_agent_id: calc_agent_id,
-    interested_parties: interested_parties,
-    relationship_declaration: relationship_declaration,
-    disclosure_note: disclosure_note,
+  const output_payload = {
+    calc_agent_id,
+    interested_parties,
+    relationship_declaration,
+    disclosure_note,
     trigger_ref: { execution_hash: trigger_execution_hash, tool_id: trigger_tool_id },
-    independence_asserted: independence_asserted,
-    rejected_inputs: rejected_inputs,
+    independence_asserted,
+    rejected_inputs,
     note: 'Not a determination of independence -- a citable record of what was declared, and to which specific trigger computation. Whether the declaration is true is a fact for the parties and, on dispute, an arbitrator or court to establish. Self-declared only, never independently verified against an external corporate registry.',
   };
-  return { output_payload: output_payload, compliance_flags: compliance_flags, private_input_candidates: private_input_candidates };
+
+  return { output_payload, compliance_flags, private_input_candidates, trigger_execution_hash, trigger_tool_id };
 }
 /* --- end mirror --- */
 
@@ -505,7 +516,7 @@ async function runCheck(){
   };
 
   var res = compute(pp);
-  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags, private_input_candidates: res.private_input_candidates, trigger_execution_hash: res.trigger_execution_hash };
   paintResult();
 }
 
@@ -570,6 +581,7 @@ function exportArtifact(r){
   var parent_hashes = trigger_execution_hash ? [trigger_execution_hash] : [];
   var parent_tool_ids = trigger_tool_id ? [trigger_tool_id] : [];
   var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'attestation_mandate',tool_id:'art-559-attest-calc-agent-independence',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:parent_hashes,parent_tool_ids:parent_tool_ids,chain_depth:parent_hashes.length?1:0},policy_parameters:r.pp,output_payload:r.output_payload,compliance_flags:r.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  if (r.private_input_candidates && r.private_input_candidates.length) artifact.private_inputs = r.private_input_candidates;
   var json = JSON.stringify(artifact, null, 2);
   document.getElementById('artifactPre').textContent = json;
   document.getElementById('artifactPre').style.display = 'block';

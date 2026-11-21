@@ -1920,6 +1920,11 @@ export const DERIVED_ROOT_GATES = new Set([
   // assembled tree. The file itself is hand-signed (EXCLUDED, never regen-written); the gate is not
   // COVERED, so membership is awareness classification only.
   'node scripts/check-webmcp-snapshot-fresh.mjs',            // snapshot expiry freshness (overlay-reads the signed snapshot)
+  // DERIVED-READER-BURNDOWN-CHAIN-DOMAIN-1 (2026-11-05): chain-domain reads the monolith through
+  // derivedResolve, so a new chain's missing/invalid domain reds in the queue, not post-regen.
+  'node scripts/check-chain-domain.mjs',                     // chain domain enum (reads the monolith's chains)
+  // DERIVED-READER-BURNDOWN-CHAIN-STEP-STATUS-1: chain-step-status overlay-reads the monolith's chains/nodes through derivedResolve, so a departed step node reds in the queue, not post-regen.
+  'node scripts/check-chain-step-status.mjs',                 // chain step status (reads the monolith's chains + nodes)
   // PR-3187-DERIVED-READER-CURE-1 (DERIVED-READER-COVERAGE-1): the WebMCP registration
   // spec gate reads every tracked *.html page, among them the regen-written reader
   // surfaces (chaingraph/chaingraph-hub.html, sitemap.html, tools.html, mcp.html), so its
