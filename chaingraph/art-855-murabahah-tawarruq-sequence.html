@@ -58,7 +58,7 @@ pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius
 footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
 </style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-855-murabahah-tawarruq-sequence.kernel.mjs. -->
-<meta name="kernel-digest" content="sha256:a36b839883247bd66e55f312cbc914f55ace480ec5dde2b1be0c771f6c7392eb">
+<meta name="kernel-digest" content="sha256:ae0813958a65cbb0eea09d40577d332d8482f1a84057c43830c4ae23aaef62a5">
 <style>
 /* OCG-CHROME-CSS:v1 */
 /* Canonical nav — derived from chaingraph-hub.html */
@@ -143,7 +143,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <div class="panel-label">Inputs</div>
     <div class="field"><label for="structure">Structure (murabahah or tawarruq)</label><input type="text" id="structure" aria-label="structure" aria-description="Exactly one of murabahah or tawarruq." spellcheck="false"></div>
     <div class="field"><label for="steps">Step records (JSON list)</label><textarea id="steps" aria-label="steps" aria-description="Up to 64 step records, each with step, t, evidence_present and optional boolean flags." spellcheck="false"></textarea></div>
-    <div class="help">Each record: step (ifi_acquires_asset, wad_executed, agent_purchases_asset, sale_contract, possession_transfer, wakalah_contract, onsale_contract, payment_to_seller; each at most once), t (a non-negative whole-number ordinal; a step is before another only when its ordinal is strictly smaller), evidence_present (true or false) and optional true or false flags agent_role, delivery_restricted, onsale_obligation, promise_to_sell_third_party, payment_before_contract, embedded_in_sale_contract. On a wakalah step, agent_role means the agent's role and responsibilities are specified. Any other field is refused.</div>
+    <div class="help">Each record: step (ifi_acquires_asset, wad_executed, agent_purchases_asset, sale_contract, possession_transfer, wakalah_contract, onsale_contract, payment_to_seller; each at most once), t (a non-negative whole-number ordinal; a step is before another only when its ordinal is strictly smaller), evidence_present (true or false) and optional true or false flags agent_role, delivery_restricted, onsale_obligation, promise_to_sell_third_party, promise_to_sell_original_seller, payment_before_contract, embedded_in_sale_contract. On a wakalah step, agent_role means the agent's role and responsibilities are specified. Any other field is refused.</div>
     <div style="margin-top:14px">
       <button onclick="runCheck()">&#9654; Run checks</button>
       <button onclick="loadSample('tawarruq')" style="margin-left:8px">Load clean tawarruq</button>
@@ -318,7 +318,7 @@ const STEPS = [
 ];
 const FLAG_KEYS = [
   'agent_role', 'delivery_restricted', 'onsale_obligation', 'promise_to_sell_third_party',
-  'payment_before_contract', 'embedded_in_sale_contract',
+  'promise_to_sell_original_seller', 'payment_before_contract', 'embedded_in_sale_contract',
 ];
 const RECORD_KEYS = ['step', 't', 'evidence_present'].concat(FLAG_KEYS);
 const PP_KEYS = ['structure', 'steps', 'authority_profile'];
@@ -329,11 +329,11 @@ const AUTHORITY_NOTE = 'BNM profile; other authorities may differ, not assessed'
 // ── authority profile table (one entry per rule, never merged across authorities) ─
 const BNM_MURABAHAH = {
   authority: 'BNM', doc: 'BNM-MURABAHAH-PD-2013', as_of: '2013-12-23',
-  pin_sha256: '1075ff67ec58a89b1eef4cb2e0376de709c45823381936d443db2a49f622663b',
+  pin_sha256: 'e9665bdc5644b1ef23b40d0d11aa06eca3366eb1a8eb49ed38d1fa7473dfb935',
 };
 const BNM_TAWARRUQ = {
   authority: 'BNM', doc: 'BNM-TAWARRUQ-PD028-8-2018', as_of: '2018-12-28',
-  pin_sha256: 'ef1dc9c9ac0aa15406fc3c55882ef8384aa5a8e18f9d913d29328efae11611c2',
+  pin_sha256: '5a239d878960ddf6d216f843b7a9def9dcfea38f81f09b2a511f3cf6014d8a34',
 };
 
 // kind 'order' = a sequencing question; kind 'rule' = a content question.
@@ -366,6 +366,7 @@ function findHashRefusal(v, path, depth, budget) {
     if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
     return null;
   }
+  if (typeof v === 'bigint') return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': bigint' };
   if (Array.isArray(v)) {
     for (let i = 0; i < v.length; i++) {
       const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
@@ -538,8 +539,9 @@ const RUNNERS = {
   T_NO_THIRD_PARTY_PROMISE(s) {
     for (let i = 0; i < s.length; i++) {
       if (s[i].promise_to_sell_third_party) return { verdict: 'fail', step: s[i].step, reason: 'condition requires a promise to sell to a third party' };
+      if (s[i].promise_to_sell_original_seller) return { verdict: 'fail', step: s[i].step, reason: 'condition requires a promise to sell to its original seller' };
     }
-    return { verdict: 'pass', step: null, reason: 'no third-party promise condition flagged' };
+    return { verdict: 'pass', step: null, reason: 'no third-party or original-seller promise condition flagged' };
   },
 };
 
@@ -596,13 +598,14 @@ function compute(rawPp) {
 
 
 function bytesToHexStr(bytes) { return Array.from(bytes).map(function (b) { return b.toString(16).padStart(2, '0'); }).join(''); }
-function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function (o, k) { o[k] = cgCanon(v[k]); return o; }, {}) : v; }
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function (o, k) { o[k] = cgCanon(v[k]); return o; }, Object.create(null)) : v; }
 // An unhashable preimage mints a null hash and a reason instead of throwing.
 async function computeExecHash(pp, op) {
-  if (findHashRefusal({ policy_parameters: pp, output_payload: op }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 }) !== null) return null;
+  var refusal = findHashRefusal({ policy_parameters: pp, output_payload: op }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  if (refusal !== null) return { hash: null, reason: refusal.reason, detail: refusal.detail };
   var payload = JSON.stringify(cgCanon({ policy_parameters: pp, output_payload: op }));
   var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
-  return bytesToHexStr(new Uint8Array(buf));
+  return { hash: bytesToHexStr(new Uint8Array(buf)), reason: null, detail: null };
 }
 
 var _lastResult = null;
@@ -643,7 +646,8 @@ async function runCheck() {
     '<table><thead><tr><th>Check</th><th>Kind</th><th>Verdict</th><th>Para</th><th>Reason</th></tr></thead><tbody>' +
     o.checks.map(function (c) { return '<tr><td>' + esc(c.check_id) + '</td><td>' + esc(c.kind) + '</td><td>' + esc(c.verdict) + '</td><td>' + esc(c.doc + ' ' + c.para) + '</td><td>' + esc(c.reason) + '</td></tr>'; }).join('') + '</tbody></table>';
   var h = await computeExecHash(pp, o);
-  document.getElementById('execHash').textContent = h === null ? 'not hashable (input outside the hash limits)' : h;
+  window._lastHashRefusal = h.hash === null ? { reason: h.reason, detail: h.detail } : null;
+  document.getElementById('execHash').textContent = h.hash === null ? 'not hashable (' + h.reason + ')' : h.hash;
   document.getElementById('artifactPre').style.display = 'none';
   window._ap2Result = { verdict: o.refused ? 'REFUSED' : (o.order_ok && o.rules_ok ? 'PASS' : 'FAIL'), output_payload: o, inputs: pp };
   window.enableAP2Btn();
@@ -668,7 +672,7 @@ async function exportArtifact() {
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
   };
-  if (artifact.execution_hash === null) artifact.hash_refusal = { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: 'pp: outside the hash limits' };
+  if (artifact.execution_hash === null) artifact.hash_refusal = window._lastHashRefusal || { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: 'pp: outside the hash limits' };
   document.getElementById('artifactPre').textContent = JSON.stringify(artifact, null, 2);
   document.getElementById('artifactPre').style.display = 'block';
   var a = document.createElement('a');

@@ -23,7 +23,7 @@ export const STEPS = [
 ];
 export const FLAG_KEYS = [
   'agent_role', 'delivery_restricted', 'onsale_obligation', 'promise_to_sell_third_party',
-  'payment_before_contract', 'embedded_in_sale_contract',
+  'promise_to_sell_original_seller', 'payment_before_contract', 'embedded_in_sale_contract',
 ];
 const RECORD_KEYS = ['step', 't', 'evidence_present'].concat(FLAG_KEYS);
 const PP_KEYS = ['structure', 'steps', 'authority_profile'];
@@ -34,11 +34,11 @@ export const AUTHORITY_NOTE = 'BNM profile; other authorities may differ, not as
 // ── authority profile table (one entry per rule, never merged across authorities) ─
 const BNM_MURABAHAH = {
   authority: 'BNM', doc: 'BNM-MURABAHAH-PD-2013', as_of: '2013-12-23',
-  pin_sha256: '1075ff67ec58a89b1eef4cb2e0376de709c45823381936d443db2a49f622663b',
+  pin_sha256: 'e9665bdc5644b1ef23b40d0d11aa06eca3366eb1a8eb49ed38d1fa7473dfb935',
 };
 const BNM_TAWARRUQ = {
   authority: 'BNM', doc: 'BNM-TAWARRUQ-PD028-8-2018', as_of: '2018-12-28',
-  pin_sha256: 'ef1dc9c9ac0aa15406fc3c55882ef8384aa5a8e18f9d913d29328efae11611c2',
+  pin_sha256: '5a239d878960ddf6d216f843b7a9def9dcfea38f81f09b2a511f3cf6014d8a34',
 };
 
 // kind 'order' = a sequencing question; kind 'rule' = a content question.
@@ -71,6 +71,7 @@ function findHashRefusal(v, path, depth, budget) {
     if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
     return null;
   }
+  if (typeof v === 'bigint') return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': bigint' };
   if (Array.isArray(v)) {
     for (let i = 0; i < v.length; i++) {
       const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
@@ -243,8 +244,9 @@ const RUNNERS = {
   T_NO_THIRD_PARTY_PROMISE(s) {
     for (let i = 0; i < s.length; i++) {
       if (s[i].promise_to_sell_third_party) return { verdict: 'fail', step: s[i].step, reason: 'condition requires a promise to sell to a third party' };
+      if (s[i].promise_to_sell_original_seller) return { verdict: 'fail', step: s[i].step, reason: 'condition requires a promise to sell to its original seller' };
     }
-    return { verdict: 'pass', step: null, reason: 'no third-party promise condition flagged' };
+    return { verdict: 'pass', step: null, reason: 'no third-party or original-seller promise condition flagged' };
   },
 };
 

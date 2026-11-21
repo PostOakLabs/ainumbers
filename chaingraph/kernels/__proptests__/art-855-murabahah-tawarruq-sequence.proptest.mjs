@@ -1,5 +1,5 @@
 // art-855-murabahah-tawarruq-sequence: class-K property-test floor.
-// kernel_digest_at_authoring: sha256:a36b839883247bd66e55f312cbc914f55ace480ec5dde2b1be0c771f6c7392eb
+// kernel_digest_at_authoring: sha256:ae0813958a65cbb0eea09d40577d332d8482f1a84057c43830c4ae23aaef62a5
 // spec: the murabahah / tawarruq sequence checklist node (values only, BNM profile)
 // human_sign_off: PENDING
 //
@@ -110,6 +110,7 @@ function checkP5InputContract() {
     [{ ...base(), steps: [{ step: 'sale_contract', t: 1e300, evidence_present: true }] }, 'REFUSED_INPUT_UNSAFE_NUMBER'],
     [{ ...base(), steps: [{ step: 'sale_contract', t: Infinity, evidence_present: true }] }, 'REFUSED_INPUT_UNSAFE_NUMBER'],
     [{ ...base(), steps: [{ step: 'sale_contract', t: NaN, evidence_present: true }] }, 'REFUSED_INPUT_UNSAFE_NUMBER'],
+    [{ ...base(), steps: [{ step: 'sale_contract', t: 1n, evidence_present: true }] }, 'REFUSED_INPUT_UNSAFE_NUMBER'],
     [{ ...base(), steps: [{ step: 'sale_contract', t: '1', evidence_present: true }] }, 'REFUSED_STEP_RECORD'],
     [{ ...base(), steps: [{ step: 'sale_contract', t: 1, evidence_present: 1 }] }, 'REFUSED_STEP_RECORD'],
     [{ ...base(), steps: [{ step: 'sale_contract', t: 1, evidence_present: true, onsale_obligation: null }] }, 'REFUSED_STEP_RECORD'],
@@ -133,7 +134,8 @@ async function checkP6BuildArtifactNeverThrows() {
   const wide = new Array(1000001).fill(0);
   const hostile = [
     { structure: 'tawarruq', steps: [{ step: 'sale_contract', t: 1e300, evidence_present: true }] },
-    { zzz: Infinity }, { zzz: NaN }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } }, { zzz: deep }, { zzz: wide },
+    { structure: 'tawarruq', steps: [{ step: 'sale_contract', t: 1n, evidence_present: true }] },
+    { zzz: Infinity }, { zzz: NaN }, { zzz: 10n }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } }, { zzz: deep }, { zzz: wide },
   ];
   for (const pp of hostile) {
     checked++;
@@ -154,6 +156,36 @@ async function checkP6BuildArtifactNeverThrows() {
   return { name: 'buildArtifact_never_throws', checked, violations };
 }
 
+// P7: BNM Tawarruq 18.3 is enforced, not just 18.2: each promise flag fails
+// T_NO_THIRD_PARTY_PROMISE and neither flag passes it.
+function checkP7NoPromiseBothDirections() {
+  let checked = 0, violations = 0;
+  const mk = (flag) => {
+    const steps = [
+      { step: 'sale_contract', t: 1, evidence_present: true },
+      { step: 'possession_transfer', t: 2, evidence_present: true },
+      { step: 'wakalah_contract', t: 3, evidence_present: true, agent_role: true },
+      { step: 'onsale_contract', t: 4, evidence_present: true },
+      { step: 'payment_to_seller', t: 5, evidence_present: true },
+    ];
+    if (flag !== null) steps[3][flag] = true;
+    return { structure: 'tawarruq', steps };
+  };
+  const cases = [
+    [null, true],
+    ['promise_to_sell_third_party', false],
+    ['promise_to_sell_original_seller', false],
+  ];
+  for (const [flag, wantPass] of cases) {
+    checked++;
+    const p = compute(mk(flag)).output_payload;
+    const row = p.checks.find((c) => c.check_id === 'T_NO_THIRD_PARTY_PROMISE');
+    if (!row || (row.verdict === 'pass') !== wantPass) { violations++; console.log('P7 violation: T_NO_THIRD_PARTY_PROMISE verdict with flag ' + String(flag)); }
+    if (flag !== null && (p.rules_ok !== false || p.first_failing_step === null || p.first_failing_step.step !== 'onsale_contract')) { violations++; console.log('P7 violation: rules outcome with flag ' + String(flag)); }
+  }
+  return { name: 'no_promise_conditions_cover_both_directions', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -168,6 +200,7 @@ const properties = [
   checkP4OrderRulesIndependent(),
   checkP5InputContract(),
   await checkP6BuildArtifactNeverThrows(),
+  checkP7NoPromiseBothDirections(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test`);
 const ok = summarize(KERNEL_ID, oracle, properties);
