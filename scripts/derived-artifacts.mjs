@@ -1923,6 +1923,8 @@ export const DERIVED_ROOT_GATES = new Set([
   // DERIVED-READER-BURNDOWN-CHAIN-DOMAIN-1 (2026-11-05): chain-domain reads the monolith through
   // derivedResolve, so a new chain's missing/invalid domain reds in the queue, not post-regen.
   'node scripts/check-chain-domain.mjs',                     // chain domain enum (reads the monolith's chains)
+  // DERIVED-READER-BURNDOWN-CHAIN-STEP-STATUS-1: chain-step-status overlay-reads the monolith's chains/nodes through derivedResolve, so a departed step node reds in the queue, not post-regen.
+  'node scripts/check-chain-step-status.mjs',                 // chain step status (reads the monolith's chains + nodes)
 ]);
 
 // S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1 (2026-10-31): derivedRoot/derivedResolve moved VERBATIM
