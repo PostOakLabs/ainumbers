@@ -3,7 +3,12 @@ import { executionHash } from './_hash.mjs';
 const TOOL_ID = 'art-571-lease-schedule-recompute-asc842-ifrs16';
 // 1.1.0: + declared payment timing (arrears | advance -- annuity due), both regimes, and the
 // evidence_handover stage in output_payload. Additive only.
-const TOOL_VERSION = '1.1.0';
+// 1.1.1: a missing, null, empty or whitespace-only required field now takes the existing
+// did_not_run / INDETERMINATE required-inputs path instead of defaulting to a zero value or a
+// positive verdict. buildArtifact never throws: an unhashable {policy_parameters, output_payload}
+// preimage returns a refusal artifact with execution_hash null and hash_refusal. Valid-input figures
+// are unchanged.
+const TOOL_VERSION = '1.1.1';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -57,6 +62,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function s(v) { return String(v == null ? '' : v).trim(); }
 function isDate(v) { return typeof v === 'string' && DATE_RE.test(v); }
+function blankString(v) { return typeof v === 'string' && v.trim() === ''; }
 
 function minorInt(v) {
   if (typeof v === 'number' && Number.isSafeInteger(v)) return v;
@@ -169,7 +175,7 @@ export function compute(pp) {
   const discount_rate_annual = positiveNumber(pp.discount_rate_annual) !== null || pp.discount_rate_annual === 0
     ? (typeof pp.discount_rate_annual === 'number' ? pp.discount_rate_annual : Number(pp.discount_rate_annual))
     : null;
-  const rateDeclared = pp.discount_rate_annual !== undefined && pp.discount_rate_annual !== null && pp.discount_rate_annual !== '';
+  const rateDeclared = pp.discount_rate_annual !== undefined && pp.discount_rate_annual !== null && !blankString(pp.discount_rate_annual);
   if (!rateDeclared || !Number.isFinite(discount_rate_annual) || discount_rate_annual < 0) {
     rejected_inputs.push({ where: 'discount_rate_annual', reason: 'absent or not a non-negative number -- the discount rate must be declared, never derived', supplied: rateDeclared ? pp.discount_rate_annual : null });
   }
@@ -223,13 +229,16 @@ export function compute(pp) {
   if (paymentsIn.length > MAX_PAYMENTS) rejected_inputs.push({ where: 'payment_schedule', reason: 'more than ' + MAX_PAYMENTS + ' payments supplied', supplied: paymentsIn.length });
   if (payments.length === 0) rejected_inputs.push({ where: 'payment_schedule', reason: 'absent or empty -- at least one payment is required', supplied: null });
 
-  // -- Initial direct costs / incentives (additive economics, not judgment-shaped -- absence is 0).
+  // -- Initial direct costs / incentives. Both are REQUIRED by the node contract. An absent,
+  // null, empty or whitespace-only value is a missing required input, never a zero default.
   const idcIn = pp.initial_direct_costs_minor;
-  const initial_direct_costs_minor = (idcIn === undefined || idcIn === null || idcIn === '') ? 0 : minorInt(idcIn);
-  if (initial_direct_costs_minor === null) rejected_inputs.push({ where: 'initial_direct_costs_minor', reason: 'not an integer number of minor units', supplied: idcIn });
+  const idcMissing = idcIn === undefined || idcIn === null || blankString(idcIn);
+  const initial_direct_costs_minor = idcMissing ? null : minorInt(idcIn);
+  if (initial_direct_costs_minor === null) rejected_inputs.push({ where: 'initial_direct_costs_minor', reason: idcMissing ? 'absent -- required, never defaulted to zero' : 'not an integer number of minor units', supplied: idcIn === undefined ? null : idcIn });
   const incIn = pp.lease_incentives_minor;
-  const lease_incentives_minor = (incIn === undefined || incIn === null || incIn === '') ? 0 : minorInt(incIn);
-  if (lease_incentives_minor === null) rejected_inputs.push({ where: 'lease_incentives_minor', reason: 'not an integer number of minor units', supplied: incIn });
+  const incMissing = incIn === undefined || incIn === null || blankString(incIn);
+  const lease_incentives_minor = incMissing ? null : minorInt(incIn);
+  if (lease_incentives_minor === null) rejected_inputs.push({ where: 'lease_incentives_minor', reason: incMissing ? 'absent -- required, never defaulted to zero' : 'not an integer number of minor units', supplied: incIn === undefined ? null : incIn });
 
   // -- Classification inputs (ASC 842 five-criteria test).
   const ci = (pp.classification_inputs && typeof pp.classification_inputs === 'object') ? pp.classification_inputs : {};
@@ -267,7 +276,7 @@ export function compute(pp) {
   }
 
   // -- Optional preparer diff.
-  const diffRequested = pp.preparer_schedule !== undefined && pp.preparer_schedule !== null;
+  const diffRequested = pp.preparer_schedule !== undefined && pp.preparer_schedule !== null && !blankString(pp.preparer_schedule);
   let compare_regime = null, diff_tolerance_minor = null, preparerRows = [];
   if (diffRequested) {
     compare_regime = (pp.compare_regime === 'asc842' || pp.compare_regime === 'ifrs16') ? pp.compare_regime : null;
@@ -438,10 +447,45 @@ export function compute(pp) {
   };
 }
 
+// Mirrors the classes _hash.mjs refuses before canonicalizing an I-JSON preimage: a non-finite
+// number, an integer outside the 2^53 safe range, nesting past MAX_DEPTH, more values than
+// MAX_ELEMENTS. Reports { reason, detail } with path and kind only, never the value; null when the
+// subtree is safe to hash. The shared _hash.mjs is never edited.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > HASH_MAX_DEPTH) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > HASH_MAX_ELEMENTS) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // The object walked below is the exact execution_hash preimage. When the shared canonicalizer
+  // would refuse it, stamp a null hash and the reason beside it instead of letting the hash throw.
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'preimage', 1, { n: 0 });
+  const hash = unhashable === null ? await executionHash(pp, output_payload) : null;
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -457,4 +501,6 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }

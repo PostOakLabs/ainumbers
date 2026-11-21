@@ -1,6 +1,6 @@
 // art-571-lease-schedule-recompute-asc842-ifrs16.proptest.mjs -- FV property-test FLOOR
 // (FV-PROPFLOOR-SHARD-C29-1).
-// kernel_digest_at_authoring: sha256:41a5b1590955af3b2f923482346677130524a112c6673a9f5f2d45f96d0326c1
+// kernel_digest_at_authoring: sha256:dcb902f819f3dee2814a1708e4da6548242f932242c66d4577f5ee184960b534
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md Sec3, class C). NOT a proof, NOT Dafny.
@@ -496,7 +496,7 @@ async function checkP8_payload_and_rou_invariants() {
     if (df.asc842.final_closing_liability_minor !== out.asc842.schedule[out.asc842.schedule.length - 1].closing_liability_minor) violations++;;
     if (df.asc842.initial_lease_liability_minor !== out.asc842.initial_lease_liability_minor || df.ifrs16.initial_rou_asset_minor !== out.ifrs16.initial_rou_asset_minor) violations++;;
   }
-  if (meta.tool_id !== 'art-571-lease-schedule-recompute-asc842-ifrs16' || meta.tool_version !== '1.1.0' || meta.mcp_name !== 'recompute_lease_schedule_asc842_ifrs16' || meta.mandate_type !== 'compliance_control' || meta.gpu !== false) violations++;;
+  if (meta.tool_id !== 'art-571-lease-schedule-recompute-asc842-ifrs16' || meta.tool_version !== '1.1.1' || meta.mcp_name !== 'recompute_lease_schedule_asc842_ifrs16' || meta.mandate_type !== 'compliance_control' || meta.gpu !== false) violations++;;
   // Differential ROU re-derivation: finance mode allocates straight-line by elapsed days with the
   // remainder in the last row; operating mode amortizes the plug (straight-line cost minus interest).
   {
@@ -558,7 +558,7 @@ async function checkP8_payload_and_rou_invariants() {
     baOpts.now = '2026-09-06T00:00:00Z';
     const artifact = await buildArtifact(pp, baOpts);
     checked++;
-    if (artifact.tool_id !== meta.tool_id || artifact.tool_version !== '1.1.0' || artifact.mandate_type !== 'compliance_control') violations++;;
+    if (artifact.tool_id !== meta.tool_id || artifact.tool_version !== '1.1.1' || artifact.mandate_type !== 'compliance_control') violations++;;
     if (artifact.chaingraph_version !== '0.4.0' || artifact.generated_at !== '2026-09-06T00:00:00Z') violations++;;
     if (typeof artifact.execution_hash !== 'string' || artifact.execution_hash.length === 0) violations++;;
     if (JSON.stringify(artifact.policy_parameters) !== JSON.stringify(pp)) violations++;;
@@ -569,6 +569,61 @@ async function checkP8_payload_and_rou_invariants() {
     if (JSON.stringify(artifact.output_payload) !== JSON.stringify(live)) violations++;;
   }
   return { name: 'P8_payload_shape_rou_allocation_and_artifact_echo', trials: checked, violations };
+}
+
+// ---------- P9: buildArtifact_never_throws -- one case per unhashable class ----------
+async function checkP9_buildArtifactNeverThrows() {
+  let deep = {}; let cur = deep;
+  for (let i = 0; i < 600; i++) { cur.n = {}; cur = cur.n; }
+  const classes = [
+    ['junk_1e300', { discount_rate_annual: 1e300 }],
+    ['nan', { discount_rate_annual: NaN }],
+    ['neg_infinity', { discount_rate_annual: -Infinity }],
+    ['depth_600', { lease_incentives_minor: deep }],
+    ['over_1e6_values', { payment_schedule: new Array(1000001).fill(0) }],
+  ];
+  let violations = 0; const rows = [];
+  for (const [label, pp] of classes) {
+    try {
+      const a = await buildArtifact(pp);
+      const ok = a.execution_hash === null && a.hash_refusal && typeof a.hash_refusal.reason === 'string';
+      if (!ok) violations++;
+      rows.push({ label, refused: !!ok });
+    } catch (e) { violations++; rows.push({ label, threw: String(e && e.message).slice(0, 80) }); }
+  }
+  return { name: 'buildArtifact_never_throws', trials: classes.length, violations, rows };
+}
+
+// ---------- P10: every manifest-required field, mutated to delete / null / empty / whitespace,
+// never stays positive (the fail-closed did_not_run / INDETERMINATE path) ----------
+const REQUIRED_FIELDS = [
+  'classification_inputs', 'compare_regime', 'diff_tolerance_minor', 'discount_rate_annual',
+  'initial_direct_costs_minor', 'lease_incentives_minor', 'lease_term', 'payment_schedule',
+  'preparer_schedule', 'timing',
+];
+function checkP10_requiredFieldsFailClosed() {
+  const fixturesPath = path.join(__dirname, '..', 'fixtures', 'art-571-lease-schedule-recompute-asc842-ifrs16.fixtures.json');
+  const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
+  const modes = ['delete', 'null', 'empty', 'whitespace'];
+  let violations = 0, checked = 0; const rows = [];
+  for (const v of fixtures.vectors) {
+    const base = v.policy_parameters;
+    for (const f of REQUIRED_FIELDS) {
+      if (!(f in base)) continue;
+      for (const mode of modes) {
+        const pp = structuredClone(base);
+        if (mode === 'delete') delete pp[f];
+        else if (mode === 'null') pp[f] = null;
+        else if (mode === 'empty') pp[f] = '';
+        else pp[f] = '   ';
+        const out = compute(pp).output_payload;
+        checked++;
+        const ok = out.verdict === 'INDETERMINATE';
+        if (!ok) { violations++; rows.push({ vector: v.name, field: f, mode, verdict: out.verdict, state: out.decision.execution_state }); }
+      }
+    }
+  }
+  return { name: 'required_field_delete_null_empty_whitespace_never_positive', trials: checked, violations, rows: rows.slice(0, 20) };
 }
 
 // ---------- run ----------
@@ -586,6 +641,8 @@ results.properties.push(checkP5_advance_vs_arrears());
 results.properties.push(checkP6_input_contract());
 results.properties.push(checkP7_preparer_diff());
 results.properties.push(await checkP8_payload_and_rou_invariants());
+results.properties.push(await checkP9_buildArtifactNeverThrows());
+results.properties.push(checkP10_requiredFieldsFailClosed());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 

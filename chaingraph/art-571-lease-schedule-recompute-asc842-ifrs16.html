@@ -97,7 +97,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 </style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-571-lease-schedule-recompute-asc842-ifrs16.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:41a5b1590955af3b2f923482346677130524a112c6673a9f5f2d45f96d0326c1">
+<meta name="kernel-digest" content="sha256:dcb902f819f3dee2814a1708e4da6548242f932242c66d4577f5ee184960b534">
 </head>
 <body>
 <nav>
@@ -377,7 +377,7 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-571
 <script>
 var MANIFEST = {
   tool_id: 'art-571-lease-schedule-recompute-asc842-ifrs16',
-  version: '1.1.0',
+  version: '1.1.1',
   mcp_name: 'recompute_lease_schedule_asc842_ifrs16',
   title: 'Lease Schedule Recompute – ASC 842 / IFRS 16',
   description: 'Recomputes PV, liability, and ROU amortization under ASC 842 and IFRS 16 side by side from a declared discount rate, a declared payment timing (arrears or advance), and a payment schedule, with the ASC 842 five-criterion classification test, an optional preparer diff, and an evidence-handover stage for an offline bundle. Verdict MATCHES | DIVERGES | INDETERMINATE.',
@@ -423,6 +423,7 @@ function positiveNumber(v){
   return (Number.isFinite(n) && n > 0) ? n : null;
 }
 function boolOrNull(v){ return typeof v === 'boolean' ? v : null; }
+function blankString(v){ return typeof v === 'string' && v.trim() === ''; }
 function dayDiff(fromDate, toDate){
   var a = Date.parse(fromDate + 'T00:00:00Z'), b = Date.parse(toDate + 'T00:00:00Z');
   return Math.round((b - a) / 86400000);
@@ -486,7 +487,7 @@ function compute(pp){
   pp = pp || {};
   var rejected_inputs = [];
 
-  var rateDeclared = pp.discount_rate_annual !== undefined && pp.discount_rate_annual !== null && pp.discount_rate_annual !== '';
+  var rateDeclared = pp.discount_rate_annual !== undefined && pp.discount_rate_annual !== null && !blankString(pp.discount_rate_annual);
   var discount_rate_annual = rateDeclared ? (typeof pp.discount_rate_annual === 'number' ? pp.discount_rate_annual : Number(pp.discount_rate_annual)) : null;
   if (!rateDeclared || !Number.isFinite(discount_rate_annual) || discount_rate_annual < 0){
     rejected_inputs.push({ where: 'discount_rate_annual', reason: 'absent or not a non-negative number -- the discount rate must be declared, never derived', supplied: rateDeclared ? pp.discount_rate_annual : null });
@@ -536,11 +537,13 @@ function compute(pp){
   if (payments.length === 0) rejected_inputs.push({ where: 'payment_schedule', reason: 'absent or empty -- at least one payment is required', supplied: null });
 
   var idcIn = pp.initial_direct_costs_minor;
-  var initial_direct_costs_minor = (idcIn === undefined || idcIn === null || idcIn === '') ? 0 : minorInt(idcIn);
-  if (initial_direct_costs_minor === null) rejected_inputs.push({ where: 'initial_direct_costs_minor', reason: 'not an integer number of minor units', supplied: idcIn });
+  var idcMissing = idcIn === undefined || idcIn === null || blankString(idcIn);
+  var initial_direct_costs_minor = idcMissing ? null : minorInt(idcIn);
+  if (initial_direct_costs_minor === null) rejected_inputs.push({ where: 'initial_direct_costs_minor', reason: idcMissing ? 'absent -- required, never defaulted to zero' : 'not an integer number of minor units', supplied: idcIn === undefined ? null : idcIn });
   var incIn = pp.lease_incentives_minor;
-  var lease_incentives_minor = (incIn === undefined || incIn === null || incIn === '') ? 0 : minorInt(incIn);
-  if (lease_incentives_minor === null) rejected_inputs.push({ where: 'lease_incentives_minor', reason: 'not an integer number of minor units', supplied: incIn });
+  var incMissing = incIn === undefined || incIn === null || blankString(incIn);
+  var lease_incentives_minor = incMissing ? null : minorInt(incIn);
+  if (lease_incentives_minor === null) rejected_inputs.push({ where: 'lease_incentives_minor', reason: incMissing ? 'absent -- required, never defaulted to zero' : 'not an integer number of minor units', supplied: incIn === undefined ? null : incIn });
 
   var ci = (pp.classification_inputs && typeof pp.classification_inputs === 'object') ? pp.classification_inputs : {};
   var ownership_transfers = boolOrNull(ci.ownership_transfers);
@@ -576,7 +579,7 @@ function compute(pp){
     if (substantially_all_met === null) rejected_inputs.push({ where: 'classification_inputs.substantially_all_declared', reason: 'absent -- required judgment declaration when the 90% bright line is not elected', supplied: null });
   }
 
-  var diffRequested = pp.preparer_schedule !== undefined && pp.preparer_schedule !== null;
+  var diffRequested = pp.preparer_schedule !== undefined && pp.preparer_schedule !== null && !blankString(pp.preparer_schedule);
   var compare_regime = null, diff_tolerance_minor = null, preparerRows = [];
   if (diffRequested){
     compare_regime = (pp.compare_regime === 'asc842' || pp.compare_regime === 'ifrs16') ? pp.compare_regime : null;
@@ -886,7 +889,7 @@ function exportArtifact(){
   var hash = document.getElementById('execHashBox').textContent || 'pending';
   const generatedAt = new Date().toISOString();
   document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
-  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_control',tool_id:'art-571-lease-schedule-recompute-asc842-ifrs16',tool_version:'1.1.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_control',tool_id:'art-571-lease-schedule-recompute-asc842-ifrs16',tool_version:'1.1.1',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
   var json = JSON.stringify(artifact, null, 2);
   document.getElementById('artifactPre').textContent = json;
   document.getElementById('artifactPre').style.display = 'block';
