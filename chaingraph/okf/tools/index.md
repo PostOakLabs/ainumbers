@@ -745,6 +745,7 @@ status: stable
 - [PFMI proportional self-assessment scorer](./art-846-assess-pfmi-proportional.md) — `assess_pfmi_proportional`
 - [Cash-Leg Window Exposure](./art-847-cashleg-window-exposure.md) — `cashleg_window_exposure`
 - [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md) — `run_pqc_timeline_fit`
+- [Islamic MMF Placement Limits](./art-851-islamic-mmf-placement-limits.md) — `check_islamic_mmf_placement_limits`
 - [TLS / X.509 PKI Migration Planner](./art-86-tls-pki-migration-planner.md) — `plan_tls_pki_migration`
 - [SWIFT / ISO 20022 PQC Readiness Checker](./art-87-iso20022-pqc-readiness-checker.md) — `check_iso20022_pqc_readiness`
 - [FIDO2 / WebAuthn PQC Conformance Checker](./art-88-fido-pqc-conformance-checker.md) — `check_fido_pqc_conformance`
