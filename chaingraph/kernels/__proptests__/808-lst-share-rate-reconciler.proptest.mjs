@@ -164,8 +164,17 @@ function p8() {
 
 // P9 (808-FIX-1) -- the page's inline compute() mirrors the kernel on every
 // golden, including output_payload.issues on both the refused and clean paths.
+// Mutation mode (same two-way detection as art-215 / pnr-01): run-mutation-tier.mjs copies
+// only the kernel import graph + fixtures into %TEMP%\ain-mutation-tier-<pid>\, never the
+// node page, so P9 cannot read it there (CI shard 0/6 ENOENT on #3238). P9 tests the PAGE,
+// not the kernel under mutation, and page parity stays enforced by this file's standalone
+// repo-checkout run and by check-page-kernel-parity.mjs. Skip it in mutation mode only.
+const P9_MUTATION_MODE =
+  process.env.__STRYKER_ACTIVE_MUTANT__ !== undefined ||
+  dirname(fileURLToPath(import.meta.url)).replace(/\\/g, '/').includes('/ain-mutation-tier-');
 function p9PageParity() {
   const here = dirname(fileURLToPath(import.meta.url));
+  if (P9_MUTATION_MODE) return { name: 'page_compute_matches_kernel_on_all_goldens', checked: 0, violations: 0 };
   const html = readFileSync(join(here, '..', '..', '808-lst-share-rate-reconciler.html'), 'utf8');
   const src = html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'));
   const stub = { getElementById: () => ({ textContent: '', value: '', style: {}, classList: { add() {} } }), createElement: () => ({ click() {} }) };
