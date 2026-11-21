@@ -32,7 +32,7 @@ covers exactly this basis and no more.
 
 | # | kernel_id | kernel_digest (`sha256:`) | float_sensitive | ULP-forcing present | convergence property | fixture_oracle |
 |---|---|---|:---:|:---:|:---:|:---:|
-| 1 | `art-211-prediction-market-analyzer` | `3db60f420ca07f2d35c4aa2707c39a13b6e04399b65f0924f3e1c71d1b619885` | yes | present (entry_price clamp bounds, 0/-0, denormal forecast_prob into fdlibm `log`) | n/a — no iterative solver | 4/4 pass |
+| 1 | `art-211-prediction-market-analyzer` | `181e511f17ddc58d5415726f8a8974a9ad43739b79a6d5d8a1438d63a87125f2` | yes | present (entry_price clamp bounds, 0/-0, denormal forecast_prob into fdlibm `log`) | n/a — no iterative solver | 4/4 pass |
 | 2 | `art-215-reg-z-appendix-j-apr` | `23d06ce0530f333676cee2d8435ec0f6622170fc8040d471151cd64a01025225` | yes | present (bracket-search edges: zero finance charge, unrepayable schedule, odd-days fraction at 0/near-1, denormal loan amount) | **iterative solver (bracketed bisection)** — convergence-or-report stated per trial (P1); iterations bounded <= BISECT_STEPS=200 (P2); independently re-derived rate matches the kernel's converged rate (P3, differential) | 3/3 pass |
 | 3 | `art-216-trid-tolerance-cure` | `9be448c7f2f02ca2d2b223550734fe431b0dacf6d93db36ccae0cb6963e83cb3` | yes | present ($0.005 zero-tolerance slack boundary, 10% cumulative threshold boundary, 0/-0/denormal fee amounts) | n/a — no iterative solver | 2/2 pass |
 | 4 | `art-23-visa-trusted-agent-protocol-inspector` | `121d2bbc225f22b9f647b43ef1310b168a6b6bd0a3e0d1e45dba0bc500fc213a` | no | n/a (float:no, direct read confirmed — Signature-Input string parsing and integer weight arithmetic only) | n/a — no iterative solver | 1/1 pass |

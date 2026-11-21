@@ -1,5 +1,5 @@
 // art-211-prediction-market-analyzer.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C7-1).
-// kernel_digest_at_authoring: sha256:3db60f420ca07f2d35c4aa2707c39a13b6e04399b65f0924f3e1c71d1b619885
+// kernel_digest_at_authoring: sha256:181e511f17ddc58d5415726f8a8974a9ad43739b79a6d5d8a1438d63a87125f2
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -130,6 +130,45 @@ function checkP4_ulpForcing() {
   return { name: 'P4_ulp_boundary_forcing_clamp_and_denormal', trials: checked, violations };
 }
 
+// ---------- P5 (PREDMKT-FEE-INPLACE-FIX-1): Kalshi fee equals the exact integer ceil ----------
+// fee_cents = ceil(7 * n * pc * (100 - pc) / 10000) for whole n and cent prices; the old float
+// expression was one cent high in 120 of these 29,700 cases.
+function checkP5_kalshiExactCeil() {
+  let violations = 0, checked = 0;
+  for (let n = 1; n <= 300; n++) {
+    for (let pc = 1; pc <= 99; pc++) {
+      checked++;
+      const exact = Math.floor((7 * n * pc * (100 - pc) + 9999) / 10000);
+      const o = compute({ mode: 'binary', venue: 'kalshi', n_contracts: n, entry_price: pc / 100 }).output_payload;
+      if (Math.round(o.fee_paid * 100) !== exact) violations++;
+    }
+  }
+  return { name: 'P5_kalshi_fee_exact_integer_ceil_n1to300_p1to99', trials: checked, violations };
+}
+
+// ---------- P6: Polymarket regimes are labelled and never use the Kalshi ceil ----------
+// global: truncate to $0.00001 of C * rate * p * (1 - p); us: theta by as_of, half-up to $0.000001.
+function checkP6_polymarketRegimes() {
+  let violations = 0, checked = 0;
+  const RATES = { crypto: 7, sports: 5, finance: 4, politics: 4, geopolitics: 0, other: 5 };
+  for (let i = 0; i < 2000; i++) {
+    const n = 1 + Math.floor(rand() * 500);
+    const pc = 1 + Math.floor(rand() * 99);
+    const cat = pick(rand, Object.keys(RATES));
+    const g = compute({ mode: 'binary', venue: 'polymarket', market_category: cat, n_contracts: n, entry_price: pc / 100 }).output_payload;
+    const gExact = Math.floor(RATES[cat] * n * pc * (100 - pc) / 10);   // units of $0.00001
+    checked++;
+    if (g.fee_regime !== 'polymarket_global' || Math.round(g.fee_paid * 1e5) !== gExact) violations++;
+    const asOf = pick(rand, ['2026-06-30', '2026-07-01', '2026-09-16', '2026-09-17', '2026-10-30']);
+    const theta = asOf >= '2026-09-17' ? 695 : asOf >= '2026-07-01' ? 600 : 500;   // per 10,000
+    const u = compute({ mode: 'binary', venue: 'polymarket', fee_regime: 'polymarket_us', as_of: asOf, n_contracts: n, entry_price: pc / 100 }).output_payload;
+    const uExact = Math.round(theta * n * pc * (100 - pc) / 100);   // units of $0.000001, exact for these magnitudes
+    checked++;
+    if (u.fee_regime !== 'polymarket_us' || u.fee_as_of !== asOf || Math.round(u.fee_paid * 1e6) !== uExact) violations++;
+  }
+  return { name: 'P6_polymarket_regime_table_and_rounding', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -141,6 +180,8 @@ results.properties.push(checkP1_boundedness());
 results.properties.push(checkP2_side_won_symmetry());
 results.properties.push(checkP3_termination());
 results.properties.push(checkP4_ulpForcing());
+results.properties.push(checkP5_kalshiExactCeil());
+results.properties.push(checkP6_polymarketRegimes());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
