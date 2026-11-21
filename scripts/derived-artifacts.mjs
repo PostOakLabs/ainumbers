@@ -1925,6 +1925,8 @@ export const DERIVED_ROOT_GATES = new Set([
   'node scripts/check-chain-domain.mjs',                     // chain domain enum (reads the monolith's chains)
   // DERIVED-READER-BURNDOWN-CHAIN-STEP-STATUS-1: chain-step-status overlay-reads the monolith's chains/nodes through derivedResolve, so a departed step node reds in the queue, not post-regen.
   'node scripts/check-chain-step-status.mjs',                 // chain step status (reads the monolith's chains + nodes)
+  // DERIVED-READER-BURNDOWN-CHAIN-EDGE-CONTRACTS-1: the L1 edge-contract advisory overlay-reads the monolith's chains + adjacency through derivedResolve, so an edge-contradicting chain reds in the queue on the assembled tree, not post-regen.
+  'node scripts/check-chain-edge-contracts.mjs --quiet --json', // L1 chain edge contracts (reads the monolith's chains + adjacency)
   // PR-3187-DERIVED-READER-CURE-1 (DERIVED-READER-COVERAGE-1): the WebMCP registration
   // spec gate reads every tracked *.html page, among them the regen-written reader
   // surfaces (chaingraph/chaingraph-hub.html, sitemap.html, tools.html, mcp.html), so its
