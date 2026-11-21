@@ -18,7 +18,7 @@
  * no embedded validator-list (UNL) snapshot. Pure decision kernel: no clock, no randomness, no
  * network, no storage. as_of_ts is caller supplied; buildArtifact takes `now` via options.
  *
- * The alpenglow model (added additively; the two existing models' outputs are unchanged) classifies
+ * The alpenglow model (added additively; the two existing models' outputs are identical) classifies
  * Solana Votor vote/stake facts against the confirmation thresholds pinned from primary text in the
  * constants below, gated on the pinned mainnet activation (epoch 1064, slot 459648000).
  */
@@ -151,31 +151,65 @@ function classifyFederatedBft(pp, compliance_flags, rationale) {
 function classifyAlpenglow(pp, compliance_flags, rationale) {
   // Each of these is an optional caller fact: the null coalesce evidences absence to the input-schema
   // derivation. The profile classifies a missing fact (assumption flag or pending outcome); it never
-  // fails closed on a missing optional.
+  // fails closed on a missing optional. A present-but-malformed fact is different: it is named by
+  // ALPENGLOW_VOTE_FACT_MALFORMED below, never silently dropped. Contradictory position facts fail
+  // closed to pending (ALPENGLOW_POSITION_CONFLICT), never silently resolved toward final.
   const observed_epoch = num(pp.observed_epoch ?? null);
   const observed_slot = num(pp.observed_slot ?? null);
   const notarize_stake_pct = num(pp.notarize_stake_pct ?? null);
   const finalize_stake_pct = num(pp.finalize_stake_pct ?? null);
   const skip_stake_pct = num(pp.skip_stake_pct ?? null);
 
-  // A stake percentage outside 0..100 is a malformed fact, same treatment as absent: the kernel
-  // never invents a certificate from malformed input.
+  // A stake percentage outside 0..100, or not a finite number at all, is a malformed fact: the kernel
+  // never invents a certificate from malformed input, and names the fact instead of silently
+  // treating it as absent when a sibling fact decides the outcome.
   const pctOk = (v) => v !== null && v >= 0 && v <= 100;
   const notarize_ok = pctOk(notarize_stake_pct);
   const finalize_ok = pctOk(finalize_stake_pct);
   const skip_ok = pctOk(skip_stake_pct);
+  const stakeMalformed = (raw, ok) => raw !== null && raw !== undefined && !ok;
+  const notarize_malformed = stakeMalformed(pp.notarize_stake_pct ?? null, notarize_ok);
+  const finalize_malformed = stakeMalformed(pp.finalize_stake_pct ?? null, finalize_ok);
+  const skip_malformed = stakeMalformed(pp.skip_stake_pct ?? null, skip_ok);
+  if (notarize_malformed || finalize_malformed || skip_malformed) {
+    const malformedFields = [];
+    if (notarize_malformed) malformedFields.push('notarize_stake_pct');
+    if (finalize_malformed) malformedFields.push('finalize_stake_pct');
+    if (skip_malformed) malformedFields.push('skip_stake_pct');
+    compliance_flags.push('ALPENGLOW_VOTE_FACT_MALFORMED');
+    rationale.push('Supplied vote fact(s) ' + malformedFields.join(', ') + ' were not usable percentages (not finite numbers in 0..100) and were ignored; no certificate is formed from a malformed fact.');
+  }
 
   // Regime gate: the caller-declared observed position against the pinned activation. The epoch, when
   // supplied, decides; the slot is consulted only when no epoch was supplied. With no position at all
   // the profile classifies under the live regime (Alpenglow) and discloses the assumption.
   const position_supplied = observed_epoch !== null || observed_slot !== null;
-  const pre_activation = observed_epoch !== null
-    ? observed_epoch < ALPENGLOW_ACTIVATION_EPOCH
-    : (observed_slot !== null && observed_slot < ALPENGLOW_ACTIVATION_SLOT);
+  const epoch_pre = observed_epoch !== null && observed_epoch < ALPENGLOW_ACTIVATION_EPOCH;
+  const slot_pre = observed_slot !== null && observed_slot < ALPENGLOW_ACTIVATION_SLOT;
+  const pre_activation = observed_epoch !== null ? epoch_pre : slot_pre;
 
   if (!position_supplied) {
     compliance_flags.push('ALPENGLOW_REGIME_ASSUMED');
     rationale.push('No observed_epoch or observed_slot was supplied, so the classification assumes the live regime is Alpenglow, active since the pinned activation (epoch ' + ALPENGLOW_ACTIVATION_EPOCH + ', slot ' + ALPENGLOW_ACTIVATION_SLOT + '). Supply the observed position to remove this assumption.');
+  }
+
+  // The epoch and the slot describe the same observed position. When both are supplied and they
+  // disagree about the regime, at least one is wrong; the kernel must not silently let the epoch
+  // win and finalize. Fail closed to pending with a named flag.
+  if (observed_epoch !== null && observed_slot !== null && epoch_pre !== slot_pre) {
+    compliance_flags.push('ALPENGLOW_POSITION_CONFLICT');
+    rationale.push('The supplied observed_epoch and observed_slot disagree about the Alpenglow regime (one precedes the pinned activation at epoch ' + ALPENGLOW_ACTIVATION_EPOCH + ', slot ' + ALPENGLOW_ACTIVATION_SLOT + ' and the other does not), so no regime can be trusted and the block is pending confirmation.');
+    return {
+      outcome: 'pending',
+      finality_tier: 'pending',
+      reorg_exposure: 'none',
+      draft_pinned: false,
+      submitted_at_ledger: null,
+      included_in_ledger: null,
+      highest_validated_ledger: null,
+      result_class: null,
+      time_bounds_max: null,
+    };
   }
 
   if (pre_activation) {
@@ -231,9 +265,12 @@ function classifyAlpenglow(pp, compliance_flags, rationale) {
       time_bounds_max: null,
     };
   }
-  if (finalize_ok && finalize_stake_pct >= ALPENGLOW_SLOW_FINALIZE_STAKE_PCT) {
+  // Slow finalization needs TWO rounds at 60%: a round-one notarize certificate AND a round-two
+  // finalize certificate (SIMD-0326: "two rounds of votes for the block from 60% of the stake").
+  // A finalize percentage alone never finalizes.
+  if (notarize_ok && notarize_stake_pct >= ALPENGLOW_NOTARIZE_CERT_STAKE_PCT && finalize_ok && finalize_stake_pct >= ALPENGLOW_SLOW_FINALIZE_STAKE_PCT) {
     compliance_flags.push('ALPENGLOW_SLOW_FINALIZED');
-    rationale.push('Round-two finalize stake of ' + finalize_stake_pct + '% meets the ' + ALPENGLOW_SLOW_FINALIZE_STAKE_PCT + '% slow-finalization threshold (SIMD-0326), which finalizes the block after two voting rounds.');
+    rationale.push('Round-one notarize stake of ' + notarize_stake_pct + '% and round-two finalize stake of ' + finalize_stake_pct + '% each meet the ' + ALPENGLOW_SLOW_FINALIZE_STAKE_PCT + '% threshold (SIMD-0326), which finalizes the block after two voting rounds.');
     rationale.push('Under Alpenglow the Confirmed and Finalized commitment statuses are equivalent (Anza documentation): the block is permanently committed and cannot be rolled back.');
     return {
       outcome: 'final',
@@ -277,7 +314,7 @@ function classifyAlpenglow(pp, compliance_flags, rationale) {
     };
   }
 
-  rationale.push('The supplied vote facts form no Votor certificate: notarize stake ' + (notarize_ok ? notarize_stake_pct + '% (below the ' + ALPENGLOW_NOTARIZE_CERT_STAKE_PCT + '% notarization threshold)' : 'not supplied') + ', finalize stake ' + (finalize_ok ? finalize_stake_pct + '% (below the ' + ALPENGLOW_SLOW_FINALIZE_STAKE_PCT + '% slow-finalization threshold)' : 'not supplied') + ', skip stake ' + (skip_ok ? skip_stake_pct + '% (below the ' + ALPENGLOW_SKIP_CERT_STAKE_PCT + '% skip-certificate threshold)' : 'not supplied') + '. The block is pending confirmation.');
+  rationale.push('The supplied vote facts form no Votor certificate: notarize stake ' + (notarize_ok ? notarize_stake_pct + '% (below the ' + ALPENGLOW_NOTARIZE_CERT_STAKE_PCT + '% notarization threshold)' : (notarize_malformed ? 'malformed, ignored' : 'not supplied')) + ', finalize stake ' + (finalize_ok ? (finalize_stake_pct >= ALPENGLOW_SLOW_FINALIZE_STAKE_PCT ? finalize_stake_pct + '% (meets the ' + ALPENGLOW_SLOW_FINALIZE_STAKE_PCT + '% round-two threshold, but slow finalization also needs a ' + ALPENGLOW_NOTARIZE_CERT_STAKE_PCT + '% round-one notarize certificate)' : finalize_stake_pct + '% (below the ' + ALPENGLOW_SLOW_FINALIZE_STAKE_PCT + '% slow-finalization threshold)') : (finalize_malformed ? 'malformed, ignored' : 'not supplied')) + ', skip stake ' + (skip_ok ? skip_stake_pct + '% (below the ' + ALPENGLOW_SKIP_CERT_STAKE_PCT + '% skip-certificate threshold)' : (skip_malformed ? 'malformed, ignored' : 'not supplied')) + '. The block is pending confirmation.');
   return {
     outcome: 'pending',
     finality_tier: 'pending',
