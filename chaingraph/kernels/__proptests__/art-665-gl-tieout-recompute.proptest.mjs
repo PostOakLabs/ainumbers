@@ -1,5 +1,5 @@
 // art-665-gl-tieout-recompute.proptest.mjs -- class-A property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
-// kernel_digest_at_authoring: sha256:a584ec949403437257fff542b1a398296b05bd693748e96a1382329d3dff139c
+// kernel_digest_at_authoring: sha256:dfbd47a4ba2e0f31b7552382486c5306f356da18d5c1b6707b8368e595166eb8
 // spec: CORE-VERIFY-BUILD-SPEC.md Sec0, Sec6.
 // human_sign_off: PENDING
 //
@@ -15,11 +15,16 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-665-gl-tieout-recompute.proptest.mjs
 
-import { compute } from '../art-665-gl-tieout-recompute.kernel.mjs';
+import { compute, buildArtifact } from '../art-665-gl-tieout-recompute.kernel.mjs';
 import { runFixtureOracle, summarize, findShapeViolations, mulberry32, pick } from './_pbt-common.mjs';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 
 const KERNEL_ID = 'art-665-gl-tieout-recompute';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rand = mulberry32(0x665A11);
+const REQUIRED_FIELDS = ['mode'];
 
 const PRODUCT_CODES = ['checking', 'savings', 'money_market', 'unmapped_code'];
 const GL_MAPPING = { checking: 'GL-1010', savings: 'GL-1020', money_market: 'GL-1030' }; // 'unmapped_code' deliberately absent
@@ -174,6 +179,52 @@ function checkP5_agrees_differential() {
   return { name: 'P5_agrees_flag_differential_both_modes', checked, violations };
 }
 
+// ---------- P6: fail-closed -- a required field deleted, nulled, "" or "   " never stays positive ----------
+function checkP6_requiredFieldNeverPositiveWhenBlank() {
+  const fixturesPath = path.join(__dirname, '..', 'fixtures', `${KERNEL_ID}.fixtures.json`);
+  const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
+  let positives = 0, checked = 0, violations = 0;
+  for (const vec of fixtures.vectors) {
+    if (compute(vec.policy_parameters).output_payload.verdict === 'INDETERMINATE') continue;
+    positives++;
+    for (const f of REQUIRED_FIELDS) {
+      for (const mode of ['delete', 'null', 'empty', 'blank']) {
+        const pp = structuredClone(vec.policy_parameters);
+        if (mode === 'delete') delete pp[f];
+        else pp[f] = mode === 'null' ? null : mode === 'empty' ? '' : '   ';
+        checked++;
+        if (compute(pp).output_payload.verdict !== 'INDETERMINATE') violations++;
+      }
+    }
+  }
+  if (positives === 0) violations++;
+  return { name: 'required_field_blank_never_positive', positives, checked, violations };
+}
+
+// ---------- P7: buildArtifact_never_throws -- one case per I-JSON hash-limit class ----------
+async function checkP7_buildArtifactNeverThrows() {
+  const deep = (n) => { let o = {}; const r = o; for (let i = 0; i < n; i++) { o.x = {}; o = o.x; } return r; };
+  const classes = [
+    ['junk_1e300', 1e300],
+    ['junk_NaN', NaN],
+    ['junk_-Infinity', -Infinity],
+    ['depth_511', deep(511)],
+    ['over_1e6_values', new Array(1_000_001).fill(1)],
+  ];
+  const rows = [];
+  let violations = 0;
+  for (const [label, val] of classes) {
+    let threw = null, refused = false;
+    try {
+      const a = await buildArtifact({ mode: 'single', period_label: val });
+      refused = a != null && a.execution_hash === null && typeof a.hash_refusal?.reason === 'string';
+    } catch (e) { threw = (e && e.name ? e.name + ': ' : '') + String(e && e.message); }
+    if (threw !== null || !refused) violations++;
+    rows.push({ label, refused, threw });
+  }
+  return { name: 'buildArtifact_never_throws', checked: classes.length, violations, rows };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -187,6 +238,8 @@ const properties = [
   checkP3_termination_bounded(),
   checkP4_money_conservation(),
   checkP5_agrees_differential(),
+  checkP6_requiredFieldNeverPositiveWhenBlank(),
+  await checkP7_buildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-A floor property test.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
