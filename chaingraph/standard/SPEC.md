@@ -4040,7 +4040,8 @@ matches `^AIUC-[A-F]-\d{2}$`. The other frameworks accept any non-empty `id` in 
 satisfied, certified, or accepted by anyone. The field is hash-excluded node metadata: no
 `execution_hash`, `required[]`, or `chaingraph_version` change, and absence is fully conformant.
 
-**§CTRLREF-1.4 Conformance (§15).** `schema-validate.mjs` checks the member's shape and the two id patterns;
+**§CTRLREF-1.4 Conformance (§15).** `schema-validate.mjs` checks the member's shape (the framework enum and
+the ids-only object; its draft-2020-12 subset validator does not evaluate the schema's conditional id patterns);
 `check-control-refs.mjs` checks every node's entries against those patterns, checks each NIST id
 against a committed id list extracted from the CC0 OSCAL catalog, and rejects any entry carrying title or text.
 
