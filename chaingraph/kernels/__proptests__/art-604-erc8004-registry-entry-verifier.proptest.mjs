@@ -1,5 +1,5 @@
 // art-604-erc8004-registry-entry-verifier property-test floor (ADJACENT-HOOKS-ASSEMBLE-LAND-2).
-// kernel_digest_at_authoring: sha256:1da61365399f5cf6ccd435e837f00981a4c6f9ebd9264d0d0641bda3f38091bc
+// kernel_digest_at_authoring: sha256:e070d771eff503f44fbf430cb47475cbb4ff2b2db6cc3692e6d4f3b93370a8c3
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- cheap invariant subset over the DECLARED domain,
@@ -13,7 +13,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-604-erc8004-registry-entry-verifier.proptest.mjs
 
-import { compute } from '../art-604-erc8004-registry-entry-verifier.kernel.mjs';
+import { compute, buildArtifact } from '../art-604-erc8004-registry-entry-verifier.kernel.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -104,6 +104,52 @@ function checkP4_outputShapeInvariant() {
   return { name: 'P4_output_shape_invariant', trials: checked, violations };
 }
 
+// ---------- P5: every required field of every positive vector, mutated to delete / null / "" / "   ", never stays positive ----------
+function checkP5_requiredFieldNeverPositive() {
+  const fixturesPath = path.join(__dirname, '..', 'fixtures', 'art-604-erc8004-registry-entry-verifier.fixtures.json');
+  const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
+  const required = ['chain_id', 'claimed_entry', 'onchain_record', 'registry_address', 'registry_type'];
+  let violations = 0, checked = 0, positives = 0;
+  for (const vec of fixtures.vectors) {
+    if (compute(vec.policy_parameters).output_payload.overall_determination !== 'CONSISTENT') continue;
+    positives++;
+    for (const f of required) {
+      for (const mode of ['delete', 'null', 'empty', 'blank']) {
+        const pp = JSON.parse(JSON.stringify(vec.policy_parameters));
+        if (mode === 'delete') delete pp[f];
+        else pp[f] = mode === 'null' ? null : mode === 'empty' ? '' : '   ';
+        checked++;
+        if (compute(pp).output_payload.overall_determination === 'CONSISTENT') violations++;
+      }
+    }
+  }
+  if (positives === 0) violations++;
+  return { name: 'P5_required_field_blank_never_positive', trials: checked, positives, violations };
+}
+
+// ---------- P6: buildArtifact_never_throws — one fixture per unhashable class ----------
+async function checkP6_buildArtifactNeverThrows() {
+  let deep = {}; let cur = deep;
+  for (let i = 0; i < 511; i++) { cur.n = {}; cur = cur.n; }
+  const classes = [
+    ['junk_1e300', { chain_id: 1e300 }],
+    ['nan', { chain_id: NaN }],
+    ['neg_infinity', { chain_id: -Infinity }],
+    ['depth_511', { chain_id: deep }],
+    ['over_1e6_values', { chain_id: new Array(1000001).fill(0) }],
+  ];
+  let violations = 0; const rows = [];
+  for (const [label, pp] of classes) {
+    try {
+      const a = await buildArtifact(pp);
+      const ok = a.execution_hash === null && a.hash_refusal && typeof a.hash_refusal.reason === 'string';
+      if (!ok) violations++;
+      rows.push({ label, refused: !!ok });
+    } catch (e) { violations++; rows.push({ label, threw: String(e && e.message).slice(0, 80) }); }
+  }
+  return { name: 'buildArtifact_never_throws', trials: classes.length, violations, rows };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -121,6 +167,8 @@ results.properties.push(checkP1_determinism());
 results.properties.push(checkP2_missingRequiredForcesIndeterminate());
 results.properties.push(checkP3_valueMismatchForcesInconsistent());
 results.properties.push(checkP4_outputShapeInvariant());
+results.properties.push(checkP5_requiredFieldNeverPositive());
+results.properties.push(await checkP6_buildArtifactNeverThrows());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 

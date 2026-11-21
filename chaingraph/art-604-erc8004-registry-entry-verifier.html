@@ -114,7 +114,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 </style>
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-604-erc8004-registry-entry-verifier.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:1da61365399f5cf6ccd435e837f00981a4c6f9ebd9264d0d0641bda3f38091bc">
+<meta name="kernel-digest" content="sha256:e070d771eff503f44fbf430cb47475cbb4ff2b2db6cc3692e6d4f3b93370a8c3">
 </head>
 <body>
 <nav>
@@ -1437,6 +1437,10 @@ function _valuesMatch(a, b) {
 
 var REGISTRY_TYPES = ['identity', 'reputation', 'validation'];
 
+function isFilled(v) {
+  return v !== undefined && v !== null && !(typeof v === 'string' && v.trim() === '');
+}
+
 var AGENT_ID_HANDLING_NOTE = 'agent_id (any key matching /agent[_-]?id/i) is compared as an opaque literal string only -- never parsed as a number, never resolved against an Agent Card, A2A endpoint, or any other registry, and never cached. This tool makes no identity-resolution claim (ERC8004-VERIFY-1 fence).';
 
 var SCOPE_NOTE = 'Checks whether a caller-supplied claimed registry entry and a caller-supplied on-chain record (independently read by the caller from the ERC-8004 registry contract) agree field-by-field, and separately whether any address-shaped field in the on-chain record is EIP-55 checksum-valid. Zero network calls -- this tool never queries a registry contract itself and makes no claim about the CURRENT on-chain state (the supplied on-chain record may be stale by the time it is read), agent trustworthiness, reputation validity, or validation-response correctness. Generic schema only: no per-registry-type or per-deployment adapter code, since the Identity/Reputation/Validation registries\' exact field layouts are an external surface this tool does not control.';
@@ -1467,7 +1471,14 @@ function compute(pp) {
     reasons.push('onchain_record is required and must be a non-empty object (independently read by the caller from the registry contract -- this tool never fetches it)');
   }
 
-  var chainIdEcho = (pp.chain_id !== undefined && pp.chain_id !== null && pp.chain_id !== '') ? String(pp.chain_id) : null;
+  if (!isFilled(pp.chain_id)) {
+    reasons.push('chain_id is required (missing, null, blank or whitespace-only)');
+  }
+  if (!isFilled(pp.registry_address)) {
+    reasons.push('registry_address is required (missing, null, blank or whitespace-only)');
+  }
+
+  var chainIdEcho = isFilled(pp.chain_id) ? String(pp.chain_id) : null;
   var registryAddressEcho = (typeof pp.registry_address === 'string' && pp.registry_address.trim() !== '') ? pp.registry_address.trim() : null;
 
   if (reasons.length > 0) {
