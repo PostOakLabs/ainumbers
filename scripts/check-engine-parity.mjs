@@ -330,7 +330,10 @@ if (bundleFile) {
 
     lines.push(`// ── ${kernelId} ──`);
     lines.push(`{`);
-    lines.push(`  const _v = ${JSON.stringify(vectors)};`);
+    // ENGINE-PARITY-PROTO-LITERAL-FIX-1: embed vectors through JSON.parse, not a
+    // JS object literal. In a literal a `"__proto__"` member sets the prototype
+    // instead of creating an own data key, so engines receive different vectors.
+    lines.push(`  const _v = JSON.parse(${JSON.stringify(JSON.stringify(vectors))});`);
     lines.push(`  MANIFEST[${JSON.stringify(kernelId)}] = {};`);
     if (isAsyncCompute) {
       // Async compute() uses Web Crypto — not runnable in QuickJS-ng; skip at gen time.
