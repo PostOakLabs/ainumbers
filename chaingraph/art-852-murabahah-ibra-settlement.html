@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Murabahah Ibra' Settlement · OpenChainGraph · AINumbers.co</title>
+<meta name="description" content="Compute a deferred-price instalment schedule, the rebate on early settlement, and the non-delivery case in integer minor units. Arithmetic only, not a ruling.">
+<meta name="ain:category" content="run">
+<meta name="robots" content="index, follow">
+<meta name="kernel-digest" content="sha256:44810c5aa94a2bd39dbb646172dd5b69de8f0fd6a65fabec4a6c3f9205efd1b6">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/art-852-murabahah-ibra-settlement.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-dim:rgba(20,184,166,.12);--radius:6px;--radius-lg:10px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;font-weight:300;font-size:14px;line-height:1.7}
+h1,h2,h3{font-family:'DM Serif Display',serif;font-weight:400;line-height:1.2}
+a{color:inherit;text-decoration:none}
+.container{max-width:1060px;margin:0 auto;padding:0 1.5rem}
+nav{padding:0 1.5rem;height:52px;border-bottom:1px solid var(--border);background:rgba(8,14,26,.92);position:sticky;top:0;backdrop-filter:blur(8px)}
+.nav-inner{max-width:1060px;margin:0 auto;height:100%;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:gap:9px}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:var(--bright)}
+.logo-ai{color:var(--teal)}.logo-co{color:var(--muted);font-size:.75rem}
+.nav-bc{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.nav-bc a{color:var(--body)}.nav-bc a:hover{color:var(--teal)}
+.hero{padding:2.5rem 0 2rem;border-bottom:1px solid var(--border)}
+.hero h1{font-size:clamp(1.6rem,3vw,2.3rem);color:var(--white);margin-bottom:.6rem}
+.hero-desc{font-size:.82rem;color:var(--body);max-width:760px;line-height:1.8}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.7rem .9rem;margin:1.25rem 0}
+.panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem}
+.panel-label{font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:.9rem}
+.field{margin-bottom:.7rem}.field label{display:block;font-size:.7rem;color:var(--body);margin-bottom:.25rem}
+.field input,.field textarea,.field select{width:100%;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--white);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .6rem}
+.field textarea{min-height:64px}
+button{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.5rem .8rem;cursor:pointer}
+button:hover{border-color:var(--teal)}
+.help{font-size:.66rem;color:var(--muted);line-height:1.7;margin-top:.6rem}
+.verdict{font-family:'JetBrains Mono',monospace;font-size:.78rem;margin-bottom:.7rem}
+.verdict.ok{color:var(--teal)}.verdict.bad{color:#f0a0a0}
+.badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.55rem;padding:.2rem .45rem;border:1px solid var(--border);border-radius:3px;margin:0 .25rem .25rem 0}
+.badge.bad{border-color:#a05050;color:#f0a0a0}
+.kv{display:flex;gap:.75rem;font-family:'JetBrains Mono',monospace;font-size:.64rem;padding:.2rem 0;border-bottom:1px solid var(--border)}
+.kv-k{color:var(--muted);min-width:15rem}.kv-v{color:var(--white);word-break:break-all}
+table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.6rem;margin-top:1rem}
+th,td{border-bottom:1px solid var(--border);padding:.3rem .35rem;text-align:right;color:var(--text)}
+th{color:var(--teal);font-weight:500}
+pre{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:.8rem;font-size:.6rem;max-height:420px;overflow:auto;color:var(--body)}
+footer{border-top:1px solid var(--border);padding:1.75rem 1.5rem;margin-top:1.5rem;font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted)}
+#ap2ExportBtn.ready{opacity:1;cursor:pointer;border-color:var(--teal);color:var(--bright)}#ap2ExportBtn:disabled{opacity:.55;cursor:not-allowed}
+</style>
+<style>:root{--border-2:#263855;--gold:#D4A847}
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">ART-852 · Murabahah Ibra' Settlement</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+<div class="page-main" role="main" aria-description="Deferred-price instalment schedule and early-settlement rebate calculator">
+<div class="hero"><div class="container">
+  <h1>Murabahah Ibra' Settlement</h1>
+  <p class="hero-desc">A deferred-price sale discloses a schedule of instalments, profit and principal split, outstanding cost and selling price, and deferred profit. On early settlement the rebate is the deferred profit at that point less any permitted recovery cost. This page reproduces that arithmetic in integer minor units, including the variable-rate and non-delivery cases. Outputs are arithmetic and rule checks against the cited regulator paragraphs, not a fatwa, Shariah certification, legal opinion or regulatory approval. Buy-now-pay-later and card rebate treatments are out of scope, and late-payment amounts are pass-through only.</p>
+</div></div>
+<div class="container">
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+
+  <div class="panel">
+    <div class="panel-label">Inputs</div>
+    <div class="field"><label for="authority">Authority profile</label><select id="authority" aria-label="authority" aria-description="Only the pinned regulator profile is supported; any other value is refused by name."><option value="bnm">bnm</option></select></div>
+    <div class="field"><label for="cost_of_purchase_minor">Cost of purchase (minor units)</label><input type="text" id="cost_of_purchase_minor" aria-label="cost_of_purchase_minor" aria-description="Acquisition cost in integer minor units."></div>
+    <div class="field"><label for="cpr_bp">Contracted profit rate (basis points)</label><input type="text" id="cpr_bp" aria-label="cpr_bp" aria-description="Ceiling rate in whole basis points, 0 to 100000."></div>
+    <div class="field"><label for="tenor_months">Tenor (months, 1 to 360)</label><input type="text" id="tenor_months" aria-label="tenor_months" aria-description="Number of monthly instalments."></div>
+    <div class="field"><label for="instalment_minor">Instalment (minor units)</label><input type="text" id="instalment_minor" aria-label="instalment_minor" aria-description="Level monthly instalment in integer minor units."></div>
+    <div class="field"><label for="selling_price_minor">Selling price, schedule (minor units)</label><input type="text" id="selling_price_minor" aria-label="selling_price_minor" aria-description="Contracted selling price used by the schedule."></div>
+    <div class="field"><label for="selling_price_stated_minor">Selling price, stated (minor units, optional)</label><input type="text" id="selling_price_stated_minor" aria-label="selling_price_stated_minor" aria-description="Stated price when it differs from the schedule price; the difference is emitted as a named residual."></div>
+    <div class="field"><label for="settlement_month">Settlement month (optional)</label><input type="text" id="settlement_month" aria-label="settlement_month" aria-description="Month at which early settlement occurs."></div>
+    <div class="field"><label for="instalment_due_minor">Instalment due but unpaid (minor units, optional)</label><input type="text" id="instalment_due_minor" aria-label="instalment_due_minor" aria-description="Unpaid instalment at settlement."></div>
+    <div class="field"><label for="late_payment_minor">Late payment (minor units, optional)</label><input type="text" id="late_payment_minor" aria-label="late_payment_minor" aria-description="Pass-through amount shown separately from the rebate."></div>
+    <div class="field"><label for="epr_periods">Prevailing-rate periods (JSON list, optional)</label><textarea id="epr_periods" aria-label="epr_periods" aria-description="List of from_month, epr_bp and instalment_minor records; the first must start at month 1." spellcheck="false"></textarea></div>
+    <div class="field"><label for="early_settlement_charges">Recovery costs (JSON list, optional)</label><textarea id="early_settlement_charges" aria-label="early_settlement_charges" aria-description="List of cost_type and amount_minor. Permitted: unrecovered_discount, unrecovered_initial_cost. Lost profit and marketing are refused." spellcheck="false"></textarea></div>
+    <div class="field"><label for="non_delivery">Non-delivery (JSON object, optional)</label><textarea id="non_delivery" aria-label="non_delivery" aria-description="undisbursed_principal_minor and first_sign_month. Requires settlement_month." spellcheck="false"></textarea></div>
+    <div class="field"><label for="conventional_loan">Conventional comparison (JSON object, optional)</label><textarea id="conventional_loan" aria-label="conventional_loan" aria-description="principal_minor, annual_rate_bp, tawidh_minor and gharamah_minor." spellcheck="false"></textarea></div>
+    <div class="help">All fields are amounts, rates, months and enum choices. Unknown fields, including anything resembling a name or account, are refused. Blank means the field is absent. Integers only; a float, a present null or a numeric string is refused rather than coerced.</div>
+    <div style="margin-top:14px">
+      <button onclick="runCheck()">&#9654; Compute schedule</button>
+      <button onclick="loadSample('appendix')" style="margin-left:8px">Load published illustration</button>
+    </div>
+  </div>
+
+  <div class="panel" id="resultsPanel" style="display:none">
+    <div class="panel-label">Result</div>
+    <div id="verdict" class="verdict"></div>
+    <div id="flagRow"></div>
+    <div id="kvDiv"></div>
+    <div id="scheduleWrap"></div>
+    <div class="panel-label" style="margin-top:16px">Execution Hash (SHA-256)</div>
+    <div class="kv"><span class="kv-k">execution_hash</span><span class="kv-v" id="execHash"></span></div>
+    <div class="results-export-row" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end;padding:.5rem 0;margin-top:12px;border-top:1px solid var(--border)">
+      <button onclick="exportArtifact()">Export Artifact</button>
+      <button id="ap2ExportBtn" onclick="exportAP2()" disabled title="Compute a schedule first to generate a Policy Mandate">{} Export Policy Mandate</button>
+    </div>
+    <pre id="artifactPre" style="display:none"></pre>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">Basis and declarations</div>
+    <div class="help">Profit for a period is the outstanding cost multiplied by the contracted rate over twelve, rounded half to even to a whole minor unit. The principal portion is the instalment less that profit. Outstanding selling price falls by one instalment each period, and deferred profit is the difference between outstanding selling price and outstanding cost. The published illustration states a selling price of 365,136.00 while its schedule uses 365,135.97; both are emitted and the three-minor-unit difference is a named field, never hidden. Some printed outstanding-cost cells in that illustration carry cent-level drift; this node emits the internally consistent recurrence and discloses the residual rather than copying an inconsistent cell.</div>
+    <div class="help" style="margin-top:8px">Early settlement: the rebate is the deferred profit at the settlement point less only permitted recovery costs. Lost profit and marketing costs are refused by name. Late-payment amounts are added separately and never accrue as interest. The non-delivery case adds rebate on undisbursed principal and stops profit at the first sign that delivery would fail.</div>
+    <div class="help" style="margin-top:8px">Nothing here is a legal or religious ruling. The node does not assess whether a contract was validly formed, whether an asset was possessed, or whether a rebate clause is enforceable. It checks arithmetic and the decision branches named in the cited paragraphs. Values are synthetic and no personal data is accepted.</div>
+  </div>
+</div>
+</div>
+
+<!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=manifests/art-852-murabahah-ibra-settlement.manifest.json -->
+<section id="ask-agent" style="max-width:900px;margin:32px auto 0;border:1px solid var(--border);border-radius:10px;padding:14px 18px;background:var(--bg-2)">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <h2 style="margin:0;font-size:.85rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em">Ask your agent</h2>
+    <button type="button" aria-label="Copy the ask-your-agent paragraph" onclick="(function(b){var t=document.getElementById('ask-agent-copy').textContent;function d(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy';},1200);}if(navigator.clipboard&amp;&amp;navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(d,function(){});}else{var r=document.createRange();r.selectNodeContents(document.getElementById('ask-agent-copy'));var s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('copy');s.removeAllRanges();d();}})(this)" style="margin-left:auto;background:none;border:1px solid var(--border-2);border-radius:6px;color:var(--body);font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:.3rem .8rem;cursor:pointer">Copy</button>
+  </div>
+  <p style="margin:.5rem 0 .6rem;font-size:.72rem;color:var(--muted)">Copy this paragraph into Claude, OpenClaw, or any MCP-aware agent to run this exact tool, with this sample, and verify the artifact.</p>
+  <pre id="ask-agent-copy" style="white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:.62rem;line-height:1.5;color:var(--body)">Run the AINumbers MCP tool `compute_murabahah_ibra_settle`. Task: Compute a deferred-price instalment schedule and the rebate on early settlement in integer minor units, including the variable-rate and non-delivery cases.
+Call it with arguments: {"policy_parameters":{"authority":"bnm","cost_of_purchase_minor":20000000,"cpr_bp":900,"tenor_months":180,"instalment_minor":202853,"selling_price_minor":36513597,"selling_price_stated_minor":36513600}}
+Verify before trusting: call `verify_execution_hash` on mcp.ainumbers.co (https://mcp.ainumbers.co/mcp) with the parameter `claimed_hash` set to the returned `execution_hash`, passing the full artifact the run returned (the object containing `policy_parameters` + `output_payload` + `execution_hash`; equivalently `policy_parameters` + `output_payload` with `claimed_hash`), not the bare hash string.
+Return the ledger link https://ledger.ainumbers.co/ so a human can re-verify without contacting us.
+PII rule: All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.
+Over MCP, the run happens on the AINumbers worker. No AINumbers server stores your inputs.
+Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-852-murabahah-ibra-settlement.html#p=v1.H4sIAAAAAAAA_wG0AEv_eyJhdXRob3JpdHkiOiJibm0iLCJjb3N0X29mX3B1cmNoYXNlX21pbm9yIjoyMDAwMDAwMCwiY3ByX2JwIjo5MDAsInRlbm9yX21vbnRocyI6MTgwLCJpbnN0YWxtZW50X21pbm9yIjoyMDI4NTMsInNlbGxpbmdfcHJpY2VfbWlub3IiOjM2NTEzNTk3LCJzZWxsaW5nX3ByaWNlX3N0YXRlZF9taW5vciI6MzY1MTM2MDB9JQqa97QAAAA</pre>
+</section>
+<!-- ASK-AGENT:END -->
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="../start.html">Start Here</a>
+        <a href="../front-to-back.html">Front-to-Back Prompts</a>
+        <a href="../prompts.html">Prompt Library</a>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="../helm.html">Helm</a>
+        <a href="../convert.html">Conversion Suite</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Hubs</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="visual-explainers-hub.html">Visual Explainers</a>
+        <a href="education-hub.html">Learn OpenChainGraph</a>
+        <a href="../guides/web3-hub.html">Web3 Hub</a>
+        <a href="../guides/canton-tmf-hub.html">Canton</a>
+        <a href="../guides/ethereum-hub.html">Ethereum</a>
+        <a href="../guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
+        <a href="../guides/token-standards-hub.html">Token Standards</a>
+        <a href="../guides/tradetech-hub.html">TradeTech</a>
+        <a href="../guides/capital-markets-settlement-hub.html">Capital Markets Settlement</a>
+        <a href="../guides/broker-dealer-ops-hub.html">Broker-Dealer Ops</a>
+        <a href="../guides/treasury-liquidity-hub.html">Treasury and Strategy</a>
+        <a href="../guides/wealthtech-hub.html">WealthTech</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Developers</div>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../webmcp.html">WebMCP</a>
+        <a href="../mcp-benchmark.html">MCP Benchmark</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../verification-desk.html">Verification Desk</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">About</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="../privacy.html">Privacy</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+<script>
+'use strict';
+var TOOL_ID='art-852-murabahah-ibra-settlement',TOOL_VERSION='1.0.0';
+var HASH_MAX_DEPTH=512,HASH_MAX_ELEMENTS=1000000,RATE_DENOMINATOR=120000n;
+var ALLOWED_KEYS=['authority','cost_of_purchase_minor','cpr_bp','tenor_months','instalment_minor','selling_price_minor','selling_price_stated_minor','epr_periods','settlement_month','instalment_due_minor','early_settlement_charges','late_payment_minor','non_delivery','conventional_loan'];
+var PERMITTED_COST_TYPES=['unrecovered_discount','unrecovered_initial_cost'];
+function hasOwn(o,k){return Object.prototype.hasOwnProperty.call(o,k);}
+function isPlainObject(v){return v!==null&&typeof v==='object'&&!Array.isArray(v);}
+function refuse(e,c,d){e.push(c+': '+d);}
+function findHashRefusal(v,path,depth,budget){
+  if(depth>budget.maxDepth)return{reason:'REFUSED_INPUT_HASH_LIMIT',detail:path+': too_deep'};
+  if(++budget.n>budget.maxElements)return{reason:'REFUSED_INPUT_HASH_LIMIT',detail:path+': too_many_values'};
+  if(typeof v==='number'){if(!Number.isFinite(v))return{reason:'REFUSED_INPUT_UNSAFE_NUMBER',detail:path+': non_finite'};if(Number.isInteger(v)&&!Number.isSafeInteger(v))return{reason:'REFUSED_INPUT_UNSAFE_NUMBER',detail:path+': unsafe_integer'};return null;}
+  if(Array.isArray(v)){for(var i=0;i<v.length;i++){var r=findHashRefusal(v[i],path+'['+i+']',depth+1,budget);if(r!==null)return r;}return null;}
+  if(v!==null&&typeof v==='object'){var ks=Object.keys(v).sort();for(var j=0;j<ks.length;j++){var q=findHashRefusal(v[ks[j]],path+'.'+ks[j],depth+1,budget);if(q!==null)return q;}}
+  return null;
+}
+function divHalfEven(num,den){var neg=num<0n,a=neg?-num:num,q=a/den,r=a%den,t=r*2n;if(t>den||(t===den&&q%2n===1n))q+=1n;return neg?-q:q;}
+function intField(e,o,k,label,opts){
+  if(!hasOwn(o,k)){refuse(e,'REFUSED_FIELD_MISSING',label+' is required');return null;}
+  var v=o[k];if(typeof v!=='number'||!Number.isSafeInteger(v)){refuse(e,'REFUSED_FIELD_TYPE',label+' must be a safe integer');return null;}
+  if(opts&&opts.min!==undefined&&v<opts.min){refuse(e,'REFUSED_FIELD_RANGE',label+' is below its bound');return null;}
+  if(opts&&opts.max!==undefined&&v>opts.max){refuse(e,'REFUSED_FIELD_RANGE',label+' is above its bound');return null;}
+  return v;
+}
+function optInt(e,o,k,l,opts){return hasOwn(o,k)?intField(e,o,k,l,opts):null;}
+function unknownKeys(o,allowed,label,e){Object.keys(o).forEach(function(k){if(allowed.indexOf(k)<0)refuse(e,'REFUSED_FIELD_NOT_ALLOWED',label+'.'+k);});}
+function validate(pp){
+  var e=[],charges=[],refusedChargeCodes=[],eprPeriods=null,nonDelivery=null,conventional=null;
+  unknownKeys(pp,ALLOWED_KEYS,'policy_parameters',e);
+  if(!hasOwn(pp,'authority')||typeof pp.authority!=='string')refuse(e,'REFUSED_AUTHORITY_NOT_PINNED','authority must name a supported profile');
+  else if(pp.authority!=='bnm')refuse(e,'REFUSED_AUTHORITY_NOT_PINNED','authority "'+pp.authority+'" is not supported; supported: bnm');
+  var cop=intField(e,pp,'cost_of_purchase_minor','cost_of_purchase_minor',{min:1});
+  var cpr=intField(e,pp,'cpr_bp','cpr_bp',{min:0,max:100000});
+  var tenor=intField(e,pp,'tenor_months','tenor_months',{min:1,max:360});
+  var inst=intField(e,pp,'instalment_minor','instalment_minor',{min:1});
+  var sp=intField(e,pp,'selling_price_minor','selling_price_minor',{min:0});
+  var stated=optInt(e,pp,'selling_price_stated_minor','selling_price_stated_minor',{min:0});
+  if(cop!==null&&sp!==null&&sp<cop)refuse(e,'REFUSED_FIELD_RANGE','selling_price_minor must not be below cost_of_purchase_minor');
+  if(stated!==null&&sp!==null&&stated<sp)refuse(e,'REFUSED_FIELD_RANGE','selling_price_stated_minor must not be below selling_price_minor');
+  if(hasOwn(pp,'epr_periods')){
+    var raw=pp.epr_periods;
+    if(!Array.isArray(raw)||raw.length<1||raw.length>24)refuse(e,'REFUSED_EPR_PERIOD_INVALID','epr_periods must be an array of 1 to 24 periods');
+    else {eprPeriods=[];var prev=0;raw.forEach(function(r,i){
+      if(!isPlainObject(r)){refuse(e,'REFUSED_EPR_PERIOD_INVALID','epr_periods['+i+'] must be an object');return;}
+      unknownKeys(r,['from_month','epr_bp','instalment_minor'],'epr_periods['+i+']',e);
+      var f=intField(e,r,'from_month','from_month',{min:1,max:tenor===null?360:tenor});
+      var b=intField(e,r,'epr_bp','epr_bp',{min:0,max:100000});
+      var m=intField(e,r,'instalment_minor','instalment_minor',{min:1});
+      if(f!==null){if(i===0&&f!==1)refuse(e,'REFUSED_EPR_PERIOD_INVALID','the first epr_period starts at month 1');if(f<=prev)refuse(e,'REFUSED_EPR_PERIOD_INVALID','epr_periods from_month values must strictly increase');prev=f;}
+      if(f!==null&&b!==null&&m!==null)eprPeriods.push({from:f,bp:b,ins:m});
+    });}
+  }
+  var settlement=optInt(e,pp,'settlement_month','settlement_month',{min:1,max:tenor===null?360:tenor});
+  var due=optInt(e,pp,'instalment_due_minor','instalment_due_minor',{min:0});
+  var late=optInt(e,pp,'late_payment_minor','late_payment_minor',{min:0});
+  if(hasOwn(pp,'early_settlement_charges')){
+    var ch=pp.early_settlement_charges;
+    if(!Array.isArray(ch)||ch.length>16)refuse(e,'REFUSED_CHARGE_LIST_INVALID','early_settlement_charges must be an array of at most 16 items');
+    else ch.forEach(function(r,i){
+      if(!isPlainObject(r)){refuse(e,'REFUSED_CHARGE_LIST_INVALID','early_settlement_charges['+i+'] must be an object');return;}
+      unknownKeys(r,['cost_type','amount_minor'],'early_settlement_charges['+i+']',e);
+      var t=r.cost_type;
+      if(typeof t!=='string'){refuse(e,'REFUSED_CHARGE_TYPE','cost_type must be a string');return;}
+      if(t==='lost_profit'){refuse(e,'REFUSED_CHARGE_LOST_PROFIT','lost_profit is not a recoverable cost type');refusedChargeCodes.push('CHARGE_LOST_PROFIT_REFUSED');return;}
+      if(t==='marketing'){refuse(e,'REFUSED_CHARGE_MARKETING','marketing is not a recoverable cost type');refusedChargeCodes.push('CHARGE_MARKETING_REFUSED');return;}
+      if(PERMITTED_COST_TYPES.indexOf(t)<0){refuse(e,'REFUSED_CHARGE_TYPE','cost_type "'+t+'" is not in the allowed set');return;}
+      var a=intField(e,r,'amount_minor','amount_minor',{min:0});if(a!==null)charges.push({cost_type:t,amount_minor:a});
+    });
+  }
+  if(hasOwn(pp,'non_delivery')){
+    var nd=pp.non_delivery;
+    if(!isPlainObject(nd))refuse(e,'REFUSED_NON_DELIVERY_INVALID','non_delivery must be an object');
+    else {unknownKeys(nd,['undisbursed_principal_minor','first_sign_month'],'non_delivery',e);
+      var u=intField(e,nd,'undisbursed_principal_minor','undisbursed_principal_minor',{min:0});
+      var f2=intField(e,nd,'first_sign_month','first_sign_month',{min:1,max:tenor===null?360:tenor});
+      if(u!==null&&cop!==null&&u>cop)refuse(e,'REFUSED_NON_DELIVERY_INVALID','undisbursed_principal_minor exceeds cost_of_purchase_minor');
+      nonDelivery={und:u,first:f2};}
+  }
+  if(hasOwn(pp,'conventional_loan')){
+    var cl=pp.conventional_loan;
+    if(!isPlainObject(cl))refuse(e,'REFUSED_CONVENTIONAL_INVALID','conventional_loan must be an object');
+    else {unknownKeys(cl,['principal_minor','annual_rate_bp','tawidh_minor','gharamah_minor'],'conventional_loan',e);
+      conventional={principal:intField(e,cl,'principal_minor','principal_minor',{min:1}),rate:intField(e,cl,'annual_rate_bp','annual_rate_bp',{min:0,max:100000}),tawidh:intField(e,cl,'tawidh_minor','tawidh_minor',{min:0}),gharamah:intField(e,cl,'gharamah_minor','gharamah_minor',{min:0})};}
+  }
+  if(nonDelivery!==null&&settlement===null)refuse(e,'REFUSED_NON_DELIVERY_INVALID','non_delivery requires settlement_month');
+  if(nonDelivery!==null&&nonDelivery.first!==null&&settlement!==null&&nonDelivery.first>settlement)refuse(e,'REFUSED_NON_DELIVERY_INVALID','first_sign_month must not be after settlement_month');
+  return{errors:e,cop:cop,cpr:cpr,tenor:tenor,instalment:inst,sellingPrice:sp,stated:stated,eprPeriods:eprPeriods,settlement:settlement,due:due,late:late,charges:charges,refusedChargeCodes:refusedChargeCodes,nonDelivery:nonDelivery,conventional:conventional};
+}
+function emptyPayload(){return{valid_input:false,domain_errors:[],refusal_code:null,not_a_shariah_ruling:true,authority:null,authority_profile:null,cost_of_purchase_minor:null,contracted_rate_bp:null,tenor_months:null,instalment_minor:null,selling_price_minor:null,selling_price_stated_minor:null,selling_price_residual_minor:null,markup_minor:null,profit_rounding:'half-even',schedule:[],settlement:null,non_delivery:null,conventional_comparison:null,refused_cost_types:[],variable_rate_applied:false,warnings:[]};}
+function refusedResult(errors,codes){
+  var o=emptyPayload();o.domain_errors=errors;o.refusal_code=errors.length?errors[0].split(':')[0]:'REFUSED_UNKNOWN';o.refused_cost_types=codes||[];
+  var f=[];if(errors.length)f.push('INPUT_REFUSED');(codes||[]).forEach(function(c){f.push(c);});
+  if(errors.some(function(x){return x.indexOf('REFUSED_AUTHORITY_NOT_PINNED')===0;}))f.push('AUTHORITY_NOT_PINNED');
+  o.warnings=f.slice();return{output_payload:o,compliance_flags:f};
+}
+function periodAt(ps,m){if(ps===null)return null;var f=null;ps.forEach(function(p){if(p.from<=m)f=p;});return f;}
+function compute(pp){
+  if(!isPlainObject(pp))return refusedResult(['REFUSED_INPUT_WRONG_TYPE: policy_parameters must be an object'],[]);
+  var un=findHashRefusal(pp,'pp',1,{maxDepth:504,maxElements:199000,n:0});if(un!==null)return refusedResult([un.reason+': '+un.detail],[]);
+  var v=validate(pp);if(v.errors.length>0)return refusedResult(v.errors,v.refusedChargeCodes);
+  var flags=[],cop0=BigInt(v.cop),cpr=BigInt(v.cpr),ins=BigInt(v.instalment),sp=BigInt(v.sellingPrice),cop=cop0,schedule=[],accrued=0n,variable=false;
+  for(var k=1;k<=v.tenor;k++){
+    var per=periodAt(v.eprPeriods,k),profit=divHalfEven(cop*cpr,RATE_DENOMINATOR),pay=ins-profit,before=cop;
+    cop=cop-pay;accrued+=profit;var osp=sp-ins*BigInt(k),def=osp-cop;
+    var row={month:k,instalment_minor:v.instalment,profit_minor:Number(profit),cop_payment_minor:Number(pay),outstanding_cop_minor:Number(cop),outstanding_selling_price_minor:Number(osp),deferred_profit_minor:Number(def)};
+    if(per!==null){variable=true;var ep=divHalfEven(before*BigInt(per.bp),RATE_DENOMINATOR);row.epr_instalment_minor=per.ins;row.epr_rate_bp=per.bp;row.epr_profit_minor=Number(ep);row.period_ibra_minor=Number(profit-ep);}
+    schedule.push(row);
+  }
+  if(variable)flags.push('VARIABLE_RATE_APPLIED');
+  var settlement=null;
+  if(v.settlement!==null){
+    var r=schedule[v.settlement-1],deferred=BigInt(r.deferred_profit_minor),permitted=v.charges.reduce(function(a,c){return a+BigInt(c.amount_minor);},0n);
+    if(permitted>deferred)return refusedResult(['REFUSED_CHARGES_EXCEED_DEFERRED_PROFIT: permitted recovery costs exceed the deferred profit at the settlement point'],v.refusedChargeCodes);
+    var ibra=deferred-permitted,due=v.due===null?0n:BigInt(v.due),late=v.late===null?0n:BigInt(v.late),amount=BigInt(r.outstanding_selling_price_minor)+due+late-ibra;
+    settlement={settlement_month:v.settlement,outstanding_selling_price_minor:r.outstanding_selling_price_minor,outstanding_cop_minor:r.outstanding_cop_minor,deferred_profit_minor:Number(deferred),ibra_minor:Number(ibra),permitted_charges_minor:Number(permitted),charges_applied:v.charges,instalment_due_minor:Number(due),late_payment_minor:Number(late),settlement_amount_minor:Number(amount)};
+    flags.push('EARLY_SETTLEMENT_APPLIED');if(late>0n)flags.push('LATE_PAYMENT_PASSTHROUGH');
+  }
+  var nonDelivery=null;
+  if(v.nonDelivery!==null){
+    var at=schedule[v.nonDelivery.first-1],row2=schedule[v.settlement-1],und=BigInt(v.nonDelivery.und),def2=BigInt(row2.deferred_profit_minor),permitted2=v.charges.reduce(function(a,c){return a+BigInt(c.amount_minor);},0n);
+    if(permitted2>def2+und)return refusedResult(['REFUSED_CHARGES_EXCEED_DEFERRED_PROFIT: permitted recovery costs exceed the rebate available on settlement'],v.refusedChargeCodes);
+    var waived=accrued-BigInt(at.profit_minor>0?at.profit_minor:0),ibra2=def2+und-permitted2,due2=v.due===null?0n:BigInt(v.due),late2=v.late===null?0n:BigInt(v.late),amount2=BigInt(row2.outstanding_selling_price_minor)+due2+late2-ibra2;
+    nonDelivery={first_sign_month:v.nonDelivery.first,undisbursed_principal_minor:Number(und),profit_accrued_to_first_sign_minor:at.profit_minor,profit_waived_minor:Number(waived<0n?0n:waived),ibra_on_undisbursed_minor:Number(und),ibra_on_deferred_profit_minor:Number(def2),ibra_total_minor:Number(ibra2),settlement_amount_minor:Number(amount2)};
+    flags.push('NON_DELIVERY_APPLIED');
+  }
+  var conventional=null;
+  if(v.conventional!==null){
+    var firstInterest=divHalfEven(BigInt(v.conventional.principal)*BigInt(v.conventional.rate),RATE_DENOMINATOR);
+    conventional={principal_minor:v.conventional.principal,annual_rate_bp:v.conventional.rate,first_period_interest_minor:Number(firstInterest),tawidh_minor:v.conventional.tawidh,gharamah_minor:v.conventional.gharamah,late_payment_accrues_interest:false,cash_flows_equal_note:'equal dated cash flows do not make equal contracts'};
+    flags.push('CONVENTIONAL_COMPARISON_ADDED');
+  }
+  var stated=v.stated===null?v.sellingPrice:v.stated,residual=BigInt(stated)-sp;
+  return{output_payload:{valid_input:true,domain_errors:[],refusal_code:null,not_a_shariah_ruling:true,authority:pp.authority,authority_profile:pp.authority,cost_of_purchase_minor:v.cop,contracted_rate_bp:v.cpr,tenor_months:v.tenor,instalment_minor:v.instalment,selling_price_minor:v.sellingPrice,selling_price_stated_minor:stated,selling_price_residual_minor:Number(residual),markup_minor:Number(sp-cop0),profit_rounding:'half-even',schedule:schedule,settlement:settlement,non_delivery:nonDelivery,conventional_comparison:conventional,refused_cost_types:v.refusedChargeCodes,variable_rate_applied:variable,warnings:flags.slice()},compliance_flags:flags};
+}
+function bytesToHexStr(bytes){return Array.from(bytes).map(function(b){return b.toString(16).padStart(2,'0');}).join('');}
+function cgCanon(v){return Array.isArray(v)?v.map(cgCanon):(v&&typeof v==='object')?Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}):v;}
+async function computeExecHash(pp,op){
+  if(findHashRefusal({policy_parameters:pp,output_payload:op},'pp',1,{maxDepth:HASH_MAX_DEPTH,maxElements:HASH_MAX_ELEMENTS,n:0})!==null)return null;
+  var payload=JSON.stringify(cgCanon({policy_parameters:pp,output_payload:op}));
+  var buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(payload));
+  return bytesToHexStr(new Uint8Array(buf));
+}
+function hashRefusalReason(pp,op){var u=findHashRefusal({policy_parameters:pp,output_payload:op},'pp',1,{maxDepth:HASH_MAX_DEPTH,maxElements:HASH_MAX_ELEMENTS,n:0});return u?u.reason:'REFUSED_INPUT_HASH_LIMIT';}
+var _lastResult=null;
+var SAMPLE={authority:'bnm',cost_of_purchase_minor:20000000,cpr_bp:900,tenor_months:180,instalment_minor:202853,selling_price_minor:36513597,selling_price_stated_minor:36513600,settlement_month:48,instalment_due_minor:202853};
+var FIELDS=['authority','cost_of_purchase_minor','cpr_bp','tenor_months','instalment_minor','selling_price_minor','selling_price_stated_minor','settlement_month','instalment_due_minor','late_payment_minor','epr_periods','early_settlement_charges','non_delivery','conventional_loan'];
+var JSON_FIELDS=['epr_periods','early_settlement_charges','non_delivery','conventional_loan'];
+var NUMBER_FIELDS=['cost_of_purchase_minor','cpr_bp','tenor_months','instalment_minor','selling_price_minor','selling_price_stated_minor','settlement_month','instalment_due_minor','late_payment_minor'];
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function loadSample(){FIELDS.forEach(function(k){var x=SAMPLE[k];document.getElementById(k).value=x===undefined?'':(JSON_FIELDS.indexOf(k)>=0?JSON.stringify(x,null,2):String(x));});}
+function readInputs(){var pp={};FIELDS.forEach(function(k){var raw=document.getElementById(k).value;if(raw.trim()==='')return;if(JSON_FIELDS.indexOf(k)>=0||NUMBER_FIELDS.indexOf(k)>=0){try{pp[k]=JSON.parse(raw);}catch(e){pp[k]=raw;}}else pp[k]=raw;});return pp;}
+function renderSchedule(s){
+  if(!s||!s.length)return'';
+  var idx=[0,1,2,3,4,5,s.length-6,s.length-5,s.length-4,s.length-3,s.length-2,s.length-1].filter(function(v,i,a){return v>=0&&a.indexOf(v)===i;}).sort(function(a,b){return a-b;});
+  var head='<table><thead><tr><th>month</th><th>instalment</th><th>profit</th><th>principal</th><th>outstanding price</th><th>outstanding cost</th><th>deferred profit</th></tr></thead><tbody>';
+  var body=idx.map(function(i){var r=s[i];return'<tr><td>'+r.month+'</td><td>'+r.instalment_minor+'</td><td>'+r.profit_minor+'</td><td>'+r.cop_payment_minor+'</td><td>'+r.outstanding_selling_price_minor+'</td><td>'+r.outstanding_cop_minor+'</td><td>'+r.deferred_profit_minor+'</td></tr>';}).join('');
+  return head+body+'</tbody></table><div class="help">Showing the first six and last six periods of '+s.length+' disclosed rows. The full schedule is in the exported artifact.</div>';
+}
+async function runCheck(){
+  var pp=readInputs(),r=compute(pp),o=r.output_payload;
+  document.getElementById('resultsPanel').style.display='block';
+  _lastResult={pp:pp,output_payload:o,compliance_flags:r.compliance_flags};
+  var vd=document.getElementById('verdict');
+  if(o.valid_input)vd.className='verdict ok',vd.textContent='SCHEDULE COMPUTED, '+o.tenor_months+' disclosed periods; not a ruling.';
+  else vd.className='verdict bad',vd.textContent='INPUT REFUSED, '+o.refusal_code+'; nothing computed.';
+  document.getElementById('flagRow').innerHTML=r.compliance_flags.map(function(f){return'<span class="badge bad">'+esc(f)+'</span>';}).join('');
+  var kv=o.valid_input
+    ?[['selling_price_minor',o.selling_price_minor],['selling_price_stated_minor',o.selling_price_stated_minor],['selling_price_residual_minor',o.selling_price_residual_minor],['markup_minor',o.markup_minor],['ibra_minor',o.settlement?o.settlement.ibra_minor:null],['settlement_amount_minor',o.settlement?o.settlement.settlement_amount_minor:null],['ibra_total_minor',o.non_delivery?o.non_delivery.ibra_total_minor:null]]
+    :[['refusal_code',o.refusal_code],['domain_errors',o.domain_errors.join(' | ')]];
+  document.getElementById('kvDiv').innerHTML=kv.map(function(x){return'<div class="kv"><span class="kv-k">'+x[0]+'</span><span class="kv-v">'+esc(x[1])+'</span></div>';}).join('');
+  document.getElementById('scheduleWrap').innerHTML=renderSchedule(o.schedule);
+  var h=await computeExecHash(pp,o);
+  document.getElementById('execHash').textContent=h===null?'not hashable (input outside the hash limits)':h;
+  document.getElementById('artifactPre').style.display='none';
+  window._ap2Result={verdict:o.valid_input?'computed':'refused',output_payload:o,inputs:pp};
+  window.enableAP2Btn();
+}
+async function exportArtifact(){
+  if(!_lastResult)return;
+  var h=await computeExecHash(_lastResult.pp,_lastResult.output_payload),artifact={
+    '@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_control',tool_id:TOOL_ID,tool_version:TOOL_VERSION,generated_at:new Date().toISOString(),
+    execution_hash:h,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,
+    compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[],client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  if(h===null)artifact.hash_refusal={reason:hashRefusalReason(_lastResult.pp,_lastResult.output_payload),detail:'preimage outside the hash limits'};
+  document.getElementById('artifactPre').textContent=JSON.stringify(artifact,null,2);document.getElementById('artifactPre').style.display='block';
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(artifact,null,2)],{type:'application/json'}));a.download=TOOL_ID+'.json';a.click();URL.revokeObjectURL(a.href);
+}
+(function(){
+if(typeof window.AP2Schema==='undefined')window.AP2Schema={};
+var AP2Schema=window.AP2Schema;
+AP2Schema.validate=function(m){
+  var RE=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function f(msg){throw new Error('AP2Schema: '+msg);}
+  if(!m||typeof m!=='object')f('mandate must be an object');
+  if(typeof m.tool_id!=='string'&&typeof m.mandate_id!=='string')f('missing identity field');
+  if(typeof m.mandate_type!=='string'||!m.mandate_type)f('missing mandate_type');
+  if('mandate_id' in m&&!RE.test(m.mandate_id))f('mandate_id must be UUIDv4');
+  if('jurisdiction' in m&&!Array.isArray(m.jurisdiction))f('jurisdiction must be array');
+  return true;
+};
+window.enableAP2Btn=function(){var b=document.getElementById('ap2ExportBtn');if(b){b.disabled=false;b.classList.add('ready');}};
+window._ap2Result=window._ap2Result||null;
+window.exportAP2=function(){
+  if(!window._ap2Result){alert('Compute a schedule first to generate a Policy Mandate.');return;}
+  var ts=new Date().toISOString(),mandate={
+    mandate_id:crypto.randomUUID(),issued_at:ts,issued_by:'ainumbers.co',tool_id:TOOL_ID,tool_version:TOOL_VERSION,mandate_type:'settlement_risk_mandate',jurisdiction:['ZZ'],regulatory_frameworks:[],
+    payload:window._ap2Result,summary:'Murabahah settlement arithmetic '+ts.slice(0,10),agent_instructions:['Review the exported schedule and apply indicated controls under your own framework.'],valid_from:ts.slice(0,10),
+    source_tool_inputs:{},regulatory_citations:[],audit_metadata:{client_side_executed:true,zero_pii_verified:true,deterministic_run:true}
+  };
+  AP2Schema.validate(mandate);
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(mandate,null,2)],{type:'application/json'}));a.download=TOOL_ID+'_'+ts.replace(/[:.TZ]/g,'').replace(/-/g,'').slice(0,14)+'.policy.json';a.click();URL.revokeObjectURL(a.href);
+};
+})();
+loadSample();
+</script>
+</body></html>
