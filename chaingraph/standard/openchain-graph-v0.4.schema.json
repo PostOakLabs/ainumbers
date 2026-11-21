@@ -72,7 +72,7 @@
       }
     },
     "anchorBinding": {
-      "description": "OCG Standard §20 Anchor Binding — portable, offline-verifiable evidence that execution_hash was included in a transparency log or timestamp service by a point in time. Optional; lives at the top-level anchor_bindings array. Attached AFTER hashing, EXCLUDED from execution_hash scope (like §16 audit_signature). anchored_hash MUST equal the artifact's execution_hash (enforced by anchor-binding.test.mjs; this schema validates shape). rfc3161-tst carries four additional REQUIRED members; the DER in proof is stored verbatim, never re-encoded. §20.4 solana-memo (v0.8.25) is the ONE exception to offline verification: that variant structurally requires a Solana RPC chosen by the verifier, and is a ledger-ordering anchor, not a timestamp token (see its variant description).",
+      "description": "OCG Standard §20 Anchor Binding — portable, offline-verifiable evidence that execution_hash was included in a transparency log or timestamp service by a point in time. Optional; lives at the top-level anchor_bindings array. Attached AFTER hashing, EXCLUDED from execution_hash scope (like §16 audit_signature). anchored_hash MUST equal the artifact's execution_hash (enforced by anchor-binding.test.mjs; this schema validates shape). rfc3161-tst carries four additional REQUIRED members; the DER in proof is stored verbatim, never re-encoded. §20.4 solana-memo (v0.8.25) and §20.5 evm-eas-timestamp (v0.8.26) are the two exceptions to offline verification: those variants structurally require a ledger RPC chosen by the verifier, and are ledger-ordering anchors, not timestamp tokens (see their variant descriptions).",
       "oneOf": [
         {
           "type": "object",
@@ -128,6 +128,23 @@
             "signer": { "type": "string", "pattern": "^[1-9A-HJ-NP-Za-km-z]{43,44}$", "description": "§20.4 — base58 pubkey of an account that signed the memo instruction. A verifier SHOULD pin it against its own published allowlist: without a signer pin anyone can write the same memo." },
             "anchored_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "§20.4 — equals execution_hash directly, or the §20.1 Merkle root when merkle_inclusion is present (the memo commits the root)." },
             "merkle_inclusion": { "$ref": "#/$defs/merkleInclusion", "description": "§20.4 OPTIONAL — §20.1 batch semantics unchanged: anchored_hash is the RFC 6962 root, the artifact execution_hash is a leaf." }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "chain_id", "contract", "anchored_hash", "timestamp", "independence_class"],
+          "description": "OCG Standard §20.5 (v0.8.26) — verification-only EVM ledger anchor: the Ethereum Attestation Service (EAS) contract named by contract, on the EVM chain named by chain_id (chain-neutral: Ethereum L1, Base, Optimism), records a nonzero timestamp for the 32 bytes of anchored_hash. NO stamping leg, NO key custody, NO funding. Verification structurally REQUIRES an EVM JSON-RPC endpoint chosen by the verifier, read at block tag finalized (no offline path). The read returns NO signer and the contract is first-writer-wins: the binding shows the earliest recorded stamp of this hash on this chain, never who stamped it. Ledger ordering only, NOT an RFC 3161 token (no accountable time authority, no eIDAS status, no signed time); sequencer and RPC operators are trusted. Copy calling this type independent, a TSA, RFC 3161-aligned, eIDAS-qualified or signed is non-conformant (§20.5).",
+          "properties": {
+            "type": { "const": "evm-eas-timestamp" },
+            "chain_id": { "type": "integer", "minimum": 1, "description": "§20.5 — the EIP-155 chain id of the chain holding the stamp. A verifier MUST confirm its RPC reports this chain id before reading." },
+            "contract": { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$", "description": "§20.5 — address of the EAS contract read for the stamp. A verifier MUST accept only an address on its per-chain contract allowlist for chain_id; the allowlist is data held outside this standard, and an address not on it MUST NOT verify." },
+            "anchored_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "§20.5 — equals execution_hash directly, or the §20.1 Merkle root when merkle_inclusion is present. The bytes32 key read from the contract is the 32-byte digest this hex encodes." },
+            "timestamp": { "type": "integer", "minimum": 1, "description": "§20.5 — the uint64 value (unix seconds) the contract returns for anchored_hash at finalized: the block timestamp of the block that first stamped it, set by that chain's block producer, never a signed time. A verifier MUST reject when the finalized read differs; zero means not timestamped and can never verify." },
+            "tx_hash": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$", "description": "§20.5 OPTIONAL — locator of the stamping transaction. Informative: the contract state read is the evidence; a verifier that checks it MUST reject on mismatch." },
+            "block_number": { "type": "integer", "minimum": 0, "description": "§20.5 OPTIONAL — locator of the block holding the stamping transaction. Informative, same rule as tx_hash." },
+            "merkle_inclusion": { "$ref": "#/$defs/merkleInclusion", "description": "§20.5 OPTIONAL — §20.1 batch semantics unchanged: anchored_hash is the RFC 6962 root, the artifact execution_hash is a leaf." },
+            "independence_class": { "const": "single-chain-ledger", "description": "§20.5 — the trust-root class of this binding. An evm-eas-timestamp binding is never an independent authority; any number of them on one chain count as one single-chain-ledger root." }
           }
         }
       ]

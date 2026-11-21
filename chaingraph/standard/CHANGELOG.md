@@ -3,6 +3,38 @@
 One row per spec version. The version of record is `chaingraph.json.spec_version`; this file
 narrates what each bump changed. Normative definitions live in `SPEC.md` + `openchain-graph-v0.4.schema.json`.
 
+## §20.5 text pass: verification-only `evm-eas-timestamp` anchor binding (DRAFT, counsel review pending)
+- **SPEC-TEXT PASS, not a record bump.** `spec_version` of record stays `0.8.13`, same separation as
+  every prior text pass. Row `ANCHOR-EAS-VERIFY-SPEC-1` under Tim rulings ETH-ZK-WAVE-1 and
+  ETH-ZK-WAVE-2 (2026-11-03: chain-neutral, built now as a draft PR). Source: workspace-root
+  `research/ETH-SPECS-AND-ANCHORING-BUILDABILITY-2026-11-02.md` §3.2 and the answers file it cites.
+  Opened as a DRAFT: the trust-caveat wording waits on the anchoring-copy approval before merge.
+- **§20.5 adds ONE new OPTIONAL binding type**, `evm-eas-timestamp`, mirroring §20.4: ledger-ordering
+  evidence that an EAS contract on a named EVM chain (Ethereum L1, Base, Optimism; chain-neutral via
+  `chain_id` + `contract`) holds a nonzero timestamp for `anchored_hash`, read by `getTimestamp(bytes32)`
+  at block tag `finalized` through a verifier-chosen RPC; zero means not timestamped. Members:
+  `chain_id`, `contract`, `anchored_hash`, `timestamp`, `independence_class` (`single-chain-ledger`
+  only), plus OPTIONAL `tx_hash`, `block_number` and §20.1 `merkle_inclusion` with unchanged batch
+  semantics. Attached AFTER hashing like the rest of `anchor_bindings`: zero `execution_hash` movement,
+  `chaingraph_version` stays `"0.4.0"`, absence fully conformant, and the existing type branches are
+  byte-identical (additive oneOf variant; the §20 intro and `anchorBinding` description now name two
+  offline exceptions instead of one).
+- **The per-chain contract allowlist is data, not standard text.** No contract address is written into
+  SPEC.md or the schema; a verifier takes acceptable (`chain_id`, `contract`) pairs from a published
+  allowlist (for the reference verifier, `anchor-suite/docs/anchor-claims-registry.json`, once
+  published) and MUST NOT verify a pair it does not hold.
+- **The trust caveat is normative (§20.5):** no signer; first writer wins (anyone who knows the hash can
+  stamp it, so the binding shows the earliest recorded stamp, never who stamped it); ledger ordering
+  only, NOT RFC 3161, NOT eIDAS, no signed time; the verifier picks the RPC and trusts it and the chain's
+  sequencer or validators; no verify-offline-forever property; never independent (any number of these
+  on one chain count as one root). Copy labelling the type a TSA, RFC 3161-aligned, eIDAS-qualified,
+  signed or independent is non-conformant.
+- **Schema shape lands in the same change** (`$defs/anchorBinding` oneOf, validated by
+  `schema-validate.mjs`). The verifier, MCP surface, verify page and recorded-RPC fixtures belong to a
+  later anchor-suite change; nothing here requires or permits an OCG implementation to hold an EVM key,
+  submit a transaction or pay gas. The rendered spec page carries §20.5 in the same push (H3 inside the
+  §20 section; no page/TOC structural change).
+
 ## §20.4 text pass: verification-only `solana-memo` anchor binding
 - **SPEC-TEXT PASS, not a record bump.** `spec_version` of record stays `0.8.13`, same separation as
   every prior text pass. Row `ANCHOR-SOLANA-LEG-SPEC-1` Stage 1 only (Tim 2026-10-15: "Yes to Stage 1
