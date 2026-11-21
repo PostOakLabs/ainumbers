@@ -1,6 +1,6 @@
 
 // 810-contract-bytecode-identity-verifier — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:8f39b1dc2eb860d25d87997da1bfb3c6e122496535434193a2674bb214df0d5a
+// kernel_digest_at_authoring: sha256:207e505ea5a177c4bc88abae3ca379630bc88a7236277a08dca2f82f765962bd
 // spec: research/ETH-BYTECODE-ID-BUILD-SPEC-2026-10-23.md (rules 1 to 8, amended: metadata hash reported, not recomputed)
 // human_sign_off: PENDING
 //
@@ -583,6 +583,32 @@ async function checkBuildArtifactNeverThrows() {
   return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
 }
 
+// A bigint anywhere in the execution_hash preimage is unhashable: JSON.stringify throws on it in
+// _hash.mjs jcsStringify(). The D6 walk must refuse it with a stable reason and a path-only detail
+// instead of letting buildArtifact throw. Three probe shapes: a bigint top-level field, an extra
+// bigint key, and a bigint inside an array. Expected details are hand-derived from the walk's
+// path construction ('pp' root + '.policy_parameters' + key/array index + ': bigint').
+async function checkBuildArtifactBigIntNeverThrows() {
+  let checked = 0, violations = 0;
+  const base = { creation_code: '0x00', runtime_code: '0x6000', creation_scheme: 'create', deployer: DEP, nonce: 0 };
+  const cases = [
+    ['top_level_bigint_field', { ...base, nonce: 1n }, 'pp.policy_parameters.nonce: bigint'],
+    ['extra_bigint_key', { ...base, junk: 2n }, 'pp.policy_parameters.junk: bigint'],
+    ['bigint_inside_array', { ...base, junk: [3n] }, 'pp.policy_parameters.junk[0]: bigint'],
+  ];
+  for (const [label, pp, detail] of cases) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (art.execution_hash !== null) { violations++; console.log(`bigint violation: ${label} kept a hash`); }
+      if (!art.hash_refusal || art.hash_refusal.reason !== 'REFUSED_INPUT_UNSAFE_NUMBER' || art.hash_refusal.detail !== detail) {
+        violations++; console.log(`bigint violation: ${label} wrong refusal shape: ${JSON.stringify(art.hash_refusal)}`);
+      }
+    } catch (e) { violations++; console.log(`bigint violation: buildArtifact threw on ${label}: ${String(e.message).slice(0, 80)}`); }
+  }
+  return { name: 'buildArtifact_never_throws_on_bigint (3 probe shapes, null hash + hash_refusal : bigint detail)', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -596,6 +622,7 @@ const properties = [
   checkKeccakKats(), checkHexAlphabetAndPrefix(), checkAddressLiterals(), checkRefusalReasons(),
   checkCborLengths(), checkCborStructure(), checkAsciiBoundaries(), checkMetadataBounds(),
   checkSchemesAndSolc(), checkLimitChecksExact(), checkFlagMirror(), await checkBuildArtifactNeverThrows(),
+  await checkBuildArtifactBigIntNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
