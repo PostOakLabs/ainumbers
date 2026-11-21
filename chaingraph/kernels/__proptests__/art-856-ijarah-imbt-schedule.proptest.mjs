@@ -1,5 +1,5 @@
 // art-856-ijarah-imbt-schedule — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:cfa22c770322cabb01b638a8453fab7c1d326e9e72cab595dcad7ec5b3af1e3f
+// kernel_digest_at_authoring: sha256:815286a7597ad28866e79d357f51554f93593408630f964ab2956f5a4029dd0f
 // spec: ISLAMIC-FINANCE-BUILD-SPEC-2026-11 §4 and §9
 // human_sign_off: PENDING
 //
@@ -194,7 +194,7 @@ async function checkP6BuildArtifactNeverThrows() {
   /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
   const wide = new Array(1000001).fill(0);
   const rng = mulberry32(SEED + 6);
-  for (const delta of [{ zzz: 1e300 }, { zzz: Infinity }, { zzz: NaN }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } }, { zzz: deep }, { zzz: wide }]) {
+  for (const delta of [{ zzz: 1e300 }, { zzz: Infinity }, { zzz: NaN }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } }, { zzz: deep }, { zzz: wide }, { zzz: 10n }, { zzz: { a: [3n] } }]) {
     checked++;
     try {
       const art = await buildArtifact({ ...randSchedule(rng), ...delta });
