@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (770 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (772 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -8218,6 +8218,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-791-check-je-multicurrency-balance",
+    "display_name": "Multicurrency JE Balance Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-791-check-je-multicurrency-balance.html",
+    "description": "Checks that structured journal entries balance, on a basis the caller declares: either every currency sums to zero separately (per_currency)",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-793-government-stablecoin-acceptance",
     "display_name": "Government Stablecoin Acceptance Audit",
     "mandate_type": "compliance_control",
@@ -8547,6 +8557,16 @@ window.CHAINBUILDER_CATALOG = [
       "499-crypto-asset-inventory-classifier",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-851-islamic-mmf-placement-limits",
+    "display_name": "Islamic MMF Placement Limits",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-851-islamic-mmf-placement-limits.html",
+    "description": "Checks a money market fund's placements against one pinned authority profile: the Saudi Capital Market Authority Investment Funds Regulation",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

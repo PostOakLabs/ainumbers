@@ -64,7 +64,7 @@ const HASH_URL = pathToFileURL(resolve(HERE, 'kernels', '_hash.mjs')).href;
 async function loadPageModule(libText, helpersText, tag) {
   const dir = mkdtempSync(join(tmpdir(), 'rfr-'));
   const f = join(dir, `${tag}.mjs`);
-  writeFileSync(f, `import { executionHash, jcsStringify } from '${HASH_URL}';\n${libText}\n${helpersText}\nexport { nodeIdRefusal, replayFile, replayReceipt, parseReceipt, summarize, checkCaps, toCsv, csvCell, buildMandate, AP2Schema, leafPointers, MAX_FILES, MAX_BYTES };\n`);
+  writeFileSync(f, `import { executionHash, jcsStringify } from '${HASH_URL}';\n${libText}\n${helpersText}\nexport { nodeIdRefusal, replayFile, replayReceipt, parseReceipt, summarize, checkCaps, erratumState, toCsv, csvCell, buildMandate, AP2Schema, leafPointers, MAX_FILES, MAX_BYTES };\n`);
   return import(pathToFileURL(f).href);
 }
 const pageLib = block(pageHtml, 'replay-lib').body;
@@ -158,6 +158,57 @@ red('R6 banner', hasCanonicalBanner(pageHtml.replace('No data is transmitted.', 
 check(M.csvCell('=cmd|x') === "'=cmd|x", 'R6: a leading = is not neutralised in CSV');
 check(M.csvCell('a,"b"') === '"a,""b"""', 'R6: CSV quoting is wrong');
 check(M.toCsv(rows).split('\r\n').length === 22, 'R6: the CSV does not hold a header plus 20 rows');
+
+// ---- E1: mode-A erratum join from the shared reader ---------------------------------------
+const ERRATA_MODULE = await import(pathToFileURL(resolve(HERE, 'errata-check.mjs')).href);
+const { ERRATA_SNAPSHOT } = await import(pathToFileURL(resolve(HERE, 'errata', 'errata-snapshot.mjs')).href);
+const READER = {
+  extractKernelDigest: ERRATA_MODULE.extractKernelDigest,
+  extractPolicyParameters: ERRATA_MODULE.extractPolicyParameters,
+  errataCheck: ERRATA_MODULE.errataCheck,
+};
+const DEMO = resolve(HERE, 'kernels', '__replay__', 'errata-demo');
+const demoExpected = JSON.parse(read(join(DEMO, 'expected.json')));
+const erratumFile = JSON.parse(read(join(DEMO, 'KE-2026-0002.json')));
+check(erratumFile.id === demoExpected.erratum_id, 'E1: the fixture erratum id does not match expected.json');
+check(Array.isArray(ERRATA_SNAPSHOT.entries) && ERRATA_SNAPSHOT.entries.some((e) => e.id === demoExpected.erratum_id), 'E1: the fixture erratum is not in the shipped snapshot');
+const demoFiles = readdirSync(join(DEMO, 'folder')).filter((f) => f.endsWith('.receipt.json')).sort();
+check(demoFiles.length === Object.keys(demoExpected.expected).length, 'E1: the demonstration folder has an unexpected file count');
+const joined = {};
+for (const f of demoFiles) {
+  const rec = JSON.parse(read(join(DEMO, 'folder', f)));
+  const p = M.parseReceipt(rec);
+  check(p.ok, 'E1: demonstration receipt is not a valid receipt: ' + f);
+  const before = JSON.stringify(rec);
+  const st = M.erratumState(p.receipt, READER, ERRATA_SNAPSHOT, Date.now());
+  check(JSON.stringify(rec) === before, 'E1: the join mutated the receipt: ' + f);
+  joined[f] = st;
+  check(st === demoExpected.expected[f], `E1: ${f} joined as ${st}, expected ${demoExpected.expected[f]}`);
+}
+const joinedStates = Object.values(joined);
+check(joinedStates.includes('LISTED-AFFECTED') && joinedStates.includes('LISTED-UNAFFECTED') && joinedStates.includes('NOT-LISTED'), 'E1: the demonstration folder did not produce all three states');
+check(/from '\.\/errata-check\.mjs'/.test(pageHtml), 'E1: the page does not import the shared errata reader');
+check(/from '\.\/errata\/errata-snapshot\.mjs'/.test(pageHtml), 'E1: the page does not import the errata snapshot');
+check(/<th>Erratum<\/th>/.test(pageHtml), 'E1: the report has no erratum column');
+check(/'erratum_state'/.test(pageHtml), 'E1: the page never carries an erratum_state column');
+red('E1 wrong digest', (() => {
+  const rec = JSON.parse(read(join(DEMO, 'folder', 'affected.receipt.json')));
+  rec.kernel_digest = 'sha256:' + 'f'.repeat(64);
+  const st = M.erratumState(M.parseReceipt(rec).receipt, READER, ERRATA_SNAPSHOT, Date.now());
+  return st !== 'LISTED-AFFECTED' ? ['wrong digest changed the state to ' + st] : [];
+})());
+red('E1 no digest', (() => {
+  const rec = JSON.parse(read(join(DEMO, 'folder', 'affected.receipt.json')));
+  delete rec.kernel_digest;
+  const st = M.erratumState(M.parseReceipt(rec).receipt, READER, ERRATA_SNAPSHOT, Date.now());
+  return st === 'NOT-ENGAGED' ? ['missing digest reports NOT-ENGAGED'] : [];
+})());
+red('E1 inputs changed', (() => {
+  const rec = JSON.parse(read(join(DEMO, 'folder', 'affected.receipt.json')));
+  rec.policy_parameters.expires = 1750000300;
+  const st = M.erratumState(M.parseReceipt(rec).receipt, READER, ERRATA_SNAPSHOT, Date.now());
+  return st !== 'LISTED-AFFECTED' ? ['affected inputs changed the state to ' + st] : [];
+})());
 
 // ---- wording and storage-free copy ------------------------------------------------------
 const visible = pageHtml.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<style[\s\S]*?<\/style>/g, '');
