@@ -301,7 +301,9 @@ export function compute(pp) {
   let verdict = 'AGREED';
   let protocolVersion = null;
   let primaryReason = 'capabilities_agreed';
-  const agreed = {};
+  // Null-prototype accumulator: a caller-named capability such as __proto__,
+  // constructor or toString is carried as an own data key, never dropped.
+  const agreed = Object.create(null);
   const dropped = [];
 
   const sideBiz = 'business_profile';
