@@ -1,5 +1,5 @@
 // art-851-islamic-mmf-placement-limits — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:5151a3970f51c93e787368a6a01dabcd61ca14ee1994c49691bdfb946f3870bc
+// kernel_digest_at_authoring: sha256:e5682e41688ab0c7625e83bde9262669391b3f54744afdd1243aeafe18edb41f
 // spec: ISLAMIC-FINANCE-BUILD-SPEC-2026-11 §7 and §9
 // human_sign_off: PENDING
 //
@@ -19,6 +19,7 @@ import { runFixtureOracle, summarize, mulberry32, findShapeViolations } from './
 const KERNEL_ID = 'art-851-islamic-mmf-placement-limits';
 const SEED = 851;
 const N = 240;
+const hasOwnLocal = (o, k) => Object.hasOwn(o, k);
 const TYPES = ['sama_money_market_transaction', 'debt_instrument', 'derivative', 'sama_regulated_deposit', 'public_mmf_units', 'fixed_income_fund_units'];
 
 function randPortfolio(rng) {
@@ -126,13 +127,22 @@ function checkP5Refusals() {
   const deltas = [
     { nav_minor_units: null }, { nav_minor_units: 1000000.5 },
     { nav_minor_units: Number.MAX_SAFE_INTEGER + 2 }, { nav_minor_units: '1000000' },
-    { liquid_minor_units: null }, { liquid_minor_units: -1 }, { holdings: [] },
-    { authority: 'sc_malaysia' }, { authority: null },
+    { liquid_minor_units: -1 }, { holdings: [] },
+    { authority: 'sc_malaysia' },
   ];
   for (const delta of deltas) {
     checked++;
     const o = compute({ ...base, ...delta }).output_payload;
     if (o.valid_input !== false || o.refusal_code === null) { violations++; console.log('P5 violation: accepted ' + JSON.stringify(delta)); }
+  }
+  for (const key of ['authority', 'liquid_minor_units', 'wal_days']) {
+    checked++;
+    const absent = { ...base };
+    if (hasOwnLocal(absent, key)) delete absent[key];
+    const explicitNull = { ...absent, [key]: null };
+    if (JSON.stringify(compute(absent).output_payload) !== JSON.stringify(compute(explicitNull).output_payload)) {
+      violations++; console.log('P5 violation: null form differs from absent form for ' + key);
+    }
   }
   for (const token of ['issuer_token', 'counterparty_token', 'group_token']) {
     for (const value of ['SA123456789', 'constructor', '__proto__', 7, null]) {

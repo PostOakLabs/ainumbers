@@ -79,6 +79,12 @@ function daysString(scaled) {
   return (neg ? '-' : '') + String(a / 10000n) + '.' + String(a % 10000n).padStart(4, '0');
 }
 
+/**
+ * Round-half-even of a non-negative BigInt quotient.
+ * @param {bigint} num
+ * @param {bigint} den
+ * @returns {bigint}
+ */
 function divHalfEven(num, den) {
   const q = num / den, r = num % den, twice = r * 2n;
   if (twice > den) return q + 1n;
@@ -110,13 +116,14 @@ function refusedResult(errors) {
   const output_payload = emptyPayload();
   output_payload.domain_errors = errors;
   output_payload.refusal_code = errors[0].split(':')[0];
-  const compliance_flags = ['INPUT_REFUSED', output_payload.refusal_code];
+  const compliance_flags = [];
+  if (errors.length > 0) compliance_flags.push('INPUT_REFUSED', output_payload.refusal_code);
   output_payload.warnings = compliance_flags.slice();
   return { output_payload, compliance_flags };
 }
 
 function optionalBool(holder, key, errors, path) {
-  if (!hasOwn(holder, key)) return false;
+  if (!hasOwn(holder, key) || holder[key] === null) return false;
   const v = holder[key];
   if (typeof v !== 'boolean') {
     refuse(errors, 'REFUSED_INPUT_TYPE', path + '.' + key + ' must be a boolean when present');
@@ -129,7 +136,7 @@ function validate(pp) {
   const errors = [];
 
   let authority = 'saudi_cma';
-  if (hasOwn(pp, 'authority')) {
+  if (hasOwn(pp, 'authority') && pp.authority !== null) {
     if (typeof pp.authority !== 'string') {
       refuse(errors, 'REFUSED_INPUT_TYPE', 'authority must be a string');
     } else if (pp.authority !== 'saudi_cma') {
@@ -144,7 +151,7 @@ function validate(pp) {
   } else nav = pp.nav_minor_units;
 
   let liquid = 0;
-  if (hasOwn(pp, 'liquid_minor_units')) {
+  if (hasOwn(pp, 'liquid_minor_units') && pp.liquid_minor_units !== null) {
     const v = pp.liquid_minor_units;
     if (typeof v !== 'number' || !Number.isSafeInteger(v) || v < 0) {
       refuse(errors, 'REFUSED_INPUT_LIQUIDITY', 'liquid_minor_units must be a non-negative safe integer when present');
@@ -154,7 +161,7 @@ function validate(pp) {
   }
 
   let declaredWal = null;
-  if (hasOwn(pp, 'wal_days')) {
+  if (hasOwn(pp, 'wal_days') && pp.wal_days !== null) {
     const v = pp.wal_days;
     if (typeof v !== 'number' || !Number.isSafeInteger(v) || v < 0 || v > MAX_DAYS) {
       refuse(errors, 'REFUSED_INPUT_WAL', 'wal_days must be an integer from 0 to ' + MAX_DAYS + ' when present');
