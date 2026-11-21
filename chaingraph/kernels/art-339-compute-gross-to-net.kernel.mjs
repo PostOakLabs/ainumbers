@@ -70,6 +70,10 @@ const PARAMS = {
     ss_wage_base: 184500,
     regulatory_basis: 'IRC 3101/3121 (FICA, https://www.irs.gov/publications/p15); SSA 2026 Contribution and Benefit Base ($184,500 OASDI wage base, https://www.ssa.gov/oact/cola/cbb.html); IRC 3101(b)(2) Additional Medicare Tax ($200,000 employer-withholding threshold, https://www.irs.gov/publications/p15).',
   },
+  '2027': {
+    ss_wage_base: 192300,
+    regulatory_basis: 'IRC 3101/3121 (FICA, https://www.irs.gov/publications/p15); SSA 2027 Contribution and Benefit Base ($192,300 OASDI wage base, announced 14 Oct 2026, https://www.ssa.gov/oact/cola/cbb.html); IRC 3101(b)(2) Additional Medicare Tax ($200,000 employer-withholding threshold, https://www.irs.gov/publications/p15).',
+  },
 };
 
 const SUPPORTED_TAX_YEARS = Object.keys(PARAMS);

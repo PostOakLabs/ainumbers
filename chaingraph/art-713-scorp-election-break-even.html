@@ -102,7 +102,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 </style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-713-scorp-election-break-even.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:7e1af77a80f8ba34c85d5ad070e0625aea5118c66bb72f50380f9413001b07f8">
+<meta name="kernel-digest" content="sha256:70b1480c62e770d2e3eb5aea7daf6b26ae6a0966ed618c40d4c300a9bcd0048d">
 <meta name="ai-tool" content="model_scorp_break_even">
 </head>
 <body>
@@ -143,7 +143,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   <p class="sub">Compares the sole-proprietor SE tax against the S-Corp payroll tax on a reasonable W-2 salary, nets the annual admin cost, and finds the income at which electing S-Corp status starts to pay, and shows the QBI §199A trade-off the payroll saving has to beat.</p>
   <div style="margin-bottom:6px"><span class="flag">S-Corp vs Sole Prop</span><span class="flag">2026 Figures</span><span class="flag">QBI §199A Trade-off</span><span class="flag">Zero PII</span><span class="flag">Client-side only</span></div>
   <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data; use synthetic or anonymised inputs only.</div>
-  <div class="info-box"><div class="ib-title">Scope &amp; reliance</div>Deterministic 2026 model, not tax advice. SS wage base <code>$184,500</code> (IRS Pub 15, 2026): the 12.4% Social Security leg caps at the base on both sides and the 2.9% Medicare leg continues uncapped above it. The 92.35% SE factor applies to net earnings from self-employment only (IRS Topic 554), never to W-2 wages. This port corrects ApexLogics #111 on exactly that point: the source applies 0.9235 to the salary, while the S-Corp side here is full-wage FICA, intentionally higher by 7.65% of the wage. The 0.9% Additional Medicare Tax above $200K single / $250K MFJ is not modeled and sits outside the estimate. Filing status and the owner health premium are accepted and echoed but excluded from the tax arithmetic (preserved source behavior, marked DIFFERS D1/D2). Break-even is the first point of a 500-step grid from $30,000, within one step of the continuous break-even. Admin cost carries a ~$1,500–$3,000/yr typical band; values outside it are honored and flagged. No formal correctness proof exists for this node yet (compute_proof_ready: deferred); see the proof-status note below the results.</div>
+  <div class="info-box"><div class="ib-title">Scope &amp; reliance</div>Deterministic model, not tax advice. The SS wage base follows the tax year you select: <code>$184,500</code> for 2026 (IRS Pub 15, the default) and <code>$192,300</code> for 2027 (SSA, announced 14 Oct 2026); the section 199A thresholds stay at their 2026 values. The 12.4% Social Security leg caps at the base on both sides and the 2.9% Medicare leg continues uncapped above it. The 92.35% SE factor applies to net earnings from self-employment only (IRS Topic 554), never to W-2 wages. This port corrects ApexLogics #111 on exactly that point: the source applies 0.9235 to the salary, while the S-Corp side here is full-wage FICA, intentionally higher by 7.65% of the wage. The 0.9% Additional Medicare Tax above $200K single / $250K MFJ is not modeled and sits outside the estimate. Filing status and the owner health premium are accepted and echoed but excluded from the tax arithmetic (preserved source behavior, marked DIFFERS D1/D2). Break-even is the first point of a 500-step grid from $30,000, within one step of the continuous break-even. Admin cost carries a ~$1,500–$3,000/yr typical band; values outside it are honored and flagged. No formal correctness proof exists for this node yet (compute_proof_ready: deferred); see the proof-status note below the results.</div>
   <div class="card">
     <div class="section-head">Inputs</div>
     <div class="muted-txt" style="margin-bottom:8px">Edit any field and run. Defaults mirror the Apex #111 page defaults.</div>
@@ -153,6 +153,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <div class="field"><label for="annual_admin_cost">annual_admin_cost</label><input id="annual_admin_cost" value="3000" aria-label="annual_admin_cost" aria-description="Annual S-Corp accounting and payroll admin cost in dollars. Typical band $1,500-$3,000/yr; outside values honored and flagged. Default 3000."></div>
       <div class="field"><label for="owner_health_premium_annual">owner_health_premium_annual</label><input id="owner_health_premium_annual" value="0" aria-label="owner_health_premium_annual" aria-description="Owner health premium, annual dollars. Echoed, unused by the compute (DIFFERS D2). Default 0."></div>
       <div class="field"><label for="filing_status">filing_status</label><select id="filing_status" aria-label="filing_status" aria-description="Filing status. Excluded from the tax math (DIFFERS D1); selects only the section 199A threshold caveat flag. Default single."><option value="single">single</option><option value="mfj">mfj</option></select></div>
+      <div class="field"><label for="tax_year">tax_year</label><select id="tax_year" aria-label="tax_year" aria-description="Tax year that selects the Social Security wage base: 2026 is $184,500, 2027 is $192,300. Default 2026."><option value="2026" selected>2026</option><option value="2027">2027</option></select></div>
     </div>
     <div style="display:flex;gap:8px;margin-top:14px">
       <button onclick="run()">Run</button>
@@ -377,26 +378,34 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-713
 </footer>
 
 <script>
-const MANIFEST={"tool_id":"art-713-scorp-election-break-even","version":"1.0.0","title":"S-Corp Election Break-Even Modeler","mcp_tool_definition":{"name":"model_scorp_break_even","description":"Model the S-Corp election break-even: sole-prop SE tax vs S-Corp payroll tax on a reasonable W-2 salary share, net of annual admin cost, with the grid break-even income and a QBI section 199A trade-off (payroll-tax saved vs the 20% deduction value lost on wages paid). 2026: SS wage base $184,500 with cap logic, SS 12.4%, Medicare 2.9% uncapped, and the 92.35% SE factor on net earnings from self-employment only, never W-2 wages (IRS Topic 554).","inputSchema":{"type":"object","required":["net_se_income"],"properties":{"net_se_income":{"type":"number","description":"Net self-employment income in dollars for the year. Default 150000 when absent."},"reasonable_salary_pct":{"type":"number","description":"Reasonable W-2 salary as a percent of net SE income, 0-100; the compute divides by 100. Default 50.","default":50},"annual_admin_cost":{"type":"number","description":"Annual S-Corp accounting and payroll admin cost in dollars. Typical band $1,500-$3,000/yr; outside values honored and flagged. Default 3000.","default":3000},"owner_health_premium_annual":{"type":"number","description":"Owner health premium, annual dollars. Echoed, unused by the compute (DIFFERS D2). Default 0.","default":0},"filing_status":{"type":"string","enum":["single","mfj"],"description":"Filing status. Excluded from the tax math (DIFFERS D1); selects only the section 199A threshold caveat flag. Default single.","default":"single"}}}},"ap2_export":true,"chaingraph":true};
+const MANIFEST={"tool_id":"art-713-scorp-election-break-even","version":"1.0.0","title":"S-Corp Election Break-Even Modeler","mcp_tool_definition":{"name":"model_scorp_break_even","description":"Model the S-Corp election break-even: sole-prop SE tax vs S-Corp payroll tax on a reasonable W-2 salary share, net of annual admin cost, with the grid break-even income and a QBI section 199A trade-off (payroll-tax saved vs the 20% deduction value lost on wages paid). SS wage base $184,500 for 2026 (default) or $192,300 for 2027 via tax_year, with cap logic, SS 12.4%, Medicare 2.9% uncapped, and the 92.35% SE factor on net earnings from self-employment only, never W-2 wages (IRS Topic 554).","inputSchema":{"type":"object","required":["net_se_income"],"properties":{"net_se_income":{"type":"number","description":"Net self-employment income in dollars for the year. Default 150000 when absent."},"reasonable_salary_pct":{"type":"number","description":"Reasonable W-2 salary as a percent of net SE income, 0-100; the compute divides by 100. Default 50.","default":50},"annual_admin_cost":{"type":"number","description":"Annual S-Corp accounting and payroll admin cost in dollars. Typical band $1,500-$3,000/yr; outside values honored and flagged. Default 3000.","default":3000},"owner_health_premium_annual":{"type":"number","description":"Owner health premium, annual dollars. Echoed, unused by the compute (DIFFERS D2). Default 0.","default":0},"filing_status":{"type":"string","enum":["single","mfj"],"description":"Filing status. Excluded from the tax math (DIFFERS D1); selects only the section 199A threshold caveat flag. Default single.","default":"single"},"tax_year":{"type":"string","enum":["2026","2027"],"description":"Optional tax year that selects the Social Security wage base: 2026 is $184,500, 2027 is $192,300. Default 2026. An unsupported year is refused with error unsupported_tax_year.","default":"2026"}}}},"ap2_export":true,"chaingraph":true};
 
 /* ── sample: the manifest input_example (page defaults, mirrored from Apex #111) ── */
 const SAMPLE={"net_se_income":150000,"reasonable_salary_pct":50,"annual_admin_cost":3000,"owner_health_premium_annual":0,"filing_status":"single"};
 
 /* ── inline port of chaingraph/kernels/art-713-scorp-election-break-even.kernel.mjs compute():
    same algorithm, same constants, same output key order. Pure function of pp. ── */
-const SS_WAGE_BASE=184500,SS_RATE=0.124,MC_RATE=0.029,SE_FACTOR=0.9235,FIVE_YEAR_HORIZON=5;
+const SS_WAGE_BASES={"2026":184500,"2027":192300},DEFAULT_TAX_YEAR="2026";
+const SUPPORTED_TAX_YEARS=Object.keys(SS_WAGE_BASES);
+const SS_RATE=0.124,MC_RATE=0.029,SE_FACTOR=0.9235,FIVE_YEAR_HORIZON=5;
 const BE_SCAN_START=30000,BE_SCAN_END=1000000,BE_SCAN_STEP=500;
 const QBI_TRADEOFF_EFFECTIVE_RATE=0.198,QBI_DEDUCTION_RATE=0.20;
 const QBI_THRESHOLD_SINGLE=201775,QBI_THRESHOLD_MFJ=403500,QBI_BAND_SINGLE=75000,QBI_BAND_MFJ=150000;
 const ADMIN_COST_GUIDANCE_LOW=1500,ADMIN_COST_GUIDANCE_HIGH=3000;
-const SCOPE_NOTE="Deterministic 2026 model, not tax advice. The 92.35% SE factor is applied to net earnings from self-employment only, never to W-2 wages (IRS Topic 554) — the port corrects Apex #111 on this point by adjudication of record. The 0.9% Additional Medicare Tax above $200K single / $250K MFJ is NOT modeled. The QBI section 199A trade-off values wages at the adjudicated 19.8% effective rate, flags (from net income as a taxable-income proxy) the $201,775 single / $403,500 MFJ threshold and phase-out band, and cannot see SSTB status, which disallows the deduction inside the band. Break-even is the first point of a 500-step grid, within one step of the continuous break-even.";
+const SCOPE_NOTE="Deterministic model, not tax advice. The Social Security wage base follows tax_year (2026 by default, 2027 supported); the section 199A thresholds below are 2026 values. The 92.35% SE factor is applied to net earnings from self-employment only, never to W-2 wages (IRS Topic 554) — the port corrects Apex #111 on this point by adjudication of record. The 0.9% Additional Medicare Tax above $200K single / $250K MFJ is NOT modeled. The QBI section 199A trade-off values wages at the adjudicated 19.8% effective rate, flags (from net income as a taxable-income proxy) the $201,775 single / $403,500 MFJ threshold and phase-out band, and cannot see SSTB status, which disallows the deduction inside the band. Break-even is the first point of a 500-step grid, within one step of the continuous break-even.";
 function num(v,dflt){return typeof v==="number"&&Number.isFinite(v)?v:dflt;}
 function round2(x){return Math.round(x*100)/100;}
-function calcSETax(netIncome){const netSE=netIncome*SE_FACTOR;const ssTax=Math.min(netSE,SS_WAGE_BASE)*SS_RATE;const mcTax=netSE*MC_RATE;return ssTax+mcTax;}
-function calcSCorpSETax(salary){const ss=Math.min(salary,SS_WAGE_BASE)*SS_RATE;const mc=salary*MC_RATE;return ss+mc;}
+function calcSETax(netIncome,ssWageBase){const netSE=netIncome*SE_FACTOR;const ssTax=Math.min(netSE,ssWageBase)*SS_RATE;const mcTax=netSE*MC_RATE;return ssTax+mcTax;}
+function calcSCorpSETax(salary,ssWageBase){const ss=Math.min(salary,ssWageBase)*SS_RATE;const mc=salary*MC_RATE;return ss+mc;}
 function scanBreakEven(savingsFn,adminCost){for(let inc=BE_SCAN_START;inc<=BE_SCAN_END;inc+=BE_SCAN_STEP){if(savingsFn(inc)>=adminCost)return inc;}return null;}
 function compute(pp){
   pp=pp||{};
+  const rawYear=pp.tax_year===undefined||pp.tax_year===null?DEFAULT_TAX_YEAR:pp.tax_year;
+  if(typeof rawYear!=="string"||!SUPPORTED_TAX_YEARS.includes(rawYear)){
+    return{output_payload:{verdict:null,tax_year_applied:null,supported_tax_years:SUPPORTED_TAX_YEARS,error:"unsupported_tax_year",scope_note:"tax_year must be one of the supported years. No break-even was computed; this kernel does not fall back to another year."},compliance_flags:["ART713_TAX_YEAR_NOT_SUPPORTED"]};
+  }
+  const taxYear=rawYear;
+  const SS_WAGE_BASE=SS_WAGE_BASES[taxYear];
   const netIncome=num(pp.net_se_income,150000);
   const salaryPct=num(pp.reasonable_salary_pct,50)/100;
   const adminCost=num(pp.annual_admin_cost,3000);
@@ -404,8 +413,8 @@ function compute(pp){
   const status=pp.filing_status==="mfj"?"mfj":"single";
   const salary=netIncome*salaryPct;
   const distribution=netIncome-salary;
-  const spSETax=calcSETax(netIncome);
-  const scSETax=calcSCorpSETax(salary);
+  const spSETax=calcSETax(netIncome,SS_WAGE_BASE);
+  const scSETax=calcSCorpSETax(salary,SS_WAGE_BASE);
   const seSavings=spSETax-scSETax;
   const netSavings=seSavings-adminCost;
   const fiveYrSavings=netSavings*FIVE_YEAR_HORIZON;
@@ -413,7 +422,7 @@ function compute(pp){
   const qbiDeductionTentative=qbiIncome*QBI_DEDUCTION_RATE;
   const qbiValueAtRisk=salary*QBI_TRADEOFF_EFFECTIVE_RATE;
   const netSavingsQbiAdjusted=seSavings-qbiValueAtRisk-adminCost;
-  const savingsFn=(inc)=>calcSETax(inc)-calcSCorpSETax(inc*salaryPct);
+  const savingsFn=(inc)=>calcSETax(inc,SS_WAGE_BASE)-calcSCorpSETax(inc*salaryPct,SS_WAGE_BASE);
   const savingsQbiFn=(inc)=>savingsFn(inc)-(inc*salaryPct)*QBI_TRADEOFF_EFFECTIVE_RATE;
   const breakEvenIncome=scanBreakEven(savingsFn,adminCost);
   const qbiBreakEvenIncome=scanBreakEven(savingsQbiFn,adminCost);
@@ -435,6 +444,7 @@ function compute(pp){
   if(adminCost<ADMIN_COST_GUIDANCE_LOW||adminCost>ADMIN_COST_GUIDANCE_HIGH)caveats.push("Admin cost is outside the typical $1,500-$3,000/yr guidance band; the figure is honored as entered.");
   const output_payload={
     verdict:netSavings>=0?"SCORP_WINS":"SOLE_PROP_WINS",
+    tax_year_applied:taxYear,
     net_se_income:round2(netIncome),
     reasonable_salary_pct:round2(num(pp.reasonable_salary_pct,50)),
     annual_admin_cost:round2(adminCost),
@@ -476,6 +486,8 @@ function assemblePP(){
   for(let i=0;i<nums.length;i++){const v=fieldNum(nums[i]);if(v!==undefined)pp[nums[i]]=v;}
   const st=fieldStr("filing_status");
   if(st!=="")pp.filing_status=st;
+  const ty=fieldStr("tax_year");
+  if(ty!=="")pp.tax_year=ty;
   return pp;
 }
 function usd(x){
@@ -526,7 +538,7 @@ function renderResults(){
     +"<tr><td>Net SE income</td><td>"+usd(op.net_se_income)+"</td><td>"+usd(op.net_se_income)+"</td></tr>"
     +"<tr><td>W-2 salary</td><td>—</td><td>"+usd(op.reasonable_w2_salary)+"</td></tr>"
     +"<tr><td>Distribution</td><td>—</td><td>"+usd(op.distribution)+"</td></tr>"
-    +"<tr><td>SS 12.4% (capped at $184,500)</td><td>"+usd(Math.min(op.net_se_income*0.9235,184500)*0.124)+"</td><td>"+usd(Math.min(op.reasonable_w2_salary,184500)*0.124)+"</td></tr>"
+    +"<tr><td>SS 12.4% (capped at "+usd(SS_WAGE_BASES[op.tax_year_applied]).replace(/\.00$/,"")+")</td><td>"+usd(Math.min(op.net_se_income*0.9235,SS_WAGE_BASES[op.tax_year_applied])*0.124)+"</td><td>"+usd(Math.min(op.reasonable_w2_salary,SS_WAGE_BASES[op.tax_year_applied])*0.124)+"</td></tr>"
     +"<tr><td>Medicare 2.9% (uncapped)</td><td>"+usd(op.net_se_income*0.9235*0.029)+"</td><td>"+usd(op.reasonable_w2_salary*0.029)+"</td></tr>"
     +"<tr><td>SE / payroll tax</td><td>"+usd(op.sole_prop_se_tax)+"</td><td>"+usd(op.scorp_payroll_tax)+"</td></tr>"
     +"<tr><td>Admin cost</td><td>—</td><td>"+usd(op.annual_admin_cost)+"</td></tr>"
@@ -573,7 +585,7 @@ const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.m
 if (mc) {
   mc.registerTool({
     name: 'model_scorp_break_even',
-    description: 'Model the S-Corp election break-even: sole-prop SE tax vs S-Corp payroll tax on a reasonable W-2 salary share, net of annual admin cost, with the grid break-even income and a QBI section 199A trade-off (payroll-tax saved vs the 20% deduction value lost on wages paid). 2026: SS wage base $184,500 with cap logic, SS 12.4%, Medicare 2.9% uncapped, and the 92.35% SE factor on net earnings from self-employment only, never W-2 wages (IRS Topic 554).',
+    description: 'Model the S-Corp election break-even: sole-prop SE tax vs S-Corp payroll tax on a reasonable W-2 salary share, net of annual admin cost, with the grid break-even income and a QBI section 199A trade-off (payroll-tax saved vs the 20% deduction value lost on wages paid). SS wage base $184,500 for 2026 (default) or $192,300 for 2027 via tax_year, with cap logic, SS 12.4%, Medicare 2.9% uncapped, and the 92.35% SE factor on net earnings from self-employment only, never W-2 wages (IRS Topic 554).',
     inputSchema: {
       "type": "object",
       "required": [
@@ -607,6 +619,15 @@ if (mc) {
           ],
           "description": "Filing status. Excluded from the tax math (DIFFERS D1); selects only the section 199A threshold caveat flag. Default single.",
           "default": "single"
+        },
+        "tax_year": {
+          "type": "string",
+          "enum": [
+            "2026",
+            "2027"
+          ],
+          "description": "Optional tax year that selects the Social Security wage base: 2026 is $184,500, 2027 is $192,300. Default 2026. An unsupported year is refused with error unsupported_tax_year.",
+          "default": "2026"
         }
       }
     },
@@ -619,6 +640,7 @@ if (mc) {
       if (params.annual_admin_cost !== undefined && params.annual_admin_cost !== null) document.getElementById('annual_admin_cost').value = String(params.annual_admin_cost);
       if (params.owner_health_premium_annual !== undefined && params.owner_health_premium_annual !== null) document.getElementById('owner_health_premium_annual').value = String(params.owner_health_premium_annual);
       if (params.filing_status !== undefined && params.filing_status !== null) document.getElementById('filing_status').value = String(params.filing_status);
+      if (params.tax_year !== undefined && params.tax_year !== null) document.getElementById('tax_year').value = String(params.tax_year);
       await run();
       return _lastArtifact;
       } catch (err) {

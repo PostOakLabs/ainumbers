@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:58c1128e8a66033dfe7cbae4e700f57f370ae362cf62b4b12ac7c70a1710afa5
+// kernel_digest_at_authoring: sha256:a96a5bf5247445f06d8b7cf57c4f68f6ff868eef903a5edee341595bcdbab9c4
 //
 // FV-PROPFLOOR-SHARD-B20-1 — property-test floor for art-339-compute-gross-to-net.
 // Class B (bounded-numeric), FLOAT-SENSITIVE — FICA wage-base and Additional
@@ -56,7 +56,7 @@ const TRIALS = 10000;
 // SSA Contribution and Benefit Base per supported year. These are the values the
 // kernel's PARAMS carry; the properties below assert against them independently
 // rather than reading the figure back out of the payload under test.
-const SS_WAGE_BASE_BY_YEAR = { '2025': 176100, '2026': 184500 };
+const SS_WAGE_BASE_BY_YEAR = { '2025': 176100, '2026': 184500, '2027': 192300 };
 const SUPPORTED_YEARS = Object.keys(SS_WAGE_BASE_BY_YEAR);
 const ADDITIONAL_MEDICARE_THRESHOLD = 200000; // statutory, not indexed, not year-keyed
 
@@ -131,7 +131,7 @@ function checkP3_ssCapEnforced() {
 // it had no wage base for. This asserts the inverse across the random corpus.
 function checkP5_unknownYearAlwaysFailsClosed() {
   let violations = 0, checked = 0;
-  const UNSUPPORTED = ['2019', '2024', '2027', '2030', '', 'twenty-twenty-six', '2026 ', ' 2026'];
+  const UNSUPPORTED = ['2019', '2024', '2028', '2030', '', 'twenty-twenty-six', '2026 ', ' 2026'];
   for (let i = 0; i < TRIALS; i++) {
     const pp = mkPP(rand);
     checked++;
@@ -150,7 +150,7 @@ const ULP_BOUNDARY_CASES = [
   // --- the year key is itself a boundary: fail-closed cases -------------------
   [{ gross_wages_per_period: 3000, federal_withholding_per_period: 300, pretax_reduces_fica_and_fit: 0, post_tax_other_deductions: 0, ytd_fica_wages_before_period: 180000 }, 'tax_year absent entirely (the v1.0.0 call shape, which silently applied the 2025 base) — must fail closed with unsupported_or_missing_tax_year and compute NOTHING'],
   [{ tax_year: '2024', gross_wages_per_period: 3000, federal_withholding_per_period: 300, pretax_reduces_fica_and_fit: 0, post_tax_other_deductions: 0, ytd_fica_wages_before_period: 180000 }, 'tax_year below the supported range — fail closed, no extrapolated wage base'],
-  [{ tax_year: '2027', gross_wages_per_period: 3000, federal_withholding_per_period: 300, pretax_reduces_fica_and_fit: 0, post_tax_other_deductions: 0, ytd_fica_wages_before_period: 180000 }, 'tax_year above the supported range — fail closed; the next COLA is not guessable and must not be guessed'],
+  [{ tax_year: '2028', gross_wages_per_period: 3000, federal_withholding_per_period: 300, pretax_reduces_fica_and_fit: 0, post_tax_other_deductions: 0, ytd_fica_wages_before_period: 180000 }, 'tax_year above the supported range — fail closed; the next COLA is not guessable and must not be guessed'],
   [{ tax_year: 2026, gross_wages_per_period: 3000, federal_withholding_per_period: 300, pretax_reduces_fica_and_fit: 0, post_tax_other_deductions: 0, ytd_fica_wages_before_period: 180000 }, 'tax_year as a NUMBER rather than the required string — fail closed, no type coercion into a supported key'],
   // --- 2026 OASDI wage base $184,500 — at, one cent below, one cent above -----
   [{ tax_year: '2026', gross_wages_per_period: 3000, federal_withholding_per_period: 300, pretax_reduces_fica_and_fit: 0, post_tax_other_deductions: 0, ytd_fica_wages_before_period: 184500 }, '2026: YTD exactly at the $184,500 SS wage base — SS_WAGE_BASE_REACHED, ss_taxable_wages_this_period must be exactly 0'],
