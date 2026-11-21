@@ -1,5 +1,5 @@
 // art-850-shariah-equity-purification — class-K property-test floor.
-// kernel_digest_at_authoring: sha256:336124b662d60c3873eba0e3d9aabc4159b16ea3668b54a2c005d5c7b4f35d68
+// kernel_digest_at_authoring: sha256:88ef28e687acec45d18a89748966234a7205381a374b6c38dbc1b2665a29bfd4
 // spec: research/ISLAMIC-FINANCE-BUILD-SPEC-2026-11.md §5 node D (row ISLAMIC-EQUITY-SCREEN-1)
 // human_sign_off: PENDING
 //
@@ -30,7 +30,8 @@
 //                           exact mean falls below total assets.
 //   P7 input contract     — safe-integer bounds hold across randomization; every declared
 //                           bound refusal fires at the boundary (0/1e15 amounts, 1e13 elements).
-//   P8 buildArtifact never throws — hostile preimages mint null execution_hash + refusal;
+//   P8 buildArtifact never throws — hostile preimages (non-finite, unsafe integer, bigint,
+//                           too deep, too wide) mint null execution_hash + refusal;
 //                           hashable inputs hash; never throws on any generated input.
 //
 // Run: node chaingraph/kernels/__proptests__/art-850-shariah-equity-purification.proptest.mjs
@@ -485,6 +486,8 @@ async function checkBuildArtifactNeverThrows() {
     { junk: NaN },
     { junk: 2 ** 60 },
     { junk: -(2 ** 60) },
+    { junk: 123456789012345678901234567890n },
+    54321n,
   ];
   for (const pp of hostile) {
     const a = await buildArtifact(pp, { now: '2026-11-20T00:00:00Z' });
