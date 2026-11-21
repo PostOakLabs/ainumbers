@@ -56,10 +56,10 @@
  *                                 in isolation; adding suite chrome would defeat the
  *                                 point of the embed demo.
  */
-import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
+import { resolve, dirname, basename } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { buildNav, FOOTER, CHROME_CSS, CSS_MARKER, CHROME_EXEMPT } from '../chaingraph/_page-chrome.mjs';
+import { buildNav, buildFooter, CHROME_CSS, CSS_MARKER, CHROME_EXEMPT, CHROME_TOKENS, chromePrefixes } from '../chaingraph/_page-chrome.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const REPO  = resolve(__dir, '..');
@@ -87,11 +87,41 @@ const DIR_OVERRIDE = (() => {
   return (i !== -1 && process.argv[i + 1]) ? resolve(process.argv[i + 1]) : null;
 })();
 const CG_DIR = DIR_OVERRIDE || CG;
+// SITE-CHROME-GAPS-1: apply the SAME SSOT chrome to the published pages outside
+// chaingraph/ that no existing writer covers. Paths are repo-relative; the mode
+// says which region is missing, so a page that already has a footer keeps it.
+const SITE_MODE = process.argv.includes('--site');
+export const SITE_CHROME_PAGES = [
+  { path: 'mcp-benchmark.html', mode: 'full' },
+  { path: 'privacy.html', mode: 'nav' },
+  { path: 'trust/anchor.html', mode: 'nav' },
+  { path: 'trust/data-handling.html', mode: 'nav' },
+  { path: 'trust/index.html', mode: 'nav' },
+  { path: 'trust/ledger.html', mode: 'nav' },
+  { path: 'trust/mcp-endpoint.html', mode: 'nav' },
+  { path: 'trust/site-pages.html', mode: 'nav' },
+  { path: 'research/zkprof-harness/index.html', mode: 'nav' },
+  { path: 'research/openeda-decision-dataset/index.html', mode: 'nav' },
+  { path: 'research/engineering-decision-schema/index.html', mode: 'nav' },
+  { path: 'tools/519-app-fraud-graph-simulator.html', mode: 'nav' },
+  { path: 'tools/248-iso20022-validator.html', mode: 'footer' },
+  { path: 'tools/723-t1-posttrade-timing-and-funding-check.html', mode: 'footer' },
+  { path: 'chaingraph/art-139-cra-annex1-completeness-checker.html', mode: 'footer' },
+  { path: 'chaingraph/art-140-cra-vuln-reporting-readiness.html', mode: 'footer' },
+  { path: 'chaingraph/art-142-nis2-art21-gap-checker.html', mode: 'footer' },
+  { path: 'chaingraph/art-143-nis2-penalty-exposure-calculator.html', mode: 'footer' },
+  { path: 'chaingraph/art-146-nis2-governance-readiness-checker.html', mode: 'footer' },
+];
 
 const EXEMPT = CHROME_EXEMPT;
 
-// Build display_name map from chaingraph.json (of the TARGET dir)
-const chaingraphJson = JSON.parse(readFileSync(resolve(CG_DIR, 'chaingraph.json'), 'utf-8'));
+// Build display_name map from chaingraph.json (of the TARGET dir). SITE_MODE
+// targets the repo root, which has no chaingraph.json; those pages take their
+// breadcrumb from <title> instead.
+const chaingraphJsonPath = resolve(CG_DIR, 'chaingraph.json');
+const chaingraphJson = existsSync(chaingraphJsonPath)
+  ? JSON.parse(readFileSync(chaingraphJsonPath, 'utf-8'))
+  : { nodes: [] };
 const DISPLAY_NAME = new Map();
 const NODE_IDS = new Set();
 for (const node of (chaingraphJson.nodes || [])) {
@@ -136,6 +166,28 @@ export function footersInsideScript(html) {
   const spans = scriptSpans(html);
   const opens = [...html.matchAll(/<footer\b[^>]*>/gi)];
   return opens.filter(m => spans.some(([a, b]) => m.index > a && m.index < b));
+}
+
+/**
+ * Byte spans of RENDERED footer blocks only (SITE-CHROME-GAPS-1). A footer
+ * inside a <script> is print-template text, never page chrome: editing it
+ * changes JS source (the K4 incident). Operating by span also targets the real
+ * </body> on pages whose script template contains a literal '</body>'.
+ */
+export function footerSpans(html) {
+  const scripts = scriptSpans(html);
+  return [...html.matchAll(/<footer\b[^>]*>[\s\S]*?<\/footer>/gi)]
+    .filter((m) => !scripts.some(([a, b]) => m.index > a && m.index < b))
+    .map((m) => [m.index, m.index + m[0].length, m[0]]);
+}
+
+/** Index just after the real <body> open tag (the first one outside a script). */
+function bodyOpenEnd(html) {
+  const scripts = scriptSpans(html);
+  for (const m of html.matchAll(/<body\b[^>]*>/gi)) {
+    if (!scripts.some(([a, b]) => m.index > a && m.index < b)) return m.index + m[0].length;
+  }
+  return -1;
 }
 
 /**
@@ -265,72 +317,86 @@ const PAGE_CSS_AFTER_MARKER = 'page CSS after chrome marker';
  * Writes ONLY when opts.apply is true (and never for skipped pages).
  */
 function processFile(filename, opts) {
-  const { dir, apply, footerOnly } = opts;
+  const {
+    dir, apply, footerOnly, navOnly = false, addMissingNav = false,
+    scriptFooterMode = 'skip', siteMode = false,
+  } = opts;
   const path      = resolve(dir, filename);
   const original  = readFileSync(path, 'utf-8');
   let html        = original;
-  const pageClass = classify(filename);
+  const base      = basename(filename);
+  const pageClass = classify(base);
+  // SITE_MODE pages live at varying depths; node pages keep the original '../'.
+  const prefixes  = siteMode ? chromePrefixes(filename) : { root: '../', cg: '' };
 
-  const breadcrumb = deriveBreadcrumb(filename, html, pageClass);
+  const breadcrumb = deriveBreadcrumb(base, html, pageClass);
   if (!breadcrumb) {
     return { status: 'skipped', file: filename, reason: `[${pageClass}] no display_name/<title>/h1 usable for breadcrumb` };
   }
 
   // ── guard: exactly one site-chrome <nav> (bare, or with aria-label only) —
   // a class'd <nav class="…"> is in-body content (e.g. a table-of-contents
-  // <nav class="toc-hero">), never touched here. Skipped in footer-only mode
-  // (the nav is not this mode's concern and must stay byte-identical). ──
+  // <nav class="toc-hero">), never touched here. Skipped in footer-only mode.
+  // SITE-CHROME-GAPS-1: a page with ZERO bare navs is no longer skipped when
+  // addMissingNav is set — the canonical nav is inserted after <body>. ──
   const bareNavOpens = (html.match(/<nav(?![^>]*\bclass=)[^>]*>/g) || []).length;
-  if (!footerOnly && bareNavOpens !== 1) {
-    return { status: 'skipped', file: filename, reason: `bare <nav> count (${bareNavOpens}) — expected exactly 1 site-chrome nav` };
-  }
-
-  // ── REPLACE the site-chrome <nav>…</nav> only (no class= attribute) ──
   if (!footerOnly) {
-    html = html.replace(/<nav(?![^>]*\bclass=)[^>]*>[\s\S]*?<\/nav>/, buildNav(breadcrumb));
+    if (bareNavOpens === 1) {
+      html = html.replace(/<nav(?![^>]*\bclass=)[^>]*>[\s\S]*?<\/nav>/, buildNav(breadcrumb, prefixes));
+    } else if (bareNavOpens === 0 && addMissingNav) {
+      const bodyEnd = bodyOpenEnd(html);
+      if (bodyEnd === -1) {
+        return { status: 'skipped', file: filename, reason: 'no <body> to host the site nav' };
+      }
+      html = html.slice(0, bodyEnd) + `\n${buildNav(breadcrumb, prefixes)}\n` + html.slice(bodyEnd);
+    } else {
+      return { status: 'skipped', file: filename, reason: `bare <nav> count (${bareNavOpens}) — expected exactly 1 site-chrome nav` };
+    }
   }
 
-  // ── handle footer: 1 footer → replace; N footers (all chrome) → collapse → insert ──
-  const ftrOpens  = (html.match(/<footer[^>]*>/g) || []).length;
-  const ftrCloses = (html.match(/<\/footer>/g) || []).length;
-
-  if (ftrOpens !== ftrCloses) {
-    return { status: 'skipped', file: filename, reason: `footer count asymmetric (${ftrOpens}/${ftrCloses})` };
-  }
-
-  // ── GUARD (K4): a <footer> inside a <script> span is template-literal text,
-  // not page chrome. Editing it rewrites JS source (measured: art-139's print
-  // template grew 77663→77944 bytes, exit 0). Refuse the page outright. ──
-  const inScriptFooters = footersInsideScript(html);
-  if (inScriptFooters.length > 0) {
-    const reason = inScriptFooters.length === ftrOpens
-      ? FOOTER_IN_SCRIPT
-      : `${FOOTER_IN_SCRIPT} (mixed: ${inScriptFooters.length} of ${ftrOpens} footers inside <script>)`;
-    return { status: 'skipped', file: filename, reason };
-  }
-
-  if (ftrOpens === 1) {
-    // Standard single-footer replacement
-    html = html.replace(/<footer[^>]*>[\s\S]*?<\/footer>/, FOOTER);
-  } else if (ftrOpens > 1) {
-    // Multiple footers: safe to collapse only if every block is chrome-type
-    const blocks = [...html.matchAll(/<footer[^>]*>[\s\S]*?<\/footer>/g)].map(m => m[0]);
-    const allChrome = blocks.every(b => CHROME_FOOTER_SIGNAL.test(b));
-    if (!allChrome) {
-      return { status: 'skipped', file: filename, reason: `footer count (${ftrOpens}/${ftrCloses}) — non-chrome footer detected, scope fence` };
+  // ── footer region. NAV_ONLY leaves the existing footer byte-identical. ──
+  if (!navOnly) {
+    const ftrOpens  = (html.match(/<footer[^>]*>/g) || []).length;
+    const ftrCloses = (html.match(/<\/footer>/g) || []).length;
+    if (ftrOpens !== ftrCloses) {
+      return { status: 'skipped', file: filename, reason: `footer count asymmetric (${ftrOpens}/${ftrCloses})` };
     }
-    // Strip all footer blocks, then insert canonical before </body>
-    html = html.replace(/<footer[^>]*>[\s\S]*?<\/footer>/g, '');
-    if (!html.includes('</body>')) {
-      return { status: 'skipped', file: filename, reason: 'no </body> after footer collapse' };
+
+    // ── GUARD (K4): a <footer> inside a <script> span is template-literal
+    // text, not page chrome. The default still refuses such pages (that is
+    // what gen-node-footers.mjs relies on). SITE-CHROME-GAPS-1's 'add' mode
+    // leaves those bytes untouched and inserts a NEW rendered canonical
+    // footer before the real </body> instead. ──
+    const inScriptFooters = footersInsideScript(html);
+    if (inScriptFooters.length > 0 && scriptFooterMode === 'skip') {
+      const reason = inScriptFooters.length === ftrOpens
+        ? FOOTER_IN_SCRIPT
+        : `${FOOTER_IN_SCRIPT} (mixed: ${inScriptFooters.length} of ${ftrOpens} footers inside <script>)`;
+      return { status: 'skipped', file: filename, reason };
     }
-    html = html.replace('</body>', `\n${FOOTER}\n</body>`);
-  } else {
-    // Zero footers — insert before </body>
-    if (!html.includes('</body>')) {
-      return { status: 'skipped', file: filename, reason: 'no footer and no </body>' };
+
+    const spans = footerSpans(html);
+    const canonical = buildFooter(prefixes);
+    const closeAt = () => html.lastIndexOf('</body>');
+    if (spans.length === 1) {
+      const [a, b] = spans[0];
+      html = html.slice(0, a) + canonical + html.slice(b);
+    } else if (spans.length > 1) {
+      if (!spans.every(([, , block]) => CHROME_FOOTER_SIGNAL.test(block))) {
+        return { status: 'skipped', file: filename, reason: `footer count (${ftrOpens}/${ftrCloses}) — non-chrome footer detected, scope fence` };
+      }
+      for (let i = spans.length - 1; i >= 0; i--) {
+        const [a, b] = spans[i];
+        html = html.slice(0, a) + html.slice(b);
+      }
+      const close = closeAt();
+      if (close === -1) return { status: 'skipped', file: filename, reason: 'no </body> after footer collapse' };
+      html = html.slice(0, close) + `\n${canonical}\n` + html.slice(close);
+    } else {
+      const close = closeAt();
+      if (close === -1) return { status: 'skipped', file: filename, reason: 'no footer and no </body>' };
+      html = html.slice(0, close) + `\n${canonical}\n` + html.slice(close);
     }
-    html = html.replace('</body>', `\n${FOOTER}\n</body>`);
   }
 
   // ── inject / refresh CSS (skipped entirely in footer-only mode) ──
@@ -342,7 +408,15 @@ function processFile(filename, opts) {
       if (headClose === -1) {
         return { status: 'skipped', file: filename, reason: 'no </head> tag found' };
       }
-      html = html.slice(0, headClose) + `<style>${CHROME_CSS}\n</style>\n` + html.slice(headClose);
+      // Pages outside chaingraph/ often use literal colours with no custom
+      // properties at all. Supply ONLY the tokens they lack, so an existing
+      // page palette always wins and the canonical chrome still renders.
+      const missingTokens = Object.entries(CHROME_TOKENS)
+        .filter(([token]) => !new RegExp(`${token}\\s*:`).test(html));
+      const tokenCss = missingTokens.length
+        ? `:root{${missingTokens.map(([token, value]) => `${token}:${value}`).join(';')}}`
+        : '';
+      html = html.slice(0, headClose) + `<style>${tokenCss}${CHROME_CSS}\n</style>\n` + html.slice(headClose);
     } else {
       // Marker already present from a prior run — replace ONLY the span from the
       // marker itself through the next </style>, leaving everything before the
@@ -379,8 +453,8 @@ function processFile(filename, opts) {
 
   // ── post-transform sanity: counts must still be (1,1) ──
   const navAfter = (html.match(/<nav(?![^>]*\bclass=)[^>]*>/g) || []).length;
-  const ftrAfter = (html.match(/<footer[^>]*>/g) || []).length;
-  if ((navAfter !== 1 && !footerOnly) || ftrAfter !== 1) {
+  const ftrAfter = footerSpans(html).length;
+  if ((navAfter !== 1 && !footerOnly) || (ftrAfter !== 1 && !navOnly)) {
     // Should never happen, but guard anyway
     return { status: 'skipped', file: filename, reason: `post-transform count error nav=${navAfter} footer=${ftrAfter}` };
   }
@@ -409,14 +483,17 @@ function processFile(filename, opts) {
  * Named `targets` always pass the EXEMPT filter (K11): an exempt name lands in
  * `skipped` with the EXEMPT reason and is never processed.
  */
-export function normalizeChrome({ dir = CG, targets = null, apply = false, footerOnly = false, skipArt = false } = {}) {
+export function normalizeChrome({
+  dir = CG, targets = null, apply = false, footerOnly = false, skipArt = false,
+  navOnly = false, addMissingNav = false, scriptFooterMode = 'skip', siteMode = false,
+} = {}) {
   const skipped = [];
   let list;
   if (targets !== null) {
     list = [];
     for (const f of targets) {
-      if (EXEMPT.has(f)) {
-        skipped.push({ file: f, reason: `EXEMPT (this normalizer is barred from the page): ${EXEMPT.get(f)}` });
+      if (EXEMPT.has(basename(f))) {
+        skipped.push({ file: f, reason: `EXEMPT (this normalizer is barred from the page): ${EXEMPT.get(basename(f))}` });
       } else {
         list.push(f);
       }
@@ -431,7 +508,7 @@ export function normalizeChrome({ dir = CG, targets = null, apply = false, foote
 
   const changed = [];
   const unchanged = [];
-  const opts = { dir, apply, footerOnly };
+  const opts = { dir, apply, footerOnly, navOnly, addMissingNav, scriptFooterMode, siteMode };
   for (const f of list) {
     try {
       const r = processFile(f, opts);
@@ -447,7 +524,36 @@ export function normalizeChrome({ dir = CG, targets = null, apply = false, foote
 
 /* ─── CLI run (no side effects on import) ─── */
 
+/** SITE-CHROME-GAPS-1: apply the SSOT chrome to the published pages no other
+ *  writer covers. One pass per page so each gets its own path-derived depth. */
+function siteMain() {
+  const apply = APPLY_MODE;
+  let changed = 0, skipped = 0;
+  console.log(`\n=== normalize-node-chrome --site (${apply ? 'APPLY' : 'DRY-RUN'}) ===`);
+  for (const { path: page, mode } of SITE_CHROME_PAGES) {
+    const r = normalizeChrome({
+      dir: REPO,
+      targets: [page],
+      apply,
+      navOnly: mode === 'nav',
+      footerOnly: mode === 'footer',
+      addMissingNav: mode === 'nav' || mode === 'full',
+      scriptFooterMode: 'add',
+      siteMode: true,
+    });
+    for (const c of r.changed) {
+      changed++;
+      const scope = ['nav', 'footer', 'css'].filter((k) => c.regions[k]).join('+') || 'none';
+      console.log(`  ${apply ? 'wrote' : 'would write'} ${c.file} (${mode}, ${scope})`);
+    }
+    for (const s of r.skipped) { skipped++; console.log(`  SKIP ${s.file}: ${s.reason}`); }
+  }
+  console.log(`\n${changed} page(s) ${apply ? 'written' : 'would change'}, ${skipped} skipped.`);
+  if (skipped) process.exitCode = 1;
+}
+
 function main() {
+  if (SITE_MODE) { siteMain(); return; }
   const targets = SAMPLE_MODE ? sampleFiles : (ONLY_MODE ? onlyFiles : null);
   const result = normalizeChrome({
     dir: CG_DIR,

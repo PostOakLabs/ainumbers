@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (768 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (772 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -8160,6 +8160,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-781-x402-svm-payment-outcome",
+    "display_name": "x402 Exact Solana Payment Outcome Recompute",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-781-x402-svm-payment-outcome.html",
+    "description": "Clause-by-clause verdict recompute of an x402 exact-scheme Solana payment from pasted values: the decoded instruction list, the PaymentRequi",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-782-modified-premium",
     "display_name": "Modified Premium Calculator",
     "mandate_type": "compliance_mandate",
@@ -8182,6 +8192,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-789-stablecoin-admin-role-lint",
+    "display_name": "Stablecoin Admin Role Lint",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-789-stablecoin-admin-role-lint.html",
+    "description": "Lints a stablecoin token's declared admin-role configuration for separation of duties, key concentration and issuance-policy fit, over ROLE ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-79-settlement-fail-predictor",
     "display_name": "Settlement-Fail Predictor",
     "mandate_type": "model_governance",
@@ -8195,6 +8215,16 @@ window.CHAINBUILDER_CATALOG = [
       "art-84-settlement-efficiency-kpi",
       "cry-04-merkle-batch-verifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-791-check-je-multicurrency-balance",
+    "display_name": "Multicurrency JE Balance Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-791-check-je-multicurrency-balance.html",
+    "description": "Checks that structured journal entries balance, on a basis the caller declares: either every currency sums to zero separately (per_currency)",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
@@ -8527,6 +8557,16 @@ window.CHAINBUILDER_CATALOG = [
       "499-crypto-asset-inventory-classifier",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-851-islamic-mmf-placement-limits",
+    "display_name": "Islamic MMF Placement Limits",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-851-islamic-mmf-placement-limits.html",
+    "description": "Checks a money market fund's placements against one pinned authority profile: the Saudi Capital Market Authority Investment Funds Regulation",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

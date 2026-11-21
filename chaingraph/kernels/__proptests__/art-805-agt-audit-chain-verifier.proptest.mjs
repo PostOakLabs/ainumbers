@@ -1,5 +1,5 @@
 // art-805-agt-audit-chain-verifier — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:d3a96683e60729156f0ca539f5eec22cd1d4facd9f5a4b397b7262bdad3e54fc
+// kernel_digest_at_authoring: sha256:1b0aa1972e5c2e7936f07c6d4f263ac42c13cb7225e06f7ae794654ed5780156
 // spec: research/AGT-AUDIT-FORMAT-PIN-2026-10-29.md (upstream commit 3433fa7);
 //       RIDER-KERNEL K-FULL; row LANDSCAPE-AGT-AUDIT-VERIFIER-RESUME-1
 // human_sign_off: PENDING
@@ -8,7 +8,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-805-agt-audit-chain-verifier.proptest.mjs
 
-import { compute, subjectHash } from '../art-805-agt-audit-chain-verifier.kernel.mjs';
+import { compute, buildArtifact, subjectHash, SubjectSerialisationError } from '../art-805-agt-audit-chain-verifier.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, deepEqual } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-805-agt-audit-chain-verifier';
@@ -158,10 +158,125 @@ function checkFailClosed() {
     // no entry content may be echoed: output carries only hashes/indices/flags
     if (JSON.stringify(o).includes('/file.txt')) violations++;
   }
-  // empty chain verifies (upstream test_empty_chain_verifies)
-  const empty = compute({ entries: [] }).output_payload;
+  // EMPTY_CHAIN is a distinct outcome: never INTACT (805-F1).
+  const empty = compute({ entries: [] });
   checked++;
-  if (empty.chain_intact !== true || empty.entry_count !== 0 || empty.rejected !== false) violations++;
+  if (empty.output_payload.chain_intact !== false || empty.output_payload.entry_count !== 0 || empty.output_payload.rejected !== false) violations++;
+  if (empty.output_payload.issues.indexOf('AGT_AUDIT_EMPTY_CHAIN') < 0) violations++;
+  if (empty.compliance_flags.indexOf('AGT_AUDIT_EMPTY_CHAIN') < 0) violations++;
+  if (empty.compliance_flags.indexOf('AGT_AUDIT_CHAIN_INTACT') >= 0) violations++;
+  return { name, checked, violations };
+}
+
+// ---------- P5 (805-B1): deleting a null-valued change key can never read as intact ----------
+function checkMissingChangeKeyRejected() {
+  const name = 'P5-missing-null-valued-change-key-is-rejected';
+  let checked = 0, violations = 0;
+  const rng = mulberry32(0xe0805);
+  const chain = buildChain(rng, 3);
+  const variants = [['content_hash'], ['previous_hash'], ['agent_did'], ['content_hash', 'previous_hash', 'agent_did']];
+  for (const keys of variants) {
+    const entries = structuredClone(chain);
+    for (const k of keys) delete entries[0].changes[0][k];
+    const r = compute({ entries });
+    checked++;
+    const o = r.output_payload;
+    if (o.rejected !== true || o.chain_intact !== false || o.recomputed_root !== null) violations++;
+    for (const k of keys) if (!o.rejected_fields.includes(`entries[0].changes[0].${k}(missing)`)) violations++;
+  }
+  return { name, checked, violations };
+}
+
+// ---------- P6 (805-B2): recomputed_root is recomputed, never read from a stored hash ----------
+function checkRecomputedRootIsRecomputed() {
+  const name = 'P6-recomputed-root-is-recomputed-not-stored';
+  let checked = 0, violations = 0;
+  const rng = mulberry32(0xf0805);
+  const chain = buildChain(rng, 3);
+  const trueRoot = chain[2].delta_hash;
+  for (const mode of ['stored-hash', 'last-link-content']) {
+    const entries = structuredClone(chain);
+    if (mode === 'stored-hash') entries[2].delta_hash = 'f'.repeat(64);
+    else entries[2].changes[0].path = '/tampered.txt';
+    const o = compute({ entries, claimed_root: 'f'.repeat(64) }).output_payload;
+    checked++;
+    if (o.recomputed_root === 'f'.repeat(64)) violations++;
+    if (mode === 'stored-hash' && o.recomputed_root !== trueRoot) violations++;
+    if (o.claimed_root_match !== false) violations++;
+    if (o.chain_intact !== false) violations++;
+  }
+  return { name, checked, violations };
+}
+
+// ---------- P7 (805-F2): unsafe-integer turn_id refuses, buildArtifact never throws ----------
+function checkUnsafeTurnIdRefuses() {
+  const name = 'P7-unsafe-integer-turn-id-refuses';
+  let checked = 0, violations = 0;
+  const rng = mulberry32(0x10805);
+  const chain = buildChain(rng, 2);
+  for (const bad of [Number.MAX_SAFE_INTEGER + 1, 1e300]) {
+    const entries = structuredClone(chain);
+    entries[0].turn_id = bad;
+    const o = compute({ entries }).output_payload;
+    checked++;
+    if (o.rejected !== true || o.chain_intact !== false) violations++;
+  }
+  return { name, checked, violations };
+}
+
+// ---------- P8 (805-N1): impossible calendar timestamps refuse ----------
+function checkImpossibleTimestampRefuses() {
+  const name = 'P8-impossible-calendar-timestamp-refuses';
+  let checked = 0, violations = 0;
+  const rng = mulberry32(0x20805);
+  const chain = buildChain(rng, 2);
+  for (const bad of ['2026-13-45T99:99:99Z', '2026-02-31T00:00:00+00:00', '2026-04-31T00:00:00+00:00']) {
+    const entries = structuredClone(chain);
+    entries[0].timestamp = bad;
+    const o = compute({ entries }).output_payload;
+    checked++;
+    if (o.rejected !== true || !o.rejected_fields.includes('entries[0].timestamp')) violations++;
+  }
+  return { name, checked, violations };
+}
+
+// ---------- P9 (805-N3): subjectHash throws a named error on a missing key ----------
+function checkSubjectHashNamedError() {
+  const name = 'P9-subjectHash-throws-named-error';
+  let checked = 0, violations = 0;
+  const rng = mulberry32(0x30805);
+  const chain = buildChain(rng, 1);
+  const bad = structuredClone(chain[0]);
+  delete bad.changes[0].path;
+  checked++;
+  try { subjectHash(bad); violations++; }
+  catch (e) {
+    if (e.name !== 'SubjectSerialisationError' || !(e instanceof SubjectSerialisationError)) violations++;
+  }
+  return { name, checked, violations };
+}
+
+// ---------- P10 (D6): buildArtifact_never_throws on unhashable input ----------
+async function checkBuildArtifactNeverThrows() {
+  const name = 'P10-buildArtifact_never_throws';
+  let checked = 0, violations = 0;
+  const rng = mulberry32(0x40805);
+  const base = { entries: buildChain(rng, 1) };
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const hostile = [NaN, -Infinity, 1e300, Number.MAX_SAFE_INTEGER + 1, deep, new Array(1000001).fill(1)];
+  for (const h of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...base, turn_id_bad: h });
+      const ref = art.hash_refusal;
+      if (art.execution_hash !== null || !ref || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(ref.reason)) violations++;
+    } catch (e) { violations++; }
+  }
+  checked++;
+  try {
+    const art = await buildArtifact(base);
+    if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) violations++;
+  } catch (e) { violations++; }
   return { name, checked, violations };
 }
 
@@ -177,6 +292,12 @@ const properties = [
   checkIntactChainsVerify(),
   checkDeterminism(),
   checkFailClosed(),
+  checkMissingChangeKeyRejected(),
+  checkRecomputedRootIsRecomputed(),
+  checkUnsafeTurnIdRefuses(),
+  checkImpossibleTimestampRefuses(),
+  checkSubjectHashNamedError(),
+  await checkBuildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K property test — audit-chain verifier floor.`);
 const ok = summarize(KERNEL_ID, oracle, properties);

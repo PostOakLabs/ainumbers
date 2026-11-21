@@ -1,5 +1,5 @@
 // art-592-x402-domain-nonce-window-checker property-test floor (ADJACENT-HOOKS-ASSEMBLE-LAND-1).
-// kernel_digest_at_authoring: sha256:b38255c8483b8792648d21f7a06a061fa24aaaea6ffce83ffb9c9b340afab72a
+// kernel_digest_at_authoring: sha256:13a983346c12f03c2626a1714a1c6e4b8df984252c8c5f68b8e853167ed52842
 // human_sign_off: PENDING
 //
 // Class-A floor per FV-PBT-FLOOR-BUILD-SPEC.md §3 -- cheap invariant subset over the DECLARED domain,
@@ -14,7 +14,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-592-x402-domain-nonce-window-checker.proptest.mjs
 
-import { compute } from '../art-592-x402-domain-nonce-window-checker.kernel.mjs';
+import { compute, buildArtifact } from '../art-592-x402-domain-nonce-window-checker.kernel.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -22,6 +22,7 @@ import path from 'node:path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const results = { fixture_oracle: null, properties: [] };
 
+/** @type {{ expected_chain_id: number, expected_verifying_contract: string, chainId: number, verifyingContract: string, validAfter: number, validBefore: number, now_unix: number, nonce: string, nonce_already_used?: boolean, signature?: string, s?: string }} */
 const CLEAN_PP = {
   expected_chain_id: 1, expected_verifying_contract: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
   chainId: 1, verifyingContract: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
@@ -132,6 +133,152 @@ function checkP5_outputShapeInvariant() {
   return { name: 'P5_output_shape_no_nan_undefined', trials: checked, violations };
 }
 
+// P6: a supplied signature whose s sits above half the secp256k1 order ALWAYS yields verdict REFUSE
+// with compliance flag X402_SIGNATURE_HIGH_S -- random 200-sample over high-s values in both the
+// 65-byte (r||s||v) and bare 32-byte s forms.
+const SECP256K1_ORDER = BigInt('0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141');
+function checkP6_highSAlwaysRefuses() {
+  let violations = 0, checked = 0;
+  const rng = mulberry32(592006);
+  for (let i = 0; i < 200; i++) {
+    const half = SECP256K1_ORDER >> 1n;
+    const sBig = half + 1n + (BigInt(Math.floor(rng() * 1e9)) * (SECP256K1_ORDER - half - 1n)) / 1000000000n;
+    const sHex = sBig.toString(16).padStart(64, '0');
+    const pp = { ...CLEAN_PP };
+    if (i % 2 === 0) pp.s = '0x' + sHex;
+    else pp.signature = '0x' + 'ab'.repeat(32) + sHex + (i % 4 === 1 ? '1b' : '1c');
+    const { output_payload, compliance_flags } = compute(pp);
+    checked++;
+    if (output_payload.verdict !== 'REFUSE') violations++;
+    if (!compliance_flags.includes('X402_SIGNATURE_HIGH_S')) violations++;
+    if (output_payload.signature_form?.s_above_half_order !== true) violations++;
+  }
+  return { name: 'P6_high_s_signature_always_refuses_with_flag_random200', trials: checked, violations };
+}
+
+// P7: omitting signature/s never emits signature_form; a low-s signature never flags
+// X402_SIGNATURE_HIGH_S nor refuses on form alone; a malformed supplied signature forces
+// INDETERMINATE with a reason and never throws.
+function checkP7_signatureFormEmissionDiscipline() {
+  let violations = 0, checked = 0;
+  const { output_payload: bare } = compute(CLEAN_PP);
+  checked++; if ('signature_form' in bare) violations++;
+  const half = SECP256K1_ORDER >> 1n;
+  const loHex = (half - 1n).toString(16).padStart(64, '0');
+  const lowS = compute({ ...CLEAN_PP, s: '0x' + loHex }).output_payload;
+  checked++; if (lowS.verdict !== 'PASS') violations++;
+  checked++; if (lowS.signature_form?.s_above_half_order !== false) violations++;
+  const malformedInputs = ['0xdead', 'not-hex', 12345, '0x' + 'ff'.repeat(129)];
+  for (const bad of malformedInputs) {
+    let out;
+    try { out = compute({ ...CLEAN_PP, signature: bad }).output_payload; } catch (e) { violations++; continue; }
+    checked++;
+    if (out.verdict !== 'INDETERMINATE' || out.reasons.length === 0) violations++;
+  }
+  const malformedS = compute({ ...CLEAN_PP, s: 'zz' }).output_payload;
+  checked++; if (malformedS.verdict !== 'INDETERMINATE') violations++;
+  return { name: 'P7_signature_form_emission_discipline', trials: checked, violations };
+}
+
+// P8: a zero r or zero s component ALWAYS yields verdict REFUSE with compliance flag
+// X402_SIGNATURE_ZERO_COMPONENT and signature_form.zero_component === true -- over a
+// random low/high-s sample in both the 65-byte (r||s||v) and bare 32-byte s forms, plus
+// the exact all-zero boundary; a zero s never also flags X402_SIGNATURE_HIGH_S, and a
+// well-formed low-s signature never carries the zero flag.
+const SECP256K1_HALF_ORDER = BigInt('0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141') >> 1n;
+function checkP8_zeroComponentAlwaysRefuses() {
+  let violations = 0, checked = 0;
+  const rng = mulberry32(592008);
+  const allZeros = '0x' + '00'.repeat(32);
+  const loHex = (SECP256K1_HALF_ORDER - 1n).toString(16).padStart(64, '0');
+  const hiHex = (SECP256K1_HALF_ORDER + 1n).toString(16).padStart(64, '0');
+  // Exact boundaries first: zero s (bare form), zero r with a low s (65-byte form),
+  // zero r with a high s, and both components zero.
+  const exact = [
+    { label: 'zero-s-bare', pp: { ...CLEAN_PP, s: allZeros }, wantFlags: ['X402_SIGNATURE_ZERO_COMPONENT'], banHighS: true },
+    { label: 'zero-r-low-s', pp: { ...CLEAN_PP, signature: '0x' + '00'.repeat(32) + loHex + '1b' }, wantFlags: ['X402_SIGNATURE_ZERO_COMPONENT'], banHighS: true },
+    { label: 'zero-r-high-s', pp: { ...CLEAN_PP, signature: '0x' + '00'.repeat(32) + hiHex + '1c' }, wantFlags: ['X402_SIGNATURE_ZERO_COMPONENT', 'X402_SIGNATURE_HIGH_S'], banHighS: false },
+    { label: 'zero-r-zero-s', pp: { ...CLEAN_PP, signature: '0x' + '00'.repeat(32) + '00'.repeat(32) + '1b' }, wantFlags: ['X402_SIGNATURE_ZERO_COMPONENT'], banHighS: true },
+  ];
+  for (const spec of exact) {
+    const { output_payload: r, compliance_flags } = compute(spec.pp);
+    checked++;
+    if (r.verdict !== 'REFUSE' || r.reasons.length === 0) { violations++; console.log(`P8 violation: ${spec.label} verdict`); }
+    if (!r.signature_form || r.signature_form.zero_component !== true) { violations++; console.log(`P8 violation: ${spec.label} zero_component mirror`); }
+    for (const f of spec.wantFlags) if (!compliance_flags.includes(f)) { violations++; console.log(`P8 violation: ${spec.label} missing flag ${f}`); }
+    if (spec.banHighS && compliance_flags.includes('X402_SIGNATURE_HIGH_S')) { violations++; console.log(`P8 violation: ${spec.label} unexpected high-s flag`); }
+  }
+  // Random 200-sample: EVERY case carries a zero component -- even i is a 65-byte form with
+  // zero r (alternating low/high s), odd i is a bare zero s; a zero s can never also be high-s.
+  for (let i = 0; i < 200; i++) {
+    const sHex = i % 4 < 2 ? loHex : hiHex;
+    const pp = { ...CLEAN_PP };
+    if (i % 2 === 0) pp.signature = '0x' + '00'.repeat(32) + sHex + (i % 8 === 6 ? '1c' : '1b');
+    else pp.s = allZeros;
+    const { output_payload: r, compliance_flags } = compute(pp);
+    checked++;
+    if (r.verdict !== 'REFUSE') violations++;
+    if (!r.signature_form || r.signature_form.zero_component !== true) violations++;
+    if (!compliance_flags.includes('X402_SIGNATURE_ZERO_COMPONENT')) violations++;
+    if (i % 2 === 1 && compliance_flags.includes('X402_SIGNATURE_HIGH_S')) violations++;
+    if (i % 2 === 0 && sHex === hiHex && !compliance_flags.includes('X402_SIGNATURE_HIGH_S')) violations++;
+  }
+  // A well-formed low-s signature (65-byte, r and s non-zero) never carries the zero flag.
+  const wellFormed = compute({ ...CLEAN_PP, signature: '0x' + 'ab'.repeat(32) + loHex + '1b' });
+  checked++;
+  if (wellFormed.output_payload.signature_form?.zero_component !== false) violations++;
+  if (wellFormed.compliance_flags.includes('X402_SIGNATURE_ZERO_COMPONENT')) violations++;
+  return { name: 'P8_zero_component_signature_always_refuses_with_flag', trials: checked, violations };
+}
+
+// P9 (D6 / D6-ANYKERNEL) -- buildArtifact_never_throws: an input whose {policy_parameters,
+// output_payload} preimage the shared canonicalizer would refuse (non-finite, unsafe integer,
+// BigInt, over-depth, over-element) mints execution_hash === null plus hash_refusal {reason,
+// detail} with the path only (never the value) instead of throwing; a clean pp still hashes.
+async function checkBuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const junk = [
+    ['nan', NaN], ['neg_inf', -Infinity], ['pos_inf', Infinity],
+    ['huge_1e300', 1e300], ['unsafe_int', Math.pow(2, 60)],
+    ['deep_600', deep], ['wide_1000001', wide], ['bigint', 1n],
+  ];
+  const numericFields = ['expected_chain_id', 'validAfter', 'validBefore', 'now_unix'];
+  const EXTRA_FIELD = 'junk';
+  const cleanPp = () => ({ ...CLEAN_PP });
+  const expectRefusal = (label, art) => {
+    const r = art.hash_refusal;
+    if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)
+        || typeof r.detail !== 'string' || r.detail.indexOf('pp') !== 0) {
+      violations++; console.log(`P9 violation: ${label} artifact shape`);
+    }
+    if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) {
+      violations++; console.log(`P9 violation: ${label} hostile value echoed`);
+    }
+  };
+  for (const [label, value] of junk) {
+    const ppExtra = cleanPp(); ppExtra[EXTRA_FIELD] = value;
+    checked++;
+    try { expectRefusal(label + '/extra', await buildArtifact(ppExtra)); }
+    catch (e) { violations++; console.log(`P9 violation: buildArtifact threw (${label}/extra): ${String(e.message).slice(0, 80)}`); }
+    for (const field of numericFields) {
+      const pp = cleanPp(); pp[field] = value;
+      checked++;
+      try { expectRefusal(label + '/' + field, await buildArtifact(pp)); }
+      catch (e) { violations++; console.log(`P9 violation: buildArtifact threw (${label}/${field}): ${String(e.message).slice(0, 80)}`); }
+    }
+  }
+  {
+    const art = await buildArtifact(cleanPp());
+    if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) {
+      violations++; console.log('P9 violation: clean input lost its hash');
+    }
+  }
+  checked++;
+  return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -150,6 +297,10 @@ results.properties.push(checkP2_cleanBaselinePasses());
 results.properties.push(checkP3_windowInclusiveBoundaries());
 results.properties.push(checkP4_requiredFieldMissingForcesIndeterminate());
 results.properties.push(checkP5_outputShapeInvariant());
+results.properties.push(checkP6_highSAlwaysRefuses());
+results.properties.push(checkP7_signatureFormEmissionDiscipline());
+results.properties.push(checkP8_zeroComponentAlwaysRefuses());
+results.properties.push(await checkBuildArtifactNeverThrows());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 

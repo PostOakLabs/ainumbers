@@ -14,7 +14,7 @@
      kernel moves; do not hand-edit to an arbitrary value.
      PR-2776-FLAGS-LINT-CURE-1 stamped 2026-11-17: refusal flags array made conditionally
      constructed in the kernel (flags-computed lint cure); emitted values unchanged. -->
-<meta name="kernel-digest" content="sha256:e2d5d08e405afae1d2cab46a7b1515cc6601a57fa0ae3c0facbda452b65e8346">
+<meta name="kernel-digest" content="sha256:b8ce8e7e260662d41e52573c9cff9e684216e412ea9adc1fe1f514c70c207960">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/790-event-position-limit-check.html">
 <link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/790-event-position-limit-check.md">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -703,7 +703,9 @@ async function runCompute(){
   }
   document.getElementById('breachesBlock').innerHTML = bb;
   document.getElementById('rawOut').textContent = JSON.stringify(op, null, 2);
-  var hash = await sha256({ policy_parameters: _pp, output_payload: op });
+  // Never throw on an unhashable input: refuse with a null hash and a named reason.
+  var unhashable = findHashRefusal({ policy_parameters: _pp, output_payload: op }, 'artifact', 1, { maxDepth: 512, maxElements: 1000000, n: 0 });
+  var hash = unhashable === null ? await sha256({ policy_parameters: _pp, output_payload: op }) : null;
   var nowIso = new Date().toISOString();
   _artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
@@ -721,8 +723,29 @@ async function runCompute(){
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] }
   };
-  document.getElementById('generatedAt').textContent = 'generated_at ' + nowIso + ' · execution_hash ' + hash.slice(0, 16) + '...';
+  if (unhashable !== null) _artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  document.getElementById('generatedAt').textContent = 'generated_at ' + nowIso + ' · execution_hash ' + (hash === null ? 'null (' + unhashable.reason + ')' : hash.slice(0, 16) + '...');
   ['ap2ExportBtn','mdBtn'].forEach(function(id){ var b = document.getElementById(id); b.disabled = false; b.classList.add('ready'); });
+}
+function findHashRefusal(v, path, depth, budget){
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (typeof v === 'bigint') return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': bigint' };
+  if (Array.isArray(v)) {
+    for (var i = 0; i < v.length; i++) { var r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget); if (r !== null) return r; }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    var ks = Object.keys(v).sort();
+    for (var j = 0; j < ks.length; j++) { var q = findHashRefusal(v[ks[j]], path + '.' + ks[j], depth + 1, budget); if (q !== null) return q; }
+    return null;
+  }
+  return null;
 }
 async function sha256(obj){
   var c = __ocgCanonStr(obj);
