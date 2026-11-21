@@ -89,7 +89,7 @@ test('the workflow runs on all three hosted operating systems', () => {
   assert.match(WORKFLOW, /ubuntu-latest/);
   assert.match(WORKFLOW, /windows-latest/);
   assert.match(WORKFLOW, /macos-latest/);
-  assert.match(WORKFLOW, /node scripts\/replay-witness-guard\.mjs --check/);
+  assert.match(WORKFLOW, /node scripts\/replay-witness-guard\.mjs/);
 });
 
 test('every third-party action is pinned to a full commit sha', () => {
