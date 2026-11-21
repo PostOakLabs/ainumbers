@@ -1,6 +1,6 @@
 
 // 810-contract-bytecode-identity-verifier — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:9bc94068a33ab9fdd9c3323a0e898bb099328f10fb4ca970424388670379e009
+// kernel_digest_at_authoring: sha256:8f39b1dc2eb860d25d87997da1bfb3c6e122496535434193a2674bb214df0d5a
 // spec: research/ETH-BYTECODE-ID-BUILD-SPEC-2026-10-23.md (rules 1 to 8, amended: metadata hash reported, not recomputed)
 // human_sign_off: PENDING
 //
@@ -9,7 +9,7 @@
 // Run: node chaingraph/kernels/__proptests__/810-contract-bytecode-identity-verifier.proptest.mjs
 
 import { createHash } from 'node:crypto';
-import { compute } from '../810-contract-bytecode-identity-verifier.kernel.mjs';
+import { compute, buildArtifact } from '../810-contract-bytecode-identity-verifier.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, findShapeViolations, deepEqual } from './_pbt-common.mjs';
 
 const KERNEL_ID = '810-contract-bytecode-identity-verifier';
@@ -548,6 +548,41 @@ function checkFlagMirror() {
   return { name: 'conditional_flag_mirror_warnings', checked, violations };
 }
 
+// buildArtifact_never_throws (D6): an input whose {policy_parameters, output_payload} preimage the
+// shared canonicalizer would reject mints an artifact with a null execution_hash and a
+// hash_refusal beside it; a clean input (accepted or refused) gets a 64-hex hash. One case per
+// unhashable class: unsafe integer, NaN, -Infinity, depth past MAX_DEPTH, values past MAX_ELEMENTS.
+async function checkBuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  const base = { creation_code: '0x00', runtime_code: '0x6000', creation_scheme: 'create', deployer: DEP, nonce: 0 };
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 511; i++) deep = [deep];
+  /** @type {Array<[string, Record<string, any>, string]>} */
+  const hostile = [
+    ['unsafe_integer', { junk: 1e300 }, 'REFUSED_INPUT_UNSAFE_NUMBER'],
+    ['unsafe_integer_edge', { junk: { a: [Number.MAX_SAFE_INTEGER + 2] } }, 'REFUSED_INPUT_UNSAFE_NUMBER'],
+    ['nan', { junk: NaN }, 'REFUSED_INPUT_UNSAFE_NUMBER'],
+    ['neg_infinity', { junk: -Infinity }, 'REFUSED_INPUT_UNSAFE_NUMBER'],
+    ['too_deep', { junk: deep }, 'REFUSED_INPUT_HASH_LIMIT'],
+    ['too_many_values', { junk: new Array(1000001).fill(0) }, 'REFUSED_INPUT_HASH_LIMIT'],
+  ];
+  for (const [label, delta, reason] of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...base, ...delta });
+      if (art.execution_hash !== null || !art.hash_refusal || art.hash_refusal.reason !== reason) { violations++; console.log(`never_throws violation: ${label} artifact shape`); }
+      if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(art.hash_refusal))) { violations++; console.log('never_throws violation: hostile value echoed'); }
+    } catch (e) { violations++; console.log(`never_throws violation: buildArtifact threw on ${label}: ${String(e.message).slice(0, 80)}`); }
+  }
+  for (const pp of [base, { ...base, creation_scheme: 'bad' }, null, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('never_throws violation: clean input lost its hash'); }
+    } catch (e) { violations++; console.log(`never_throws violation: threw on clean input: ${String(e.message).slice(0, 80)}`); }
+  }
+  return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -560,7 +595,7 @@ const properties = [
   checkRefusals(), checkComparisons(), checkAddressDependence(), checkMetadata(),
   checkKeccakKats(), checkHexAlphabetAndPrefix(), checkAddressLiterals(), checkRefusalReasons(),
   checkCborLengths(), checkCborStructure(), checkAsciiBoundaries(), checkMetadataBounds(),
-  checkSchemesAndSolc(), checkLimitChecksExact(), checkFlagMirror(),
+  checkSchemesAndSolc(), checkLimitChecksExact(), checkFlagMirror(), await checkBuildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
