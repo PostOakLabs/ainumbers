@@ -1,0 +1,153 @@
+{
+  "tool_id": "art-852-murabahah-ibra-settlement",
+  "version": "1.0.0",
+  "title": "Murabahah Ibra' Settlement",
+  "description": "Computes a deferred-price instalment schedule in integer minor units: per-period profit and principal split, outstanding cost and selling price, and deferred profit. It derives the rebate on early settlement, the variable-rate per-period rebate, and the non-delivery case that also rebates undisbursed principal. Outputs are arithmetic and rule checks against the cited regulator paragraphs, not a fatwa, Shariah certification, legal opinion or regulatory approval.",
+  "category": "chaingraph",
+  "tags": ["islamic-finance", "murabahah", "ibra", "settlement", "amortization", "mcp:compute_murabahah_ibra_settlement"],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "authority": { "type": "string", "x_null_distinct": true, "description": "Authority profile. Only the pinned regulator profile is supported; any other value, absent or null, is refused by name." },
+      "cost_of_purchase_minor": { "type": "number", "x_null_distinct": true, "description": "Acquisition cost in integer minor units, at least 1. A present null or float is refused." },
+      "cpr_bp": { "type": "number", "x_null_distinct": true, "description": "Contracted ceiling profit rate in whole basis points, 0 to 100000." },
+      "tenor_months": { "type": "number", "x_null_distinct": true, "description": "Number of monthly instalments, 1 to 360." },
+      "instalment_minor": { "type": "number", "x_null_distinct": true, "description": "Level monthly instalment in integer minor units, at least 1." },
+      "selling_price_minor": { "type": "number", "x_null_distinct": true, "description": "Contracted selling price used by the schedule, not below the acquisition cost." },
+      "selling_price_stated_minor": { "type": "number", "x_null_distinct": true, "description": "Optional stated price. When present it is emitted with the schedule price and the difference as a named residual." },
+      "epr_periods": { "type": "array", "x_null_distinct": true, "description": "Optional prevailing-rate periods of from_month, epr_bp and instalment_minor. The first period starts at month 1 and months strictly increase." },
+      "settlement_month": { "type": "number", "x_null_distinct": true, "description": "Optional month at which early settlement occurs." },
+      "instalment_due_minor": { "type": "number", "x_null_distinct": true, "description": "Optional unpaid instalment at settlement, in minor units." },
+      "early_settlement_charges": { "type": "array", "x_null_distinct": true, "description": "Optional recovery costs of cost_type and amount_minor. Permitted types: unrecovered_discount and unrecovered_initial_cost. Lost profit and marketing are refused." },
+      "late_payment_minor": { "type": "number", "x_null_distinct": true, "description": "Optional pass-through late-payment amount, shown separately from the rebate." },
+      "non_delivery": { "type": "object", "x_null_distinct": true, "description": "Optional non-delivery case: undisbursed_principal_minor and first_sign_month. Requires settlement_month." },
+      "conventional_loan": { "type": "object", "x_null_distinct": true, "description": "Optional conventional comparison: principal_minor, annual_rate_bp, tawidh_minor and gharamah_minor." }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_murabahah_ibra_settlement",
+    "description": "Computes a deferred-price instalment schedule and the rebate on early settlement in integer minor units, including the variable-rate and non-delivery cases. Arithmetic only, not a ruling.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "authority": { "type": "string", "description": "Pinned authority profile." },
+        "cost_of_purchase_minor": { "type": "number", "description": "Acquisition cost in minor units." },
+        "cpr_bp": { "type": "number", "description": "Contracted rate in basis points." },
+        "tenor_months": { "type": "number", "description": "Number of months." },
+        "instalment_minor": { "type": "number", "description": "Monthly instalment in minor units." },
+        "selling_price_minor": { "type": "number", "description": "Contracted selling price in minor units." },
+        "selling_price_stated_minor": { "type": "number", "description": "Optional stated selling price." },
+        "epr_periods": { "type": "array", "description": "Optional prevailing-rate periods." },
+        "settlement_month": { "type": "number", "description": "Optional early settlement month." },
+        "instalment_due_minor": { "type": "number", "description": "Optional unpaid instalment." },
+        "early_settlement_charges": { "type": "array", "description": "Optional permitted recovery costs." },
+        "late_payment_minor": { "type": "number", "description": "Optional pass-through late charge." },
+        "non_delivery": { "type": "object", "description": "Optional non-delivery case." },
+        "conventional_loan": { "type": "object", "description": "Optional conventional comparison." }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-852-murabahah-ibra-settlement.html",
+    "function_name": "runCheck",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "chaingraph/kernels/art-852-murabahah-ibra-settlement.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads. Every refusal is a structured refusal payload, and x_null_distinct is declared on each property because the kernel refuses a present null with a different named code from an absent field.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "authority": "bnm",
+    "cost_of_purchase_minor": 100000,
+    "cpr_bp": 1200,
+    "tenor_months": 3,
+    "instalment_minor": 34022,
+    "selling_price_minor": 102066
+  },
+  "output_example": {
+    "valid_input": true,
+    "domain_errors": [],
+    "refusal_code": null,
+    "not_a_shariah_ruling": true,
+    "authority": "bnm",
+    "authority_profile": "bnm",
+    "cost_of_purchase_minor": 100000,
+    "contracted_rate_bp": 1200,
+    "tenor_months": 3,
+    "instalment_minor": 34022,
+    "selling_price_minor": 102066,
+    "selling_price_stated_minor": 102066,
+    "selling_price_residual_minor": 0,
+    "markup_minor": 2066,
+    "profit_rounding": "half-even",
+    "schedule": [
+      { "month": 1, "instalment_minor": 34022, "profit_minor": 1000, "cop_payment_minor": 33022, "outstanding_cop_minor": 66978, "outstanding_selling_price_minor": 68044, "deferred_profit_minor": 1066 },
+      { "month": 2, "instalment_minor": 34022, "profit_minor": 670, "cop_payment_minor": 33352, "outstanding_cop_minor": 33626, "outstanding_selling_price_minor": 34022, "deferred_profit_minor": 396 },
+      { "month": 3, "instalment_minor": 34022, "profit_minor": 336, "cop_payment_minor": 33686, "outstanding_cop_minor": -60, "outstanding_selling_price_minor": 0, "deferred_profit_minor": 60 }
+    ],
+    "settlement": null,
+    "non_delivery": null,
+    "conventional_comparison": null,
+    "refused_cost_types": [],
+    "variable_rate_applied": false,
+    "warnings": []
+  },
+  "example_execution_hash": "8c19c99cf69741ddd570223d910ccc7f8c019df8e0884afcd6c9f0bd9f3d5a72",
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "authority": { "type": ["string", "null"] },
+      "authority_profile": { "type": ["string", "null"] },
+      "contracted_rate_bp": { "type": ["number", "null"] },
+      "conventional_comparison": { "type": ["null", "object"] },
+      "cost_of_purchase_minor": { "type": ["number", "null"] },
+      "domain_errors": { "type": "array", "items": { "type": "string" } },
+      "instalment_minor": { "type": ["number", "null"] },
+      "markup_minor": { "type": ["number", "null"] },
+      "non_delivery": { "type": ["null", "object"] },
+      "not_a_shariah_ruling": { "type": "boolean" },
+      "profit_rounding": { "type": "string" },
+      "refusal_code": { "type": ["null", "string"] },
+      "refused_cost_types": { "type": "array", "items": { "type": "string", "enum": ["CHARGE_LOST_PROFIT_REFUSED", "CHARGE_MARKETING_REFUSED"] } },
+      "schedule": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "cop_payment_minor": { "type": "number" },
+            "deferred_profit_minor": { "type": "number" },
+            "epr_instalment_minor": { "type": "number" },
+            "epr_profit_minor": { "type": "number" },
+            "epr_rate_bp": { "type": "number" },
+            "instalment_minor": { "type": "number" },
+            "month": { "type": "number" },
+            "outstanding_cop_minor": { "type": "number" },
+            "outstanding_selling_price_minor": { "type": "number" },
+            "period_ibra_minor": { "type": "number" },
+            "profit_minor": { "type": "number" }
+          },
+          "required": ["cop_payment_minor", "deferred_profit_minor", "instalment_minor", "month", "outstanding_cop_minor", "outstanding_selling_price_minor", "profit_minor"],
+          "additionalProperties": false
+        }
+      },
+      "selling_price_minor": { "type": ["number", "null"] },
+      "selling_price_residual_minor": { "type": ["number", "null"] },
+      "selling_price_stated_minor": { "type": ["number", "null"] },
+      "settlement": { "type": ["null", "object"] },
+      "tenor_months": { "type": ["number", "null"] },
+      "valid_input": { "type": "boolean", "enum": [false, true] },
+      "variable_rate_applied": { "type": "boolean", "enum": [false, true] },
+      "warnings": { "type": "array", "items": { "type": "string" } }
+    },
+    "required": ["authority", "authority_profile", "contracted_rate_bp", "conventional_comparison", "cost_of_purchase_minor", "domain_errors", "instalment_minor", "markup_minor", "non_delivery", "not_a_shariah_ruling", "profit_rounding", "refusal_code", "refused_cost_types", "schedule", "selling_price_minor", "selling_price_residual_minor", "selling_price_stated_minor", "settlement", "tenor_months", "valid_input", "variable_rate_applied", "warnings"],
+    "additionalProperties": false
+  }
+}
