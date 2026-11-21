@@ -1,5 +1,5 @@
 // art-499-check-safeguarding-reconciliation.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C24-1).
-// kernel_digest_at_authoring: sha256:ee7c278f77ba168b6c221d6a703d01ad0390c884fd1551198e71f423d3fe4554
+// kernel_digest_at_authoring: sha256:021b2bf46a48249c41d0071c0bbc622505ce924ea76878be3560d25dec9f89fa
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -21,12 +21,14 @@
 // re-derivation of verdict/difference_direction/rejected_inputs, boundedness (every component's
 // amount_minor_units is a safe integer, subtotals sum to the resource total), and metamorphic
 // component-append invariance (appending a zero-amount, correctly-typed component never changes
-// the verdict).
+// the verdict). The fail-closed cure adds P6 (every positive vector with a required field
+// deleted, nulled, blank or whitespace-only must return INDETERMINATE) and P7
+// (buildArtifact_never_throws over every hash-hostile number/depth/size class).
 // Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled).
 //
 // Run: node chaingraph/kernels/__proptests__/art-499-check-safeguarding-reconciliation.proptest.mjs
 
-import { compute } from '../art-499-check-safeguarding-reconciliation.kernel.mjs';
+import { compute, buildArtifact } from '../art-499-check-safeguarding-reconciliation.kernel.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -195,6 +197,66 @@ function checkP5_append_zero_component_metamorphic() {
   return { name: 'P5_append_zero_component_metamorphic', trials: checked, violations };
 }
 
+// ---------- P6: each required field deleted / null / blank / whitespace never stays positive ----------
+const REQUIRED_FIELDS = ['as_of_date', 'currency', 'reconciliation_type', 'tolerance_minor_units'];
+const POSITIVE_VERDICTS = new Set(['reconciled', 'shortfall', 'excess']);
+function fixtures() {
+  return JSON.parse(readFileSync(path.join(__dirname, '..', 'fixtures', 'art-499-check-safeguarding-reconciliation.fixtures.json'), 'utf8'));
+}
+function checkP6_required_fields_never_positive() {
+  let violations = 0, checked = 0;
+  for (const v of fixtures().vectors) {
+    const pp = v.policy_parameters;
+    if (!pp || typeof pp !== 'object') continue;
+    const base = compute(structuredClone(pp)).output_payload.verdict;
+    if (!POSITIVE_VERDICTS.has(base)) continue;
+    for (const f of REQUIRED_FIELDS) {
+      for (const mode of ['delete', 'null', 'empty', 'whitespace']) {
+        const c = structuredClone(pp);
+        if (mode === 'delete') delete c[f];
+        else if (mode === 'null') c[f] = null;
+        else if (mode === 'empty') c[f] = '';
+        else c[f] = '   ';
+        let out;
+        try { out = compute(c); } catch { violations++; continue; }
+        checked++;
+        const verdict = out.output_payload.verdict;
+        if (POSITIVE_VERDICTS.has(verdict) || verdict === base || verdict !== 'INDETERMINATE') violations++;
+      }
+    }
+  }
+  return { name: 'P6_required_field_delete_null_blank_whitespace_never_positive', trials: checked, violations };
+}
+
+// ---------- P7: buildArtifact never throws on hash-hostile input (D6) ----------
+async function checkP7_buildArtifact_never_throws() {
+  const deep = (n) => { let o = {}; const r = o; for (let i = 0; i < n; i++) { o.x = {}; o = o.x; } return r; };
+  const big = () => new Array(1_000_001).fill(1);
+  const junk = { NaN: NaN, negInfinity: -Infinity, huge: 1e300, deep600: deep(600), bigArray: big() };
+  const cases = [];
+  for (const [n, j] of Object.entries(junk)) cases.push([`top=${n}`, j]);
+  for (const v of fixtures().vectors) {
+    const pp = v.policy_parameters;
+    if (!pp || typeof pp !== 'object') continue;
+    for (const key of Object.keys(pp)) {
+      for (const [n, j] of Object.entries(junk)) {
+        cases.push([`${v.name}:${key}=${n}`, { ...structuredClone(pp), [key]: n === 'deep600' ? deep(600) : n === 'bigArray' ? big() : j }]);
+      }
+    }
+  }
+  let violations = 0, refusals = 0;
+  for (const [label, pp] of cases) {
+    let a;
+    try { a = await buildArtifact(pp); }
+    catch (e) { violations++; console.error(`P7 THROW ${label}: ${e && e.name}: ${e && e.message}`); continue; }
+    const h = a?.execution_hash ?? null;
+    const ref = JSON.stringify(a ?? {}).includes('hash_refusal');
+    if (h == null && ref) refusals++;
+    else if (h == null && !ref) violations++;
+  }
+  return { name: 'buildArtifact_never_throws', trials: cases.length, violations, refusals };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -207,6 +269,8 @@ results.properties.push(checkP2_tolerance_boundary_categorical());
 results.properties.push(checkP3_verdict_differential());
 results.properties.push(checkP4_boundedness());
 results.properties.push(checkP5_append_zero_component_metamorphic());
+results.properties.push(checkP6_required_fields_never_positive());
+results.properties.push(await checkP7_buildArtifact_never_throws());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 

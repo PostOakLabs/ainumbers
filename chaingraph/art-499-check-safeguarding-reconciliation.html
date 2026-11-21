@@ -98,7 +98,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 </style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-499-check-safeguarding-reconciliation.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:ee7c278f77ba168b6c221d6a703d01ad0390c884fd1551198e71f423d3fe4554">
+<meta name="kernel-digest" content="sha256:021b2bf46a48249c41d0071c0bbc622505ce924ea76878be3560d25dec9f89fa">
 <meta name="ai-tool" content="check_safeguarding_reconciliation">
 </head>
 <body>
@@ -489,9 +489,26 @@ function display(minor){
 function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 0; }
 function isoDateOrNull(v){ return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null; }
 
+/* Fail-closed mirror: a required field that is absent, null, empty or whitespace-only is missing. */
+var REQUIRED_FIELDS = ['as_of_date','currency','reconciliation_type','tolerance_minor_units'];
+function isRequiredPresent(v){
+  if (v === undefined || v === null) return false;
+  if (typeof v === 'string') return v.trim().length > 0;
+  return true;
+}
+
 function compute(pp){
   pp = pp || {};
   var rejected_inputs = [];
+  var raw_present = {
+    as_of_date: isRequiredPresent(pp.as_of_date),
+    currency: isRequiredPresent(pp.currency),
+    reconciliation_type: isRequiredPresent(pp.reconciliation_type),
+    tolerance_minor_units: isRequiredPresent(pp.tolerance_minor_units),
+  };
+  var missing_required_fields = REQUIRED_FIELDS.filter(function(f){ return !raw_present[f]; });
+  var required_missing = missing_required_fields.length > 0;
+
   var as_of_date = isoDateOrNull(pp.as_of_date);
   var currency = isNonEmptyString(pp.currency) ? pp.currency.trim().toUpperCase() : 'GBP';
   var reconciliation_type = pp.reconciliation_type === 'external' ? 'external' : 'internal';
@@ -546,9 +563,11 @@ function compute(pp){
   if (within_tolerance) verdict = 'reconciled';
   else if (difference_minor_units < 0) verdict = 'shortfall';
   else verdict = 'excess';
+  if (required_missing) verdict = 'INDETERMINATE';
 
-  var difference_direction = difference_minor_units === 0 ? 'level'
-    : (difference_minor_units < 0 ? 'resource_below_requirement' : 'resource_above_requirement');
+  var difference_direction = required_missing ? 'not_evaluated'
+    : (difference_minor_units === 0 ? 'level'
+      : (difference_minor_units < 0 ? 'resource_below_requirement' : 'resource_above_requirement'));
 
   var freqCite = reconciliation_type === 'external' ? CITATIONS.external_frequency : CITATIONS.internal_frequency;
   var typeCite = reconciliation_type === 'external' ? CITATIONS.external_reconciliation : CITATIONS.internal_reconciliation;
@@ -564,7 +583,9 @@ function compute(pp){
   if (rejected_inputs.length > 0) {
     rationale.push(rejected_inputs.length + ' supplied value' + (rejected_inputs.length === 1 ? ' was' : 's were') + ' not usable as an integer minor-unit amount or a recognised component type, and ' + (rejected_inputs.length === 1 ? 'was' : 'were') + ' treated as zero. Each one is named in rejected_inputs.');
   }
-  if (verdict === 'shortfall') {
+  if (required_missing) {
+    rationale.push('One or more required inputs are missing or blank (' + missing_required_fields.join(', ') + '). The verdict is INDETERMINATE: a reconciliation cannot be asserted on incomplete evidence, and no agreement verdict is emitted.');
+  } else if (verdict === 'shortfall') {
     rationale.push('On these figures the resource is below the requirement by more than the declared tolerance. ' + CITATIONS.discrepancy_treatment.id + ' requires a firm to pay a shortfall into a relevant funds bank account, or invest it in relevant assets, by the end of the day on which the reconciliation is performed. This is an arithmetic finding about the figures supplied here. It is not a determination that the firm has breached CASS 15, which is for the firm\'s own records and its safeguarding auditor.');
   } else if (verdict === 'excess') {
     rationale.push('On these figures the resource exceeds the requirement by more than the declared tolerance. ' + CITATIONS.discrepancy_treatment.id + ' requires a firm to withdraw an excess from the accounts holding relevant funds or relevant assets. This is an arithmetic finding about the figures supplied here, not a determination about the firm\'s compliance.');
@@ -573,6 +594,7 @@ function compute(pp){
   }
 
   var compliance_flags = [];
+  if (required_missing) compliance_flags.push('INPUT_MISSING_INDETERMINATE');
   if (verdict === 'reconciled') compliance_flags.push('SAFEGUARDING_RECONCILED');
   if (verdict === 'shortfall') { compliance_flags.push('SAFEGUARDING_SHORTFALL'); compliance_flags.push('ESCALATION_RAISED'); }
   if (verdict === 'excess') compliance_flags.push('SAFEGUARDING_EXCESS');
@@ -596,7 +618,7 @@ function compute(pp){
     difference_display: display(difference_minor_units),
     tolerance_minor_units: tolerance_minor_units,
     tolerance_display: display(tolerance_minor_units),
-    within_tolerance: within_tolerance,
+    within_tolerance: required_missing ? false : within_tolerance,
     component_count: components.length,
     components: components,
     subtotals_by_component_type: subtotals_by_component_type,
@@ -605,6 +627,7 @@ function compute(pp){
     rationale: rationale,
     note: 'Deterministic UK CASS 15 safeguarding reconciliation check over a caller-supplied figure set for one declared as-of date. Single-run and stateless: this tool holds no records, runs on no schedule, and retains nothing. The verdict is an arithmetic comparison of the supplied safeguarding resource against the supplied safeguarding requirement. It is not a determination that the firm has or has not complied with CASS 15, it is not a regulatory filing, and it is not legal advice.',
   };
+  if (required_missing) output_payload.missing_required_fields = missing_required_fields;
   return { output_payload: output_payload, compliance_flags: compliance_flags };
 }
 /* --- end mirror --- */
