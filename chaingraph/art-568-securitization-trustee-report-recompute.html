@@ -95,7 +95,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 </style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-568-securitization-trustee-report-recompute.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:d055891899f36887772e5e5edccb200703d03fa965edd3ea178f6c6933e98578">
+<meta name="kernel-digest" content="sha256:a05c9a9868a8e92ca6f96c21e1d7d68226af851f2f513be4ad0af973fc3046d9">
 </head>
 <body>
 <nav>
@@ -431,10 +431,20 @@ function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 
 function str(v, fallback){ return isNonEmptyString(v) ? v.trim() : fallback; }
 function arr(v){ return Array.isArray(v) ? v : []; }
 function obj(v){ return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }
+var REQUIRED_FIELDS = ['currency', 'deal_ref', 'indenture_ref', 'period_collections',
+  'period_label', 'tiers', 'triggers', 'trustee_reported_distribution'];
+function isFilled(v){ return v != null && !(typeof v === 'string' && v.trim() === ''); }
 
 function compute(pp){
   pp = pp || {};
   var rejected_inputs = [];
+  var required_present = {
+    currency: isFilled(pp.currency), deal_ref: isFilled(pp.deal_ref),
+    indenture_ref: isFilled(pp.indenture_ref), period_collections: isFilled(pp.period_collections),
+    period_label: isFilled(pp.period_label), tiers: isFilled(pp.tiers),
+    triggers: isFilled(pp.triggers), trustee_reported_distribution: isFilled(pp.trustee_reported_distribution),
+  };
+  var missing_required_fields = REQUIRED_FIELDS.filter(function(f){ return !required_present[f]; });
 
   var deal_ref = str(pp.deal_ref, 'UNSTATED');
   var period_label = str(pp.period_label, 'UNSTATED');
@@ -589,12 +599,17 @@ function compute(pp){
   var disagreeing = diff.filter(function(d){ return !d.agrees; });
 
   var verdict, indeterminate_reason;
+  var missingRequiredIndeterminate = false;
   if (tiers.length === 0) {
     verdict = 'INDETERMINATE';
     indeterminate_reason = 'No tier definitions were supplied, so no waterfall could be recomputed.';
   } else if (!trusteeSupplied) {
     verdict = 'INDETERMINATE';
     indeterminate_reason = 'No trustee-reported distribution was supplied, so the recomputed allocation has nothing to compare against.';
+  } else if (missing_required_fields.length > 0) {
+    verdict = 'INDETERMINATE';
+    indeterminate_reason = 'Required inputs absent, null, empty or whitespace-only: ' + missing_required_fields.join(', ') + '. The recompute cannot state agreement or divergence without the full required evidence.';
+    missingRequiredIndeterminate = true;
   } else {
     verdict = disagreeing.length === 0 ? 'MATCHES' : 'DIVERGES';
     indeterminate_reason = null;
@@ -638,6 +653,7 @@ function compute(pp){
   if (tiers.length === 0) compliance_flags.push('TRUSTEE_WFALL_TIER_LIST_EMPTY');
   if (total_collections_minor_units === 0) compliance_flags.push('TRUSTEE_WFALL_NO_COLLECTIONS');
   if (rejected_inputs.length > 0) compliance_flags.push('TRUSTEE_WFALL_INPUTS_REJECTED');
+  if (missingRequiredIndeterminate) compliance_flags.push('INPUT_MISSING_INDETERMINATE');
 
   var output_payload = {
     deal_ref: deal_ref, period_label: period_label, currency: currency, minor_unit_exponent: MINOR_UNIT_EXPONENT,
@@ -656,6 +672,7 @@ function compute(pp){
     fence: 'Trigger states are caller-declared booleans, never computed from market or collateral data. This kernel recomputes the arithmetic of a priority-of-payments waterfall over a caller-declared tier list and caller-supplied period collections, and compares it against the trustee-reported distribution where supplied. It is never a compliance determination, never an audit opinion, and never advice. The deal indenture governs.',
     note: 'Deterministic securitization trustee-report waterfall recomputation for one stated period. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing. It forecasts nothing, models no scenario, performs no credit or rating analysis, and makes no assertion about the compliance status of the deal.',
   };
+  if (missingRequiredIndeterminate) output_payload.missing_required_fields = missing_required_fields;
   return { output_payload: output_payload, compliance_flags: compliance_flags };
 }
 /* --- end mirror --- */
