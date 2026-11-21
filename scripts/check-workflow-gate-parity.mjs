@@ -218,6 +218,11 @@ const NOT_A_GATE = new Map([
   ["replay-house-attest.yml",
     "workflow_dispatch + daily schedule only, guarded to the upstream repository; replays the fixture corpus " +
     "and attests the result. No pull_request, push or merge_group trigger, never a required check."],
+  ["replay-witness.yml",
+    "workflow_dispatch only, guarded to forks; replays the fixture corpus on three hosted operating systems " +
+    "and attests the beacon and the result with the fork's own identity. No pull_request, push or merge_group " +
+    "trigger, never a required check. A job-level guard skips it on upstream and a source-commit guard refuses " +
+    "any fork whose checked-out commit does not exist in the upstream repository."],
   ["swh-save.yml",
     "workflow_dispatch + push tags only, continue-on-error; no pull_request or merge_group trigger, so it gates no merge."],
   ["automerge-label.yml",
