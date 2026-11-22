@@ -1,7 +1,7 @@
 // art-750-diff-evidence-bundles.proptest.mjs — class-K property-test FLOOR
 // (FV-PBT-FLOOR-BUILD-SPEC.md). Authored against the port of the root
 // bundle-diff.html comparison engine (kernel art-750, row BUNDLE-DIFF-KERNEL-1).
-// kernel_digest_at_authoring: sha256:f3e30744a005023a5cb1afdcef877f24562d6452ebe35737b28f4ee98c6d4350
+// kernel_digest_at_authoring: sha256:10f7f50fb12b12ed1dacfb63edeeee56fba0eb383eb6cb7ed6fa0cf347b26b58
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof. Internal engineering QC only.
