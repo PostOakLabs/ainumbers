@@ -26,7 +26,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-750-diff-evidence-bundles.proptest.mjs
 
-import { compute } from '../art-750-diff-evidence-bundles.kernel.mjs';
+import { compute, buildArtifact } from '../art-750-diff-evidence-bundles.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32 } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-750-diff-evidence-bundles';
@@ -235,6 +235,30 @@ function checkP8TypePreserved() {
   return { name: 'P8 number vs string never compare equal', checked, violations };
 }
 
+// P9 — a BigInt anywhere in pp is refused with the named reason, never an opaque
+// serialization error; the same refusal surfaces through buildArtifact.
+async function checkP9BigIntRefused() {
+  let checked = 0, violations = 0;
+  const ok = (h) => ({ execution_hash: h });
+  const cases = [
+    ['in-field', { bundle_a: { execution_hash: 'h', tool_version: 7n }, bundle_b: ok('h2') }],
+    ['nested', { bundle_a: { execution_hash: 'h', output_payload: { x: [{ y: 3n }] } }, bundle_b: ok('h2') }],
+    ['top-level extra', { bundle_a: ok('h'), bundle_b: ok('h2'), zzz: 10n }],
+    ['as_of', { bundle_a: ok('h'), bundle_b: ok('h2'), as_of: 5n }],
+  ];
+  for (const [label, pp] of cases) {
+    checked++;
+    try { compute(pp); violations++; console.log('  miss: ' + label + ' did not throw'); }
+    catch (e) { if (!/bigint|as_of must be/i.test(e.message)) violations++; if (label !== 'as_of' && !/^REFUSED_INPUT_UNSAFE_NUMBER/.test(e.message)) violations++; }
+    checked++;
+    try {
+      await buildArtifact(pp, {});
+      violations++;
+    } catch (e) { if (/Do not know how to serialize/i.test(e.message)) violations++; }
+  }
+  return { name: 'P9 BigInt refused with named reason', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -251,6 +275,7 @@ const properties = [
   checkP6ShapeMigrationInvariance(),
   checkP7DepthCap(),
   checkP8TypePreserved(),
+  await checkP9BigIntRefused(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — bundle-diff kernel.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
