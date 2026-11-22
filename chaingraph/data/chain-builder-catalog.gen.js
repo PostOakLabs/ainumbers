@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (772 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (773 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -8565,6 +8565,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-851-islamic-mmf-placement-limits.html",
     "description": "Checks a money market fund's placements against one pinned authority profile: the Saudi Capital Market Authority Investment Funds Regulation",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-856-ijarah-imbt-schedule",
+    "display_name": "Ijarah IMBT Rental Schedule",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-856-ijarah-imbt-schedule.html",
+    "description": "Computes a month-by-month rental schedule for an ijarah lease that ends with the lessee owning the asset, against one pinned authority profi",
     "consumes": [],
     "feeds": [],
     "status": "live"
