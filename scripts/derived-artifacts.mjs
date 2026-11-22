@@ -266,6 +266,25 @@ export const COVERED = [
     share: 'n/a (new 2026-11-21, REPLAY-COLLECT-1)',
   },
   {
+    // REPLAY-ROLL-SURFACE-1 (2026-11-22): the generated WITNESS-ROLL SECTION on the
+    // determinism explainer (chaingraph/determinism-attestation-explainer.html),
+    // rendered from data/replay-witness-roll.json by
+    // scripts/gen-replay-roll-surface.mjs between REPLAY-ROLL-SURFACE markers. A
+    // REGION writer (check-main-only-paths.mjs REGION_WRITER_IDS): a PR authors the
+    // prose around the region and carries the page; main's regen owns the region
+    // interior after merge. Ordered after 'replay-witness-roll', whose file it
+    // renders. The three summary figures are replay.* count sentinels registered in
+    // scripts/counts.mjs; the page deliberately stays out of verify-counts.mjs's
+    // scan list (the vintage-calendar.html choice at birth).
+    id: 'replay-roll-surface',
+    regen: 'node scripts/gen-replay-roll-surface.mjs',
+    gate: 'node scripts/gen-replay-roll-surface.mjs --check',
+    writes: ['chaingraph/determinism-attestation-explainer.html'],
+    artifacts: ['chaingraph/determinism-attestation-explainer.html'],
+    after: 'replay-witness-roll',
+    share: 'n/a (new 2026-11-22, REPLAY-ROLL-SURFACE-1)',
+  },
+  {
     // PROVE-BASELINE-SINGLE-WRITER-1 (2026-10-19): the §18 deferred ratchet
     // baseline joins the single-writer set. Every prove PR and node PR used to
     // edit scripts/compute-proof-baseline.json (count + deferred_nodes), so
