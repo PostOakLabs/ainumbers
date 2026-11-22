@@ -6,7 +6,7 @@
 // Properties below run over a committed mulberry32 seed (deterministic) plus a fixed corpus of
 // structural cases.
 //
-// kernel_digest_at_authoring: sha256:b8ce8e7e260662d41e52573c9cff9e684216e412ea9adc1fe1f514c70c207960
+// kernel_digest_at_authoring: sha256:c2ddcf46b3a0feaf41a421791b771c0b262d775a39dbd5e5e748a9fed4ce6ffa
 // spec: the row EVENT-POSITION-LIMIT-CHECK-1 contract plus the pinned primary text mapped in
 //   research/EVENT-POSITION-LIMIT-PIN-2026-10-30.md — per-contract/per-event/per-series max
 //   loss against CALLER-SUPPLIED accountability levels and position limits; market-maker
@@ -502,6 +502,56 @@ function checkMarketMakerMultiplierAndExemptionBoundaries() {
   return { name: 'market_maker_multiplier_boundary_and_limit_exemption_scope', checked, violations };
 }
 
+// Order-swap across contracts sharing an event (ART790-CROSS-EVENT-LABEL-REFUSE-1): the earlier
+// netting permutation test only reordered legs WITHIN one contract. Here three legs span two
+// contracts in one event and the whole positions array is permuted; a valid book must be invariant.
+function checkOrderSwapAcrossContractsSharingEvent() {
+  let checked = 0, violations = 0;
+  const legs = [
+    POSN('yes', 300, 400000, { contract_label: 'C-1', event_label: 'E-1', series_label: 'S-1', accountability_level_minor: 100 }),
+    POSN('no', 100, 400000, { contract_label: 'C-1', event_label: 'E-1', series_label: 'S-1', accountability_level_minor: 100 }),
+    POSN('yes', 100, 400000, { contract_label: 'C-2', event_label: 'E-1', series_label: 'S-1', accountability_level_minor: 100 }),
+  ];
+  const orders = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
+  const base = { ...BASE, aggregation: 'per_event', netting: 'per_contract_net' };
+  const semantic = (o) => ({ verdict: o.verdict, manual_review_required: o.manual_review_required, groups: o.groups, accountability_breaches: o.accountability_breaches, limit_breaches: o.limit_breaches });
+  const outs = orders.map((o) => semantic(RUN({ ...base, positions: o.map((i) => legs[i]) })));
+  checked += outs.length;
+  for (let i = 1; i < outs.length; i++) {
+    if (!deepEqual(outs[0], outs[i])) { violations++; console.log('  order-swap across contracts changed findings:', JSON.stringify(orders[i]), outs[0].verdict, outs[i].verdict); }
+  }
+  return { name: 'per_contract_net_order_swap_across_contracts_sharing_event_findings_invariant', checked, violations };
+}
+
+function checkCrossLabelDisagreementRefusesOrderIndependently() {
+  let checked = 0, violations = 0;
+  const mk = (aggregation, badField) => {
+    const a = POSN('yes', 300, 400000, { contract_label: 'C-1', event_label: 'E-1', series_label: 'S-1' });
+    const b = POSN('no', 100, 400000, { contract_label: 'C-1', event_label: 'E-1', series_label: 'S-1' });
+    b[badField] = badField === 'event_label' ? 'E-2' : 'S-2';
+    const c = POSN('yes', 100, 400000, { contract_label: 'C-2', event_label: 'E-1', series_label: 'S-1', accountability_level_minor: 100 });
+    return { ...BASE, aggregation, netting: 'per_contract_net', positions: [a, b, c] };
+  };
+  const cases = [
+    ['per_event', 'event_label', 'CROSS_EVENT_LABEL_REFUSED'],
+    ['per_series', 'series_label', 'CROSS_SERIES_LABEL_REFUSED'],
+  ];
+  for (const [agg, field, flag] of cases) {
+    const pp = mk(agg, field);
+    for (const p of [pp, { ...pp, positions: [...pp.positions].reverse() }]) {
+      checked++;
+      const op = RUN(p);
+      if (op.verdict !== 'REFUSED' || !FLAGRUN(p).includes(flag) || op.refusal.field !== field) {
+        violations++; console.log('  cross-label disagreement not refused order-independently:', agg, flag, op.verdict, op.refusal && op.refusal.flag);
+      }
+    }
+    checked++;
+    const pc = RUN({ ...pp, aggregation: 'per_contract' });
+    if (pc.verdict === 'REFUSED') { violations++; console.log('  per_contract must not refuse a cross-label netting book'); }
+  }
+  return { name: 'cross_event_series_label_disagreement_refused_order_independently', checked, violations };
+}
+
 // (D6) buildArtifact_never_throws: an input whose {policy_parameters, output_payload} preimage the
 // shared canonicalizer would reject mints an artifact with a null execution_hash and a
 // hash_refusal beside it; a clean input (accepted or refused) gets a 64-hex hash.
@@ -556,6 +606,8 @@ const properties = [
   checkNettingBoundaryAgainstAccountabilityLevel(),
   checkConflictingLevelsLimitsBases(),
   checkMarketMakerMultiplierAndExemptionBoundaries(),
+  checkOrderSwapAcrossContractsSharingEvent(),
+  checkCrossLabelDisagreementRefusesOrderIndependently(),
   await checkBuildArtifactNeverThrows(),
 ];
 const ok = summarize(KERNEL_ID, oracle, properties);
