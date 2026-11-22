@@ -1,0 +1,56 @@
+name: Replay Witness Collect
+
+# Daily collector for the witness roll. Lists the forks of this repository, asks each for
+# attestations on the corpus beacon, verifies every bundle (fork as owner, the replay-witness
+# workflow path, a GitHub-hosted runner, a source commit that is an ancestor of upstream main),
+# and counts per module digest how many distinct accounts reproduced it.
+#
+# Never red and never required: every step is non-fatal and the collector script exits 0 in
+# --collect mode. It never commits anything. data/replay-witness-roll.json is a derived artifact
+# written on main by scripts/derived-artifacts.mjs (id 'replay-witness-roll'); this run uploads
+# the roll it measured as a workflow artifact and opens one issue per corpus digest that has a
+# disagreement. Never runs on merge_group or pull_request, no secrets beyond the job token.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '41 5 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    if: github.repository == 'PostOakLabs/ainumbers'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      - name: Collect witnesses
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/collect-replay-witnesses.mjs --collect --out collect-out
+
+      - name: Upload the measured roll
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: replay-witness-roll
+          path: collect-out/
+          if-no-files-found: ignore
