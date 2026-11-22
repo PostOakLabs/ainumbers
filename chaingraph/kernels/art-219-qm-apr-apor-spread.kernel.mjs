@@ -80,7 +80,7 @@ export function compute(pp) {
     }
   }
 
-  const general_qm_pass = spread < applicable_threshold - 1e-5; // strict less-than, floating-point margin
+  const general_qm_pass = spread < applicable_threshold; // strict less-than (spread is already rounded to 4 dp)
 
   // HPCT determination (Higher-Priced Covered Transaction)
   const hpct_threshold = lien_type === 'subordinate' ? HPCT_THRESHOLD_SUB_LIEN : HPCT_THRESHOLD_FIRST_LIEN;
@@ -96,7 +96,9 @@ export function compute(pp) {
     qm_status = 'general_qm_safe_harbor'; // passes QM and below HPCT = safe harbor
   }
 
-  const headroom = r4(applicable_threshold - spread);
+  // Largest further APR increase (on the 0.0001 grid) that still passes: one grid step short of the threshold.
+  // When failing, the figure stays the plain overshoot (threshold - spread, negative).
+  const headroom = general_qm_pass ? r4(applicable_threshold - 0.0001 - spread) : r4(applicable_threshold - spread);
 
   const compliance_flags = [];
   if (!general_qm_pass) compliance_flags.push('QM_APR_SPREAD_FAIL');

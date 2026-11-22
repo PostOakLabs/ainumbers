@@ -1,5 +1,5 @@
 // art-521-settlement-asset-backing-invariant.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C26-1).
-// kernel_digest_at_authoring: sha256:2c62975ee6e29f7fd6568274a00305cd6d0043e1c89119d37e1e5d16ce3371ef
+// kernel_digest_at_authoring: sha256:24195f661d8fa2a4cdf5ea9970cfc695d57e506c90845ab36360b135d04408ca
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:2fccd34d45ee83dbb10844e720e1c4469b6f63bec1243d60757849f139768803
+// kernel_digest_at_authoring: sha256:b46504aaf19f7328d23e517a0f5d26d2be1dc38d52599bc2e66b52ac3dd1959e
 //
 // FV-PROPFLOOR-SHARD-B6-1 — property-test floor for art-213-perp-liquidation-calculator.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (margin/liquidation math is continuous

@@ -79,7 +79,7 @@ export function compute(pp) {
 
   let health;
   if (buffer_pct > 100) health = 'GREEN';
-  else if (buffer_pct > 0) health = 'AMBER';
+  else if (buffer >= 0) health = 'AMBER'; // a mark exactly at the maintenance threshold is not yet below it
   else health = 'RED';
 
   // Portfolio margin mode (spot offset)
