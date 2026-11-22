@@ -115,7 +115,7 @@ if (!existsSync(dataPath)) {
   const committed = JSON.parse(readFileSync(dataPath, 'utf8')).hashes ?? {};
   for (const [name, hash] of ssot) {
     if (!(name in committed)) problems.push(`(1) ${name}: missing from committed set ${DATA_REL}`);
-    else if (committed[name] !== hash) problems.push(`(1) ${name}: committed ${committed[name].slice(0, 12)}… != SSOT recompute ${hash.slice(0, 12)}…`);
+    else if (committed[name] !== hash) problems.push(`(1) ${name}: committed ${committed[name].slice(0, 12)}… != SSOT recompute ${String(hash).slice(0, 12)}…`);
   }
   for (const name of Object.keys(committed)) {
     if (!ssot.has(name)) problems.push(`(3) ${name}: stale entry in committed set (chain gone)`);
