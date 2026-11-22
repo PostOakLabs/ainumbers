@@ -219,6 +219,17 @@ if (MERGE_GROUP_DERIVED_ROOT) {
 // full-estate scan, so nothing here weakens what CI checks.
 const changedIdx = process.argv.indexOf('--changed');
 const changedRef = changedIdx !== -1 ? process.argv[changedIdx + 1] : null;
+// DERIVED-SELFTEST-SPEED-1: on merge_group CI the workflow invokes preflight
+// bare (no --changed), so the live scan used to execute the ENTIRE declared set
+// — measured 1,455,996 ms / 1,226,873 ms on runs 44951224902 / 44949079663 —
+// even for a kernel-only or workflow-only push touching none of those entries'
+// inputs. `origin/main` is resolvable in that job (asserted in scripts-verify.yml).
+// The gate's --changed mode selects by regen/gate script and declared artifact
+// (a SUPERSET of what the push can affect), so every command the touched paths
+// can affect still runs; pull_request and the workflow_run/main leg still run
+// the FULL live scan as the coverage backstop. DERIVED_REGEN_LIVE_FULL=1 forces
+// the full scan unchanged.
+const regenLiveChangedRef = changedRef || (process.env.GITHUB_EVENT_NAME === 'merge_group' ? 'origin/main' : null);
 const BUDGET_MS = 60_000;
 
 // The two §18 freshness commands (ratchet + fixture proof) that read the PR-only scratch assembly.
@@ -2634,7 +2645,7 @@ const GATES = [
   // touch derived-artifacts.mjs or a generator/gate script it names.
   ['Derived-set regen selftest fixture proof (SO #40b pairing)', 'node scripts/check-derived-regen-live.test.mjs'],
   ...(DERIVED_REGEN_LIVE_SCOPE_TOUCHED
-    ? [['Derived-set live regen selftest (DERIVED-SET-SELFTEST-1)', 'node scripts/check-derived-regen-live.mjs --check' + ((changedRef && process.env.DERIVED_REGEN_LIVE_FULL !== '1') ? ' --changed ' + changedRef : '')]]
+    ? [['Derived-set live regen selftest (DERIVED-SET-SELFTEST-1)', 'node scripts/check-derived-regen-live.mjs --check' + ((regenLiveChangedRef && process.env.DERIVED_REGEN_LIVE_FULL !== '1') ? ' --changed ' + regenLiveChangedRef : '')]]
     : [['Derived-set live regen selftest (DERIVED-SET-SELFTEST-1: no derived-artifacts/generator path touched, skipped)', 'node -e "1"',
         { notRun: 'DERIVED-SET-SELFTEST-1 scoping — this push touches no scripts/derived-artifacts.mjs or generator/gate script it names, so the live regen self-test (which actually executes every regen command) was not run' }]]),
   // MERGEQUEUE-GATE-PARITY-1: the control for the merge-queue repairability probe
