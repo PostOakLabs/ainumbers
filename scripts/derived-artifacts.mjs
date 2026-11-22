@@ -251,6 +251,20 @@ export const COVERED = [
     share: 'n/a (new 2026-11-14, REPLAY-HOUSE-SIGN-1)',
   },
   {
+    // REPLAY-COLLECT-1 (2026-11-21): the WITNESS ROLL. Per module digest, how many distinct accounts
+    // reproduced it. The module table is a function of the tracked corpus and the house line; the
+    // witnesses come from scripts/collect-replay-witnesses.mjs, which holds the ones already in the
+    // file unless GH_TOKEN is set, so a token-less regen and --verify are a byte-stable fixpoint.
+    // No PR hand-edits it (prAbsentOk, SO #35).
+    id: 'replay-witness-roll',
+    regen: 'node scripts/collect-replay-witnesses.mjs --write',
+    gate: 'node scripts/collect-replay-witnesses.mjs --check',
+    writes: ['data/replay-witness-roll.json'],
+    artifacts: ['data/replay-witness-roll.json'],
+    prAbsentOk: true,
+    share: 'n/a (new 2026-11-21, REPLAY-COLLECT-1)',
+  },
+  {
     // PROVE-BASELINE-SINGLE-WRITER-1 (2026-10-19): the §18 deferred ratchet
     // baseline joins the single-writer set. Every prove PR and node PR used to
     // edit scripts/compute-proof-baseline.json (count + deferred_nodes), so
@@ -1920,6 +1934,17 @@ export const DERIVED_ROOT_GATES = new Set([
   // assembled tree. The file itself is hand-signed (EXCLUDED, never regen-written); the gate is not
   // COVERED, so membership is awareness classification only.
   'node scripts/check-webmcp-snapshot-fresh.mjs',            // snapshot expiry freshness (overlay-reads the signed snapshot)
+  // DERIVED-READER-BURNDOWN-CHAIN-DOMAIN-1 (2026-11-05): chain-domain reads the monolith through
+  // derivedResolve, so a new chain's missing/invalid domain reds in the queue, not post-regen.
+  'node scripts/check-chain-domain.mjs',                     // chain domain enum (reads the monolith's chains)
+  // DERIVED-READER-BURNDOWN-CHAIN-STEP-STATUS-1: chain-step-status overlay-reads the monolith's chains/nodes through derivedResolve, so a departed step node reds in the queue, not post-regen.
+  'node scripts/check-chain-step-status.mjs',                 // chain step status (reads the monolith's chains + nodes)
+  // DERIVED-READER-BURNDOWN-CHAIN-EDGE-CONTRACTS-1: the L1 edge-contract advisory overlay-reads the monolith's chains + adjacency through derivedResolve, so an edge-contradicting chain reds in the queue on the assembled tree, not post-regen.
+  'node scripts/check-chain-edge-contracts.mjs --quiet --json', // L1 chain edge contracts (reads the monolith's chains + adjacency)
+  // DERIVED-READER-BURNDOWN-CHAIN-L2-CONTRACTS-1: the L2 contract-composition advisory overlay-reads the monolith through derivedResolve (its chain shards still overlay on top at run time), so a contract-composition red shows in the queue on the assembled tree, not post-regen.
+  'node scripts/check-chain-l2-contracts.mjs --quiet --json', // L2 chain contract composition (reads the monolith's chains + nodes + manifests)
+  // DERIVED-READER-BURNDOWN-KERNEL-COVERAGE-1: kernel-coverage overlay-reads the monolith and the kernel index through derivedResolve, so a new gpu:false node whose registration is still regen-pending reds in the queue on the assembled tree, not post-regen.
+  'node scripts/check-kernel-coverage.mjs',                  // kernel coverage (reads the monolith + kernels/index.mjs)
 ]);
 
 // S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1 (2026-10-31): derivedRoot/derivedResolve moved VERBATIM
