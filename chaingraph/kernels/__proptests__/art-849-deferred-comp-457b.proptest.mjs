@@ -1,5 +1,5 @@
 // art-849-deferred-comp-457b — class-K property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
-// kernel_digest_at_authoring: sha256:f94903a31cdb2168d5ee01d09822d63d83a4a3ecf872fcf2eba30b227e193415
+// kernel_digest_at_authoring: sha256:934f9c5a9463a8e2bcc73e259bb61ddd7acd0363c584a8b5dfc7aeb29ad0966a
 // spec: board/claimed/APEX-T2-44-DEFERRED-COMP-457B-1.md (SPEC.md §12 compute binding, §17 kernel identity)
 // human_sign_off: PENDING
 //
