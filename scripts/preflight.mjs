@@ -2015,6 +2015,14 @@ const GATES = [
   ['Replay house line controls (REPLAY-HOUSE-SIGN-1)', 'node scripts/replay-house-line.selftest.mjs'],
   ['Replay witness roll freshness (single-writer main regen, REPLAY-COLLECT-1)', 'node scripts/collect-replay-witnesses.mjs --check'],
   ['Replay witness collector controls (REPLAY-COLLECT-1)', 'node scripts/collect-replay-witnesses.selftest.mjs'],
+  // REPLAY-ROLL-SURFACE-1: the generated witness-roll section on the determinism
+  // explainer. COVERED id 'replay-roll-surface' (advisory-on-PR, blocking-on-main via
+  // the exact-string downgrade); the command string must stay byte-identical to the
+  // COVERED gate or the downgrade misses it. The wiring is also the generator
+  // coverage meta-gate's requirement (SSOT-GATES-1 §G2.5): a --check generator must
+  // be wired here.
+  ['Replay roll surface freshness (single-writer main regen, REPLAY-ROLL-SURFACE-1)', 'node scripts/gen-replay-roll-surface.mjs --check'],
+  ['Replay roll surface controls (REPLAY-ROLL-SURFACE-1)', 'node scripts/gen-replay-roll-surface.selftest.mjs'],
   ['OCG integrator profile freshness (OCG-INTEGRATOR-PROFILE-1)', 'node scripts/gen-integrator-profile.mjs --check'],
   ['Chain-builder catalog freshness (CHAINBUILDER-CATALOG-GEN-1)', 'node scripts/gen-chainbuilder-catalog.mjs --check'],
   ['Hub node-card coverage (HUB-GEN-1)', 'node scripts/gen-chaingraph-hub.mjs --check'],
