@@ -116,6 +116,26 @@ import {
 
 export const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
+// REGEN-OWNS-FACT-STAMPS-1: the fact-stamp pilot pages, enumerated exactly the way
+// scripts/gen-fact-stamps.mjs enumerates them — data/bank-fact-freshness.json
+// entries through its own node→page mapping (art-* → chaingraph/<node>.html, else
+// tools/<node>.html). Mirrored as a local helper instead of imported: the
+// generator is script-style (its module body RUNS a write pass on import — the
+// REGEN-ESCAPE-GUARD-ALL-PREFIXES-1 class), so it cannot export its page list the
+// way gen-chain-ask-agent.mjs / gen-hub-scenes.mjs do. The generator's own
+// bidirectional region check guarantees this sidecar-derived set always equals
+// the set of pages carrying a FACT-STAMP region, so the declaration can never
+// drift from what the generator writes. Sorted for a stable declaration.
+function factStampPages() {
+  const sidecar = JSON.parse(readFileSync(join(REPO, 'data', 'bank-fact-freshness.json'), 'utf8'));
+  const pages = new Set();
+  for (const entry of Array.isArray(sidecar.entries) ? sidecar.entries : []) {
+    const node = String(entry.node || '');
+    pages.add(node.startsWith('art-') ? `chaingraph/${node}.html` : `tools/${node}.html`);
+  }
+  return [...pages].sort();
+}
+
 /**
  * The covered set. One entry per generator invocation.
  *   id       — stable slug, used by workflow steps to name the advisory gate
@@ -249,6 +269,35 @@ export const COVERED = [
     artifacts: ['data/replay-house-line.json'],
     prAbsentOk: true,
     share: 'n/a (new 2026-11-14, REPLAY-HOUSE-SIGN-1)',
+  },
+  {
+    // REGEN-OWNS-FACT-STAMPS-1 (2026-11-22): the visible "Verified YYYY-MM-DD
+    // against …" stamps (FACT-STAMPS-PILOT-1) join the single-writer set.
+    // Measured cause: main was red 03:35Z-11:31Z because #3244 restamped
+    // verified_on in data/bank-fact-freshness.json without rerunning
+    // gen-fact-stamps.mjs — 7 pages' FACT-STAMP regions drifted, the hard
+    // preflight gate redded every open PR, and merge-lane paused on main-red
+    // for 8 h (heal #3247). The derived-artifacts regen repairs main after
+    // every merge, but only for generators LISTED here — owning the writer
+    // here is the fix (SO #35 shape, no new gate invented).
+    // Region-only writer by construction: the generator splices bytes strictly
+    // inside FACT-STAMP:START..END and errors on any page/entry mismatch; it
+    // never reorders or rewrites page content outside the region. The page
+    // list is the generator's own enumeration (factStampPages() above, mirrored
+    // because the generator is script-style and cannot be imported), never
+    // hand-typed. Writes happen on a runtime path (one region per sidecar
+    // page), so `writes:` is declared explicitly. Idempotent: pure function of
+    // the committed sidecar + page bytes, no wall clock (generator header,
+    // DETERMINISTIC). No `after:` edge: its region span is disjoint from every
+    // other pass-internal writer of these pages (e.g. node-page-footers' footer
+    // span), and each writer re-reads the file, so any order converges to the
+    // same fixpoint.
+    id: 'fact-stamps',
+    regen: 'node scripts/gen-fact-stamps.mjs',
+    gate: 'node scripts/gen-fact-stamps.mjs --check',
+    writes: factStampPages(),
+    artifacts: factStampPages(),
+    share: 'n/a (new 2026-11-22, REGEN-OWNS-FACT-STAMPS-1)',
   },
   {
     // PROVE-BASELINE-SINGLE-WRITER-1 (2026-10-19): the §18 deferred ratchet
