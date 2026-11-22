@@ -1,0 +1,283 @@
+{
+  "tool_id": "art-852-se-tax-and-deductions",
+  "inventory_version": "1.0.0",
+  "authored_at": "2026-11-21",
+  "error_direction": "conservative_toward_no_finding",
+  "error_direction_rationale": "Every output is exact integer-cents arithmetic over the caller's values, so the only approximation direction is the Additional Medicare threshold reduction: the statute reduces the threshold by section 3121(b)(2) wages, while this node's single wage input is OASDI wages, so Medicare-only wages above the OASDI base understate the Additional Medicare Tax. That direction is conservative toward no finding and is mitigated by the named WAGE_INPUT_ABOVE_BASE_DIVERGENCE flag (reachable, fixture v14). No other output can understate.",
+  "derived_from": [
+    {
+      "digest": "sha256:dfca0a19366596b5c25b2ca59ba171da5b863cb67359d2b534a56ab38034ea29",
+      "clause_path": "26 USC 1401(a), 1401(b)(1), 1401(b)(2)(A)(i)-(iii), 1401(b)(2)(B)"
+    },
+    {
+      "digest": "sha256:e1616d901c48260493d66533f5f3ed5bbd8c31007c984c3da6831267a6096225",
+      "clause_path": "26 USC 1402(a), 1402(a)(12), 1402(b)(1), 1402(b)(2), 1402(j)(1)-(4)"
+    },
+    {
+      "digest": "sha256:29fa3d6aad3bb13062a34e113ecc5a96d254f5c4fac0d56acc79a2c20be395b7",
+      "clause_path": "26 USC 164(f)(1)"
+    },
+    {
+      "digest": "sha256:be17ce85ab0aaaf270294f252e5858bb51c6b28ca26633fa427ee922ab44acd9",
+      "clause_path": "SSA contribution and benefit base table, 2025 and 2026 rows, with self-employment rates"
+    },
+    {
+      "digest": "sha256:bd5fe467a1b810cc9094a9d1c89c1455566c087f9d017a36f7a3da1632fdfeaa",
+      "clause_path": "Instructions for Schedule SE (Form 1040) (2026): floors, church employee income, combined businesses"
+    },
+    {
+      "digest": "sha256:8a27c3aa9d603ea38f11bcd5da1f707cd54fc49da5d2a03218c42bfc099ee6e7",
+      "clause_path": "Instructions for Form 8959 (2025): threshold chart, SE income at Schedule SE line 6, wage reduction, line 13"
+    },
+    {
+      "digest": "sha256:dc8d54b7db06dfc145d25e0a3ad389294ffff6c5da4d57db6b272b82776a49b5",
+      "clause_path": "Pub 334 (2025) ch.1 rate split and wage-base rule; ch.10 regular method times 92.35 percent"
+    }
+  ],
+  "branches": [
+    {
+      "id": "oasdi-rate",
+      "clause": "26 USC 1401(a)",
+      "branch": "A tax of 12.4 percent on self-employment income.",
+      "disposition": "represented",
+      "evidence": "se_tax_oasdi"
+    },
+    {
+      "id": "hi-rate",
+      "clause": "26 USC 1401(b)(1)",
+      "branch": "A tax of 2.9 percent on self-employment income, with no maximum [SSA table; Pub 334 ch.1].",
+      "disposition": "represented",
+      "evidence": "se_tax_medicare"
+    },
+    {
+      "id": "additional-medicare-thresholds",
+      "clause": "26 USC 1401(b)(2)(A)",
+      "branch": "A 0.9 percent tax on self-employment income above 250000 dollars on a joint return, one half of that amount for a married taxpayer filing separately, and 200000 dollars in any other case, for taxable years beginning after December 31, 2012.",
+      "disposition": "represented",
+      "evidence": "additional_medicare_threshold"
+    },
+    {
+      "id": "threshold-wage-reduction",
+      "clause": "26 USC 1401(b)(2)(B)",
+      "branch": "The applicable threshold is reduced, but not below zero, by wages taken into account under section 3121(b)(2).",
+      "disposition": "represented",
+      "evidence": "additional_medicare_threshold_reduced"
+    },
+    {
+      "id": "medicare-only-wage-gap",
+      "clause": "26 USC 1401(b)(2)(B) with Form 8959 (2025) total-Medicare-wage reduction",
+      "branch": "The instructions reduce the threshold by TOTAL Medicare wages, while the caller input carries OASDI wages only, so Medicare-only wages above the OASDI base escape the reduction.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "WAGE_INPUT_ABOVE_BASE_DIVERGENCE",
+        "payload_marker": "warnings",
+        "reachability_vector": {
+          "tax_year": 2025,
+          "filing_status": "single",
+          "net_se_profit": 200000,
+          "w2_wages_ss": 176100
+        },
+        "fixture": "art-852-se-tax-and-deductions.fixtures.json#v14-wages-at-base"
+      }
+    },
+    {
+      "id": "net-earnings-factor",
+      "clause": "26 USC 1402(a)(12) with Pub 334 ch.10",
+      "branch": "Net earnings from self-employment are gross income less the attributable deduction equal to net earnings times one half of the sum of the 1401(a) and 1401(b)(1) rates, i.e. 92.35 percent of profit.",
+      "disposition": "represented",
+      "evidence": "net_earnings"
+    },
+    {
+      "id": "oasdi-cap-coordination",
+      "clause": "26 USC 1402(b)(1)",
+      "branch": "The 12.4 percent tax applies only to net earnings up to the excess of the year contribution and benefit base over the wages taken into account under section 3121(b)(2).",
+      "disposition": "represented",
+      "evidence": "oasdi_taxable_net_earnings"
+    },
+    {
+      "id": "non-church-floor",
+      "clause": "26 USC 1402(b)(2)",
+      "branch": "No tax arises on net earnings below 400 dollars; the floor is applied to non-church net earnings separately.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "BELOW_NET_EARNINGS_FLOOR",
+        "payload_marker": "warnings",
+        "reachability_vector": {
+          "tax_year": 2025,
+          "filing_status": "single",
+          "net_se_profit": 175,
+          "w2_wages_ss": 0
+        },
+        "fixture": "art-852-se-tax-and-deductions.fixtures.json#v6-pub334-ex4-below-floor"
+      }
+    },
+    {
+      "id": "church-income-floor",
+      "clause": "26 USC 1402(j)(2)(B) with Schedule SE (2026) 108.28 dollar floor",
+      "branch": "Church employee income below 108.28 dollars is excluded (the 100 dollar substituted net-earnings floor over 92.35 percent reproduces the income floor).",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "CHURCH_BELOW_FLOOR",
+        "payload_marker": "warnings",
+        "reachability_vector": {
+          "tax_year": 2026,
+          "filing_status": "single",
+          "net_se_profit": 0,
+          "w2_wages_ss": 0,
+          "church_employee_income": 50
+        },
+        "fixture": "art-852-se-tax-and-deductions.fixtures.json#v11-church-below-floor"
+      }
+    },
+    {
+      "id": "church-net-earnings-floor",
+      "clause": "26 USC 1402(j)(2)(B)",
+      "branch": "The 100 dollar net-earnings floor applies to church income separately; church net earnings below 100 dollars contribute nothing even when the income passes the 108.28 filing floor.",
+      "disposition": "represented",
+      "evidence": "church_net_earnings"
+    },
+    {
+      "id": "church-deduction-keeps-92-35",
+      "clause": "26 USC 1402(j)(3)",
+      "branch": "The 1402(a)(12) deduction applies to church employee income notwithstanding 1402(j)(1), so church income scales by 92.35 percent like all other earnings.",
+      "disposition": "represented",
+      "evidence": "church_net_earnings"
+    },
+    {
+      "id": "half-deduction-excludes-additional-tax",
+      "clause": "26 USC 164(f)(1)",
+      "branch": "The deduction is one half of the 1401 taxes OTHER THAN the 1401(b)(2) tax, so the Additional Medicare Tax is excluded from the deduction base.",
+      "disposition": "represented",
+      "evidence": "half_se_deduction"
+    },
+    {
+      "id": "year-keyed-base",
+      "clause": "SSA contribution and benefit base table",
+      "branch": "The base is year-specific (176100 for 2025, 184500 for 2026); it is never extrapolated to an unpinned year.",
+      "disposition": "represented",
+      "evidence": "oasdi_base"
+    },
+    {
+      "id": "unpinned-year",
+      "clause": "SSA base table plus Schedule SE (2026) What's New",
+      "branch": "Any tax_year absent from the pinned year table computes nothing, because no base or optional-method constant may be extrapolated to it.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "LOOKUP_YEAR_UNAVAILABLE",
+        "payload_marker": "refusal_code",
+        "reachability_vector": {
+          "tax_year": 2024,
+          "filing_status": "single",
+          "net_se_profit": 100000,
+          "w2_wages_ss": 0
+        },
+        "fixture": "art-852-se-tax-and-deductions.fixtures.json#v12-year-2024-refused"
+      }
+    },
+    {
+      "id": "fiscal-year-filers",
+      "clause": "Schedule SE (2026) Fiscal Year Filers; Pub 334 ch.10",
+      "branch": "A fiscal-year filer must use the rate and base in effect when the fiscal year begins; this node is calendar-year keyed and a caller who cannot express a calendar year is refused rather than approximated.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "LOOKUP_YEAR_UNAVAILABLE",
+        "payload_marker": "refusal_code",
+        "reachability_vector": {
+          "tax_year": 20250701,
+          "filing_status": "single",
+          "net_se_profit": 50000,
+          "w2_wages_ss": 0
+        },
+        "fixture": "art-852-se-tax-and-deductions.fixtures.json#v12-year-2024-refused"
+      }
+    },
+    {
+      "id": "optional-methods",
+      "clause": "26 USC 1402(a) optional-method sentences and 1402(l); Schedule SE (2026) Part II; Pub 334 ch.10",
+      "branch": "The farm and nonfarm optional methods are out of this version's compute path; a request for them refuses by name instead of falling through to the regular method.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "OPTIONAL_METHOD_UNSUPPORTED",
+        "payload_marker": "refusal_code",
+        "reachability_vector": {
+          "tax_year": 2025,
+          "filing_status": "single",
+          "net_se_profit": 100000,
+          "w2_wages_ss": 0,
+          "method": "nonfarm"
+        },
+        "fixture": "art-852-se-tax-and-deductions.fixtures.json#v17-optional-method-refused"
+      }
+    },
+    {
+      "id": "loss-not-considered",
+      "clause": "Form 8959 (2025) instructions; Schedule SE (2026) combined businesses",
+      "branch": "A self-employment loss is not considered for this tax; the caller supplies the combined figure across businesses, so a negative combined profit floors at zero and is flagged.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "LOSS_NOT_CONSIDERED",
+        "payload_marker": "warnings",
+        "reachability_vector": {
+          "tax_year": 2025,
+          "filing_status": "single",
+          "net_se_profit": -2000,
+          "w2_wages_ss": 0
+        },
+        "fixture": "art-852-se-tax-and-deductions.fixtures.json#v15-loss-not-considered"
+      }
+    },
+    {
+      "id": "values-only-inputs",
+      "clause": "Values-only input contract (estate rule; spec section 1.3)",
+      "branch": "Every input is a value; a present null, a wrong type, a non-finite number or an out-of-domain string refuses with a named code and never coerces, and a hostile preimage never throws out of buildArtifact.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "REFUSED_INPUT_NOT_IN_ENUM",
+        "payload_marker": "refusal_code",
+        "reachability_vector": {
+          "tax_year": 2025,
+          "filing_status": null,
+          "net_se_profit": 100000,
+          "w2_wages_ss": 0
+        },
+        "fixture": "art-852-se-tax-and-deductions.fixtures.json#v18-hostile-present-null-refused"
+      }
+    },
+    {
+      "id": "combined-businesses-offset",
+      "clause": "Schedule SE (2026) More Than One Business; Pub 334 ch.10",
+      "branch": "A loss in one business offsets another inside the combined figure the caller supplies; the node does not take per-business inputs.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "net_se_profit as the single combined figure across businesses",
+        "source": "the caller's own Schedule C / Schedule F totals and the instructions' combine rule",
+        "owner": "the caller supplying the combined profit"
+      }
+    },
+    {
+      "id": "community-property-qjv-partnership",
+      "clause": "Schedule SE (2026) Community Income, Qualified Joint Ventures, Joint Returns, Partnership Income or Loss",
+      "branch": "Allocation rules (community income, separate Schedules SE per spouse, K-1 box 14 code A) are documentation-only; the node takes one person's combined values.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "the caller's already-allocated personal combined values",
+        "source": "the caller's allocation under those rules",
+        "owner": "the caller allocating before calling"
+      }
+    },
+    {
+      "id": "rrta-compensation",
+      "clause": "Form 8959 (2025) RRTA rule and Examples 6-7",
+      "branch": "RRTA compensation is compared to the threshold separately and never reduces the SE threshold; the node models neither the RRTA-side computation nor any input for it, which is correct for the SE threshold and leaves the RRTA side unmodelled.",
+      "disposition": "unrepresented_known",
+      "error_direction": "undirected"
+    },
+    {
+      "id": "self-employed-health-insurance",
+      "clause": "26 USC 162(l) (not pinned; spec design choice)",
+      "branch": "The section 162(l) premium deduction affects income tax, not SE tax, and its only SE-adjacent interaction runs through the optional methods, which are out of this version; no input exists for it.",
+      "disposition": "unrepresented_known",
+      "error_direction": "undirected"
+    }
+  ]
+}
