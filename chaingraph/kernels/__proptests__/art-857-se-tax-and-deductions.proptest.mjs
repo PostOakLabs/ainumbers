@@ -1,5 +1,5 @@
-// art-852-se-tax-and-deductions — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:71940baab48bcc0b613ad16a814122b0fda26b32ad6c39ab6710f91a5b79da46
+// art-857-se-tax-and-deductions — class-K property-test FLOOR.
+// kernel_digest_at_authoring: sha256:07a55af7b574dbb6626f8dda1d7286cbbf23c26361bc8c889e1de3bf17696203
 // spec: SE-TAX-NODE-SPEC-2026-11 (rows SE-TAX-SPEC-1 / SE-TAX-NODE-1), sections 5, 6, 7, 8
 // human_sign_off: PENDING
 //
@@ -15,12 +15,12 @@
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
-// Run: node chaingraph/kernels/__proptests__/art-852-se-tax-and-deductions.proptest.mjs
+// Run: node chaingraph/kernels/__proptests__/art-857-se-tax-and-deductions.proptest.mjs
 
-import { compute, buildArtifact } from '../art-852-se-tax-and-deductions.kernel.mjs';
+import { compute, buildArtifact } from '../art-857-se-tax-and-deductions.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, findShapeViolations } from './_pbt-common.mjs';
 
-const KERNEL_ID = 'art-852-se-tax-and-deductions';
+const KERNEL_ID = 'art-857-se-tax-and-deductions';
 const SEED = 852;
 const N = 240;
 const STATUSES = ['single', 'mfj', 'mfs', 'hoh', 'qss'];

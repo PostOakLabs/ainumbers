@@ -1,6 +1,6 @@
 import { executionHash } from './_hash.mjs';
 
-// art-852, US federal self-employment tax (Schedule SE) recompute + cross-check.
+// art-857, US federal self-employment tax (Schedule SE) recompute + cross-check.
 // Spec: research/SE-TAX-NODE-SPEC-2026-11.md (row SE-TAX-SPEC-1, workspace-side).
 // Built by SE-TAX-NODE-1. Regular (actual-net-earnings) method only; the farm and
 // nonfarm optional methods are OUT of this version and refuse by name.
@@ -86,7 +86,7 @@ import { executionHash } from './_hash.mjs';
 // Pure ECMA-262 arithmetic: no Date, no Math.random, no Intl, no toLocaleString,
 // no TextEncoder (hashing happens only through the shared _hash.mjs import).
 
-const TOOL_ID = 'art-852-se-tax-and-deductions';
+const TOOL_ID = 'art-857-se-tax-and-deductions';
 const TOOL_VERSION = '1.0.0';
 
 export const meta = {
