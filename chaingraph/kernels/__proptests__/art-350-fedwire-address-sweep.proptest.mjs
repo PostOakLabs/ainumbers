@@ -1,5 +1,5 @@
 // art-350-fedwire-address-sweep.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C14-1).
-// kernel_digest_at_authoring: sha256:3ae08c2f86a8a34e3be03ac7e3df38b0d5d2d0ee47fda15364f8d365f6c295d2
+// kernel_digest_at_authoring: sha256:ed9a9a2b2a4e72c7ecbbdd26751431c89ec6bf9f68da27d8dcb2567cb6b999ef
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -19,8 +19,9 @@
 // Run: node chaingraph/kernels/__proptests__/art-350-fedwire-address-sweep.proptest.mjs
 
 import { compute } from '../art-350-fedwire-address-sweep.kernel.mjs';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -195,6 +196,35 @@ function checkP4_status_not_date_and_asof_propagation() {
   return { name: 'P4_deadline_null_status_string_asof_propagation_csv_edges', trials: checked, violations };
 }
 
+// ---------- P5: aux digest never writes the literal 'sha256:null' ----------
+// (a) real _hash.mjs: an unhashable value must throw or refuse, never mint 'sha256:null';
+// (b) a stub _hash.mjs whose executionHash returns null: the artifact must refuse
+//     (execution_hash null + hash_refusal), with no 'sha256:null' anywhere.
+async function checkP5_aux_digest_null_refusal() {
+  let violations = 0, checked = 0;
+  const kernelPath = path.join(__dirname, '..', 'art-350-fedwire-address-sweep.kernel.mjs');
+  const real = await import(pathToFileURL(kernelPath).href);
+  const unhashable = { records: [{ town_name: 'Springfield', country: 'US', post_code: 1e300 }] };
+  checked++;
+  try {
+    const art = await real.buildArtifact(unhashable, { now: '2026-01-01T00:00:00Z' });
+    if (JSON.stringify(art).includes('sha256:null')) violations++;
+  } catch (_e) { /* a throw is acceptable with today's hash module */ }
+
+  const dir = mkdtempSync(path.join(tmpdir(), 'art350-aux-'));
+  try {
+    writeFileSync(path.join(dir, '_hash.mjs'), 'export async function executionHash() { return null; }\n');
+    writeFileSync(path.join(dir, 'k.mjs'), readFileSync(kernelPath, 'utf8'));
+    const stubbed = await import(pathToFileURL(path.join(dir, 'k.mjs')).href);
+    const art = await stubbed.buildArtifact({ records: [{ town_name: 'A', country: 'US' }] }, { now: '2026-01-01T00:00:00Z' });
+    checked++;
+    if (art.execution_hash !== null) violations++;
+    if (!art.hash_refusal || typeof art.hash_refusal.reason !== 'string' || art.hash_refusal.detail !== 'file_digest') violations++;
+    if (JSON.stringify(art).includes('sha256:null')) violations++;
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+  return { name: 'P5_aux_digest_null_refuses_never_writes_sha256_null', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -206,6 +236,7 @@ results.properties.push(checkP1_termination());
 results.properties.push(checkP2_rollup_differential());
 results.properties.push(checkP3_categorical_boundary_forcing());
 results.properties.push(checkP4_status_not_date_and_asof_propagation());
+results.properties.push(await checkP5_aux_digest_null_refusal());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 

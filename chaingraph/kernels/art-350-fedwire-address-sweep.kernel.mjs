@@ -263,11 +263,17 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
   const { output_payload, compliance_flags, records, per_record } = compute(pp);
   const file_digest = await auxDigest(typeof pp.file_content === 'string' ? pp.file_content : records);
   const per_record_findings_digest = await auxDigest(per_record);
-  output_payload.file_digest = 'sha256:' + file_digest;
-  output_payload.per_record_findings_digest = 'sha256:' + per_record_findings_digest;
+  // A null aux digest means the shared canonicalizer refused the value. Never write the literal
+  // 'sha256:null': refuse the whole artifact (null execution_hash + hash_refusal) instead.
+  const refusedAux = file_digest === null || file_digest === undefined ? 'file_digest'
+    : per_record_findings_digest === null || per_record_findings_digest === undefined ? 'per_record_findings_digest' : null;
+  if (refusedAux === null) {
+    output_payload.file_digest = 'sha256:' + file_digest;
+    output_payload.per_record_findings_digest = 'sha256:' + per_record_findings_digest;
+  }
 
-  const hash = await executionHash(pp, output_payload);
-  return {
+  const hash = refusedAux === null ? await executionHash(pp, output_payload) : null;
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -283,4 +289,6 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (refusedAux !== null) artifact.hash_refusal = { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: refusedAux };
+  return artifact;
 }
