@@ -163,15 +163,17 @@ export function compute(pp) {
   // Fail-closed on a missing required structured-address field. Literal property reads only:
   // a dynamic pp[f] read is invisible to the static schema-read sweep. A present null or absent
   // key is not evidence of a fully-structured address, so a verdict that would otherwise be
-  // positive is downgraded to INDETERMINATE (never ready=true). An empty string is still present
-  // and follows the existing address rules. A hybrid address (AdrLine present) legitimately carries
+  // positive is downgraded to INDETERMINATE (never ready=true). An empty or whitespace-only
+  // string counts as missing (never a positive verdict). A hybrid address (AdrLine present) legitimately carries
   // only TownName of the four, so its required set is shape-scoped; requiring all four there would
   // break a valid hybrid address.
+  // Blank is missing: an empty or whitespace-only string is treated exactly like an absent field.
+  const isPresent = function(v) { return v != null && (typeof v !== 'string' || v.trim().length > 0); };
   const raw_present = {
-    address_building_number: pp.address_building_number != null,
-    address_post_code: pp.address_post_code != null,
-    address_street_name: pp.address_street_name != null,
-    address_town_name: pp.address_town_name != null,
+    address_building_number: isPresent(pp.address_building_number),
+    address_post_code: isPresent(pp.address_post_code),
+    address_street_name: isPresent(pp.address_street_name),
+    address_town_name: isPresent(pp.address_town_name),
   };
   const hasAdrLine = Array.isArray(pp.address_lines) && pp.address_lines.length > 0;
   const shapeRequired = hasAdrLine ? ['address_town_name'] : REQUIRED_ADDRESS_FIELDS;

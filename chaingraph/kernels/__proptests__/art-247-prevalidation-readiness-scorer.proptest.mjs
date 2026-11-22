@@ -162,6 +162,26 @@ async function checkBuildArtifactNeverThrows() {
   };
 }
 
+// ---------- P5: blank is missing — delete / null / "" / "   " on each required address field of a positive vector never stays positive ----------
+function checkP5_missingOrBlankNeverPositive() {
+  const base = { iban: VALID_IBAN, bic: VALID_BIC, lei: VALID_LEI, uetr: VALID_UETR, address_street_name: 'Main St', address_building_number: '1', address_post_code: '00000', address_town_name: 'Springfield', address_country: 'US' };
+  let violations = 0, checked = 0;
+  if (compute(base).output_payload.ready !== true) violations++;
+  for (const f of ['address_building_number', 'address_post_code', 'address_street_name', 'address_town_name']) {
+    for (const mode of ['delete', 'null', 'empty', 'blank']) {
+      const pp = { ...base };
+      if (mode === 'delete') delete pp[f];
+      else if (mode === 'null') pp[f] = null;
+      else if (mode === 'empty') pp[f] = '';
+      else pp[f] = '   ';
+      const { output_payload } = compute(pp);
+      checked++;
+      if (output_payload.ready === true || output_payload.verdict !== 'INDETERMINATE') violations++;
+    }
+  }
+  return { name: 'P5_missing_null_empty_blank_required_field_never_positive', trials: checked, violations };
+}
+
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
   console.error('FIXTURE ORACLE FAILED — spec/harness not trusted. Failures:', JSON.stringify(results.fixture_oracle.failures, null, 2));
@@ -171,6 +191,7 @@ if (!oracleOk) {
 results.properties.push(checkP1_monotoneReadiness());
 results.properties.push(checkP2_boundedness());
 results.properties.push(checkP3_readyAgreement());
+results.properties.push(checkP5_missingOrBlankNeverPositive());
 results.properties.push(await checkBuildArtifactNeverThrows());
 results.boundary_forced = checkP4_forced();
 
