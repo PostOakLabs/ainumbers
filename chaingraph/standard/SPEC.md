@@ -122,6 +122,9 @@ indices, which a JavaScript engine enumerates numerically, so a conforming imple
 serializes without relying on object enumeration order; conformance is checked against the RFC 8785
 author's test vectors by `jcs-rfc8785-vectors.test.mjs`.
 
+When the preimage is unhashable under I-JSON, executionHash returns null and the artifact carries
+hash_refusal {reason, detail} beside it; null is never a hash.
+
 **FORBIDDEN** (enforced by `lint-forbidden-hash.mjs`): array-replacer canonicalization
 (`JSON.stringify(x, Object.keys(x).sort())`), non-SHA-256 placeholders (`simpleHash`/djb2/FNV, any
 string mislabeled `sha256:`), hashing a reduced object different from the stored `output_payload`, or
@@ -4022,7 +4025,7 @@ This section adds no second gate and changes no existing gate; nothing emits the
 adoption is a later decision.
 
 ## §14 Changelog
-See `standard/CHANGELOG.md`. **SPEC-TEXT PASS (2026-10-22: §REVOKE-1.1a status-list encoding, staged by
+See `standard/CHANGELOG.md`. **SPEC-TEXT PASS (2026-11-22: §4 hash refusal for unhashable preimages, staged by `HASH-REFUSAL-SPEC-SCHEMA-1` from muse-lane#101 Part B (comment 7072911708, section 1); the record `spec_version` stays at whatever `chaingraph.json` carries, same separation as every prior text pass):** §4 now defines the null case the unhashable-preimage kernels already mint: when the preimage is unhashable under I-JSON, executionHash returns null and the artifact carries hash_refusal {reason, detail} beside it; null is never a hash. `openchain-graph-v0.4.schema.json` in the same change widens `$defs/artifact.execution_hash` to string-or-null (strings keep the sha256ref pattern; `$defs/sha256ref` itself stays string-only for its other consumers) and adds the OPTIONAL, hash-excluded `hash_refusal` property (closed object, required string `reason` and `detail`), with an if/then pair requiring `hash_refusal` whenever `execution_hash` is null; the `schema-validate.mjs` validator subset implements if/then so the pair is enforced, and `check()` routes by key PRESENCE so a null-hash artifact validates against `$defs/artifact` instead of falling through to the root catalog. `node chaingraph/standard/schema-validate.mjs --self-test` red/green-proves the contract in-process (null plus refusal validates; null without refusal fails at artifact level; a routing-regression tripwire; a string-hash regression guard; a strict-hash_refusal-shape check). No kernel bytes, no `required[]` change on existing members, no derived artifact regenerated, `chaingraph_version` stays `"0.4.0"`, and absence of `hash_refusal` on every already-shipped hash-bearing artifact stays fully conformant. **SPEC-TEXT PASS (2026-10-22: §REVOKE-1.1a status-list encoding, staged by
 `SPEC-REVOKE1-ENCODING-1`; the record `spec_version` stays at whatever `chaingraph.json` carries, same
 separation as every prior text pass):** §REVOKE-1.1a fixes the interoperable encoding of a published
 §REVOKE-1 status list. The W3C Bitstring Status List form is the SHOULD: GZIP of the status bitstring,
