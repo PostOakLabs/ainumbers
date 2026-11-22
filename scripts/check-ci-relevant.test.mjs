@@ -62,6 +62,36 @@ assert(filesHit('html-verify', docsOnly) === false, 'docs-only change → html-v
 // ── Fixture 4: ordinary first-party code not in any glob stays irrelevant ───
 assert(filesHit('html-verify', ['tools/_lib/render.mjs']) === false, 'non-HTML first-party module → html-verify hit=false (globs still decide)');
 
+// ── Fixture 5: data-fed page files must not skip their owning preflight ─────
+// DATA-FED-PAGE-PAIRING-1 (muse-lane #102 Part C). Measured defect: PR #3244
+// changed only data/bank-fact-freshness.json, data/reg-deadlines.json and
+// deadline-wall.html; no scripts-verify glob matched, "Full preflight gate
+// suite" skipped, the hard gen-fact-stamps --check and check-deadline-freshness
+// gates never ran on the PR or in the merge group, and main went red after
+// merge (2026-11-22, 03:35Z-11:31Z). Each file below feeds a hard preflight
+// gate; a PR touching only that file must be judged relevant. Generators the
+// derived regen owns stay absent on purpose (their gates are advisory on a PR
+// and the regen heals main).
+const dataFedCases = [
+  ['data/bank-fact-freshness.json', 'feeds gen-fact-stamps --check'],
+  ['data/topic-links.json', 'feeds apply-topic-links (52 pages)'],
+  ['data/reg-deadlines.json', 'pairs with deadline-wall.html via check-deadline-freshness'],
+  ['data/standards-watch.json', 'feeds check-standards-drift'],
+  ['deadline-wall.html', 'page half of the reg-deadlines pairing'],
+  ['data/helm-kit/README.md', 'helm-kit input tree feeds gen-helm-openclaw-snippets'],
+];
+for (const [f, why] of dataFedCases) {
+  assert(filesHit('scripts-verify', [f]) === true, `data-fed page file (${why}) → scripts-verify hit=true`);
+}
+assert(
+  filesHit('scripts-verify', ['data/bank-fact-freshness.json', 'data/reg-deadlines.json', 'deadline-wall.html']) === true,
+  'incident replay: PR #3244 exact file list → scripts-verify hit=true',
+);
+// ── Fixture 5 control: an unrelated data/ file stays irrelevant ─────────────
+// The derived regen owns data/suite-map.json's consumers, so its gates are
+// advisory on a PR and main's regen heals; skipping stays correct for it.
+assert(filesHit('scripts-verify', ['data/suite-map.json']) === false, 'regen-owned data/ file → scripts-verify hit=false (control)');
+
 if (failures) {
   console.log(`check-ci-relevant test: ${failures} failure(s)`);
   process.exit(1);
