@@ -156,7 +156,16 @@ const proptestContent = render('proptest.template.mjs', { TOOL_ID, CLASS, DIGEST
 // golden-parity see a consistent fixture from the first commit (never a hand-built preimage).
 const { executionHash } = await import(pathToFileURL(resolve(REPO, 'chaingraph', 'kernels', '_hash.mjs')).href);
 const fixturesDoc = JSON.parse(render('fixtures.template.json', { TOOL_ID }));
-for (const v of fixturesDoc.vectors) v.golden_hash = await executionHash(v.policy_parameters, v.output_payload);
+for (const v of fixturesDoc.vectors) {
+  const golden = await executionHash(v.policy_parameters, v.output_payload);
+  if (golden === null) {
+    // HASH-REFUSAL-GUARDS-SCRIPTS-1: HASH-REFUSAL-SHARED-1 makes executionHash
+    // return null on unhashable input. Fail loudly before anything is written —
+    // never scaffold a fixtures file whose golden_hash is null.
+    throw new Error(`new-kernel: executionHash returned null (unhashable stub vector) for ${TOOL_ID}.fixtures.json; refusing to write a null golden_hash`);
+  }
+  v.golden_hash = golden;
+}
 const fixturesContent = JSON.stringify(fixturesDoc, null, 2) + '\n';
 const shardContent = render('shard.template.json', {
   TOOL_ID, DISPLAY_NAME, MCP_NAME, MANDATE_TYPE, WAVE, URL_SLUG, DIGEST, TODAY,
