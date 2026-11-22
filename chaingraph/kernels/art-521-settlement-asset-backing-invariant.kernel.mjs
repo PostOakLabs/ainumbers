@@ -274,7 +274,6 @@ export function compute(pp) {
     buffers: buffers.map((b) => ({ buffer_id: b.buffer_id, role: b.role, asset_type: b.asset_type, backs: b.backs, balance_before_minor_units: b.balance_minor_units, balance_after_minor_units: balancesWorking[b.buffer_id], min_minor_units: b.min_minor_units, max_minor_units: b.max_minor_units })),
     aggregate_backing_before_minor_units,
     aggregate_backing_before_display: display(aggregate_backing_before_minor_units),
-    aggregate_backing_headroom_minor_units: backing_applicable ? aggregate_backing_before_minor_units - required_backing_minor_units : null,
     backing_intact_before,
     breaches_before,
     aggregate_backing_after_minor_units,

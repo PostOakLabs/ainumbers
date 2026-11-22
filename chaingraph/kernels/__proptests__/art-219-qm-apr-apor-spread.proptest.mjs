@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:2a7a819615b47b4269373a751f4af26be7cdc123446d451569bed9a33dad2ecd
+// kernel_digest_at_authoring: sha256:9a3c7fb7f2a17cb3b8ba3e352f32b1d77d7d51093e23fa65165e7d3d594b106b
 //
 // FV-PROPFLOOR-SHARD-B6-1 — property-test floor for art-219-qm-apr-apor-spread.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (general_qm_pass and is_hpct are continuous
@@ -95,9 +95,8 @@ function checkP3_headroomIdentity() {
     const pp = mkPP(rand);
     const r = compute(pp);
     checked++;
-    const { applicable_threshold_pct, spread_pct, headroom_pct, general_qm_pass } = r.output_payload;
-    // passing: one 0.0001 grid step short of the threshold; failing: plain overshoot
-    const expected = general_qm_pass ? r4(applicable_threshold_pct - 0.0001 - spread_pct) : r4(applicable_threshold_pct - spread_pct);
+    const { applicable_threshold_pct, spread_pct, headroom_pct } = r.output_payload;
+    const expected = r4(applicable_threshold_pct - spread_pct);
     if (headroom_pct !== expected) violations++;
   }
   return { name: 'P3_headroom_pct_matches_r4_identity', trials: checked, violations };
