@@ -18,7 +18,9 @@ export const meta = {
   mandate_type: 'compliance_control', gpu: false,
 };
 
-const PHASES = ['pilot', 'production', 'cross_border'];
+const DEFAULT_PROFILE = 'qr_scheme';
+const GOV_PROFILE = 'gov_payment_programme';
+const PROFILES = [DEFAULT_PROFILE, GOV_PROFILE];
 const STATUSES = ['met', 'partially_met', 'not_met', 'not_applicable'];
 // Level One principles catalogue (array membership via includes: never a prototype-chain lookup).
 const PRINCIPLE_IDS = ['instant_payment', 'interoperable', 'pay_everywhere', 'inclusive_governance', 'low_fees', 'safe_payments', 'shared_capabilities'];
@@ -35,14 +37,38 @@ const CATALOGUE = [
   { gate_id: 'link_agreements',           category: 'cross-border link agreements', weight: 1000, blocking: { pilot: false, production: false, cross_border: true } },
 ];
 
+// gov_payment_programme profile: phased onboarding of government agencies onto a
+// collections and disbursements platform. Same engine, separate catalogue and phase set.
+// Upstream verdict references (tool 226, art-459, art-517, art-516, art-519) travel as the
+// optional evidence_ref string on a gate; the kernel never calls another node.
+const B3 = { agency_pilot: true, agency_wave: true, full_rollout: true };
+const GOV_CATALOGUE = [
+  { gate_id: 'sit_exit',                    category: 'SIT exit',                         weight: 1000, blocking: B3 },
+  { gate_id: 'uat_exit',                    category: 'UAT exit',                         weight: 1500, blocking: B3 },
+  { gate_id: 'security_pci_scope',          category: 'security review: PCI-DSS scope',   weight: 1000, blocking: B3 },
+  { gate_id: 'security_rbac',               category: 'security review: role-based access', weight: 1000, blocking: B3 },
+  { gate_id: 'security_mfa',                category: 'security review: MFA',             weight: 800,  blocking: B3 },
+  { gate_id: 'security_audit_trail',        category: 'security review: audit trail',     weight: 700,  blocking: B3 },
+  { gate_id: 'data_migration',              category: 'data migration complete',          weight: 1000, blocking: { agency_pilot: false, agency_wave: true, full_rollout: true } },
+  { gate_id: 'reconciliation_parallel_run', category: 'reconciliation parallel run',      weight: 1000, blocking: { agency_pilot: false, agency_wave: true, full_rollout: true } },
+  { gate_id: 'training_change_management',  category: 'training and change management',   weight: 800,  blocking: { agency_pilot: false, agency_wave: false, full_rollout: false } },
+  { gate_id: 'support_incident_cover',      category: 'support and incident cover',       weight: 700,  blocking: B3 },
+  { gate_id: 'agency_signoff',              category: 'agency sign-off',                  weight: 500,  blocking: B3 },
+];
+
+const PROFILE_DEFS = {
+  [DEFAULT_PROFILE]: { phases: ['pilot', 'production', 'cross_border'], catalogue: CATALOGUE, uat_gate: 'uat_completion',
+    phase_next: { pilot: 'production', production: 'cross_border', cross_border: null } },
+  [GOV_PROFILE]: { phases: ['agency_pilot', 'agency_wave', 'full_rollout'], catalogue: GOV_CATALOGUE, uat_gate: 'uat_exit',
+    phase_next: { agency_pilot: 'agency_wave', agency_wave: 'full_rollout', full_rollout: null } },
+};
+
 const WEIGHT_MIN_BP = 0;
 const WEIGHT_MAX_BP = 5000;
 const UAT_COUNT_MAX = 1000000;  // explicit upper bound on every uat_summary count
 const PRINCIPLES_MAX = 1000;    // explicit upper bound on the principles checklist length
 const GO_THRESHOLD_BP = 9750; // GO at or above, GO_WITH_CONDITIONS below (when no blocking failure)
 const STATUS_FACTOR = { met: 1, partially_met: 0.5, not_met: 0, not_applicable: 0 };
-
-const PHASE_NEXT = { pilot: 'production', production: 'cross_border', cross_border: null };
 
 function refused(reason, flag) {
   return {
@@ -54,9 +80,19 @@ function refused(reason, flag) {
 export function compute(pp) {
   pp = pp || {};
 
+  // Profile selects the gate catalogue and phase set; absent means the original QR scheme profile.
+  const profile = pp.profile === undefined ? DEFAULT_PROFILE : pp.profile;
+  if (!PROFILES.includes(profile)) {
+    return refused('profile must be one of ' + PROFILES.join(', '), 'REFUSED_INVALID_PROFILE');
+  }
+  const def = Object.hasOwn(PROFILE_DEFS, profile) ? PROFILE_DEFS[profile] : null;
+  const CATALOGUE = def.catalogue;
+  const PHASES = def.phases;
+  const PHASE_NEXT = def.phase_next;
+
   const phase = pp.phase;
   if (!PHASES.includes(phase)) {
-    return refused('phase must be one of pilot, production, cross_border', 'REFUSED_INVALID_PHASE');
+    return refused('phase must be one of ' + PHASES.join(', '), 'REFUSED_INVALID_PHASE');
   }
   if (!Array.isArray(pp.gates) || pp.gates.length === 0) {
     return refused('gates must be a non-empty array of {gate_id, status, evidence_ref?}', 'REFUSED_MISSING_GATES');
@@ -108,7 +144,8 @@ export function compute(pp) {
   // UAT exit criteria (matches the UAT pack's exit-criteria shape) override the
   // submitted uat_completion status when present.
   const compliance_flags = [];
-  let uat = submitted['uat_completion'];
+  const uatGate = def.uat_gate;
+  let uat = submitted[uatGate];
   if (pp.uat_summary !== undefined) {
     const u = pp.uat_summary;
     const isCount = v => Number.isSafeInteger(v) && v >= 0 && v <= UAT_COUNT_MAX;
@@ -119,7 +156,7 @@ export function compute(pp) {
     }
     const uatFailed = u.open_sev1 > 0 || u.passed < u.mandatory_cases;
     if (uatFailed) {
-      uat = { gate_id: 'uat_completion', status: 'not_met', evidence_ref: uat && uat.evidence_ref };
+      uat = { gate_id: uatGate, status: 'not_met', evidence_ref: uat && uat.evidence_ref };
       compliance_flags.push('UAT_EXIT_CRITERIA_FAILED');
     }
   }
@@ -129,7 +166,7 @@ export function compute(pp) {
   const resolved = [];
   const missing = [];
   for (const g of CATALOGUE) {
-    const entry = g.gate_id === 'uat_completion' && uat ? uat : submitted[g.gate_id];
+    const entry = g.gate_id === uatGate && uat ? uat : submitted[g.gate_id];
     if (!entry) {
       missing.push(g.gate_id);
       resolved.push({ gate_id: g.gate_id, category: g.category, status: 'not_met', blocking_at_phase: g.blocking[phase], weight_bp: weights[g.gate_id], evidence_ref: null });
@@ -208,6 +245,8 @@ export function compute(pp) {
     phase_next: Object.hasOwn(PHASE_NEXT, phase) ? PHASE_NEXT[phase] : null,
     decision_support_note: 'DECISION-SUPPORT DRAFT — not a supervisory or regulatory assessment of any named participant or scheme.',
   };
+  // The profile id is echoed only for non-default profiles, so default-profile outputs keep their bytes.
+  if (profile !== DEFAULT_PROFILE) output_payload.profile = profile;
 
   return { output_payload, compliance_flags };
 }
