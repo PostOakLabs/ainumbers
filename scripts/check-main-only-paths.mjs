@@ -82,6 +82,7 @@ export const REGION_WRITER_IDS = new Set([
   'node-page-footers',  // footer region on chaingraph/<n>-*.html node pages (a node PR authors its page)
   'mcp-activity-embed', // one HTML comment in index.html (index.html is whole-file via 'catalog' anyway)
   'errata-page-regions', // KERNEL-ERRATA-READER-1: table region on errata.html + vendored reader/snapshot blocks on chaingraph/receipt-bundle-verify.html (the snapshot MODULE itself is whole-file via 'errata-reader-snapshot', prAbsentOk)
+  'replay-roll-surface', // REPLAY-ROLL-SURFACE-1: witness-roll section between REPLAY-ROLL-SURFACE markers on chaingraph/determinism-attestation-explainer.html (the roll JSON itself is whole-file via 'replay-witness-roll', prAbsentOk)
 ]);
 
 // pr-autofix.yml writer-scope containment: the writers' own baseline outputs a PR may carry.
