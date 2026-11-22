@@ -366,6 +366,7 @@ function selfTest() {
     { id: 'catalog', artifacts: ['b.html'] }, { id: 'chain-ask-agent', artifacts: ['c.html'] },
     { id: 'hub-scenes', artifacts: [] }, { id: 'node-page-footers', artifacts: [] }, { id: 'root-page-footers', artifacts: [] }, { id: 'mcp-activity-embed', artifacts: [] },
     { id: 'errata-page-regions', artifacts: [] },
+    { id: 'replay-roll-surface', artifacts: [] },
     { id: 'tree', artifacts: ['dir/'] },
   ], (p) => p.endsWith('/'), []);
   check('toy: sentinel-only file is sentinel', toy.sentinel.has('a.html') && !toy.whole.has('a.html'));
