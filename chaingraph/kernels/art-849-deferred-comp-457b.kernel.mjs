@@ -130,6 +130,8 @@ export function compute(rawPp) {
   const compliance_flags = [];
   const echo = {};
   for (const k of FIELDS) echo[k] = (typeof pp[k] === 'number' && Number.isFinite(pp[k])) ? pp[k] : null;
+  // Income is echoed only; no figure depends on it. Read by name so the declaration is visibly consumed.
+  echo.annual_income_usd = (typeof pp.annual_income_usd === 'number' && Number.isFinite(pp.annual_income_usd)) ? pp.annual_income_usd : null;
 
   if (!valid_input) {
     compliance_flags.push('INPUT_REFUSED');
