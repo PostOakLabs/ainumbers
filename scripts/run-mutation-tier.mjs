@@ -51,6 +51,12 @@
  *      bound. The config entry is re-verified against the kernel's markers on
  *      every run and fails loudly on drift; see resolveSurfaceSplit().
  *
+ * Local run (MUTATION-TIER-LOCAL-STRYKER-1): set MUTATION_TIER_STRYKER_BIN to a
+ * provisioned out-of-repo Stryker entry file (WSL: /root/.ain-tools/stryker-8.7.1/
+ * node_modules/@stryker-mutator/core/bin/stryker.js) and the tier spawns
+ * `node <bin> run <config>` instead of npx. Unset = CI path, unchanged. A
+ * missing file warns and falls back to npx. See research/MUTATION-TIER-LOCAL-RUNBOOK.md.
+ *
  * Usage:
  *   node scripts/run-mutation-tier.mjs --kernel <id> [<id> ...]
  *       Scoped run over the given kernel id(s) — this is the PR-incremental
@@ -346,13 +352,41 @@ export function runProcessBounded({ cmd, args, cwd, budgetS, env }) {
   });
 }
 
-function runStryker(configPath, cwd, strykerVersion, budgetS, extraEnv = {}) {
-  const { cmd, prefixArgs } = process.platform === 'win32'
+/**
+ * MUTATION-TIER-LOCAL-STRYKER-1: pick the Stryker invocation. When
+ * MUTATION_TIER_STRYKER_BIN names an EXISTING file, run that provisioned,
+ * out-of-repo Stryker via `node <file> run <config>`. Unset (CI) or pointing at
+ * a missing file: the npx argv, byte-for-byte as before (missing file also
+ * returns a warning string for the caller to print).
+ */
+export function resolveStrykerInvocation({ env = process.env, platform = process.platform, strykerVersion, configPath, fileExists = existsSync }) {
+  const bin = env.MUTATION_TIER_STRYKER_BIN;
+  let warning = null;
+  if (bin !== undefined && bin !== '') {
+    if (fileExists(bin)) {
+      return { cmd: process.execPath, args: [bin, 'run', configPath], mode: 'local-bin', warning };
+    }
+    warning = `MUTATION_TIER_STRYKER_BIN="${bin}" does not exist; falling back to npx`;
+  }
+  const { cmd, prefixArgs } = platform === 'win32'
     ? resolveWindowsNpxInvocation()
     : { cmd: 'npx', prefixArgs: [] };
-  return runProcessBounded({
+  return {
     cmd,
     args: [...prefixArgs, '--yes', `--package=@stryker-mutator/core@${strykerVersion}`, 'stryker', 'run', configPath],
+    mode: 'npx',
+    warning,
+  };
+}
+
+function runStryker(configPath, cwd, strykerVersion, budgetS, extraEnv = {}) {
+  const inv = resolveStrykerInvocation({ strykerVersion, configPath });
+  if (inv.warning) console.warn(`[mutation-tier] WARNING: ${inv.warning}`);
+  console.log(`[mutation-tier] stryker path: ${inv.mode === 'local-bin' ? `local provisioned bin (${process.env.MUTATION_TIER_STRYKER_BIN})` : 'npx ephemeral'}, version ${strykerVersion}`);
+  const { cmd, args } = inv;
+  return runProcessBounded({
+    cmd,
+    args,
     cwd,
     budgetS,
     // Copy process.env into a NEW object so the override reaches this Stryker
