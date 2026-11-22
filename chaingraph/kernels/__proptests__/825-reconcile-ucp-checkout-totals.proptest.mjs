@@ -7,7 +7,7 @@
 // fixed corpus of structural cases: rounding-policy conformance at exact ties,
 // the 2^53 boundary, one-unit mutations, and line-order invariance.
 //
-// kernel_digest_at_authoring: sha256:a24da39dcf5cba0e968816f18137eb2f1d2bcf3c635670dabf875df78827dc6e
+// kernel_digest_at_authoring: sha256:5525a49679c62c3b69584c513931c2ad557e794ae7a375dfd74b51188dc0369f
 // spec: research/UCP-WAVE-BUILD-SPEC-2026-11-03.md — reconcile a pasted UCP
 //   (Universal Commerce Protocol, tag v2026-08-25) cart/checkout/order totals
 //   block in integer minor units; RECONCILED / MISMATCH / INDETERMINATE;
@@ -334,6 +334,10 @@ function checkRefusalCodes() {
     ['LINE_ITEMS_NOT_ARRAY', { mode: 'checkout', document: { totals: okTotals, line_items: null } }],
     ['ADJUSTMENTS_NOT_ARRAY', { mode: 'order', document: { totals: okTotals, adjustments: 'refund' } }],
     ['AMOUNT_NOT_INTEGER', { mode: 'checkout', document: { totals: [{ type: 'subtotal', amount: 9007199254740992 }, { type: 'total', amount: 0 }] } }],
+    // cure NODE-825-LINES-SUM-CURE-1: a `lines` breakdown that is not an array, or
+    // whose line amounts are not safe minor-unit integers, refuses the whole call.
+    ['LINES_NOT_ARRAY', { mode: 'checkout', document: { totals: [{ type: 'subtotal', amount: 100, lines: 'x' }, { type: 'total', amount: 100 }] } }],
+    ['LINES_AMOUNT_NOT_INTEGER', { mode: 'checkout', document: { totals: [{ type: 'subtotal', amount: 100, lines: [{ amount: 100.5 }] }, { type: 'total', amount: 100 }] } }],
   ];
   for (const [code, pp] of cases) {
     const r = compute(pp);
@@ -970,6 +974,69 @@ async function checkBuildArtifactNeverThrows() {
   return { name: 'P16-buildArtifact-never-throws', checked: m.checked, violations: m.violations };
 }
 
+// P17 — LINES-SUM MUST (R9, totals.json `lines`): "Sum of line amounts MUST equal
+// the parent entry amount." A breakdown that sums to its parent amount is clean;
+// perturbing any single line by one minor unit flags LINES_SUM_MISMATCH with the
+// expected parent amount and the observed sum. Holds at document, line and
+// adjustment level, so no level can accept a lines breakdown that does not add up.
+function checkLinesSumMust() {
+  const m = meter();
+  const rand = mulberry32(0x1E5C0DE);
+  const flags = (p) => p.violations.filter(function (v) { return v.code === 'LINES_SUM_MISMATCH'; });
+  const doc = (ls, subAmount, amount) => ({ mode: 'checkout', document: {
+    totals: [{ type: 'subtotal', amount: subAmount, lines: ls }, { type: 'total', amount: amount }],
+  } });
+
+  const lines = [{ amount: 3000 }, { amount: 2500 }, { amount: 1500 }];
+  let p = compute(doc(lines, 7000, 7000)).output_payload;
+  eqNum(m, flags(p).length, 0);
+  eqStr(m, p.verdict, 'RECONCILED');
+  for (let i = 0; i < lines.length; i++) {
+    const perturbed = lines.map(function (l, j) { return { amount: l.amount + (j === i ? 1 : 0) }; });
+    p = compute(doc(perturbed, 7000, 7000)).output_payload;
+    eqNum(m, flags(p).length, 1);
+    if (flags(p).length === 1) {
+      eqNum(m, flags(p)[0].expected, 7000);
+      eqNum(m, flags(p)[0].observed, 7001);
+      assertThat(m, flags(p)[0].path.indexOf('lines') !== -1);
+    }
+    eqStr(m, p.verdict, 'MISMATCH');
+  }
+
+  for (let t = 0; t < 60; t++) {
+    const n = 1 + Math.floor(rand() * 5);
+    const amts = [];
+    let total = 0;
+    for (let i = 0; i < n; i++) { const a = Math.floor(rand() * 5000); amts.push(a); total += a; }
+    const base = amts.map((a) => ({ amount: a }));
+    eqNum(m, flags(compute(doc(base, total, total)).output_payload).length, 0);
+    const idx = Math.floor(rand() * n);
+    const mutated = base.map(function (l, j) { return { amount: l.amount + (j === idx ? 1 : 0) }; });
+    p = compute(doc(mutated, total, total)).output_payload;
+    eqNum(m, flags(p).length, 1);
+    if (flags(p).length === 1) eqNum(m, flags(p)[0].observed, total + 1);
+  }
+
+  const lineDoc = (ls) => ({ mode: 'checkout', document: {
+    totals: [{ type: 'subtotal', amount: 7 }, { type: 'total', amount: 7 }],
+    line_items: [{ item: { id: 'x', price: 7 }, quantity: 1, totals: [{ type: 'subtotal', amount: 7, lines: ls }] }],
+  } });
+  eqNum(m, flags(compute(lineDoc([{ amount: 3 }, { amount: 4 }])).output_payload).length, 0);
+  p = compute(lineDoc([{ amount: 3 }, { amount: 3 }])).output_payload;
+  eqNum(m, flags(p).length, 1);
+  eqStr(m, p.verdict, 'MISMATCH');
+
+  const adjDoc = (ls) => ({ mode: 'order', document: {
+    totals: [{ type: 'subtotal', amount: 100 }, { type: 'total', amount: 100 }],
+    adjustments: [{ totals: [{ type: 'subtotal', amount: 5, lines: ls }, { type: 'total', amount: 5 }] }],
+  } });
+  eqNum(m, flags(compute(adjDoc([{ amount: 2 }, { amount: 3 }])).output_payload).length, 0);
+  p = compute(adjDoc([{ amount: 2 }, { amount: 2 }])).output_payload;
+  eqNum(m, flags(p).length, 1);
+
+  return { name: 'P17-lines-sum-must', checked: m.checked, violations: m.violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -994,6 +1061,7 @@ const properties = [
   checkResourceBoundEdges(),
   checkCurrencyAndDefaults(),
   await checkBuildArtifactNeverThrows(),
+  checkLinesSumMust(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — UCP cart/checkout/order totals reconcile (RECONCILED / MISMATCH / INDETERMINATE).`);
 const ok = summarize(KERNEL_ID, oracle, properties);
