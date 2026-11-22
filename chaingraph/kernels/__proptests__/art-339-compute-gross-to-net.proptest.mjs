@@ -18,7 +18,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-339-compute-gross-to-net.proptest.mjs
 
-import { compute } from '../art-339-compute-gross-to-net.kernel.mjs';
+import { compute, buildArtifact } from '../art-339-compute-gross-to-net.kernel.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -193,6 +193,34 @@ function checkP4_forced() {
   return rows;
 }
 
+// ---------- P6: BigInt in the preimage never throws out of buildArtifact ----------
+// JSON.stringify throws on BigInt, so an unguarded executionHash rejects. The artifact must
+// mint with a null execution_hash and a hash_refusal naming the path and kind, never the value.
+async function checkP6_bigintNeverThrows() {
+  let violations = 0, checked = 0;
+  const base = { tax_year: '2026', gross_wages_per_period: 3000, federal_withholding_per_period: 300, pretax_reduces_fica_and_fit: 0, post_tax_other_deductions: 0, ytd_fica_wages_before_period: 0 };
+  const cases = [
+    { ...base, gross_wages_per_period: 3000n },
+    { ...base, ytd_fica_wages_before_period: 10n },
+    { ...base, extra: { nested: [1n] } },
+  ];
+  for (const pp of cases) {
+    checked++;
+    try {
+      const a = await buildArtifact(pp);
+      if (a.execution_hash !== null) violations++;
+      if (!a.hash_refusal || a.hash_refusal.reason !== 'REFUSED_INPUT_UNSAFE_NUMBER' || !/: bigint$/.test(a.hash_refusal.detail)) violations++;
+    } catch (e) {
+      violations++;
+    }
+  }
+  // A plain input must still hash and carry no hash_refusal.
+  checked++;
+  const ok = await buildArtifact(base);
+  if (typeof ok.execution_hash !== 'string' || 'hash_refusal' in ok) violations++;
+  return { name: 'P6_bigint_in_preimage_refused_not_thrown', trials: checked, violations };
+}
+
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
   console.error('FIXTURE ORACLE FAILED — spec/harness not trusted. Failures:', JSON.stringify(results.fixture_oracle.failures, null, 2));
@@ -203,6 +231,7 @@ results.properties.push(checkP1_netPayMonotonicInDeductions());
 results.properties.push(checkP2_boundedness());
 results.properties.push(checkP3_ssCapEnforced());
 results.properties.push(checkP5_unknownYearAlwaysFailsClosed());
+results.properties.push(await checkP6_bigintNeverThrows());
 results.boundary_forced = checkP4_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
