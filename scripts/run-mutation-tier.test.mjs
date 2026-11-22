@@ -26,7 +26,7 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { copySandboxDeps, shortCircuitFixtureOracle, neutralizationTargets, decomposeMoneyMath, decomposedGateDecision, kernelTimeoutSecondsFromEnv, kernelTimeoutSecondsForKernel, mutationTrialsForKernel, mutationEnvForKernel, runProcessBounded, findDetmathMarkerRange, surfaceSplitPatch, resolveSurfaceSplit, survivorLocations, assertSurvivorsComplete, buildJsonResult, artifactConstRanges, tierOfMutantWithArtifact, tierReportWithArtifact, loadConfig } from './run-mutation-tier.mjs';
+import { copySandboxDeps, shortCircuitFixtureOracle, neutralizationTargets, decomposeMoneyMath, decomposedGateDecision, kernelTimeoutSecondsFromEnv, kernelTimeoutSecondsForKernel, mutationTrialsForKernel, mutationEnvForKernel, runProcessBounded, resolveStrykerInvocation, findDetmathMarkerRange, surfaceSplitPatch, resolveSurfaceSplit, survivorLocations, assertSurvivorsComplete, buildJsonResult, artifactConstRanges, tierOfMutantWithArtifact, tierReportWithArtifact, loadConfig } from './run-mutation-tier.mjs';
 import { mergeMutationSiblings, loadOriginalAuthorshipAllowlist } from './lib-per-kernel-config.mjs';
 import { classifyKernelSource, tierReport } from '../chaingraph/kernels/mutation-tier-split.mjs';
 
@@ -266,6 +266,22 @@ test('R9 kernelTimeoutSecondsFromEnv: default 600, integer override honored, any
     assert(threw, `"${bad}" must be rejected, never silently accepted (a typo must not remove the bound)`);
     assert(/MUTATION_TIER_KERNEL_TIMEOUT_S/.test(threw.message), `the rejection must name the env var: ${threw.message}`);
   }
+});
+
+test('R9b resolveStrykerInvocation (MUTATION-TIER-LOCAL-STRYKER-1): env unset = npx argv unchanged; env set + file exists = node <bin> run; env set + missing = npx fallback with warning', () => {
+  const base = { platform: 'linux', strykerVersion: '8.7.1', configPath: '/c/stryker.conf.json' };
+  const npxArgs = ['--yes', '--package=@stryker-mutator/core@8.7.1', 'stryker', 'run', '/c/stryker.conf.json'];
+  const unset = resolveStrykerInvocation({ ...base, env: {}, fileExists: () => true });
+  assert(unset.mode === 'npx' && unset.cmd === 'npx' && unset.warning === null, 'unset env must take the npx path with no warning');
+  assert(JSON.stringify(unset.args) === JSON.stringify(npxArgs), `unset env must keep the npx args byte-identical: ${unset.args}`);
+  const empty = resolveStrykerInvocation({ ...base, env: { MUTATION_TIER_STRYKER_BIN: '' }, fileExists: () => true });
+  assert(empty.mode === 'npx' && JSON.stringify(empty.args) === JSON.stringify(npxArgs), 'empty env must behave as unset');
+  const local = resolveStrykerInvocation({ ...base, env: { MUTATION_TIER_STRYKER_BIN: '/x/stryker.js' }, fileExists: (p) => p === '/x/stryker.js' });
+  assert(local.mode === 'local-bin' && local.cmd === process.execPath, 'existing file must spawn process.execPath');
+  assert(JSON.stringify(local.args) === JSON.stringify(['/x/stryker.js', 'run', '/c/stryker.conf.json']), `local args wrong: ${local.args}`);
+  const missing = resolveStrykerInvocation({ ...base, env: { MUTATION_TIER_STRYKER_BIN: '/nope.js' }, fileExists: () => false });
+  assert(missing.mode === 'npx' && JSON.stringify(missing.args) === JSON.stringify(npxArgs), 'missing file must fall back to the npx argv');
+  assert(/MUTATION_TIER_STRYKER_BIN/.test(missing.warning || ''), 'missing file must warn, naming the env var');
 });
 
 // R10 spawns a real child, so the sync harness above cannot drive it — awaited
