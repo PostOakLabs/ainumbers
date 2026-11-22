@@ -11,7 +11,7 @@
 <link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/art-849-deferred-comp-457b.md">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-849-deferred-comp-457b.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:934f9c5a9463a8e2bcc73e259bb61ddd7acd0363c584a8b5dfc7aeb29ad0966a">
+<meta name="kernel-digest" content="sha256:b1e1ed4f8f1f30cdf0918caca02b958d151fd33f71d27f5ac0a2ce6ec22ddc06">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#070B14;--bg2:#0d1321;--bg3:#111827;--border:#1e2d45;--body:#c8d0e0;--dim:#7a8499;--accent:#60a5fa;--teal:#2dd4bf;--gold:#e8a838;--green:#22c55e;--red:#ef4444;--amber:#E8A838;--mono:'JetBrains Mono',ui-monospace,monospace}
@@ -148,7 +148,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
   <div class="info-box">
     <div class="ib-title">Reading the results</div>
-    This is arithmetic over the figures you enter, not tax advice. Plan rules vary by employer and the plan document governs. The page holds your rates and growth assumptions fixed for the whole horizon, treats the same rate as both the growth rate of the 457(b) and the discount rate for the present-value figures, and models no state rules, no plan-type differences, no required distributions and no early-withdrawal treatment. The 2026 figures it quotes (24,500 standard deferral; 8,000 age 50 catch-up; 11,250 ages 60 to 63; special three-year catch-up up to double the limit, capped here at 49,000) come from the Apex page text and are not checked against an IRS notice, so confirm them each January. The tier shown is the smallest one that would permit your deferral; it does not test whether you qualify. The Apex page note that a governmental 457(b) carries no 10 percent early-withdrawal penalty is UNGROUNDED here and is not relied on. Every input is refused rather than corrected when it is blank or outside its range; a zero deferral is accepted as zero.
+    This is arithmetic over the figures you enter, not tax advice. Plan rules vary by employer and the plan document governs. The page holds your rates and growth assumptions fixed for the whole horizon, treats the same rate as both the growth rate of the 457(b) and the discount rate for the present-value figures, and models no state rules, no plan-type differences, no required distributions and no early-withdrawal treatment. The 2026 figures it quotes (24,500 standard deferral; 8,000 age 50 catch-up; 11,250 ages 60 to 63; special three-year catch-up up to double the limit, capped here at 49,000) follow IRS Notice 2025-67 and, for the double-limit cap, IRC 457(b)(3), so confirm them each January. The tier shown is the smallest one that would permit your deferral; it does not test whether you qualify. The Apex page note that a governmental 457(b) carries no 10 percent early-withdrawal penalty is UNGROUNDED here and is not relied on. Every input is refused rather than corrected when it is blank or outside its range; a zero deferral is accepted as zero.
   </div>
 
   <div class="card" style="margin-top:1rem">
@@ -386,6 +386,7 @@ function findHashRefusal(v, path, depth, budget) {
     if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
     return null;
   }
+  if (typeof v === 'bigint') return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': bigint' };
   if (Array.isArray(v)) {
     for (let i = 0; i < v.length; i++) {
       const x = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
@@ -550,7 +551,7 @@ function compute(rawPp) {
    The hashability walk runs first; an unhashable preimage mints execution_hash null plus hash_refusal instead of throwing. */
 function canon(v) {
   return Array.isArray(v) ? v.map(canon)
-    : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function (o, k) { o[k] = canon(v[k]); return o; }, {})
+    : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function (o, k) { o[k] = canon(v[k]); return o; }, Object.create(null))
     : v;
 }
 async function executionHashLocal(policy_parameters, output_payload) {
@@ -565,7 +566,7 @@ function signedUsd(v) { return (v >= 0 ? '+' : '') + usd(v); }
 
 /* Blank box is an absent value; anything else is read as a number and never corrected. */
 function assemblePP() {
-  const pp = {};
+  const pp = Object.create(null);
   FIELDS.forEach(function (k) {
     const raw = el(k).value.trim();
     if (raw !== '') pp[k] = Number(raw);

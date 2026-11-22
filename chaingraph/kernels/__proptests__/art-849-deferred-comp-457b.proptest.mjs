@@ -1,5 +1,5 @@
 // art-849-deferred-comp-457b — class-K property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
-// kernel_digest_at_authoring: sha256:934f9c5a9463a8e2bcc73e259bb61ddd7acd0363c584a8b5dfc7aeb29ad0966a
+// kernel_digest_at_authoring: sha256:b1e1ed4f8f1f30cdf0918caca02b958d151fd33f71d27f5ac0a2ce6ec22ddc06
 // spec: board/claimed/APEX-T2-44-DEFERRED-COMP-457B-1.md (SPEC.md §12 compute binding, §17 kernel identity)
 // human_sign_off: PENDING
 //
@@ -106,7 +106,7 @@ function checkP3DeterminismShape() {
 function checkP4Refusal() {
   let checked = 0, violations = 0;
   const keys = Object.keys(basePP());
-  const bads = [undefined, null, '1', NaN, Infinity, -1, 1e300, 9007199254740993, {}, [], true];
+  const bads = [undefined, null, '1', NaN, Infinity, -1, 1e300, 9007199254740993, {}, [], true, 10n];
   for (const k of keys) {
     for (const bad of bads) {
       const pp = basePP();
@@ -124,7 +124,7 @@ function checkP4Refusal() {
   const proto = JSON.parse('{"__proto__":{"deferral_usd":1},"constructor":2}');
   checked++;
   if (compute({ ...basePP(), ...proto }).output_payload.valid_input !== true) violations++;
-  return { name: 'P4 refusal contract (deleted, null, wrong type, non-finite, unsafe, prototype names)', checked, violations };
+  return { name: 'P4 refusal contract (deleted, null, wrong type, non-finite, unsafe, bigint, prototype names)', checked, violations };
 }
 
 function checkP5Boundaries() {
@@ -165,6 +165,21 @@ async function checkP6NeverThrows() {
       const hashable = a.execution_hash !== null;
       if (!hashable && !a.hash_refusal) violations++;
       if (hashable && a.hash_refusal) violations++;
+    } catch { violations++; }
+  }
+  // BigInt shapes mint hash_refusal with the guard's own reason, never throw
+  // (direct field, top-level extra, nested extra; PR-3246-BIGINT-TEXT-CURE-1).
+  const bigs = [
+    { ...basePP(), deferral_usd: 10n },
+    { ...basePP(), zzz: 10n },
+    { ...basePP(), zzz: { a: [3n] } },
+  ];
+  for (const pp of bigs) {
+    checked++;
+    try {
+      const a = await buildArtifact(pp);
+      if (a.execution_hash !== null) violations++;
+      if (!a.hash_refusal || a.hash_refusal.reason !== 'REFUSED_INPUT_UNSAFE_NUMBER' || !a.hash_refusal.detail.endsWith(': bigint')) violations++;
     } catch { violations++; }
   }
   return { name: 'buildArtifact_never_throws', checked, violations };
