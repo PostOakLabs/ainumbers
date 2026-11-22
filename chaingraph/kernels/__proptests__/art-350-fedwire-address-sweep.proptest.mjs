@@ -18,10 +18,11 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-350-fedwire-address-sweep.proptest.mjs
 
-import { compute } from '../art-350-fedwire-address-sweep.kernel.mjs';
+import { compute, buildArtifact as realBuildArtifact } from '../art-350-fedwire-address-sweep.kernel.mjs';
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -203,21 +204,26 @@ function checkP4_status_not_date_and_asof_propagation() {
 async function checkP5_aux_digest_null_refusal() {
   let violations = 0, checked = 0;
   const kernelPath = path.join(__dirname, '..', 'art-350-fedwire-address-sweep.kernel.mjs');
-  const real = await import(pathToFileURL(kernelPath).href);
   const unhashable = { records: [{ town_name: 'Springfield', country: 'US', post_code: 1e300 }] };
   checked++;
   try {
-    const art = await real.buildArtifact(unhashable, { now: '2026-01-01T00:00:00Z' });
+    const art = await realBuildArtifact(unhashable);
     if (JSON.stringify(art).includes('sha256:null')) violations++;
   } catch (_e) { /* a throw is acceptable with today's hash module */ }
 
+  // Stub leg: run a copy of the kernel next to a null-returning _hash.mjs in a child process.
   const dir = mkdtempSync(path.join(tmpdir(), 'art350-aux-'));
   try {
     writeFileSync(path.join(dir, '_hash.mjs'), 'export async function executionHash() { return null; }\n');
     writeFileSync(path.join(dir, 'k.mjs'), readFileSync(kernelPath, 'utf8'));
-    const stubbed = await import(pathToFileURL(path.join(dir, 'k.mjs')).href);
-    const art = await stubbed.buildArtifact({ records: [{ town_name: 'A', country: 'US' }] }, { now: '2026-01-01T00:00:00Z' });
+    writeFileSync(path.join(dir, 'run.mjs'),
+      "import { buildArtifact } from './k.mjs';\n" +
+      "const a = await buildArtifact({ records: [{ town_name: 'A', country: 'US' }] });\n" +
+      'process.stdout.write(JSON.stringify(a));\n');
+    const child = spawnSync(process.execPath, [path.join(dir, 'run.mjs')], { encoding: 'utf8' });
     checked++;
+    if (child.status !== 0) { violations++; return { name: 'P5_aux_digest_null_refuses_never_writes_sha256_null', trials: checked, violations }; }
+    const art = JSON.parse(child.stdout);
     if (art.execution_hash !== null) violations++;
     if (!art.hash_refusal || typeof art.hash_refusal.reason !== 'string' || art.hash_refusal.detail !== 'file_digest') violations++;
     if (JSON.stringify(art).includes('sha256:null')) violations++;
