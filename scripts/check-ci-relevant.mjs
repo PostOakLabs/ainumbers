@@ -33,6 +33,23 @@
 import { execFileSync } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
 import { isCreditsGateScopeFile } from './check-credits-coverage.mjs';
+// DATA-FED-PAGE-PAIRING-1 (muse-lane #102 Part C): a data-only edit must not
+// skip the preflight that owns its page generator or freshness gate. Each file
+// below feeds a --check gate that is hard on a PR, but a PR touching only that
+// file was judged irrelevant, so the gate never ran (#3244, 2026-11-22). Same
+// shape as isCreditsGateScopeFile. Generators the regen covers are absent on
+// purpose: their gates are advisory on a PR and the regen heals main.
+const DATA_FED_PAGE_FILES = new Set([
+  'data/bank-fact-freshness.json',
+  'data/topic-links.json',
+  'data/reg-deadlines.json',
+  'data/standards-watch.json',
+  'deadline-wall.html',
+]);
+function isDataFedPageFile(relPath) {
+  const rel = String(relPath).replace(/\\/g, '/');
+  return DATA_FED_PAGE_FILES.has(rel) || rel.startsWith('data/helm-kit/');
+}
 import { readFileSync, appendFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -60,7 +77,7 @@ export function filesHit(key, files) {
     throw new Error(`check-ci-relevant: no entry "${key}" in scripts/ci-paths.json`);
   }
   const regexes = globs.map(globToRegex);
-  return files.some((f) => regexes.some((re) => re.test(f))) || files.some(isCreditsGateScopeFile);
+  return files.some((f) => regexes.some((re) => re.test(f))) || files.some(isCreditsGateScopeFile) || files.some(isDataFedPageFile);
 }
 
 function globToRegex(glob) {
