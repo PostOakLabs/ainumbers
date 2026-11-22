@@ -214,7 +214,8 @@ export async function runPlanChain(pageAbs, pageRel, chainName, extraGlobals = {
  * Part 2 verdict over two independent runs. Recomputes through _hash.mjs.
  * Returns { ok, problem?, hash? }.
  */
-export async function judgePart2(runA, runB) {
+export async function judgePart2(runA, runB, hashImpl = executionHash) {
+  const executionHash = hashImpl; // selftest seam (HASH-REFUSAL-GUARDS-SCRIPTS-1): defaults to the real _hash.mjs impl; the selftest stubs it to simulate HASH-REFUSAL-SHARED-1's null-on-unhashable refusal.
   for (const r of [runA, runB]) {
     if (r.network && r.network.length) return { ok: false, problem: `network access attempted: ${r.network[0]}` };
     if (!r.ok) return { ok: false, problem: r.error };
@@ -234,6 +235,7 @@ export async function judgePart2(runA, runB) {
     return { ok: false, problem: `execution_hash cannot be recomputed through _hash.mjs: ${e.message}` };
   }
   const a = strip(p.execution_hash);
+  if (recomputed === null) return { ok: false, problem: 'execution_hash recomputation refused (unhashable plan preimage)' };
   if (recomputed !== a) return { ok: false, problem: `execution_hash does not reproduce via _hash.mjs executionHash (page ${a.slice(0, 16)}…, recomputed ${recomputed.slice(0, 16)}…)` };
   const q = runB.plan;
   const b = strip(q && typeof q === 'object' ? q.execution_hash : '');
