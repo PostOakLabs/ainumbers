@@ -700,6 +700,15 @@ const PREFLIGHT_ONLY = new Map([
     "the witnesses already in data/replay-witness-roll.json and rebuilds the module table from the tracked " +
     "corpus. Its live --collect mode runs in replay-witness-collect.yml. The single writer is " +
     "derived-artifacts-regen.yml; the write half is a main-side regen command."],
+  ["gen-replay-roll-surface.mjs",
+    "Witness-roll section freshness --check (REPLAY-ROLL-SURFACE-1): the COVERED gate of " +
+    "derived-artifacts.mjs id 'replay-roll-surface' (advisory-on-PR, blocking-on-main via the generic " +
+    "downgrade). It re-renders the generated section of " +
+    "chaingraph/determinism-attestation-explainer.html from data/replay-witness-roll.json and " +
+    "byte-compares the region; the write half is a main-side regen command of derived-artifacts-regen.yml, " +
+    "never a workflow step. Reads only tracked repo files, no network. Its CI route is scripts-verify.yml " +
+    "full preflight, so a named workflow step would only duplicate the same suite."],
+  ["gen-replay-roll-surface.selftest.mjs", SELF_TEST],
   ["derived-context-detached.test.mjs", SELF_TEST],
   // ── EVREG-1 (2026-09-22) ────────────────────────────────────────────────────
   ["check-evidence-register.mjs",
