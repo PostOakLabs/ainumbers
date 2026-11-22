@@ -218,6 +218,16 @@ const NOT_A_GATE = new Map([
   ["replay-house-attest.yml",
     "workflow_dispatch + daily schedule only, guarded to the upstream repository; replays the fixture corpus " +
     "and attests the result. No pull_request, push or merge_group trigger, never a required check."],
+  ["replay-witness.yml",
+    "workflow_dispatch only, guarded to forks; replays the fixture corpus on three hosted operating systems " +
+    "and attests the beacon and the result with the fork's own identity. No pull_request, push or merge_group " +
+    "trigger, never a required check. A job-level guard skips it on upstream and a source-commit guard refuses " +
+    "any fork whose checked-out commit does not exist in the upstream repository."],
+  ["replay-witness-collect.yml",
+    "workflow_dispatch + daily schedule only, guarded to the upstream repository; lists forks, verifies witness " +
+    "attestations and uploads the measured roll as an artifact, opening one issue per corpus digest that has a " +
+    "disagreement. Every step is non-fatal. No pull_request, push or merge_group trigger, never a required check, " +
+    "commits nothing (the roll is written on main by derived-artifacts.mjs id 'replay-witness-roll')."],
   ["swh-save.yml",
     "workflow_dispatch + push tags only, continue-on-error; no pull_request or merge_group trigger, so it gates no merge."],
   ["automerge-label.yml",
@@ -672,6 +682,22 @@ const PREFLIGHT_ONLY = new Map([
     "advisory-on-PR, blocking-on-main), and the single writer is derived-artifacts-regen.yml. " +
     "Reads only tracked repo files, no network. The write half is a main-side regen command."],
   ["replay-house-line.selftest.mjs", SELF_TEST],
+  ["collect-replay-witnesses.selftest.mjs", SELF_TEST],
+  ["collect-replay-witnesses.mjs",
+    "Witness roll freshness --check (REPLAY-COLLECT-1): the COVERED gate of derived-artifacts.mjs id " +
+    "'replay-witness-roll' (prAbsentOk advisory-on-PR, blocking-on-main). Hermetic without GH_TOKEN: it holds " +
+    "the witnesses already in data/replay-witness-roll.json and rebuilds the module table from the tracked " +
+    "corpus. Its live --collect mode runs in replay-witness-collect.yml. The single writer is " +
+    "derived-artifacts-regen.yml; the write half is a main-side regen command."],
+  ["gen-replay-roll-surface.mjs",
+    "Witness-roll section freshness --check (REPLAY-ROLL-SURFACE-1): the COVERED gate of " +
+    "derived-artifacts.mjs id 'replay-roll-surface' (advisory-on-PR, blocking-on-main via the generic " +
+    "downgrade). It re-renders the generated section of " +
+    "chaingraph/determinism-attestation-explainer.html from data/replay-witness-roll.json and " +
+    "byte-compares the region; the write half is a main-side regen command of derived-artifacts-regen.yml, " +
+    "never a workflow step. Reads only tracked repo files, no network. Its CI route is scripts-verify.yml " +
+    "full preflight, so a named workflow step would only duplicate the same suite."],
+  ["gen-replay-roll-surface.selftest.mjs", SELF_TEST],
   ["derived-context-detached.test.mjs", SELF_TEST],
   // ── EVREG-1 (2026-09-22) ────────────────────────────────────────────────────
   ["check-evidence-register.mjs",
