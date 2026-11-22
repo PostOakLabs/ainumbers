@@ -16,6 +16,15 @@
 // PINNED entries always go to shard 0 (preflight pins its SERIAL_GATES and its
 // post-loop checks there). Weights decide balance only; they never select, skip or
 // reorder a gate, and a missing or stale timing file costs balance, never coverage.
+//
+// REPLICATED entries (PROPTEST-FLOOR-SHARD-1) are kept by EVERY shard — planShards
+// marks them -1 instead of a shard index — because the gate itself partitions its
+// internal workload (run-proptests.mjs --shard i/N slices the property-test estate),
+// something a balancer over whole gates cannot express. A replicated gate's weight is
+// charged to every shard's load up front so the remaining gates still balance against
+// what each shard really carries; the charge is uniform, so it cannot skew the
+// least-loaded choice. Callers must treat owner -1 as "keep on every shard".
+// Pinned wins over replicated when a label matches both.
 
 import { existsSync, readFileSync } from 'node:fs';
 
@@ -46,10 +55,10 @@ const byLabel = (a, b) => (a.label < b.label ? -1 : a.label > b.label ? 1 : a.i 
  * Assign every label to a shard.
  * @param {string[]} labels  the full run list, in declaration order (duplicates allowed)
  * @param {number} count     shard count N
- * @param {{ timings?: Record<string, number> | null, pinned?: (label: string) => boolean }} [opts]
- * @returns {number[]} shard index per label, aligned to `labels`
+ * @param {{ timings?: Record<string, number> | null, pinned?: (label: string) => boolean, replicated?: (label: string) => boolean }} [opts]
+ * @returns {number[]} shard index per label, aligned to `labels` (-1 = replicated: kept by every shard)
  */
-export function planShards(labels, count, { timings = null, pinned = () => false } = {}) {
+export function planShards(labels, count, { timings = null, pinned = () => false, replicated = () => false } = {}) {
   const items = labels.map((label, i) => ({ label, i }));
   const out = new Array(labels.length);
   const load = new Array(count).fill(0);
@@ -59,13 +68,24 @@ export function planShards(labels, count, { timings = null, pinned = () => false
   const weight = (l) => (timings && Number.isFinite(timings[l]) ? timings[l] : median);
 
   const free = [];
+  const repl = [];
   for (const it of items.sort(byLabel)) {
     if (pinned(it.label)) {
       out[it.i] = 0;
       load[0] += weight(it.label);
+    } else if (replicated(it.label)) {
+      repl.push(it);
     } else {
       free.push(it);
     }
+  }
+  // PROPTEST-FLOOR-SHARD-1: replicated entries land on every shard (-1) and their
+  // weight seeds every shard's load before the greedy pass — a uniform charge that
+  // leaves the least-loaded choice, and therefore the whole plan, balanced.
+  for (const it of repl) {
+    out[it.i] = -1;
+    const w = weight(it.label);
+    for (let s = 0; s < count; s++) load[s] += w;
   }
   if (!timings) {
     free.forEach((it, k) => { out[it.i] = k % count; });
