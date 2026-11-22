@@ -271,6 +271,20 @@ export const COVERED = [
     share: 'n/a (new 2026-11-14, REPLAY-HOUSE-SIGN-1)',
   },
   {
+    // REPLAY-COLLECT-1 (2026-11-21): the WITNESS ROLL. Per module digest, how many distinct accounts
+    // reproduced it. The module table is a function of the tracked corpus and the house line; the
+    // witnesses come from scripts/collect-replay-witnesses.mjs, which holds the ones already in the
+    // file unless GH_TOKEN is set, so a token-less regen and --verify are a byte-stable fixpoint.
+    // No PR hand-edits it (prAbsentOk, SO #35).
+    id: 'replay-witness-roll',
+    regen: 'node scripts/collect-replay-witnesses.mjs --write',
+    gate: 'node scripts/collect-replay-witnesses.mjs --check',
+    writes: ['data/replay-witness-roll.json'],
+    artifacts: ['data/replay-witness-roll.json'],
+    prAbsentOk: true,
+    share: 'n/a (new 2026-11-21, REPLAY-COLLECT-1)',
+  },
+  {
     // REGEN-OWNS-FACT-STAMPS-1 (2026-11-22): the visible "Verified YYYY-MM-DD
     // against …" stamps (FACT-STAMPS-PILOT-1) join the single-writer set.
     // Measured cause: main was red 03:35Z-11:31Z because #3244 restamped
