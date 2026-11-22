@@ -183,6 +183,20 @@ export function compute(pp) {
     detail: badAddr.length === 0 ? 'All addresses pass format check' : 'Format failures: ' + badAddr.join('; '),
   });
 
+  // Rule 7 (only on a BigInt share): a BigInt is not a JSON number, so the entry fails
+  // validation rather than reaching the config fingerprint. Absent on every other input.
+  const bigShares = [];
+  for (let q = 0; q < shares.length; q++) {
+    if (typeof shares[q].share === 'bigint') bigShares.push('entry ' + (q + 1));
+  }
+  if (bigShares.length > 0) {
+    rules.push({
+      id: 'share_type', label: 'Share values are numbers',
+      pass: false,
+      detail: 'BigInt share value at: ' + bigShares.join(', ') + ' (use a JSON number)',
+    });
+  }
+
   const allPass = rules.every(function(r) { return r.pass; });
 
   // Config fingerprint (djb2 over canonical sorted JSON)
@@ -193,7 +207,8 @@ export function compute(pp) {
       ? (e.basis_points !== undefined ? e.basis_points : (e.bps !== undefined ? e.bps : e.shares))
       : (e.percent !== undefined ? e.percent : e.pct);
     return { address: addr, share: sv };
-  }).slice().sort(function(a, b) { return a.address < b.address ? -1 : 1; }));
+  }).slice().sort(function(a, b) { return a.address < b.address ? -1 : 1; }),
+  function(_k, x) { return typeof x === 'bigint' ? x.toString() + 'n' : x; });
   const configHash = djb2Hash(canonical);
 
   const output_payload = {

@@ -1,7 +1,7 @@
 // art-710-tsv-stoppage-concurrency — class-K property test floor, authored by ART710-TSV-STOPPAGE-CONCURRENCY-1.
 // spec: RHC hooks build spec Addendum art-710 (research/rhc-hooks/RHC-HOOKS-BUILD-SPEC-2026-10-03.md),
 // SEC TSV Exemption condition H (FR 2026-19388, 91 Fed. Reg. 60176, Sept. 22, 2026)
-// kernel_digest_at_authoring: sha256:50b06c5208854d0622f2454f8578b75ca6ec066405ff1afe74d0d529b30e7e8b
+// kernel_digest_at_authoring: sha256:fc85a5f96835280aa613cc54b48d9955a7f1e7a0aa0a22e8cb51779c77e60909
 // human_sign_off: PENDING
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.

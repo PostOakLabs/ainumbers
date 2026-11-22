@@ -30,6 +30,9 @@
 // as_of_date. Nothing in compute() reads the clock, randomness or I/O.
 
 import { executionHash } from './_hash.mjs';
+// Refusal-detail formatter: JSON.stringify throws on a BigInt, so render one as `<digits>n`.
+// Output for every non-BigInt value is identical to JSON.stringify.
+const fmt = (v) => JSON.stringify(v, (_k, x) => (typeof x === 'bigint' ? `${x}n` : x));
 
 const TOOL_ID = 'art-760-espp-break-even-optimal-sell';
 const TOOL_VERSION = '1.0.0';
@@ -209,7 +212,7 @@ export function compute(pp) {
     return {
       output_payload: refusedPayload(
         'REFUSED_UNKNOWN_FILING_STATUS',
-        "filing_status must be 'single' or 'mfj'; received " + JSON.stringify(status ?? null)
+        "filing_status must be 'single' or 'mfj'; received " + fmt(status ?? null)
       ),
       compliance_flags: ['ART760_INPUT_REFUSED'],
     };
@@ -230,7 +233,7 @@ export function compute(pp) {
       return {
         output_payload: refusedPayload(
           'REFUSED_NON_FINITE_INPUT',
-          k + ' must be a finite number; received ' + JSON.stringify(numeric[k] ?? null)
+          k + ' must be a finite number; received ' + fmt(numeric[k] ?? null)
         ),
         compliance_flags: ['ART760_INPUT_REFUSED'],
       };

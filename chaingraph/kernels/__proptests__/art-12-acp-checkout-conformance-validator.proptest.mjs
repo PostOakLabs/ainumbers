@@ -1,5 +1,5 @@
 // art-12-acp-checkout-conformance-validator.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C3-1).
-// kernel_digest_at_authoring: sha256:4ee210e9f360aea1ea09609253ca4e223bc00065d42aa2a672f4ffb5a866afc2
+// kernel_digest_at_authoring: sha256:763c756ba14cdb41f480953061d41148819391d5f84b8f804c9c9ba7a2b58dbe
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
