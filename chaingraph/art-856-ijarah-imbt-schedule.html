@@ -305,7 +305,7 @@ function moneyString(v){var neg=v<0n,a=neg?-v:v;return(neg?'-':'')+a.toString();
 function readAmount(h,k,e,p,o){
   if(!hasOwn(h,k)||h[k]===null){if(o.required)refuse(e,o.code,p+'.'+k+' is required');return null;}
   var v=h[k];
-  if(typeof v!=='number'||!Number.isSafeInteger(v)||v<(o.min!==undefined?o.min:0)||v>(o.max!==undefined?o.max:MAX_MONTHLY)){refuse(e,o.code,p+'.'+k+' outside its declared integer bounds');return null;}
+  if(typeof v!=='number'||!Number.isSafeInteger(v)||v<(o.min!==undefined?o.min:0)||v>(o.max!==undefined?o.max:MAX_MONTHLY)){refuse(e,o.code,p+'.'+k+' must be an integer'+(o.max!==undefined?' up to '+o.max:'')+(o.min?' of at least '+o.min:' of at least 0')+' when present');return null;}
   return v;
 }
 function readEnum(h,k,allowed,e,p,o){
@@ -337,7 +337,7 @@ function validate(pp){
   var marginBp=null;
   if(basis==='fixed'||basis==='benchmark'){marginBp=readAmount(pp,'margin_bp',errors,'pp',{required:true,code:'REFUSED_INPUT_MARGIN',min:0,max:MAX_BP});}
   else if(hasOwn(pp,'margin_bp')&&pp.margin_bp!==null){
-    if(typeof pp.margin_bp!=='number'||!Number.isSafeInteger(pp.margin_bp)||pp.margin_bp<0||pp.margin_bp>MAX_BP)refuse(errors,'REFUSED_INPUT_MARGIN','pp.margin_bp outside its declared integer bounds');
+    if(typeof pp.margin_bp!=='number'||!Number.isSafeInteger(pp.margin_bp)||pp.margin_bp<0||pp.margin_bp>MAX_BP)refuse(errors,'REFUSED_INPUT_MARGIN','pp.margin_bp must be an integer from 0 to '+MAX_BP+' when present');
     else marginBp=pp.margin_bp;
   }
   var hasFloor=hasOwn(pp,'floor_rental_minor_units')&&pp.floor_rental_minor_units!==null;
@@ -359,7 +359,7 @@ function validate(pp){
       benchmarkPath=[];
       for(var i=0;i<pp.benchmark_path_bp.length;i++){
         var bv=pp.benchmark_path_bp[i];
-        if(typeof bv!=='number'||!Number.isSafeInteger(bv)||bv<0||bv>MAX_BP){refuse(errors,'REFUSED_INPUT_BENCHMARK_PATH','benchmark_path_bp['+i+'] outside its declared integer bounds');benchmarkPath=null;break;}
+        if(typeof bv!=='number'||!Number.isSafeInteger(bv)||bv<0||bv>MAX_BP){refuse(errors,'REFUSED_INPUT_BENCHMARK_PATH','benchmark_path_bp['+i+'] must be an integer from 0 to '+MAX_BP);benchmarkPath=null;break;}
         benchmarkPath.push(bv);
       }
     }
@@ -387,7 +387,7 @@ function validate(pp){
   if(transferMode==='sale'){transferPrice=readAmount(pp,'transfer_price_minor_units',errors,'pp',{required:true,code:'REFUSED_INPUT_TRANSFER_PRICE',max:MAX_ASSET});}
   else if(hasOwn(pp,'transfer_price_minor_units')&&pp.transfer_price_minor_units!==null)refuse(errors,'REFUSED_INPUT_INCONSISTENT','transfer_price_minor_units applies only to the sale transfer mode');
   var trigger=readEnum(pp,'wad_purchase_trigger',WAD_TRIGGERS,errors,'pp',{code:'REFUSED_INPUT_TRIGGER'});
-  if(trigger!==null&&!WAD_ALLOWED.includes(trigger))refuse(errors,'REFUSED_WAD_TRIGGER','wad_purchase_trigger '+trigger+' cannot trigger a promise to purchase; only default or breach of terms may');
+  if(trigger!==null&&!WAD_ALLOWED.includes(trigger))refuse(errors,'REFUSED_WAD_TRIGGER','wad_purchase_trigger '+trigger+' cannot trigger a wa\'d to purchase; only default or breach of terms may');
   var mutualRevision=optionalBool(pp,'mutual_revision_agreed',errors,'pp');
   var revisions=null;
   if(hasOwn(pp,'rental_revisions')&&pp.rental_revisions!==null){
@@ -505,7 +505,7 @@ async function computeHash(pp,output){
   return{hash:Array.from(new Uint8Array(digest)).map(function(b){return b.toString(16).padStart(2,'0');}).join(''),hash_refusal:null};
 }
 
-var _lastResult=null,_lastHash=null;
+var _lastResult=null,_lastHash=null,_lastHashRefusal=null;
 function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function setStatus(msg){document.getElementById('status').textContent=msg;}
 function rowCells(html){var tr=document.createElement('tr');tr.innerHTML=html;return tr;}
@@ -514,7 +514,7 @@ async function runCheck(){
   try{pp=JSON.parse(document.getElementById('ppInput').value);}catch(e){setStatus('Invalid JSON: '+e.message);return;}
   var r=compute(pp),o=r.output_payload;
   _lastResult={pp:pp,output_payload:o,compliance_flags:r.compliance_flags};
-  var h=await computeHash(pp,o);_lastHash=h.hash;
+  var h=await computeHash(pp,o);_lastHash=h.hash;_lastHashRefusal=h.hash_refusal;
   if(!o.valid_input){setStatus('Refused: '+o.refusal_code+': '+o.domain_errors[0]);document.getElementById('resultsPanel').style.display='none';document.getElementById('ap2ExportBtn').disabled=true;return;}
   var sb=document.getElementById('scheduleBody');sb.innerHTML='';
   o.schedule.forEach(function(row){
@@ -549,7 +549,7 @@ async function runCheck(){
 function exportArtifact(){
   if(!_lastResult)return;
   var a={ '@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_control',tool_id:TOOL_ID,tool_version:TOOL_VERSION,generated_at:new Date().toISOString(),execution_hash:_lastHash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[],client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
-  if(_lastHash===null)a.hash_refusal={reason:'REFUSED_INPUT_HASH_LIMIT',detail:'preimage: outside the hash limits'};
+  if(_lastHash===null)a.hash_refusal=_lastHashRefusal;
   var url=URL.createObjectURL(new Blob([JSON.stringify(a,null,2)],{type:'application/json'}));
   var link=document.createElement('a');link.href=url;link.download=TOOL_ID+'.json';link.click();URL.revokeObjectURL(url);
 }
