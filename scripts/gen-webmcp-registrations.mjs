@@ -3697,7 +3697,8 @@ const FN_EXEC_TIMEOUT_MS = 10_000;
  * Returns null when the call is sound, else the reason clause.
  * The wrapper gate imports this module, so it is loaded lazily to avoid a cycle.
  */
-export async function probeFunctionExecutes(pageSrc, fn, policyParameters, timeoutMs = FN_EXEC_TIMEOUT_MS) {
+export async function probeFunctionExecutes(pageSrc, fn, policyParameters, timeoutMs = FN_EXEC_TIMEOUT_MS, hashImpl = executionHash) {
+  const executionHash = hashImpl; // selftest seam (HASH-REFUSAL-GUARDS-SCRIPTS-1): defaults to the real _hash.mjs impl; the selftest stubs it to simulate HASH-REFUSAL-SHARED-1's null-on-unhashable refusal.
   const { makeExecuteSandbox, extractInlineScripts } = await import('./check-webmcp-wrapper-execute.mjs');
   const vm = await import('node:vm');
   const { scripts, seedElements } = extractInlineScripts(pageSrc);
@@ -3728,7 +3729,7 @@ export async function probeFunctionExecutes(pageSrc, fn, policyParameters, timeo
   }
   if (typeof returned.error === 'string') return `returned a structured error on fixture 0 (${returned.error})`;
   try {
-    await executionHash(policyParameters, readOutcome(returned));
+    const _ph = await executionHash(policyParameters, readOutcome(returned)); if (_ph === null) return 'result does not hash via executionHash (hash refused: unhashable input)';
   } catch (e) {
     return `result does not hash via executionHash (${e.message})`;
   }
@@ -4507,6 +4508,21 @@ async function selftest(){
       ? await probeDerivedPage(corruptPage, 'fx-200-wrap.html', wrapEntries(parsedCorrupt.entries, parsedCorrupt.wrapperDigest), 'run', fx0)
       : { ok: false };
     check('probe RED: a corrupted binding path fails (parse or probe)', !probeCorrupt.ok);
+
+    // HASH-REFUSAL-GUARDS-SCRIPTS-1: the null-hash refusal guard in
+    // probeFunctionExecutes. HASH-REFUSAL-SHARED-1 will make executionHash
+    // return null on unhashable input (instead of throwing); a null refusal
+    // must fail the probe — never pass it silently — while a hashing impl
+    // still passes. The stub rides the hashImpl seam (the default stays the
+    // real _hash.mjs impl).
+    const guardPage = '<!doctype html><html><head><title>fx</title></head><body><script>\n'
+      + 'function run(pp) { return { output_payload: { echo: pp.x }, compliance_flags: {} }; }\n'
+      + '</script></body></html>\n';
+    const guardRed = await probeFunctionExecutes(guardPage, 'run', { x: 1 }, FN_EXEC_TIMEOUT_MS, async () => null);
+    check('probe RED: a hash impl that refuses (returns null) fails the fn-exec probe',
+      guardRed !== null && /hash refused: unhashable input/.test(guardRed), String(guardRed));
+    const guardGreen = await probeFunctionExecutes(guardPage, 'run', { x: 1 }, FN_EXEC_TIMEOUT_MS, async () => 'a'.repeat(64));
+    check('probe GREEN: a hashing impl passes the fn-exec probe', guardGreen === null, String(guardGreen));
 
     // 15. OT token gate + meta emitter (WEBMCP-OT-META-1). RED-then-GREEN on the
     // pure gate, byte-identity on the head writer.
