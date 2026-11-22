@@ -281,7 +281,7 @@ function parseInputs(pp, refuse) {
   // A mint without a supply-limit module has no other gate that would force the
   // caller to declare token state, so recomputing against a defaulted empty state
   // fails open. Refuse with the named reason instead. Every other verdict (all
-  // transfers, and mints already fail-closed on TOTAL_SUPPLY_MISSING) is unchanged.
+  // transfers, and mints already fail closed on TOTAL_SUPPLY_MISSING, and this edit leaves that path as it was.
   if (from === ZERO && !modules.some((m) => m.type === 'supply_limit')) {
     if (tokenStateMissing) refuse('TOKEN_STATE_MISSING');
   } else if (!isObj(ts)) {

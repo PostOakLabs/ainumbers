@@ -1,5 +1,5 @@
 // art-807-erc3643-transfer-decision — class-K property-test FLOOR (KERNEL-SCAFFOLD-1 scaffold, authored).
-// kernel_digest_at_authoring: sha256:146c9e18b46a50b7cddeb6b842b39e6a0d31cfd2588ded6c32679746192b6ad6
+// kernel_digest_at_authoring: sha256:57eb0b9025c42a807ea3e257e5bcc25351ee04ccd337eca02bcd97027f8f3f77
 // spec: permissioned-token transfer decision recomputed from declared registry, claim, module and token state
 // human_sign_off: PENDING
 //
