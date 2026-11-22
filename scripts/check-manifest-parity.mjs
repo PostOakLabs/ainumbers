@@ -21,6 +21,10 @@
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// DERIVED-READER-BURNDOWN-MANIFEST-PARITY-1: the overlay resolver from the LEAF module — it
+// imports nothing from this estate, so a standalone gate spawn never drags in the
+// derived-artifacts.mjs generator graph (the cycle-safety reason the leaf exists).
+import { derivedResolve, derivedRoot } from './_derived-resolve-lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -129,7 +133,15 @@ const shortList = (ks) => ks.length <= 8 ? ks.join(', ') : ks.slice(0, 8).join('
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const CG = resolve(args.root, 'chaingraph');
-  const cg = JSON.parse(readFileSync(resolve(CG, 'chaingraph.json'), 'utf8'));
+  // DERIVED-READER-BURNDOWN-MANIFEST-PARITY-1: on merge_group the queue assembles the monolith
+  // ephemerally into $DERIVED_ROOT, so the parity check judges THAT tree — stripped, it read the
+  // committed (pre-merge) monolith and reds landed only post-regen (#2736 class). The overlay is
+  // DERIVED_ROOT-guarded: with it unset — including this selftest's --root fixture estates — every
+  // path below resolves exactly as before. Scope: chaingraph.json (chaingraph-assemble) and
+  // manifests/ (gen-manifest-examples tree writer) are main-regen COVERED reads; node pages are
+  // hand-authored, so they correctly stay on the committed tree in every context.
+  const cgPath = derivedRoot() ? derivedResolve('chaingraph', 'chaingraph.json') : resolve(CG, 'chaingraph.json');
+  const cg = JSON.parse(readFileSync(cgPath, 'utf8'));
 
   const fails = [];
   const advRows = [];
@@ -150,7 +162,9 @@ function main() {
     // Advisory class (PAGE-MANIFEST-PARITY-GATE-1): inline vs manifest file. Report-only.
     const inline = extractInlineManifest(src);
     if (!inline) { noInline++; continue; }
-    const mfPath = resolve(args.root, 'manifests', n.tool_id + '.manifest.json');
+    // manifests/ is main-regen COVERED too (gen-manifest-examples --write --landed-only), so the
+    // advisory class compares against the assembled tree's manifest file, not the stale committed one.
+    const mfPath = derivedRoot() ? derivedResolve('manifests', n.tool_id + '.manifest.json') : resolve(args.root, 'manifests', n.tool_id + '.manifest.json');
     if (!existsSync(mfPath)) { noFile++; continue; }
     let file = null;
     try { file = JSON.parse(readFileSync(mfPath, 'utf8')); } catch { badFile++; continue; }

@@ -1945,6 +1945,11 @@ export const DERIVED_ROOT_GATES = new Set([
   'node scripts/check-chain-l2-contracts.mjs --quiet --json', // L2 chain contract composition (reads the monolith's chains + nodes + manifests)
   // DERIVED-READER-BURNDOWN-KERNEL-COVERAGE-1: kernel-coverage overlay-reads the monolith and the kernel index through derivedResolve, so a new gpu:false node whose registration is still regen-pending reds in the queue on the assembled tree, not post-regen.
   'node scripts/check-kernel-coverage.mjs',                  // kernel coverage (reads the monolith + kernels/index.mjs)
+  // DERIVED-READER-BURNDOWN-MANIFEST-PARITY-1: manifest parity overlay-reads the monolith and the
+  // manifests/ tree through derivedResolve (node pages stay authored), so an inline-MANIFEST name or
+  // example-hash drift reds in the queue on the assembled tree, not post-regen; its
+  // derived-reader-allowlist entry leaves the list.
+  'node scripts/check-manifest-parity.mjs',                  // manifest parity (reads the monolith + manifests/)
 ]);
 
 // S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1 (2026-10-31): derivedRoot/derivedResolve moved VERBATIM
