@@ -39,6 +39,15 @@
  *      from a Scripts Verify red episode, and the skip lifts; a PR-owned
  *      failing step, one unlisted step among listed ones, a run newer than
  *      the recovery, or missing CI facts keep the skip.
+ *  10. REGISTRY-KEEP-1: a conflict under the registry/kernel prefix cures the
+ *      merged tree in place — the sync runs MAIN's copy of
+ *      scripts/gen-registry-kernel-resolve.mjs --write over it, stages the
+ *      subdir, and pushes only when --check is clean (the PR's new kernel
+ *      record survives, the old digest's orphan is pruned, the commit body
+ *      says so, and no gate-file copy leaks into the merge commit); a sync
+ *      with no registry paths is unchanged; a forced --check failure (a file
+ *      the generator never owns survives --write) refuses with
+ *      'registry resolve not clean after sync' and pushes nothing.
  * Run: node scripts/ci/pr-sync-main.test.mjs   (exit 0 = all green)
  */
 
@@ -52,6 +61,8 @@ import {
   waitForRegen, regenGate, planReservations, shardBytes, RESERVATIONS_LEGACY, SKIP_LABEL, MAX_ATTEMPTS_PER_HEAD, SYNC_ANYWAY_LABEL,
   MAIN_OWNED_FRESHNESS_STEPS,
 } from './pr-sync-main.mjs';
+import { canonicalRecordBytes, NEVER_LIVE_DEPENDENCY_NOTE } from '../gen-registry-kernel-resolve.mjs';
+import { sourceDigest } from '../../chaingraph/kernels/_buildid.mjs';
 import { gitEnv } from '../_git-env-lib.mjs';
 
 // Every git spawn scrubs the ambient GIT_* env (GIT-ENV-LEAK-SWEEP-1): under
@@ -417,6 +428,116 @@ try {
     assert.equal(r.ok, false);
     assert.match(r.why, /seed-check failed[\s\S]*art-950/);
     assert.equal(G(['--git-dir', origin, 'rev-parse', 'refs/heads/pr-res-seed']).trim(), seedHead);
+  });
+  // REGISTRY-KEEP-1 fixture: the claim registry's kernel-record subdir. The
+  // base record predates the shared note text (short, legacy 3-field shape),
+  // which keeps git's rename detection under threshold — the merge is the
+  // plain modify/delete shape the four 2026-11-22 PRs hit: main restamps the
+  // old record in place after a SPEC edit, while the PR's kernel moved to new
+  // bytes, so the PR's head deleted the old digest's record and carries the
+  // new digest's own record (what the PR's own regen left there).
+  const KDIRF = join(work, 'chaingraph', 'kernels');
+  const SPECDIR = join(work, 'chaingraph', 'standard');
+  const FIXV = '9.9.9-fixture';
+  const K1 = '// fixture kernel v1\nexport const art9901 = () => 1; // v1\n';
+  const K2 = '// fixture kernel v2\nexport const art9901 = () => 2; // v2\n';
+  const K3 = '// fixture kernel v3\nexport const art9901 = () => 3; // v3\n';
+  const SPEC1 = '# fixture spec\n\nscope: one fixture kernel.\n';
+  const SPEC2 = '# fixture spec\n\nscope: one fixture kernel.\n\nrestamped on main (2).\n';
+  const SPEC3 = '# fixture spec\n\nscope: one fixture kernel.\n\nrestamped on main (3).\n';
+  const [specD1, specD2, specD3, k1d, k2d, k3d] = await Promise.all([SPEC1, SPEC2, SPEC3, K1, K2, K3].map((s) => sourceDigest(s)));
+  const hex1 = k1d.slice('sha256:'.length), hex2 = k2d.slice('sha256:'.length), hex3 = k3d.slice('sha256:'.length);
+  // Legacy-shape record (pre-note era): unlike anything --write produces,
+  // which is what keeps rename detection off and the conflict deterministic.
+  const legacy = (kd, sd) => `${JSON.stringify({ kernel_digest: kd, spec_version: FIXV, spec_digest: sd }, null, 2)}\n`;
+  // What the PR's own regen leaves on its head: canonical record bytes.
+  const canon = (kd, sd) => canonicalRecordBytes({ kernel_digest: kd, spec_version: FIXV, spec_digest: sd, note: NEVER_LIVE_DEPENDENCY_NOTE });
+  const fixtureBase = (specText, kernelText) => {
+    mkdirSync(SPECDIR, { recursive: true });
+    mkdirSync(KDIRF, { recursive: true });
+    mkdirSync(join(work, 'registry', 'kernel'), { recursive: true });
+    writeFileSync(join(SPECDIR, 'SPEC.md'), specText);
+    writeFileSync(join(work, 'chaingraph', 'chaingraph.json'), `${JSON.stringify({ spec_version: FIXV, nodes: [{ tool_id: 'art-9901-x', status: 'live', gpu: false }] }, null, 2)}\n`);
+    writeFileSync(join(KDIRF, 'index.mjs'), 'export const KERNELS = {\n  \'art-9901-x\': {},\n};\n');
+    writeFileSync(join(KDIRF, 'art-9901-x.kernel.mjs'), kernelText);
+  };
+  gw(work, 'checkout', '-q', 'main');
+  fixtureBase(SPEC1, K1);
+  writeFileSync(join(work, 'registry', 'kernel', `${hex1}.json`), legacy(k1d, specD1));
+  gw(work, 'add', '.'); gw(work, 'commit', '-qm', 'registry fixture base'); gw(work, 'push', '-q', 'origin', 'HEAD:main');
+  gw(work, 'checkout', '-qb', 'pr-reg-keep', 'main');
+  fixtureBase(SPEC1, K2);
+  rmSync(join(work, 'registry', 'kernel', `${hex1}.json`));
+  writeFileSync(join(work, 'registry', 'kernel', `${hex2}.json`), canon(k2d, specD1));
+  gw(work, 'add', '.'); gw(work, 'commit', '-qam', 'pr-reg-keep'); gw(work, 'push', '-q', 'origin', 'pr-reg-keep');
+  const regKeepHead = gw(work, 'rev-parse', 'HEAD');
+  gw(work, 'checkout', '-q', 'main');
+  fixtureBase(SPEC2, K1);
+  writeFileSync(join(work, 'registry', 'kernel', `${hex1}.json`), legacy(k1d, specD2));
+  gw(work, 'commit', '-qam', 'main restamps the record after a SPEC edit'); gw(work, 'push', '-q', 'origin', 'HEAD:main');
+  const regMain2 = gw(work, 'rev-parse', 'HEAD');
+
+  t("REGISTRY-KEEP: conflict on the old record + the PR's new record → cured in place, --check clean, pushed", () => {
+    const r = syncOne({ number: 95, headRefName: 'pr-reg-keep', headRefOid: regKeepHead }, regMain2, new Set([`registry/kernel/${hex1}.json`]), work);
+    assert.equal(r.ok, true, r.why);
+    // The PR's own new record survives, re-stamped to the merged SPEC bytes;
+    // the old digest's orphan is pruned. Exactly one record remains.
+    assert.deepEqual(
+      G(['--git-dir', origin, 'ls-tree', '--name-only', r.sha, 'registry/kernel/']).trim().split('\n').sort(),
+      [`registry/kernel/${hex2}.json`],
+    );
+    assert.equal(G(['--git-dir', origin, 'show', `${r.sha}:registry/kernel/${hex2}.json`]), canon(k2d, specD2));
+    assert.match(G(['--git-dir', origin, 'log', '-1', '--format=%b', r.sha]), /Re-derived registry\/kernel on the merged tree/);
+    // Main's gate copies were laid over the merged tree and restored: the
+    // merge commit carries neither the scripts copy nor the kernel-shim copy.
+    assert.equal(G(['--git-dir', origin, 'ls-tree', '--name-only', r.sha, 'scripts/']).trim(), '');
+    assert.deepEqual(
+      G(['--git-dir', origin, 'ls-tree', '--name-only', r.sha, 'chaingraph/kernels/']).trim().split('\n').sort(),
+      ['chaingraph/kernels/art-9901-x.kernel.mjs', 'chaingraph/kernels/index.mjs'],
+    );
+  });
+  t('REGISTRY-KEEP: a sync with no registry paths is unchanged (no resolve run, records untouched)', () => {
+    gw(work, 'checkout', '-q', 'main');
+    writeFileSync(join(work, 'mcp', 'catalog.json'), '{"n":4}\n');
+    gw(work, 'commit', '-qam', 'main catalog n=4'); gw(work, 'push', '-q', 'origin', 'HEAD:main');
+    gw(work, 'checkout', '-qb', 'pr-reg-off');
+    writeFileSync(join(work, 'mcp', 'catalog.json'), '{"n":5}\n'); writeFileSync(join(work, 'src.txt'), 'pr-reg-off\n');
+    gw(work, 'commit', '-qam', 'pr-reg-off'); gw(work, 'push', '-q', 'origin', 'pr-reg-off');
+    const offHead = gw(work, 'rev-parse', 'HEAD');
+    gw(work, 'checkout', '-q', 'main');
+    writeFileSync(join(work, 'mcp', 'catalog.json'), '{"n":6}\n');
+    gw(work, 'commit', '-qam', 'main moves the catalog'); gw(work, 'push', '-q', 'origin', 'HEAD:main');
+    const catMain = gw(work, 'rev-parse', 'HEAD');
+    const recordsBefore = G(['--git-dir', origin, 'ls-tree', '-r', '--name-only', catMain, 'registry/kernel/']).trim();
+    const r = syncOne({ number: 96, headRefName: 'pr-reg-off', headRefOid: offHead }, catMain, new Set(['mcp/catalog.json']), work);
+    assert.equal(r.ok, true, r.why);
+    assert.equal(G(['--git-dir', origin, 'ls-tree', '-r', '--name-only', r.sha, 'registry/kernel/']).trim(), recordsBefore);
+    assert.equal(G(['--git-dir', origin, 'show', `${r.sha}:mcp/catalog.json`]), '{"n":6}\n');
+    assert.doesNotMatch(G(['--git-dir', origin, 'log', '-1', '--format=%b', r.sha]), /Re-derived registry\/kernel on the merged tree/);
+  });
+  // Forced --check failure: a file under registry/kernel/ the generator never
+  // owns (not a <64hex>.json record) survives --write untouched, so the
+  // mandatory --check leg reports it and the sync must refuse.
+  gw(work, 'checkout', '-q', 'main');
+  writeFileSync(join(work, 'registry', 'kernel', 'notes-from-a-human.json'), '{}\n');
+  gw(work, 'add', '.'); gw(work, 'commit', '-qm', 'main adds a non-record json under registry/kernel'); gw(work, 'push', '-q', 'origin', 'HEAD:main');
+  const notesBase = gw(work, 'rev-parse', 'HEAD');
+  gw(work, 'checkout', '-qb', 'pr-reg-checkfail', notesBase);
+  fixtureBase(SPEC2, K3);
+  rmSync(join(work, 'registry', 'kernel', `${hex1}.json`));
+  writeFileSync(join(work, 'registry', 'kernel', `${hex3}.json`), canon(k3d, specD2));
+  gw(work, 'add', '.'); gw(work, 'commit', '-qam', 'pr-reg-checkfail'); gw(work, 'push', '-q', 'origin', 'pr-reg-checkfail');
+  const checkfailHead = gw(work, 'rev-parse', 'HEAD');
+  gw(work, 'checkout', '-q', 'main');
+  fixtureBase(SPEC3, K1);
+  writeFileSync(join(work, 'registry', 'kernel', `${hex1}.json`), legacy(k1d, specD3));
+  gw(work, 'commit', '-qam', 'main restamps again'); gw(work, 'push', '-q', 'origin', 'HEAD:main');
+  const regMain3 = gw(work, 'rev-parse', 'HEAD');
+  t("REGISTRY-KEEP: a forced --check failure refuses the sync with the row's why, nothing pushed", () => {
+    const r = syncOne({ number: 97, headRefName: 'pr-reg-checkfail', headRefOid: checkfailHead }, regMain3, new Set([`registry/kernel/${hex1}.json`]), work);
+    assert.equal(r.ok, false);
+    assert.equal(r.why, 'registry resolve not clean after sync');
+    assert.equal(G(['--git-dir', origin, 'rev-parse', 'refs/heads/pr-reg-checkfail']).trim(), checkfailHead);
   });
   t('no throwaway worktree left registered', () => {
     assert.equal(gw(work, 'worktree', 'list', '--porcelain').split('\n').filter((l) => l.startsWith('worktree ')).length, 1);
