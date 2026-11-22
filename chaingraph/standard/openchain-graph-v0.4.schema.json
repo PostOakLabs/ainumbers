@@ -533,7 +533,21 @@
             { "type": "array", "items": { "type": "string" } }
           ]
         },
-        "execution_hash": { "$ref": "#/$defs/sha256ref" },
+        "execution_hash": {
+          "type": ["string", "null"],
+          "pattern": "^(sha256:)?[0-9a-f]{64}$",
+          "description": "§4 — SHA-256 over the JCS-canonical {policy_parameters, output_payload}, or null when the preimage is unhashable under I-JSON (§4 hash refusal). Only the TYPE is widened to null: strings still carry the sha256ref pattern, and $defs/sha256ref itself stays string-only for every other consumer. null is never a hash; a null execution_hash requires hash_refusal beside it (enforced by the if/then pair at the end of this $defs/artifact and by schema-validate.mjs)."
+        },
+        "hash_refusal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reason", "detail"],
+          "properties": {
+            "reason": { "type": "string" },
+            "detail": { "type": "string" }
+          },
+          "description": "§4 hash refusal (HASH-REFUSAL-SPEC-SCHEMA-1, 2026-11-22) — OPTIONAL refusal evidence carried BESIDE a null execution_hash: why the preimage was unhashable under I-JSON (reason) and the machine-readable detail (detail). Attached after hashing; excluded from the execution_hash preimage. The if/then pair at the end of this $defs/artifact requires it whenever execution_hash is null. The 797-family kernels already mint exactly {reason, detail}, both strings; absence on any hash-bearing artifact stays fully conformant."
+        },
         "chain": {
           "type": "object",
           "additionalProperties": false,
@@ -610,6 +624,15 @@
             "requesting_agent": { "$ref": "#/$defs/requestingAgent" }
           }
         }
+      },
+      "if": {
+        "required": ["execution_hash"],
+        "properties": { "execution_hash": { "type": "null" } },
+        "description": "§4 hash refusal selector (HASH-REFUSAL-SPEC-SCHEMA-1): the then-clause applies only when execution_hash is present AND null; a string execution_hash skips it, and the required[] above means the key is always present on a conformant artifact."
+      },
+      "then": {
+        "required": ["hash_refusal"],
+        "description": "§4: null is never a hash, so a null execution_hash MUST carry hash_refusal {reason, detail} beside it."
       }
     },
     "node": {
