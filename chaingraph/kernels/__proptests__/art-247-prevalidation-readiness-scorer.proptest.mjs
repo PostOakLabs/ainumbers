@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:0d7fec496a29f014fa1b460add9b9101c229c4323d8171820726a298c2720935
+// kernel_digest_at_authoring: sha256:5475cd82599248e9b0a29409e2be19f7a51aa5e147187ef179377d0c5706998a
 //
 // FV-PROPFLOOR-SHARD-B9-1 — property-test floor for art-247-prevalidation-readiness-scorer.
 // Class B (bounded categorical), float:no — IBAN mod-97/BIC/LEI/UETR/address structural checks and a
@@ -144,6 +144,9 @@ async function checkBuildArtifactNeverThrows() {
     ['junk_-Infinity', -Infinity],
     ['depth511', deep(511)],
     ['array_over_1e6', new Array(1_000_001).fill(1)],
+    ['bigint_top', 1n],
+    ['bigint_nested', { outer: { amount: 9007199254740993n } }],
+    ['bigint_in_array', [1, 2n, 3]],
   ];
   const outcomes = [];
   for (const [label, val] of cases) {
