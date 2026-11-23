@@ -501,6 +501,27 @@ export async function deriveCounts() {
     }
   } catch { /* table absent — sentinel stays unverified rather than guessing */ }
 
+  // replay.* — REPLAY-ROLL-SURFACE-1: the three quoted figures of the witness-roll
+  // section on chaingraph/determinism-attestation-explainer.html (modules in the
+  // corpus window, distinct outside accounts that reproduced it, recorded
+  // disagreements), derived from data/replay-witness-roll.json. The section is
+  // rendered by scripts/gen-replay-roll-surface.mjs, whose self-test pins parity
+  // with this derivation (one rule, two callers, the vintage.* shape). The page is
+  // deliberately NOT in verify-counts.mjs's scan list: it is a REGION_WRITER page
+  // (check-main-only-paths.mjs), so the PR carries the sentinel lines and the
+  // region's own --check freshness gate pins every byte instead. Derived input —
+  // overlay-read like the other derived inputs above.
+  let replayCounts = { 'replay.modules': 0, 'replay.accounts': 0, 'replay.disagreements': 0 }
+  try {
+    const roll = JSON.parse(readDerived('data', 'replay-witness-roll.json'))
+    const witnesses = Array.isArray(roll.witnesses) ? roll.witnesses : []
+    replayCounts = {
+      'replay.modules': Object.keys(roll.modules ?? {}).length,
+      'replay.accounts': new Set(witnesses.filter(w => w && w.result === 'agree' && typeof w.account === 'string').map(w => w.account)).size,
+      'replay.disagreements': Array.isArray(roll.disagreements) ? roll.disagreements.length : 0,
+    }
+  } catch { /* roll absent — sentinel stays unverified rather than guessing */ }
+
   // trust.* -- ZK-TRUST-INVENTORY-1: stage ladder counts from the same chaingraph and L1 report read above.
   const trustInventory = await deriveFromGraph(chaingraph, l1ReportForL2, repoRoot)
 
@@ -542,6 +563,7 @@ export async function deriveCounts() {
     'guide_pages':       guidePages,
     'showcase_prompts':  showcasePrompts,
     ...vintageCountsDerived,
+    ...replayCounts,
     ...trustCountKeys(trustInventory),
   }
 }

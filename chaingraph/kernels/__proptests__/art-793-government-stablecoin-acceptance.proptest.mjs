@@ -1,5 +1,5 @@
 // art-793-government-stablecoin-acceptance — class-K property test floor.
-// kernel_digest_at_authoring: sha256:d44f492e6dce3ac9d6b9ea5064405ca5b994b83c4df9fa45ed2ca8732a00f812
+// kernel_digest_at_authoring: sha256:d35efd76b9c97ae13a71db844e350570fc1a1748624f040938d56a4ecf39ba64
 // spec: GOV-STABLECOIN-ACCEPTANCE-1 contract (aggregate-only acceptor-side acceptance audit)
 // human_sign_off: PENDING
 //
@@ -13,10 +13,12 @@
 //      verdict into NONCONFORMING (relaxing the cap cannot create a policy breach).
 //   P4 invalid-domain rejection — sub-minor-unit fractional money is refused, never rounded.
 //   P5 determinism — identical inputs give deep-equal outputs.
+//   P6 safe-integer gate — unsafe integers and unsafe running sums refuse.
+//   P7 buildArtifact never throws on any unhashable input class.
 //
 // Run: node chaingraph/kernels/__proptests__/art-793-government-stablecoin-acceptance.proptest.mjs
 
-import { compute } from '../art-793-government-stablecoin-acceptance.kernel.mjs';
+import { compute, buildArtifact } from '../art-793-government-stablecoin-acceptance.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32 } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-793-government-stablecoin-acceptance';
@@ -125,6 +127,53 @@ function checkDeterminism() {
   return { name: 'P5-determinism', checked, violations };
 }
 
+// P6 — safe-integer gate: an unsafe integer anywhere in the input refuses (never a verdict on a
+// rounded value), and a sum that leaves the safe range refuses. Regression for the 2^53 cap
+// counterexample (cap 2^53, receipts 2^53 and 1 once gave CONFORMS with a rounded total).
+function checkSafeIntegerGate() {
+  let checked = 0, violations = 0;
+  const rcpt = (rv) => ({ token_code: 'USDC', day: '2026-03-02', received_value: rv, converted_value: 0, fiat_credited_value: 0, refunds_value: 0, max_hours_to_conversion: 0, conversion_rate_variance_bp: 0 });
+  const unsafeCap = { profile: 'generic', policy: { ...basePolicy(), max_unconverted_value: 9007199254740992 }, receipts: [rcpt(9007199254740992), rcpt(1)] };
+  const a = compute(unsafeCap);
+  checked++;
+  if (a.output_payload.verdict !== 'REFUSED' || a.output_payload.refusal_reason !== 'REFUSED_INPUT_UNSAFE_NUMBER') violations++;
+  const sumPp = { profile: 'generic', policy: { ...basePolicy(), max_unconverted_value: 9007199254740991 }, receipts: [rcpt(9007199254740991), rcpt(1)] };
+  const b = compute(sumPp);
+  checked++;
+  if (b.output_payload.verdict !== 'REFUSED' || b.output_payload.refusal_reason !== 'REFUSED_SUM_UNSAFE') violations++;
+  const bigPp = { profile: 'generic', policy: { ...basePolicy(), max_unconverted_value: 1e300 }, receipts: [rcpt(1)] };
+  const c = compute(bigPp);
+  checked++;
+  if (c.output_payload.verdict !== 'REFUSED') violations++;
+  return { name: 'P6-safe-integer-gate', checked, violations };
+}
+
+// P7 — buildArtifact never throws: each unhashable class mints an artifact (null hash plus
+// hash_refusal) instead of throwing.
+async function checkBuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  const rcpt = (rv) => ({ token_code: 'USDC', day: '2026-03-02', received_value: rv, converted_value: 0, fiat_credited_value: 0, refunds_value: 0, max_hours_to_conversion: 0, conversion_rate_variance_bp: 0 });
+  /** @type {any} */
+  let deep = { x: 1 };
+  for (let i = 0; i < 600; i++) deep = { x: deep };
+  const junk = [
+    { policy: basePolicy(), receipts: [rcpt(9007199254740992)] },
+    { policy: basePolicy(), receipts: [rcpt(1e300)] },
+    { policy: basePolicy(), receipts: [rcpt(NaN)] },
+    { policy: basePolicy(), receipts: [rcpt(Infinity)] },
+    { policy: basePolicy(), receipts: [rcpt(1)], extra: deep },
+    null, undefined, 7, 'x', [],
+  ];
+  for (const pp of junk) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (art.execution_hash === null && !art.hash_refusal) violations++;
+    } catch (_e) { violations++; }
+  }
+  return { name: 'P7-buildArtifact-never-throws', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -138,6 +187,8 @@ const properties = [
   checkCapMonotonicity(),
   checkInvalidDomainRefused(),
   checkDeterminism(),
+  checkSafeIntegerGate(),
+  await checkBuildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — acceptance policy conformance + reconciliation.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
