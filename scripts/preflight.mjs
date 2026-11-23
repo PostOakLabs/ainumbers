@@ -1798,6 +1798,15 @@ const GATES = [
   // PAGE-KERNEL-PARITY-GATE-1 (stage 1): ADVISORY by construction, the checker always exits 0 (full estate about 50 s).
   ['Page-versus-kernel parity sweep (stage 1 advisory, always exits 0)', 'node scripts/check-page-kernel-parity.mjs'],
   ['Page-versus-kernel parity controls (RED+GREEN synthetic pages)', 'node scripts/check-page-kernel-parity.selftest.mjs'],
+  // PAGE-BUILDARTIFACT-HASH-REFUSAL-1 (stage 1 advisory): the node-page artifact-build step
+  // never throws on unhashable input. Throws and hashed-unhashable results are FINDINGS
+  // (reported, exit 0); the ONLY hard red is the baseline ratchet - a page pinned in
+  // scripts/page-hash-refusal-baseline.json carrying MORE findings than its pinned count.
+  // --changed scopes the vm probe to node pages added or modified vs origin/main and falls
+  // back to the full estate when the ref does not resolve; the estate baseline is written
+  // by --write-baseline runs, deliberately, not by the gate.
+  ['Node page hash-refusal probe (stage 1 advisory, PAGE-BUILDARTIFACT-HASH-REFUSAL-1)', 'node scripts/check-page-hash-refusal.mjs --changed origin/main'],
+  ['Node page hash-refusal probe self-test controls (RED+GREEN planted pages, ratchet red)', 'node scripts/check-page-hash-refusal.mjs --self-test'],
   ['Retired ap2_version tombstone (§3.1/A3.2, RETIREMENT-TOMBSTONE-GATES-1)','node scripts/check-retired-ap2-version.mjs'],
   ['Retired ap2_version tombstone controls (RED+GREEN mutation)', 'node scripts/check-retired-ap2-version.test.mjs'],
   ['Credits registry coverage (vendored-code license gate)', 'node scripts/check-credits-coverage.mjs repo'],
