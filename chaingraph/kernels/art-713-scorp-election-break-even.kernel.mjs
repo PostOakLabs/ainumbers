@@ -77,7 +77,13 @@ export const meta = {
   source_apex_al_id: 'AL-118',
 };
 
-const SS_WAGE_BASE = 184500;   // C1: IRS Pub 15 (2026): "The social security wage base limit is $184,500."
+/* C1: OASDI wage base by tax year. 2026: IRS Pub 15 ("The social security wage base limit is
+ * $184,500."). 2027: SSA Contribution and Benefit Base, announced 14 Oct 2026 ("For earnings
+ * in 2027, this base is $192,300."). The optional tax_year input selects the entry; absent
+ * means DEFAULT_TAX_YEAR so existing callers keep their results; an unlisted year is refused. */
+const SS_WAGE_BASE_TABLE = [['2026', 184500], ['2027', 192300]];
+const SUPPORTED_TAX_YEARS = SS_WAGE_BASE_TABLE.map((e) => e[0]);
+const DEFAULT_TAX_YEAR = '2026';
 const SS_RATE      = 0.124;    // C2: IRS Pub 15 (2026): 6.2% each for employer and employee (12.4% total).
 const MC_RATE      = 0.029;    // C3: IRS Pub 15 (2026): 2.9% total; "There is no wage base limit for Medicare tax".
 const SE_FACTOR    = 0.9235;   // C4: IRS Topic 554 — applies to NET SE EARNINGS ONLY (see D4 block above).
@@ -106,7 +112,8 @@ const ADMIN_COST_GUIDANCE_LOW  = 1500;
 const ADMIN_COST_GUIDANCE_HIGH = 3000;
 
 const SCOPE_NOTE =
-  'Deterministic 2026 model, not tax advice. The 92.35% SE factor is applied to ' +
+  'Deterministic model, not tax advice. The Social Security wage base follows tax_year ' +
+  '(2026 by default, 2027 supported); the section 199A thresholds below are 2026 values. The 92.35% SE factor is applied to ' +
   'net earnings from self-employment only, never to W-2 wages (IRS Topic 554) — ' +
   'the port corrects Apex #111 on this point by adjudication of record. The 0.9% ' +
   'Additional Medicare Tax above $200K single / $250K MFJ is NOT modeled. The QBI ' +
@@ -117,9 +124,9 @@ const SCOPE_NOTE =
   '500-step grid, within one step of the continuous break-even.';
 
 /** Sole-proprietor SE tax: 92.35% of net earnings, SS capped at the wage base, Medicare uncapped (C2–C4). Apex-identical. */
-function calcSETax(netIncome) {
+function calcSETax(netIncome, ssWageBase) {
   const netSE = netIncome * SE_FACTOR;
-  const ssTax = Math.min(netSE, SS_WAGE_BASE) * SS_RATE;
+  const ssTax = Math.min(netSE, ssWageBase) * SS_RATE;
   const mcTax = netSE * MC_RATE;
   return ssTax + mcTax;
 }
@@ -131,8 +138,8 @@ function calcSETax(netIncome) {
  * (DIFFERS.md D4); that form understates this tax by 7.65% of the wage and is
  * deliberately NOT ported.
  */
-function calcSCorpSETax(salary) {
-  const ss = Math.min(salary, SS_WAGE_BASE) * SS_RATE;
+function calcSCorpSETax(salary, ssWageBase) {
+  const ss = Math.min(salary, ssWageBase) * SS_RATE;
   const mc = salary * MC_RATE;
   return ss + mc;
 }
@@ -152,6 +159,24 @@ function scanBreakEven(savingsFn, adminCost) {
  */
 export function compute(pp) {
   pp = pp || {};
+  // Optional tax_year selects the OASDI wage base. Absent (undefined/null) means the default
+  // year; any other value outside the table is refused and nothing is computed.
+  const rawYear = pp.tax_year === undefined || pp.tax_year === null ? DEFAULT_TAX_YEAR : pp.tax_year;
+  const yearEntry = typeof rawYear === 'string' ? SS_WAGE_BASE_TABLE.find((e) => e[0] === rawYear) : undefined;
+  if (!yearEntry) {
+    return {
+      output_payload: {
+        verdict: null,
+        tax_year_applied: null,
+        supported_tax_years: SUPPORTED_TAX_YEARS,
+        error: 'unsupported_tax_year',
+        scope_note: 'tax_year must be one of the supported years. No break-even was computed; this kernel does not fall back to another year.',
+      },
+      compliance_flags: ['ART713_TAX_YEAR_NOT_SUPPORTED'],
+    };
+  }
+  const taxYear = yearEntry[0];
+  const SS_WAGE_BASE = yearEntry[1];
   const netIncome = num(pp.net_se_income, 150000);
   const salaryPct = num(pp.reasonable_salary_pct, 50) / 100;   // percent → fraction (Apex page line 297)
   const adminCost = num(pp.annual_admin_cost, 3000);
@@ -164,8 +189,8 @@ export function compute(pp) {
   const salary = netIncome * salaryPct;
   const distribution = netIncome - salary;
 
-  const spSETax = calcSETax(netIncome);
-  const scSETax = calcSCorpSETax(salary);
+  const spSETax = calcSETax(netIncome, SS_WAGE_BASE);
+  const scSETax = calcSCorpSETax(salary, SS_WAGE_BASE);
 
   const seSavings = spSETax - scSETax;
   const netSavings = seSavings - adminCost;
@@ -180,7 +205,7 @@ export function compute(pp) {
   const qbiValueAtRisk = salary * QBI_TRADEOFF_EFFECTIVE_RATE;
   const netSavingsQbiAdjusted = seSavings - qbiValueAtRisk - adminCost;
 
-  const savingsFn = (inc) => calcSETax(inc) - calcSCorpSETax(inc * salaryPct);
+  const savingsFn = (inc) => calcSETax(inc, SS_WAGE_BASE) - calcSCorpSETax(inc * salaryPct, SS_WAGE_BASE);
   const savingsQbiFn = (inc) => savingsFn(inc) - (inc * salaryPct) * QBI_TRADEOFF_EFFECTIVE_RATE;
   const breakEvenIncome = scanBreakEven(savingsFn, adminCost);
   const qbiBreakEvenIncome = scanBreakEven(savingsQbiFn, adminCost);
@@ -219,6 +244,7 @@ export function compute(pp) {
   const output_payload = {
     // Apex verdict comparator (page line 335): netSavings >= 0 ⇒ SCORP_WINS.
     verdict: netSavings >= 0 ? 'SCORP_WINS' : 'SOLE_PROP_WINS',
+    tax_year_applied: taxYear,                                // selects the OASDI wage base (C1)
     net_se_income: round2(netIncome),
     reasonable_salary_pct: round2(num(pp.reasonable_salary_pct, 50)),
     annual_admin_cost: round2(adminCost),
@@ -246,10 +272,46 @@ export function compute(pp) {
   return { output_payload, compliance_flags };
 }
 
+// Walks the exact execution_hash preimage for values the shared canonicalizer refuses:
+// non-finite or unsafe numbers, BigInt (JSON.stringify throws on it), nesting past MAX_DEPTH,
+// more values than MAX_ELEMENTS. Reports { reason, detail } with path and kind only, never the
+// value; null when safe to hash. The shared _hash.mjs stays untouched.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (typeof v === 'bigint') return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': bigint' };
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // Backstop: when the canonicalizer would refuse the preimage, mint a null execution_hash with
+  // the reason beside it instead of letting the hash throw.
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const hash = unhashable === null ? await executionHash(pp, output_payload) : null;
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -265,6 +327,8 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
