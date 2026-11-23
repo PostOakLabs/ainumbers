@@ -17,6 +17,13 @@
 // is a semantics change and belongs to the trusted builder's decision, recorded
 // in DIFFERS.md and Open Questions.
 //
+// INPUT CONTRACT (NODE-756-OTE-COMMISSION-CURE-1, KERNEL-INPUT-CONTRACT-1): the
+// Apex `||` ZERO substitution is kept, but caller input is never coerced. A
+// present boolean, string (hex included), null, non-finite number or unsafe
+// integer is REFUSED (REFUSED_BAD_INPUT), a result that cannot be hashed is
+// REFUSED (REFUSED_RESULT_NOT_HASHABLE), only own properties are read, and
+// buildArtifact never throws (hash_refusal beside a null execution_hash).
+//
 // SCOPE: this node models the W-2 gross of an On-Target-Earnings offer: base
 // salary + variable pay as a function of quota attainment, with an accelerator
 // tier and a recoverable draw. It does NOT compute a tax liability, an FLSA
@@ -173,9 +180,49 @@ const SCOPE_NOTE =
    falsy for 0, for NaN and for "". So an explicit 0 is replaced by the
    default. Reproduced here, and every substitution is reported in
    `apex_zero_coercion_applied` so it is never silent. */
-function apexCoerce(v, fallback) {
-  const n = typeof v === 'number' ? v : Number(v);
-  return (Number.isFinite(n) && n !== 0) ? n : fallback;
+// Input contract (KERNEL-INPUT-CONTRACT-1): the caller's value is NEVER coerced.
+// A present value must be a finite number (an integer must be a safe integer);
+// Number(true), Number("0x10"), Number("") and Number(null) are refused, not read.
+// Only the Apex `||` ZERO substitution survives, because Apex's DOM read yields a
+// number and `0 || default` is the page's observable behaviour.
+function apexCoerce(n, fallback) {
+  return n !== 0 ? n : fallback;
+}
+const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+function isPlainObject(v) {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
+// Mirrors what _hash.mjs refuses before canonicalizing (non-finite number, unsafe
+// integer, nesting past MAX_DEPTH, more values than MAX_ELEMENTS). Path and class
+// only, never the value. null when the subtree is safe to hash.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
 }
 function isIsoDate(v) {
   if (typeof v !== 'string' || v.length !== 10 || v.charAt(4) !== '-' || v.charAt(7) !== '-') return false;
@@ -261,9 +308,16 @@ function refusedPayload(reason, text, coerced) {
  * Returns { output_payload, compliance_flags }.
  */
 export function compute(pp) {
-  pp = pp || {};
+  if (!isPlainObject(pp)) {
+    return {
+      output_payload: refusedPayload('REFUSED_BAD_INPUT', 'policy_parameters must be a plain object', []),
+      compliance_flags: ['ART756_INPUT_REFUSED'],
+    };
+  }
+  // Own properties only: an inherited or prototype-named key is never read.
+  const own = (k) => (hasOwn(pp, k) ? pp[k] : undefined);
 
-  if (!isIsoDate(pp.as_of)) {
+  if (!isIsoDate(own('as_of'))) {
     return {
       output_payload: refusedPayload(
         'REFUSED_BAD_AS_OF',
@@ -280,11 +334,23 @@ export function compute(pp) {
   // normalized onto the absent path (Number(null) would be 0, which would
   // bookkeep a different `supplied` value for the same effective default).
   const coerced = [];
+  let badInput = null;
   const take = (key, fallback) => {
-    const raw = pp[key] === null ? undefined : pp[key];
-    const n = typeof raw === 'number' ? raw : Number(raw);
+    const raw = own(key);
+    if (raw === undefined) {
+      coerced.push({ field: key, supplied: null, substituted: fallback });
+      return fallback;
+    }
+    if (typeof raw !== 'number') {
+      if (badInput === null) badInput = key + ' must be a finite number, got ' + (raw === null ? 'null' : typeof raw) + '; never coerced';
+      return fallback;
+    }
+    if (!Number.isFinite(raw) || (Number.isInteger(raw) && !Number.isSafeInteger(raw))) {
+      if (badInput === null) badInput = key + ' must be a finite number and a safe integer when integral';
+      return fallback;
+    }
     const out = apexCoerce(raw, fallback);
-    if (!(Number.isFinite(n) && n !== 0)) coerced.push({ field: key, supplied: Number.isFinite(n) ? n : null, substituted: fallback });
+    if (raw === 0) coerced.push({ field: key, supplied: 0, substituted: fallback });
     return out;
   };
   // Visible top-level read of every declared input (KERNEL-INPUT-USAGE-CHECK-1
@@ -300,8 +366,18 @@ export function compute(pp) {
   const drawMonthly = take('draw_monthly', APEX_INPUT_DEFAULTS.draw_monthly);
   // Apex lines 428, 431: checkbox state. Apex reads `.checked`, so a non-boolean
   // is a falsy "off"; absent is falsy too.
-  const hasAccel = pp.has_accelerator === true;
-  const hasDraw = pp.has_draw === true;
+  for (const k of ['has_accelerator', 'has_draw']) {
+    const b = own(k);
+    if (b !== undefined && typeof b !== 'boolean' && badInput === null) badInput = k + ' must be a boolean when present; never coerced';
+  }
+  if (badInput !== null) {
+    return {
+      output_payload: refusedPayload('REFUSED_BAD_INPUT', badInput, []),
+      compliance_flags: ['ART756_INPUT_REFUSED'],
+    };
+  }
+  const hasAccel = own('has_accelerator') === true;
+  const hasDraw = own('has_draw') === true;
 
   const compliance_flags = [];
   if (coerced.length) compliance_flags.push('APEX_ZERO_COERCION_APPLIED');
@@ -382,7 +458,7 @@ export function compute(pp) {
   if (hasAccel && accelMult < 1) compliance_flags.push('ACCELERATOR_MULTIPLIER_BELOW_ONE');
   if (hasAccel && accelThresh < 0) compliance_flags.push('ACCELERATOR_THRESHOLD_BELOW_ZERO');
   if (attainment < 0) compliance_flags.push('ATTAINMENT_BELOW_ZERO');
-  if (quota < 0) compliance_flags.push('QUOTA_BELOW_ZERO');
+  if (quotaC < 0) compliance_flags.push('QUOTA_BELOW_ZERO');
   if (hasDraw && drawMonthly <= 0) compliance_flags.push('DRAW_ENABLED_BUT_ZERO');
   // The three standing disclosures (flat federal rate is not a tax computation;
   // no FLSA regular rate and no overtime; not tax / wage-hour / compensation
@@ -421,13 +497,31 @@ export function compute(pp) {
     constants_version: CONSTANTS_VERSION,
   };
 
+  // compute() and buildArtifact() must agree: a result the canonicalizer would
+  // refuse (Infinity, NaN, an unsafe integer from an overflowing product) is a
+  // refusal here, never an output that cannot be hashed.
+  const unhashable = findHashRefusal(output_payload, 'output', 1, { maxDepth: 64, maxElements: 100000, n: 0 });
+  if (unhashable !== null) {
+    return {
+      output_payload: refusedPayload('REFUSED_RESULT_NOT_HASHABLE', 'the computed result is not a finite safe number (' + unhashable.detail + '); reduce the input magnitudes', coerced),
+      compliance_flags: compliance_flags.concat(['ART756_INPUT_REFUSED']),
+    };
+  }
+
   return { output_payload, compliance_flags };
 }
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // D6: buildArtifact never throws. Walk the exact execution_hash preimage; on a hit
+  // mint the artifact with a null execution_hash and the reason beside it.
+  let unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  let hash = null;
+  if (unhashable === null) {
+    try { hash = await executionHash(pp, output_payload); }
+    catch (e) { unhashable = { reason: 'REFUSED_INPUT_UNHASHABLE', detail: 'pp: canonicalizer_refused' }; }
+  }
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -443,4 +537,6 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }

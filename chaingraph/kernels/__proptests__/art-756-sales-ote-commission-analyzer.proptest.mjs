@@ -3,7 +3,7 @@
 // (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES PASS-PENDING-XV
 // 2026-10-14, Tim 2026-10-18 "Extend ruling" Builder-verifies-at-land: 33/33
 // payload vectors re-executed through compute() at land, APEX-PORT-89-LAND-1).
-// kernel_digest_at_authoring: sha256:b16c64afb3ceeef8652c4aa0d61ba66b70be5f669ed8970d4a480b4e6aa8b87f
+// kernel_digest_at_authoring: sha256:e044798231c6f13670d500e7f4b873bdfb3d25ce9ece025b2a390ccebd84f382
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.
@@ -245,6 +245,75 @@ function checkP7Ladder() {
   return { name: 'P7 ladder shape and exact non-accelerated closed form (Apex op order)', checked, violations };
 }
 
+// P8 — input contract (NODE-756-OTE-COMMISSION-CURE-1): a present non-number, a
+// null, a non-finite number or an unsafe integer in any numeric field is REFUSED
+// with REFUSED_BAD_INPUT, never coerced (Number(true), Number("0x10"), Number("")).
+function checkP8InputContract() {
+  let checked = 0, violations = 0;
+  const fields = Object.keys(DEFAULTS);
+  const junk = [true, false, '0x10', '', '5', null, NaN, Infinity, -Infinity, 9007199254740993, {}, [], [5]];
+  for (const f of fields) {
+    for (const j of junk) {
+      const out = compute({ ...basePP(), [f]: j });
+      checked++;
+      if (out.output_payload.refusal_reason !== 'REFUSED_BAD_INPUT' || !out.compliance_flags.includes('ART756_INPUT_REFUSED')) {
+        violations++; console.log(`P8 violation: ${f}=${JSON.stringify(j)} not refused (${out.output_payload.refusal_reason})`);
+      }
+    }
+  }
+  for (const f of ['has_accelerator', 'has_draw']) {
+    for (const j of ['yes', 1, 0, null, {}]) {
+      checked++;
+      if (compute({ ...basePP(), [f]: j }).output_payload.refusal_reason !== 'REFUSED_BAD_INPUT') { violations++; console.log(`P8 violation: ${f}=${JSON.stringify(j)} not refused`); }
+    }
+  }
+  // inherited and prototype-named keys are never read; non-objects are refused
+  for (const j of [null, undefined, 'x', 5, [], true]) {
+    checked++;
+    if (compute(j).output_payload.refusal_reason !== 'REFUSED_BAD_INPUT') { violations++; console.log(`P8 violation: pp=${JSON.stringify(j)} not refused`); }
+  }
+  checked++;
+  const inherited = compute(Object.assign(Object.create({ base_salary: 1, ote: 2 }), { as_of: '2026-10-13' }));
+  if (inherited.output_payload.base_salary !== null || !inherited.compliance_flags.includes('ART756_INPUT_REFUSED')) { violations++; console.log('P8 violation: an inherited key was read'); }
+  // absent stays the Apex default path (not a refusal)
+  checked++;
+  if (compute({ as_of: '2026-10-13', base_salary: 75000, ote: 150000 }).output_payload.refusal_reason !== null) { violations++; console.log('P8 violation: absent fields were refused'); }
+  // overflow: finite inputs whose result is Infinity are refused, never emitted
+  checked++;
+  if (compute({ ...basePP(), quota: 1e-320 }).output_payload.refusal_reason !== 'REFUSED_RESULT_NOT_HASHABLE') { violations++; console.log('P8 violation: overflowing result not refused'); }
+  return { name: 'P8 input contract: boolean/hex/string/null/non-finite/unsafe-integer refused, own keys only, overflow refused', checked, violations };
+}
+
+// P9 — buildArtifact_never_throws (D6): junk of every unhashable class mints an
+// artifact; an unhashable preimage gets execution_hash null plus hash_refusal.
+async function checkP9BuildArtifactNeverThrows() {
+  const { buildArtifact } = await import('../art-756-sales-ote-commission-analyzer.kernel.mjs');
+  let checked = 0, violations = 0;
+  const deep = (n) => { /** @type {any} */ const r = {}; /** @type {any} */ let o = r; for (let i = 0; i < n; i++) { o.x = {}; o = o.x; } return r; };
+  const classes = {
+    nan: { ...basePP(), base_salary: NaN },
+    infinity: { ...basePP(), ote: -Infinity },
+    unsafe_integer: { ...basePP(), base_salary: 9007199254740993 },
+    big_float: { ...basePP(), quota: 1e300 },
+    deep: { ...basePP(), extra: deep(600) },
+    wide: { ...basePP(), extra: new Array(1000001).fill(1) },
+  };
+  for (const [name, pp] of Object.entries(classes)) {
+    checked++;
+    let a;
+    try { a = await buildArtifact(pp); } catch (e) { violations++; console.log(`P9 violation: ${name} threw ${e.message}`); continue; }
+    if (a.execution_hash !== null || !a.hash_refusal) { violations++; console.log(`P9 violation: ${name} hash=${a.execution_hash} refusal=${JSON.stringify(a.hash_refusal)}`); }
+  }
+  for (const j of [null, undefined, 'junk', 5, [], {}]) {
+    checked++;
+    try { await buildArtifact(j); } catch (e) { violations++; console.log(`P9 violation: top=${JSON.stringify(j)} threw ${e.message}`); }
+  }
+  checked++;
+  const ok = await buildArtifact(basePP());
+  if (typeof ok.execution_hash !== 'string' || ok.hash_refusal !== undefined) { violations++; console.log('P9 violation: a clean input lost its hash'); }
+  return { name: 'P9 buildArtifact_never_throws (NaN, Infinity, unsafe integer, 1e300, depth 600, 1e6+ elements, non-object pp)', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -260,6 +329,8 @@ const properties = [
   checkP5DeterminismShape(),
   checkP6RiskLabel(),
   checkP7Ladder(),
+  checkP8InputContract(),
+  await checkP9BuildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test`);
 const ok = summarize(KERNEL_ID, oracle, properties);
