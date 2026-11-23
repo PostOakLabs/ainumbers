@@ -301,6 +301,11 @@ const NOT_A_GATE = new Map([
 // node gates that legitimately run ONLY in CI, each with the reason it cannot run
 // pre-push. Keep tight — every entry is a hole in "green preflight ⇒ green CI".
 const CI_ONLY = new Map([
+  ["mutation-verdict-from-pr.mjs",
+    "merge_group-only seeding step in scripts-verify.yml's tier shard: it reads the PR head's green " +
+    "run and downloads its verdict artifact through the GitHub API with the job's GITHUB_TOKEN, so " +
+    "there is nothing to run pre-push. It is fail-open to running (any error leaves the verdict " +
+    "directory empty) and has its own selftest, scripts/ci/mutation-verdict-from-pr.test.mjs."],
   ["check-node-surface-parity.mjs",
     "runs in unwired-gates.yml in REPORT MODE ONLY (continue-on-error + summary artifact): " +
     "it is red on main today (171/624 compared page<->kernel pairs divergent), so adding it " +
