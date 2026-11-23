@@ -742,6 +742,7 @@ import * as art842    from './art-842-soc-report-coverage-gap.kernel.mjs';
 import * as art843    from './art-843-tap-message-validator.kernel.mjs';
 import * as art846    from './art-846-assess-pfmi-proportional.kernel.mjs';
 import * as art847    from './art-847-cashleg-window-exposure.kernel.mjs';
+import * as art849    from './art-849-deferred-comp-457b.kernel.mjs';
 import * as art85     from './art-85-pqc-timeline-fit-diagnostic.kernel.mjs';
 import * as art851    from './art-851-islamic-mmf-placement-limits.kernel.mjs';
 import * as art852    from './art-852-murabahah-ibra-settlement.kernel.mjs';
@@ -1520,6 +1521,7 @@ export const KERNELS = {
   'art-843-tap-message-validator':                              art843,
   'art-846-assess-pfmi-proportional':                           art846,
   'art-847-cashleg-window-exposure':                            art847,
+  'art-849-deferred-comp-457b':                                 art849,
   'art-85-pqc-timeline-fit-diagnostic':                         art85,
   'art-851-islamic-mmf-placement-limits':                       art851,
   'art-852-murabahah-ibra-settlement':                          art852,

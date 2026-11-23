@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (776 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (777 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -8538,6 +8538,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-847-cashleg-window-exposure.html",
     "description": "Computes how long a token leg that settles at any hour waits for a cash leg that only moves while a payment rail is open. From a token leg i",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-849-deferred-comp-457b",
+    "display_name": "Deferred Comp 457(b) Comparison",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-849-deferred-comp-457b.html",
+    "description": "Deferred Comp 457(b) comparison ported from ApexLogics Apex #44 (AL-49). For a single annual deferral (annual income echo, deferral amount, ",
     "consumes": [],
     "feeds": [],
     "status": "live"
