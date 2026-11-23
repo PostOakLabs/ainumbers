@@ -99,6 +99,16 @@ on:
         required: false
         type: string
         default: ''
+      kernels:
+        description: 'KERNELS MODE (dispatch-only): space-separated kernel ids (^[a-z0-9-]+( [a-z0-9-]+)*$). When set, ONE job runs run-mutation-tier --kernel <ids> on `ref` and uploads the scan JSON; dry_run and the sharded estate scan are skipped. Empty = the usual behaviour.'
+        required: false
+        type: string
+        default: ''
+      ref:
+        description: 'KERNELS MODE only: branch, tag or sha to test (default: the dispatching ref).'
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -106,7 +116,7 @@ permissions:
 jobs:
   dry-run:
     name: Dry run (10-kernel pilot sample)
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && inputs.kernels == '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -309,10 +319,69 @@ jobs:
           fi
           echo "✅ dry run clean."
 
+  # KERNELS MODE: the real CI mutation tier for named
+  # kernels on demand. Dispatch-only; no baseline judgement, the per-kernel
+  # verdict is the scan JSON (artifact `mutation-kernels`) plus the step log.
+  # Inputs reach the shell only through env vars and are validated first.
+  mutation-kernels:
+    name: Kernels mode (named kernels)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.kernels != '' }}
+    timeout-minutes: 330
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      KERNELS_INPUT: ${{ inputs.kernels }}
+      REF_INPUT: ${{ inputs.ref }}
+    steps:
+      - name: 🔎 Validate inputs
+        run: |
+          # bash [[ =~ ]] matches the WHOLE string (grep would pass a multi-line value on one clean line)
+          KERNEL_RE='^[a-z0-9-]+( [a-z0-9-]+)*$'
+          REF_RE='^[A-Za-z0-9._/-]+$'
+          if [[ ! "$KERNELS_INPUT" =~ $KERNEL_RE ]]; then
+            echo "::error title=kernels input::must match ^[a-z0-9-]+( [a-z0-9-]+)*$ (space-separated kernel ids)"
+            exit 1
+          fi
+          if [ -n "$REF_INPUT" ] && [[ ! "$REF_INPUT" =~ $REF_RE ]]; then
+            echo "::error title=ref input::must match ^[A-Za-z0-9._/-]+$"
+            exit 1
+          fi
+
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: ⬢ Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      - name: 🧬 Mutation tier scan — named kernels
+        id: scan
+        run: |
+          # KERNELS_INPUT is validated above (lowercase ids, single spaces); unquoted on purpose so it splits into ids.
+          # shellcheck disable=SC2086
+          node scripts/run-mutation-tier.mjs --kernel $KERNELS_INPUT \
+            --concurrency 2 \
+            --json "$RUNNER_TEMP/mutation-kernels.json"
+
+      - name: ⬆ Upload scan JSON
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: mutation-kernels
+          path: ${{ runner.temp }}/mutation-kernels.json
+          if-no-files-found: ignore
+          retention-days: 10
+
   mutation-shard:
     name: Full estate — shard ${{ matrix.shard }}/20
-    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
-    timeout-minutes: 330   # below the 360-min hosted-runner ceiling on purpose: an overrunning shard dies as a VISIBLE timeout on its own job, never as an unexplained 6h cancellation
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) && inputs.kernels == '' }}
+    timeout-minutes: 330  # below the 360-min hosted-runner ceiling on purpose: an overrunning shard dies as a VISIBLE timeout on its own job, never as an unexplained 6h cancellation
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -393,7 +462,7 @@ jobs:
   summarize:
     name: Summarize full-estate scan
     needs: mutation-shard
-    if: ${{ always() && !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+    if: ${{ always() && !(github.event_name == 'workflow_dispatch' && inputs.dry_run) && inputs.kernels == '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
