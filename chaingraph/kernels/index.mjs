@@ -746,6 +746,7 @@ import * as art85     from './art-85-pqc-timeline-fit-diagnostic.kernel.mjs';
 import * as art851    from './art-851-islamic-mmf-placement-limits.kernel.mjs';
 import * as art852    from './art-852-murabahah-ibra-settlement.kernel.mjs';
 import * as art854    from './art-854-sukuk-tradability-composition.kernel.mjs';
+import * as art855    from './art-855-murabahah-tawarruq-sequence.kernel.mjs';
 import * as art856    from './art-856-ijarah-imbt-schedule.kernel.mjs';
 import * as art86     from './art-86-tls-pki-migration-planner.kernel.mjs';
 import * as art87     from './art-87-iso20022-pqc-readiness-checker.kernel.mjs';
@@ -1523,6 +1524,7 @@ export const KERNELS = {
   'art-851-islamic-mmf-placement-limits':                       art851,
   'art-852-murabahah-ibra-settlement':                          art852,
   'art-854-sukuk-tradability-composition':                      art854,
+  'art-855-murabahah-tawarruq-sequence':                        art855,
   'art-856-ijarah-imbt-schedule':                               art856,
   'art-86-tls-pki-migration-planner':                           art86,
   'art-87-iso20022-pqc-readiness-checker':                      art87,
