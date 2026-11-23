@@ -43,7 +43,6 @@ const DATA_FED_PAGE_FILES = new Set([
   'data/bank-fact-freshness.json',
   'data/topic-links.json',
   'data/reg-deadlines.json',
-  'data/standards-watch.json',
   'deadline-wall.html',
 ]);
 function isDataFedPageFile(relPath) {
