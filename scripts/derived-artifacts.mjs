@@ -116,6 +116,26 @@ import {
 
 export const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
+// REGEN-OWNS-FACT-STAMPS-1: the fact-stamp pilot pages, enumerated exactly the way
+// scripts/gen-fact-stamps.mjs enumerates them — data/bank-fact-freshness.json
+// entries through its own node→page mapping (art-* → chaingraph/<node>.html, else
+// tools/<node>.html). Mirrored as a local helper instead of imported: the
+// generator is script-style (its module body RUNS a write pass on import — the
+// REGEN-ESCAPE-GUARD-ALL-PREFIXES-1 class), so it cannot export its page list the
+// way gen-chain-ask-agent.mjs / gen-hub-scenes.mjs do. The generator's own
+// bidirectional region check guarantees this sidecar-derived set always equals
+// the set of pages carrying a FACT-STAMP region, so the declaration can never
+// drift from what the generator writes. Sorted for a stable declaration.
+function factStampPages() {
+  const sidecar = JSON.parse(readFileSync(join(REPO, 'data', 'bank-fact-freshness.json'), 'utf8'));
+  const pages = new Set();
+  for (const entry of Array.isArray(sidecar.entries) ? sidecar.entries : []) {
+    const node = String(entry.node || '');
+    pages.add(node.startsWith('art-') ? `chaingraph/${node}.html` : `tools/${node}.html`);
+  }
+  return [...pages].sort();
+}
+
 /**
  * The covered set. One entry per generator invocation.
  *   id       — stable slug, used by workflow steps to name the advisory gate
@@ -263,6 +283,54 @@ export const COVERED = [
     artifacts: ['data/replay-witness-roll.json'],
     prAbsentOk: true,
     share: 'n/a (new 2026-11-21, REPLAY-COLLECT-1)',
+  },
+  {
+    // REGEN-OWNS-FACT-STAMPS-1 (2026-11-22): the visible "Verified YYYY-MM-DD
+    // against …" stamps (FACT-STAMPS-PILOT-1) join the single-writer set.
+    // Measured cause: main was red 03:35Z-11:31Z because #3244 restamped
+    // verified_on in data/bank-fact-freshness.json without rerunning
+    // gen-fact-stamps.mjs — 7 pages' FACT-STAMP regions drifted, the hard
+    // preflight gate redded every open PR, and merge-lane paused on main-red
+    // for 8 h (heal #3247). The derived-artifacts regen repairs main after
+    // every merge, but only for generators LISTED here — owning the writer
+    // here is the fix (SO #35 shape, no new gate invented).
+    // Region-only writer by construction: the generator splices bytes strictly
+    // inside FACT-STAMP:START..END and errors on any page/entry mismatch; it
+    // never reorders or rewrites page content outside the region. The page
+    // list is the generator's own enumeration (factStampPages() above, mirrored
+    // because the generator is script-style and cannot be imported), never
+    // hand-typed. Writes happen on a runtime path (one region per sidecar
+    // page), so `writes:` is declared explicitly. Idempotent: pure function of
+    // the committed sidecar + page bytes, no wall clock (generator header,
+    // DETERMINISTIC). No `after:` edge: its region span is disjoint from every
+    // other pass-internal writer of these pages (e.g. node-page-footers' footer
+    // span), and each writer re-reads the file, so any order converges to the
+    // same fixpoint.
+    id: 'fact-stamps',
+    regen: 'node scripts/gen-fact-stamps.mjs',
+    gate: 'node scripts/gen-fact-stamps.mjs --check',
+    writes: factStampPages(),
+    artifacts: factStampPages(),
+    share: 'n/a (new 2026-11-22, REGEN-OWNS-FACT-STAMPS-1)',
+  },
+  {
+    // REPLAY-ROLL-SURFACE-1 (2026-11-22): the generated WITNESS-ROLL SECTION on the
+    // determinism explainer (chaingraph/determinism-attestation-explainer.html),
+    // rendered from data/replay-witness-roll.json by
+    // scripts/gen-replay-roll-surface.mjs between REPLAY-ROLL-SURFACE markers. A
+    // REGION writer (check-main-only-paths.mjs REGION_WRITER_IDS): a PR authors the
+    // prose around the region and carries the page; main's regen owns the region
+    // interior after merge. Ordered after 'replay-witness-roll', whose file it
+    // renders. The three summary figures are replay.* count sentinels registered in
+    // scripts/counts.mjs; the page deliberately stays out of verify-counts.mjs's
+    // scan list (the vintage-calendar.html choice at birth).
+    id: 'replay-roll-surface',
+    regen: 'node scripts/gen-replay-roll-surface.mjs',
+    gate: 'node scripts/gen-replay-roll-surface.mjs --check',
+    writes: ['chaingraph/determinism-attestation-explainer.html'],
+    artifacts: ['chaingraph/determinism-attestation-explainer.html'],
+    after: 'replay-witness-roll',
+    share: 'n/a (new 2026-11-22, REPLAY-ROLL-SURFACE-1)',
   },
   {
     // PROVE-BASELINE-SINGLE-WRITER-1 (2026-10-19): the §18 deferred ratchet
@@ -1941,6 +2009,13 @@ export const DERIVED_ROOT_GATES = new Set([
   'node scripts/check-chain-step-status.mjs',                 // chain step status (reads the monolith's chains + nodes)
   // DERIVED-READER-BURNDOWN-CHAIN-EDGE-CONTRACTS-1: the L1 edge-contract advisory overlay-reads the monolith's chains + adjacency through derivedResolve, so an edge-contradicting chain reds in the queue on the assembled tree, not post-regen.
   'node scripts/check-chain-edge-contracts.mjs --quiet --json', // L1 chain edge contracts (reads the monolith's chains + adjacency)
+  // PR-3187-DERIVED-READER-CURE-1 (DERIVED-READER-COVERAGE-1): the WebMCP registration
+  // spec gate reads every tracked *.html page, among them the regen-written reader
+  // surfaces (chaingraph/chaingraph-hub.html, sitemap.html, tools.html, mcp.html), so its
+  // page reads resolve through derivedResolve and a merge_group overlay judges the
+  // assembled tree. Spelled exactly as preflight.mjs's GATES list runs it; the
+  // --self-test sibling is a fixture proof and stays out of the set.
+  'node scripts/check-webmcp-spec.mjs',                      // WebMCP registration spec (page reads overlay-resolve)
   // DERIVED-READER-BURNDOWN-CHAIN-L2-CONTRACTS-1: the L2 contract-composition advisory overlay-reads the monolith through derivedResolve (its chain shards still overlay on top at run time), so a contract-composition red shows in the queue on the assembled tree, not post-regen.
   'node scripts/check-chain-l2-contracts.mjs --quiet --json', // L2 chain contract composition (reads the monolith's chains + nodes + manifests)
   // DERIVED-READER-BURNDOWN-KERNEL-COVERAGE-1: kernel-coverage overlay-reads the monolith and the kernel index through derivedResolve, so a new gpu:false node whose registration is still regen-pending reds in the queue on the assembled tree, not post-regen.

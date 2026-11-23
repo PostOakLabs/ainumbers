@@ -1,0 +1,2034 @@
+{
+  "tool_id": "art-852-murabahah-ibra-settlement",
+  "version": "1.0.0",
+  "title": "Murabahah Ibra' Settlement",
+  "description": "Computes a deferred-price instalment schedule in integer minor units: per-period profit and principal split, outstanding cost and selling price, and deferred profit. It derives the rebate on early settlement, the variable-rate per-period rebate, and the non-delivery case that also rebates undisbursed principal. Outputs are arithmetic and rule checks against the cited regulator paragraphs, not a fatwa, Shariah certification, legal opinion or regulatory approval.",
+  "category": "chaingraph",
+  "tags": [
+    "islamic-finance",
+    "murabahah",
+    "ibra",
+    "settlement",
+    "amortization",
+    "mcp:compute_murabahah_ibra_settle"
+  ],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "authority": {
+        "type": "string",
+        "x_null_distinct": true,
+        "description": "Authority profile. Only the pinned regulator profile is supported; any other value, absent or null, is refused by name."
+      },
+      "cost_of_purchase_minor": {
+        "type": "number",
+        "x_null_distinct": true,
+        "description": "Acquisition cost in integer minor units, at least 1. A present null or float is refused."
+      },
+      "cpr_bp": {
+        "type": "number",
+        "x_null_distinct": true,
+        "description": "Contracted ceiling profit rate in whole basis points, 0 to 100000."
+      },
+      "tenor_months": {
+        "type": "number",
+        "x_null_distinct": true,
+        "description": "Number of monthly instalments, 1 to 360."
+      },
+      "instalment_minor": {
+        "type": "number",
+        "x_null_distinct": true,
+        "description": "Level monthly instalment in integer minor units, at least 1."
+      },
+      "selling_price_minor": {
+        "type": "number",
+        "x_null_distinct": true,
+        "description": "Contracted selling price used by the schedule, not below the acquisition cost."
+      },
+      "selling_price_stated_minor": {
+        "type": "number",
+        "x_null_distinct": true,
+        "description": "Optional stated price. When present it is emitted with the schedule price and the difference as a named residual."
+      },
+      "epr_periods": {
+        "type": "array",
+        "x_null_distinct": true,
+        "description": "Optional prevailing-rate periods of from_month, epr_bp and instalment_minor. The first period starts at month 1 and months strictly increase."
+      },
+      "settlement_month": {
+        "type": "number",
+        "x_null_distinct": true,
+        "description": "Optional month at which early settlement occurs."
+      },
+      "instalment_due_minor": {
+        "type": "number",
+        "x_null_distinct": true,
+        "description": "Optional unpaid instalment at settlement, in minor units."
+      },
+      "early_settlement_charges": {
+        "type": "array",
+        "x_null_distinct": true,
+        "description": "Optional recovery costs of cost_type and amount_minor. Permitted types: unrecovered_discount and unrecovered_initial_cost. Lost profit and marketing are refused."
+      },
+      "late_payment_minor": {
+        "type": "number",
+        "x_null_distinct": true,
+        "description": "Optional pass-through late-payment amount, shown separately from the rebate."
+      },
+      "non_delivery": {
+        "type": "object",
+        "x_null_distinct": true,
+        "description": "Optional non-delivery case: undisbursed_principal_minor and first_sign_month. Requires settlement_month."
+      },
+      "conventional_loan": {
+        "type": "object",
+        "x_null_distinct": true,
+        "description": "Optional conventional comparison: principal_minor, annual_rate_bp, tawidh_minor and gharamah_minor."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_murabahah_ibra_settle",
+    "description": "Computes a deferred-price instalment schedule and the rebate on early settlement in integer minor units, including the variable-rate and non-delivery cases. Arithmetic only, not a ruling.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "authority": {
+          "type": "string",
+          "description": "Pinned authority profile."
+        },
+        "cost_of_purchase_minor": {
+          "type": "number",
+          "description": "Acquisition cost in minor units."
+        },
+        "cpr_bp": {
+          "type": "number",
+          "description": "Contracted rate in basis points."
+        },
+        "tenor_months": {
+          "type": "number",
+          "description": "Number of months."
+        },
+        "instalment_minor": {
+          "type": "number",
+          "description": "Monthly instalment in minor units."
+        },
+        "selling_price_minor": {
+          "type": "number",
+          "description": "Contracted selling price in minor units."
+        },
+        "selling_price_stated_minor": {
+          "type": "number",
+          "description": "Optional stated selling price."
+        },
+        "epr_periods": {
+          "type": "array",
+          "description": "Optional prevailing-rate periods."
+        },
+        "settlement_month": {
+          "type": "number",
+          "description": "Optional early settlement month."
+        },
+        "instalment_due_minor": {
+          "type": "number",
+          "description": "Optional unpaid instalment."
+        },
+        "early_settlement_charges": {
+          "type": "array",
+          "description": "Optional permitted recovery costs."
+        },
+        "late_payment_minor": {
+          "type": "number",
+          "description": "Optional pass-through late charge."
+        },
+        "non_delivery": {
+          "type": "object",
+          "description": "Optional non-delivery case."
+        },
+        "conventional_loan": {
+          "type": "object",
+          "description": "Optional conventional comparison."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-852-murabahah-ibra-settlement.html",
+    "function_name": "runCheck",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "source": "chaingraph/kernels/art-852-murabahah-ibra-settlement.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads. Every refusal is a structured refusal payload, and x_null_distinct is declared on each property because the kernel refuses a present null with a different named code from an absent field.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "authority": "bnm",
+    "cost_of_purchase_minor": 20000000,
+    "cpr_bp": 900,
+    "tenor_months": 180,
+    "instalment_minor": 202853,
+    "selling_price_minor": 36513597,
+    "selling_price_stated_minor": 36513600
+  },
+  "output_example": {
+    "valid_input": true,
+    "domain_errors": [],
+    "refusal_code": null,
+    "not_a_shariah_ruling": true,
+    "authority": "bnm",
+    "authority_profile": "bnm",
+    "cost_of_purchase_minor": 20000000,
+    "contracted_rate_bp": 900,
+    "tenor_months": 180,
+    "instalment_minor": 202853,
+    "selling_price_minor": 36513597,
+    "selling_price_stated_minor": 36513600,
+    "selling_price_residual_minor": 3,
+    "markup_minor": 16513597,
+    "profit_rounding": "half-even",
+    "schedule": [
+      {
+        "month": 1,
+        "instalment_minor": 202853,
+        "profit_minor": 150000,
+        "cop_payment_minor": 52853,
+        "outstanding_cop_minor": 19947147,
+        "outstanding_selling_price_minor": 36310744,
+        "deferred_profit_minor": 16363597
+      },
+      {
+        "month": 2,
+        "instalment_minor": 202853,
+        "profit_minor": 149604,
+        "cop_payment_minor": 53249,
+        "outstanding_cop_minor": 19893898,
+        "outstanding_selling_price_minor": 36107891,
+        "deferred_profit_minor": 16213993
+      },
+      {
+        "month": 3,
+        "instalment_minor": 202853,
+        "profit_minor": 149204,
+        "cop_payment_minor": 53649,
+        "outstanding_cop_minor": 19840249,
+        "outstanding_selling_price_minor": 35905038,
+        "deferred_profit_minor": 16064789
+      },
+      {
+        "month": 4,
+        "instalment_minor": 202853,
+        "profit_minor": 148802,
+        "cop_payment_minor": 54051,
+        "outstanding_cop_minor": 19786198,
+        "outstanding_selling_price_minor": 35702185,
+        "deferred_profit_minor": 15915987
+      },
+      {
+        "month": 5,
+        "instalment_minor": 202853,
+        "profit_minor": 148396,
+        "cop_payment_minor": 54457,
+        "outstanding_cop_minor": 19731741,
+        "outstanding_selling_price_minor": 35499332,
+        "deferred_profit_minor": 15767591
+      },
+      {
+        "month": 6,
+        "instalment_minor": 202853,
+        "profit_minor": 147988,
+        "cop_payment_minor": 54865,
+        "outstanding_cop_minor": 19676876,
+        "outstanding_selling_price_minor": 35296479,
+        "deferred_profit_minor": 15619603
+      },
+      {
+        "month": 7,
+        "instalment_minor": 202853,
+        "profit_minor": 147577,
+        "cop_payment_minor": 55276,
+        "outstanding_cop_minor": 19621600,
+        "outstanding_selling_price_minor": 35093626,
+        "deferred_profit_minor": 15472026
+      },
+      {
+        "month": 8,
+        "instalment_minor": 202853,
+        "profit_minor": 147162,
+        "cop_payment_minor": 55691,
+        "outstanding_cop_minor": 19565909,
+        "outstanding_selling_price_minor": 34890773,
+        "deferred_profit_minor": 15324864
+      },
+      {
+        "month": 9,
+        "instalment_minor": 202853,
+        "profit_minor": 146744,
+        "cop_payment_minor": 56109,
+        "outstanding_cop_minor": 19509800,
+        "outstanding_selling_price_minor": 34687920,
+        "deferred_profit_minor": 15178120
+      },
+      {
+        "month": 10,
+        "instalment_minor": 202853,
+        "profit_minor": 146324,
+        "cop_payment_minor": 56529,
+        "outstanding_cop_minor": 19453271,
+        "outstanding_selling_price_minor": 34485067,
+        "deferred_profit_minor": 15031796
+      },
+      {
+        "month": 11,
+        "instalment_minor": 202853,
+        "profit_minor": 145900,
+        "cop_payment_minor": 56953,
+        "outstanding_cop_minor": 19396318,
+        "outstanding_selling_price_minor": 34282214,
+        "deferred_profit_minor": 14885896
+      },
+      {
+        "month": 12,
+        "instalment_minor": 202853,
+        "profit_minor": 145472,
+        "cop_payment_minor": 57381,
+        "outstanding_cop_minor": 19338937,
+        "outstanding_selling_price_minor": 34079361,
+        "deferred_profit_minor": 14740424
+      },
+      {
+        "month": 13,
+        "instalment_minor": 202853,
+        "profit_minor": 145042,
+        "cop_payment_minor": 57811,
+        "outstanding_cop_minor": 19281126,
+        "outstanding_selling_price_minor": 33876508,
+        "deferred_profit_minor": 14595382
+      },
+      {
+        "month": 14,
+        "instalment_minor": 202853,
+        "profit_minor": 144608,
+        "cop_payment_minor": 58245,
+        "outstanding_cop_minor": 19222881,
+        "outstanding_selling_price_minor": 33673655,
+        "deferred_profit_minor": 14450774
+      },
+      {
+        "month": 15,
+        "instalment_minor": 202853,
+        "profit_minor": 144172,
+        "cop_payment_minor": 58681,
+        "outstanding_cop_minor": 19164200,
+        "outstanding_selling_price_minor": 33470802,
+        "deferred_profit_minor": 14306602
+      },
+      {
+        "month": 16,
+        "instalment_minor": 202853,
+        "profit_minor": 143732,
+        "cop_payment_minor": 59121,
+        "outstanding_cop_minor": 19105079,
+        "outstanding_selling_price_minor": 33267949,
+        "deferred_profit_minor": 14162870
+      },
+      {
+        "month": 17,
+        "instalment_minor": 202853,
+        "profit_minor": 143288,
+        "cop_payment_minor": 59565,
+        "outstanding_cop_minor": 19045514,
+        "outstanding_selling_price_minor": 33065096,
+        "deferred_profit_minor": 14019582
+      },
+      {
+        "month": 18,
+        "instalment_minor": 202853,
+        "profit_minor": 142841,
+        "cop_payment_minor": 60012,
+        "outstanding_cop_minor": 18985502,
+        "outstanding_selling_price_minor": 32862243,
+        "deferred_profit_minor": 13876741
+      },
+      {
+        "month": 19,
+        "instalment_minor": 202853,
+        "profit_minor": 142391,
+        "cop_payment_minor": 60462,
+        "outstanding_cop_minor": 18925040,
+        "outstanding_selling_price_minor": 32659390,
+        "deferred_profit_minor": 13734350
+      },
+      {
+        "month": 20,
+        "instalment_minor": 202853,
+        "profit_minor": 141938,
+        "cop_payment_minor": 60915,
+        "outstanding_cop_minor": 18864125,
+        "outstanding_selling_price_minor": 32456537,
+        "deferred_profit_minor": 13592412
+      },
+      {
+        "month": 21,
+        "instalment_minor": 202853,
+        "profit_minor": 141481,
+        "cop_payment_minor": 61372,
+        "outstanding_cop_minor": 18802753,
+        "outstanding_selling_price_minor": 32253684,
+        "deferred_profit_minor": 13450931
+      },
+      {
+        "month": 22,
+        "instalment_minor": 202853,
+        "profit_minor": 141021,
+        "cop_payment_minor": 61832,
+        "outstanding_cop_minor": 18740921,
+        "outstanding_selling_price_minor": 32050831,
+        "deferred_profit_minor": 13309910
+      },
+      {
+        "month": 23,
+        "instalment_minor": 202853,
+        "profit_minor": 140557,
+        "cop_payment_minor": 62296,
+        "outstanding_cop_minor": 18678625,
+        "outstanding_selling_price_minor": 31847978,
+        "deferred_profit_minor": 13169353
+      },
+      {
+        "month": 24,
+        "instalment_minor": 202853,
+        "profit_minor": 140090,
+        "cop_payment_minor": 62763,
+        "outstanding_cop_minor": 18615862,
+        "outstanding_selling_price_minor": 31645125,
+        "deferred_profit_minor": 13029263
+      },
+      {
+        "month": 25,
+        "instalment_minor": 202853,
+        "profit_minor": 139619,
+        "cop_payment_minor": 63234,
+        "outstanding_cop_minor": 18552628,
+        "outstanding_selling_price_minor": 31442272,
+        "deferred_profit_minor": 12889644
+      },
+      {
+        "month": 26,
+        "instalment_minor": 202853,
+        "profit_minor": 139145,
+        "cop_payment_minor": 63708,
+        "outstanding_cop_minor": 18488920,
+        "outstanding_selling_price_minor": 31239419,
+        "deferred_profit_minor": 12750499
+      },
+      {
+        "month": 27,
+        "instalment_minor": 202853,
+        "profit_minor": 138667,
+        "cop_payment_minor": 64186,
+        "outstanding_cop_minor": 18424734,
+        "outstanding_selling_price_minor": 31036566,
+        "deferred_profit_minor": 12611832
+      },
+      {
+        "month": 28,
+        "instalment_minor": 202853,
+        "profit_minor": 138186,
+        "cop_payment_minor": 64667,
+        "outstanding_cop_minor": 18360067,
+        "outstanding_selling_price_minor": 30833713,
+        "deferred_profit_minor": 12473646
+      },
+      {
+        "month": 29,
+        "instalment_minor": 202853,
+        "profit_minor": 137701,
+        "cop_payment_minor": 65152,
+        "outstanding_cop_minor": 18294915,
+        "outstanding_selling_price_minor": 30630860,
+        "deferred_profit_minor": 12335945
+      },
+      {
+        "month": 30,
+        "instalment_minor": 202853,
+        "profit_minor": 137212,
+        "cop_payment_minor": 65641,
+        "outstanding_cop_minor": 18229274,
+        "outstanding_selling_price_minor": 30428007,
+        "deferred_profit_minor": 12198733
+      },
+      {
+        "month": 31,
+        "instalment_minor": 202853,
+        "profit_minor": 136720,
+        "cop_payment_minor": 66133,
+        "outstanding_cop_minor": 18163141,
+        "outstanding_selling_price_minor": 30225154,
+        "deferred_profit_minor": 12062013
+      },
+      {
+        "month": 32,
+        "instalment_minor": 202853,
+        "profit_minor": 136224,
+        "cop_payment_minor": 66629,
+        "outstanding_cop_minor": 18096512,
+        "outstanding_selling_price_minor": 30022301,
+        "deferred_profit_minor": 11925789
+      },
+      {
+        "month": 33,
+        "instalment_minor": 202853,
+        "profit_minor": 135724,
+        "cop_payment_minor": 67129,
+        "outstanding_cop_minor": 18029383,
+        "outstanding_selling_price_minor": 29819448,
+        "deferred_profit_minor": 11790065
+      },
+      {
+        "month": 34,
+        "instalment_minor": 202853,
+        "profit_minor": 135220,
+        "cop_payment_minor": 67633,
+        "outstanding_cop_minor": 17961750,
+        "outstanding_selling_price_minor": 29616595,
+        "deferred_profit_minor": 11654845
+      },
+      {
+        "month": 35,
+        "instalment_minor": 202853,
+        "profit_minor": 134713,
+        "cop_payment_minor": 68140,
+        "outstanding_cop_minor": 17893610,
+        "outstanding_selling_price_minor": 29413742,
+        "deferred_profit_minor": 11520132
+      },
+      {
+        "month": 36,
+        "instalment_minor": 202853,
+        "profit_minor": 134202,
+        "cop_payment_minor": 68651,
+        "outstanding_cop_minor": 17824959,
+        "outstanding_selling_price_minor": 29210889,
+        "deferred_profit_minor": 11385930
+      },
+      {
+        "month": 37,
+        "instalment_minor": 202853,
+        "profit_minor": 133687,
+        "cop_payment_minor": 69166,
+        "outstanding_cop_minor": 17755793,
+        "outstanding_selling_price_minor": 29008036,
+        "deferred_profit_minor": 11252243
+      },
+      {
+        "month": 38,
+        "instalment_minor": 202853,
+        "profit_minor": 133168,
+        "cop_payment_minor": 69685,
+        "outstanding_cop_minor": 17686108,
+        "outstanding_selling_price_minor": 28805183,
+        "deferred_profit_minor": 11119075
+      },
+      {
+        "month": 39,
+        "instalment_minor": 202853,
+        "profit_minor": 132646,
+        "cop_payment_minor": 70207,
+        "outstanding_cop_minor": 17615901,
+        "outstanding_selling_price_minor": 28602330,
+        "deferred_profit_minor": 10986429
+      },
+      {
+        "month": 40,
+        "instalment_minor": 202853,
+        "profit_minor": 132119,
+        "cop_payment_minor": 70734,
+        "outstanding_cop_minor": 17545167,
+        "outstanding_selling_price_minor": 28399477,
+        "deferred_profit_minor": 10854310
+      },
+      {
+        "month": 41,
+        "instalment_minor": 202853,
+        "profit_minor": 131589,
+        "cop_payment_minor": 71264,
+        "outstanding_cop_minor": 17473903,
+        "outstanding_selling_price_minor": 28196624,
+        "deferred_profit_minor": 10722721
+      },
+      {
+        "month": 42,
+        "instalment_minor": 202853,
+        "profit_minor": 131054,
+        "cop_payment_minor": 71799,
+        "outstanding_cop_minor": 17402104,
+        "outstanding_selling_price_minor": 27993771,
+        "deferred_profit_minor": 10591667
+      },
+      {
+        "month": 43,
+        "instalment_minor": 202853,
+        "profit_minor": 130516,
+        "cop_payment_minor": 72337,
+        "outstanding_cop_minor": 17329767,
+        "outstanding_selling_price_minor": 27790918,
+        "deferred_profit_minor": 10461151
+      },
+      {
+        "month": 44,
+        "instalment_minor": 202853,
+        "profit_minor": 129973,
+        "cop_payment_minor": 72880,
+        "outstanding_cop_minor": 17256887,
+        "outstanding_selling_price_minor": 27588065,
+        "deferred_profit_minor": 10331178
+      },
+      {
+        "month": 45,
+        "instalment_minor": 202853,
+        "profit_minor": 129427,
+        "cop_payment_minor": 73426,
+        "outstanding_cop_minor": 17183461,
+        "outstanding_selling_price_minor": 27385212,
+        "deferred_profit_minor": 10201751
+      },
+      {
+        "month": 46,
+        "instalment_minor": 202853,
+        "profit_minor": 128876,
+        "cop_payment_minor": 73977,
+        "outstanding_cop_minor": 17109484,
+        "outstanding_selling_price_minor": 27182359,
+        "deferred_profit_minor": 10072875
+      },
+      {
+        "month": 47,
+        "instalment_minor": 202853,
+        "profit_minor": 128321,
+        "cop_payment_minor": 74532,
+        "outstanding_cop_minor": 17034952,
+        "outstanding_selling_price_minor": 26979506,
+        "deferred_profit_minor": 9944554
+      },
+      {
+        "month": 48,
+        "instalment_minor": 202853,
+        "profit_minor": 127762,
+        "cop_payment_minor": 75091,
+        "outstanding_cop_minor": 16959861,
+        "outstanding_selling_price_minor": 26776653,
+        "deferred_profit_minor": 9816792
+      },
+      {
+        "month": 49,
+        "instalment_minor": 202853,
+        "profit_minor": 127199,
+        "cop_payment_minor": 75654,
+        "outstanding_cop_minor": 16884207,
+        "outstanding_selling_price_minor": 26573800,
+        "deferred_profit_minor": 9689593
+      },
+      {
+        "month": 50,
+        "instalment_minor": 202853,
+        "profit_minor": 126632,
+        "cop_payment_minor": 76221,
+        "outstanding_cop_minor": 16807986,
+        "outstanding_selling_price_minor": 26370947,
+        "deferred_profit_minor": 9562961
+      },
+      {
+        "month": 51,
+        "instalment_minor": 202853,
+        "profit_minor": 126060,
+        "cop_payment_minor": 76793,
+        "outstanding_cop_minor": 16731193,
+        "outstanding_selling_price_minor": 26168094,
+        "deferred_profit_minor": 9436901
+      },
+      {
+        "month": 52,
+        "instalment_minor": 202853,
+        "profit_minor": 125484,
+        "cop_payment_minor": 77369,
+        "outstanding_cop_minor": 16653824,
+        "outstanding_selling_price_minor": 25965241,
+        "deferred_profit_minor": 9311417
+      },
+      {
+        "month": 53,
+        "instalment_minor": 202853,
+        "profit_minor": 124904,
+        "cop_payment_minor": 77949,
+        "outstanding_cop_minor": 16575875,
+        "outstanding_selling_price_minor": 25762388,
+        "deferred_profit_minor": 9186513
+      },
+      {
+        "month": 54,
+        "instalment_minor": 202853,
+        "profit_minor": 124319,
+        "cop_payment_minor": 78534,
+        "outstanding_cop_minor": 16497341,
+        "outstanding_selling_price_minor": 25559535,
+        "deferred_profit_minor": 9062194
+      },
+      {
+        "month": 55,
+        "instalment_minor": 202853,
+        "profit_minor": 123730,
+        "cop_payment_minor": 79123,
+        "outstanding_cop_minor": 16418218,
+        "outstanding_selling_price_minor": 25356682,
+        "deferred_profit_minor": 8938464
+      },
+      {
+        "month": 56,
+        "instalment_minor": 202853,
+        "profit_minor": 123137,
+        "cop_payment_minor": 79716,
+        "outstanding_cop_minor": 16338502,
+        "outstanding_selling_price_minor": 25153829,
+        "deferred_profit_minor": 8815327
+      },
+      {
+        "month": 57,
+        "instalment_minor": 202853,
+        "profit_minor": 122539,
+        "cop_payment_minor": 80314,
+        "outstanding_cop_minor": 16258188,
+        "outstanding_selling_price_minor": 24950976,
+        "deferred_profit_minor": 8692788
+      },
+      {
+        "month": 58,
+        "instalment_minor": 202853,
+        "profit_minor": 121936,
+        "cop_payment_minor": 80917,
+        "outstanding_cop_minor": 16177271,
+        "outstanding_selling_price_minor": 24748123,
+        "deferred_profit_minor": 8570852
+      },
+      {
+        "month": 59,
+        "instalment_minor": 202853,
+        "profit_minor": 121330,
+        "cop_payment_minor": 81523,
+        "outstanding_cop_minor": 16095748,
+        "outstanding_selling_price_minor": 24545270,
+        "deferred_profit_minor": 8449522
+      },
+      {
+        "month": 60,
+        "instalment_minor": 202853,
+        "profit_minor": 120718,
+        "cop_payment_minor": 82135,
+        "outstanding_cop_minor": 16013613,
+        "outstanding_selling_price_minor": 24342417,
+        "deferred_profit_minor": 8328804
+      },
+      {
+        "month": 61,
+        "instalment_minor": 202853,
+        "profit_minor": 120102,
+        "cop_payment_minor": 82751,
+        "outstanding_cop_minor": 15930862,
+        "outstanding_selling_price_minor": 24139564,
+        "deferred_profit_minor": 8208702
+      },
+      {
+        "month": 62,
+        "instalment_minor": 202853,
+        "profit_minor": 119481,
+        "cop_payment_minor": 83372,
+        "outstanding_cop_minor": 15847490,
+        "outstanding_selling_price_minor": 23936711,
+        "deferred_profit_minor": 8089221
+      },
+      {
+        "month": 63,
+        "instalment_minor": 202853,
+        "profit_minor": 118856,
+        "cop_payment_minor": 83997,
+        "outstanding_cop_minor": 15763493,
+        "outstanding_selling_price_minor": 23733858,
+        "deferred_profit_minor": 7970365
+      },
+      {
+        "month": 64,
+        "instalment_minor": 202853,
+        "profit_minor": 118226,
+        "cop_payment_minor": 84627,
+        "outstanding_cop_minor": 15678866,
+        "outstanding_selling_price_minor": 23531005,
+        "deferred_profit_minor": 7852139
+      },
+      {
+        "month": 65,
+        "instalment_minor": 202853,
+        "profit_minor": 117591,
+        "cop_payment_minor": 85262,
+        "outstanding_cop_minor": 15593604,
+        "outstanding_selling_price_minor": 23328152,
+        "deferred_profit_minor": 7734548
+      },
+      {
+        "month": 66,
+        "instalment_minor": 202853,
+        "profit_minor": 116952,
+        "cop_payment_minor": 85901,
+        "outstanding_cop_minor": 15507703,
+        "outstanding_selling_price_minor": 23125299,
+        "deferred_profit_minor": 7617596
+      },
+      {
+        "month": 67,
+        "instalment_minor": 202853,
+        "profit_minor": 116308,
+        "cop_payment_minor": 86545,
+        "outstanding_cop_minor": 15421158,
+        "outstanding_selling_price_minor": 22922446,
+        "deferred_profit_minor": 7501288
+      },
+      {
+        "month": 68,
+        "instalment_minor": 202853,
+        "profit_minor": 115659,
+        "cop_payment_minor": 87194,
+        "outstanding_cop_minor": 15333964,
+        "outstanding_selling_price_minor": 22719593,
+        "deferred_profit_minor": 7385629
+      },
+      {
+        "month": 69,
+        "instalment_minor": 202853,
+        "profit_minor": 115005,
+        "cop_payment_minor": 87848,
+        "outstanding_cop_minor": 15246116,
+        "outstanding_selling_price_minor": 22516740,
+        "deferred_profit_minor": 7270624
+      },
+      {
+        "month": 70,
+        "instalment_minor": 202853,
+        "profit_minor": 114346,
+        "cop_payment_minor": 88507,
+        "outstanding_cop_minor": 15157609,
+        "outstanding_selling_price_minor": 22313887,
+        "deferred_profit_minor": 7156278
+      },
+      {
+        "month": 71,
+        "instalment_minor": 202853,
+        "profit_minor": 113682,
+        "cop_payment_minor": 89171,
+        "outstanding_cop_minor": 15068438,
+        "outstanding_selling_price_minor": 22111034,
+        "deferred_profit_minor": 7042596
+      },
+      {
+        "month": 72,
+        "instalment_minor": 202853,
+        "profit_minor": 113013,
+        "cop_payment_minor": 89840,
+        "outstanding_cop_minor": 14978598,
+        "outstanding_selling_price_minor": 21908181,
+        "deferred_profit_minor": 6929583
+      },
+      {
+        "month": 73,
+        "instalment_minor": 202853,
+        "profit_minor": 112339,
+        "cop_payment_minor": 90514,
+        "outstanding_cop_minor": 14888084,
+        "outstanding_selling_price_minor": 21705328,
+        "deferred_profit_minor": 6817244
+      },
+      {
+        "month": 74,
+        "instalment_minor": 202853,
+        "profit_minor": 111661,
+        "cop_payment_minor": 91192,
+        "outstanding_cop_minor": 14796892,
+        "outstanding_selling_price_minor": 21502475,
+        "deferred_profit_minor": 6705583
+      },
+      {
+        "month": 75,
+        "instalment_minor": 202853,
+        "profit_minor": 110977,
+        "cop_payment_minor": 91876,
+        "outstanding_cop_minor": 14705016,
+        "outstanding_selling_price_minor": 21299622,
+        "deferred_profit_minor": 6594606
+      },
+      {
+        "month": 76,
+        "instalment_minor": 202853,
+        "profit_minor": 110288,
+        "cop_payment_minor": 92565,
+        "outstanding_cop_minor": 14612451,
+        "outstanding_selling_price_minor": 21096769,
+        "deferred_profit_minor": 6484318
+      },
+      {
+        "month": 77,
+        "instalment_minor": 202853,
+        "profit_minor": 109593,
+        "cop_payment_minor": 93260,
+        "outstanding_cop_minor": 14519191,
+        "outstanding_selling_price_minor": 20893916,
+        "deferred_profit_minor": 6374725
+      },
+      {
+        "month": 78,
+        "instalment_minor": 202853,
+        "profit_minor": 108894,
+        "cop_payment_minor": 93959,
+        "outstanding_cop_minor": 14425232,
+        "outstanding_selling_price_minor": 20691063,
+        "deferred_profit_minor": 6265831
+      },
+      {
+        "month": 79,
+        "instalment_minor": 202853,
+        "profit_minor": 108189,
+        "cop_payment_minor": 94664,
+        "outstanding_cop_minor": 14330568,
+        "outstanding_selling_price_minor": 20488210,
+        "deferred_profit_minor": 6157642
+      },
+      {
+        "month": 80,
+        "instalment_minor": 202853,
+        "profit_minor": 107479,
+        "cop_payment_minor": 95374,
+        "outstanding_cop_minor": 14235194,
+        "outstanding_selling_price_minor": 20285357,
+        "deferred_profit_minor": 6050163
+      },
+      {
+        "month": 81,
+        "instalment_minor": 202853,
+        "profit_minor": 106764,
+        "cop_payment_minor": 96089,
+        "outstanding_cop_minor": 14139105,
+        "outstanding_selling_price_minor": 20082504,
+        "deferred_profit_minor": 5943399
+      },
+      {
+        "month": 82,
+        "instalment_minor": 202853,
+        "profit_minor": 106043,
+        "cop_payment_minor": 96810,
+        "outstanding_cop_minor": 14042295,
+        "outstanding_selling_price_minor": 19879651,
+        "deferred_profit_minor": 5837356
+      },
+      {
+        "month": 83,
+        "instalment_minor": 202853,
+        "profit_minor": 105317,
+        "cop_payment_minor": 97536,
+        "outstanding_cop_minor": 13944759,
+        "outstanding_selling_price_minor": 19676798,
+        "deferred_profit_minor": 5732039
+      },
+      {
+        "month": 84,
+        "instalment_minor": 202853,
+        "profit_minor": 104586,
+        "cop_payment_minor": 98267,
+        "outstanding_cop_minor": 13846492,
+        "outstanding_selling_price_minor": 19473945,
+        "deferred_profit_minor": 5627453
+      },
+      {
+        "month": 85,
+        "instalment_minor": 202853,
+        "profit_minor": 103849,
+        "cop_payment_minor": 99004,
+        "outstanding_cop_minor": 13747488,
+        "outstanding_selling_price_minor": 19271092,
+        "deferred_profit_minor": 5523604
+      },
+      {
+        "month": 86,
+        "instalment_minor": 202853,
+        "profit_minor": 103106,
+        "cop_payment_minor": 99747,
+        "outstanding_cop_minor": 13647741,
+        "outstanding_selling_price_minor": 19068239,
+        "deferred_profit_minor": 5420498
+      },
+      {
+        "month": 87,
+        "instalment_minor": 202853,
+        "profit_minor": 102358,
+        "cop_payment_minor": 100495,
+        "outstanding_cop_minor": 13547246,
+        "outstanding_selling_price_minor": 18865386,
+        "deferred_profit_minor": 5318140
+      },
+      {
+        "month": 88,
+        "instalment_minor": 202853,
+        "profit_minor": 101604,
+        "cop_payment_minor": 101249,
+        "outstanding_cop_minor": 13445997,
+        "outstanding_selling_price_minor": 18662533,
+        "deferred_profit_minor": 5216536
+      },
+      {
+        "month": 89,
+        "instalment_minor": 202853,
+        "profit_minor": 100845,
+        "cop_payment_minor": 102008,
+        "outstanding_cop_minor": 13343989,
+        "outstanding_selling_price_minor": 18459680,
+        "deferred_profit_minor": 5115691
+      },
+      {
+        "month": 90,
+        "instalment_minor": 202853,
+        "profit_minor": 100080,
+        "cop_payment_minor": 102773,
+        "outstanding_cop_minor": 13241216,
+        "outstanding_selling_price_minor": 18256827,
+        "deferred_profit_minor": 5015611
+      },
+      {
+        "month": 91,
+        "instalment_minor": 202853,
+        "profit_minor": 99309,
+        "cop_payment_minor": 103544,
+        "outstanding_cop_minor": 13137672,
+        "outstanding_selling_price_minor": 18053974,
+        "deferred_profit_minor": 4916302
+      },
+      {
+        "month": 92,
+        "instalment_minor": 202853,
+        "profit_minor": 98533,
+        "cop_payment_minor": 104320,
+        "outstanding_cop_minor": 13033352,
+        "outstanding_selling_price_minor": 17851121,
+        "deferred_profit_minor": 4817769
+      },
+      {
+        "month": 93,
+        "instalment_minor": 202853,
+        "profit_minor": 97750,
+        "cop_payment_minor": 105103,
+        "outstanding_cop_minor": 12928249,
+        "outstanding_selling_price_minor": 17648268,
+        "deferred_profit_minor": 4720019
+      },
+      {
+        "month": 94,
+        "instalment_minor": 202853,
+        "profit_minor": 96962,
+        "cop_payment_minor": 105891,
+        "outstanding_cop_minor": 12822358,
+        "outstanding_selling_price_minor": 17445415,
+        "deferred_profit_minor": 4623057
+      },
+      {
+        "month": 95,
+        "instalment_minor": 202853,
+        "profit_minor": 96168,
+        "cop_payment_minor": 106685,
+        "outstanding_cop_minor": 12715673,
+        "outstanding_selling_price_minor": 17242562,
+        "deferred_profit_minor": 4526889
+      },
+      {
+        "month": 96,
+        "instalment_minor": 202853,
+        "profit_minor": 95368,
+        "cop_payment_minor": 107485,
+        "outstanding_cop_minor": 12608188,
+        "outstanding_selling_price_minor": 17039709,
+        "deferred_profit_minor": 4431521
+      },
+      {
+        "month": 97,
+        "instalment_minor": 202853,
+        "profit_minor": 94561,
+        "cop_payment_minor": 108292,
+        "outstanding_cop_minor": 12499896,
+        "outstanding_selling_price_minor": 16836856,
+        "deferred_profit_minor": 4336960
+      },
+      {
+        "month": 98,
+        "instalment_minor": 202853,
+        "profit_minor": 93749,
+        "cop_payment_minor": 109104,
+        "outstanding_cop_minor": 12390792,
+        "outstanding_selling_price_minor": 16634003,
+        "deferred_profit_minor": 4243211
+      },
+      {
+        "month": 99,
+        "instalment_minor": 202853,
+        "profit_minor": 92931,
+        "cop_payment_minor": 109922,
+        "outstanding_cop_minor": 12280870,
+        "outstanding_selling_price_minor": 16431150,
+        "deferred_profit_minor": 4150280
+      },
+      {
+        "month": 100,
+        "instalment_minor": 202853,
+        "profit_minor": 92107,
+        "cop_payment_minor": 110746,
+        "outstanding_cop_minor": 12170124,
+        "outstanding_selling_price_minor": 16228297,
+        "deferred_profit_minor": 4058173
+      },
+      {
+        "month": 101,
+        "instalment_minor": 202853,
+        "profit_minor": 91276,
+        "cop_payment_minor": 111577,
+        "outstanding_cop_minor": 12058547,
+        "outstanding_selling_price_minor": 16025444,
+        "deferred_profit_minor": 3966897
+      },
+      {
+        "month": 102,
+        "instalment_minor": 202853,
+        "profit_minor": 90439,
+        "cop_payment_minor": 112414,
+        "outstanding_cop_minor": 11946133,
+        "outstanding_selling_price_minor": 15822591,
+        "deferred_profit_minor": 3876458
+      },
+      {
+        "month": 103,
+        "instalment_minor": 202853,
+        "profit_minor": 89596,
+        "cop_payment_minor": 113257,
+        "outstanding_cop_minor": 11832876,
+        "outstanding_selling_price_minor": 15619738,
+        "deferred_profit_minor": 3786862
+      },
+      {
+        "month": 104,
+        "instalment_minor": 202853,
+        "profit_minor": 88747,
+        "cop_payment_minor": 114106,
+        "outstanding_cop_minor": 11718770,
+        "outstanding_selling_price_minor": 15416885,
+        "deferred_profit_minor": 3698115
+      },
+      {
+        "month": 105,
+        "instalment_minor": 202853,
+        "profit_minor": 87891,
+        "cop_payment_minor": 114962,
+        "outstanding_cop_minor": 11603808,
+        "outstanding_selling_price_minor": 15214032,
+        "deferred_profit_minor": 3610224
+      },
+      {
+        "month": 106,
+        "instalment_minor": 202853,
+        "profit_minor": 87029,
+        "cop_payment_minor": 115824,
+        "outstanding_cop_minor": 11487984,
+        "outstanding_selling_price_minor": 15011179,
+        "deferred_profit_minor": 3523195
+      },
+      {
+        "month": 107,
+        "instalment_minor": 202853,
+        "profit_minor": 86160,
+        "cop_payment_minor": 116693,
+        "outstanding_cop_minor": 11371291,
+        "outstanding_selling_price_minor": 14808326,
+        "deferred_profit_minor": 3437035
+      },
+      {
+        "month": 108,
+        "instalment_minor": 202853,
+        "profit_minor": 85285,
+        "cop_payment_minor": 117568,
+        "outstanding_cop_minor": 11253723,
+        "outstanding_selling_price_minor": 14605473,
+        "deferred_profit_minor": 3351750
+      },
+      {
+        "month": 109,
+        "instalment_minor": 202853,
+        "profit_minor": 84403,
+        "cop_payment_minor": 118450,
+        "outstanding_cop_minor": 11135273,
+        "outstanding_selling_price_minor": 14402620,
+        "deferred_profit_minor": 3267347
+      },
+      {
+        "month": 110,
+        "instalment_minor": 202853,
+        "profit_minor": 83515,
+        "cop_payment_minor": 119338,
+        "outstanding_cop_minor": 11015935,
+        "outstanding_selling_price_minor": 14199767,
+        "deferred_profit_minor": 3183832
+      },
+      {
+        "month": 111,
+        "instalment_minor": 202853,
+        "profit_minor": 82620,
+        "cop_payment_minor": 120233,
+        "outstanding_cop_minor": 10895702,
+        "outstanding_selling_price_minor": 13996914,
+        "deferred_profit_minor": 3101212
+      },
+      {
+        "month": 112,
+        "instalment_minor": 202853,
+        "profit_minor": 81718,
+        "cop_payment_minor": 121135,
+        "outstanding_cop_minor": 10774567,
+        "outstanding_selling_price_minor": 13794061,
+        "deferred_profit_minor": 3019494
+      },
+      {
+        "month": 113,
+        "instalment_minor": 202853,
+        "profit_minor": 80809,
+        "cop_payment_minor": 122044,
+        "outstanding_cop_minor": 10652523,
+        "outstanding_selling_price_minor": 13591208,
+        "deferred_profit_minor": 2938685
+      },
+      {
+        "month": 114,
+        "instalment_minor": 202853,
+        "profit_minor": 79894,
+        "cop_payment_minor": 122959,
+        "outstanding_cop_minor": 10529564,
+        "outstanding_selling_price_minor": 13388355,
+        "deferred_profit_minor": 2858791
+      },
+      {
+        "month": 115,
+        "instalment_minor": 202853,
+        "profit_minor": 78972,
+        "cop_payment_minor": 123881,
+        "outstanding_cop_minor": 10405683,
+        "outstanding_selling_price_minor": 13185502,
+        "deferred_profit_minor": 2779819
+      },
+      {
+        "month": 116,
+        "instalment_minor": 202853,
+        "profit_minor": 78043,
+        "cop_payment_minor": 124810,
+        "outstanding_cop_minor": 10280873,
+        "outstanding_selling_price_minor": 12982649,
+        "deferred_profit_minor": 2701776
+      },
+      {
+        "month": 117,
+        "instalment_minor": 202853,
+        "profit_minor": 77107,
+        "cop_payment_minor": 125746,
+        "outstanding_cop_minor": 10155127,
+        "outstanding_selling_price_minor": 12779796,
+        "deferred_profit_minor": 2624669
+      },
+      {
+        "month": 118,
+        "instalment_minor": 202853,
+        "profit_minor": 76163,
+        "cop_payment_minor": 126690,
+        "outstanding_cop_minor": 10028437,
+        "outstanding_selling_price_minor": 12576943,
+        "deferred_profit_minor": 2548506
+      },
+      {
+        "month": 119,
+        "instalment_minor": 202853,
+        "profit_minor": 75213,
+        "cop_payment_minor": 127640,
+        "outstanding_cop_minor": 9900797,
+        "outstanding_selling_price_minor": 12374090,
+        "deferred_profit_minor": 2473293
+      },
+      {
+        "month": 120,
+        "instalment_minor": 202853,
+        "profit_minor": 74256,
+        "cop_payment_minor": 128597,
+        "outstanding_cop_minor": 9772200,
+        "outstanding_selling_price_minor": 12171237,
+        "deferred_profit_minor": 2399037
+      },
+      {
+        "month": 121,
+        "instalment_minor": 202853,
+        "profit_minor": 73292,
+        "cop_payment_minor": 129561,
+        "outstanding_cop_minor": 9642639,
+        "outstanding_selling_price_minor": 11968384,
+        "deferred_profit_minor": 2325745
+      },
+      {
+        "month": 122,
+        "instalment_minor": 202853,
+        "profit_minor": 72320,
+        "cop_payment_minor": 130533,
+        "outstanding_cop_minor": 9512106,
+        "outstanding_selling_price_minor": 11765531,
+        "deferred_profit_minor": 2253425
+      },
+      {
+        "month": 123,
+        "instalment_minor": 202853,
+        "profit_minor": 71341,
+        "cop_payment_minor": 131512,
+        "outstanding_cop_minor": 9380594,
+        "outstanding_selling_price_minor": 11562678,
+        "deferred_profit_minor": 2182084
+      },
+      {
+        "month": 124,
+        "instalment_minor": 202853,
+        "profit_minor": 70354,
+        "cop_payment_minor": 132499,
+        "outstanding_cop_minor": 9248095,
+        "outstanding_selling_price_minor": 11359825,
+        "deferred_profit_minor": 2111730
+      },
+      {
+        "month": 125,
+        "instalment_minor": 202853,
+        "profit_minor": 69361,
+        "cop_payment_minor": 133492,
+        "outstanding_cop_minor": 9114603,
+        "outstanding_selling_price_minor": 11156972,
+        "deferred_profit_minor": 2042369
+      },
+      {
+        "month": 126,
+        "instalment_minor": 202853,
+        "profit_minor": 68360,
+        "cop_payment_minor": 134493,
+        "outstanding_cop_minor": 8980110,
+        "outstanding_selling_price_minor": 10954119,
+        "deferred_profit_minor": 1974009
+      },
+      {
+        "month": 127,
+        "instalment_minor": 202853,
+        "profit_minor": 67351,
+        "cop_payment_minor": 135502,
+        "outstanding_cop_minor": 8844608,
+        "outstanding_selling_price_minor": 10751266,
+        "deferred_profit_minor": 1906658
+      },
+      {
+        "month": 128,
+        "instalment_minor": 202853,
+        "profit_minor": 66335,
+        "cop_payment_minor": 136518,
+        "outstanding_cop_minor": 8708090,
+        "outstanding_selling_price_minor": 10548413,
+        "deferred_profit_minor": 1840323
+      },
+      {
+        "month": 129,
+        "instalment_minor": 202853,
+        "profit_minor": 65311,
+        "cop_payment_minor": 137542,
+        "outstanding_cop_minor": 8570548,
+        "outstanding_selling_price_minor": 10345560,
+        "deferred_profit_minor": 1775012
+      },
+      {
+        "month": 130,
+        "instalment_minor": 202853,
+        "profit_minor": 64279,
+        "cop_payment_minor": 138574,
+        "outstanding_cop_minor": 8431974,
+        "outstanding_selling_price_minor": 10142707,
+        "deferred_profit_minor": 1710733
+      },
+      {
+        "month": 131,
+        "instalment_minor": 202853,
+        "profit_minor": 63240,
+        "cop_payment_minor": 139613,
+        "outstanding_cop_minor": 8292361,
+        "outstanding_selling_price_minor": 9939854,
+        "deferred_profit_minor": 1647493
+      },
+      {
+        "month": 132,
+        "instalment_minor": 202853,
+        "profit_minor": 62193,
+        "cop_payment_minor": 140660,
+        "outstanding_cop_minor": 8151701,
+        "outstanding_selling_price_minor": 9737001,
+        "deferred_profit_minor": 1585300
+      },
+      {
+        "month": 133,
+        "instalment_minor": 202853,
+        "profit_minor": 61138,
+        "cop_payment_minor": 141715,
+        "outstanding_cop_minor": 8009986,
+        "outstanding_selling_price_minor": 9534148,
+        "deferred_profit_minor": 1524162
+      },
+      {
+        "month": 134,
+        "instalment_minor": 202853,
+        "profit_minor": 60075,
+        "cop_payment_minor": 142778,
+        "outstanding_cop_minor": 7867208,
+        "outstanding_selling_price_minor": 9331295,
+        "deferred_profit_minor": 1464087
+      },
+      {
+        "month": 135,
+        "instalment_minor": 202853,
+        "profit_minor": 59004,
+        "cop_payment_minor": 143849,
+        "outstanding_cop_minor": 7723359,
+        "outstanding_selling_price_minor": 9128442,
+        "deferred_profit_minor": 1405083
+      },
+      {
+        "month": 136,
+        "instalment_minor": 202853,
+        "profit_minor": 57925,
+        "cop_payment_minor": 144928,
+        "outstanding_cop_minor": 7578431,
+        "outstanding_selling_price_minor": 8925589,
+        "deferred_profit_minor": 1347158
+      },
+      {
+        "month": 137,
+        "instalment_minor": 202853,
+        "profit_minor": 56838,
+        "cop_payment_minor": 146015,
+        "outstanding_cop_minor": 7432416,
+        "outstanding_selling_price_minor": 8722736,
+        "deferred_profit_minor": 1290320
+      },
+      {
+        "month": 138,
+        "instalment_minor": 202853,
+        "profit_minor": 55743,
+        "cop_payment_minor": 147110,
+        "outstanding_cop_minor": 7285306,
+        "outstanding_selling_price_minor": 8519883,
+        "deferred_profit_minor": 1234577
+      },
+      {
+        "month": 139,
+        "instalment_minor": 202853,
+        "profit_minor": 54640,
+        "cop_payment_minor": 148213,
+        "outstanding_cop_minor": 7137093,
+        "outstanding_selling_price_minor": 8317030,
+        "deferred_profit_minor": 1179937
+      },
+      {
+        "month": 140,
+        "instalment_minor": 202853,
+        "profit_minor": 53528,
+        "cop_payment_minor": 149325,
+        "outstanding_cop_minor": 6987768,
+        "outstanding_selling_price_minor": 8114177,
+        "deferred_profit_minor": 1126409
+      },
+      {
+        "month": 141,
+        "instalment_minor": 202853,
+        "profit_minor": 52408,
+        "cop_payment_minor": 150445,
+        "outstanding_cop_minor": 6837323,
+        "outstanding_selling_price_minor": 7911324,
+        "deferred_profit_minor": 1074001
+      },
+      {
+        "month": 142,
+        "instalment_minor": 202853,
+        "profit_minor": 51280,
+        "cop_payment_minor": 151573,
+        "outstanding_cop_minor": 6685750,
+        "outstanding_selling_price_minor": 7708471,
+        "deferred_profit_minor": 1022721
+      },
+      {
+        "month": 143,
+        "instalment_minor": 202853,
+        "profit_minor": 50143,
+        "cop_payment_minor": 152710,
+        "outstanding_cop_minor": 6533040,
+        "outstanding_selling_price_minor": 7505618,
+        "deferred_profit_minor": 972578
+      },
+      {
+        "month": 144,
+        "instalment_minor": 202853,
+        "profit_minor": 48998,
+        "cop_payment_minor": 153855,
+        "outstanding_cop_minor": 6379185,
+        "outstanding_selling_price_minor": 7302765,
+        "deferred_profit_minor": 923580
+      },
+      {
+        "month": 145,
+        "instalment_minor": 202853,
+        "profit_minor": 47844,
+        "cop_payment_minor": 155009,
+        "outstanding_cop_minor": 6224176,
+        "outstanding_selling_price_minor": 7099912,
+        "deferred_profit_minor": 875736
+      },
+      {
+        "month": 146,
+        "instalment_minor": 202853,
+        "profit_minor": 46681,
+        "cop_payment_minor": 156172,
+        "outstanding_cop_minor": 6068004,
+        "outstanding_selling_price_minor": 6897059,
+        "deferred_profit_minor": 829055
+      },
+      {
+        "month": 147,
+        "instalment_minor": 202853,
+        "profit_minor": 45510,
+        "cop_payment_minor": 157343,
+        "outstanding_cop_minor": 5910661,
+        "outstanding_selling_price_minor": 6694206,
+        "deferred_profit_minor": 783545
+      },
+      {
+        "month": 148,
+        "instalment_minor": 202853,
+        "profit_minor": 44330,
+        "cop_payment_minor": 158523,
+        "outstanding_cop_minor": 5752138,
+        "outstanding_selling_price_minor": 6491353,
+        "deferred_profit_minor": 739215
+      },
+      {
+        "month": 149,
+        "instalment_minor": 202853,
+        "profit_minor": 43141,
+        "cop_payment_minor": 159712,
+        "outstanding_cop_minor": 5592426,
+        "outstanding_selling_price_minor": 6288500,
+        "deferred_profit_minor": 696074
+      },
+      {
+        "month": 150,
+        "instalment_minor": 202853,
+        "profit_minor": 41943,
+        "cop_payment_minor": 160910,
+        "outstanding_cop_minor": 5431516,
+        "outstanding_selling_price_minor": 6085647,
+        "deferred_profit_minor": 654131
+      },
+      {
+        "month": 151,
+        "instalment_minor": 202853,
+        "profit_minor": 40736,
+        "cop_payment_minor": 162117,
+        "outstanding_cop_minor": 5269399,
+        "outstanding_selling_price_minor": 5882794,
+        "deferred_profit_minor": 613395
+      },
+      {
+        "month": 152,
+        "instalment_minor": 202853,
+        "profit_minor": 39520,
+        "cop_payment_minor": 163333,
+        "outstanding_cop_minor": 5106066,
+        "outstanding_selling_price_minor": 5679941,
+        "deferred_profit_minor": 573875
+      },
+      {
+        "month": 153,
+        "instalment_minor": 202853,
+        "profit_minor": 38295,
+        "cop_payment_minor": 164558,
+        "outstanding_cop_minor": 4941508,
+        "outstanding_selling_price_minor": 5477088,
+        "deferred_profit_minor": 535580
+      },
+      {
+        "month": 154,
+        "instalment_minor": 202853,
+        "profit_minor": 37061,
+        "cop_payment_minor": 165792,
+        "outstanding_cop_minor": 4775716,
+        "outstanding_selling_price_minor": 5274235,
+        "deferred_profit_minor": 498519
+      },
+      {
+        "month": 155,
+        "instalment_minor": 202853,
+        "profit_minor": 35818,
+        "cop_payment_minor": 167035,
+        "outstanding_cop_minor": 4608681,
+        "outstanding_selling_price_minor": 5071382,
+        "deferred_profit_minor": 462701
+      },
+      {
+        "month": 156,
+        "instalment_minor": 202853,
+        "profit_minor": 34565,
+        "cop_payment_minor": 168288,
+        "outstanding_cop_minor": 4440393,
+        "outstanding_selling_price_minor": 4868529,
+        "deferred_profit_minor": 428136
+      },
+      {
+        "month": 157,
+        "instalment_minor": 202853,
+        "profit_minor": 33303,
+        "cop_payment_minor": 169550,
+        "outstanding_cop_minor": 4270843,
+        "outstanding_selling_price_minor": 4665676,
+        "deferred_profit_minor": 394833
+      },
+      {
+        "month": 158,
+        "instalment_minor": 202853,
+        "profit_minor": 32031,
+        "cop_payment_minor": 170822,
+        "outstanding_cop_minor": 4100021,
+        "outstanding_selling_price_minor": 4462823,
+        "deferred_profit_minor": 362802
+      },
+      {
+        "month": 159,
+        "instalment_minor": 202853,
+        "profit_minor": 30750,
+        "cop_payment_minor": 172103,
+        "outstanding_cop_minor": 3927918,
+        "outstanding_selling_price_minor": 4259970,
+        "deferred_profit_minor": 332052
+      },
+      {
+        "month": 160,
+        "instalment_minor": 202853,
+        "profit_minor": 29459,
+        "cop_payment_minor": 173394,
+        "outstanding_cop_minor": 3754524,
+        "outstanding_selling_price_minor": 4057117,
+        "deferred_profit_minor": 302593
+      },
+      {
+        "month": 161,
+        "instalment_minor": 202853,
+        "profit_minor": 28159,
+        "cop_payment_minor": 174694,
+        "outstanding_cop_minor": 3579830,
+        "outstanding_selling_price_minor": 3854264,
+        "deferred_profit_minor": 274434
+      },
+      {
+        "month": 162,
+        "instalment_minor": 202853,
+        "profit_minor": 26849,
+        "cop_payment_minor": 176004,
+        "outstanding_cop_minor": 3403826,
+        "outstanding_selling_price_minor": 3651411,
+        "deferred_profit_minor": 247585
+      },
+      {
+        "month": 163,
+        "instalment_minor": 202853,
+        "profit_minor": 25529,
+        "cop_payment_minor": 177324,
+        "outstanding_cop_minor": 3226502,
+        "outstanding_selling_price_minor": 3448558,
+        "deferred_profit_minor": 222056
+      },
+      {
+        "month": 164,
+        "instalment_minor": 202853,
+        "profit_minor": 24199,
+        "cop_payment_minor": 178654,
+        "outstanding_cop_minor": 3047848,
+        "outstanding_selling_price_minor": 3245705,
+        "deferred_profit_minor": 197857
+      },
+      {
+        "month": 165,
+        "instalment_minor": 202853,
+        "profit_minor": 22859,
+        "cop_payment_minor": 179994,
+        "outstanding_cop_minor": 2867854,
+        "outstanding_selling_price_minor": 3042852,
+        "deferred_profit_minor": 174998
+      },
+      {
+        "month": 166,
+        "instalment_minor": 202853,
+        "profit_minor": 21509,
+        "cop_payment_minor": 181344,
+        "outstanding_cop_minor": 2686510,
+        "outstanding_selling_price_minor": 2839999,
+        "deferred_profit_minor": 153489
+      },
+      {
+        "month": 167,
+        "instalment_minor": 202853,
+        "profit_minor": 20149,
+        "cop_payment_minor": 182704,
+        "outstanding_cop_minor": 2503806,
+        "outstanding_selling_price_minor": 2637146,
+        "deferred_profit_minor": 133340
+      },
+      {
+        "month": 168,
+        "instalment_minor": 202853,
+        "profit_minor": 18779,
+        "cop_payment_minor": 184074,
+        "outstanding_cop_minor": 2319732,
+        "outstanding_selling_price_minor": 2434293,
+        "deferred_profit_minor": 114561
+      },
+      {
+        "month": 169,
+        "instalment_minor": 202853,
+        "profit_minor": 17398,
+        "cop_payment_minor": 185455,
+        "outstanding_cop_minor": 2134277,
+        "outstanding_selling_price_minor": 2231440,
+        "deferred_profit_minor": 97163
+      },
+      {
+        "month": 170,
+        "instalment_minor": 202853,
+        "profit_minor": 16007,
+        "cop_payment_minor": 186846,
+        "outstanding_cop_minor": 1947431,
+        "outstanding_selling_price_minor": 2028587,
+        "deferred_profit_minor": 81156
+      },
+      {
+        "month": 171,
+        "instalment_minor": 202853,
+        "profit_minor": 14606,
+        "cop_payment_minor": 188247,
+        "outstanding_cop_minor": 1759184,
+        "outstanding_selling_price_minor": 1825734,
+        "deferred_profit_minor": 66550
+      },
+      {
+        "month": 172,
+        "instalment_minor": 202853,
+        "profit_minor": 13194,
+        "cop_payment_minor": 189659,
+        "outstanding_cop_minor": 1569525,
+        "outstanding_selling_price_minor": 1622881,
+        "deferred_profit_minor": 53356
+      },
+      {
+        "month": 173,
+        "instalment_minor": 202853,
+        "profit_minor": 11771,
+        "cop_payment_minor": 191082,
+        "outstanding_cop_minor": 1378443,
+        "outstanding_selling_price_minor": 1420028,
+        "deferred_profit_minor": 41585
+      },
+      {
+        "month": 174,
+        "instalment_minor": 202853,
+        "profit_minor": 10338,
+        "cop_payment_minor": 192515,
+        "outstanding_cop_minor": 1185928,
+        "outstanding_selling_price_minor": 1217175,
+        "deferred_profit_minor": 31247
+      },
+      {
+        "month": 175,
+        "instalment_minor": 202853,
+        "profit_minor": 8894,
+        "cop_payment_minor": 193959,
+        "outstanding_cop_minor": 991969,
+        "outstanding_selling_price_minor": 1014322,
+        "deferred_profit_minor": 22353
+      },
+      {
+        "month": 176,
+        "instalment_minor": 202853,
+        "profit_minor": 7440,
+        "cop_payment_minor": 195413,
+        "outstanding_cop_minor": 796556,
+        "outstanding_selling_price_minor": 811469,
+        "deferred_profit_minor": 14913
+      },
+      {
+        "month": 177,
+        "instalment_minor": 202853,
+        "profit_minor": 5974,
+        "cop_payment_minor": 196879,
+        "outstanding_cop_minor": 599677,
+        "outstanding_selling_price_minor": 608616,
+        "deferred_profit_minor": 8939
+      },
+      {
+        "month": 178,
+        "instalment_minor": 202853,
+        "profit_minor": 4498,
+        "cop_payment_minor": 198355,
+        "outstanding_cop_minor": 401322,
+        "outstanding_selling_price_minor": 405763,
+        "deferred_profit_minor": 4441
+      },
+      {
+        "month": 179,
+        "instalment_minor": 202853,
+        "profit_minor": 3010,
+        "cop_payment_minor": 199843,
+        "outstanding_cop_minor": 201479,
+        "outstanding_selling_price_minor": 202910,
+        "deferred_profit_minor": 1431
+      },
+      {
+        "month": 180,
+        "instalment_minor": 202853,
+        "profit_minor": 1511,
+        "cop_payment_minor": 201342,
+        "outstanding_cop_minor": 137,
+        "outstanding_selling_price_minor": 57,
+        "deferred_profit_minor": -80
+      }
+    ],
+    "settlement": null,
+    "non_delivery": null,
+    "conventional_comparison": null,
+    "refused_cost_types": [],
+    "variable_rate_applied": false,
+    "warnings": []
+  },
+  "example_execution_hash": "9a00b90ab7e43356ecbb16272198950be0b1cb3927587f4757b159b2702eb74b",
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "authority": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "authority_profile": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "contracted_rate_bp": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "conventional_comparison": {
+        "type": [
+          "null",
+          "object"
+        ]
+      },
+      "cost_of_purchase_minor": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "domain_errors": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "instalment_minor": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "markup_minor": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "non_delivery": {
+        "type": [
+          "null",
+          "object"
+        ]
+      },
+      "not_a_shariah_ruling": {
+        "type": "boolean"
+      },
+      "profit_rounding": {
+        "type": "string"
+      },
+      "refusal_code": {
+        "type": [
+          "null",
+          "string"
+        ]
+      },
+      "refused_cost_types": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "CHARGE_LOST_PROFIT_REFUSED",
+            "CHARGE_MARKETING_REFUSED"
+          ]
+        }
+      },
+      "schedule": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "cop_payment_minor": {
+              "type": "number"
+            },
+            "deferred_profit_minor": {
+              "type": "number"
+            },
+            "epr_instalment_minor": {
+              "type": "number"
+            },
+            "epr_profit_minor": {
+              "type": "number"
+            },
+            "epr_rate_bp": {
+              "type": "number"
+            },
+            "instalment_minor": {
+              "type": "number"
+            },
+            "month": {
+              "type": "number"
+            },
+            "outstanding_cop_minor": {
+              "type": "number"
+            },
+            "outstanding_selling_price_minor": {
+              "type": "number"
+            },
+            "period_ibra_minor": {
+              "type": "number"
+            },
+            "profit_minor": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "cop_payment_minor",
+            "deferred_profit_minor",
+            "instalment_minor",
+            "month",
+            "outstanding_cop_minor",
+            "outstanding_selling_price_minor",
+            "profit_minor"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "selling_price_minor": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "selling_price_residual_minor": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "selling_price_stated_minor": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "settlement": {
+        "type": [
+          "null",
+          "object"
+        ]
+      },
+      "tenor_months": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "valid_input": {
+        "type": "boolean",
+        "enum": [
+          false,
+          true
+        ]
+      },
+      "variable_rate_applied": {
+        "type": "boolean",
+        "enum": [
+          false,
+          true
+        ]
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "required": [
+      "authority",
+      "authority_profile",
+      "contracted_rate_bp",
+      "conventional_comparison",
+      "cost_of_purchase_minor",
+      "domain_errors",
+      "instalment_minor",
+      "markup_minor",
+      "non_delivery",
+      "not_a_shariah_ruling",
+      "profit_rounding",
+      "refusal_code",
+      "refused_cost_types",
+      "schedule",
+      "selling_price_minor",
+      "selling_price_residual_minor",
+      "selling_price_stated_minor",
+      "settlement",
+      "tenor_months",
+      "valid_input",
+      "variable_rate_applied",
+      "warnings"
+    ],
+    "additionalProperties": false
+  }
+}
