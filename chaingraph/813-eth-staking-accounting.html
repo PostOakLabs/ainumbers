@@ -102,7 +102,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 </style>
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/813-eth-staking-accounting.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:3c67f800389a0cc0ff46a484c2793943fdc886a2d2f941562eb9eae23c90e52d">
+<meta name="kernel-digest" content="sha256:15729396060f993d9a831853089bc5cc992ffb1d1ad17e7021e73ef3be271689">
 </head>
 <body>
 <nav>
@@ -359,7 +359,7 @@ var MANIFEST = {
 var ANCHOR_BASE = 'https://anchor.ainumbers.co';
 var _lastResult = null;
 
-function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;},{}) : v; }
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;}, Object.create(null)) : v; }
 async function computeExecHash(pp, op) {
   var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
   var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
@@ -451,6 +451,8 @@ function compute(pp) {
   if (eb > MAX_EB[Number(prefix)] || inclusions.some((x) => x.aeb > MAX_EB[2])) return refuse('EFFECTIVE_BALANCE_EXCEEDS_MAXEB');
   if (eb % INC !== 0n || inclusions.some((x) => x.aeb % INC !== 0n)) return refuse('EFFECTIVE_BALANCE_NOT_INCREMENT_MULTIPLE');
   if (partBal.some((x) => x > T)) return refuse('PARTICIPATING_EXCEEDS_TOTAL');
+  // Cross-field: one validator's balance cannot exceed the network total it is part of.
+  if (eb > T || inclusions.some((x) => x.aeb > T)) return refuse('EFFECTIVE_BALANCE_EXCEEDS_TOTAL');
   if (slotsCounted > SLOTS_PER_EPOCH || slotsSet > slotsCounted) return refuse('SLOTS_COUNTED_EXCEEDS_EPOCH');
 
   const root = isqrt(T);
