@@ -258,7 +258,7 @@ function compute(pp) {
   return{output_payload:{annex1_complete,gaps,conformity_route:route_ok?conformity_route:null},compliance_flags};
 }
 
-function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
+function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o=Object.create(null);for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
 async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 
 let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;
@@ -559,9 +559,9 @@ async function verifySignature(){
 // computed JSON derived from declared inputs.
 // Browser support (dated observation): WebMCP origin trial from Chrome 149
 // (May 2026) per developer.chrome.com/docs/ai/webmcp (retrieved 2026-09-01).
-const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);
+const mc = document.modelContext;
 if (mc) {
-  mc.registerTool({
+  Promise.resolve(mc.registerTool({
     name: 'check_cra_annex1_completeness',
     description: 'Check EU CRA (Regulation 2024/2847) Annex I essential requirements: sbom_present, sbom_machine_readable, top_level_deps_covered, vuln_handling_policy_present, secure_by_default, and conformity_route (self_assessment/eu_type_examination/full_quality_assurance). Returns gaps list. Second node of cra-product-conformance chain (art-138→139→140). Full applicability 11 Dec 2027.',
     inputSchema: {
@@ -603,7 +603,7 @@ if (mc) {
         return { error: 'compute_failed', detail: String((err && err.message) || err) };
       }
     }
-  });
+  })).catch(() => {});
 }
 </script>
 
