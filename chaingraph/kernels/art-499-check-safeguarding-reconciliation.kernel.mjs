@@ -141,7 +141,6 @@ function isoDateOrNull(v) { return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$
  * below uses LITERAL property reads so the static schema-read sweep still registers each
  * required field as read (there is no dynamic pp[f] access).
  */
-const REQUIRED_FIELDS = ['as_of_date', 'currency', 'reconciliation_type', 'tolerance_minor_units'];
 function isRequiredPresent(v) {
   if (v === undefined || v === null) return false;
   if (typeof v === 'string') return v.trim().length > 0;
@@ -194,7 +193,11 @@ export function compute(pp) {
     reconciliation_type: isRequiredPresent(pp.reconciliation_type),
     tolerance_minor_units: isRequiredPresent(pp.tolerance_minor_units),
   };
-  const missing_required_fields = REQUIRED_FIELDS.filter((f) => !raw_present[f]);
+  const missing_required_fields = [];
+  if (!raw_present.as_of_date) missing_required_fields.push('as_of_date');
+  if (!raw_present.currency) missing_required_fields.push('currency');
+  if (!raw_present.reconciliation_type) missing_required_fields.push('reconciliation_type');
+  if (!raw_present.tolerance_minor_units) missing_required_fields.push('tolerance_minor_units');
   const required_missing = missing_required_fields.length > 0;
 
   const as_of_date = isoDateOrNull(pp.as_of_date);

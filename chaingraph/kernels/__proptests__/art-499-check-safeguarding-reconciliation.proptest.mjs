@@ -1,5 +1,5 @@
 // art-499-check-safeguarding-reconciliation.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C24-1).
-// kernel_digest_at_authoring: sha256:021b2bf46a48249c41d0071c0bbc622505ce924ea76878be3560d25dec9f89fa
+// kernel_digest_at_authoring: sha256:5ff532f59382cb2447813161167dfe615fc462f54f6a67b18d6113ac6bbcd9f8
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
