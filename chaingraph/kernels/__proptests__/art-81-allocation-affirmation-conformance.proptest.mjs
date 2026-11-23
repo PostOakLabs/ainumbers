@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:e6d66ac78af3a725624dda5ebd2cd321fe68c11a2659c065cee2725b04e21a3c
+// kernel_digest_at_authoring: sha256:a32b3603ffe409a383537ba1407fd9965dc9331ac2793a34e0201f22a3f4f550
 //
 // ART81-TIMESTAMP-STRICT-PARSE-FIX-1 — property-test floor for art-81-allocation-affirmation-conformance.
 // Class B (bounded-numeric/categorical), FLOAT:NO — the only arithmetic is integer
@@ -156,7 +156,7 @@ function checkP5_lateMonotonicInTime() {
 async function checkP6_buildArtifactNeverThrows() {
   const deep = (n) => { let o = /** @type {any} */ ({}); const r = o; for (let i = 0; i < n; i++) { o.x = {}; o = o.x; } return r; };
   const big = () => new Array(1_000_002).fill(1);
-  const junk = [NaN, -Infinity, 1e300, deep(600), big(), null, undefined, 'junk', {}, []];
+  const junk = [NaN, -Infinity, 1e300, deep(600), big(), null, undefined, 'junk', {}, [], { zzz: 10n }, { zzz: { a: [3n] } }];
   let throws = 0, refused = 0;
   for (const pp of junk) {
     let a;
