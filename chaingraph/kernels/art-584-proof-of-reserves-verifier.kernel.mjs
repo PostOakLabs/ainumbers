@@ -345,13 +345,19 @@ export function compute(pp) {
   // Fail-closed: a required input that is absent, null, empty or whitespace-only
   // is not evidence of consistency. Withhold the determination unless a real
   // INCONSISTENT was independently reached (that finding still stands).
-  const missing_required_fields = REQUIRED_FIELDS.filter((f) => !requiredFieldPresent(f, pp[f]));
+  // Literal property reads (a dynamic pp[f] read defeats the static schema-read sweep).
+  const requiredValues = {
+    reserve_proof: pp.reserve_proof,
+    liability_branch: pp.liability_branch,
+    published_reserve_figures: pp.published_reserve_figures,
+  };
+  const missing_required_fields = REQUIRED_FIELDS.filter((f) => !requiredFieldPresent(f, requiredValues[f]));
   // A required field supplied with the wrong shape (including an empty or
   // whitespace-only string) is garbage evidence: it can drive a spurious
   // INCONSISTENT below, so it always refuses. A merely absent/null required
   // field keeps a real, independently reached INCONSISTENT finding standing.
   const wrongTypeRequired = REQUIRED_FIELDS.some((f) => {
-    const v = pp[f];
+    const v = requiredValues[f];
     return v != null && (typeof v !== 'object' || Array.isArray(v));
   });
   const failClosed = wrongTypeRequired || (missing_required_fields.length > 0 && overall_determination !== 'INCONSISTENT');

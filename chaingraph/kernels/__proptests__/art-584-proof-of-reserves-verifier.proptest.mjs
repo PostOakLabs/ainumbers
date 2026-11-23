@@ -1,5 +1,5 @@
 // art-584-proof-of-reserves-verifier.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C30-1).
-// kernel_digest_at_authoring: sha256:a520181a18f687b07cce4f7425b1604a49251cc0730721086ed86302f3934cf4
+// kernel_digest_at_authoring: sha256:baa378330b8b67426fbb7c1bedb41d2dc689735f0740925ad22d70fa891fbcbf
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
