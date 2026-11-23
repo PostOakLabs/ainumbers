@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:b46504aaf19f7328d23e517a0f5d26d2be1dc38d52599bc2e66b52ac3dd1959e
+// kernel_digest_at_authoring: sha256:67d193e22593b52e68bada73b78c6777813b11bd4c2407bd4083298e4d2db90b
 //
 // FV-PROPFLOOR-SHARD-B6-1 — property-test floor for art-213-perp-liquidation-calculator.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (margin/liquidation math is continuous
@@ -11,7 +11,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-213-perp-liquidation-calculator.proptest.mjs
 
-import { compute } from '../art-213-perp-liquidation-calculator.kernel.mjs';
+import { compute, buildArtifact } from '../art-213-perp-liquidation-calculator.kernel.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -75,18 +75,18 @@ function checkP1_monotoneMargin() {
   return { name: 'P1_monotone_initial_margin_nonincreasing_with_leverage', trials: checked, violations };
 }
 
-// ---------- P2: fixed-threshold-tier agreement — health matches the documented buffer_pct rule exactly ----------
+// ---------- P2: fixed-threshold-tier agreement — health matches the documented tier rule exactly ----------
 function checkP2_healthTierAgreement() {
   let violations = 0, checked = 0;
   for (let i = 0; i < TRIALS; i++) {
     const pp = mkPP(rand);
     const r = compute(pp);
     checked++;
-    const { buffer_pct, health } = r.output_payload;
-    const expected = buffer_pct > 100 ? 'GREEN' : buffer_pct > 0 ? 'AMBER' : 'RED';
+    const { buffer, buffer_pct, health } = r.output_payload;
+    const expected = buffer_pct > 100 ? 'GREEN' : buffer >= 0 ? 'AMBER' : 'RED';
     if (health !== expected) violations++;
   }
-  return { name: 'P2_health_matches_fixed_buffer_pct_tier_rule', trials: checked, violations };
+  return { name: 'P2_health_matches_fixed_buffer_tier_rule', trials: checked, violations };
 }
 
 // ---------- P3: monotone — distance_to_liq_pct moves with mark_price in the direction favorable to the position ----------
@@ -118,6 +118,7 @@ const ULP_BOUNDARY_CASES = [
   [{ mmr_pct: -0 }, 'mmr_pct negative zero — must behave as zero, not throw'],
   [{ entry_price: 100, mark_price: 100 + Number.EPSILON, leverage: 5, side: 'long' }, 'mark_price 1 epsilon above entry — buffer_pct/health must not flip on float noise'],
   [{ entry_price: 100, mark_price: 100, leverage: 5, mode: 'cross', side: 'short', spot_offset_usd: 0.1 * 3, correlation: 1 }, 'cross-mode spot_offset_usd = 0.1*3 — cross_margin_efficiency fields must stay finite'],
+  [{ venue: 'binance', entry_price: 50000, mark_price: 50000, position_size: 1, leverage: 200 }, 'buffer exactly 0 (imr == mmr == 0.5%) — health must be AMBER, not RED'],
 ];
 
 function checkP4_forced() {
@@ -128,9 +129,46 @@ function checkP4_forced() {
     const op = r.output_payload;
     const nums = [op.notional, op.initial_margin, op.maintenance_threshold, op.unrealized_pnl, op.margin_balance, op.buffer, op.buffer_pct, op.liq_price, op.distance_to_liq_pct];
     const finite = nums.every(Number.isFinite) && ['GREEN', 'AMBER', 'RED'].includes(op.health);
-    rows.push({ label, overrides, health: op.health, buffer_pct: op.buffer_pct, finite, plausible: finite });
+    const bufferZeroOk = typeof label === 'string' && label.startsWith('buffer exactly 0') ? op.buffer === 0 && op.health === 'AMBER' : true;
+    rows.push({ label, overrides, health: op.health, buffer: op.buffer, buffer_pct: op.buffer_pct, finite, plausible: finite && bufferZeroOk });
   }
   return rows;
+}
+
+// ---------- P5 (D6): buildArtifact never throws — an unhashable preimage mints a null
+// execution_hash plus a named hash_refusal; a clean input still gets a 64-hex hash ----------
+async function checkP5_buildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const wide = new Array(1000001).fill(1);
+  const hostile = [
+    { zzz: NaN }, { zzz: -Infinity }, { zzz: 1e300 }, { zzz: 2 ** 60 },
+    { zzz: deep }, { zzz: wide }, { zzz: 10n }, { zzz: { a: [3n] } }, 10n,
+  ];
+  for (const pp of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) {
+        violations++; console.log(`  P5 never-throw violation: hostile shape ${Object.keys(pp || {})[0]} artifact shape`);
+      }
+    } catch (e) {
+      violations++; console.log(`  P5 never-throw violation: buildArtifact threw: ${String(e.message).slice(0, 80)}`);
+    }
+  }
+  for (const pp of [mkPP(rand), null, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) {
+        violations++; console.log('  P5 never-throw violation: clean input lost its hash');
+      }
+    } catch (e) {
+      violations++; console.log(`  P5 never-throw violation: buildArtifact threw on clean input: ${String(e.message).slice(0, 80)}`);
+    }
+  }
+  return { name: 'P5_buildArtifact_never_throws', trials: checked, violations };
 }
 
 const oracleOk = runFixtureOracle();
@@ -142,6 +180,7 @@ if (!oracleOk) {
 results.properties.push(checkP1_monotoneMargin());
 results.properties.push(checkP2_healthTierAgreement());
 results.properties.push(checkP3_monotoneDistance());
+results.properties.push(await checkP5_buildArtifactNeverThrows());
 results.boundary_forced = checkP4_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
