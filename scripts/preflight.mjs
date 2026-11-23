@@ -2456,6 +2456,16 @@ const GATES = [
   // QuickJS sandbox and requires the receipt's journal.output to reproduce. ~8s over the full estate.
   ['§18 recompute-equality (SO #34)', 'node scripts/check-recompute-equality.mjs'],
   ['§18 recompute-equality controls (canary + mutation)', 'node scripts/check-recompute-equality.test.mjs'],
+  // §18 QUARANTINE PRUNE (REGEN-QUARANTINE-PRUNE-1): the freshness half of the COVERED entry
+  // 'recompute-quarantine-prune' (derived-artifacts.mjs, LAST in COVERED — the main-side regen
+  // deletes reproducing quarantine entries in the same bot commit as the re-splice). The command
+  // string is deliberately identical to that entry's `gate:` so the generic ADVISORY_ON_PR
+  // categorisation downgrades it on PRs (a PR cannot satisfy it: the committed tree still carries
+  // the stale entry by SO #35's single-writer law) while it stays BLOCKING on main. Advisory only
+  // ever reads; it writes nothing in this mode. The paired controls file proves every wrong-stub
+  // shape the helper must reject.
+  ['§18 quarantine prune freshness (REGEN-QUARANTINE-PRUNE-1)', 'node scripts/prune-recompute-quarantine.mjs --check'],
+  ['§18 quarantine prune controls (SO #40b pairing)', 'node scripts/prune-recompute-quarantine.test.mjs'],
   ['Proof-badge freshness',        'node scripts/check-proof-badge.mjs'],
   ['Kernel as-of staleness ratchet (ASOF-GATE-1)', 'node scripts/check-kernel-asof-staleness.mjs'],
   ['Kernel as-of staleness fixture proof', 'node scripts/check-kernel-asof-staleness.test.mjs'],
