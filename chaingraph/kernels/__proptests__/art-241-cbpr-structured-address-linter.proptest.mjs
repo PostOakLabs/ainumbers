@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:7b04ae64cef151fb270826150bea288e0e31ff6449fc5fd891d4e548fc2f8c27
+// kernel_digest_at_authoring: sha256:c0c198eb8be05a3d5cdbf0f6f18abd3843c0ec237a32f53b4ea3fa90d8eec191
 //
 // FV-PROPFLOOR-SHARD-B27-1 — property-test floor for art-241-cbpr-structured-address-linter.
 // Class B (bounded-numeric shape, string-structure lint logic). float:no — readiness_pct is an
@@ -158,6 +158,9 @@ async function checkP5_buildArtifactNeverThrows() {
     ['junk_1e300', { street_name: 1e300 }],
     ['nan', { street_name: NaN }],
     ['neg_infinity', { street_name: -Infinity }],
+    ['bigint_in_field', { street_name: 10n }],
+    ['bigint_nested', { street_name: { a: [1, { b: 2n }] } }],
+    ['bigint_top_level', 5n],
     ['depth_511', { street_name: deep }],
     ['over_1e6_values', { street_name: new Array(1000001).fill(0) }],
   ];
