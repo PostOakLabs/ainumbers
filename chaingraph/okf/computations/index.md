@@ -746,6 +746,7 @@ status: stable
 - [TAP Message Structure Check](./art-843-tap-message-validator.md)
 - [PFMI proportional self-assessment scorer](./art-846-assess-pfmi-proportional.md)
 - [Cash-Leg Window Exposure](./art-847-cashleg-window-exposure.md)
+- [Deferred Comp 457(b) Comparison](./art-849-deferred-comp-457b.md)
 - [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md)
 - [Islamic MMF Placement Limits](./art-851-islamic-mmf-placement-limits.md)
 - [Murabahah Ibra' Settlement](./art-852-murabahah-ibra-settlement.md)
