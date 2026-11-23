@@ -26,7 +26,7 @@ export const meta = {
 // null, empty or whitespace-only required field yields verdict 'INDETERMINATE', compliant null
 // and missing_required_fields, never compliant true. This kernel had no refusal or indeterminate
 // vocabulary before this edit, so verdict is introduced here in output_payload only when a
-// required field is missing; all other outputs are unchanged. buildArtifact never throws: an
+// required field is missing; all other outputs stay the same. buildArtifact never throws: an
 // unhashable input (non-finite number, unsafe integer, depth or size past the hash limits)
 // returns a refusal artifact with execution_hash null and hash_refusal.
 //

@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:2812174c202ccc80a734225ca4f63ec9a9071e517a8d01a769c3925ab8ba42fd
+// kernel_digest_at_authoring: sha256:74463b7230ff069a46ee9b8a95e5269e5219fa45604666a28c6e277a5d4595ad
 //
 // FV-PROPFLOOR-SHARD-B7-1 — property-test floor for art-227-validate-adverse-action-notice.
 // Class B (bounded-numeric), stated float:no exception — inputs are booleans/small arrays/
