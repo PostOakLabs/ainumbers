@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:7729bc02bdb9611366c7f1d7352c9bf657dd4ace6f3bf8e54e23d1872f6589b0
+// kernel_digest_at_authoring: sha256:d1a0b8ba63bb570e013def9e6b9abdca1745788ff83e3b6e7aba1a6d5176ad90
 //
 // FV-PROPFLOOR-SHARD-B28-1 — property-test floor for art-245-mt-mx-translation-fidelity-scorer.
 // Class B (bounded-numeric), NOT float-sensitive per the WU row's classification (fidelity_score
@@ -143,6 +143,9 @@ async function checkP5_buildArtifactNeverThrows() {
     ['junk_1e300', { mt_f20: 1e300 }],
     ['nan', { mt_f20: NaN }],
     ['neg_infinity', { mt_f20: -Infinity }],
+    ['bigint_in_field', { mt_f20: 10n }],
+    ['bigint_nested', { mt_f20: { a: [1, { b: 2n }] } }],
+    ['bigint_top_level', 5n],
     ['depth_511', { mt_f20: deep }],
     ['over_1e6_values', { mt_f20: new Array(1000001).fill(0) }],
   ];
