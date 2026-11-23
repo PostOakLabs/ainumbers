@@ -3,7 +3,7 @@
 // (kernel + fixtures + VECTORS/DIFFERS/CITES records, GRADES PASS-PENDING-XV
 // 2026-10-14, Tim 2026-10-18 "Extend ruling" Builder-verifies-at-land: 33/33
 // payload vectors re-executed through compute() at land, APEX-PORT-89-LAND-1).
-// kernel_digest_at_authoring: sha256:e044798231c6f13670d500e7f4b873bdfb3d25ce9ece025b2a390ccebd84f382
+// kernel_digest_at_authoring: sha256:43c1924980d70e686d9a6f5c9bc05f1040fc5530cd6f31f7fb7f56b866430416
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.

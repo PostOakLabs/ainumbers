@@ -355,7 +355,7 @@ export function compute(pp) {
   };
   // Visible top-level read of every declared input (KERNEL-INPUT-USAGE-CHECK-1
   // shape): each key below is dereferenced here and again inside take() above.
-  const { base_salary, ote, quota, attainment_pct, federal_tax_rate_pct, accelerator_threshold_pct, accelerator_multiplier, draw_monthly } = pp;
+  const { base_salary, ote, quota, attainment_pct, federal_tax_rate_pct, accelerator_threshold_pct, accelerator_multiplier, draw_monthly, has_accelerator, has_draw } = pp;
   const base = take('base_salary', APEX_INPUT_DEFAULTS.base_salary);
   const oteC = take('ote', APEX_INPUT_DEFAULTS.ote);
   const quotaC = take('quota', APEX_INPUT_DEFAULTS.quota);
