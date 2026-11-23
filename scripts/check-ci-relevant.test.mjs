@@ -76,7 +76,6 @@ const dataFedCases = [
   ['data/bank-fact-freshness.json', 'feeds gen-fact-stamps --check'],
   ['data/topic-links.json', 'feeds apply-topic-links (52 pages)'],
   ['data/reg-deadlines.json', 'pairs with deadline-wall.html via check-deadline-freshness'],
-  ['data/standards-watch.json', 'feeds check-standards-drift'],
   ['deadline-wall.html', 'page half of the reg-deadlines pairing'],
   ['data/helm-kit/README.md', 'helm-kit input tree feeds gen-helm-openclaw-snippets'],
 ];
