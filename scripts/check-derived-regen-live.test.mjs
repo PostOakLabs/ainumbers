@@ -29,7 +29,12 @@
  *                          gate's own script/test) selects ALL; two entries
  *                          sharing one command still run it once; and a RED
  *                          control proves a selection that MISSES a touched
- *                          generator fails this file.
+ *                          generator fails this file. DERIVED-SELFTEST-SCOPE-
+ *                          CLOSURE-1 widens the per-entry key set: a change to
+ *                          a SHARED IMPORT selects every importer, the SECOND
+ *                          script of a chained (`&&`) regen command selects its
+ *                          entry, an unreadable regen script FAILS OPEN, and
+ *                          the closure has its own red control.
  *
  * Fixtures are synthetic, throwaway git repos under os.tmpdir() — nothing
  * under this repo's REPO is ever touched, and the real COVERED list is never
@@ -44,7 +49,8 @@ import { execSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runLiveScan, withinEntryDuplicates, crossEntryShares, selectCoveredByDiff, changedSelectionLines,
-  parseWorktreePorcelain, staleScratchWorktrees, sweepStaleScratch, hostStateLine, withScratchWorktree, ScratchSetupError } from './check-derived-regen-live.mjs';
+  parseWorktreePorcelain, staleScratchWorktrees, sweepStaleScratch, hostStateLine, withScratchWorktree, ScratchSetupError,
+  staticImportSpecifiers, resolveImportSpecifierRel, regenCommandScripts } from './check-derived-regen-live.mjs';
 import { gitEnv } from './_git-env-lib.mjs';
 
 let pass = 0;
@@ -636,6 +642,131 @@ test('CHANGED RED CONTROL (e) - a selection that MISSES a touched generator fail
   let threw = false;
   try { assertSelects(broken, ['fixture-sel-a'], 'RED control'); } catch { threw = true; }
   assert(threw, 'assertSelects must FAIL when the selection misses a touched generator - this file would go red');
+});
+
+// ── --changed import-closure scoping: DERIVED-SELFTEST-SCOPE-CLOSURE-1 ────────
+// The measured gap this section pins: a change to a file a generator IMPORTS
+// (the scripts/counts.mjs shape — imported by gen-evidence-register.mjs,
+// gen-guides-index.mjs, gen-debt-ledger.mjs and others) selected 0 of 61
+// entries and exited 0 while verify-counts --check exited 1, and the SECOND
+// script of a chained (`&&`) regen command was never a key either. Fixtures
+// live in their OWN repo so the (a)-(e) fixtures above keep their exact
+// selected/skipped arithmetic untouched.
+function makeClosureRepo() {
+  const dir = makeRepo();
+  mkdirSync(join(dir, 'scripts'), { recursive: true });
+  writeFileSync(join(dir, 'scripts/derived-artifacts.mjs'), '// fixture manifest\n');
+  writeFileSync(join(dir, 'scripts/check-derived-regen-live.mjs'), '// fixture copy of the gate itself\n');
+  writeFileSync(join(dir, 'scripts/check-derived-regen-live.test.mjs'), '// fixture copy of the gate test\n');
+  writeFileSync(join(dir, 'scripts/counts-fixture.mjs'), "export function deriveCounts() { return { n: 1 }; }\n");
+  writeFileSync(join(dir, 'gen-imp-a.mjs'), "import { deriveCounts } from './scripts/counts-fixture.mjs';\nimport { writeFileSync } from 'node:fs';\nwriteFileSync('imp-a.json', JSON.stringify(deriveCounts()) + '\\n');\n");
+  writeFileSync(join(dir, 'gen-imp-b.mjs'), "import { deriveCounts } from './scripts/counts-fixture.mjs';\nimport { writeFileSync } from 'node:fs';\nwriteFileSync('imp-b.json', JSON.stringify(deriveCounts()) + '\\n');\n");
+  writeFileSync(join(dir, 'gen-noc.mjs'), "import { writeFileSync } from 'node:fs';\nwriteFileSync('noc.json', '{\"regenerated\":true}\\n');\n");
+  writeFileSync(join(dir, 'gen-chain-1.mjs'), "import { writeFileSync } from 'node:fs';\nwriteFileSync('chain-1.json', '{\"stage\":1}\\n');\n");
+  writeFileSync(join(dir, 'gen-chain-2.mjs'), "import { writeFileSync } from 'node:fs';\nwriteFileSync('chain.json', '{\"stage\":2}\\n');\n");
+  writeFileSync(join(dir, 'imp-a.json'), '{}\n');
+  writeFileSync(join(dir, 'imp-b.json'), '{}\n');
+  writeFileSync(join(dir, 'noc.json'), '{}\n');
+  writeFileSync(join(dir, 'chain.json'), '{}\n');
+  writeFileSync(join(dir, 'unrelated.txt'), 'nothing any entry reads or declares\n');
+  commit(dir, 'base');
+  return dir;
+}
+function closureCovered() {
+  return [
+    { id: 'fixture-closure-imp-a', regen: 'node gen-imp-a.mjs', artifacts: ['imp-a.json'] },
+    { id: 'fixture-closure-imp-b', regen: 'node gen-imp-b.mjs', artifacts: ['imp-b.json'] },
+    { id: 'fixture-closure-noc', regen: 'node gen-noc.mjs', artifacts: ['noc.json'] },
+    { id: 'fixture-closure-chain', regen: 'node gen-chain-1.mjs --stage 1 && node gen-chain-2.mjs', artifacts: ['chain.json'] },
+  ];
+}
+
+test('CLOSURE units - the specifier scan and chain split pin the lexical shapes they must cover', () => {
+  const src = [
+    "import { a } from './x.mjs';",                       // named import-from
+    'import * as ns from "../y.mjs";',                    // namespace, double quotes
+    'import {',                                           // multi-line named list — the `from` and quote are on different lines
+    '  deep,',
+    "} from './deep/z.mjs';",
+    "import './side-effect.mjs';",                        // bare side-effect import
+    "export { helper } from './exported.mjs';",           // export-from re-export
+    "const lazy = import('./dynamic.mjs');",              // dynamic import — NOT a static import
+    "import { readFileSync } from 'node:fs';",            // bare builtin — kept by the scan, resolved away later
+  ].join('\n');
+  const specs = staticImportSpecifiers(src);
+  for (const want of ['./x.mjs', '../y.mjs', './deep/z.mjs', './side-effect.mjs', './exported.mjs']) {
+    assert(specs.includes(want), `specifier scan must find ${want}, got ${JSON.stringify(specs)}`);
+  }
+  assert(!specs.includes('./dynamic.mjs'), `dynamic import must NOT be in a static closure, got ${JSON.stringify(specs)}`);
+  assert(resolveImportSpecifierRel('node:fs', 'gen.mjs') === null, 'node: builtins are not repo files');
+  assert(resolveImportSpecifierRel('some-package', 'gen.mjs') === null, 'bare packages are not repo files');
+  // The measured codegen shape: gen-index.mjs EMITS `from './${id}.kernel.mjs'`
+  // as template-literal OUTPUT TEXT. A lexical scan reads it like an import;
+  // the placeholder specifier is runtime-resolved, so it is skipped — not a
+  // key, not followed, and NEVER a closure-build failure for its entry.
+  assert(resolveImportSpecifierRel('./${id}.kernel.mjs', 'chaingraph/kernels/gen-index.mjs') === null,
+    'a template-placeholder specifier is runtime-resolved and must be skipped, not failed on');
+  assert(resolveImportSpecifierRel('./a/b.mjs', 'scripts/gen.mjs') === 'scripts/a/b.mjs', 'relative resolution anchors at the importing script');
+  assert(resolveImportSpecifierRel('../lib/counts.mjs', 'scripts/gen.mjs') === 'lib/counts.mjs', '.. pops the importing script\'s directory');
+  assert(resolveImportSpecifierRel('../outside.mjs', 'gen.mjs') === null, 'a specifier escaping above repo root has no repo-relative key');
+  assert(JSON.stringify(regenCommandScripts('node gen-chain-1.mjs --stage 1 && node gen-chain-2.mjs')) === JSON.stringify(['gen-chain-1.mjs', 'gen-chain-2.mjs']),
+    `a chained command must yield EVERY sub-command's script, got ${JSON.stringify(regenCommandScripts('node gen-chain-1.mjs --stage 1 && node gen-chain-2.mjs'))}`);
+  assert(JSON.stringify(regenCommandScripts('node gen-solo.mjs --write')) === JSON.stringify(['gen-solo.mjs']), 'an unchained command behaves exactly as before');
+});
+
+test('CLOSURE (f) - a change to a SHARED IMPORT selects every importer and not the non-importer', () => {
+  const dir = makeClosureRepo();
+  const base = headSha(dir);
+  writeFileSync(join(dir, 'scripts/counts-fixture.mjs'), "export function deriveCounts() { return { n: 2 }; } // touched by the diff\n");
+  commit(dir, 'touch shared import');
+  const sel = selectCoveredByDiff({ repoPath: dir, baseRef: base, covered: closureCovered() });
+  assert(sel.mode === 'subset', `a shared-import diff must scope, got mode=${sel.mode} (${sel.reason})`);
+  assertSelects(sel, ['fixture-closure-imp-a', 'fixture-closure-imp-b'], 'shared import touched');
+  assert(sel.skipped.includes('fixture-closure-noc') && sel.skipped.includes('fixture-closure-chain'),
+    `the non-importer and the chained entry must stay skipped, got ${JSON.stringify(sel.skipped)}`);
+});
+
+test('CLOSURE (g) - a change to the SECOND script of a chained regen command selects its entry', () => {
+  const dir = makeClosureRepo();
+  const base = headSha(dir);
+  writeFileSync(join(dir, 'gen-chain-2.mjs'), "// touched by the diff\nimport { writeFileSync } from 'node:fs';\nwriteFileSync('chain.json', '{\"stage\":2}\\n');\n");
+  commit(dir, 'touch chained second script');
+  const sel = selectCoveredByDiff({ repoPath: dir, baseRef: base, covered: closureCovered() });
+  assertSelects(sel, ['fixture-closure-chain'], 'chained second script touched');
+  assert(sel.skipped.length === 3, `the untouched entries must stay skipped, got ${JSON.stringify(sel.skipped)}`);
+});
+
+test('CLOSURE RED CONTROL (h) - the selection a closure-DROPPED implementation produces fails this file', () => {
+  // Mirrors RED control (e): proves the (f) assertion is load-bearing. The
+  // pre-fix implementation keyed each entry on primaryScriptPath alone; for
+  // the (f) fixture that selection is EMPTY (the diff names no primary regen
+  // script, no gate script and no declared artifact). If a future edit drops
+  // the import closure from selectCoveredByDiff, test (f) fails through this
+  // exact shape — assertSelects throws against the importers it must select.
+  const broken = { mode: 'subset', reason: 'no regen/gate script, imported script, or declared artifact of these entries appears in the diff', selected: [], skipped: ['fixture-closure-imp-a', 'fixture-closure-imp-b', 'fixture-closure-noc', 'fixture-closure-chain'] };
+  let threw = false;
+  try { assertSelects(broken, ['fixture-closure-imp-a', 'fixture-closure-imp-b'], 'RED control'); } catch { threw = true; }
+  assert(threw, 'assertSelects must FAIL when the selection drops the import closure - this file would go red');
+});
+
+test('CLOSURE (i) - an entry whose regen script source is unreadable FAILS OPEN and is selected', () => {
+  // The regen command names a script whose source cannot be read (here: never
+  // existed — the deleted-file case is the same read failure). The diff
+  // touches only an unrelated file, so NO key of this entry appears in it —
+  // the selection below is attributable to the fail-open rule alone. A
+  // fail-CLOSED regression (skip on unreadable) turns this test red.
+  const dir = makeClosureRepo();
+  const base = headSha(dir);
+  writeFileSync(join(dir, 'unrelated.txt'), 'still nothing any entry reads or declares\n');
+  commit(dir, 'touch unrelated');
+  const covered = [
+    { id: 'fixture-closure-open', regen: 'node gen-missing.mjs', artifacts: ['open.json'] },
+    { id: 'fixture-closure-fine', regen: 'node gen-noc.mjs', artifacts: ['noc.json'] },
+  ];
+  const sel = selectCoveredByDiff({ repoPath: dir, baseRef: base, covered });
+  assertSelects(sel, ['fixture-closure-open'], 'unreadable regen script must fail OPEN');
+  assert(sel.skipped.length === 1 && sel.skipped[0] === 'fixture-closure-fine',
+    `the readable entry must still scope normally, got ${JSON.stringify(sel.skipped)}`);
 });
 
 // ── scratch-setup hardening (DERIVED-REGEN-LIVE-HARDEN-1) ────────────────────
