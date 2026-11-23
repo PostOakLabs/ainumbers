@@ -256,8 +256,8 @@ const MANIFEST = {
   "chaingraph": true
 };
 
-const MITIGATION_REDUCTION_PER_FACTOR=0.10;
-const MITIGATION_FLOOR=0.30;
+const MITIGATION_REDUCTION_PER_FACTOR = 0.10;
+const MITIGATION_FLOOR = 0.30;
 
 const INF_LABELS={
   art21_measures_absent:'Art.21 measures absent',
@@ -274,33 +274,57 @@ const MIT_LABELS={
 };
 
 function compute(pp) {
-  const { entity_classification='', global_annual_turnover_eur=0, infringement_types=[], mitigating_factors=[] } = pp;
-  const turnover=Number(global_annual_turnover_eur);
-  const safe_turnover=(Number.isFinite(turnover)&&turnover>=0)?turnover:0;
-  const is_essential=entity_classification==='essential';
-  const is_important=entity_classification==='important';
-  const infringement_breakdown=[];
-  let max_penalty_eur=0;
-  const types=Array.isArray(infringement_types)?infringement_types:[];
-  types.forEach(type=>{
-    const fixed_max=is_essential?10000000:is_important?7000000:0;
-    const pct=is_essential?0.02:is_important?0.014:0;
-    const pct_based=(Number.isFinite(safe_turnover*pct))?safe_turnover*pct:0;
-    const penalty=Math.max(fixed_max,pct_based);
-    infringement_breakdown.push({type,fixed_max_eur:fixed_max,pct_based_eur:Math.round(pct_based),penalty_eur:Math.round(penalty)});
-    if(penalty>max_penalty_eur)max_penalty_eur=penalty;
+  const {
+    entity_classification = '',
+    global_annual_turnover_eur = 0,
+    infringement_types = [],
+    mitigating_factors = [],
+  } = pp;
+
+  const turnover = Number(global_annual_turnover_eur);
+  const safe_turnover = (Number.isFinite(turnover) && turnover >= 0) ? turnover : 0;
+  const is_essential = entity_classification === 'essential';
+  const is_important = entity_classification === 'important';
+
+  const infringement_breakdown = [];
+  let max_penalty_eur = 0;
+
+  const types = Array.isArray(infringement_types) ? infringement_types : [];
+  types.forEach(type => {
+    const fixed_max = is_essential ? 10_000_000 : is_important ? 7_000_000 : 0;
+    const pct = is_essential ? 0.02 : is_important ? 0.014 : 0;
+    const pct_based = (Number.isFinite(safe_turnover * pct)) ? safe_turnover * pct : 0;
+    const penalty = Math.max(fixed_max, pct_based);
+    infringement_breakdown.push({ type, fixed_max_eur: fixed_max, pct_based_eur: Math.round(pct_based), penalty_eur: Math.round(penalty) });
+    if (penalty > max_penalty_eur) max_penalty_eur = penalty;
   });
-  const factor_count=Array.isArray(mitigating_factors)?mitigating_factors.length:0;
-  const reduction=Math.min(factor_count*MITIGATION_REDUCTION_PER_FACTOR,1-MITIGATION_FLOOR);
-  const mitigated_estimate_eur=Math.round(max_penalty_eur*(1-reduction));
-  const turnover_pct_exposure=(safe_turnover>0&&Number.isFinite(max_penalty_eur/safe_turnover))?Math.round((max_penalty_eur/safe_turnover)*10000)/100:0;
-  const compliance_flags={NIS2_PENALTY_ASSESSED:true};
-  if(max_penalty_eur>5000000)compliance_flags.NIS2_HIGH_PENALTY_EXPOSURE=true;
-  if(types.length===0)compliance_flags.NIS2_NO_INFRINGEMENT_DECLARED=true;
-  return{output_payload:{max_penalty_eur:Math.round(max_penalty_eur),mitigated_estimate_eur,turnover_pct_exposure,infringement_breakdown,entity_classification,mitigating_factors_applied:factor_count},compliance_flags};
+
+  const factor_count = Array.isArray(mitigating_factors) ? mitigating_factors.length : 0;
+  const reduction = Math.min(factor_count * MITIGATION_REDUCTION_PER_FACTOR, 1 - MITIGATION_FLOOR);
+  const mitigated_estimate_eur = Math.round(max_penalty_eur * (1 - reduction));
+  const turnover_pct_exposure = (safe_turnover > 0 && Number.isFinite(max_penalty_eur / safe_turnover))
+    ? Math.round((max_penalty_eur / safe_turnover) * 10000) / 100
+    : 0;
+
+  const compliance_flags = [];
+  compliance_flags.push('NIS2_PENALTY_ASSESSED');
+  if (max_penalty_eur > 5_000_000) compliance_flags.push('NIS2_HIGH_PENALTY_EXPOSURE');
+  if (types.length === 0) compliance_flags.push('NIS2_NO_INFRINGEMENT_DECLARED');
+
+  return {
+    output_payload: {
+      max_penalty_eur: Math.round(max_penalty_eur),
+      mitigated_estimate_eur,
+      turnover_pct_exposure,
+      infringement_breakdown,
+      entity_classification,
+      mitigating_factors_applied: factor_count,
+    },
+    compliance_flags,
+  };
 }
 
-function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
+function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o=Object.create(null);for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
 async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 
 let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;

@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (771 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (777 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -8543,6 +8543,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-849-deferred-comp-457b",
+    "display_name": "Deferred Comp 457(b) Comparison",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-849-deferred-comp-457b.html",
+    "description": "Deferred Comp 457(b) comparison ported from ApexLogics Apex #44 (AL-49). For a single annual deferral (annual income echo, deferral amount, ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-85-pqc-timeline-fit-diagnostic",
     "display_name": "PQC Timeline & Migration Fit Diagnostic",
     "mandate_type": "agent_guardrail_mandate",
@@ -8557,6 +8567,56 @@ window.CHAINBUILDER_CATALOG = [
       "499-crypto-asset-inventory-classifier",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-851-islamic-mmf-placement-limits",
+    "display_name": "Islamic MMF Placement Limits",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-851-islamic-mmf-placement-limits.html",
+    "description": "Checks a money market fund's placements against one pinned authority profile: the Saudi Capital Market Authority Investment Funds Regulation",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-852-murabahah-ibra-settlement",
+    "display_name": "Murabahah Ibra' Settlement",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-852-murabahah-ibra-settlement.html",
+    "description": "Computes the disclosed instalment schedule of a deferred-price sale (cost plus a mark-up fixed at contract) in integer minor units: each per",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-854-sukuk-tradability-composition",
+    "display_name": "Sukuk Tradability Composition",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-854-sukuk-tradability-composition.html",
+    "description": "Checks whether sukuk with a mixed asset portfolio are tradable at a negotiated price, per authority and per period, from the portfolio compo",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-855-murabahah-tawarruq-sequence",
+    "display_name": "Murabahah Tawarruq Sequence Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-855-murabahah-tawarruq-sequence.html",
+    "description": "Checks the order of steps and the content of a murabahah or tawarruq structure against the Bank Negara Malaysia policy documents for each, f",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-856-ijarah-imbt-schedule",
+    "display_name": "Ijarah IMBT Rental Schedule",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-856-ijarah-imbt-schedule.html",
+    "description": "Computes a month-by-month rental schedule for an ijarah lease that ends with the lessee owning the asset, against one pinned authority profi",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

@@ -161,9 +161,22 @@
  * hook's own design (PREFLIGHT-QUICK-1) says the full suite is owed only when
  * it can be PAID. `--changed <base-ref>` is the paid subset for the hook leg:
  * run ONLY the covered entries the pushed diff can affect, selected by
- *   - the entry's regen script or gate script (primaryScriptPath — the SAME
- *     lexical extractor preflight.mjs's trigger set already uses, reused not
- *     reimplemented) appearing in `git diff --name-only <base>...HEAD`;
+ *   - any script named by the entry's regen or gate command appearing in
+ *     `git diff --name-only <base>...HEAD` — every chained (`&&`/`||`/`;`)
+ *     sub-command's script, not just primaryScriptPath's first token
+ *     (DERIVED-SELFTEST-SCOPE-CLOSURE-1: the second script of a chained regen
+ *     command — e.g. append-absence-lineage-record.mjs in the
+ *     registry-absence-tree entry — was never a key);
+ *   - the transitive static import closure of those scripts — a file they
+ *     IMPORT is an input exactly as much as the scripts themselves (measured
+ *     2026-11-22: a rename inside scripts/counts.mjs, imported by
+ *     gen-evidence-register.mjs / gen-guides-index.mjs / gen-debt-ledger.mjs
+ *     and others, selected 0 of 61 entries while verify-counts --check exited
+ *     1). The closure reuses the lexical-extractor discipline of
+ *     check-derived-declare-parity.mjs (primaryScriptPath is imported from
+ *     there; the specifier scan is that file's strip-line-comments-and-regex
+ *     approach, not a second parser), and an entry whose closure cannot be
+ *     built FAILS OPEN — it is selected;
  *   - any path inside the entry's declared artifacts[] appearing there — most
  *     generators here read-and-splice their own declared artifacts, so those
  *     are INPUTS exactly as much as outputs, and derived-artifacts.mjs lists
@@ -340,15 +353,160 @@ function crossEntryShares(covered) {
 }
 
 // ── --changed <base-ref>: entry-level scoping (DERIVED-SET-SELFTEST-HOOK-SCOPE-1) ─
-// See the file header's ENTRY-SCOPED MODE section for the WHY. Selection is a
-// SUPERSET test only — a diff that names nothing an entry reads (its scripts
-// or its declared artifacts) cannot change that entry's verdict, and the
-// skipped line names the reason so a wrong selection is visible in the log,
-// never silent. Everything undeterminable fails OPEN (all entries run): the
-// scoping narrows what the hook pays for, it must never narrow what is proven.
+// See the file header's ENTRY-SCOPED MODE section for the WHY. The per-entry
+// key set (DERIVED-SELFTEST-SCOPE-CLOSURE-1): every script the entry's regen
+// and gate commands name — chained (`&&`/`||`/`;`) sub-commands included,
+// which primaryScriptPath alone never saw — the TRANSITIVE STATIC IMPORT
+// CLOSURE of those scripts, and the declared artifacts[]. A diff naming none
+// of those cannot change the entry's verdict, and the skipped line names the
+// reason so a wrong selection is visible in the log, never silent. (The
+// earlier comment called this selection a SUPERSET of what a diff can affect;
+// that was false for imports — the measured counts.mjs rename named in the
+// header — and false for chained commands' second scripts. It is a superset
+// only modulo runtime-resolved input paths, which is exactly what the
+// fail-open rules cover.) Everything undeterminable fails OPEN (the entry is
+// selected): the scoping narrows what the hook pays for, it must never narrow
+// what is proven.
 const CHANGED_SCOPE_MANIFEST = 'scripts/derived-artifacts.mjs';
 const CHANGED_SCOPE_GATE_OWN = ['scripts/check-derived-regen-live.mjs', 'scripts/check-derived-regen-live.test.mjs'];
-const CHANGED_SCOPE_SKIP_REASON = 'no regen/gate script or declared artifact of these entries appears in the diff';
+const CHANGED_SCOPE_SKIP_REASON = 'no regen/gate script, imported script, or declared artifact of these entries appears in the diff';
+
+// ── per-entry diff keys: chained scripts + transitive static import closure ──
+// (DERIVED-SELFTEST-SCOPE-CLOSURE-1 — the helpers selectCoveredByDiff and
+// preflight.mjs's derivedRegenLiveScopeTouched() both consume, one
+// implementation, never a second parser.)
+
+/**
+ * Quoted specifiers of the STATIC `import`/`export … from` statements in JS
+ * source. `from '<spec>'` covers import-from and export-from forms including
+ * a multi-line named list (the `from` and the quote may sit on different
+ * lines — `\s` crosses newlines); bare side-effect `import '<spec>';` is
+ * matched separately. Dynamic `import('…')` does NOT match — the `(` breaks
+ * the quote adjacency, and dynamic imports are out of scope for a STATIC
+ * closure by design. Line comments are stripped first (same discipline as
+ * check-derived-declare-parity.mjs's stripComments); a `from '…'` surviving
+ * in block-comment prose or inside a string literal can only ADD a key —
+ * over-selection is the safe direction and is accepted deliberately; it can
+ * never drop one.
+ */
+function staticImportSpecifiers(src) {
+  const stripped = src.replace(/\/\/[^\n]*/g, '');
+  const specs = [];
+  for (const m of stripped.matchAll(/\bfrom\s*(['"])([^'"\n]+)\1/g)) specs.push(m[2]);
+  for (const m of stripped.matchAll(/\bimport\s*(['"])([^'"\n]+)\1/g)) specs.push(m[2]);
+  return specs;
+}
+
+/**
+ * Resolve a static import specifier to a repo-relative forward-slash path,
+ * or null when it is not a repo-relative file (bare packages, `node:` and
+ * `#`-prefixed subpath imports — nothing the repo's diffs name as source).
+ * Purely lexical and does NOT stat the target: a diff that DELETES an
+ * imported file must still yield it as a key (the importer's own source
+ * still names it), and `..`-popping above the repo root has no repo-relative
+ * key at all.
+ */
+function resolveImportSpecifierRel(spec, fromScriptRel) {
+  if (!spec.startsWith('./') && !spec.startsWith('../')) return null;
+  // A template-placeholder specifier is RUNTIME-resolved, not a statically
+  // knowable repo file — measured shape: gen-index.mjs:76 is a codegen
+  // template literal that EMITS `import * as … from './${id}.kernel.mjs';`
+  // as its output text, which a lexical scan cannot tell apart from a real
+  // import statement (declare-parity's discipline: unresolved, never
+  // guessed). Skip it — not a key, not followed, and never a closure-build
+  // failure for the entry.
+  if (spec.includes('${')) return null;
+  const baseDir = fromScriptRel.includes('/') ? fromScriptRel.slice(0, fromScriptRel.lastIndexOf('/')) : '';
+  const out = [];
+  for (const seg of `${baseDir}/${spec}`.split('/')) {
+    if (seg === '' || seg === '.') continue;
+    if (seg === '..') {
+      if (!out.length) return null; // escapes above the repo root
+      out.pop();
+      continue;
+    }
+    out.push(seg);
+  }
+  return out.join('/');
+}
+
+/**
+ * Every script path a regen/gate command names: the command is split into its
+ * chained (`&&`/`||`/`;`) sub-commands and each contributes its primary
+ * script token (primaryScriptPath — the SAME lexical extractor
+ * check-derived-declare-parity.mjs uses, reused not reimplemented). The
+ * pre-fix key set was the FIRST sub-command's token only, so a diff touching
+ * the second script of `node a.mjs --write && node b.mjs` (the
+ * registry-absence-tree entry's real shape) was never a key.
+ */
+function regenCommandScripts(cmd) {
+  const out = [];
+  for (const segment of String(cmd).split(/&&|\|\||;/)) {
+    const s = primaryScriptPath(segment);
+    if (s) out.push(s);
+  }
+  return [...new Set(out)];
+}
+
+function readScriptUtf8(p) { return readFileSync(p, 'utf8'); }
+
+/**
+ * The diff-key set one COVERED entry's regen+gate commands imply: every
+ * script the commands name (chains included) plus the transitive static
+ * import closure of those scripts. Returns { ok, keys } — `ok: false` means
+ * the closure could not be built (a reachable script's source is unreadable,
+ * typically because the diff itself deleted it) and the caller must FAIL
+ * OPEN for this entry (select it). `cache` memoizes per-file specifier scans
+ * across entries (counts.mjs is parsed once for all its importers); the
+ * walk's `seen` set guards import cycles.
+ */
+function importClosureKeys({ scripts, repoPath, readFile = readScriptUtf8, cache = new Map() }) {
+  const keys = new Set(scripts);
+  const seen = new Set();
+  const stack = [...scripts];
+  while (stack.length) {
+    const rel = stack.pop();
+    if (seen.has(rel)) continue;
+    seen.add(rel);
+    let specs = cache.get(rel);
+    if (specs === undefined) {
+      try { specs = staticImportSpecifiers(readFile(join(repoPath, rel))); }
+      catch { return { ok: false, keys: null }; } // unreadable source — the ENTRY fails open, never silently narrows
+      cache.set(rel, specs);
+    }
+    for (const spec of specs) {
+      const resolved = resolveImportSpecifierRel(spec, rel);
+      if (!resolved) continue;
+      keys.add(resolved);
+      if (/\.(mjs|js|cjs)$/i.test(resolved)) stack.push(resolved); // only JS carries further static imports to follow
+    }
+  }
+  return { ok: true, keys };
+}
+
+/** importClosureKeys for one entry: its regen command's scripts plus its gate command's scripts. */
+function entryDiffKeys({ entry, repoPath, readFile, cache }) {
+  const scripts = regenCommandScripts(entry.regen || '');
+  if (entry.gate) scripts.push(...regenCommandScripts(entry.gate));
+  return importClosureKeys({ scripts, repoPath, readFile, cache });
+}
+
+/**
+ * The union of every covered entry's diff keys — the widened trigger set
+ * preflight.mjs's derivedRegenLiveScopeTouched() consumes (one
+ * implementation with the gate, never a second parser). { ok: false } names
+ * the first entry whose closure could not be built, so the caller can fail
+ * open (run the gate).
+ */
+function coveredDiffKeyUnion({ covered, repoPath, readFile, cache = new Map() }) {
+  const keys = new Set();
+  for (const entry of covered) {
+    const r = entryDiffKeys({ entry, repoPath, readFile, cache });
+    if (!r.ok) return { ok: false, keys: null, failedEntry: entry.id };
+    for (const k of r.keys) keys.add(k);
+  }
+  return { ok: true, keys, failedEntry: null };
+}
 
 /**
  * Which covered entries a `--changed <base-ref>` run must execute, from
@@ -384,11 +542,19 @@ function selectCoveredByDiff({ repoPath = REPO, baseRef, covered = COVERED }) {
   }
   const selected = [];
   const skipped = [];
+  const importCache = new Map(); // DERIVED-SELFTEST-SCOPE-CLOSURE-1: per-file specifier scans shared across entries
   for (const entry of withRegen) {
     const regenScript = primaryScriptPath(entry.regen);
     const gateScript = entry.gate ? primaryScriptPath(entry.gate) : null;
-    const hit = (regenScript && touched.has(regenScript))
+    // DERIVED-SELFTEST-SCOPE-CLOSURE-1: the closure's keys already include the
+    // regen/gate commands' scripts (chains included); the explicit
+    // primaryScriptPath hits below are kept as the pre-closure fast path and
+    // as belt-and-braces against key-normalization drift.
+    const closure = entryDiffKeys({ entry, repoPath, cache: importCache });
+    const hit = !closure.ok // the closure could not be built — FAIL OPEN for this entry
+      || (regenScript && touched.has(regenScript))
       || (gateScript && touched.has(gateScript))
+      || [...closure.keys].some((k) => touched.has(k))
       || [...touched].some((p) => isWithinDeclared(p, entry.artifacts));
     if (hit) selected.push(entry);
     else skipped.push(entry.id);
@@ -410,7 +576,7 @@ function changedSelectionLines({ baseRef, selection }) {
   }
   const plural = (k) => (k === 1 ? 'y' : 'ies');
   return [
-    `derived-regen-live: --changed ${baseRef} — selected ${n} entr${plural(n)}${n ? `: ${selection.selected.map((e) => e.id).join(', ')}` : ''} (regen/gate script or declared artifact appears in git diff ${baseRef}...HEAD)`,
+    `derived-regen-live: --changed ${baseRef} — selected ${n} entr${plural(n)}${n ? `: ${selection.selected.map((e) => e.id).join(', ')}` : ''} (a regen/gate script, an imported script, or a declared artifact appears in git diff ${baseRef}...HEAD)`,
     `derived-regen-live: --changed ${baseRef} — skipped ${selection.skipped.length} entr${plural(selection.skipped.length)}${selection.skipped.length ? `: ${selection.skipped.join(', ')}` : ''} (${selection.reason}; CI still runs the full live scan)`,
   ];
 }
@@ -1351,4 +1517,4 @@ if (isMain) {
 // implementation of it. One scratch-worktree mechanism, one cleanup path.
 // The mutex pieces are exported (REGEN-CHECK-CONCURRENCY-HEAL-1) for the
 // paired test file to drive against throwaway tmpdir locks.
-export { runLiveScan, withinEntryDuplicates, crossEntryShares, isWithinDeclared, gitStatusPaths, cleanGitEnv, withScratchWorktree, selectCoveredByDiff, changedSelectionLines, parseWorktreePorcelain, staleScratchWorktrees, sweepStaleScratch, hostStateLine, ScratchSetupError, withScanLock, scanLockDirFor, readLockOwner, isPidAlive, lockStealMs };
+export { runLiveScan, withinEntryDuplicates, crossEntryShares, isWithinDeclared, gitStatusPaths, cleanGitEnv, withScratchWorktree, selectCoveredByDiff, changedSelectionLines, parseWorktreePorcelain, staleScratchWorktrees, sweepStaleScratch, hostStateLine, ScratchSetupError, withScanLock, scanLockDirFor, readLockOwner, isPidAlive, lockStealMs, staticImportSpecifiers, resolveImportSpecifierRel, regenCommandScripts, importClosureKeys, entryDiffKeys, coveredDiffKeyUnion };
