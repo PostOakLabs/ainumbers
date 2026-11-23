@@ -3,10 +3,15 @@
  * scripts/check-page-hash-refusal.mjs — PAGE-BUILDARTIFACT-HASH-REFUSAL-1, stage 1 advisory.
  *
  * A node page builds its artifact client-side and stamps execution_hash through an inline
- * copy of the shared canonicalizer. The kernel-side hash path (chaingraph/kernels/_hash.mjs)
- * NEVER throws on unhashable input: walkIJson refuses non-finite numbers, integers beyond
- * 2^53, nesting past MAX_DEPTH (512) and payloads over MAX_ELEMENTS (1,000,000) with a named
- * refusal, and the artifact carries execution_hash null plus a refusal reason. Most node
+ * copy of the shared canonicalizer. The kernel-family hashability walkers (the per-node
+ * guards beside each kernel, e.g. 810-contract-bytecode-identity-verifier) refuse bigints
+ * as well as non-finite numbers, integers beyond 2^53, nesting past MAX_DEPTH (512) and
+ * payloads over MAX_ELEMENTS (1,000,000), naming the refusal in the artifact beside a null
+ * execution_hash. They do not throw, but the shared canonicalizer itself
+ * (chaingraph/kernels/_hash.mjs) has NO bigint branch and JSON.stringify throws on one:
+ * a page whose inline hash seam is not preceded by the page-side SSOT guard
+ * __ocgHashRefusal therefore throws on a bigint even though the kernel family refuses it.
+ * Most node
  * pages are NOT at that parity: their inline hash seam asserts I-JSON by throwing
  * ("OCG: integer exceeds 2^53; pass as string"), so an input a visitor can type into the
  * page's own JSON fields kills the run after the verdict has already painted, with no hash
@@ -25,8 +30,8 @@
  *   2. Append a probe driver to the SAME script text so it shares the page's top-level
  *      lexical scope, then drive the page's own artifact-build entry (buildArtifact when the
  *      page declares one, else run) with a valid fixture preimage and with each unhashable
- *      shape: NaN, 1e300, 2^53+1 injected into policy_parameters, a 5000-deep nested value,
- *      and a 1,000,001-element array.
+ *      shape: NaN, 1e300, 2^53+1, and bigints (top-level, nested, array) injected into
+ *      policy_parameters, a 5000-deep nested value, and a 1,000,001-element array.
  *   3. A THROW on any shape is a FINDING (the measured defect). A drive that produces a
  *      truthy execution_hash on an unhashable shape is a FINDING (hashed_unhashable: the
  *      kernel refuses the same input, so the page hash can never verify). execution_hash
@@ -223,6 +228,9 @@ export function unhashableShapes() {
     ['nonfinite_nan', (pp) => ({ ...pp, junk: NaN })],
     ['unsafe_1e300', (pp) => ({ ...pp, junk: 1e300 })],
     ['unsafe_2p53', (pp) => ({ ...pp, junk: 9007199254740993 })],
+    ['bigint_top', (pp) => ({ ...pp, junk: 9007199254740993n })],
+    ['bigint_nested', (pp) => ({ ...pp, junk: { outer: { inner: 9007199254740993n } } })],
+    ['bigint_array', (pp) => ({ ...pp, junk: [1, 9007199254740993n, 3] })],
     ['too_deep', () => ({ junk: deepValue(TOO_DEEP_DEPTH) })],
     ['too_many', () => ({ junk: new Array(TOO_MANY_N).fill(0) })],
   ];
@@ -438,6 +446,16 @@ async function selfTest() {
   assert(red.cls === 'probe-ok' && redThrows.length >= 2, `RED: unguarded page throws on the number shapes (${redThrows.map((f) => f.leg).join(',')})`);
   assert(redThrows.some((f) => /2\^53|exceeds/.test(f.detail)), `RED: the quoted OCG 2^53 throw text is the finding detail`);
 
+  // MUTATION CONTROL (PAGE-HASH-REFUSAL-BIGINT-1): strip the BigInt branch from the live
+  // SSOT line. The same guarded page must then throw on every bigint leg - a gate whose
+  // bigint shapes cannot see a helper missing that branch has not been observed at all.
+  const BIGINT_BRANCH = "if(typeof v==='bigint')return{reason:'REFUSED_INPUT_UNSAFE_NUMBER',detail:p+': bigint'};";
+  const lineNoBigInt = line.replace(BIGINT_BRANCH, '');
+  assert(lineNoBigInt !== line, 'MUTATION: the live SSOT helper carries a removable BigInt branch');
+  const mutated = await scanPage(PAGE_TMPL(true).replace('__OCG_HASH_REFUSAL_LINE__', lineNoBigInt), 'fx-no-bigint');
+  const mutatedBigIntThrows = mutated.findings.filter((f) => f.kind === 'throw' && /^bigint_/.test(f.leg));
+  assert(mutated.cls === 'probe-ok' && mutatedBigIntThrows.length === 3, `RED: without the BigInt branch the guarded page throws on all 3 bigint legs (${mutatedBigIntThrows.map((f) => f.leg).join(',')})`);
+
   // An entry that reads probe state the harness does not provide is UNDRIVABLE, never a
   // finding: the valid fixture is hashable, so a hash-path refusal cannot fire on it.
   const undrivableHtml = PAGE_TMPL(false).replace('__OCG_HASH_REFUSAL_LINE__', line)
@@ -471,7 +489,7 @@ async function selfTest() {
   }
 
   if (failed) { console.error(`check-page-hash-refusal self-test: ${failed} control(s) FAILED`); process.exit(1); }
-  console.log('check-page-hash-refusal self-test: OK - RED and GREEN mutation controls, ratchet red, advisory green, changed-ref fallback.');
+  console.log('check-page-hash-refusal self-test: OK - RED and GREEN mutation controls (incl. BigInt-branch removal), ratchet red, advisory green, changed-ref fallback.');
   process.exit(0);
 }
 
