@@ -1,5 +1,5 @@
 // art-350-fedwire-address-sweep.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C14-1).
-// kernel_digest_at_authoring: sha256:ed9a9a2b2a4e72c7ecbbdd26751431c89ec6bf9f68da27d8dcb2567cb6b999ef
+// kernel_digest_at_authoring: sha256:b4e82c38e4a19bd506f3a195fb346f9917425ea3e00a285fa12ed91dfbcdfffa
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -231,6 +231,27 @@ async function checkP5_aux_digest_null_refusal() {
   return { name: 'P5_aux_digest_null_refuses_never_writes_sha256_null', trials: checked, violations };
 }
 
+// ---------- P6: buildArtifact never throws (D6), including BigInt inputs ----------
+async function checkP6_buildArtifactNeverThrows() {
+  const deep = (n) => { let o = /** @type {any} */ ({}); const r = o; for (let i = 0; i < n; i++) { o.x = {}; o = o.x; } return r; };
+  const big = () => new Array(1_000_001).fill(1);
+  const cases = [
+    { zzz: 10n },                      // top-level field
+    { zzz: { a: [3n] } },              // nested
+    { records: [{ town_name: 7n }] },  // in-field
+    { file_content: 5n },              // in-field (aux digest input)
+    NaN, -Infinity, 1e300, deep(600), big(), null, undefined, 'junk', {}, [],
+  ];
+  let throws = 0, refused = 0;
+  for (const pp of cases) {
+    let a;
+    try { a = await realBuildArtifact(pp); }
+    catch (_e) { throws++; continue; }
+    if (a && a.execution_hash === null && a.hash_refusal && typeof a.hash_refusal.reason === 'string') refused++;
+  }
+  return { name: 'P6_buildArtifact_never_throws_bigint', trials: cases.length, throws, refused, violations: throws };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -243,6 +264,7 @@ results.properties.push(checkP2_rollup_differential());
 results.properties.push(checkP3_categorical_boundary_forcing());
 results.properties.push(checkP4_status_not_date_and_asof_propagation());
 results.properties.push(await checkP5_aux_digest_null_refusal());
+results.properties.push(await checkP6_buildArtifactNeverThrows());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
