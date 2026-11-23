@@ -157,6 +157,30 @@ function checkP4_entry_order_invariance() {
   return { name: 'P4_entry_order_invariance', trials: checked, violations };
 }
 
+// ---------- PF1 (KERNEL-BIGINT-F1-SAFE-FORMAT-1): a BigInt on entries[0].basis_points refuses, never throws ----------
+// RED on main: compute() threw "Do not know how to serialize a BigInt" while building the
+// share-field validation detail and while canonicalizing the config fingerprint. GREEN on head:
+// the same input fails the share_type rule with the kernel's existing flag shape
+// (measured across 4 BigInt values on this field, origin/main 0289be7577 vs this branch).
+function checkPF1_bigintInputRefusesWithoutThrowing() {
+  let violations = 0, checked = 0;
+  const fixturesPath = path.join(__dirname, '..', 'fixtures', 'art-208-royalty-split-validator.fixtures.json');
+  const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
+  for (const big of [7n, 123456789012345678901234567890n, -1n, 0n]) {
+    const pp = structuredClone(fixtures.vectors[0].policy_parameters);
+    if (!pp.entries || !Array.isArray(pp.entries) || pp.entries.length === 0) pp.entries = [{ recipient: 'R1', share_type: 'percent', value: 50 }];
+    pp.entries[0].basis_points = big;
+    checked++;
+    try {
+      const r = compute(pp);
+      if (!r || !r.compliance_flags || !r.compliance_flags.includes('VALIDATION_FAILED')) violations++;
+    } catch (e) {
+      violations++; // the serialization throw this cure removes
+    }
+  }
+  return { name: 'PF1_bigint_entry_basis_points_refuses_without_throwing', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -168,6 +192,7 @@ results.properties.push(checkP1_termination_and_finiteness());
 results.properties.push(checkP2_sum_cap_differential());
 results.properties.push(checkP3_ulp_boundary_forcing());
 results.properties.push(checkP4_entry_order_invariance());
+results.properties.push(checkPF1_bigintInputRefusesWithoutThrowing());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 

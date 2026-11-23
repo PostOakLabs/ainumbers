@@ -8,6 +8,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-710-tsv-stoppage-concurrency.proptest.mjs
 
+import { readFileSync } from 'node:fs';
 import { compute } from '../art-710-tsv-stoppage-concurrency.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32 } from './_pbt-common.mjs';
 
@@ -234,6 +235,31 @@ function checkP6_outputShapeDeterminism() {
   return { name: 'P6_output_shape_determinism_evidence_only', checked, violations };
 }
 
+// ---------- PF1 (KERNEL-BIGINT-F1-SAFE-FORMAT-1): a BigInt on stoppages[0].start_ts refuses, never throws ----------
+// RED on main: compute() threw "Do not know how to serialize a BigInt" while building the
+// stoppage_entry_invalid refusal detail. GREEN on head: the same input returns the refusal
+// (measured across 4 BigInt values on this field, origin/main 0289be7577 vs this branch).
+function checkPF1_bigintInputRefusesWithoutThrowing() {
+  let violations = 0, checked = 0;
+  const fixtures = JSON.parse(readFileSync(new URL('../fixtures/art-710-tsv-stoppage-concurrency.fixtures.json', import.meta.url), 'utf8'));
+  for (const big of [7n, 123456789012345678901234567890n, -1n, 0n]) {
+    const pp = structuredClone(fixtures.vectors[0].policy_parameters);
+    if (!pp.stoppages || !Array.isArray(pp.stoppages) || pp.stoppages.length === 0) pp.stoppages = [{ halt_record: 'HALT-A', participant: 'P1', start_ts: '2026-10-01T14:30:00Z', end_ts: '2026-10-01T15:00:00Z' }];
+    pp.stoppages[0].start_ts = big;
+    checked++;
+    try {
+      const r = compute(pp);
+      const out = r && r.output_payload;
+      if (!out) { violations++; continue; }
+      const dcode = out.domain_errors && out.domain_errors[0] && out.domain_errors[0].code;
+      if (dcode !== 'STOPPAGE_ENTRY_INVALID') violations++;
+    } catch (e) {
+      violations++; // the serialization throw this cure removes
+    }
+  }
+  return { name: 'PF1_bigint_stoppage_start_ts_refuses_without_throwing', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -248,6 +274,7 @@ const properties = [
   checkP4_noticeLatencyMeasuredNotGraded(),
   checkP5_refusalContract(),
   checkP6_outputShapeDeterminism(),
+  checkPF1_bigintInputRefusesWithoutThrowing(),
 ];
 console.log('[' + KERNEL_ID + '] class-K floor property test — ' + properties.length + ' properties.');
 const ok = summarize(KERNEL_ID, oracle, properties);

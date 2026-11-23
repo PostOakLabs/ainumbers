@@ -4,7 +4,7 @@
 <!-- WEBMCP:OT-META-BEGIN generator=scripts/gen-webmcp-registrations.mjs -->
 <meta http-equiv="origin-trial" content="AvjPE9Ubhx2ZAiql3vUsqFtXvuHuGVZq9xxwxs6FXkgBXIRAnf+mFu3UmPHszhqN3NW8YvRNXbVbAGvEsuFG7w0AAABfeyJvcmlnaW4iOiJodHRwczovL2FpbnVtYmVycy5jbzo0NDMiLCJmZWF0dXJlIjoiV2ViTUNQIiwiZXhwaXJ5IjoxODA2MzY0ODAwLCJpc1N1YmRvbWFpbiI6dHJ1ZX0=">
 <!-- WEBMCP:OT-META-END -->
-<meta name="kernel-digest" content="sha256:e08cd99eaa433bc5d34fddce29b5bc96932043799b00ecc03f90b6e8670d25e9">
+<meta name="kernel-digest" content="sha256:e94242c93a8314d9b01cc07f3ae5fa0ad7afd8d32001c408db7413d46e2bd2a2">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
@@ -474,6 +474,9 @@ void FLAGS; void FLAG_NAMES;
  *   declaration_source?: string (free text, e.g. "TSV Notice item (p)"),
  * }
  */
+// Refusal-detail formatter: JSON.stringify throws on a BigInt, so render one as `<digits>n`.
+// Output for every non-BigInt value is identical to JSON.stringify.
+const fmt = (v) => JSON.stringify(v, (_k, x) => (typeof x === 'bigint' ? `${x}n` : x)); // transcribed from the kernel (KERNEL-BIGINT-F1-SAFE-FORMAT-1): BigInt-safe refusal detail formatting
 function compute(pp) {
   pp = deNull(pp || {});
 
@@ -493,7 +496,7 @@ function compute(pp) {
   if (typeof addrHex !== 'string' || !HEX40.test(addrHex)) {
     return refusal('HOOK_ADDRESS_INVALID',
       'hook_address must be a 0x-prefixed 40-hex-digit address (checksum not required); got '
-      + JSON.stringify(addrHex ?? null) + '.');
+      + fmt(addrHex ?? null) + '.');
   }
   addrHex = addrHex.toLowerCase();
 
@@ -501,7 +504,7 @@ function compute(pp) {
   if (!declared || typeof declared !== 'object' || Array.isArray(declared)) {
     return refusal('DECLARED_PERMISSIONS_INVALID',
       'declared_permissions must be an object carrying all 14 flag booleans (flat, or a Uniswap hooklist entry with a flags object); got '
-      + JSON.stringify(declared ?? null) + '.');
+      + fmt(declared ?? null) + '.');
   }
   const missing = FLAG_NAMES.filter((f) => typeof declared[f] !== 'boolean');
   if (missing.length > 0) {
@@ -517,7 +520,7 @@ function compute(pp) {
       || pp.pool_fee < 0 || pp.pool_fee > 0xffffff) {
       return refusal('POOL_FEE_INVALID',
         'pool_fee, when present, must be a uint24 integer (0..16777215); got '
-        + JSON.stringify(pp.pool_fee) + '.');
+        + fmt(pp.pool_fee) + '.');
     }
     poolFee = BigInt(pp.pool_fee);
   }
@@ -527,7 +530,7 @@ function compute(pp) {
   if (pp.declaration_source !== undefined) {
     if (typeof pp.declaration_source !== 'string') {
       return refusal('DECLARATION_SOURCE_INVALID',
-        'declaration_source, when present, must be a string; got ' + JSON.stringify(pp.declaration_source) + '.');
+        'declaration_source, when present, must be a string; got ' + fmt(pp.declaration_source) + '.');
     }
     declarationSource = pp.declaration_source;
   }

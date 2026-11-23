@@ -169,6 +169,29 @@ function checkP4_items_permutation_invariance() {
   return { name: 'P4_items_permutation_invariance', trials: checked, violations };
 }
 
+// ---------- PF1 (KERNEL-BIGINT-F1-SAFE-FORMAT-1): a BigInt on payload.amount refuses, never throws ----------
+// RED on main: compute() threw "Do not know how to serialize a BigInt" while building the
+// field-validation refusal detail. GREEN on head: the same input returns the refusal
+// (measured across 4 BigInt values on this field, origin/main 0289be7577 vs this branch).
+function checkPF1_bigintInputRefusesWithoutThrowing() {
+  let violations = 0, checked = 0;
+  const fixturesPath = path.join(__dirname, '..', 'fixtures', 'art-12-acp-checkout-conformance-validator.fixtures.json');
+  const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
+  for (const big of [7n, 123456789012345678901234567890n, -1n, 0n]) {
+    const pp = structuredClone(fixtures.vectors[0].policy_parameters);
+    if (!pp.payload || typeof pp.payload !== 'object') pp.payload = {};
+    pp.payload.amount = big;
+    checked++;
+    try {
+      const r = compute(pp);
+      if (!r || !r.compliance_flags || !r.compliance_flags.includes('FIELD_VALIDATION_FAILED')) violations++;
+    } catch (e) {
+      violations++; // the serialization throw this cure removes
+    }
+  }
+  return { name: 'PF1_bigint_payload_amount_refuses_without_throwing', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -180,6 +203,7 @@ results.properties.push(checkP1_termination());
 results.properties.push(checkP2_status_differential());
 results.properties.push(checkP3_echo_boundedness());
 results.properties.push(checkP4_items_permutation_invariance());
+results.properties.push(checkPF1_bigintInputRefusesWithoutThrowing());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
