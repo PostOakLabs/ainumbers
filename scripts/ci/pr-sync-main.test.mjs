@@ -487,7 +487,12 @@ try {
       [`registry/kernel/${hex2}.json`],
     );
     assert.equal(G(['--git-dir', origin, 'show', `${r.sha}:registry/kernel/${hex2}.json`]), canon(k2d, specD2));
-    assert.match(G(['--git-dir', origin, 'log', '-1', '--format=%b', r.sha]), /Re-derived registry\/kernel on the merged tree/);
+    const regBody = G(['--git-dir', origin, 'log', '-1', '--format=%b', r.sha]);
+    assert.match(regBody, /Re-derived registry\/kernel on the merged tree in this commit/);
+    // Muse #111 C1: a re-derived record is never listed under "main's regen re-derives them after merge".
+    const regenBlock = (regBody.split(/Re-derived registry\/kernel/)[0].split(/main's regen re-derives them after merge:/)[1]) || '';
+    assert.doesNotMatch(regenBlock, /registry\/kernel\//);
+    assert.match(regBody, new RegExp(`Re-derived registry/kernel[\\s\\S]*registry/kernel/${hex1}\\.json`));
     // Main's gate copies were laid over the merged tree and restored: the
     // merge commit carries neither the scripts copy nor the kernel-shim copy.
     assert.equal(G(['--git-dir', origin, 'ls-tree', '--name-only', r.sha, 'scripts/']).trim(), '');

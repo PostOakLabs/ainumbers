@@ -655,11 +655,15 @@ export function syncOne(pr, mainSha, allowed, repoDir = REPO) {
         if (!rec.ok) return { ok: false, why: 'registry resolve not clean after sync' };
         registryResolved = true;
       }
+      // Muse #111 C1: registry/kernel paths were re-derived IN this commit, so they are listed under
+      // their own line, never under "main's regen re-derives them after merge".
+      const regenLater = registryResolved ? derived.filter((p) => !isRegistryKernelPath(p)) : derived;
+      const registryNow = registryResolved ? derived.filter(isRegistryKernelPath) : [];
       const msgFile = join(wt, '..', `bot-sync-msg-${pr.number}.txt`);
       writeFileSync(msgFile, `${subject}\n\n` +
-        (derived.length ? `Conflicts in main-owned derived paths (scripts/derived-artifacts.mjs);\ntook main's version, main's regen re-derives them after merge:\n${derived.map((p) => `  ${p}`).join('\n')}\n` : '') +
-        (plan ? `${derived.length ? '\n' : ''}Kept main's frozen ${RESERVATIONS_LEGACY}; moved the ${moved.length} id(s) this PR added to\nper-id shards (scripts/check-id-collision.mjs --seed-check passed on the merged tree):\n${moved.map((p) => `  ${p}`).join('\n') || '  (none: main already carries them)'}\n` : '') +
-        (registryResolved ? `${derived.length || plan ? '\n' : ''}Re-derived registry/kernel on the merged tree\n(scripts/gen-registry-kernel-resolve.mjs --write; --check clean):\n  records now match the merged kernels and SPEC bytes\n` : ''));
+        (regenLater.length ? `Conflicts in main-owned derived paths (scripts/derived-artifacts.mjs);\ntook main's version, main's regen re-derives them after merge:\n${regenLater.map((p) => `  ${p}`).join('\n')}\n` : '') +
+        (plan ? `${regenLater.length ? '\n' : ''}Kept main's frozen ${RESERVATIONS_LEGACY}; moved the ${moved.length} id(s) this PR added to\nper-id shards (scripts/check-id-collision.mjs --seed-check passed on the merged tree):\n${moved.map((p) => `  ${p}`).join('\n') || '  (none: main already carries them)'}\n` : '') +
+        (registryResolved ? `${regenLater.length || plan ? '\n' : ''}Re-derived registry/kernel on the merged tree in this commit\n(scripts/gen-registry-kernel-resolve.mjs --write; --check clean):\n${registryNow.map((p) => `  ${p}`).join('\n')}\n  records now match the merged kernels and SPEC bytes\n` : ''));
       git([...ident, 'commit', '--quiet', '-F', msgFile], { cwd: wt });
       rmSync(msgFile, { force: true });
     }
