@@ -231,7 +231,17 @@ function checkP6_required_fields_never_positive() {
 // ---------- P7: buildArtifact never throws on hash-hostile input (D6) ----------
 async function checkP7_buildArtifact_never_throws() {
   /** @param {number} n @returns {any} */
-  const deep = (n) => { /** @type {any} */ let o = {}; const r = o; for (let i = 0; i < n; i++) { o.x = {}; o = o.x; } return r; };
+  const deep = (n) => {
+    /** @type {any} */
+    const r = {};
+    /** @type {any} */
+    let o = r;
+    for (let i = 0; i < n; i++) {
+      o.x = {};
+      o = o.x;
+    }
+    return r;
+  };
   const big = () => new Array(1_000_001).fill(1);
   const junk = { NaN: NaN, negInfinity: -Infinity, huge: 1e300, deep600: deep(600), bigArray: big() };
   const cases = [];
