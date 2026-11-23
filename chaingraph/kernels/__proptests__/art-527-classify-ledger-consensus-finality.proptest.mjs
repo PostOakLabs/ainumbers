@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:9f216a6b8072c4d486cd19c961df422c56fb4cbef5274d2754b1b59a033920d3
+// kernel_digest_at_authoring: sha256:64328c8f484c5be040d0185308e0c072b4728975d7be8979f64b6169a3eb96d1
 //
 // FV-PROPFLOOR-SHARD-B26-1 — property-test floor for art-527-classify-ledger-consensus-finality.
 // Class B (bounded-categorical), FLOAT:NO per the WU row — outcome is a terminal-branch enum
@@ -11,7 +11,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-527-classify-ledger-consensus-finality.proptest.mjs
 
-import { compute } from '../art-527-classify-ledger-consensus-finality.kernel.mjs';
+import { compute, buildArtifact } from '../art-527-classify-ledger-consensus-finality.kernel.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -272,6 +272,27 @@ function checkP6_alpenglowCertificatePolicy() {
   return { name: 'P6_alpenglow_certificate_policy_boundaries', cases: ALPG_POLICY_CASES.length, violations: failures.length, failures };
 }
 
+// ---------- P7: buildArtifact never throws on BigInt input; it refuses with a null hash + reason ----------
+async function checkP7_bigintNeverThrows() {
+  const cases = [
+    { zzz: 10n },
+    { settlement_model: 'alpenglow', observed_epoch: 1070n, notarize_stake_pct: 80 },
+    { zzz: { a: [3n] } },
+    { settlement_model: 'federated_bft', time_bounds_max: 5n },
+  ];
+  let violations = 0;
+  for (const pp of cases) {
+    try {
+      const a = await buildArtifact(pp, {});
+      if (a.execution_hash !== null || !a.hash_refusal || a.hash_refusal.reason !== 'REFUSED_INPUT_UNSAFE_NUMBER') violations++;
+    } catch (e) { violations++; }
+  }
+  // a hashable input still hashes and carries no refusal
+  const ok = await buildArtifact({ settlement_model: 'alpenglow', observed_epoch: 1070, notarize_stake_pct: 80 }, {});
+  if (typeof ok.execution_hash !== 'string' || ok.hash_refusal !== undefined) violations++;
+  return { name: 'P7_bigint_never_throws_hash_refusal', trials: cases.length + 1, violations };
+}
+
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
   console.error('FIXTURE ORACLE FAILED — spec/harness not trusted. Failures:', JSON.stringify(results.fixture_oracle.failures, null, 2));
@@ -283,6 +304,7 @@ results.properties.push(checkP2_meetsRequiredTierExact());
 results.properties.push(checkP3_claimVerdictExact());
 results.properties.push(checkP4_crossModelFieldsNull());
 results.properties.push(checkP6_alpenglowCertificatePolicy());
+results.properties.push(await checkP7_bigintNeverThrows());
 results.boundary_forced = checkP5_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
