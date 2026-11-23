@@ -1031,7 +1031,22 @@ const { advisoryGates, isMainContext, COVERED, DERIVED_ROOT_GATES } = await impo
 // fails OPEN (gate runs) — the live scan is read/write-scoped to a throwaway
 // worktree, never the shared tree, so running it unnecessarily costs time, not
 // correctness, which is the same tradeoff helmPathsTouched() already makes.
+//
+// DERIVED-SELFTEST-SCOPE-CLOSURE-1: primary regen/gate scripts alone
+// under-trigger the same way they under-selected. Measured 2026-11-22: a
+// rename inside scripts/counts.mjs — imported by gen-evidence-register.mjs /
+// gen-guides-index.mjs / gen-debt-ledger.mjs and others, and the SECOND
+// script of a chained (`&&`) regen command is equally invisible — matched no
+// primary script, so this trigger skipped the live gate entirely while
+// verify-counts --check exited 1. The relevant set is therefore widened with
+// the SAME per-entry key set the gate's own --changed selection uses (one
+// implementation, exported from check-derived-regen-live.mjs — the chained
+// sub-command scripts plus the transitive static import closure of every
+// regen/gate script; the lexical extractor discipline is
+// check-derived-declare-parity.mjs's, not a second parser). A closure build
+// failure fails OPEN (gate runs), the same direction as the catch below.
 const { primaryScriptPath } = await import('./check-derived-declare-parity.mjs');
+const { coveredDiffKeyUnion } = await import('./check-derived-regen-live.mjs');
 function derivedRegenLiveScopeTouched() {
   // DERIVED-SET-SELFTEST-TRIGGER-1: this gate's own script and its test were
   // absent from this set — site PR #2104 changed check-derived-regen-live.mjs
@@ -1049,6 +1064,11 @@ function derivedRegenLiveScopeTouched() {
     if (rp) relevant.add(rp);
     if (c.gate) { const gp = primaryScriptPath(c.gate); if (gp) relevant.add(gp); }
   }
+  // DERIVED-SELFTEST-SCOPE-CLOSURE-1: widen with chained-command scripts and
+  // the transitive static import closure (see the block comment above).
+  const closureUnion = coveredDiffKeyUnion({ covered: COVERED, repoPath: REPO });
+  if (!closureUnion.ok) return true; // closure build failed — fail OPEN, run the gate
+  for (const k of closureUnion.keys) relevant.add(k);
   try {
     const touched = new Set();
     execSync('git diff --name-only HEAD', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
