@@ -234,7 +234,7 @@ const MANIFEST = {
   "chaingraph": true
 };
 
-const MEASURE_IDS=['a','b','c','d','e','f','g','h','i','j'];
+const MEASURE_IDS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
 const MEASURE_LABELS={
   a:'Risk analysis & IS policy',
   b:'Incident handling',
@@ -249,32 +249,46 @@ const MEASURE_LABELS={
 };
 
 function compute(pp) {
-  const { measures=[] } = pp;
-  const arr=Array.isArray(measures)?measures:[];
-  let total_score=0; const measures_summary=[]; const critical_gaps=[];
-  MEASURE_IDS.forEach(id=>{
-    const m=arr.find(x=>x&&x.measure_id===id)||{};
-    const implemented=m.implemented===true;
-    const documented=m.documented===true;
-    const tested=typeof m.last_tested_date==='string'&&m.last_tested_date.length>0;
-    const maturity=(implemented&&tested)?3:implemented?2:documented?1:0;
-    total_score+=maturity;
-    measures_summary.push({measure_id:id,maturity});
-    if(maturity===0)critical_gaps.push(id);
+  const { measures = [] } = pp;
+  const arr = Array.isArray(measures) ? measures : [];
+  let total_score = 0;
+  const measures_summary = [];
+  const critical_gaps = [];
+
+  MEASURE_IDS.forEach(id => {
+    const m = arr.find(x => x && x.measure_id === id) || {};
+    const implemented = m.implemented === true;
+    const documented = m.documented === true;
+    const tested = typeof m.last_tested_date === 'string' && m.last_tested_date.length > 0;
+    // Maturity: 0=absent, 1=documented-only, 2=implemented, 3=implemented+tested
+    const maturity = (implemented && tested) ? 3 : implemented ? 2 : documented ? 1 : 0;
+    total_score += maturity;
+    measures_summary.push({ measure_id: id, maturity });
+    if (maturity === 0) critical_gaps.push(id);
   });
-  const max_score=30;
-  const compliance_score=Math.round((total_score/max_score)*100);
-  const grade_thresholds=[[90,'A'],[75,'B'],[60,'C'],[40,'D']];
-  const entry=grade_thresholds.find(([t])=>compliance_score>=t);
-  const overall_grade=entry?entry[1]:'F';
-  const remediation_priority=measures_summary.filter(m=>m.maturity<2).sort((a,b)=>a.maturity-b.maturity).map(m=>m.measure_id);
-  const compliance_flags={NIS2_ART21_ASSESSED:true};
-  compliance_flags[compliance_score>=60?'NIS2_ART21_PASSING':'NIS2_ART21_GAPS_IDENTIFIED']=true;
-  if(critical_gaps.length>0)compliance_flags.NIS2_ART21_CRITICAL_GAPS=true;
-  return{output_payload:{compliance_score,overall_grade,measures_summary,critical_gaps,remediation_priority},compliance_flags};
+
+  const max_score = MEASURE_IDS.length * 3; // 30
+  const compliance_score = Math.round((total_score / max_score) * 100);
+  const grade_thresholds = [[90, 'A'], [75, 'B'], [60, 'C'], [40, 'D']];
+  const entry = grade_thresholds.find(([t]) => compliance_score >= t);
+  const overall_grade = entry ? entry[1] : 'F';
+  const remediation_priority = measures_summary
+    .filter(m => m.maturity < 2)
+    .sort((a, b) => a.maturity - b.maturity)
+    .map(m => m.measure_id);
+
+  const compliance_flags = [];
+  compliance_flags.push('NIS2_ART21_ASSESSED');
+  compliance_flags.push(compliance_score >= 60 ? 'NIS2_ART21_PASSING' : 'NIS2_ART21_GAPS_IDENTIFIED');
+  if (critical_gaps.length > 0) compliance_flags.push('NIS2_ART21_CRITICAL_GAPS');
+
+  return {
+    output_payload: { compliance_score, overall_grade, measures_summary, critical_gaps, remediation_priority },
+    compliance_flags,
+  };
 }
 
-function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
+function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o=Object.create(null);for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
 async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 
 let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;

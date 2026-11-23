@@ -16,6 +16,8 @@
  *   4. RED: a plan whose execution_hash does not recompute through _hash.mjs
  *      fails part 2.
  *   5. RED: a plan_chain that reaches for the network fails part 2.
+ *   5b. HASH-REFUSAL-GUARDS-SCRIPTS-1: a hash impl that refuses (returns null,
+ *       HASH-REFUSAL-SHARED-1) fails part 2; a stubbed impl that reproduces passes.
  *   6. RED and GREEN: a step tool_id outside the registered set fails part 3;
  *      wrapper, direct and kernel-only-worker steps pass.
  *   7. Ratchet: a baselined key WARNs, a new key is fresh, a baseline key that
@@ -75,6 +77,17 @@ async function main() {
 
     const net = await part2For(dir, 'network');
     check('RED: plan_chain reaching for the network fails part 2', !net.ok && /network access attempted/.test(net.problem), net.problem);
+
+    // HASH-REFUSAL-GUARDS-SCRIPTS-1: HASH-REFUSAL-SHARED-1 turns executionHash's
+    // throw on unhashable input into a null return. judgePart2 must refuse the
+    // plan (a null recomputed hash never silently matches) while a stubbed impl
+    // that reproduces still passes. The stub rides the hashImpl seam.
+    const planOk = (hex) => ({ ok: true, network: [], plan: { chaingraph_version: '0.4.0', execution_hash: `sha256:${hex}`, policy_parameters: { x: 1 }, output_payload: { y: 2 } } });
+    const refusedNull = await judgePart2(planOk('c'.repeat(64)), planOk('c'.repeat(64)), async () => null);
+    check('RED: a hash impl that refuses (returns null) fails part 2',
+      !refusedNull.ok && refusedNull.problem === 'execution_hash recomputation refused (unhashable plan preimage)', refusedNull.problem);
+    const stubbedGreen = await judgePart2(planOk('d'.repeat(64)), planOk('d'.repeat(64)), async () => 'd'.repeat(64));
+    check('GREEN: a stubbed hash that reproduces passes part 2', stubbedGreen.ok && stubbedGreen.hash === 'd'.repeat(64), JSON.stringify(stubbedGreen));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -180,7 +193,7 @@ async function main() {
   }
 
   console.log(failures === 0
-    ? '✓ check-webmcp-chain-execute controls: PASS (part 2 RED on no plan_chain, unstable, non-reproducing and network cases; part 3 RED on an unregistered step; ratchet down-only; live specimen GREEN)'
+    ? '✓ check-webmcp-chain-execute controls: PASS (part 2 RED on no plan_chain, unstable, non-reproducing, network and null-refusal cases; part 3 RED on an unregistered step; ratchet down-only; live specimen GREEN)'
     : `✗ check-webmcp-chain-execute controls: FAIL (${failures} control(s))`);
   process.exit(failures === 0 ? 0 : 1);
 }
