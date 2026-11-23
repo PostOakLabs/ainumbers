@@ -18,10 +18,13 @@
  * per-tool reason line in the generator output; the exclusion list shrinks as
  * fix rows land.
  *
- * Emitted pattern (the 2026-08 spec state; all dated observations):
- *   - `document.modelContext` preferred with `'modelContext' in navigator`
- *     fallback (getter moved to document, observed 2026-08-10, #1546 pattern);
- *     absent API registers nothing (page stays byte-identical without it);
+ * Emitted pattern (the 2026-11 spec state; all dated observations):
+ *   - `document.modelContext` only (WebMCP CG draft dated 13 Nov 2026: the
+ *     getter is on Document; there is no navigator.modelContext); absent API
+ *     registers nothing (page stays byte-identical without it);
+ *   - registration is `Promise.resolve(mc.registerTool({...})).catch(() => {})`
+ *     so a rejected registration (tools permission off, NotAllowedError under
+ *     the 13 Nov 2026 draft) never surfaces as an unhandled rejection;
  *   - ONE function per tool, ONE registration per page — namespace uniqueness
  *     is gated by scripts/check-webmcp-name-uniqueness.mjs (the check-tool-names
  *     gate family extended to WebMCP registrations);
@@ -1529,9 +1532,9 @@ export function buildBlock(manifest, manifestPath, idMap, wrapper) {
   lines.push('// computed JSON derived from declared inputs.');
   lines.push('// Browser support (dated observation): WebMCP origin trial from Chrome 149');
   lines.push('// (May 2026) per developer.chrome.com/docs/ai/webmcp (retrieved 2026-09-01).');
-  lines.push("const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);");
+  lines.push("const mc = document.modelContext;");
   lines.push('if (mc) {');
-  lines.push('  mc.registerTool({');
+  lines.push('  Promise.resolve(mc.registerTool({');
   lines.push(`    name: '${jsStr(def.name)}',`);
   lines.push(`    description: '${jsStr(def.description)}',`);
   lines.push(`    inputSchema: ${JSON.stringify(def.inputSchema, null, 2).replace(/\n/g, '\n    ')},`);
@@ -1550,7 +1553,7 @@ export function buildBlock(manifest, manifestPath, idMap, wrapper) {
   lines.push("        return { error: 'compute_failed', detail: String((err && err.message) || err) };");
   lines.push('      }');
   lines.push('    }');
-  lines.push('  });');
+  lines.push('  })).catch(() => {});');
   lines.push('}');
   lines.push('</script>');
   // TOOLPAGE-DEEPLINK-1: the fragment-only prefill-and-run deep-link reader rides
@@ -1869,12 +1872,12 @@ export function buildChainBlock(chainName, hasRunner) {
   lines.push('// assemble_session_receipt, apply_delegation_bundle).');
   lines.push('// Browser support (dated observation): WebMCP origin trial from Chrome 149');
   lines.push('// (May 2026) per developer.chrome.com/docs/ai/webmcp (retrieved 2026-09-01).');
-  lines.push("const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);");
+  lines.push("const mc = document.modelContext;");
   lines.push('if (mc) {');
   // The SSOT session-root routine (same bytes as the bridge snippet v1.2).
   lines.push(SESSION_ROOT_SOURCE);
   lines.push("  if (window.AINBridge) window.AINBridge.sessionRoot = ainSessionRoot;");
-  lines.push('  mc.registerTool({');
+  lines.push('  Promise.resolve(mc.registerTool({');
   lines.push("    name: 'plan_chain',");
   lines.push(`    description: '${jsStr("Return this chain's OpenChainGraph section 4 chain definition plan artifact: the page's own deterministic SHA-256 hash over the canonical plan (chain id, ordered step tool ids and handoffs) exactly as the page computes and displays it, with the plan preimage attached. This is the plan, not a run: no step executes and no output payload is computed. The worker emits the same chain definition as chain_plan via build_chaingraph, and the fleet SSOT plan hash set is pinned in data/chain-plan-hashes.json.")}',`);
   lines.push('    inputSchema: { type: \'object\', required: [], properties: {} },');
@@ -1901,8 +1904,8 @@ export function buildChainBlock(chainName, hasRunner) {
   lines.push("        return { error: 'compute_failed', detail: String((err && err.message) || err) };");
   lines.push('      }');
   lines.push('    }');
-  lines.push('  });');
-  lines.push('  mc.registerTool({');
+  lines.push('  })).catch(() => {});');
+  lines.push('  Promise.resolve(mc.registerTool({');
   lines.push("    name: 'assemble_session_receipt',");
   lines.push(`    description: '${jsStr("Assemble a session receipt: one deterministic SHA-256 Merkle root over an ordered list of execution_hash values, byte-identical to the worker build_session_receipt tool (same normalize, pair, and odd-leaf rules). Collect hashes from any ChainGraph tools run in this session, in call order, and this returns the tamper-evident root that aggregates them.")}',`);
   lines.push('    inputSchema: { type: \'object\', required: [\'execution_hashes\'], properties: { execution_hashes: { type: \'array\', description: \'Ordered execution_hash values (lowercase 64-hex, optional sha256: prefix) from ChainGraph tool calls in this session, in call order. Minimum 1.\' } } },');
@@ -1924,8 +1927,8 @@ export function buildChainBlock(chainName, hasRunner) {
   lines.push("        return { error: 'compute_failed', detail: String((err && err.message) || err) };");
   lines.push('      }');
   lines.push('    }');
-  lines.push('  });');
-  lines.push('  mc.registerTool({');
+  lines.push('  })).catch(() => {});');
+  lines.push('  Promise.resolve(mc.registerTool({');
   lines.push("    name: 'apply_delegation_bundle',");
   lines.push(`    description: '${jsStr("Apply a zero-egress browser delegation bundle returned by the worker run_chain tool with compute browser: validate the bundle schema and return the ordered step deep links for in-browser execution. No step is executed here; run the links in order and thread each execution_hash forward, or open this chain's live runner page when one is offered.")}',`);
   lines.push('    inputSchema: { type: \'object\', required: [\'bundle\'], properties: { bundle: { type: \'object\', description: \'The run_chain compute browser delegation bundle (mode browser_delegation, chain, steps with order/tool_id/browser_url).\' } } },');
@@ -1959,7 +1962,7 @@ export function buildChainBlock(chainName, hasRunner) {
   lines.push("        return { error: 'compute_failed', detail: String((err && err.message) || err) };");
   lines.push('      }');
   lines.push('    }');
-  lines.push('  });');
+  lines.push('  })).catch(() => {});');
   lines.push('}');
   lines.push('</script>');
   lines.push(END);
@@ -3894,9 +3897,9 @@ export function buildDirectBlock(manifest, manifestPath, resGlobal, renderFn) {
   lines.push('// computed JSON derived from declared inputs.');
   lines.push('// Browser support (dated observation): WebMCP origin trial from Chrome 149');
   lines.push('// (May 2026) per developer.chrome.com/docs/ai/webmcp (retrieved 2026-09-01).');
-  lines.push("const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);");
+  lines.push("const mc = document.modelContext;");
   lines.push('if (mc) {');
-  lines.push('  mc.registerTool({');
+  lines.push('  Promise.resolve(mc.registerTool({');
   lines.push(`    name: '${jsStr(def.name)}',`);
   lines.push(`    description: '${jsStr(def.description)}',`);
   lines.push(`    inputSchema: ${JSON.stringify(def.inputSchema, null, 2).replace(/\n/g, '\n    ')},`);
@@ -3932,7 +3935,7 @@ export function buildDirectBlock(manifest, manifestPath, resGlobal, renderFn) {
   lines.push("        return { error: 'compute_failed', detail: String((err && err.message) || err) };");
   lines.push('      }');
   lines.push('    }');
-  lines.push('  });');
+  lines.push('  })).catch(() => {});');
   lines.push('}');
   lines.push('</script>');
   lines.push(END);
