@@ -13,6 +13,7 @@ S-Corp election break-even modeler: from net self-employment income, a reasonabl
 - annual_admin_cost (number, optional): Annual S-Corp accounting and payroll admin cost in dollars. Typical band $1,500-$3,000/yr; outside values honored and flagged. Default 3000.
 - owner_health_premium_annual (number, optional): Owner health premium, annual dollars. Echoed, unused by the compute (DIFFERS D2). Default 0.
 - filing_status (string, optional): Filing status. Excluded from the tax math (DIFFERS D1); selects only the section 199A threshold caveat flag. Default single.
+- tax_year (string, optional): Optional tax year selecting the Social Security wage base: 2026 is $184,500, 2027 is $192,300. Default 2026. Other years are refused.
 
 ## Sample
 
