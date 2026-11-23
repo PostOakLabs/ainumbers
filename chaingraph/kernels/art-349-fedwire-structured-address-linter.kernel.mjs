@@ -145,7 +145,7 @@ export function compute(pp) {
   const error_count = violations.filter(function(v) { return v.severity === 'ERROR'; }).length;
   // Fail-closed on missing input: a required field that is absent, null, empty or whitespace-only
   // is not evidence of compliance. With no ERROR already found the verdict is INDETERMINATE
-  // (compliant: null); an already-rejected address keeps its non-positive verdict unchanged.
+  // (compliant: null); an already-rejected address keeps the same non-positive verdict.
   const required_presence = [
     { field: 'address_lines', present: isFilled(pp.address_lines) },
     { field: 'as_of_date', present: isFilled(pp.as_of_date) },
