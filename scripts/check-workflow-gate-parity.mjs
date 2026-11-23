@@ -400,6 +400,17 @@ const PREFLIGHT_ONLY = new Map([
     "runs this gate on every PR that can change its inputs (scripts/** for the gate and its " +
     "generator, and the tracked *.html pages it scans), so a separate workflow step would " +
     "only duplicate that call. The gate is BLOCKING in preflight, not advisory."],
+  // ── PAGE-BUILDARTIFACT-HASH-REFUSAL-1 (2026-11-21) ─────────────────────────
+  ["check-page-hash-refusal.mjs",
+    "Stage 1 advisory node-page hash-refusal probe (both GATES entries share this basename: the " +
+    "estate/changed probe and the in-file --self-test mutation controls). Advisory by construction: " +
+    "throws and hashed-unhashable drives are findings reported with exit 0; the only hard red is the " +
+    "baseline ratchet in scripts/page-hash-refusal-baseline.json, which a content PR can only trip by " +
+    "regressing a pinned page. Making the findings themselves blocking is a later row's flip per the " +
+    "row text, and that flip lands together with the CI routing. scripts-verify.yml's path-scoped full " +
+    "preflight runs both entries on every PR touching scripts/** or chaingraph/**, and the probe itself " +
+    "meets every page-diff PR through preflight's page path class, so a separate workflow step would " +
+    "only duplicate the run."],
   // ── SITE-CHROME-GAPS-1 (2026-11-19) ────────────────────────────────────────
   ["check-site-chrome.mjs",
     "Published-page nav/footer gate, wired into preflight.mjs only by this row's fence " +
