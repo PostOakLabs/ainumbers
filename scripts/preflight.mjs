@@ -2113,6 +2113,15 @@ const GATES = [
   // (a DERIVED_ROOT_GATES member in derived-artifacts.mjs).
   ['Obligation page agreement (O6, OBLIGATION-PAGE-1)', 'node scripts/check-obligation-page.mjs'],
   ['Obligation page gate controls (RED/GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-obligation-page.selftest.mjs'],
+  // OBLIGATION-BACKFILL-1 (PR #3142): obligation map gates O1 (well-formed
+  // lists), O2 (coverage vectors are real), O3 (nothing outside the shrinking
+  // gap baseline) and O4 (cited digests are listed or baselined). Reads only
+  // tracked repo sidecars and fixtures; no network, no CI-only input. Its
+  // inputs chaingraph/obligations/** are in the scripts-verify relevance list
+  // (scripts/ci-paths.json), so a coverage-only PR still runs the full
+  // preflight that carries this gate.
+  ['Obligation coverage O1/O2/O3/O4 (OBLIGATION-BACKFILL-1)', 'node scripts/check-obligation-coverage.mjs'],
+  ['Obligation coverage gate controls (RED/GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-obligation-coverage.selftest.mjs'],
   // AI-CATALOG-1 (AGENT-REACH-BUILD-SPEC §3.2): both well-known catalogs from one
   // generator. Freshness is advisory on a PR via the generic ADVISORY_ON_PR
   // categorisation (derived-artifacts.mjs COVERED ids ai-catalog + api-catalog):
