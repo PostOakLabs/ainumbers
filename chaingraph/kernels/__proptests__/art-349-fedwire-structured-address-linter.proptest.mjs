@@ -1,5 +1,5 @@
 // art-349-fedwire-structured-address-linter.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C14-1).
-// kernel_digest_at_authoring: sha256:a9015c5298bcb4a4dafe43c10c6c703010518e2b1912240f5d40f5f35331f11d
+// kernel_digest_at_authoring: sha256:501fd66cf4de8f8e836ded3fdfd780c5311c5351a188307e66d68f79da44456a
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
