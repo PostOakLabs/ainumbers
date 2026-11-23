@@ -200,6 +200,7 @@ async function p10NeverThrow() {
   const hostile = [
     { zzz: NaN }, { zzz: 1e300 }, { zzz: Infinity }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } },
     { holder_shares: NaN }, { holder_shares: 1e300 }, { zzz: deep }, { zzz: new Array(1000001).fill(0) },
+    { zzz: 5n }, { zzz: { a: [5n] } }, { zzz: [5n] },
   ];
   for (const delta of hostile) {
     checked++;

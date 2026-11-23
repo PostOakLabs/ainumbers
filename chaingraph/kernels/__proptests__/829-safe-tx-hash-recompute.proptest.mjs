@@ -238,6 +238,7 @@ async function checkBuildArtifactNeverThrows() {
     { chainId: NaN }, { chainId: 1e300 }, { chainId: 9007199254740993 },
     { zzz: NaN }, { zzz: Infinity }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } },
     { zzz: deep }, { zzz: new Array(1000001).fill(0) },
+    { zzz: 5n }, { zzz: { a: [5n] } }, { zzz: [5n] },
   ];
   for (const delta of hostile) {
     checked++;

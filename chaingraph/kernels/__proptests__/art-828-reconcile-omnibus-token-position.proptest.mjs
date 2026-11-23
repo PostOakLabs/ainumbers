@@ -331,6 +331,7 @@ async function checkBuildArtifactNeverThrows() {
     { zzz: NaN }, { zzz: 1e300 }, { zzz: Infinity }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } },
     { tolerance_units: 1e300 }, { wallets: [{ wallet_label: 'w1', balance: '1', registered: true, seq: 1e300 }] },
     { zzz: deep }, { zzz: new Array(1000001).fill(0) },
+    { zzz: 5n }, { zzz: { a: [5n] } }, { zzz: [5n] },
   ];
   for (const delta of hostile) {
     checked++;

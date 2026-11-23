@@ -66,6 +66,7 @@ function findHashRefusal(v, path, depth, budget) {
     if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
     return null;
   }
+  if (typeof v === 'bigint') return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': bigint' };
   if (Array.isArray(v)) {
     for (let i = 0; i < v.length; i++) {
       const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
