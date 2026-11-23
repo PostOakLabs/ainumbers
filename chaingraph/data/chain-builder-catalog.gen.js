@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (773 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (775 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -8565,6 +8565,26 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-851-islamic-mmf-placement-limits.html",
     "description": "Checks a money market fund's placements against one pinned authority profile: the Saudi Capital Market Authority Investment Funds Regulation",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-852-murabahah-ibra-settlement",
+    "display_name": "Murabahah Ibra' Settlement",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-852-murabahah-ibra-settlement.html",
+    "description": "Computes the disclosed instalment schedule of a deferred-price sale (cost plus a mark-up fixed at contract) in integer minor units: each per",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-854-sukuk-tradability-composition",
+    "display_name": "Sukuk Tradability Composition",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-854-sukuk-tradability-composition.html",
+    "description": "Checks whether sukuk with a mixed asset portfolio are tradable at a negotiated price, per authority and per period, from the portfolio compo",
     "consumes": [],
     "feeds": [],
     "status": "live"
