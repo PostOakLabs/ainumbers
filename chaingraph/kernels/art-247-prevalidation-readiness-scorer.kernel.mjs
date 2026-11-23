@@ -256,7 +256,10 @@ function findHashRefusal(v, path, depth, budget) {
 }
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const refusalArtifact = (unhashable) => ({
+  const refusalArtifact = (unhashable) => {
+  const refusal_flags = [];
+  if (unhashable.reason) refusal_flags.push('INPUT_REFUSED');
+  return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -268,10 +271,11 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
     chain: { parent_hashes, parent_tool_ids, chain_depth },
     policy_parameters: null,
     output_payload: { ready: false, verdict: 'REFUSED', refusal: unhashable.reason },
-    compliance_flags: ['INPUT_REFUSED'],
+    compliance_flags: refusal_flags,
     compute_mode: 'server',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
-  });
+  };
+  };
 
   // The hash walk starts the wrapper at depth 1 and each of the two members at depth 2, sharing
   // one element budget; start there so the refusal fires before executionHash could ever throw.

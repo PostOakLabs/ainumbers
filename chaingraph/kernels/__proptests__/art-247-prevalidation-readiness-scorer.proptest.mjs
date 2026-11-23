@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:c96ffb095b5608000ff34c3d2843f711d12e5cb459c1e8b7558ad5a2d5afd141
+// kernel_digest_at_authoring: sha256:0d7fec496a29f014fa1b460add9b9101c229c4323d8171820726a298c2720935
 //
 // FV-PROPFLOOR-SHARD-B9-1 — property-test floor for art-247-prevalidation-readiness-scorer.
 // Class B (bounded categorical), float:no — IBAN mod-97/BIC/LEI/UETR/address structural checks and a
@@ -137,7 +137,7 @@ function checkP4_forced() {
 // The hash-limit walk in buildArtifact must return a refusal artifact (execution_hash null plus
 // hash_refusal) rather than throw for every class _hash.mjs I-JSON canonicalisation would refuse.
 async function checkBuildArtifactNeverThrows() {
-  const deep = (n) => { let o = {}; const r = o; for (let i = 0; i < n; i++) { o.x = {}; o = o.x; } return r; };
+  const deep = (n) => { /** @type {any} */ const r = {}; /** @type {any} */ let o = r; for (let i = 0; i < n; i++) { /** @type {any} */ const nx = {}; o.x = nx; o = nx; } return r; };
   const cases = [
     ['junk_1e300', 1e300],
     ['junk_NaN', NaN],
