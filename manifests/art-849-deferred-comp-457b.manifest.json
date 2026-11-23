@@ -1,0 +1,269 @@
+{
+  "tool_id": "art-849-deferred-comp-457b",
+  "version": "1.0.0",
+  "title": "Deferred Comp 457(b) Comparison",
+  "description": "Compare a 457(b) deferral against a taxable account across your current and retirement marginal rates, growth horizon and long-term capital gains rate. Outputs both ending balances, level after-tax withdrawals over the drawdown, the total and present-value advantage, the break-even retirement rate, and which scenario wins. Names the smallest 2026 limit tier that would permit the deferral. Port of ApexLogics Apex #44 / AL-49 (page https://apexlogics.org/tools/44-deferred-comp-457b-engine/ fetched 2026-11-19, 50657 bytes, sha256 ecbd4c8436218c46afdf7e5ef03949fcff809c52f66d467ffefefced0bac5707). Arithmetic over declared figures, not tax advice; plan rules vary and the plan document governs.",
+  "category": "chaingraph",
+  "tags": [
+    "457b",
+    "deferred-compensation",
+    "after-tax-value",
+    "break-even-rate",
+    "taxable-account",
+    "capital-gains",
+    "retirement",
+    "mcp:compute_deferred_comp_457b"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "annual_income_usd",
+      "deferral_usd",
+      "current_rate_pct",
+      "retirement_rate_pct",
+      "years_to_retirement",
+      "growth_rate_pct",
+      "withdrawal_years",
+      "taxable_return_pct",
+      "capital_gains_rate_pct"
+    ],
+    "properties": {
+      "annual_income_usd": {
+        "type": "number",
+        "description": "Annual W-2 income in USD, 0 to 1,000,000,000. Echoed only; no result depends on it."
+      },
+      "deferral_usd": {
+        "type": "number",
+        "description": "Annual 457(b) deferral in USD, 0 to 49,000. Zero is a valid deferral. Above 24,500 the DEFERRAL_ABOVE_STANDARD_LIMIT flag is raised."
+      },
+      "current_rate_pct": {
+        "type": "number",
+        "description": "Current marginal tax rate in percent, 0 to 60 (federal plus state combined as entered)."
+      },
+      "retirement_rate_pct": {
+        "type": "number",
+        "description": "Expected marginal tax rate on retirement withdrawals in percent, 0 to 60."
+      },
+      "years_to_retirement": {
+        "type": "integer",
+        "description": "Whole years until retirement, 1 to 50."
+      },
+      "growth_rate_pct": {
+        "type": "number",
+        "description": "Annual growth rate in percent, 0 to 20, applied to the 457(b) and used as the NPV discount rate."
+      },
+      "withdrawal_years": {
+        "type": "integer",
+        "description": "Drawdown period in whole years, 5 to 40."
+      },
+      "taxable_return_pct": {
+        "type": "number",
+        "description": "Annual return of the taxable account in percent, 0 to 20, net of dividend drag."
+      },
+      "capital_gains_rate_pct": {
+        "type": "number",
+        "description": "Long-term capital gains rate in percent, 0 to 40, applied to the taxable account gain at liquidation."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "compute_deferred_comp_457b",
+    "description": "Compare deferring into a 457(b) against taking the pay and investing in a taxable account: both ending balances, level after-tax withdrawals, total and present-value advantage, the break-even retirement rate and a FAVORS_457B or FAVORS_TAXABLE verdict, plus the smallest 2026 limit tier that permits the deferral. Refuses missing, null, mistyped or out-of-range inputs. Reads no clock. Arithmetic over declared figures, not tax advice.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "annual_income_usd",
+        "deferral_usd",
+        "current_rate_pct",
+        "retirement_rate_pct",
+        "years_to_retirement",
+        "growth_rate_pct",
+        "withdrawal_years",
+        "taxable_return_pct",
+        "capital_gains_rate_pct"
+      ],
+      "properties": {
+        "annual_income_usd": {
+          "type": "number",
+          "description": "Annual W-2 income in USD, 0 to 1,000,000,000. Echoed only; no result depends on it."
+        },
+        "deferral_usd": {
+          "type": "number",
+          "description": "Annual 457(b) deferral in USD, 0 to 49,000. Zero is a valid deferral. Above 24,500 the DEFERRAL_ABOVE_STANDARD_LIMIT flag is raised."
+        },
+        "current_rate_pct": {
+          "type": "number",
+          "description": "Current marginal tax rate in percent, 0 to 60 (federal plus state combined as entered)."
+        },
+        "retirement_rate_pct": {
+          "type": "number",
+          "description": "Expected marginal tax rate on retirement withdrawals in percent, 0 to 60."
+        },
+        "years_to_retirement": {
+          "type": "integer",
+          "description": "Whole years until retirement, 1 to 50."
+        },
+        "growth_rate_pct": {
+          "type": "number",
+          "description": "Annual growth rate in percent, 0 to 20, applied to the 457(b) and used as the NPV discount rate."
+        },
+        "withdrawal_years": {
+          "type": "integer",
+          "description": "Drawdown period in whole years, 5 to 40."
+        },
+        "taxable_return_pct": {
+          "type": "number",
+          "description": "Annual return of the taxable account in percent, 0 to 20, net of dividend drag."
+        },
+        "capital_gains_rate_pct": {
+          "type": "number",
+          "description": "Long-term capital gains rate in percent, 0 to 40, applied to the taxable account gain at liquidation."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-849-deferred-comp-457b.html",
+    "function_name": "run",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "valid_input": {
+        "type": "boolean",
+        "description": "False when any input was refused; the scenarios are then null."
+      },
+      "domain_errors": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "One REFUSED_INPUT_* entry per violated bound."
+      },
+      "inputs": {
+        "type": "object",
+        "description": "Echo of the nine inputs exactly as given (raw, never rounded); null for a refused value."
+      },
+      "limits_used": {
+        "type": "object",
+        "description": "The declared 2026 limit constants the tier comparison used."
+      },
+      "limit_tier": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "enum": [
+          "STANDARD",
+          "AGE_50_CATCH_UP",
+          "AGE_60_TO_63_CATCH_UP",
+          "SPECIAL_CATCH_UP_RANGE",
+          null
+        ],
+        "description": "Smallest limit tier that would permit the deferral; eligibility is not tested."
+      },
+      "scenario_a": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "description": "The 457(b) path: tax saved now, balance at retirement, level annual after-tax withdrawal, total after tax and NPV, all USD at 2dp."
+      },
+      "scenario_b": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "description": "The taxable path: investable cash, gross balance, balance after gains tax, level annual withdrawal, total after tax and NPV, all USD at 2dp."
+      },
+      "advantage": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "description": "total_usd and npv_usd (A minus B), break_even_retirement_rate_pct (4dp, clamped 0 to 100) and the verdict."
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Mirror of the conditional compliance flags."
+      },
+      "note": {
+        "type": "string"
+      }
+    }
+  },
+  "source": "chaingraph/kernels/art-849-deferred-comp-457b.kernel.mjs, built by APEX-T2-44-DEFERRED-COMP-457B-1 on 2026-11-19 from the Apex page logic (transcribed into an oracle harness) rather than the 2026-10-13 farm draft. Category mapped from the Apex taxonomy compensation_benefits to the AINumbers hub category Time-Value-of-Money Primitives.",
+  "input_schema_provenance": "derived-from-kernel-reads 2026-11-19. Every property is read by compute(); all nine are required because the kernel refuses an absent value instead of defaulting it.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "annual_income_usd": 120000,
+    "deferral_usd": 24500,
+    "current_rate_pct": 24,
+    "retirement_rate_pct": 20,
+    "years_to_retirement": 20,
+    "growth_rate_pct": 7,
+    "withdrawal_years": 25,
+    "taxable_return_pct": 6,
+    "capital_gains_rate_pct": 15
+  },
+  "output_example": {
+    "valid_input": true,
+    "domain_errors": [],
+    "inputs": {
+      "annual_income_usd": 120000,
+      "deferral_usd": 24500,
+      "current_rate_pct": 24,
+      "retirement_rate_pct": 20,
+      "years_to_retirement": 20,
+      "growth_rate_pct": 7,
+      "withdrawal_years": 25,
+      "taxable_return_pct": 6,
+      "capital_gains_rate_pct": 15
+    },
+    "limits_used": {
+      "elective_deferral_usd": 24500,
+      "age_50_catch_up_usd": 8000,
+      "age_60_to_63_catch_up_usd": 11250,
+      "special_catch_up_multiple": 2,
+      "max_deferral_usd": 49000
+    },
+    "limit_tier": "STANDARD",
+    "scenario_a": {
+      "tax_saved_now_usd": 5880,
+      "balance_at_retirement_usd": 94807.27,
+      "annual_after_tax_withdrawal_usd": 3033.83,
+      "total_after_tax_usd": 75845.82,
+      "npv_usd": 9136.41
+    },
+    "scenario_b": {
+      "investable_usd": 18620,
+      "gross_balance_usd": 59716.86,
+      "balance_after_gains_tax_usd": 53552.33,
+      "annual_withdrawal_usd": 2142.09,
+      "total_after_tax_usd": 53552.33,
+      "npv_usd": 6450.93
+    },
+    "advantage": {
+      "total_usd": 22293.48,
+      "npv_usd": 2685.48,
+      "break_even_retirement_rate_pct": 43.5145,
+      "verdict": "FAVORS_457B"
+    },
+    "warnings": [],
+    "note": "Scenario A defers the amount pre-tax and grows it at growth_rate_pct, taxed at retirement_rate_pct on withdrawal. Scenario B invests deferral x (1 - current rate) in a taxable account at taxable_return_pct, with capital_gains_rate_pct on the gain at liquidation. Withdrawals are level over withdrawal_years and discounted at growth_rate_pct for the NPV figures. break_even_retirement_rate_pct = 100 x (1 - taxable net / deferral balance), clamped to 0..100. Arithmetic over declared figures; not tax advice, and the plan document governs."
+  },
+  "example_execution_hash": "dedb229bde90aaa64eff8103e61b098f6b118595c6cf5ba1f14e4e9fcc1a3950"
+}
