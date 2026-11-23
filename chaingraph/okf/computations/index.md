@@ -750,6 +750,7 @@ status: stable
 - [Islamic MMF Placement Limits](./art-851-islamic-mmf-placement-limits.md)
 - [Murabahah Ibra' Settlement](./art-852-murabahah-ibra-settlement.md)
 - [Sukuk Tradability Composition](./art-854-sukuk-tradability-composition.md)
+- [Murabahah Tawarruq Sequence Check](./art-855-murabahah-tawarruq-sequence.md)
 - [Ijarah IMBT Rental Schedule](./art-856-ijarah-imbt-schedule.md)
 - [TLS / X.509 PKI Migration Planner](./art-86-tls-pki-migration-planner.md)
 - [SWIFT / ISO 20022 PQC Readiness Checker](./art-87-iso20022-pqc-readiness-checker.md)
