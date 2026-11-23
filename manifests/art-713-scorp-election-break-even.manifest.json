@@ -2,7 +2,7 @@
   "tool_id": "art-713-scorp-election-break-even",
   "version": "1.0.0",
   "title": "S-Corp Election Break-Even Modeler",
-  "description": "S-Corp election break-even modeler: from net self-employment income, a reasonable W-2 salary share and an annual admin cost, compute the sole-proprietor SE tax, the S-Corp payroll tax, the savings net of admin cost, the five-year saving, the grid break-even income, and a QBI section 199A trade-off output weighing payroll-tax saved against the 20% deduction value lost on wages paid. 2026: SS wage base $184,500 with cap logic, SS 12.4%, Medicare 2.9% uncapped, and the 92.35% SE factor on net earnings from self-employment only, never W-2 wages (IRS Topic 554). Ported from ApexLogics display_number #111 (AL-118), CC BY 4.0.",
+  "description": "S-Corp election break-even modeler: from net self-employment income, a reasonable W-2 salary share and an annual admin cost, compute the sole-proprietor SE tax, the S-Corp payroll tax, the savings net of admin cost, the five-year saving, the grid break-even income, and a QBI section 199A trade-off output weighing payroll-tax saved against the 20% deduction value lost on wages paid. SS wage base $184,500 for 2026 (the default) or $192,300 for 2027 via the optional tax_year input, with cap logic, SS 12.4%, Medicare 2.9% uncapped, and the 92.35% SE factor on net earnings from self-employment only, never W-2 wages (IRS Topic 554). Ported from ApexLogics display_number #111 (AL-118), CC BY 4.0.",
   "category": "chaingraph",
   "tags": [
     "compliance_mandate",
@@ -48,12 +48,21 @@
         ],
         "description": "Filing status. Excluded from the tax math (DIFFERS D1); selects only the section 199A threshold caveat flag. Default single.",
         "default": "single"
+      },
+      "tax_year": {
+        "type": "string",
+        "enum": [
+          "2026",
+          "2027"
+        ],
+        "description": "Optional tax year selecting the Social Security wage base: 2026 is $184,500, 2027 is $192,300. Default 2026. Other years are refused.",
+        "default": "2026"
       }
     }
   },
   "mcp_tool_definition": {
     "name": "model_scorp_break_even",
-    "description": "Model the S-Corp election break-even: sole-prop SE tax vs S-Corp payroll tax on a reasonable W-2 salary share, net of annual admin cost, with the grid break-even income and a QBI section 199A trade-off (payroll-tax saved vs the 20% deduction value lost on wages paid). 2026: SS wage base $184,500 with cap logic, SS 12.4%, Medicare 2.9% uncapped, and the 92.35% SE factor on net earnings from self-employment only, never W-2 wages (IRS Topic 554).",
+    "description": "Model the S-Corp election break-even: sole-prop SE tax vs S-Corp payroll tax on a reasonable W-2 salary share, net of annual admin cost, with the grid break-even income and a QBI section 199A trade-off (payroll-tax saved vs the 20% deduction value lost on wages paid). SS wage base $184,500 for 2026 (default) or $192,300 for 2027 via tax_year, with cap logic, SS 12.4%, Medicare 2.9% uncapped, and the 92.35% SE factor on net earnings from self-employment only, never W-2 wages (IRS Topic 554).",
     "inputSchema": {
       "type": "object",
       "required": [
@@ -87,6 +96,15 @@
           ],
           "description": "Filing status. Excluded from the tax math (DIFFERS D1); selects only the section 199A threshold caveat flag. Default single.",
           "default": "single"
+        },
+        "tax_year": {
+          "type": "string",
+          "enum": [
+            "2026",
+            "2027"
+          ],
+          "description": "Optional tax year selecting the Social Security wage base: 2026 is $184,500, 2027 is $192,300. Default 2026. Other years are refused.",
+          "default": "2026"
         }
       }
     },
@@ -106,10 +124,10 @@
   "ap2_export": true,
   "output_schema": {
     "type": "object",
-    "description": "output_payload: verdict (SCORP_WINS when net_annual_savings >= 0), net_se_income, reasonable_salary_pct, annual_admin_cost, filing_status, owner_health_premium_annual, reasonable_w2_salary, distribution, sole_prop_se_tax, scorp_payroll_tax (full-wage FICA: SS capped at $184,500, Medicare 2.9% uncapped), se_tax_savings, net_annual_savings, five_year_savings, break_even_income (first point of the 500-step grid, null when never reached), half_se_tax_deduction and scorp_employer_tax (diagnostics), qbi_199a_income, qbi_199a_deduction_tentative (20%), qbi_199a_value_at_risk (wages at the adjudicated 19.8% effective rate), net_annual_savings_qbi_adjusted, qbi_adjusted_break_even_income, caveats (flag-mirror advisories), scope_note."
+    "description": "output_payload: verdict (SCORP_WINS when net_annual_savings >= 0), tax_year_applied, net_se_income, reasonable_salary_pct, annual_admin_cost, filing_status, owner_health_premium_annual, reasonable_w2_salary, distribution, sole_prop_se_tax, scorp_payroll_tax (full-wage FICA: SS capped at the selected year's base, $184,500 for 2026 or $192,300 for 2027, Medicare 2.9% uncapped), se_tax_savings, net_annual_savings, five_year_savings, break_even_income (first point of the 500-step grid, null when never reached), half_se_tax_deduction and scorp_employer_tax (diagnostics), qbi_199a_income, qbi_199a_deduction_tentative (20%), qbi_199a_value_at_risk (wages at the adjudicated 19.8% effective rate), net_annual_savings_qbi_adjusted, qbi_adjusted_break_even_income, caveats (flag-mirror advisories), scope_note."
   },
   "source": "chaingraph/kernels/art-713-scorp-election-break-even.kernel.mjs",
-  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: net_se_income, reasonable_salary_pct, annual_admin_cost, owner_health_premium_annual, filing_status.",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads: net_se_income, reasonable_salary_pct, annual_admin_cost, owner_health_premium_annual, filing_status, tax_year.",
   "author": "PostOakLabs",
   "license": "CC-BY-4.0",
   "input_example": {
@@ -121,6 +139,7 @@
   },
   "output_example": {
     "verdict": "SCORP_WINS",
+    "tax_year_applied": "2026",
     "net_se_income": 150000,
     "reasonable_salary_pct": 50,
     "annual_admin_cost": 3000,
@@ -144,7 +163,7 @@
     "caveats": [
       "QBI-adjusted break-even never reached: the QBI value given up outweighs the payroll-tax saving at this salary share."
     ],
-    "scope_note": "Deterministic 2026 model, not tax advice. The 92.35% SE factor is applied to net earnings from self-employment only, never to W-2 wages (IRS Topic 554) — the port corrects Apex #111 on this point by adjudication of record. The 0.9% Additional Medicare Tax above $200K single / $250K MFJ is NOT modeled. The QBI section 199A trade-off values wages at the adjudicated 19.8% effective rate, flags (from net income as a taxable-income proxy) the $201,775 single / $403,500 MFJ threshold and phase-out band, and cannot see SSTB status, which disallows the deduction inside the band. Break-even is the first point of a 500-step grid, within one step of the continuous break-even."
+    "scope_note": "Deterministic model, not tax advice. The Social Security wage base follows tax_year (2026 by default, 2027 supported); the section 199A thresholds below are 2026 values. The 92.35% SE factor is applied to net earnings from self-employment only, never to W-2 wages (IRS Topic 554) — the port corrects Apex #111 on this point by adjudication of record. The 0.9% Additional Medicare Tax above $200K single / $250K MFJ is NOT modeled. The QBI section 199A trade-off values wages at the adjudicated 19.8% effective rate, flags (from net income as a taxable-income proxy) the $201,775 single / $403,500 MFJ threshold and phase-out band, and cannot see SSTB status, which disallows the deduction inside the band. Break-even is the first point of a 500-step grid, within one step of the continuous break-even."
   },
-  "example_execution_hash": "2b7b48b202c08e2c994dc0f84ea1099997f8092a28d7b2182962038013065616"
+  "example_execution_hash": "3d91edfc13d867a34adc42caca1d92c235ff0e871bde0b78117028ffbcdb959c"
 }
