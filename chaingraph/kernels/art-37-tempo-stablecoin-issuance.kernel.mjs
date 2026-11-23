@@ -10,7 +10,7 @@
  * absence can no longer be silently treated as false. This kernel had no refusal/indeterminate
  * vocabulary before this edit; verdict 'INDETERMINATE' is introduced in output_payload only when a
  * required flag is missing, and only then is missing_required_fields added. All other outputs for
- * complete inputs are unchanged, so goldens for valid vectors do not move.
+ * complete inputs give the same outputs as before, so goldens for valid vectors do not move.
  * buildArtifact never throws: an unhashable input (non-finite number, unsafe integer, depth or size
  * past the hash limits) returns a refusal artifact with execution_hash null and hash_refusal.
  */

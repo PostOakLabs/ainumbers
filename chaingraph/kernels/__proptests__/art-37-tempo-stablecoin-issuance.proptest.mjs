@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:83504e9c412e35e48899ad32cf27cfe945a3b0e6d0b3f78ed989be5e22f2923f
+// kernel_digest_at_authoring: sha256:8a69e4f528386042c0313042e7aaf02e47a2332a7db9eb710b91e13f85467d4c
 //
 // FV-PROPFLOOR-SHARD-B13-1 — property-test floor for art-37-tempo-stablecoin-issuance.
 // Class B (bounded-numeric). ⚠ FIX-2 CARRY CORRECTION: the WU row lists this kernel as
