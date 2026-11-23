@@ -269,6 +269,11 @@ export const RESERVATIONS_LEGACY = 'chaingraph/graph/RESERVATIONS.json';
 export const RESERVATION_SHARD_DIR = 'chaingraph/graph/reservations';
 export const shardPath = (id) => `${RESERVATION_SHARD_DIR}/${id}.json`;
 export const shardBytes = (entry) => `${JSON.stringify(entry, null, 2)}\n`;
+// The claim registry's kernel-record subdir (scripts/gen-registry-kernel-resolve.mjs
+// OUT_DIR, a bare-tree COVERED prefix): main-owned, and the one main-owned prefix
+// whose take-main resolution can strand a PR (REGISTRY-KEEP-1 below).
+export const REGISTRY_KERNEL_DIR = 'registry/kernel';
+const isRegistryKernelPath = (p) => p === REGISTRY_KERNEL_DIR || p.startsWith(`${REGISTRY_KERNEL_DIR}/`);
 // Decisions that merge and push.
 export const SYNC_ACTIONS = new Set(['merge-clean', 'merge-derived', 'merge-reservations']);
 
@@ -557,6 +562,45 @@ function seedCheck(wt) {
   }
 }
 
+// REGISTRY-KEEP-1: repair registry/kernel on the merged tree by running MAIN's
+// copy of the generator over it — the seedCheck pattern: this job holds the
+// push token, so no PR-branch code may run here, and the generator resolves its
+// repo root from its own file location, so laying main's copies over the tree
+// makes every read (kernels, SPEC.md, chaingraph.json) and every write
+// (registry/kernel/) land in the merge worktree. --write rewrites stale
+// records and prunes its own orphans (deletion cap 10, REFUSED above it);
+// `git add` stages the whole subdir (rewrites and prunes alike); --check must
+// then exit 0 or the caller refuses the sync. The copies are restored from the
+// index (removed when the merged tree never had them) before the commit, so
+// the merge commit carries neither main's gate bytes nor a stray copy.
+const RESOLVE_GATE_FILES = [
+  'scripts/gen-registry-kernel-resolve.mjs',
+  'scripts/_gen-writes-reports.mjs',
+  'chaingraph/kernels/_buildid.mjs',
+  'chaingraph/kernels/_hash.mjs',
+];
+function registryResolve(wt) {
+  mkdirSync(join(wt, 'scripts'), { recursive: true });
+  mkdirSync(join(wt, 'chaingraph', 'kernels'), { recursive: true });
+  for (const f of RESOLVE_GATE_FILES) copyFileSync(join(REPO, f), join(wt, f));
+  const env = { ...gitEnv() };
+  for (const k of ['GH_TOKEN', 'GITHUB_TOKEN', 'APP_TOKEN', 'ACTIONS_READ_TOKEN']) delete env[k];
+  try {
+    execFileSync(process.execPath, [join(wt, 'scripts', 'gen-registry-kernel-resolve.mjs'), '--write'],
+      { cwd: wt, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env, maxBuffer: 64 << 20 });
+    git(['add', '--', REGISTRY_KERNEL_DIR], { cwd: wt });
+    execFileSync(process.execPath, [join(wt, 'scripts', 'gen-registry-kernel-resolve.mjs'), '--check'],
+      { cwd: wt, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env, maxBuffer: 64 << 20 });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, err: String(e.stderr || e.message).trim().split('\n').slice(-3).join(' | ') };
+  } finally {
+    for (const f of RESOLVE_GATE_FILES) {
+      if (!gitOk(['checkout', '--', f], { cwd: wt }).ok) rmSync(join(wt, f), { force: true });
+    }
+  }
+}
+
 export function syncOne(pr, mainSha, allowed, repoDir = REPO) {
   const wt = mkdtempSync(join(tmpdir(), `bot-sync-${pr.number}-`));
   const ident = ['-c', `user.name=${BOT_LOGIN}`, '-c', `user.email=${BOT_EMAIL}`];
@@ -594,10 +638,32 @@ export function syncOne(pr, mainSha, allowed, repoDir = REPO) {
         if (!seed.ok) return { ok: false, why: `check-id-collision --seed-check failed on the merged tree: ${seed.err}` };
       }
       const derived = unmerged.filter((p) => p !== RESERVATIONS_LEGACY);
+      // REGISTRY-KEEP-1: taking main's side of the registry/kernel prefix can
+      // strand the PR — on a rename-pair conflict main lacks the PR's own new
+      // kernel record, so the loop above `git rm`s it, and main's restamped
+      // records can be stale or orphan for the merged kernel and SPEC bytes.
+      // land-verify's required "Registry kernel-resolve coverage" step then
+      // reds the bot's own merge commit (four PRs hit it on 2026-11-22:
+      // #3251, #3241, #3236, #3234). The record is fully byte-determined from
+      // kernel and SPEC bytes (muse #105 Q3: the regen output was byte-equal
+      // to the hand cure), so the merge repairs the subdir in place and
+      // refuses the sync unless --check is clean afterwards. No push escapes
+      // an unclean resolve.
+      let registryResolved = false;
+      if (derived.some(isRegistryKernelPath)) {
+        const rec = registryResolve(wt);
+        if (!rec.ok) return { ok: false, why: 'registry resolve not clean after sync' };
+        registryResolved = true;
+      }
+      // Muse #111 C1: registry/kernel paths were re-derived IN this commit, so they are listed under
+      // their own line, never under "main's regen re-derives them after merge".
+      const regenLater = registryResolved ? derived.filter((p) => !isRegistryKernelPath(p)) : derived;
+      const registryNow = registryResolved ? derived.filter(isRegistryKernelPath) : [];
       const msgFile = join(wt, '..', `bot-sync-msg-${pr.number}.txt`);
       writeFileSync(msgFile, `${subject}\n\n` +
-        (derived.length ? `Conflicts in main-owned derived paths (scripts/derived-artifacts.mjs);\ntook main's version, main's regen re-derives them after merge:\n${derived.map((p) => `  ${p}`).join('\n')}\n` : '') +
-        (plan ? `${derived.length ? '\n' : ''}Kept main's frozen ${RESERVATIONS_LEGACY}; moved the ${moved.length} id(s) this PR added to\nper-id shards (scripts/check-id-collision.mjs --seed-check passed on the merged tree):\n${moved.map((p) => `  ${p}`).join('\n') || '  (none: main already carries them)'}\n` : ''));
+        (regenLater.length ? `Conflicts in main-owned derived paths (scripts/derived-artifacts.mjs);\ntook main's version, main's regen re-derives them after merge:\n${regenLater.map((p) => `  ${p}`).join('\n')}\n` : '') +
+        (plan ? `${regenLater.length ? '\n' : ''}Kept main's frozen ${RESERVATIONS_LEGACY}; moved the ${moved.length} id(s) this PR added to\nper-id shards (scripts/check-id-collision.mjs --seed-check passed on the merged tree):\n${moved.map((p) => `  ${p}`).join('\n') || '  (none: main already carries them)'}\n` : '') +
+        (registryResolved ? `${regenLater.length || plan ? '\n' : ''}Re-derived registry/kernel on the merged tree in this commit\n(scripts/gen-registry-kernel-resolve.mjs --write; --check clean):\n${registryNow.map((p) => `  ${p}`).join('\n')}\n  records now match the merged kernels and SPEC bytes\n` : ''));
       git([...ident, 'commit', '--quiet', '-F', msgFile], { cwd: wt });
       rmSync(msgFile, { force: true });
     }
