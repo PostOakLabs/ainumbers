@@ -26,7 +26,7 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { copySandboxDeps, shortCircuitFixtureOracle, neutralizationTargets, decomposeMoneyMath, decomposedGateDecision, kernelTimeoutSecondsFromEnv, kernelTimeoutSecondsForKernel, mutationTrialsForKernel, mutationEnvForKernel, runProcessBounded, resolveStrykerInvocation, findDetmathMarkerRange, surfaceSplitPatch, resolveSurfaceSplit, survivorLocations, assertSurvivorsComplete, buildJsonResult, artifactConstRanges, tierOfMutantWithArtifact, tierReportWithArtifact, loadConfig } from './run-mutation-tier.mjs';
+import { copySandboxDeps, shortCircuitFixtureOracle, neutralizationTargets, decomposeMoneyMath, decomposedGateDecision, kernelTimeoutSecondsFromEnv, kernelTimeoutSecondsForKernel, mutationTrialsForKernel, mutationEnvForKernel, runProcessBounded, resolveStrykerInvocation, findDetmathMarkerRange, surfaceSplitPatch, resolveSurfaceSplit, survivorLocations, assertSurvivorsComplete, buildJsonResult, artifactConstRanges, tierOfMutantWithArtifact, tierReportWithArtifact, loadConfig, kernelVerdictKey, readPassedVerdict, writePassedVerdict, runTier } from './run-mutation-tier.mjs';
 import { mergeMutationSiblings, loadOriginalAuthorshipAllowlist } from './lib-per-kernel-config.mjs';
 import { classifyKernelSource, tierReport } from '../chaingraph/kernels/mutation-tier-split.mjs';
 
@@ -894,6 +894,100 @@ await asyncTest('R37 the computed env reaches a spawned child for the keyed kern
   const b = spawnSync(process.execPath, ['-e', code], { env: envForB, encoding: 'utf8' });
   assert(a.status === 0 && a.stdout === '1000', `the keyed kernel's child must see 1000 (got ${a.stdout})`);
   assert(b.status === 0 && b.stdout === '', `the unkeyed kernel's child must see no var (got ${b.stdout})`);
+});
+
+// ── verdict reuse (MUTATION-TIER-VERDICT-REUSE-1) ────────────────────────
+console.log('\nrun-mutation-tier controls — verdict reuse (MUTATION-TIER-VERDICT-REUSE-1)');
+
+function buildVerdictRepo() {
+  const fx = buildFixtureRepo();
+  const k = join(fx.root, 'chaingraph', 'kernels');
+  mkdirSync(join(fx.root, 'scripts'), { recursive: true });
+  writeFileSync(join(k, 'mutation-tiers.config.json'), JSON.stringify({ strykerVersion: '9.0.0', moneyMathBreakFloor: 80, peripheralBreakFloor: 50 }));
+  writeFileSync(join(k, 'mutation-tier-split.mjs'), '// split v1\n');
+  writeFileSync(join(fx.root, 'scripts', 'run-mutation-tier.mjs'), '// runner v1\n');
+  writeFileSync(join(fx.root, 'scripts', 'lib-sandbox-deps.mjs'), '// deps v1\n');
+  return fx;
+}
+const keyOf = (fx) => kernelVerdictKey('fixture-id', fx.root);
+
+test('R38 verdictKey is stable and changes when EACH input changes (kernel, proptest, fixture, import-closure helper, config, runner, split, deps lib, stryker version)', () => {
+  const fx = buildVerdictRepo();
+  const base = keyOf(fx);
+  assert(/^[0-9a-f]{64}$/.test(base) && keyOf(fx) === base, 'key must be a stable sha256 hex');
+  const mutations = [
+    [fx.kernelRelPath, 'export function buildArtifact() { return 2; }\n'],
+    [fx.proptestRelPath, "import { scale } from './helper.mjs';\nconsole.log(scale(2));\n"],
+    [fx.fixturesRelPath, '{"a":1}\n'],
+    [fx.helperRelPath, 'export const scale = (n) => n * 3;\n'],
+    ['chaingraph/kernels/mutation-tiers.config.json', JSON.stringify({ strykerVersion: '9.0.0', moneyMathBreakFloor: 81, peripheralBreakFloor: 50 })],
+    ['scripts/run-mutation-tier.mjs', '// runner v2\n'],
+    ['chaingraph/kernels/mutation-tier-split.mjs', '// split v2\n'],
+    ['scripts/lib-sandbox-deps.mjs', '// deps v2\n'],
+    ['chaingraph/kernels/mutation-tiers.config.json', JSON.stringify({ strykerVersion: '9.0.1', moneyMathBreakFloor: 80, peripheralBreakFloor: 50 })],
+  ];
+  for (const [rel, body] of mutations) {
+    const fy = buildVerdictRepo();
+    writeFileSync(join(fy.root, rel), body);
+    assert(keyOf(fy) !== base, `changing ${rel} must change the key`);
+  }
+});
+
+test('R39 the key is stable under CRLF vs LF checkouts', () => {
+  const a = buildVerdictRepo();
+  const b = buildVerdictRepo();
+  writeFileSync(join(a.root, a.kernelRelPath), 'export function buildArtifact() {\n  return 1;\n}\n');
+  writeFileSync(join(b.root, b.kernelRelPath), 'export function buildArtifact() {\r\n  return 1;\r\n}\r\n');
+  assert(keyOf(a) === keyOf(b), 'CRLF must not move the key');
+});
+
+test('R40 a PASS record with an equal key is reused; FAIL, TIMEOUT, HARDFAIL, a key mismatch and a missing record are not', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'rmt-verdicts-'));
+  cleanup.push(dir);
+  const key = 'a'.repeat(64);
+  assert(writePassedVerdict(dir, 'k1', key, { moneyMath: 90 }) === true, 'a PASS is written when the dir is set');
+  const rec = readPassedVerdict(dir, 'k1', key);
+  assert(rec && rec.verdict === 'PASS' && rec.kernel === 'k1' && rec.key === key && rec.scores.moneyMath === 90 && typeof rec.run_id === 'string' && typeof rec.at === 'string', 'record carries kernel, key, scores, run_id, at');
+  for (const verdict of ['FAIL', 'TIMEOUT', 'HARDFAIL']) {
+    writeFileSync(join(dir, `k2.${key}.json`), JSON.stringify({ kernel: 'k2', key, verdict, scores: {}, run_id: 'x', at: 'x' }));
+    assert(readPassedVerdict(dir, 'k2', key) === null, `${verdict} must never be reused`);
+  }
+  assert(readPassedVerdict(dir, 'k1', 'b'.repeat(64)) === null, 'a different key must not reuse');
+  assert(readPassedVerdict(dir, 'nope', key) === null, 'a missing record must not reuse');
+  writeFileSync(join(dir, `k3.${key}.json`), '{not json');
+  assert(readPassedVerdict(dir, 'k3', key) === null, 'a corrupt record must not reuse');
+});
+
+test('R41 env unset (empty dir) means no reuse and no writes', () => {
+  assert(writePassedVerdict('', 'k1', 'c'.repeat(64), {}) === false, 'no dir, no write');
+  assert(readPassedVerdict('', 'k1', 'c'.repeat(64)) === null, 'no dir, no reuse');
+});
+
+async function captureTier(argv, root, env) {
+  const saved = { ...process.env };
+  const logs = [];
+  const origLog = console.log;
+  console.log = (...a) => logs.push(a.join(' '));
+  if (env.MUTATION_VERDICT_DIR === undefined) delete process.env.MUTATION_VERDICT_DIR; else process.env.MUTATION_VERDICT_DIR = env.MUTATION_VERDICT_DIR;
+  try { await runTier(argv, root); } finally { console.log = origLog; process.env = saved; }
+  return logs.join('\n');
+}
+
+await asyncTest('R42 runTier end to end: a seeded PASS with the equal key prints REUSED (no stryker), and a key mismatch does NOT reuse', async () => {
+  const fx = buildVerdictRepo();
+  const dir = mkdtempSync(join(tmpdir(), 'rmt-verdicts-'));
+  cleanup.push(dir);
+  writeFileSync(join(fx.root, fx.kernelRelPath), 'export function buildArtifact() { return 1; }\n');
+  const key = keyOf(fx);
+  writePassedVerdict(dir, 'fixture-id', key, { moneyMath: 95, peripheral: 70 });
+  const out = await captureTier(['--kernel', 'fixture-id'], fx.root, { MUTATION_VERDICT_DIR: dir });
+  assert(out.includes(`REUSED fixture-id key=${key.slice(0, 12)} from run local`), `expected a REUSED line, got:\n${out}`);
+  assert(out.includes('1 of 1 kernel(s) REUSED'), 'summary counts the reuse');
+  assert(!out.includes('stryker path:'), 'stryker must not start on a reused kernel');
+  // Mutate the proptest: the seeded record's key no longer matches, so the kernel is NOT reused.
+  writeFileSync(join(fx.root, fx.proptestRelPath), "import { scale } from './helper.mjs';\nconsole.log(scale(9));\n");
+  assert(keyOf(fx) !== key, 'precondition: the key moved');
+  assert(readPassedVerdict(dir, 'fixture-id', keyOf(fx)) === null, 'no record exists for the new key, so the kernel runs');
 });
 
 console.log(`\nrun-mutation-tier controls: ${passed} passed, ${failed} failed`);

@@ -1124,6 +1124,21 @@ export function resolveSurfaceSplit(kernelId, tierConfig, source) {
 // chaingraph/kernels/*.{kernel,proptest}.mjs and chaingraph/kernels/_*.mjs, chaingraph/kernels/
 // __proptests__/_*.mjs) — so there is no second edge for this harness to miss.
 export function copySandboxDeps(kernelRelPath, proptestRelPath, fixturesRelPath, scratchRoot, repoRoot = REPO) {
+  const files = deriveKernelSandboxFiles(kernelRelPath, proptestRelPath, fixturesRelPath, repoRoot);
+  for (const rel of files) {
+    const dest = path.join(scratchRoot, rel);
+    if (existsSync(dest)) continue; // already primed by an earlier kernel this process
+    mkdirSync(path.dirname(dest), { recursive: true });
+    cpSync(path.join(repoRoot, rel), dest);
+  }
+  const problem = checkSandboxComplete(scratchRoot, files);
+  if (problem) throw new Error(problem);
+  return files;
+}
+
+// MUTATION-TIER-VERDICT-REUSE-1: the ONE derivation of the file set a kernel's stryker run
+// reads. copySandboxDeps copies exactly this list; verdictKey hashes exactly this list.
+export function deriveKernelSandboxFiles(kernelRelPath, proptestRelPath, fixturesRelPath, repoRoot = REPO) {
   // MUTATION-TIER-SANDBOX-FIXTURES-1: deriveSandboxFiles() walks the static IMPORT graph by
   // construction, so a proptest that runtime-reads a fixtures sibling via fs.readFileSync
   // (`<id>.reachability.json` — the estate template, art-663-apy-earned-recompute.proptest.mjs:29)
@@ -1158,16 +1173,59 @@ export function copySandboxDeps(kernelRelPath, proptestRelPath, fixturesRelPath,
   if (existsSync(vendorDir) && /vendor/.test(readFileSync(path.join(repoRoot, proptestRelPath), 'utf8'))) {
     walkVendor(vendorDir, 'vendor');
   }
-  const files = deriveSandboxFiles({ roots: [kernelRelPath, proptestRelPath], extras: [fixturesRelPath, ...runtimeReadSiblings, ...vendorFiles], repoRoot });
-  for (const rel of files) {
-    const dest = path.join(scratchRoot, rel);
-    if (existsSync(dest)) continue; // already primed by an earlier kernel this process
-    mkdirSync(path.dirname(dest), { recursive: true });
-    cpSync(path.join(repoRoot, rel), dest);
+  return deriveSandboxFiles({ roots: [kernelRelPath, proptestRelPath], extras: [fixturesRelPath, ...runtimeReadSiblings, ...vendorFiles], repoRoot });
+}
+
+// ── verdict reuse (MUTATION-TIER-VERDICT-REUSE-1) ────────────────────────
+// Key = sha256 over sorted `path NUL sha256(bytes)` of every sandbox file plus the
+// runner/config/split/deps-lib files and the stryker version. CRLF is normalised to LF
+// before hashing so a checkout's autocrlf never moves the key.
+const VERDICT_EXTRA_INPUTS = [
+  'chaingraph/kernels/mutation-tiers.config.json',
+  'scripts/run-mutation-tier.mjs',
+  'chaingraph/kernels/mutation-tier-split.mjs',
+  'scripts/lib-sandbox-deps.mjs',
+];
+function sha256Normalised(abs) {
+  const buf = readFileSync(abs);
+  const text = buf.toString('latin1').replace(/\r\n/g, '\n');
+  return createHash('sha256').update(Buffer.from(text, 'latin1')).digest('hex');
+}
+export function verdictKey(kernelId, files, repoRoot = REPO, extra = '') {
+  const rels = [...new Set([...files, ...VERDICT_EXTRA_INPUTS])].sort();
+  const h = createHash('sha256');
+  h.update(`kernel:${kernelId}\0`);
+  for (const rel of rels) {
+    const abs = path.join(repoRoot, rel);
+    h.update(`${rel}\0${existsSync(abs) ? sha256Normalised(abs) : 'MISSING'}\n`);
   }
-  const problem = checkSandboxComplete(scratchRoot, files);
-  if (problem) throw new Error(problem);
-  return files;
+  let strykerVersion = '';
+  try { strykerVersion = String(loadConfig(repoRoot).strykerVersion ?? ''); } catch { /* key still deterministic */ }
+  h.update(`stryker:${strykerVersion}\0${extra}\n`);
+  return h.digest('hex');
+}
+// The key the tier loop uses for a kernel; null when the inputs cannot be derived.
+export function kernelVerdictKey(id, repoRoot = REPO, decomposed = false) {
+  try {
+    const files = deriveKernelSandboxFiles(`chaingraph/kernels/${id}.kernel.mjs`, `chaingraph/kernels/__proptests__/${id}.proptest.mjs`, `chaingraph/kernels/fixtures/${id}.fixtures.json`, repoRoot);
+    return verdictKey(id, files, repoRoot, `decomposed=${decomposed ? 1 : 0}`);
+  } catch { return null; }
+}
+// Feature is off unless MUTATION_VERDICT_DIR is set.
+export function readPassedVerdict(dir, kernelId, key) {
+  if (!dir) return null;
+  try {
+    const rec = JSON.parse(readFileSync(path.join(dir, `${kernelId}.${key}.json`), 'utf8'));
+    if (rec && rec.kernel === kernelId && rec.key === key && rec.verdict === 'PASS') return rec;
+  } catch { /* missing or unreadable: run the kernel */ }
+  return null;
+}
+export function writePassedVerdict(dir, kernelId, key, scores) {
+  if (!dir) return false;
+  mkdirSync(dir, { recursive: true });
+  const rec = { kernel: kernelId, key, verdict: 'PASS', scores, run_id: process.env.GITHUB_RUN_ID || 'local', at: new Date().toISOString() };
+  writeFileSync(path.join(dir, `${kernelId}.${key}.json`), JSON.stringify(rec, null, 2) + '\n');
+  return true;
 }
 
 // `repoRoot` defaults to the real repository and is overridable only so
@@ -1510,12 +1568,28 @@ export async function runTier(argv, repoRoot = REPO) {
   let hardFailCount = 0;
   let floorFailCount = 0;
   let decomposedNullCount = 0;
+  let reusedCount = 0;
+  const verdictDir = process.env.MUTATION_VERDICT_DIR || '';
   for (const id of toRun) {
     console.log(`\n=== ${id} ===`);
     // MUTATION-TIER-CONFIG-BOUND-1: resolve THIS kernel's bound (already
     // validated up-front) and run it under that budget, not a process-wide one.
     const kernelOpts = { ...opts, kernelTimeoutS: kernelTimeoutSecondsForKernel(id, process.env, config) };
     console.log(`  per-kernel wall-clock bound: ${kernelOpts.kernelTimeoutS}s`);
+    // MUTATION-TIER-VERDICT-REUSE-1: opt-in (MUTATION_VERDICT_DIR). Only a recorded PASS with a
+    // byte-identical key is skipped; any derivation error just runs the kernel.
+    let vKey = null;
+    if (verdictDir) {
+      vKey = kernelVerdictKey(id, repoRoot, opts.decomposed);
+      const hit = vKey ? readPassedVerdict(verdictDir, id, vKey) : null;
+      if (hit) {
+        console.log(`REUSED ${id} key=${vKey.slice(0, 12)} from run ${hit.run_id}`);
+        console.log(`  stored scores: ${JSON.stringify(hit.scores)}`);
+        results.push({ id, reused: true, reusedFromRun: hit.run_id, scores: hit.scores });
+        reusedCount++;
+        continue;
+      }
+    }
     const r = await runOneKernel(id, scratchRoot, kernelOpts, config.strykerVersion, repoRoot, config);
     results.push(r);
     if (r.hardFail) {
@@ -1581,6 +1655,9 @@ export async function runTier(argv, repoRoot = REPO) {
       console.log(`  ⚠ NAMED LEAD (SO #36) — below floor but documented, NOT gating: ${namedLead}`);
     } else if (belowFloor || r.tiers.other.total > 0) {
       floorFailCount++;
+    } else if (verdictDir && vKey) {
+      // Passed every gating floor in this run: the only state that is ever recorded.
+      writePassedVerdict(verdictDir, id, vKey, { moneyMath: mm.score, peripheral: pe.score });
     }
   }
 
@@ -1588,6 +1665,7 @@ export async function runTier(argv, repoRoot = REPO) {
   console.log(`examined: ${toRun.length}  hard-fail: ${hardFailCount}  floor-fail: ${floorFailCount}  named-exceptions: ${skipped.length}${opts.decomposed ? `  decomposed-null: ${decomposedNullCount}` : ''}`);
   for (const s of skipped) console.log(`  SKIP (named exception) ${s.id}: ${s.reason}`);
   for (const s of skipped) if (s.advisory) console.log(`  ADVISORY (hookSkipKernels) deferred to CI shards ${s.id}`);
+  if (verdictDir) console.log(`verdict-reuse: ${reusedCount} of ${toRun.length} kernel(s) REUSED a prior PASS (MUTATION_VERDICT_DIR set)`);
 
   if (opts.jsonOut) {
     writeFileSync(opts.jsonOut, JSON.stringify({ config, results, skipped }, null, 2) + '\n');
