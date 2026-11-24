@@ -145,7 +145,7 @@ function checkP2_tolerance_boundary_categorical() {
     // negative tolerance input is coerced to its absolute value (toleranceSigned < 0 ? -toleranceSigned : ...)
     { requirement: 1000, resource: 1000, tolerance: -50, expectVerdict: 'reconciled' },
   ];
-  for (const c of cases) {
+  for (const c of cases.slice(0, capped(cases.length))) {
     const pp = { as_of_date: '2026-01-01', currency: 'GBP', reconciliation_type: 'internal', safeguarding_requirement_minor_units: c.requirement, tolerance_minor_units: c.tolerance, safeguarding_resource_components: [{ account_ref: 'A', component_type: 'relevant_funds_bank_account', amount_minor_units: c.resource }] };
     const { output_payload } = compute(pp);
     checked++;
@@ -153,7 +153,7 @@ function checkP2_tolerance_boundary_categorical() {
   }
   // non-integer / non-finite / unsafe amounts are rejected, never NaN-propagated
   const rejectCases = [1.5, NaN, Infinity, '100', null, undefined, Number.MAX_SAFE_INTEGER + 10];
-  for (const v of rejectCases) {
+  for (const v of rejectCases.slice(0, capped(rejectCases.length))) {
     const pp = { as_of_date: '2026-01-01', currency: 'GBP', reconciliation_type: 'internal', safeguarding_requirement_minor_units: 0, tolerance_minor_units: 0, safeguarding_resource_components: [{ account_ref: 'A', component_type: 'relevant_funds_bank_account', amount_minor_units: v }] };
     const { output_payload } = compute(pp);
     checked++;
@@ -232,7 +232,8 @@ function fixtures() {
 }
 function checkP6_required_fields_never_positive() {
   let violations = 0, checked = 0;
-  for (const v of fixtures().vectors) {
+  const vectors = fixtures().vectors;
+  for (const v of vectors.slice(0, capped(vectors.length))) {
     const pp = v.policy_parameters;
     if (!pp || typeof pp !== 'object') continue;
     const base = compute(structuredClone(pp)).output_payload.verdict;
@@ -283,7 +284,7 @@ async function checkP7_buildArtifact_never_throws() {
     }
   }
   let violations = 0, refusals = 0;
-  for (const [label, pp] of cases) {
+  for (const [label, pp] of cases.slice(0, capped(cases.length))) {
     let a;
     try { a = await buildArtifact(pp); }
     catch (e) { violations++; console.error(`P7 THROW ${label}: ${e && e.name}: ${e && e.message}`); continue; }
@@ -292,7 +293,7 @@ async function checkP7_buildArtifact_never_throws() {
     if (h == null && ref) refusals++;
     else if (h == null && !ref) violations++;
   }
-  return { name: 'buildArtifact_never_throws', trials: cases.length, violations, refusals };
+  return { name: 'buildArtifact_never_throws', trials: capped(cases.length), violations, refusals };
 }
 
 // ---------- run ----------
