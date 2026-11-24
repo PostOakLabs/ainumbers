@@ -18,7 +18,153 @@ export const meta = {
 
 const EPS = 1e-9;
 
+// ---------------------------------------------------------------------------
+// scaled_ui mode: Token-2022 ScaledUiAmount, raw amount -> UI string.
+// Mirrors solana-program/token-2022 @ 215cb57af6ae3ef08c4ff5f3f0f14044d062d8ca,
+// interface/src/extension/scaled_ui_amount/mod.rs (current_multiplier, amount_to_ui_amount)
+// and the shared trim_ui_amount_string. IEEE-754 f64 arithmetic is bit-identical to Rust's;
+// the UI string is built by an exact fixed-point formatter (no toFixed / toString, which switch
+// to exponential notation from 1e21 where Rust's formatter never does).
+// InterestBearing (exp path) is deliberately not supported and is refused by name.
+// ---------------------------------------------------------------------------
+const U64_MAX = 18446744073709551615n;
+
+// num-traits 0.2.19 pow(10_f64, n): square-and-multiply, bit sequence mirrored.
+function pow10f(n) {
+  if (n === 0) return 1;
+  let base = 10;
+  let exp = n;
+  while ((exp & 1) === 0) { base = base * base; exp >>= 1; }
+  if (exp === 1) return base;
+  let acc = base;
+  while (exp > 1) {
+    exp >>= 1;
+    base = base * base;
+    if ((exp & 1) === 1) acc = acc * base;
+  }
+  return acc;
+}
+
+// Exact decimal expansion of a finite f64 with `decimals` fraction digits, ties to even
+// (Rust's float formatter). BigInt only; no library.
+function fixedExact(x, decimals) {
+  if (Number.isNaN(x)) return 'NaN';
+  if (x === Infinity) return 'inf';
+  if (x === -Infinity) return '-inf';
+  const dv = new DataView(new ArrayBuffer(8));
+  dv.setFloat64(0, x);
+  const bits = dv.getBigUint64(0);
+  const neg = (bits >> 63n) === 1n;
+  const be = Number((bits >> 52n) & 0x7ffn);
+  const frac = bits & 0xfffffffffffffn;
+  let m, e;
+  if (be === 0) { m = frac; e = -1074; } else { m = frac | (1n << 52n); e = be - 1075; }
+  const p10 = 10n ** BigInt(decimals);
+  let q;
+  if (e >= 0) {
+    q = (m << BigInt(e)) * p10;
+  } else {
+    const k = BigInt(-e);
+    const num = m * p10;
+    q = num >> k;
+    const r = num - (q << k);
+    const half = 1n << (k - 1n);
+    if (r > half || (r === half && (q & 1n) === 1n)) q += 1n;
+  }
+  let s = q.toString();
+  if (decimals > 0) {
+    if (s.length <= decimals) s = '0'.repeat(decimals - s.length + 1) + s;
+    s = s.slice(0, s.length - decimals) + '.' + s.slice(s.length - decimals);
+  }
+  return (neg ? '-' : '') + s;
+}
+
+function trimUiAmount(s, decimals) {
+  if (decimals > 0) {
+    let end = s.length;
+    while (end > 0 && s[end - 1] === '0') end--;
+    while (end > 0 && s[end - 1] === '.') end--;
+    return s.slice(0, end);
+  }
+  return s;
+}
+
+function parseRustF64(s) {
+  const m = /^([+-]?)(?:((?:[0-9]+.?[0-9]*|.[0-9]+)(?:[eE][+-]?[0-9]+)?)|(inf|infinity)|(nan))$/i.exec(s);
+  if (!m) return null;
+  if (m[2] !== undefined) return Number(m[1] + m[2]);
+  if (m[3] !== undefined) return m[1] === '-' ? -Infinity : Infinity;
+  return NaN;
+}
+
+// A multiplier is a JSON number or, for integer values past 2^53 (not safe I-JSON), a decimal string.
+function toMult(v) {
+  if (typeof v === 'number') return Number.isNaN(v) ? null : v;
+  if (typeof v === 'string') { const f = parseRustF64(v); return f === null || Number.isNaN(f) ? null : f; }
+  return null;
+}
+
+function isInt(v) { return typeof v === 'number' && Number.isInteger(v); }
+
+function scaledUiMode(pp, cfg) {
+  const ext = cfg.extension ?? pp.extension;
+  const named = [ext, pp.mode, pp.interest_bearing_config === undefined ? '' : 'interest'].join(' ');
+  if (/interest/i.test(named)) {
+    return {
+      output_payload: {
+        mode: 'scaled_ui',
+        verdict: 'REFUSED',
+        refusal_reason: 'interest_bearing_not_supported',
+        discrepancies: ['interest_bearing_not_supported'],
+      },
+      compliance_flags: ['RHC_SCALED_UI_REFUSED'],
+    };
+  }
+  const bad = [];
+  const rawOk = typeof cfg.raw_amount === 'string' && /^[0-9]+$/.test(cfg.raw_amount) && BigInt(cfg.raw_amount) <= U64_MAX;
+  if (!rawOk) bad.push('invalid_raw_amount');
+  if (!(isInt(cfg.decimals) && cfg.decimals >= 0 && cfg.decimals <= 255)) bad.push('invalid_decimals');
+  const multF = toMult(cfg.multiplier);
+  const newMultF = toMult(cfg.new_multiplier);
+  if (multF === null) bad.push('invalid_multiplier');
+  if (newMultF === null) bad.push('invalid_new_multiplier');
+  if (!isInt(cfg.new_multiplier_effective_timestamp)) bad.push('invalid_effective_timestamp');
+  if (!isInt(cfg.unix_timestamp)) bad.push('invalid_unix_timestamp');
+  if (typeof cfg.declared_ui_amount !== 'string') bad.push('invalid_declared_ui_amount');
+  if (bad.length) {
+    return {
+      output_payload: { mode: 'scaled_ui', verdict: 'INVALID_INPUT', discrepancies: bad },
+      compliance_flags: ['RHC_SCALED_UI_INPUT_INVALID'],
+    };
+  }
+  const useNew = cfg.unix_timestamp >= cfg.new_multiplier_effective_timestamp;
+  const effective = useNew ? newMultF : multF;
+  const effectiveEcho = useNew ? cfg.new_multiplier : cfg.multiplier;
+  const scaled = Number(BigInt(cfg.raw_amount)) * effective;
+  const truncated = Math.trunc(scaled) / pow10f(cfg.decimals);
+  const computed_ui_amount = trimUiAmount(fixedExact(truncated, cfg.decimals), cfg.decimals);
+  const ui_amount_match = computed_ui_amount === cfg.declared_ui_amount;
+  const discrepancies = ui_amount_match ? [] : ['ui_amount_mismatch'];
+  return {
+    output_payload: {
+      mode: 'scaled_ui',
+      verdict: ui_amount_match ? 'RECONCILED' : 'DISCREPANCY',
+      multiplier_in_force: useNew ? 'new_multiplier' : 'multiplier',
+      effective_multiplier: effectiveEcho,
+      computed_ui_amount,
+      declared_ui_amount: cfg.declared_ui_amount,
+      ui_amount_match,
+      discrepancies,
+    },
+    compliance_flags: ui_amount_match ? ['RHC_SCALED_UI_RECONCILED'] : ['RHC_SCALED_UI_DISCREPANCY'],
+  };
+}
+
 export function compute(pp) {
+  if (pp && typeof pp === 'object' && (pp.scaled_ui !== undefined || pp.mode === 'scaled_ui' || pp.extension !== undefined || pp.interest_bearing_config !== undefined)) {
+    const cfg = (pp.scaled_ui && typeof pp.scaled_ui === 'object') ? pp.scaled_ui : {};
+    return scaledUiMode(pp, cfg);
+  }
   const {
     declared_action = {},
     prior_multiplier,

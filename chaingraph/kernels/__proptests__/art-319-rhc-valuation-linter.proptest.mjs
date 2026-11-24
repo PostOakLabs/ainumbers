@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:1b2549c6c23eeff309d070117288897e871490b446375f87875bd6d973e25a31
+// kernel_digest_at_authoring: sha256:db80926f58287c01e45eac3d66f489e04e773d1310e9c5eeaa42c6b7588a6dda
 //
 // FV-PROPFLOOR-SHARD-B12-1 — property-test floor for art-319-rhc-valuation-linter.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (raw_balance/chainlink_price_usd/ui_multiplier feed
