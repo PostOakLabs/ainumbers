@@ -183,6 +183,8 @@ function checkP5_requiredFieldNeverPositive() {
     const baseVerdict = compute(base).output_payload.verdict;
     if (baseVerdict !== 'MATCHES' && baseVerdict !== 'DIVERGES') continue;
     positives++;
+    const baseOut = compute(base).output_payload;
+    if (baseOut.missing_required_fields !== undefined && (!Array.isArray(baseOut.missing_required_fields) || baseOut.missing_required_fields.length !== 0)) violations++;
     for (const f of required) {
       for (const mode of ['delete', 'null', 'empty', 'blank']) {
         const pp = structuredClone(base);
@@ -191,7 +193,10 @@ function checkP5_requiredFieldNeverPositive() {
         checked++;
         const r = compute(pp).output_payload;
         if (r.verdict === 'MATCHES' || r.verdict === 'DIVERGES') violations++;
-        if (r.verdict !== 'INDETERMINATE' || !Array.isArray(r.missing_required_fields) || r.missing_required_fields.indexOf(f) < 0) violations++;
+        if (r.verdict !== 'INDETERMINATE') violations++;
+        if (!Array.isArray(r.missing_required_fields) || r.missing_required_fields.length !== 1 || r.missing_required_fields[0] !== f) violations++;
+        const expectReason = 'Required input field(s) missing or blank: ' + f + '. A certified-payroll recomputation cannot state agreement without them.';
+        if (r.indeterminate_reason !== expectReason) violations++;
       }
     }
   }
@@ -203,22 +208,32 @@ function checkP5_requiredFieldNeverPositive() {
 async function checkP6_buildArtifactNeverThrows() {
   let deep = {}; let cur = deep;
   for (let i = 0; i < 511; i++) { cur.n = {}; cur = cur.n; }
+  /** @type {Array<[string, any, string, string]>} */
   const classes = [
-    ['junk_1e300', { currency: 1e300 }],
-    ['nan', { currency: NaN }],
-    ['neg_infinity', { currency: -Infinity }],
-    ['depth_511', { currency: deep }],
-    ['over_1e6_values', { currency: new Array(1000001).fill(0) }],
+    ['junk_1e300', { currency: 1e300 }, 'REFUSED_INPUT_UNSAFE_NUMBER', 'pp.currency: unsafe_integer'],
+    ['nan', { currency: NaN }, 'REFUSED_INPUT_UNSAFE_NUMBER', 'pp.currency: non_finite'],
+    ['neg_infinity', { currency: -Infinity }, 'REFUSED_INPUT_UNSAFE_NUMBER', 'pp.currency: non_finite'],
+    ['unsafe_int', { currency: 9007199254740993 }, 'REFUSED_INPUT_UNSAFE_NUMBER', 'pp.currency: unsafe_integer'],
+    ['nested_nan_array', { currency: 'USD', project_ref: [1, 2, { x: NaN }] }, 'REFUSED_INPUT_UNSAFE_NUMBER', 'pp.project_ref[2].x: non_finite'],
+    ['depth_511', { currency: deep }, 'REFUSED_INPUT_HASH_LIMIT', ': too_deep'],
+    ['over_1e6_values', { currency: new Array(1000001).fill(0) }, 'REFUSED_INPUT_HASH_LIMIT', ': too_many_values'],
   ];
   let violations = 0; const rows = [];
-  for (const [label, pp] of classes) {
+  for (const [label, pp, reason, detail] of classes) {
     try {
       const a = await buildArtifact(pp);
-      const ok = a.execution_hash === null && a.hash_refusal && typeof a.hash_refusal.reason === 'string';
+      const ok = a.execution_hash === null && a.hash_refusal && a.hash_refusal.reason === reason
+        && typeof a.hash_refusal.detail === 'string' && a.hash_refusal.detail.includes(detail)
+        && a.output_payload && a.output_payload.verdict === 'REFUSED'
+        && a.compliance_flags.length === 1 && a.compliance_flags[0] === 'INPUT_REFUSED'
+        && a.policy_parameters === null && a.tool_version === '1.0.1';
       if (!ok) violations++;
-      rows.push({ label, refused: !!ok });
+      rows.push({ label, refused: !!ok, hash_refusal: a.hash_refusal });
     } catch (e) { violations++; rows.push({ label, threw: String(e && e.message).slice(0, 80) }); }
   }
+  const safe = await buildArtifact({ currency: 'USD', project_ref: { a: [1, 2, 3] }, pwa_mode: 'X', week_ending_label: 'Y' });
+  if (safe.hash_refusal != null || typeof safe.execution_hash !== 'string') violations++;
+  rows.push({ label: 'safe_nested_not_refused', refused: safe.hash_refusal != null });
   return { name: 'buildArtifact_never_throws', trials: classes.length, violations, rows };
 }
 
