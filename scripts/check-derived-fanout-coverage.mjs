@@ -180,7 +180,7 @@ export function orderingViolations(COVERED) {
 // an entry that is no longer needed (command gone, now covered, no longer a
 // reader) also fails until removed. Lower READER_ALLOWLIST_MAX when you remove
 // entries; never raise it — fix the gate by putting it in DERIVED_ROOT_GATES.
-export const READER_ALLOWLIST_MAX = 42; // seeded 2026-11-05 at 46; 44 after QUEUE-ASSEMBLED-NEWNODE-GATES-1 (ask-agent + output-schema left the list); 43 after FOOTER-LINKS-REFRESH-1 (gen-root-chrome --check became a COVERED gate); 42 after DERIVED-READER-BURNDOWN-CHAIN-DOMAIN-2 (check-chain-domain went DERIVED_ROOT-aware, its entry left the list); only ever lowered
+export const READER_ALLOWLIST_MAX = 41; // seeded 2026-11-05 at 46; 44 after QUEUE-ASSEMBLED-NEWNODE-GATES-1 (ask-agent + output-schema left the list); 43 after FOOTER-LINKS-REFRESH-1 (gen-root-chrome --check became a COVERED gate); 42 after DERIVED-READER-BURNDOWN-CHAIN-DOMAIN-2 (check-chain-domain went DERIVED_ROOT-aware, its entry left the list); 41 after PROPTEST-FLOOR-SHARD-1 (run-proptests' entry left: its only chaingraph.json mentions are doc comments describing a future coverage gate — a text-match false positive — and its GATES command spelling is now one parametrised template the heuristic does not list); only ever lowered
 
 // Fixed derived reads named by the row; the rest of the set is read from the
 // SSOT's COVERED artifacts, never restated here.
