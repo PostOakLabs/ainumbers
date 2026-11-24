@@ -87,7 +87,19 @@ function randomPP(rng) {
   };
 }
 
-const TRIALS = 5000;
+// ---------- mutation-mode trial cap (PR-3277-SCHEMA-MUTATION-CURE-2; art-215 pattern) ----------
+const MUTATION_MODE =
+  process.env.__STRYKER_ACTIVE_MUTANT__ !== undefined ||
+  __dirname.replace(/\\/g, '/').includes('/ain-mutation-tier-');
+let mutationTrials = 50; // default per-mutant cap; full trials remain the default outside the tier
+if (process.env.PROPFLOOR_TRIAL_CAP !== undefined) {
+  const cap = Number(process.env.PROPFLOOR_TRIAL_CAP);
+  if (!Number.isInteger(cap) || cap <= 0) {
+    throw new Error(`PROPFLOOR_TRIAL_CAP must be a positive integer, got "${process.env.PROPFLOOR_TRIAL_CAP}"`);
+  }
+  mutationTrials = cap;
+}
+const TRIALS = MUTATION_MODE ? mutationTrials : 5000;
 
 // ---------- P1: termination — components.length exactly matches input array length ----------
 function checkP1_termination() {
