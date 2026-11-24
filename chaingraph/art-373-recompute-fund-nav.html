@@ -307,22 +307,26 @@ const SCALE_EXP = 8;
 const SCALE = 10n ** BigInt(SCALE_EXP);
 
 function toFixed(value) {
-  let s = String(value == null ? 0 : value).trim();
+  let s = String(value ?? 0).trim();
   let neg = false;
   if (s.startsWith('-')) { neg = true; s = s.slice(1); }
   else if (s.startsWith('+')) { s = s.slice(1); }
   if (!/^[0-9]*\.?[0-9]*$/.test(s) || s === '' || s === '.') s = '0';
-  let parts = s.split('.');
-  let intPart = parts[0] || '0';
-  let fracPart = parts[1] || '';
-  if (fracPart.length > SCALE_EXP) fracPart = fracPart.slice(0, SCALE_EXP);
+  let [intPart, fracPart = ''] = s.split('.');
+  if (intPart === '') intPart = '0';
+  if (fracPart.length > SCALE_EXP) fracPart = fracPart.slice(0, SCALE_EXP); // truncate excess precision, never round up
   fracPart = fracPart.padEnd(SCALE_EXP, '0');
   let mag = BigInt(intPart + fracPart);
   if (neg) mag = -mag;
   return mag;
 }
-function mulFixed(a, b) { return (a * b) / SCALE; }
-function divFixed(a, b) { return b === 0n ? 0n : (a * SCALE) / b; }
+function mulFixed(a, b) {
+  return (a * b) / SCALE;
+}
+function divFixed(a, b) {
+  if (b === 0n) return 0n;
+  return (a * SCALE) / b;
+}
 
 function roundFixedToString(value, places, mode) {
   const neg = value < 0n;
@@ -336,89 +340,116 @@ function roundFixedToString(value, places, mode) {
   } else if (mode === 'half_even') {
     if (twiceR > divisor || (twiceR === divisor && q % 2n === 1n)) q += 1n;
   } else {
+    // 'half_up' (default) — round half away from zero
     if (twiceR >= divisor) q += 1n;
   }
   let qs = q.toString();
   let result;
-  if (places === 0) { result = qs; }
-  else { qs = qs.padStart(places + 1, '0'); result = qs.slice(0, -places) + '.' + qs.slice(-places); }
-  return (neg && q !== 0n) ? ('-' + result) : result;
+  if (places === 0) {
+    result = qs;
+  } else {
+    qs = qs.padStart(places + 1, '0');
+    result = `${qs.slice(0, -places)}.${qs.slice(-places)}`;
+  }
+  return (neg && q !== 0n) ? `-${result}` : result;
 }
-function fixedToPlainString(value, places) { return roundFixedToString(value, places, 'truncate'); }
+function fixedToPlainString(value, places) {
+  return roundFixedToString(value, places, 'truncate');
+}
 
-const DAY_COUNT_DENOMINATORS = { '30/360': 360, 'actual/360': 360, 'actual/365': 365, 'actual/actual': 365 };
+const DAY_COUNT_DENOMINATORS = {
+  '30/360': 360,
+  'actual/360': 360,
+  'actual/365': 365,
+  'actual/actual': 365, // approximation; caller may override via year_days
+};
 
 function computeAccrualAmount(item) {
   if (item.amount != null) return toFixed(item.amount);
-  const principal = toFixed(item.principal || 0);
-  const rate = toFixed(item.annual_rate || 0);
-  const days = Number(item.days || 0);
-  const convention = item.day_count_convention || '30/360';
-  const yearDays = Number(item.year_days || DAY_COUNT_DENOMINATORS[convention] || 365);
-  const dayFraction = divFixed(toFixed(days), toFixed(yearDays));
+  const principal = toFixed(item.principal ?? 0);
+  const rate = toFixed(item.annual_rate ?? 0); // e.g. 0.05 for 5%
+  const days = Number(item.days ?? 0);
+  const convention = item.day_count_convention ?? '30/360';
+  const yearDays = Number(item.year_days ?? DAY_COUNT_DENOMINATORS[convention] ?? 365);
+  const daysFixed = toFixed(days);
+  const yearDaysFixed = toFixed(yearDays);
+  const dayFraction = divFixed(daysFixed, yearDaysFixed);
   return mulFixed(mulFixed(principal, rate), dayFraction);
 }
-function toBase(amountFixed, fxRateToBase) { return mulFixed(amountFixed, toFixed(fxRateToBase == null ? 1 : fxRateToBase)); }
+function toBase(amountFixed, fxRateToBase) {
+  return mulFixed(amountFixed, toFixed(fxRateToBase ?? 1));
+}
 
 const NOT_PROVEN = [
-  { item: 'Price/FX accuracy', detail: 'Every price and FX rate is caller-supplied and asserted. This tool performs no market-data lookups (zero-egress) and does not verify these values against any external source.' },
+  { item: 'Price/FX accuracy', detail: 'Every price and FX rate is caller-supplied and asserted. This kernel performs no market-data lookups (zero-egress) and does not verify these values against any external source.' },
   { item: 'Fair value / independent valuation', detail: 'This is arithmetic recomputation over declared inputs, never an independent fair-value opinion or third-party valuation.' },
-  { item: 'Live/real-time pricing', detail: 'All inputs are point-in-time as supplied by the caller; this tool makes no claim about market conditions at any other moment.' },
-  { item: 'Regulatory NAV filing compliance', detail: '40-Act/UCITS references are informative context only; this tool makes no claim of compliance with either framework’s NAV-computation or filing rules.' },
+  { item: 'Live/real-time pricing', detail: 'All inputs are point-in-time as supplied by the caller; this kernel makes no claim about market conditions at any other moment.' },
+  { item: 'Regulatory NAV filing compliance', detail: '40-Act/UCITS references are informative context only; this kernel makes no claim of compliance with either framework\'s NAV-computation or filing rules.' },
 ];
 
 function compute(pp) {
-  const baseCurrency = pp.base_currency || 'USD';
+  const baseCurrency = pp.base_currency ?? 'USD';
   const holdings = Array.isArray(pp.holdings) ? pp.holdings : [];
-  const accrualsIncome = Array.isArray((pp.accruals || {}).income) ? pp.accruals.income : [];
-  const accrualsExpense = Array.isArray((pp.accruals || {}).expense) ? pp.accruals.expense : [];
+  const accrualsIncome = Array.isArray(pp.accruals?.income) ? pp.accruals.income : [];
+  const accrualsExpense = Array.isArray(pp.accruals?.expense) ? pp.accruals.expense : [];
   const liabilities = Array.isArray(pp.liabilities) ? pp.liabilities : [];
-  const rounding = pp.rounding || {};
+  const rounding = pp.rounding ?? {};
   const decimalPlaces = Number.isInteger(rounding.decimal_places) ? rounding.decimal_places : 2;
-  const roundingMode = ['half_up','half_even','truncate'].indexOf(rounding.mode) >= 0 ? rounding.mode : 'half_up';
+  const roundingMode = ['half_up', 'half_even', 'truncate'].includes(rounding.mode) ? rounding.mode : 'half_up';
 
-  const holdingLines = holdings.map(function (h) {
+  const holdingLines = holdings.map((h) => {
     const qty = toFixed(h.quantity);
     const price = toFixed(h.price);
     const localValue = mulFixed(qty, price);
     const baseValue = toBase(localValue, h.fx_rate_to_base);
     return {
-      security_id: h.security_id || null, currency: h.currency || baseCurrency,
-      quantity: fixedToPlainString(qty, SCALE_EXP), price: fixedToPlainString(price, SCALE_EXP),
-      local_value: fixedToPlainString(localValue, SCALE_EXP), base_value: fixedToPlainString(baseValue, SCALE_EXP),
+      security_id: h.security_id ?? null,
+      currency: h.currency ?? baseCurrency,
+      quantity: fixedToPlainString(qty, SCALE_EXP),
+      price: fixedToPlainString(price, SCALE_EXP),
+      local_value: fixedToPlainString(localValue, SCALE_EXP),
+      base_value: fixedToPlainString(baseValue, SCALE_EXP),
     };
   });
-  const holdingsValueFixed = holdingLines.reduce(function (acc, l) { return acc + toFixed(l.base_value); }, 0n);
+  const holdingsValueFixed = holdingLines.reduce((acc, l) => acc + toFixed(l.base_value), 0n);
 
   function accrualLines(items) {
-    return items.map(function (it) {
+    return items.map((it) => {
       const amountFixed = computeAccrualAmount(it);
       const baseValue = toBase(amountFixed, it.fx_rate_to_base);
       return {
-        description: it.description || null, currency: it.currency || baseCurrency,
-        day_count_convention: it.day_count_convention || (it.amount != null ? null : '30/360'),
-        amount: fixedToPlainString(amountFixed, SCALE_EXP), base_value: fixedToPlainString(baseValue, SCALE_EXP),
+        description: it.description ?? null,
+        currency: it.currency ?? baseCurrency,
+        day_count_convention: it.day_count_convention ?? (it.amount != null ? null : '30/360'),
+        amount: fixedToPlainString(amountFixed, SCALE_EXP),
+        base_value: fixedToPlainString(baseValue, SCALE_EXP),
       };
     });
   }
   const incomeLines = accrualLines(accrualsIncome);
   const expenseLines = accrualLines(accrualsExpense);
-  const accruedIncomeFixed = incomeLines.reduce(function (acc, l) { return acc + toFixed(l.base_value); }, 0n);
-  const accruedExpenseFixed = expenseLines.reduce(function (acc, l) { return acc + toFixed(l.base_value); }, 0n);
+  const accruedIncomeFixed = incomeLines.reduce((acc, l) => acc + toFixed(l.base_value), 0n);
+  const accruedExpenseFixed = expenseLines.reduce((acc, l) => acc + toFixed(l.base_value), 0n);
 
-  const liabilityLines = liabilities.map(function (l) {
+  const liabilityLines = liabilities.map((l) => {
     const amountFixed = toFixed(l.amount);
     const baseValue = toBase(amountFixed, l.fx_rate_to_base);
-    return { description: l.description || null, currency: l.currency || baseCurrency, amount: fixedToPlainString(amountFixed, SCALE_EXP), base_value: fixedToPlainString(baseValue, SCALE_EXP) };
+    return {
+      description: l.description ?? null,
+      currency: l.currency ?? baseCurrency,
+      amount: fixedToPlainString(amountFixed, SCALE_EXP),
+      base_value: fixedToPlainString(baseValue, SCALE_EXP),
+    };
   });
-  const liabilitiesFixed = liabilityLines.reduce(function (acc, l) { return acc + toFixed(l.base_value); }, 0n);
+  const liabilitiesFixed = liabilityLines.reduce((acc, l) => acc + toFixed(l.base_value), 0n);
 
   const totalAssetsFixed = holdingsValueFixed + accruedIncomeFixed;
   const totalLiabilitiesFixed = liabilitiesFixed + accruedExpenseFixed;
   const netAssetsFixed = totalAssetsFixed - totalLiabilitiesFixed;
 
   const sharesOutstandingFixed = toFixed(pp.shares_outstanding);
-  let navPerShareStr = null, structuralError = null;
+  let navPerShareStr = null;
+  let structuralError = null;
   if (sharesOutstandingFixed <= 0n) {
     structuralError = 'shares_outstanding must be a positive number.';
   } else {
@@ -427,20 +458,29 @@ function compute(pp) {
   }
 
   const compliance_flags = [];
-  if (structuralError) compliance_flags.push('NAV_STRUCTURAL_ERROR'); else compliance_flags.push('NAV_RECOMPUTED');
+  if (structuralError) compliance_flags.push('NAV_STRUCTURAL_ERROR');
+  else compliance_flags.push('NAV_RECOMPUTED');
   if (netAssetsFixed < 0n) compliance_flags.push('NAV_NET_ASSETS_NEGATIVE');
   if (compliance_flags.length === 1 && compliance_flags[0] === 'NAV_RECOMPUTED') compliance_flags.push('NAV_INPUTS_SUPPLIED_NOT_VERIFIED');
 
   const output_payload = {
-    fund_id: pp.fund_id || null, valuation_date: pp.valuation_date || null, base_currency: baseCurrency,
+    fund_id: pp.fund_id ?? null,
+    valuation_date: pp.valuation_date ?? null,
+    base_currency: baseCurrency,
     structural_error: structuralError,
     components: {
-      holdings: holdingLines, holdings_value: fixedToPlainString(holdingsValueFixed, SCALE_EXP),
-      accrued_income: incomeLines, accrued_income_total: fixedToPlainString(accruedIncomeFixed, SCALE_EXP),
-      accrued_expense: expenseLines, accrued_expense_total: fixedToPlainString(accruedExpenseFixed, SCALE_EXP),
-      liabilities: liabilityLines, liabilities_total: fixedToPlainString(liabilitiesFixed, SCALE_EXP),
-      total_assets: fixedToPlainString(totalAssetsFixed, SCALE_EXP), total_liabilities: fixedToPlainString(totalLiabilitiesFixed, SCALE_EXP),
-      net_assets: fixedToPlainString(netAssetsFixed, SCALE_EXP), shares_outstanding: fixedToPlainString(sharesOutstandingFixed, SCALE_EXP),
+      holdings: holdingLines,
+      holdings_value: fixedToPlainString(holdingsValueFixed, SCALE_EXP),
+      accrued_income: incomeLines,
+      accrued_income_total: fixedToPlainString(accruedIncomeFixed, SCALE_EXP),
+      accrued_expense: expenseLines,
+      accrued_expense_total: fixedToPlainString(accruedExpenseFixed, SCALE_EXP),
+      liabilities: liabilityLines,
+      liabilities_total: fixedToPlainString(liabilitiesFixed, SCALE_EXP),
+      total_assets: fixedToPlainString(totalAssetsFixed, SCALE_EXP),
+      total_liabilities: fixedToPlainString(totalLiabilitiesFixed, SCALE_EXP),
+      net_assets: fixedToPlainString(netAssetsFixed, SCALE_EXP),
+      shares_outstanding: fixedToPlainString(sharesOutstandingFixed, SCALE_EXP),
     },
     rounding: { decimal_places: decimalPlaces, mode: roundingMode },
     nav_per_share: navPerShareStr,
@@ -448,7 +488,8 @@ function compute(pp) {
     fence: 'Pricing/FX inputs are SUPPLIED, asserted, and digested into this receipt. This kernel recomputes the ARITHMETIC over those declared inputs and attests THAT — never a fair-value opinion, never a valuation, never live market data (zero-egress by contract).',
     regulatory_framework: '40-Act/UCITS NAV-computation conventions referenced as informative context only; this kernel makes no compliance claim under either framework.',
   };
-  return { output_payload: output_payload, compliance_flags: compliance_flags };
+
+  return { output_payload, compliance_flags };
 }
 
 const PRESETS = {
@@ -702,6 +743,27 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-373
 </section>
 <!-- ASK-AGENT:END -->
 
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-373-recompute-fund-nav.kernel.mjs">art-373-recompute-fund-nav.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:3814c169b6e2757ca9d93f31022a7c6234d75676d9a66c7d253f672a4a4ae8ac</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-373-recompute-fund-nav.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-373-recompute-fund-nav.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="graph/nodes/art-373-recompute-fund-nav.json">art-373-recompute-fund-nav.json</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: verified</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/3814c169b6e2757ca9d93f31022a7c6234d75676d9a66c7d253f672a4a4ae8ac.json">3814c169b6e2757ca9d93f31022a7c6234d75676d9a66c7d253f672a4a4ae8ac</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=b874d5fffb10e2ceb7bb15592aa46486a4e14eaf9384990bc38338571cb8cdc5">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">
