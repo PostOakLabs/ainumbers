@@ -356,9 +356,15 @@ async function checkP5_buildArtifactNeverThrows() {
     ['over_1e6_values', { employee_ref: new Array(1000001).fill(0) }, 'REFUSED_INPUT_HASH_LIMIT', 'pp.employee_ref[999998]: too_many_values'],
   ];
   let violations = 0; const rows = [];
+  // Plain locals, not inline literals: the estate-wide buildArtifact options type predates the
+  // `now` parameter (jsdoc-checkjs waives the kernel-side TS2339 as shared signature debt), and an
+  // inline literal in this touched floor file would trip TS2353 excess-property checking. A
+  // pre-built variable carries `now` through structurally; the `now:''` assert is unchanged.
+  const refusalOpts = { now: '', parent_hashes: ['ph'], parent_tool_ids: ['pt'], chain_depth: 7 };
+  const validOpts = { now: 'NOW2', parent_hashes: [], parent_tool_ids: [], chain_depth: 0 };
   for (const [label, pp, wantReason, wantDetail] of CLASSES) {
     try {
-      const a = await buildArtifact(pp, { now: '', parent_hashes: ['ph'], parent_tool_ids: ['pt'], chain_depth: 7 });
+      const a = await buildArtifact(pp, refusalOpts);
       const ok = a.execution_hash === null
         && a.policy_parameters === null
         && !!a.hash_refusal && a.hash_refusal.reason === wantReason && a.hash_refusal.detail === wantDetail
@@ -380,7 +386,7 @@ async function checkP5_buildArtifactNeverThrows() {
   try {
     const fixtures = JSON.parse(readFileSync(path.join(__dirname, '..', 'fixtures', 'art-572-multi-garnishment-stacking-recompute.fixtures.json'), 'utf8'));
     const vec = fixtures.vectors.find((v) => compute(v.policy_parameters).output_payload.verdict === 'MATCHES');
-    const a = await buildArtifact(vec.policy_parameters, { now: 'NOW2', parent_hashes: [], parent_tool_ids: [], chain_depth: 0 });
+    const a = await buildArtifact(vec.policy_parameters, validOpts);
     const ok = typeof a.execution_hash === 'string' && /^[0-9a-f]{64}$/.test(a.execution_hash)
       && a.hash_refusal === undefined
       && a.policy_parameters === vec.policy_parameters
