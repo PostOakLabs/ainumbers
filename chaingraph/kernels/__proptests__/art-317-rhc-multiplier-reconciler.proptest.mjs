@@ -1,5 +1,5 @@
 // art-317-rhc-multiplier-reconciler.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C11-1).
-// kernel_digest_at_authoring: sha256:5de62e8ad41f4f3600b76c5f4cc207732467ac0bd4a90ba5779a6cfcf7f9b5af
+// kernel_digest_at_authoring: sha256:c16ce83974f3897c01348ed544f9926dbb2b75a947540b75650b756441b64f8a
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

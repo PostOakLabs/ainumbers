@@ -107,8 +107,7 @@ function toMult(v) {
 function isInt(v) { return typeof v === 'number' && Number.isInteger(v); }
 
 function scaledUiMode(pp, cfg) {
-  const ext = cfg.extension ?? pp.extension;
-  const named = [ext, pp.mode, pp.interest_bearing_config === undefined ? '' : 'interest'].join(' ');
+  const named = [cfg.extension, cfg.interest_bearing_config === undefined ? '' : 'interest'].join(' ');
   if (/interest/i.test(named)) {
     return {
       output_payload: {
@@ -161,7 +160,7 @@ function scaledUiMode(pp, cfg) {
 }
 
 export function compute(pp) {
-  if (pp && typeof pp === 'object' && (pp.scaled_ui !== undefined || pp.mode === 'scaled_ui' || pp.extension !== undefined || pp.interest_bearing_config !== undefined)) {
+  if (pp && typeof pp === 'object' && pp.scaled_ui !== undefined) {
     const cfg = (pp.scaled_ui && typeof pp.scaled_ui === 'object') ? pp.scaled_ui : {};
     return scaledUiMode(pp, cfg);
   }
