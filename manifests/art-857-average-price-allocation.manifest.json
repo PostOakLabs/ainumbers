@@ -1,0 +1,489 @@
+{
+  "tool_id": "art-857-average-price-allocation",
+  "version": "1.0.0",
+  "title": "Average Price Allocation",
+  "description": "Average-price allocation for one block order executed in several fills. Given an ISO 4217 currency, a side (buy labels amounts as cost, sell as proceeds), up to 5,000 fills of price per share (decimal string, at most 8 decimals) and whole-share quantity, and up to 500 pseudonymous accounts with whole-share allocations that must sum exactly to the filled quantity, the node returns the total in minor units, the average price to 8 decimals, each account's amount before and after the residual, the signed residual and where it went, and an identity check: the final account amounts plus any unallocated residual equal the total. All arithmetic is exact integer arithmetic on scaled values with half-up rounding; there is no floating point on the computation path, so a fill at 1.005 rounds the way the decimal says. Minor units follow the ISO 4217 minor-unit column (JPY 0, BHD, KWD, OMR, TND and JOD 3, most codes 2); unknown codes and fills carrying a different currency are refused. Two declared amount bases: unrounded_average (default) and rounded_average_dp, which rounds the average to a declared 0 to 8 decimals first and requires an explicit residual rule. Two residual rules: assign_largest (the account with the most shares, ties to the first declared) and report_unallocated. The rounding basis and the residual rule are declared conventions of this tool, not a regulatory or fairness rule. Calculation check, not investment, legal or regulatory advice.",
+  "category": "capital-markets-clearing-and-settlement-recomputes",
+  "tags": [
+    "average-price",
+    "block-allocation",
+    "post-trade",
+    "minor-units",
+    "iso-4217",
+    "rounding-residual",
+    "exact-arithmetic",
+    "mcp:allocate_average_price"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "currency",
+      "side",
+      "fills",
+      "allocations"
+    ],
+    "properties": {
+      "currency": {
+        "type": "string",
+        "description": "ISO 4217 alphabetic code. Sets the minor unit (JPY 0; BHD, KWD, OMR, TND, JOD 3; most codes 2). Unknown codes are refused."
+      },
+      "side": {
+        "type": "string",
+        "enum": [
+          "buy",
+          "sell"
+        ],
+        "description": "buy labels amounts as cost, sell as proceeds. The arithmetic is the same."
+      },
+      "fills": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 5000,
+        "description": "Executed fills of one block order, at most 5,000.",
+        "items": {
+          "type": "object",
+          "required": [
+            "price_per_share",
+            "quantity_shares"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "price_per_share": {
+              "type": "string",
+              "description": "Positive decimal string, at most 15 integer digits and 8 decimals, e.g. \"10.50\"."
+            },
+            "quantity_shares": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Whole shares in the fill."
+            },
+            "currency": {
+              "type": "string",
+              "description": "Optional per-fill currency; refused unless it equals the top-level currency."
+            }
+          }
+        }
+      },
+      "allocations": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 500,
+        "description": "Accounts receiving the fills, at most 500. Shares must sum exactly to the filled quantity.",
+        "items": {
+          "type": "object",
+          "required": [
+            "account",
+            "shares"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "account": {
+              "type": "string",
+              "description": "Pseudonymous account id, 1 to 64 of A-Z a-z 0-9 . _ : -. Duplicates are refused."
+            },
+            "shares": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Whole shares allocated to the account."
+            }
+          }
+        }
+      },
+      "amount_basis": {
+        "type": "string",
+        "enum": [
+          "unrounded_average",
+          "rounded_average_dp"
+        ],
+        "description": "Default unrounded_average. rounded_average_dp rounds the average half-up to average_price_dp first."
+      },
+      "average_price_dp": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 8,
+        "description": "Required with rounded_average_dp; refused with unrounded_average."
+      },
+      "residual_handling": {
+        "type": "string",
+        "enum": [
+          "assign_largest",
+          "report_unallocated"
+        ],
+        "description": "Default assign_largest under unrounded_average; required with no default under rounded_average_dp."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "allocate_average_price",
+    "description": "Split one set of executed fills across accounts at one average price, in exact integer ISO 4217 minor units: total, 8-decimal average, per-account amounts before and after the residual, the signed residual and where it went, and the identity check. Declared rounding basis (unrounded or rounded average) and declared residual rule (assign to largest or report unallocated). Refuses unknown currencies, mixed-currency fills, duplicate accounts, non-positive shares and share totals that do not match. Calculation check, not advice.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "currency",
+        "side",
+        "fills",
+        "allocations"
+      ],
+      "properties": {
+        "currency": {
+          "type": "string",
+          "description": "ISO 4217 alphabetic code. Sets the minor unit (JPY 0; BHD, KWD, OMR, TND, JOD 3; most codes 2). Unknown codes are refused."
+        },
+        "side": {
+          "type": "string",
+          "enum": [
+            "buy",
+            "sell"
+          ],
+          "description": "buy labels amounts as cost, sell as proceeds. The arithmetic is the same."
+        },
+        "fills": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5000,
+          "description": "Executed fills of one block order, at most 5,000.",
+          "items": {
+            "type": "object",
+            "required": [
+              "price_per_share",
+              "quantity_shares"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "price_per_share": {
+                "type": "string",
+                "description": "Positive decimal string, at most 15 integer digits and 8 decimals, e.g. \"10.50\"."
+              },
+              "quantity_shares": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Whole shares in the fill."
+              },
+              "currency": {
+                "type": "string",
+                "description": "Optional per-fill currency; refused unless it equals the top-level currency."
+              }
+            }
+          }
+        },
+        "allocations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 500,
+          "description": "Accounts receiving the fills, at most 500. Shares must sum exactly to the filled quantity.",
+          "items": {
+            "type": "object",
+            "required": [
+              "account",
+              "shares"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "account": {
+                "type": "string",
+                "description": "Pseudonymous account id, 1 to 64 of A-Z a-z 0-9 . _ : -. Duplicates are refused."
+              },
+              "shares": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Whole shares allocated to the account."
+              }
+            }
+          }
+        },
+        "amount_basis": {
+          "type": "string",
+          "enum": [
+            "unrounded_average",
+            "rounded_average_dp"
+          ],
+          "description": "Default unrounded_average. rounded_average_dp rounds the average half-up to average_price_dp first."
+        },
+        "average_price_dp": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8,
+          "description": "Required with rounded_average_dp; refused with unrounded_average."
+        },
+        "residual_handling": {
+          "type": "string",
+          "enum": [
+            "assign_largest",
+            "report_unallocated"
+          ],
+          "description": "Default assign_largest under unrounded_average; required with no default under rounded_average_dp."
+        }
+      }
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-857-average-price-allocation.html",
+    "function_name": "run",
+    "timeout_ms": 5000
+  },
+  "ap2_export": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "allocations": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "account": {
+              "type": "string"
+            },
+            "amount_minor": {
+              "type": "number"
+            },
+            "amount_minor_pre_residual": {
+              "type": "number"
+            },
+            "shares": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "account",
+            "amount_minor",
+            "amount_minor_pre_residual",
+            "shares"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "amount_basis": {
+        "type": "string",
+        "enum": [
+          "rounded_average_dp",
+          "unrounded_average"
+        ]
+      },
+      "amount_label": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "enum": [
+          "cost",
+          "proceeds",
+          null
+        ]
+      },
+      "average_price": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "average_price_dp": {
+        "type": [
+          "null",
+          "number"
+        ]
+      },
+      "currency": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "enum": [
+          "BHD",
+          "EUR",
+          "JPY",
+          "USD",
+          null
+        ]
+      },
+      "identity_holds": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "minor_unit_exponent": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "note": {
+        "type": "string"
+      },
+      "overall": {
+        "type": "string",
+        "enum": [
+          "ALLOCATION_COMPUTED",
+          "INPUT_REFUSED"
+        ]
+      },
+      "refusals": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "residual_account": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "residual_handling": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "enum": [
+          "assign_largest",
+          "report_unallocated",
+          null
+        ]
+      },
+      "residual_minor": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "rounded_average_price": {
+        "type": [
+          "null",
+          "string"
+        ]
+      },
+      "side": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "enum": [
+          "buy",
+          "sell",
+          null
+        ]
+      },
+      "total_minor": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "total_shares": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "unallocated_residual_minor": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "INPUT_REFUSED",
+            "RESIDUAL_ASSIGNED",
+            "RESIDUAL_UNALLOCATED"
+          ]
+        }
+      }
+    },
+    "required": [
+      "allocations",
+      "amount_basis",
+      "amount_label",
+      "average_price",
+      "average_price_dp",
+      "currency",
+      "identity_holds",
+      "minor_unit_exponent",
+      "note",
+      "overall",
+      "refusals",
+      "residual_account",
+      "residual_handling",
+      "residual_minor",
+      "rounded_average_price",
+      "side",
+      "total_minor",
+      "total_shares",
+      "unallocated_residual_minor",
+      "warnings"
+    ],
+    "additionalProperties": false
+  },
+  "source": "chaingraph/kernels/art-857-average-price-allocation.kernel.mjs, built by AVG-PRICE-ALLOC-NODE-1 on 2026-11-24 to the fixed row contract (exact BigInt arithmetic, ISO 4217 minor units, declared rounding basis and residual rule).",
+  "input_schema_provenance": "derived-from-kernel-reads 2026-11-24. Every property is read by compute(); currency, side, fills and allocations are required because the kernel refuses them when absent.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "currency": "USD",
+    "side": "buy",
+    "fills": [
+      {
+        "price_per_share": "10.00",
+        "quantity_shares": 100
+      },
+      {
+        "price_per_share": "10.50",
+        "quantity_shares": 200
+      },
+      {
+        "price_per_share": "9.80",
+        "quantity_shares": 100
+      }
+    ],
+    "allocations": [
+      {
+        "account": "ACCT-A",
+        "shares": 200
+      },
+      {
+        "account": "ACCT-B",
+        "shares": 200
+      }
+    ]
+  },
+  "output_example": {
+    "currency": "USD",
+    "minor_unit_exponent": 2,
+    "side": "buy",
+    "amount_label": "cost",
+    "amount_basis": "unrounded_average",
+    "average_price_dp": null,
+    "residual_handling": "assign_largest",
+    "total_shares": 400,
+    "total_minor": 408000,
+    "average_price": "10.20000000",
+    "rounded_average_price": null,
+    "allocations": [
+      {
+        "account": "ACCT-A",
+        "shares": 200,
+        "amount_minor_pre_residual": 204000,
+        "amount_minor": 204000
+      },
+      {
+        "account": "ACCT-B",
+        "shares": 200,
+        "amount_minor_pre_residual": 204000,
+        "amount_minor": 204000
+      }
+    ],
+    "residual_minor": 0,
+    "residual_account": "ACCT-A",
+    "unallocated_residual_minor": 0,
+    "identity_holds": true,
+    "overall": "ALLOCATION_COMPUTED",
+    "refusals": [],
+    "warnings": [],
+    "note": "Average-price allocation in exact integer minor units (ISO 4217 minor unit for the declared currency). total_minor = half-up(sum of quantity x price). average_price = sum(quantity x price) / sum(quantity), 8 decimals half-up. Per account: half-up(shares x average) under unrounded_average, or half-up(shares x average rounded half-up to average_price_dp) under rounded_average_dp. residual_minor = total_minor - sum of account amounts; assign_largest adds it to the account with the most shares (ties to the first declared), report_unallocated leaves it unallocated. Identity: sum of final account amounts + unallocated residual = total_minor. The rounding basis and the residual rule are declared conventions of this tool, not a regulatory or fairness rule. Calculation check, not investment, legal or regulatory advice."
+  },
+  "example_execution_hash": "bf08d232e86e757672933c73b916217a40e4c56fc80687eec25a2484070422e4"
+}
