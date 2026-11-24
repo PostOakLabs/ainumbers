@@ -241,6 +241,27 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-136
 </section>
 <!-- ASK-AGENT:END -->
 
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-136-slsa-provenance-verifier.kernel.mjs">art-136-slsa-provenance-verifier.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:e68457cfcfc0229b4029a1579bdd6871ecb20daf0abd9743c2627eccb3a51e5d</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-136-slsa-provenance-verifier.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-136-slsa-provenance-verifier.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="kernels/fixtures/compute-proof/art-136-slsa-provenance-verifier.receipt.json">sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: deferred</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/e68457cfcfc0229b4029a1579bdd6871ecb20daf0abd9743c2627eccb3a51e5d.json">e68457cfcfc0229b4029a1579bdd6871ecb20daf0abd9743c2627eccb3a51e5d</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=b4b0d9f784d8abb616e271d3a0fa41a5190d3cf2d52e0514d044032cb14e6ede">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">
@@ -366,24 +387,25 @@ const MANIFEST = {
 };
 
 function compute(pp) {
-  const {statement={}, artifact_digest_sha256='', claimed_build_level=0} = pp;
-  const type_ok = typeof statement['_type']==='string' && statement['_type'].includes('in-toto.io/Statement');
-  const pred_ok = typeof statement.predicateType==='string' && statement.predicateType.includes('slsa.dev/provenance');
+  const { statement = {}, artifact_digest_sha256, claimed_build_level } = pp;
+  const type_ok = typeof statement._type === 'string' && statement._type.includes('in-toto.io/Statement');
+  const pred_ok = typeof statement.predicateType === 'string' && statement.predicateType.includes('slsa.dev/provenance');
   const subjects = Array.isArray(statement.subject) ? statement.subject : [];
-  const subject_digest_match = artifact_digest_sha256 ? subjects.some(s=>s&&s.digest&&s.digest.sha256===artifact_digest_sha256) : false;
-  const pred = statement.predicate || {};
-  const builder_id = (pred.runDetails&&pred.runDetails.builder&&pred.runDetails.builder.id) || (pred.builder&&pred.builder.id) || null;
-  const builder_id_present = !!builder_id;
+  const subject_digest_match = subjects.some(s => s && s.digest && s.digest.sha256 === artifact_digest_sha256);
+  const builder_id = statement.predicate && statement.predicate.runDetails && statement.predicate.runDetails.builder
+    ? statement.predicate.runDetails.builder.id : (statement.predicate && statement.predicate.builder ? statement.predicate.builder.id : undefined);
+  const builder_id_present = typeof builder_id === 'string' && builder_id.length > 0;
   const lvl = Number(claimed_build_level);
-  const slsa_build_level = Number.isInteger(lvl)&&lvl>=0&&lvl<=3 ? lvl : 0;
+  const slsa_build_level = (Number.isInteger(lvl) && lvl >= 0 && lvl <= 3) ? lvl : null;
   const provenance_valid = type_ok && pred_ok && subject_digest_match && builder_id_present;
-  const compliance_flags = {SLSA_PROVENANCE_ASSESSED:true};
-  compliance_flags[provenance_valid?'SLSA_PROVENANCE_VALID':'SLSA_PROVENANCE_INVALID'] = true;
-  if (!subject_digest_match && artifact_digest_sha256) compliance_flags.SUBJECT_DIGEST_MISMATCH = true;
-  return {output_payload:{provenance_valid,type_ok,pred_ok,subject_digest_match,builder_id_present,slsa_build_level},compliance_flags};
+  const compliance_flags = [];
+  compliance_flags.push('SLSA_PROVENANCE_ASSESSED');
+  compliance_flags.push(provenance_valid ? 'SLSA_PROVENANCE_VALID' : 'SLSA_PROVENANCE_INVALID');
+  if (!subject_digest_match) compliance_flags.push('SUBJECT_DIGEST_MISMATCH');
+  return { output_payload: { provenance_valid, type_ok, pred_ok, subject_digest_match, builder_id_present, slsa_build_level }, compliance_flags };
 }
 
-function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
+function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o=Object.create(null);for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
 async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 
 let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;

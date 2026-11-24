@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="kernel-digest" content="sha256:6492a6a83f4e5bbfcd5e1a759af227e26770c5c65a70fc8fe7028c150712f280">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>NIS2 Governance Readiness Checker (Art. 20 — Management Body Accountability) · ART-146 · OpenChainGraph · AINumbers.co</title>
 <meta name="description" content="Check NIS2 Article 20 management body (board) accountability readiness: formal approval of Art.21 measures, quarterly status updates, CISO designation, cybersecurity training, and board review recency. Personal liability risk flag. Board-ready PDF. W3C VC §13.11. Zero network.">
@@ -245,15 +246,22 @@ const MANIFEST = {
   "chaingraph": true
 };
 
-const CONTROLS=['board_approved_art21_measures','board_receives_quarterly_status_updates','ciso_or_equivalent_designated','board_cybersecurity_training_completed','training_covers_threat_landscape','training_covers_incident_response'];
-const BOARD_ACTIONS={
-  board_approved_art21_measures:'Board must formally approve all Art. 21 cybersecurity risk-management measures (Directive Art. 20(1))',
-  board_receives_quarterly_status_updates:'Establish quarterly board-level cybersecurity status reporting cadence',
-  ciso_or_equivalent_designated:'Designate a CISO or equivalent cybersecurity officer with board-level accountability',
-  board_cybersecurity_training_completed:'Schedule and complete NIS2-mandated cybersecurity training for all management-body members',
-  training_covers_threat_landscape:'Confirm training curriculum includes sector-specific threat landscape and risk context',
-  training_covers_incident_response:'Confirm training curriculum covers Art. 23 incident-reporting clocks (24h/72h/30d)',
-  board_review_stale:'Schedule overdue board cybersecurity review — last review is more than 12 months ago'
+const CONTROLS = [
+  'board_approved_art21_measures',
+  'board_receives_quarterly_status_updates',
+  'ciso_or_equivalent_designated',
+  'board_cybersecurity_training_completed',
+  'training_covers_threat_landscape',
+  'training_covers_incident_response',
+];
+const BOARD_ACTIONS = {
+  board_approved_art21_measures: 'Board must formally approve all Art. 21 cybersecurity risk-management measures (Directive Art. 20(1))',
+  board_receives_quarterly_status_updates: 'Establish quarterly board-level cybersecurity status reporting cadence',
+  ciso_or_equivalent_designated: 'Designate a CISO or equivalent cybersecurity officer with board-level accountability',
+  board_cybersecurity_training_completed: 'Schedule and complete NIS2-mandated cybersecurity training for all management-body members',
+  training_covers_threat_landscape: 'Confirm training curriculum includes sector-specific threat landscape and risk context',
+  training_covers_incident_response: 'Confirm training curriculum covers Art. 23 incident-reporting clocks (24h/72h/30d)',
+  board_review_stale: 'Schedule overdue board cybersecurity review — last review is more than 12 months ago',
 };
 const CONTROL_LABELS={
   board_approved_art21_measures:'Board approved Art.21 measures',
@@ -265,23 +273,42 @@ const CONTROL_LABELS={
 };
 
 function compute(pp) {
-  const { board_review_age_days=null } = pp;
-  const review_age=Number(board_review_age_days);
-  const review_stale=!Number.isFinite(review_age)||review_age<0||review_age>365;
-  const gaps=[];let controls_met=0;
-  CONTROLS.forEach(key=>{if(pp[key]===true)controls_met++;else gaps.push(key);});
-  if(review_stale)gaps.push('board_review_stale');
-  const board_action_items=gaps.map(g=>BOARD_ACTIONS[g]||`Address gap: ${g}`);
-  const grade=controls_met>=6?'A':controls_met>=5?'B':controls_met>=3?'C':'D';
-  const personal_liability_risk=pp.board_approved_art21_measures!==true||review_stale;
-  const compliance_flags={NIS2_GOVERNANCE_ASSESSED:true};
-  compliance_flags[`NIS2_GOVERNANCE_GRADE_${grade}`]=true;
-  if(personal_liability_risk)compliance_flags.NIS2_PERSONAL_LIABILITY_RISK=true;
-  if(gaps.length===0)compliance_flags.NIS2_GOVERNANCE_READY=true;
-  return{output_payload:{governance_grade:grade,controls_met,total_controls:CONTROLS.length,gaps,board_action_items,personal_liability_risk,board_review_age_days:Number.isFinite(review_age)?review_age:null},compliance_flags};
+  const { board_review_age_days = null } = pp;
+
+  const review_age = Number(board_review_age_days);
+  const review_stale = !Number.isFinite(review_age) || review_age < 0 || review_age > 365;
+
+  const gaps = [];
+  let controls_met = 0;
+  CONTROLS.forEach(key => {
+    if (pp[key] === true) controls_met++;
+    else gaps.push(key);
+  });
+  if (review_stale) gaps.push('board_review_stale');
+
+  const board_action_items = gaps.map(g => BOARD_ACTIONS[g] || `Address gap: ${g}`);
+  const grade = controls_met >= 6 ? 'A' : controls_met >= 5 ? 'B' : controls_met >= 3 ? 'C' : 'D';
+
+  // Personal liability: board has not approved Art. 21 OR review is overdue
+  const personal_liability_risk = pp.board_approved_art21_measures !== true || review_stale;
+
+  const compliance_flags = [];
+  compliance_flags.push('NIS2_GOVERNANCE_ASSESSED');
+  compliance_flags.push(`NIS2_GOVERNANCE_GRADE_${grade}`);
+  if (personal_liability_risk) compliance_flags.push('NIS2_PERSONAL_LIABILITY_RISK');
+  if (gaps.length === 0) compliance_flags.push('NIS2_GOVERNANCE_READY');
+
+  return {
+    output_payload: {
+      governance_grade: grade, controls_met, total_controls: CONTROLS.length,
+      gaps, board_action_items, personal_liability_risk,
+      board_review_age_days: Number.isFinite(review_age) ? review_age : null,
+    },
+    compliance_flags,
+  };
 }
 
-function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
+function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o=Object.create(null);for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
 async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 
 let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;
@@ -398,6 +425,27 @@ ${actionItems}
 <div class="mono">${_lastHash}</div>
 
 
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-146-nis2-governance-readiness-checker.kernel.mjs">art-146-nis2-governance-readiness-checker.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:6492a6a83f4e5bbfcd5e1a759af227e26770c5c65a70fc8fe7028c150712f280</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-146-nis2-governance-readiness-checker.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-146-nis2-governance-readiness-checker.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="kernels/fixtures/compute-proof/art-146-nis2-governance-readiness-checker.receipt.json">sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: deferred</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/6492a6a83f4e5bbfcd5e1a759af227e26770c5c65a70fc8fe7028c150712f280.json">6492a6a83f4e5bbfcd5e1a759af227e26770c5c65a70fc8fe7028c150712f280</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=accac1c1bac59e5a8fae4f95ec8382cf01ddad12a548691b4f23ec733e282a51">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">

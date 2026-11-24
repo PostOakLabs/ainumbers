@@ -408,7 +408,17 @@ if (!shouldStop()) {
       if (sampled < 1) return { measured: false, why: `the sample windows carried no active mutant across ${totalMutants} generated (all Ignored) — nothing measurable` };
       return { measured: true, totalMutants, sampled, sampledSeconds: run.elapsedS, windows: windows.length };
     } finally {
-      rmSync(sandbox, { recursive: true, force: true });
+      // KERNEL-PREFLIGHT-SAMPLE-RM-EPERM-1: cleanup is best-effort. On win32 a
+      // budget-killed stryker tree releases its file handles late, so a bare
+      // rmSync threw EPERM here and crashed the whole preflight from inside an
+      // ADVISORY check (2026-11-21, art-826: exit 1 after the 240 s budget).
+      // Retry the delete, and if the OS still holds the directory, leave it in
+      // the temp dir with a note rather than fail a gate this check never owns.
+      try {
+        rmSync(sandbox, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
+      } catch (e) {
+        console.log(`  [${LABEL}] note: could not remove sample sandbox ${sandbox} (${e.code || e.message}); left in the temp dir. Advisory only, the gate result is unaffected.`);
+      }
     }
   };
 
