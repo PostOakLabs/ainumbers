@@ -276,6 +276,27 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-105
 </section>
 <!-- ASK-AGENT:END -->
 
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-105-mica-token-service-scoper.kernel.mjs">art-105-mica-token-service-scoper.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:d0eebd3034d330eb5b1a17311674632a9254db5a191bde8f9508ca7f16d2b615</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-105-mica-token-service-scoper.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-105-mica-token-service-scoper.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="kernels/fixtures/compute-proof/art-105-mica-token-service-scoper.receipt.json">sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: deferred</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/d0eebd3034d330eb5b1a17311674632a9254db5a191bde8f9508ca7f16d2b615.json">d0eebd3034d330eb5b1a17311674632a9254db5a191bde8f9508ca7f16d2b615</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=30c326ac9904fcc3ec2d1d42283c349f267c2ad7efdeeb29efdd04aa461ca65e">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">
@@ -404,43 +425,85 @@ function loadPreset(p) {
 }
 
 function compute(pp) {
-  const token_type = pp.token_type || 'other';
-  const activity = pp.activity || 'service';
-  const delegated_to_existing = (token_type === 'art' || token_type === 'emt') && activity === 'issuance';
+  const { inputs = {} } = pp;
+  const {
+    token_type = 'other',
+    activity = 'service',
+  } = inputs;
 
-  let classification, route_target, rationale;
-  if (token_type === 'art' && activity === 'issuance') {
-    classification = 'ART Issuer Route'; route_target = 'existing-stablecoin-chains';
-    rationale = 'Asset-Referenced Token issuance falls under MiCA Title IV (Arts 16-47). Existing reserve-stress and stablecoin-compliance chains apply. No CASP authorisation required for issuance alone.';
-  } else if (token_type === 'emt' && activity === 'issuance') {
-    classification = 'EMT Issuer Route'; route_target = 'existing-stablecoin-chains';
-    rationale = 'E-Money Token issuance falls under MiCA Title III (Arts 48-58). Requires e-money institution authorisation. Existing mica-reserve-stress chain applies.';
-  } else if ((token_type === 'art' || token_type === 'emt') && activity === 'service') {
-    classification = 'ART/EMT Token + CASP Service'; route_target = 'wave20-mica-chains';
-    rationale = 'Providing CASP services (Title V) on ART/EMT tokens requires separate CASP authorisation in addition to any Title III/IV compliance.';
-  } else if ((token_type === 'art' || token_type === 'emt') && activity === 'both') {
-    classification = 'ART/EMT Dual Route'; route_target = 'both';
-    rationale = 'Both issuance and service activities require dual compliance: Title III/IV for issuance + Title V CASP authorisation for services.';
-  } else if (activity === 'issuance') {
-    classification = 'Other/Utility Token Issuance'; route_target = 'national-rules-check';
-    rationale = 'Other/utility token issuance may not require a CASP licence depending on the specific token structure and national implementation. Verify with home-state NCA.';
+  const is_art_emt = token_type === 'art' || token_type === 'emt';
+  const delegated_to_existing = is_art_emt && activity === 'issuance';
+
+  let classification;
+  let route_target;
+  let rationale;
+
+  if (is_art_emt && activity === 'issuance') {
+    classification = 'ART/EMT Issuer Route';
+    route_target = 'existing-stablecoin-chains';
+    rationale =
+      'ART/EMT issuance is governed by Title III (EMT) and Title IV (ART) of MiCA. Authorisation requirements, reserve obligations, and whitepaper rules differ from the CASP service track. Delegate to existing stablecoin reserve and reserve-stress chains.';
+  } else if (is_art_emt && activity === 'service') {
+    classification = 'ART/EMT Token + CASP Service';
+    route_target = 'wave20-mica-chains';
+    rationale =
+      'Providing crypto-asset services over ART/EMT tokens falls under Title V CASP licensing. The token issuer authorisation and CASP service authorisation are separate tracks under MiCA. Wave 20 chains apply for CASP service assessment.';
+  } else if (is_art_emt && activity === 'both') {
+    classification = 'ART/EMT Dual Route';
+    route_target = 'both';
+    rationale =
+      'Dual-track: ART/EMT issuance requires Title III/IV authorisation; CASP services over those tokens require Title V CASP authorisation. Both tracks apply concurrently.';
+  } else if ((token_type === 'other' || token_type === 'utility') && activity === 'issuance') {
+    classification = 'Other/Utility Token Issuance';
+    route_target = 'national-rules-check';
+    rationale =
+      'Other crypto-assets and utility tokens not qualifying as EMT or ART fall under Title II of MiCA. Some exemptions apply (e.g. utility tokens, small offers). National competent authority rules may also apply. Check NCA guidance before proceeding.';
+  } else if ((token_type === 'other' || token_type === 'utility') && activity === 'service') {
+    classification = 'CASP Service Route';
+    route_target = 'wave20-mica-chains';
+    rationale =
+      'Providing crypto-asset services over other/utility tokens falls under Title V CASP licensing. Wave 20 chains cover CASP authorisation, transitional periods, MAR surveillance, and travel rule compliance.';
   } else {
-    classification = 'CASP Service Route'; route_target = 'wave20-mica-chains';
-    rationale = 'CASP services on other/utility crypto-assets fall under MiCA Title V. Wave-20 mica-* chains provide the full CASP lifecycle conformance suite.';
+    // other/utility + both (or fallback)
+    classification = 'CASP Dual Route';
+    route_target = 'wave20-mica-chains';
+    rationale =
+      'Other/utility token issuance (Title II) combined with CASP services (Title V) — both tracks apply. Wave 20 chains cover the CASP service dimension; verify Title II exemption eligibility separately.';
   }
 
   const compliance_flags = [];
-  if (delegated_to_existing) compliance_flags.push('ART_EMT_ROUTE_EXISTING');
-  else compliance_flags.push('CASP_SERVICE_ROUTE_WAVE20');
+  if (delegated_to_existing) {
+    compliance_flags.push('ART_EMT_ROUTE_EXISTING');
+  } else {
+    compliance_flags.push('CASP_SERVICE_ROUTE_WAVE20');
+  }
 
   const output_payload = {
-    classification, route_target, delegated_to_existing,
-    existing_chains_delegated: delegated_to_existing ? ['stablecoin-reserve-stress','mica-reserve-stress','classify_digital_asset_regulatory'] : [],
-    wave20_chains_applicable: !delegated_to_existing ? ['mica-casp-authorization','mica-transitional','mica-whitepaper','mica-mar-surveillance','mica-travel-rule'] : [],
+    classification,
+    route_target,
+    delegated_to_existing,
+    existing_chains_delegated: delegated_to_existing
+      ? [
+          'stablecoin-reserve-stress',
+          'mica-reserve-stress',
+          'classify_digital_asset_regulatory',
+        ]
+      : [],
+    wave20_chains_applicable: !delegated_to_existing
+      ? [
+          'mica-casp-authorization',
+          'mica-transitional',
+          'mica-whitepaper',
+          'mica-mar-surveillance',
+          'mica-travel-rule',
+        ]
+      : [],
     rationale,
-    mica_note: 'MiCA Reg. (EU) 2023/1114: Title III = EMT issuers, Title IV = ART issuers, Title V = CASP service providers. Different licensing tracks.',
-    reference_version: '2026-06'
+    mica_note:
+      'MiCA Reg. (EU) 2023/1114: Title III = EMT issuers, Title IV = ART issuers, Title V = CASP service providers. Different licensing tracks.',
+    reference_version: '2026-06',
   };
+
   return { output_payload, compliance_flags };
 }
 

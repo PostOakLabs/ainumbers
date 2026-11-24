@@ -285,13 +285,17 @@ function _utf8Bytes(str) {
   const out = [];
   for (let i = 0; i < s.length; i++) {
     let c = s.charCodeAt(i);
-    if (c < 0x80) { out.push(c); }
-    else if (c < 0x800) { out.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f)); }
-    else if (c >= 0xd800 && c <= 0xdbff) {
+    if (c < 0x80) {
+      out.push(c);
+    } else if (c < 0x800) {
+      out.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));
+    } else if (c >= 0xd800 && c <= 0xdbff) {
       const hi = c, lo = s.charCodeAt(++i);
       const cp = 0x10000 + ((hi - 0xd800) << 10) + (lo - 0xdc00);
       out.push(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 0x3f), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f));
-    } else { out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f)); }
+    } else {
+      out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
+    }
   }
   return new Uint8Array(out);
 }
@@ -338,34 +342,62 @@ function _sha256(bytes) {
   [h0,h1,h2,h3,h4,h5,h6,h7].forEach(function(v, i) { const j = i * 4; r[j] = v >>> 24; r[j+1] = (v >>> 16) & 0xff; r[j+2] = (v >>> 8) & 0xff; r[j+3] = v & 0xff; });
   return r;
 }
-function _sha256Hex(str) { return Array.from(_sha256(_utf8Bytes(str))).map((b) => b.toString(16).padStart(2, '0')).join(''); }
+function _sha256Hex(str) {
+  return Array.from(_sha256(_utf8Bytes(str))).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
 
-function leafNode(label, sum) { const s = Number(sum ?? 0); return { hash: _sha256Hex((label ?? '') + '|' + s), sum: s }; }
-function combineNodes(left, right) { return { hash: _sha256Hex(left.hash + '|' + left.sum + '|' + right.hash + '|' + right.sum), sum: left.sum + right.sum }; }
+function leafNode(label, sum) {
+  const s = Number(sum ?? 0);
+  return { hash: _sha256Hex(`${label ?? ''}|${s}`), sum: s };
+}
+function combineNodes(left, right) {
+  return {
+    hash: _sha256Hex(`${left.hash}|${left.sum}|${right.hash}|${right.sum}`),
+    sum: left.sum + right.sum,
+  };
+}
 function walkMerkleSumPath(leaf, path) {
   let current = leaf;
   for (const step of path) {
     const sibling = { hash: String(step.hash ?? ''), sum: Number(step.sum ?? 0) };
-    current = step.position === 'left' ? combineNodes(sibling, current) : combineNodes(current, sibling);
+    current = step.position === 'left'
+      ? combineNodes(sibling, current)
+      : combineNodes(current, sibling);
   }
   return current;
 }
 function normalizeReserveProof(raw) {
   raw = raw ?? {};
-  const path = (raw.path ?? []).map((p) => ({ hash: p.hash, sum: Number(p.sum ?? 0), position: p.position === 'left' ? 'left' : 'right' }));
-  return { leaf: leafNode(raw.leaf_user_id_hash, raw.leaf_balance), path, root: { hash: String(raw.root && raw.root.hash || ''), sum: Number(raw.root && raw.root.sum || 0) } };
+  const path = (raw.path ?? []).map((p) => ({
+    hash: p.hash,
+    sum: Number(p.sum ?? 0),
+    position: p.position === 'left' ? 'left' : 'right',
+  }));
+  return {
+    leaf: leafNode(raw.leaf_user_id_hash, raw.leaf_balance),
+    path,
+    root: { hash: String(raw.root?.hash ?? ''), sum: Number(raw.root?.sum ?? 0) },
+  };
 }
 function normalizeLiabilityBranch(raw) {
   raw = raw ?? {};
-  const path = (raw.path ?? []).map((p) => ({ hash: p.hash, sum: Number(p.sum ?? 0), position: p.position === 'left' ? 'left' : 'right' }));
-  return { leaf: leafNode(raw.leaf_label ?? 'liability-branch-leaf', raw.leaf_sum), path, root: { hash: String(raw.root && raw.root.hash || ''), sum: Number(raw.root && raw.root.sum || 0) } };
+  const path = (raw.path ?? []).map((p) => ({
+    hash: p.hash,
+    sum: Number(p.sum ?? 0),
+    position: p.position === 'left' ? 'left' : 'right',
+  }));
+  return {
+    leaf: leafNode(raw.leaf_label ?? 'liability-branch-leaf', raw.leaf_sum),
+    path,
+    root: { hash: String(raw.root?.hash ?? ''), sum: Number(raw.root?.sum ?? 0) },
+  };
 }
 
 const NOT_PROVEN = [
   { item: 'Total liabilities completeness', detail: 'A single liability-branch aggregation proves that branch\'s subtotal sums correctly; it cannot detect an issuer omitting accounts from the liability tree entirely.' },
   { item: 'Off-balance-sheet encumbrances', detail: 'Pledges, rehypothecation, or liens against reserve assets are not visible in a Merkle-sum inclusion or aggregation proof.' },
   { item: 'Continuous solvency', detail: 'This is a point-in-time snapshot at attestation time, not a continuous or real-time solvency guarantee.' },
-  { item: 'Data truthfulness', detail: 'This tool checks internal consistency of the published data. Whether the underlying published figures are themselves true is the attestor\'s problem, not something this recomputation can determine.' },
+  { item: 'Data truthfulness', detail: 'This tool checks internal consistency of the published data (do the recomputed sums and hashes match what was declared). Whether the underlying published figures are themselves true is the attestor\'s problem, not something this recomputation can determine.' },
   { item: 'PCAOB audit opinion', detail: 'This tool performs no audit and carries no PCAOB or other audit-firm opinion; it is a cryptographic consistency check only.' },
 ];
 
@@ -373,66 +405,103 @@ function compute(pp) {
   const reserveProofRaw = pp.reserve_proof ?? null;
   const liabilityBranchRaw = pp.liability_branch ?? null;
   const publishedFigures = pp.published_reserve_figures ?? null;
+
   const findings = [];
 
+  // ── Check 1: reserve inclusion (single-leaf Merkle-sum path) ────────────
   let inclusionVerdict, inclusionDetail, computedReserveRoot = null, declaredReserveRoot = null;
+  let inclusionVerified = false;
   if (!reserveProofRaw) {
-    inclusionVerdict = 'INDETERMINATE'; inclusionDetail = 'No reserve_proof supplied. Inclusion cannot be checked.';
+    inclusionVerdict = 'INDETERMINATE';
+    inclusionDetail = 'No reserve_proof supplied. Inclusion cannot be checked.';
   } else {
     const proof = normalizeReserveProof(reserveProofRaw);
     declaredReserveRoot = proof.root;
     if (proof.path.length > MAX_PATH_DEPTH) {
-      inclusionVerdict = 'INDETERMINATE'; inclusionDetail = 'Reserve Merkle path depth ' + proof.path.length + ' exceeds the ' + MAX_PATH_DEPTH + '-level bound.';
+      inclusionVerdict = 'INDETERMINATE';
+      inclusionDetail = `Reserve Merkle path depth ${proof.path.length} exceeds the ${MAX_PATH_DEPTH}-level bound.`;
     } else {
       computedReserveRoot = walkMerkleSumPath(proof.leaf, proof.path);
       const rootHashMatch = computedReserveRoot.hash === proof.root.hash && proof.root.hash !== '';
       const sumMatch = computedReserveRoot.sum === proof.root.sum;
-      if (rootHashMatch && sumMatch) { inclusionVerdict = 'CONSISTENT'; inclusionDetail = 'Recomputed inclusion path reaches the declared root (hash match, sum ' + computedReserveRoot.sum + ').'; }
-      else { inclusionVerdict = 'INCONSISTENT'; inclusionDetail = 'Recomputed root ' + (rootHashMatch ? 'hash matches' : 'hash does NOT match') + ' the declared root; sum ' + (sumMatch ? 'matches' : ('computed ' + computedReserveRoot.sum + ' vs declared ' + proof.root.sum)) + '.'; }
+      inclusionVerified = rootHashMatch && sumMatch;
+      if (inclusionVerified) {
+        inclusionVerdict = 'CONSISTENT';
+        inclusionDetail = `Recomputed inclusion path reaches the declared root (hash match, sum ${computedReserveRoot.sum}).`;
+      } else {
+        inclusionVerdict = 'INCONSISTENT';
+        inclusionDetail = `Recomputed root ${rootHashMatch ? 'hash matches' : 'hash does NOT match'} the declared root; sum ${sumMatch ? 'matches' : `computed ${computedReserveRoot.sum} vs declared ${proof.root.sum}`}.`;
+      }
     }
   }
   findings.push({ check: 'reserve_inclusion', verdict: inclusionVerdict, detail: inclusionDetail });
 
+  // ── Check 2: liability aggregation (Merkle-sum branch) ──────────────────
   let liabilityVerdict, liabilityDetail, computedLiabilityRoot = null, declaredLiabilityRoot = null;
+  let liabilityVerified = false;
   if (!liabilityBranchRaw) {
-    liabilityVerdict = 'INDETERMINATE'; liabilityDetail = 'No liability_branch supplied. Liability aggregation cannot be checked.';
+    liabilityVerdict = 'INDETERMINATE';
+    liabilityDetail = 'No liability_branch supplied. Liability aggregation cannot be checked.';
   } else {
     const branch = normalizeLiabilityBranch(liabilityBranchRaw);
     declaredLiabilityRoot = branch.root;
     if (branch.path.length > MAX_PATH_DEPTH) {
-      liabilityVerdict = 'INDETERMINATE'; liabilityDetail = 'Liability Merkle path depth ' + branch.path.length + ' exceeds the ' + MAX_PATH_DEPTH + '-level bound.';
+      liabilityVerdict = 'INDETERMINATE';
+      liabilityDetail = `Liability Merkle path depth ${branch.path.length} exceeds the ${MAX_PATH_DEPTH}-level bound.`;
     } else {
       computedLiabilityRoot = walkMerkleSumPath(branch.leaf, branch.path);
       const rootHashMatch = computedLiabilityRoot.hash === branch.root.hash && branch.root.hash !== '';
       const sumMatch = computedLiabilityRoot.sum === branch.root.sum;
-      if (rootHashMatch && sumMatch) { liabilityVerdict = 'CONSISTENT'; liabilityDetail = 'Recomputed liability branch reaches the declared branch root (hash match, aggregated sum ' + computedLiabilityRoot.sum + ').'; }
-      else { liabilityVerdict = 'INCONSISTENT'; liabilityDetail = 'Recomputed liability branch root ' + (rootHashMatch ? 'hash matches' : 'hash does NOT match') + ' the declared root; sum ' + (sumMatch ? 'matches' : ('computed ' + computedLiabilityRoot.sum + ' vs declared ' + branch.root.sum)) + '.'; }
+      liabilityVerified = rootHashMatch && sumMatch;
+      if (liabilityVerified) {
+        liabilityVerdict = 'CONSISTENT';
+        liabilityDetail = `Recomputed liability branch reaches the declared branch root (hash match, aggregated sum ${computedLiabilityRoot.sum}).`;
+      } else {
+        liabilityVerdict = 'INCONSISTENT';
+        liabilityDetail = `Recomputed liability branch root ${rootHashMatch ? 'hash matches' : 'hash does NOT match'} the declared root; sum ${sumMatch ? 'matches' : `computed ${computedLiabilityRoot.sum} vs declared ${branch.root.sum}`}.`;
+      }
     }
   }
   findings.push({ check: 'liability_aggregation', verdict: liabilityVerdict, detail: liabilityDetail });
 
+  // ── Check 3: coverage ratio (recomputed reserve sum vs recomputed
+  //    liability sum), plus a cross-check against a caller-declared
+  //    published reserve figure if supplied ───────────────────────────────
   let coverageVerdict, coverageDetail, coverageRatioPct = null, reserveFigureCrossCheck = null;
   const haveReserveSum = computedReserveRoot !== null && inclusionVerdict !== 'INDETERMINATE';
   const haveLiabilitySum = computedLiabilityRoot !== null && liabilityVerdict !== 'INDETERMINATE';
   if (!haveReserveSum || !haveLiabilitySum) {
-    coverageVerdict = 'INDETERMINATE'; coverageDetail = 'Coverage ratio requires both a recomputed reserve sum and a recomputed liability sum; at least one is missing or malformed.';
+    coverageVerdict = 'INDETERMINATE';
+    coverageDetail = 'Coverage ratio requires both a recomputed reserve sum and a recomputed liability sum; at least one is missing or malformed.';
   } else {
-    const reserveSum = computedReserveRoot.sum, liabilitySum = computedLiabilityRoot.sum;
+    const reserveSum = computedReserveRoot.sum;
+    const liabilitySum = computedLiabilityRoot.sum;
     if (liabilitySum <= 0) {
-      coverageVerdict = 'INDETERMINATE'; coverageDetail = 'Recomputed liability sum is zero or negative. Coverage ratio is undefined.';
+      coverageVerdict = 'INDETERMINATE';
+      coverageDetail = 'Recomputed liability sum is zero or negative. Coverage ratio is undefined.';
     } else {
       coverageRatioPct = parseFloat(((reserveSum / liabilitySum) * 100).toFixed(4));
       coverageVerdict = 'CONSISTENT';
-      coverageDetail = 'Recomputed reserves (' + reserveSum + ') are ' + coverageRatioPct.toFixed(2) + '% of recomputed liabilities (' + liabilitySum + '). Consistent with the published data, not an independent solvency determination.';
+      coverageDetail = `Recomputed reserves (${reserveSum}) are ${coverageRatioPct.toFixed(2)}% of recomputed liabilities (${liabilitySum}). Consistent with the published data, not an independent solvency determination.`;
     }
+
     if (publishedFigures && publishedFigures.total_reserves_usd != null) {
       const published = Number(publishedFigures.total_reserves_usd);
-      const deltaPct = reserveSum > 0 ? parseFloat((Math.abs(published - reserveSum) / reserveSum * 100).toFixed(4)) : (published === 0 ? 0 : null);
+      const deltaPct = reserveSum > 0
+        ? parseFloat((Math.abs(published - reserveSum) / reserveSum * 100).toFixed(4))
+        : (published === 0 ? 0 : null);
       const withinTolerance = deltaPct !== null && deltaPct <= COVERAGE_TOLERANCE_PCT;
-      reserveFigureCrossCheck = { published_total_reserves_usd: published, recomputed_reserve_sum: reserveSum, delta_pct: deltaPct, within_tolerance: withinTolerance, as_of: publishedFigures.as_of ?? null, source: publishedFigures.source ?? null };
+      reserveFigureCrossCheck = {
+        published_total_reserves_usd: published,
+        recomputed_reserve_sum: reserveSum,
+        delta_pct: deltaPct,
+        within_tolerance: withinTolerance,
+        as_of: publishedFigures.as_of ?? null,
+        source: publishedFigures.source ?? null,
+      };
       if (!withinTolerance) {
         coverageVerdict = coverageVerdict === 'CONSISTENT' ? 'INCONSISTENT' : coverageVerdict;
-        coverageDetail += ' Published reserve figure (' + published + ') diverges from the recomputed reserve sum by ' + (deltaPct === null ? 'n/a' : deltaPct + '%') + ', exceeding the ' + COVERAGE_TOLERANCE_PCT + '% tolerance.';
+        coverageDetail += ` Published reserve figure (${published}) diverges from the recomputed reserve sum by ${deltaPct === null ? 'n/a' : deltaPct + '%'}, exceeding the ${COVERAGE_TOLERANCE_PCT}% tolerance.`;
       }
     }
   }
@@ -453,14 +522,19 @@ function compute(pp) {
   if (overall_determination === 'CONSISTENT') compliance_flags.push('POR_CONSISTENT_WITH_PUBLISHED_DATA');
 
   const output_payload = {
-    overall_determination, findings,
-    computed_reserve_root: computedReserveRoot, declared_reserve_root: declaredReserveRoot,
-    computed_liability_root: computedLiabilityRoot, declared_liability_root: declaredLiabilityRoot,
-    coverage_ratio_pct: coverageRatioPct, reserve_figure_cross_check: reserveFigureCrossCheck,
+    overall_determination,
+    findings,
+    computed_reserve_root: computedReserveRoot,
+    declared_reserve_root: declaredReserveRoot,
+    computed_liability_root: computedLiabilityRoot,
+    declared_liability_root: declaredLiabilityRoot,
+    coverage_ratio_pct: coverageRatioPct,
+    reserve_figure_cross_check: reserveFigureCrossCheck,
     not_proven: NOT_PROVEN,
     determination_note: 'Verdict language describes internal consistency of the published PoR data only, never a solvency claim or an audit opinion. The truth of the underlying published figures is the attestor\'s responsibility.',
     regulatory_framework: 'Voluntary Merkle-sum PoR attestation (Summa report structure); not a GENIUS Act §4 filing (see art-582/art-275/art-06) and not a PCAOB audit.',
   };
+
   return { output_payload, compliance_flags };
 }
 
@@ -662,6 +736,27 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-584
 </section>
 <!-- ASK-AGENT:END -->
 
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-584-proof-of-reserves-verifier.kernel.mjs">art-584-proof-of-reserves-verifier.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:852795237d7839b503e955db5db49f8d87ff6dc9edeb5a31687fca2e6f660b66</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-584-proof-of-reserves-verifier.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-584-proof-of-reserves-verifier.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="graph/nodes/art-584-proof-of-reserves-verifier.json">art-584-proof-of-reserves-verifier.json</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: verified</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/852795237d7839b503e955db5db49f8d87ff6dc9edeb5a31687fca2e6f660b66.json">852795237d7839b503e955db5db49f8d87ff6dc9edeb5a31687fca2e6f660b66</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=a996acbcdcfadb69d6ac47609e5343bf5050f83b118f24e3cb0599a548854e92">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">

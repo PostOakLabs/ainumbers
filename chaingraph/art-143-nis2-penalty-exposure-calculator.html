@@ -256,8 +256,8 @@ const MANIFEST = {
   "chaingraph": true
 };
 
-const MITIGATION_REDUCTION_PER_FACTOR=0.10;
-const MITIGATION_FLOOR=0.30;
+const MITIGATION_REDUCTION_PER_FACTOR = 0.10;
+const MITIGATION_FLOOR = 0.30;
 
 const INF_LABELS={
   art21_measures_absent:'Art.21 measures absent',
@@ -274,33 +274,57 @@ const MIT_LABELS={
 };
 
 function compute(pp) {
-  const { entity_classification='', global_annual_turnover_eur=0, infringement_types=[], mitigating_factors=[] } = pp;
-  const turnover=Number(global_annual_turnover_eur);
-  const safe_turnover=(Number.isFinite(turnover)&&turnover>=0)?turnover:0;
-  const is_essential=entity_classification==='essential';
-  const is_important=entity_classification==='important';
-  const infringement_breakdown=[];
-  let max_penalty_eur=0;
-  const types=Array.isArray(infringement_types)?infringement_types:[];
-  types.forEach(type=>{
-    const fixed_max=is_essential?10000000:is_important?7000000:0;
-    const pct=is_essential?0.02:is_important?0.014:0;
-    const pct_based=(Number.isFinite(safe_turnover*pct))?safe_turnover*pct:0;
-    const penalty=Math.max(fixed_max,pct_based);
-    infringement_breakdown.push({type,fixed_max_eur:fixed_max,pct_based_eur:Math.round(pct_based),penalty_eur:Math.round(penalty)});
-    if(penalty>max_penalty_eur)max_penalty_eur=penalty;
+  const {
+    entity_classification = '',
+    global_annual_turnover_eur = 0,
+    infringement_types = [],
+    mitigating_factors = [],
+  } = pp;
+
+  const turnover = Number(global_annual_turnover_eur);
+  const safe_turnover = (Number.isFinite(turnover) && turnover >= 0) ? turnover : 0;
+  const is_essential = entity_classification === 'essential';
+  const is_important = entity_classification === 'important';
+
+  const infringement_breakdown = [];
+  let max_penalty_eur = 0;
+
+  const types = Array.isArray(infringement_types) ? infringement_types : [];
+  types.forEach(type => {
+    const fixed_max = is_essential ? 10_000_000 : is_important ? 7_000_000 : 0;
+    const pct = is_essential ? 0.02 : is_important ? 0.014 : 0;
+    const pct_based = (Number.isFinite(safe_turnover * pct)) ? safe_turnover * pct : 0;
+    const penalty = Math.max(fixed_max, pct_based);
+    infringement_breakdown.push({ type, fixed_max_eur: fixed_max, pct_based_eur: Math.round(pct_based), penalty_eur: Math.round(penalty) });
+    if (penalty > max_penalty_eur) max_penalty_eur = penalty;
   });
-  const factor_count=Array.isArray(mitigating_factors)?mitigating_factors.length:0;
-  const reduction=Math.min(factor_count*MITIGATION_REDUCTION_PER_FACTOR,1-MITIGATION_FLOOR);
-  const mitigated_estimate_eur=Math.round(max_penalty_eur*(1-reduction));
-  const turnover_pct_exposure=(safe_turnover>0&&Number.isFinite(max_penalty_eur/safe_turnover))?Math.round((max_penalty_eur/safe_turnover)*10000)/100:0;
-  const compliance_flags={NIS2_PENALTY_ASSESSED:true};
-  if(max_penalty_eur>5000000)compliance_flags.NIS2_HIGH_PENALTY_EXPOSURE=true;
-  if(types.length===0)compliance_flags.NIS2_NO_INFRINGEMENT_DECLARED=true;
-  return{output_payload:{max_penalty_eur:Math.round(max_penalty_eur),mitigated_estimate_eur,turnover_pct_exposure,infringement_breakdown,entity_classification,mitigating_factors_applied:factor_count},compliance_flags};
+
+  const factor_count = Array.isArray(mitigating_factors) ? mitigating_factors.length : 0;
+  const reduction = Math.min(factor_count * MITIGATION_REDUCTION_PER_FACTOR, 1 - MITIGATION_FLOOR);
+  const mitigated_estimate_eur = Math.round(max_penalty_eur * (1 - reduction));
+  const turnover_pct_exposure = (safe_turnover > 0 && Number.isFinite(max_penalty_eur / safe_turnover))
+    ? Math.round((max_penalty_eur / safe_turnover) * 10000) / 100
+    : 0;
+
+  const compliance_flags = [];
+  compliance_flags.push('NIS2_PENALTY_ASSESSED');
+  if (max_penalty_eur > 5_000_000) compliance_flags.push('NIS2_HIGH_PENALTY_EXPOSURE');
+  if (types.length === 0) compliance_flags.push('NIS2_NO_INFRINGEMENT_DECLARED');
+
+  return {
+    output_payload: {
+      max_penalty_eur: Math.round(max_penalty_eur),
+      mitigated_estimate_eur,
+      turnover_pct_exposure,
+      infringement_breakdown,
+      entity_classification,
+      mitigating_factors_applied: factor_count,
+    },
+    compliance_flags,
+  };
 }
 
-function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
+function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o=Object.create(null);for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
 async function executionHashLocal(pp,op){const obj=cgCanon({policy_parameters:pp,output_payload:op});const s=JSON.stringify(obj);const buf=new TextEncoder().encode(s);const dig=await crypto.subtle.digest('SHA-256',buf);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 
 let _lastArtifact=null,_lastPP=null,_lastOP=null,_lastHash=null,_lastFlags=null;
@@ -414,6 +438,27 @@ ${op.infringement_breakdown.length>0?`<h2 style="font-size:1rem;margin-top:1.5re
 <p style="font-size:.75rem;color:#94a3b8;margin-top:1rem">For indicative modelling only. Actual sanctions are at supervisory authority discretion.</p>
 
 
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-143-nis2-penalty-exposure-calculator.kernel.mjs">art-143-nis2-penalty-exposure-calculator.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:1e050fdce69b0aa2eeb1cbcca0c6b09530edfc86980ab96104181ae460bbb60a</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-143-nis2-penalty-exposure-calculator.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-143-nis2-penalty-exposure-calculator.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="kernels/fixtures/compute-proof/art-143-nis2-penalty-exposure-calculator.receipt.json">sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: deferred</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/1e050fdce69b0aa2eeb1cbcca0c6b09530edfc86980ab96104181ae460bbb60a.json">1e050fdce69b0aa2eeb1cbcca0c6b09530edfc86980ab96104181ae460bbb60a</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=de7a60dbbd1e35a982f604442ab5334a5485d4afee34a61ea4f62e55b3b680be">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">

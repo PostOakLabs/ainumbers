@@ -193,7 +193,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
     <div class="q-help" id="byNode"></div>
     <div style="overflow-x:auto">
       <table class="flip-table" id="reportTable">
-        <thead><tr><th>File</th><th>Node</th><th>Receipt kernel digest</th><th>Result</th><th>Recorded execution hash</th><th>New execution hash</th><th>Differing pointers</th><th>Note</th></tr></thead>
+        <thead><tr><th>File</th><th>Node</th><th>Receipt kernel digest</th><th>Result</th><th>Erratum</th><th>Recorded execution hash</th><th>New execution hash</th><th>Differing pointers</th><th>Note</th></tr></thead>
         <tbody id="reportBody"></tbody>
       </table>
     </div>
@@ -202,11 +202,11 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
       <button class="verify-btn" type="button" id="ap2ExportBtn" disabled>Export Policy Mandate</button>
       <span class="verify-result" id="exportResult"></span>
     </div>
-    <div class="q-help">A result of CHANGED means the output differs under the stated condition. It does not say the recorded receipt was produced incorrectly. Whether an earlier kernel needed correcting is the claim of a published erratum, which this page does not read.</div>
+    <div class="q-help">A result of CHANGED means the output differs under the stated condition. It does not say the recorded receipt was produced incorrectly. Where a published erratum names the receipt's module digest, the erratum column shows NOT-LISTED, LISTED-UNAFFECTED or LISTED-AFFECTED from the reader shipped with this page. Checking the errata log is optional due diligence and never changes the hash result or any verdict.</div>
   </div>
 
   <div class="cross-link">
-    How the results are named: SAME (identical output and hash), CHANGED-VERDICT (the verdict moved class), CHANGED-VALUE (the verdict class held, another member differs), REFUSED (the new run refused or raised a structured error), UNRESOLVED (the node is not on this site, or the receipt cannot be re-run from its file), TAMPERED-OR-MALFORMED (the file does not match its own hash, so it takes no part). Signatures, proofs and anchors are checked on the <a href="receipt-bundle-verify.html">receipt bundle verifier</a>. <a href="receipt-folder-replay-explainer.html">How this page works</a>.
+    How the results are named: SAME (identical output and hash), CHANGED-VERDICT (the verdict moved class), CHANGED-VALUE (the verdict class held, another member differs), REFUSED (the new run refused or raised a structured error), UNRESOLVED (the node is not on this site, or the receipt cannot be re-run from its file), TAMPERED-OR-MALFORMED (the file does not match its own hash, so it takes no part). In mode A the erratum column names one of NOT-LISTED, LISTED-UNAFFECTED and LISTED-AFFECTED; it is blank when the receipt carries no module digest. Signatures, proofs and anchors are checked on the <a href="receipt-bundle-verify.html">receipt bundle verifier</a>. <a href="receipt-folder-replay-explainer.html">How this page works</a>.
   </div>
 </div>
 
@@ -311,6 +311,9 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 <script type="module" id="replayModule">
 import { executionHash, jcsStringify } from './kernels/_hash.mjs';
+import { extractKernelDigest, extractPolicyParameters, errataCheck } from './errata-check.mjs';
+import { ERRATA_SNAPSHOT } from './errata/errata-snapshot.mjs';
+const ERRATA_READER = { extractKernelDigest, extractPolicyParameters, errataCheck };
 /* BEGIN replay-lib */
 // ---- verdict reader (scripts/check-kernel-missing-input-failclosed.mjs) ----
 // Verdict-bearing keys of an output payload, in the order they are tried.
@@ -630,7 +633,25 @@ function checkCaps(files) {
   return { ok: true };
 }
 
-const CSV_COLUMNS = ['file', 'mode', 'node_id', 'receipt_kernel_digest', 'current_kernel_digest', 'state', 'old_execution_hash', 'new_execution_hash', 'pointers', 'reason'];
+/**
+ * Mode-A erratum join. One state from the shared reader for one receipt, using the reader
+ * and snapshot the caller supplies as same-origin page-load resources (the node test imports
+ * them directly). Optional due diligence: it never changes the replay result or hash result.
+ * A receipt with no module digest returns NOT-ENGAGED and the caller hides the cell.
+ */
+function erratumState(receipt, reader, snapshot, nowMs) {
+  try {
+    const r = reader.errataCheck(snapshot, {
+      kernelDigest: reader.extractKernelDigest(receipt),
+      policyParameters: reader.extractPolicyParameters(receipt),
+    }, nowMs);
+    return r.state;
+  } catch (e) {
+    return null;
+  }
+}
+
+const CSV_COLUMNS = ['file', 'mode', 'node_id', 'receipt_kernel_digest', 'current_kernel_digest', 'state', 'erratum_state', 'old_execution_hash', 'new_execution_hash', 'pointers', 'reason'];
 
 /** One CSV cell. A leading = + - @ is prefixed so a spreadsheet never reads a file name as a formula. */
 function csvCell(v) {
@@ -797,7 +818,12 @@ function buildMandate(report, nowIso) {
       const name = f.webkitRelativePath || f.name;
       const parsed = parseReceipt(text);
       if (parsed.ok && pointerSet.size < 400) for (const p of leafPointers(parsed.receipt.policy_parameters, 400)) pointerSet.add(p);
-      rows.push(await replayFile(name, text, { mode, loadKernel, edits }));
+      const result = await replayFile(name, text, { mode, loadKernel, edits });
+      if (mode === 'A' && parsed.ok) {
+        const state = erratumState(parsed.receipt, ERRATA_READER, ERRATA_SNAPSHOT, Date.now());
+        result.erratum_state = state === 'NOT-ENGAGED' ? null : state;
+      }
+      rows.push(result);
       if (i % 10 === 9) { $('progress').textContent = (i + 1) + ' of ' + selected.length + ' replayed'; await tick(); }
     }
     $('progress').textContent = 'Done: ' + rows.length + ' replayed.';
@@ -838,6 +864,7 @@ function buildMandate(report, nowIso) {
     report.rows.slice(0, MAX_ROWS_SHOWN).forEach((r) => {
       const tr = document.createElement('tr');
       cell(tr, r.file); cell(tr, r.node_id); cell(tr, short(r.receipt_kernel_digest)); cell(tr, r.state);
+      cell(tr, r.erratum_state);
       cell(tr, short(r.old_execution_hash)); cell(tr, short(r.new_execution_hash));
       cell(tr, (r.pointers || []).join(' ')); cell(tr, r.reason);
       body.appendChild(tr);

@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="kernel-digest" content="sha256:3bd0f1a3cd02576428db7940732f9d87c09d2632dafbcd72eb4f5f9ee96cb040">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>Compile Model Risk Lineage Pack &middot; ART-562 &middot; OpenChainGraph &middot; AINumbers.co</title>
 <meta name="description" content="Compiles a model's model-passport-lifecycle and model-validation-cycle artifacts into one BCBS 239/RDARR-shaped bundle, cited by execution_hash and never recomputed. Zero-stages-cited is a legitimate empty state, never an error.">
@@ -292,21 +293,22 @@ const STAGES = [
 const NOT_PROVEN = [
   { item: 'Model-run recomputation', detail: 'This pack cites the execution_hash of each stage artifact; it never re-runs the model, never re-derives the outcome analysis or replication diff, and never re-scores the test battery.' },
   { item: 'Validation sufficiency', detail: 'This pack takes no position on whether the underlying model is fit for use. Any validation opinion belongs to the cited art-453/art-489 artifacts themselves, never to this bundle.' },
-  { item: 'Referenced-artifact authenticity', detail: 'Each stage reference is a caller-supplied {tool_id, execution_hash} pair, asserted and digested into this receipt. This tool performs no lookup against a live artifact store and does not itself verify that a cited hash corresponds to a real, still-valid upstream artifact.' },
+  { item: 'Referenced-artifact authenticity', detail: 'Each stage reference is a caller-supplied {tool_id, execution_hash} pair, asserted and digested into this receipt. This node performs no lookup against a live artifact store and does not itself verify that a cited hash corresponds to a real, still-valid upstream artifact.' },
   { item: 'BCBS 239 / RDARR compliance', detail: 'This pack is a citation bundle over receipts that already exist. It has no bearing on whether the underlying model is fit for use and does not itself satisfy BCBS 239 or RDARR -- those are firm-level governance obligations this document evidences pieces of, never fulfills.' },
 ];
 
 function s(v) { return String(v == null ? '' : v).trim(); }
 
 function normalizeRef(ref) {
-  if (!ref) return null;
+  if (!ref || typeof ref !== 'object') return null;
   const execution_hash = s(ref.execution_hash);
   if (!execution_hash) return null;
   const tool_id = s(ref.tool_id) || null;
-  return { execution_hash: execution_hash, tool_id: tool_id };
+  return { execution_hash, tool_id };
 }
 
 function compute(pp) {
+  pp = pp || {};
   const model_id = s(pp.model_id) || null;
   const as_of_date = s(pp.as_of_date) || null;
 
@@ -318,12 +320,16 @@ function compute(pp) {
   const stages_present = [];
   const stages_absent = [];
 
-  for (let i = 0; i < STAGES.length; i++) {
-    const def = STAGES[i];
+  for (const def of STAGES) {
     const ref = normalizeRef(pp[def.key]);
     if (ref) {
       stages_present.push(def.stage);
-      cited_receipts.push({ stage: def.stage, label: def.label, tool_id: ref.tool_id || def.canonical_tool_id, execution_hash: ref.execution_hash });
+      cited_receipts.push({
+        stage: def.stage,
+        label: def.label,
+        tool_id: ref.tool_id || def.canonical_tool_id,
+        execution_hash: ref.execution_hash,
+      });
     } else {
       stages_absent.push(def.stage);
     }
@@ -343,14 +349,20 @@ function compute(pp) {
   }
 
   const output_payload = {
-    model_id: model_id, as_of_date: as_of_date, structural_error: structural_error,
-    cited_receipts: cited_receipts, stages_present: stages_present, stages_absent: stages_absent,
-    stage_count_present: stage_count_present, stage_count_total: stage_count_total,
+    model_id,
+    as_of_date,
+    structural_error,
+    cited_receipts,
+    stages_present,
+    stages_absent,
+    stage_count_present,
+    stage_count_total,
     not_proven: NOT_PROVEN,
     fence: 'This pack cites the referenced model-passport-lifecycle and model-validation-cycle receipts by execution_hash; it does not re-run the model, re-derive the outcome analysis, or itself opine on validation sufficiency. Zero-stages-cited is a legitimate empty state, never an error. Never a coverage percentage, never a stripped citation.',
     regulatory_framework: 'SR 26-2 (Revised Guidance on Model Risk Management, effective 2026-04-17, superseding SR 11-7) scopes this pack to conventional quantitative models only; BCBS 239 §II and RDARR Guide §3.4 references are informative context only, and this pack makes no compliance claim under any of the three.',
   };
-  return { output_payload: output_payload, compliance_flags: compliance_flags };
+
+  return { output_payload, compliance_flags };
 }
 
 const PRESETS = {
@@ -514,6 +526,27 @@ function exportJSON() {
   document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 </script>
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-562-compile-model-risk-lineage-pack.kernel.mjs">art-562-compile-model-risk-lineage-pack.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:3bd0f1a3cd02576428db7940732f9d87c09d2632dafbcd72eb4f5f9ee96cb040</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-562-compile-model-risk-lineage-pack.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-562-compile-model-risk-lineage-pack.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="graph/nodes/art-562-compile-model-risk-lineage-pack.json">art-562-compile-model-risk-lineage-pack.json</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: verified</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/3bd0f1a3cd02576428db7940732f9d87c09d2632dafbcd72eb4f5f9ee96cb040.json">3bd0f1a3cd02576428db7940732f9d87c09d2632dafbcd72eb4f5f9ee96cb040</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=d805944a4947727215618c8ff8822cf6c6fe24f725f1df2e383df19127de2881">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">
