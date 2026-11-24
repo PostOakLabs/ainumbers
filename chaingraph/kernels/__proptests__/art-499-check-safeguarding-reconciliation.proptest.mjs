@@ -87,19 +87,34 @@ function randomPP(rng) {
   };
 }
 
-// ---------- mutation-mode trial cap (PR-3277-SCHEMA-MUTATION-CURE-2; art-215 pattern) ----------
+// ---------- mutation-mode trial budget (sibling config opt-in) ----------
 const MUTATION_MODE =
   process.env.__STRYKER_ACTIVE_MUTANT__ !== undefined ||
   __dirname.replace(/\\/g, '/').includes('/ain-mutation-tier-');
-let mutationTrials = 50; // default per-mutant cap; full trials remain the default outside the tier
-if (process.env.PROPFLOOR_TRIAL_CAP !== undefined) {
+
+// Single source of truth when present: run-mutation-tier.mjs exports the sibling
+// `<id>.mutation.json` "mutationTrials" key as MUTATION_TIER_NUM_RUNS into this
+// kernel's per-mutant child only. A positive safe integer caps each trial loop;
+// unset leaves every count exactly as it was before the opt-in.
+const envRuns = process.env.MUTATION_TIER_NUM_RUNS;
+const siblingRuns =
+  envRuns !== undefined && Number.isSafeInteger(Number(envRuns)) && Number(envRuns) > 0
+    ? Number(envRuns)
+    : null;
+
+// Existing in-file cap, kept only for MUTATION_MODE when the sibling route is absent.
+let inFileRuns = 50;
+if (siblingRuns === null && process.env.PROPFLOOR_TRIAL_CAP !== undefined) {
   const cap = Number(process.env.PROPFLOOR_TRIAL_CAP);
   if (!Number.isInteger(cap) || cap <= 0) {
     throw new Error(`PROPFLOOR_TRIAL_CAP must be a positive integer, got "${process.env.PROPFLOOR_TRIAL_CAP}"`);
   }
-  mutationTrials = cap;
+  inFileRuns = cap;
 }
-const TRIALS = MUTATION_MODE ? mutationTrials : 5000;
+const budgetRuns = siblingRuns !== null ? siblingRuns : (MUTATION_MODE ? inFileRuns : null);
+const capped = (n) => (budgetRuns === null ? n : Math.min(n, budgetRuns));
+const TRIALS = capped(5000);
+const P5_TRIALS = capped(2000);
 
 // ---------- P1: termination — components.length exactly matches input array length ----------
 function checkP1_termination() {
@@ -196,7 +211,7 @@ function checkP4_boundedness() {
 // ---------- P5: metamorphic — appending a zero-amount, correctly-typed component never changes the verdict ----------
 function checkP5_append_zero_component_metamorphic() {
   let violations = 0, checked = 0;
-  for (let i = 0; i < 2000; i++) {
+  for (let i = 0; i < P5_TRIALS; i++) {
     const pp = randomPP(rand);
     const r1 = compute(pp).output_payload;
     const extended = { ...pp, safeguarding_resource_components: [...pp.safeguarding_resource_components, { account_ref: 'ZERO', component_type: 'relevant_assets', amount_minor_units: 0 }] };
