@@ -173,6 +173,7 @@ function checkPrototypeNamesCarried() {
 async function checkBuildArtifactNeverThrows() {
   let checked = 0;
   const violations = [];
+  /** @type {any} */
   let deep = { x: 1 };
   for (let i = 0; i < 600; i++) deep = { n: deep };
   const hostile = [
