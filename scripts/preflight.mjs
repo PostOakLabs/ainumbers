@@ -2502,6 +2502,15 @@ const GATES = [
   // (GATE-SELFTEST-META-1).
   ['Node-page footer freshness (FOOTER-INFRA-COLUMN-1)', 'node scripts/gen-node-footers.mjs --check'],
   ['Node-page footer writer self-test (RED+GREEN)', 'node scripts/gen-node-footers.mjs --selftest'],
+  // PROOFLINKS-GEN-1 (PR #3208 cure): the node-page proof-links region, COVERED id
+  // 'node-page-proof-links' in derived-artifacts.mjs — a <details> inventory of the
+  // node's verification artifacts between <!--PROOF-LINKS--> sentinels. The command
+  // string is byte-identical to that entry's `gate`, so the generic ADVISORY_ON_PR
+  // rule classifies it: a PR authors the page, main's regen writes the block after
+  // merge; blocking on main. --check is the alarm (exit 1 on drift or a dead
+  // relative href). Wiring here is also the generator coverage meta-gate's
+  // requirement (SSOT-GATES-1 §G2.5): a --check generator must be wired here.
+  ['Node-page proof-links freshness (PROOFLINKS-GEN-1)', 'node scripts/gen-proof-links.mjs --check'],
   // CHAIN-PROMPT-INFRA-1: the chain example prompt is mandatory for every chain
   // (CONTRACT §A3.1). The gate below is hard in both contexts — it reads the
   // authored SSOT and the assembled graph, neither of which a main-side regen
