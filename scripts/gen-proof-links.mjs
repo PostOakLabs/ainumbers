@@ -26,6 +26,7 @@
  * Usage:
  *   node scripts/gen-proof-links.mjs             # write every drifted block (main-side regen)
  *   node scripts/gen-proof-links.mjs --check     # exit 1 on drift or a dead relative href
+ *   node scripts/gen-proof-links.mjs --only <id>[,<id>] # write just those node pages (pr-autofix.yml; PR-AUTOFIX-PROOFLINKS-DERIVABLE-1)
  *   node scripts/gen-proof-links.mjs --paths     # print the page list this writer owns
  *   node scripts/gen-proof-links.mjs --selftest  # RED on a mutated scratch page, GREEN after a write
  *
@@ -319,6 +320,39 @@ async function selftest() {
     const once = readFileSync(dst, 'utf8');
     await run({ apply: true, dir: tmp, targets: [sample] });
     if (readFileSync(dst, 'utf8') !== once) fails.push('second write was not byte-identical');
+
+    // --only parsing: comma list, repeats and the = form all collapse to ids.
+    const parsed = parseOnly(['--only', 'a,b', '--only=c', '--only', 'd']).join(',');
+    if (parsed !== 'a,b,c,d') fails.push(`--only parse: expected a,b,c,d got ${parsed}`);
+
+    // Stale-digest control: a block naming a wrong digest (main's block after a
+    // sync) is rewritten to the page's own kernel digest.
+    const goodDigest = (once.match(/Kernel digest: (sha256:[0-9a-f]{64})/) || [])[1];
+    if (!goodDigest) fails.push('stale control: no kernel digest line in generated block');
+    else {
+      // Mutate only inside the block: the page head carries the same digest meta.
+      const bs = blockSpan(once);
+      const stale = once.slice(0, bs[0]) + once.slice(bs[0], bs[1]).split(goodDigest.replace('sha256:', '')).join('0'.repeat(64)) + once.slice(bs[1]);
+      writeFileSync(dst, stale);
+      const rs = await run({ apply: true, dir: tmp, targets: [sample] });
+      if (rs.changed.length !== 1) fails.push(`stale control: expected 1 rewrite, got ${rs.changed.length}`);
+      if (readFileSync(dst, 'utf8') !== once) fails.push('stale control: block not restored to the own-kernel digest');
+    }
+
+    // --only scoping: run() over one target leaves a second page untouched.
+    const other = proofLinkPages().find((p) => p !== sample && /^chaingraph\/art-\d+/.test(p));
+    if (other) {
+      const oname = toolIdOf(other) + '.html';
+      const odst = join(tmp, oname);
+      copyFileSync(resolve(CG, oname), odst);
+      const ob = readFileSync(odst, 'utf8');
+      const os = blockSpan(ob);
+      if (os) writeFileSync(odst, ob.slice(0, os[0]) + ob.slice(os[1]));
+      const beforeOther = readFileSync(odst, 'utf8');
+      writeFileSync(dst, once.replace('Verification artifacts', 'Verification artifactss'));
+      const one = await run({ apply: true, dir: tmp, targets: [sample] });
+      if (one.changed.length !== 1 || readFileSync(odst, 'utf8') !== beforeOther) fails.push('--only scope: a page outside the target set was written');
+    }
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -330,13 +364,37 @@ async function selftest() {
   console.log(`✓ gen-proof-links selftest: block written above the footer, GREEN control 0 drift, mutated block RED, relative hrefs resolve, second write byte-identical (sample ${sample}).`);
 }
 
+/** --only <id>[,<id>...] (repeatable, also --only=<ids>): the node ids to limit to. */
+export function parseOnly(args) {
+  const ids = [];
+  for (let i = 0; i < args.length; i++) {
+    let v = null;
+    if (args[i] === '--only') v = args[++i] || '';
+    else if (args[i].startsWith('--only=')) v = args[i].slice('--only='.length);
+    if (v !== null) ids.push(...v.split(',').map((s) => s.trim()).filter(Boolean));
+  }
+  return ids;
+}
+
 async function main() {
   const args = process.argv.slice(2);
   if (args.includes('--paths')) { proofLinkPages().forEach((p) => console.log(p)); return; }
   if (args.includes('--selftest')) { await selftest(); return; }
 
   const check = args.includes('--check');
-  const result = await run({ apply: !check, targets: proofLinkPages() });
+  let targets = proofLinkPages();
+  const only = parseOnly(args);
+  if (args.some((a) => a === '--only' || a.startsWith('--only=')) && !only.length) {
+    console.error('gen-proof-links: --only needs at least one node id');
+    process.exit(2);
+  }
+  if (only.length) {
+    const want = new Set(only);
+    const have = new Set(targets.map(toolIdOf));
+    for (const id of only) if (!have.has(id)) console.log(`gen-proof-links: --only ${id}: not a node page this writer owns, skipped`);
+    targets = targets.filter((p) => want.has(toolIdOf(p)));
+  }
+  const result = await run({ apply: !check, targets });
   if (check) {
     const problems = [];
     if (result.changed.length) problems.push(`${result.changed.length} node page(s) differ from the generator: ${result.changed.slice(0, 12).join(', ')}${result.changed.length > 12 ? ', …' : ''}`);
