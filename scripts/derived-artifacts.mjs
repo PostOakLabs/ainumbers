@@ -96,6 +96,7 @@ import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { nodeFooterPages } from './gen-node-footers.mjs';
+import { proofLinkPages } from './gen-proof-links.mjs';
 import { ROOT_CHROME_PAGES } from './gen-root-chrome.mjs';
 import { chainAskAgentPages } from './gen-chain-ask-agent.mjs';
 import { hubScenePages } from './gen-hub-scenes.mjs';
@@ -423,6 +424,32 @@ export const COVERED = [
     artifacts: nodeFooterPages(),
     after: 'chaingraph-assemble',
     share: 'n/a (new 2026-09-27, FOOTER-INFRA-COLUMN-1)',
+  },
+  {
+    // PROOFLINKS-GEN-1 (2026-11-13, Anchor Wave C merged in): the reader-facing
+    // "Verification artifacts" <details> block of every node page (the node
+    // shards intersected with the top-level pages), rendered by scripts/
+    // gen-proof-links.mjs from committed artifacts and a kernel digest
+    // recomputed from kernel bytes via _buildid.mjs sourceDigest() (SO #34),
+    // never read from the page. The block sits above the footer, outside the
+    // footer regex, so node-page-footers and this entry cooperate on the same
+    // page bytes in different regions (the declare-parity cross-entry WARN
+    // class by design, as with counts/openapi). PRs never commit the block:
+    // main's single writer does (SO #35), so the gate is advisory on a PR and
+    // blocking on main / merge_group like node-page-footers. Writes happen on
+    // a runtime path (one region per derived page), so `writes` is declared
+    // explicitly; the page list is computed from the shard/page directories,
+    // so a node page added later joins the set. Ordered after node-page-footers
+    // AND after chaingraph-assemble (it reads compute_proof_ready from the
+    // assembled graph). Idempotent: a second pass is byte-identical
+    // (gen-proof-links --selftest).
+    id: 'node-page-proof-links',
+    regen: 'node scripts/gen-proof-links.mjs',
+    gate: 'node scripts/gen-proof-links.mjs --check',
+    writes: proofLinkPages(),
+    artifacts: proofLinkPages(),
+    after: 'node-page-footers',
+    share: 'n/a (new 2026-11-13, PROOFLINKS-GEN-1)',
   },
   {
     // S18-FRESHNESS-DURABLE-FIX-1 (mechanism b, 2026-09-17): the §18 digest-freshness
@@ -1427,24 +1454,6 @@ export const COVERED = [
     after: 'chaingraph-assemble',
     share: '57%',
   },
-  {
-    id: 'debt-ledger',
-    // DEBT-LEDGER-1 (0xAlpha/2026-08-21-mechanical-verification-audit.md
-    // Finding 3): owns ONE self-delimited region of fv-explainer.html
-    // (`<!-- GEN:DEBT-LEDGER:START -->...:END -->`), independent of the
-    // `<!--COUNT:-->` sentinels the 'counts' entry above already owns on
-    // this same page — same "two generators, two regions, one shared file"
-    // pattern as 'chain-index' and 'chaingraph-hub' both declaring
-    // chaingraph/chaingraph-hub.html below.
-    // REGEN-COVERED-ORDER-FIX-4: LAST in the array, pinned after nav-island —
-    // it reads scripts/nav-island-baseline.json (every *-baseline.json) and
-    // must see the pruned state in the same pass (60bb7dff fixpoint incident).
-    regen: 'node scripts/gen-debt-ledger.mjs --write',
-    gate: 'node scripts/gen-debt-ledger.mjs --check',
-    artifacts: ['fv-explainer.html'],
-    after: 'nav-island',
-    share: 'n/a (new 2026-08-21, DEBT-LEDGER-1)',
-  },
 
   {
     // MANIFEST-EXAMPLES-ANNOTATIONS-1 (2026-09-19): single writer (SO #47) for the
@@ -1530,6 +1539,60 @@ export const COVERED = [
     // reads chaingraph.json (node scope + receipts) — must run AFTER the assembler
     after: 'chaingraph-assemble',
     share: 'n/a (new 2026-10-22, RECEIPT-BUNDLE-PUBLISH-1)',
+  },
+  {
+    // REGEN-QUARANTINE-PRUNE-1 (2026-11-23): the §18 recompute-equality QUARANTINE
+    // PRUNE — the main-side follow-up that never had an owner. Both 2026-11-23
+    // quarantine causes (art-350, art-713) say "DELETE this entry in the follow-up
+    // that lands the re-spliced monolith", and the re-splice happens ONLY on main
+    // (derived-artifacts-regen.yml), so no PR could ever do it: each stale entry
+    // redded main's §18 gate ("quarantined, but its receipt REPRODUCES now") until
+    // a hand heal row landed (Scripts Verify runs 45250735999 / 45270542853, each
+    // pausing lineage-arm and merge-lane). This entry closes the loop in the SAME
+    // bot commit: it re-runs the §18 gate (scripts/check-recompute-equality.mjs
+    // --json, ~8 s over the estate) as its own process and deletes exactly the
+    // entries that gate reports as cured ("quarantined, but its receipt REPRODUCES
+    // now"). ⛔ The ratchet's own law is untouched and mechanically enforced by the
+    // helper: counts only go DOWN — it can never add an entry, edit a cause or
+    // re-order; a non-reproducing entry stays verbatim; the file is written only
+    // when at least one entry goes (byte-identical serialization pinned by the
+    // helper's self-test); malformed check output fails closed with no write. The
+    // decision of WHAT reproduces stays entirely with check-recompute-equality.mjs.
+    // LAST in the array — the prune must see the fully regenerated tree (its input
+    // is the post-assemble monolith every earlier entry helped produce), and
+    // runRegenPass executes COVERED in array order; the after: edge pins the
+    // previous tail and is mechanically enforced by check-derived-fanout-coverage.mjs.
+    // prAbsentOk does NOT apply: the quarantine file is committed and present on
+    // every PR checkout. Not DERIVED_ROOT-aware by the same rule as the §18 gate
+    // itself (it reads the checkout's committed bytes), so in ephemeral mode
+    // --verify SKIPS it as main-regen-owned (MERGEGROUP-DERIVED-REGEN-FIX-1).
+    id: 'recompute-quarantine-prune',
+    regen: 'node scripts/prune-recompute-quarantine.mjs',
+    gate: 'node scripts/prune-recompute-quarantine.mjs --check',
+    writes: ['scripts/recompute-equality-quarantine.json'],
+    artifacts: ['scripts/recompute-equality-quarantine.json'],
+    after: 'receipt-bundles',
+    share: 'n/a (new 2026-11-23, REGEN-QUARANTINE-PRUNE-1)',
+  },
+  {
+    id: 'debt-ledger',
+    // DEBT-LEDGER-1 (0xAlpha/2026-08-21-mechanical-verification-audit.md
+    // Finding 3): owns ONE self-delimited region of fv-explainer.html
+    // (`<!-- GEN:DEBT-LEDGER:START -->...:END -->`), independent of the
+    // `<!--COUNT:-->` sentinels the 'counts' entry above already owns on
+    // this same page — same "two generators, two regions, one shared file"
+    // pattern as 'chain-index' and 'chaingraph-hub' both declaring
+    // chaingraph/chaingraph-hub.html below.
+    // REGEN-PRUNE-ORDER-BEFORE-DEBT-LEDGER-1 (2026-11-24): LAST in the array,
+    // now pinned after recompute-quarantine-prune (was after nav-island, which
+    // still precedes it by array order): the ledger counts every ratchet file,
+    // including scripts/recompute-equality-quarantine.json that the prune may
+    // shrink in the same pass, so it must see the pruned state (60bb7dff incident).
+    regen: 'node scripts/gen-debt-ledger.mjs --write',
+    gate: 'node scripts/gen-debt-ledger.mjs --check',
+    artifacts: ['fv-explainer.html'],
+    after: 'recompute-quarantine-prune',
+    share: 'n/a (new 2026-08-21, DEBT-LEDGER-1)',
   },
 ];
 
