@@ -219,6 +219,17 @@ if (MERGE_GROUP_DERIVED_ROOT) {
 // full-estate scan, so nothing here weakens what CI checks.
 const changedIdx = process.argv.indexOf('--changed');
 const changedRef = changedIdx !== -1 ? process.argv[changedIdx + 1] : null;
+// DERIVED-SELFTEST-SPEED-1: on merge_group CI the workflow invokes preflight
+// bare (no --changed), so the live scan used to execute the ENTIRE declared set
+// — measured 1,455,996 ms / 1,226,873 ms on runs 44951224902 / 44949079663 —
+// even for a kernel-only or workflow-only push touching none of those entries'
+// inputs. `origin/main` is resolvable in that job (asserted in scripts-verify.yml).
+// The gate's --changed mode selects by regen/gate script and declared artifact
+// (a SUPERSET of what the push can affect), so every command the touched paths
+// can affect still runs; pull_request and the workflow_run/main leg still run
+// the FULL live scan as the coverage backstop. DERIVED_REGEN_LIVE_FULL=1 forces
+// the full scan unchanged.
+const regenLiveChangedRef = changedRef || (process.env.GITHUB_EVENT_NAME === 'merge_group' ? 'origin/main' : null);
 const BUDGET_MS = 60_000;
 
 // The two §18 freshness commands (ratchet + fixture proof) that read the PR-only scratch assembly.
@@ -1020,7 +1031,22 @@ const { advisoryGates, isMainContext, COVERED, DERIVED_ROOT_GATES } = await impo
 // fails OPEN (gate runs) — the live scan is read/write-scoped to a throwaway
 // worktree, never the shared tree, so running it unnecessarily costs time, not
 // correctness, which is the same tradeoff helmPathsTouched() already makes.
+//
+// DERIVED-SELFTEST-SCOPE-CLOSURE-1: primary regen/gate scripts alone
+// under-trigger the same way they under-selected. Measured 2026-11-22: a
+// rename inside scripts/counts.mjs — imported by gen-evidence-register.mjs /
+// gen-guides-index.mjs / gen-debt-ledger.mjs and others, and the SECOND
+// script of a chained (`&&`) regen command is equally invisible — matched no
+// primary script, so this trigger skipped the live gate entirely while
+// verify-counts --check exited 1. The relevant set is therefore widened with
+// the SAME per-entry key set the gate's own --changed selection uses (one
+// implementation, exported from check-derived-regen-live.mjs — the chained
+// sub-command scripts plus the transitive static import closure of every
+// regen/gate script; the lexical extractor discipline is
+// check-derived-declare-parity.mjs's, not a second parser). A closure build
+// failure fails OPEN (gate runs), the same direction as the catch below.
 const { primaryScriptPath } = await import('./check-derived-declare-parity.mjs');
+const { coveredDiffKeyUnion } = await import('./check-derived-regen-live.mjs');
 function derivedRegenLiveScopeTouched() {
   // DERIVED-SET-SELFTEST-TRIGGER-1: this gate's own script and its test were
   // absent from this set — site PR #2104 changed check-derived-regen-live.mjs
@@ -1038,6 +1064,11 @@ function derivedRegenLiveScopeTouched() {
     if (rp) relevant.add(rp);
     if (c.gate) { const gp = primaryScriptPath(c.gate); if (gp) relevant.add(gp); }
   }
+  // DERIVED-SELFTEST-SCOPE-CLOSURE-1: widen with chained-command scripts and
+  // the transitive static import closure (see the block comment above).
+  const closureUnion = coveredDiffKeyUnion({ covered: COVERED, repoPath: REPO });
+  if (!closureUnion.ok) return true; // closure build failed — fail OPEN, run the gate
+  for (const k of closureUnion.keys) relevant.add(k);
   try {
     const touched = new Set();
     execSync('git diff --name-only HEAD', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
@@ -1787,6 +1818,15 @@ const GATES = [
   // PAGE-KERNEL-PARITY-GATE-1 (stage 1): ADVISORY by construction, the checker always exits 0 (full estate about 50 s).
   ['Page-versus-kernel parity sweep (stage 1 advisory, always exits 0)', 'node scripts/check-page-kernel-parity.mjs'],
   ['Page-versus-kernel parity controls (RED+GREEN synthetic pages)', 'node scripts/check-page-kernel-parity.selftest.mjs'],
+  // PAGE-BUILDARTIFACT-HASH-REFUSAL-1 (stage 1 advisory): the node-page artifact-build step
+  // never throws on unhashable input. Throws and hashed-unhashable results are FINDINGS
+  // (reported, exit 0); the ONLY hard red is the baseline ratchet - a page pinned in
+  // scripts/page-hash-refusal-baseline.json carrying MORE findings than its pinned count.
+  // --changed scopes the vm probe to node pages added or modified vs origin/main and falls
+  // back to the full estate when the ref does not resolve; the estate baseline is written
+  // by --write-baseline runs, deliberately, not by the gate.
+  ['Node page hash-refusal probe (stage 1 advisory, PAGE-BUILDARTIFACT-HASH-REFUSAL-1)', 'node scripts/check-page-hash-refusal.mjs --changed origin/main'],
+  ['Node page hash-refusal probe self-test controls (RED+GREEN planted pages, ratchet red)', 'node scripts/check-page-hash-refusal.mjs --self-test'],
   ['Retired ap2_version tombstone (§3.1/A3.2, RETIREMENT-TOMBSTONE-GATES-1)','node scripts/check-retired-ap2-version.mjs'],
   ['Retired ap2_version tombstone controls (RED+GREEN mutation)', 'node scripts/check-retired-ap2-version.test.mjs'],
   ['Credits registry coverage (vendored-code license gate)', 'node scripts/check-credits-coverage.mjs repo'],
@@ -1933,6 +1973,15 @@ const GATES = [
   // snippets are prose naming the API, not API usage).
   ['WebMCP API surface (bare navigator.modelContext sweep, WEBMCP-DOCCONTEXT-REGEN-1)', 'node scripts/check-webmcp-snippet.mjs --api-surface'],
   ['WebMCP snippet gate controls (RED+GREEN)', 'node scripts/check-webmcp-snippet.mjs --self-test'],
+  // WEBMCP-SPEC-ALIGN-1: the 13 Nov 2026 WebMCP CG draft alignment gate. Over
+  // every tracked HTML page: no navigator.modelContext, every registerTool call
+  // promise-handled, name <=128 chars in ^[A-Za-z0-9_.-]+$, and only the four
+  // spec annotation booleans. Generator-owned regions are always hard gated;
+  // hand-registered pages are tolerated only inside the shrink-only baseline
+  // scripts/webmcp-spec-baseline.json (7 hand pages plus one chain page whose
+  // shard is outside the generator's live population, all measured at this base).
+  ['WebMCP registration spec alignment (WEBMCP-SPEC-ALIGN-1)', 'node scripts/check-webmcp-spec.mjs'],
+  ['WebMCP spec gate controls (RED A/B/C/D + GREEN, SO #34c pairing)', 'node scripts/check-webmcp-spec.mjs --self-test'],
   // TOOLPAGE-ASK-AGENT-1 (AGENT-REACH-BUILD-SPEC 3.6): the ask-your-agent block
   // is a derived artifact. --check rebuilds every marker-delimited block from
   // its manifest and reds any hand-edit (byte drift), duplication, tool-name
@@ -2407,6 +2456,16 @@ const GATES = [
   // QuickJS sandbox and requires the receipt's journal.output to reproduce. ~8s over the full estate.
   ['§18 recompute-equality (SO #34)', 'node scripts/check-recompute-equality.mjs'],
   ['§18 recompute-equality controls (canary + mutation)', 'node scripts/check-recompute-equality.test.mjs'],
+  // §18 QUARANTINE PRUNE (REGEN-QUARANTINE-PRUNE-1): the freshness half of the COVERED entry
+  // 'recompute-quarantine-prune' (derived-artifacts.mjs, LAST in COVERED — the main-side regen
+  // deletes reproducing quarantine entries in the same bot commit as the re-splice). The command
+  // string is deliberately identical to that entry's `gate:` so the generic ADVISORY_ON_PR
+  // categorisation downgrades it on PRs (a PR cannot satisfy it: the committed tree still carries
+  // the stale entry by SO #35's single-writer law) while it stays BLOCKING on main. Advisory only
+  // ever reads; it writes nothing in this mode. The paired controls file proves every wrong-stub
+  // shape the helper must reject.
+  ['§18 quarantine prune freshness (REGEN-QUARANTINE-PRUNE-1)', 'node scripts/prune-recompute-quarantine.mjs --check'],
+  ['§18 quarantine prune controls (SO #40b pairing)', 'node scripts/prune-recompute-quarantine.test.mjs'],
   ['Proof-badge freshness',        'node scripts/check-proof-badge.mjs'],
   ['Kernel as-of staleness ratchet (ASOF-GATE-1)', 'node scripts/check-kernel-asof-staleness.mjs'],
   ['Kernel as-of staleness fixture proof', 'node scripts/check-kernel-asof-staleness.test.mjs'],
@@ -2453,6 +2512,15 @@ const GATES = [
   // (GATE-SELFTEST-META-1).
   ['Node-page footer freshness (FOOTER-INFRA-COLUMN-1)', 'node scripts/gen-node-footers.mjs --check'],
   ['Node-page footer writer self-test (RED+GREEN)', 'node scripts/gen-node-footers.mjs --selftest'],
+  // PROOFLINKS-GEN-1 (PR #3208 cure): the node-page proof-links region, COVERED id
+  // 'node-page-proof-links' in derived-artifacts.mjs — a <details> inventory of the
+  // node's verification artifacts between <!--PROOF-LINKS--> sentinels. The command
+  // string is byte-identical to that entry's `gate`, so the generic ADVISORY_ON_PR
+  // rule classifies it: a PR authors the page, main's regen writes the block after
+  // merge; blocking on main. --check is the alarm (exit 1 on drift or a dead
+  // relative href). Wiring here is also the generator coverage meta-gate's
+  // requirement (SSOT-GATES-1 §G2.5): a --check generator must be wired here.
+  ['Node-page proof-links freshness (PROOFLINKS-GEN-1)', 'node scripts/gen-proof-links.mjs --check'],
   // CHAIN-PROMPT-INFRA-1: the chain example prompt is mandatory for every chain
   // (CONTRACT §A3.1). The gate below is hard in both contexts — it reads the
   // authored SSOT and the assembled graph, neither of which a main-side regen
@@ -2625,7 +2693,7 @@ const GATES = [
   // touch derived-artifacts.mjs or a generator/gate script it names.
   ['Derived-set regen selftest fixture proof (SO #40b pairing)', 'node scripts/check-derived-regen-live.test.mjs'],
   ...(DERIVED_REGEN_LIVE_SCOPE_TOUCHED
-    ? [['Derived-set live regen selftest (DERIVED-SET-SELFTEST-1)', 'node scripts/check-derived-regen-live.mjs --check' + ((changedRef && process.env.DERIVED_REGEN_LIVE_FULL !== '1') ? ' --changed ' + changedRef : '')]]
+    ? [['Derived-set live regen selftest (DERIVED-SET-SELFTEST-1)', 'node scripts/check-derived-regen-live.mjs --check' + ((regenLiveChangedRef && process.env.DERIVED_REGEN_LIVE_FULL !== '1') ? ' --changed ' + regenLiveChangedRef : '')]]
     : [['Derived-set live regen selftest (DERIVED-SET-SELFTEST-1: no derived-artifacts/generator path touched, skipped)', 'node -e "1"',
         { notRun: 'DERIVED-SET-SELFTEST-1 scoping — this push touches no scripts/derived-artifacts.mjs or generator/gate script it names, so the live regen self-test (which actually executes every regen command) was not run' }]]),
   // MERGEQUEUE-GATE-PARITY-1: the control for the merge-queue repairability probe

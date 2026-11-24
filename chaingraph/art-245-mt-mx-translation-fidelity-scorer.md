@@ -1,6 +1,6 @@
 # MT103 to MX Translation Fidelity Scorer
 
-Scores ISO 15022 MT103 to ISO 20022 pacs.008 translation fidelity for the CBPR+ migration (structured-address date deferred by Swift on 27 Aug 2026, new date not published). Checks field presence mapping (:20: to UETR, :50K/A to Dbtr/Nm, :59/:59A to Cdtr/Nm, :52A/:57A to BIC agents, :70: to RmtInf/Ustrd, :71A to ChrgBr), truncation risks (140-char remittance info, address line lengths), and charge bearer code mapping (OUR=DEBT, SHA=SHAR, BEN=CRED). Outputs fidelity score and per-field mapping results.
+Scores ISO 15022 MT103 to ISO 20022 pacs.008 translation fidelity for the CBPR+ migration (structured-address date deferred by Swift on 27 Aug 2026, new date not published). Checks field presence mapping (:20: to UETR, :50K/A to Dbtr/Nm, :59/:59A to Cdtr/Nm, :52A/:57A to BIC agents, :70: to RmtInf/Ustrd, :71A to ChrgBr), truncation risks (140-char remittance info, address line lengths), and charge bearer code mapping (OUR=DEBT, SHA=SHAR, BEN=CRED). Outputs fidelity score and per-field mapping results. A missing, null, empty or whitespace-only required field yields an INDETERMINATE verdict instead of a positive fidelity result.
 
 - Page: https://ainumbers.co/chaingraph/art-245-mt-mx-translation-fidelity-scorer.html
 - Markdown twin: https://ainumbers.co/chaingraph/art-245-mt-mx-translation-fidelity-scorer.md
@@ -30,7 +30,7 @@ Scores ISO 15022 MT103 to ISO 20022 pacs.008 translation fidelity for the CBPR+ 
 - cbpr_plus_deadline (string,null, optional)
 - cbpr_plus_deadline_status (string, optional)
 - charge_bearer_map (object, optional)
-- compliant (boolean, optional)
+- compliant (boolean,null, optional)
 - error_count (integer, optional)
 - fidelity_score (integer, optional)
 - fidelity_tier (string, optional)

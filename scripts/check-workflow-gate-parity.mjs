@@ -393,6 +393,24 @@ const SELF_TEST =
   "check-gate-selftest-pairing.mjs. Preflight-only is a deliberate CI-minutes trade, not an oversight.";
 
 const PREFLIGHT_ONLY = new Map([
+  // ── WEBMCP-SPEC-ALIGN-1 (2026-11-19) ───────────────────────────────────────
+  ["check-webmcp-spec.mjs",
+    "WebMCP registration conformance gate (13 Nov 2026 draft shape) plus its RED/GREEN " +
+    "self-test. Preflight-only because scripts-verify.yml's path-scoped full preflight already " +
+    "runs this gate on every PR that can change its inputs (scripts/** for the gate and its " +
+    "generator, and the tracked *.html pages it scans), so a separate workflow step would " +
+    "only duplicate that call. The gate is BLOCKING in preflight, not advisory."],
+  // ── PAGE-BUILDARTIFACT-HASH-REFUSAL-1 (2026-11-21) ─────────────────────────
+  ["check-page-hash-refusal.mjs",
+    "Stage 1 advisory node-page hash-refusal probe (both GATES entries share this basename: the " +
+    "estate/changed probe and the in-file --self-test mutation controls). Advisory by construction: " +
+    "throws and hashed-unhashable drives are findings reported with exit 0; the only hard red is the " +
+    "baseline ratchet in scripts/page-hash-refusal-baseline.json, which a content PR can only trip by " +
+    "regressing a pinned page. Making the findings themselves blocking is a later row's flip per the " +
+    "row text, and that flip lands together with the CI routing. scripts-verify.yml's path-scoped full " +
+    "preflight runs both entries on every PR touching scripts/** or chaingraph/**, and the probe itself " +
+    "meets every page-diff PR through preflight's page path class, so a separate workflow step would " +
+    "only duplicate the run."],
   // ── SITE-CHROME-GAPS-1 (2026-11-19) ────────────────────────────────────────
   ["check-site-chrome.mjs",
     "Published-page nav/footer gate, wired into preflight.mjs only by this row's fence " +
@@ -564,6 +582,17 @@ const PREFLIGHT_ONLY = new Map([
     "'node-page-footers' (advisory on a PR, blocking on main via the generic downgrade; main-side " +
     "freshness is owned by derived-artifacts-regen.yml). The write half is the regen command, " +
     "never a PR step. Reads only tracked repo files, no CI-only input. Self-test: --selftest."],
+  // ── PROOFLINKS-GEN-1 (PR #3208 cure, 2026-11-23) ───────────────────────────
+  ["gen-proof-links.mjs",
+    "Node-page proof-links region freshness (PROOFLINKS-GEN-1): re-renders each node page's " +
+    "<!--PROOF-LINKS--> <details> block (kernel-digest + fv-explainer/verify artifact inventory) " +
+    "from the committed tree in memory and compares; --check exits 1 on drift or a dead relative " +
+    "href. Hard in preflight; its CI route is scripts-verify.yml's full preflight (the workflow " +
+    "runs `node scripts/preflight.mjs`), so a named workflow step would only duplicate the same " +
+    "suite. It is also the COVERED gate of derived-artifacts.mjs id 'node-page-proof-links' " +
+    "(advisory on a PR, blocking on main via the generic downgrade; main-side freshness is owned " +
+    "by derived-artifacts-regen.yml). The write half is the regen command, never a PR step. Reads " +
+    "only tracked repo files, no CI-only input. Self-test: --selftest."],
   // ── ZK-PAGES-SVG-PILOT-1 (2026-09-27) ───────────────────────────────────────
   ["sync-scene-kit.mjs",
     "SCENE-KIT inline-copy sync + WCAG 2.2.2 motion-timing scan (ZK-PAGES-SVG-PILOT-1). Hard in " +
@@ -637,6 +666,21 @@ const PREFLIGHT_ONLY = new Map([
     "never a workflow. In-memory mutation self-test: gen-changelog.selftest.mjs (its own GATES " +
     "entry)."],
   ["gen-changelog.selftest.mjs", SELF_TEST],
+  // ── REGEN-QUARANTINE-PRUNE-1 (2026-11-23) ──────────────────────────────────
+  ["prune-recompute-quarantine.mjs",
+    "§18 quarantine prune (REGEN-QUARANTINE-PRUNE-1): the main-side derived regen deletes " +
+    "recompute-equality quarantine entries whose receipts reproduce on the regenerated tree, in the " +
+    "same bot commit as the re-splice. Hard in preflight; its CI route is scripts-verify.yml full " +
+    "preflight (the workflow runs `node scripts/preflight.mjs`), so a named workflow step would only " +
+    "duplicate the same suite. It is ALSO the COVERED gate of derived-artifacts.mjs id " +
+    "'recompute-quarantine-prune' (advisory-on-PR / blocking-on-main via the generic downgrade — a " +
+    "PR cannot satisfy it: the committed tree still carries the stale entry by SO #35's single-writer " +
+    "law, and the prune that removes it is main's writer), and the single writer is " +
+    "derived-artifacts-regen.yml, which prunes post-merge exactly like the sitemap. The prune half is " +
+    "a regen command, never a workflow step by name. Its --check mode is read-only and fail-closed; " +
+    "the write path (delete-only, never adds, never edits a cause) is pinned by " +
+    "prune-recompute-quarantine.test.mjs."],
+  ["prune-recompute-quarantine.test.mjs", SELF_TEST],
   // ── TRUST-SIGNALS-WELLKNOWN-1 (2026-09-28) ──────────────────────────────────
   ["gen-trust-signals.mjs",
     "Trust-signals digest freshness --check (TRUST-SIGNALS-WELLKNOWN-1): re-derives " +
