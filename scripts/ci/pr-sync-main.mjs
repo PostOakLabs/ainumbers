@@ -145,7 +145,8 @@ const MARK_ATTEMPT = 'bot-sync:attempt';
 // PR owns the rest of the page, so taking main's side of the whole file would
 // drop the PR's own content. Their pages stay out of the main-owned set unless
 // another, whole-file entry also declares them.
-export const PER_PR_PAGE_PATCHERS = new Set(['node-page-footers', 'hub-scenes', 'chain-ask-agent']);
+// PROOFLINKS-GEN-1 (PR 3208): the node-page "Verification artifacts" block joins
+export const PER_PR_PAGE_PATCHERS = new Set(['node-page-footers', 'hub-scenes', 'chain-ask-agent', 'node-page-proof-links']);
 // writesReport entries whose bare-tree prefix is a tree PRs author into
 // (`tools`, `chaingraph`, `manifests/`). The other writesReport prefixes
 // (`chaingraph/receipt-bundles`, `chaingraph/okf`, `chaingraph/register`,
