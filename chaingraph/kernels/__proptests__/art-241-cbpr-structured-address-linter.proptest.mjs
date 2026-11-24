@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:dab26511e0747afa95ae4ba156a6704e1c9e807a52ddfe74d48140b96822ccf7
+// kernel_digest_at_authoring: sha256:c0c198eb8be05a3d5cdbf0f6f18abd3843c0ec237a32f53b4ea3fa90d8eec191
 //
 // FV-PROPFLOOR-SHARD-B27-1 — property-test floor for art-241-cbpr-structured-address-linter.
 // Class B (bounded-numeric shape, string-structure lint logic). float:no — readiness_pct is an
@@ -49,7 +49,7 @@ const STRUCTURE_TYPES = ['FULLY_STRUCTURED', 'HYBRID', 'UNSTRUCTURED', 'EMPTY', 
 function mkPP(rng) {
   const mode = pick(rng, ['fully', 'hybrid', 'unstructured', 'empty', 'mixed']);
   if (mode === 'fully') {
-    return { street_name: randStr(rng, 8), building_number: String(1 + Math.floor(rng() * 999)), post_code: randStr(rng, 5), town_name: randStr(rng, 6), country: pick(rng, ['DE', 'US', 'FR']), address_lines: [] };
+    return { street_name: randStr(rng, 8), building_number: String(1 + Math.floor(rng() * 999)), post_code: randStr(rng, 5), town_name: randStr(rng, 6), country: pick(rng, ['DE', 'US', 'FR']), country_subdivision: randStr(rng, 3).toUpperCase(), address_lines: [] };
   } else if (mode === 'hybrid') {
     const n = Math.floor(rng() * 4);
     return { town_name: randStr(rng, 6), country: pick(rng, ['DE', 'US']), address_lines: Array.from({ length: n }, () => randStr(rng, Math.floor(rng() * 90))) };
@@ -84,8 +84,9 @@ function checkP2_compliantFixedRule() {
     const r = compute(pp);
     checked++;
     const op = r.output_payload;
-    const expected = op.error_count === 0 && (op.structure_type === 'FULLY_STRUCTURED' || op.structure_type === 'HYBRID');
+    const expected = op.verdict === 'INDETERMINATE' ? null : (op.error_count === 0 && (op.structure_type === 'FULLY_STRUCTURED' || op.structure_type === 'HYBRID'));
     if (op.compliant !== expected) violations++;
+    if (op.compliant === true && (op.missing_required_fields || []).length > 0) violations++;
   }
   return { name: 'P2_compliant_agrees_with_error_count_and_structure_type', trials: checked, violations };
 }
@@ -126,6 +127,55 @@ function checkP4_forced() {
   return rows;
 }
 
+// ---------- P6: fail-closed — every positive fixture vector with one required field deleted, nulled, "" or "   " never stays compliant ----------
+function checkP6_blankFieldsNeverCompliant() {
+  const fixtures = JSON.parse(readFileSync(path.join(__dirname, '..', 'fixtures', 'art-241-cbpr-structured-address-linter.fixtures.json'), 'utf8'));
+  const required = ['address_lines', 'building_number', 'country', 'country_subdivision', 'post_code', 'street_name', 'town_name'];
+  let violations = 0, checked = 0, positives = 0;
+  for (const vec of fixtures.vectors) {
+    if (compute(vec.policy_parameters).output_payload.compliant !== true) continue;
+    positives++;
+    for (const f of required) {
+      for (const mode of ['delete', 'null', 'empty', 'blank']) {
+        const pp = JSON.parse(JSON.stringify(vec.policy_parameters));
+        if (mode === 'delete') delete pp[f];
+        else pp[f] = mode === 'null' ? null : mode === 'empty' ? '' : '   ';
+        checked++;
+        if (compute(pp).output_payload.compliant === true) violations++;
+      }
+    }
+  }
+  if (positives === 0) violations++;
+  return { name: 'P6_blank_required_field_never_compliant', trials: checked, violations };
+}
+
+// ---------- P5: buildArtifact_never_throws — one fixture per unhashable class ----------
+async function checkP5_buildArtifactNeverThrows() {
+  const { buildArtifact } = await import('../art-241-cbpr-structured-address-linter.kernel.mjs');
+  let deep = {}; let cur = deep;
+  for (let i = 0; i < 511; i++) { cur.n = {}; cur = cur.n; }
+  const classes = [
+    ['junk_1e300', { street_name: 1e300 }],
+    ['nan', { street_name: NaN }],
+    ['neg_infinity', { street_name: -Infinity }],
+    ['bigint_in_field', { street_name: 10n }],
+    ['bigint_nested', { street_name: { a: [1, { b: 2n }] } }],
+    ['bigint_top_level', 5n],
+    ['depth_511', { street_name: deep }],
+    ['over_1e6_values', { street_name: new Array(1000001).fill(0) }],
+  ];
+  let violations = 0; const rows = [];
+  for (const [label, pp] of classes) {
+    try {
+      const a = await buildArtifact(pp);
+      const ok = a.execution_hash === null && a.hash_refusal && typeof a.hash_refusal.reason === 'string';
+      if (!ok) violations++;
+      rows.push({ label, refused: !!ok });
+    } catch (e) { violations++; rows.push({ label, threw: String(e && e.message).slice(0, 80) }); }
+  }
+  return { name: 'buildArtifact_never_throws', trials: classes.length, violations, rows };
+}
+
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
   console.error('FIXTURE ORACLE FAILED — spec/harness not trusted. Failures:', JSON.stringify(results.fixture_oracle.failures, null, 2));
@@ -135,6 +185,8 @@ if (!oracleOk) {
 results.properties.push(checkP1_boundedness());
 results.properties.push(checkP2_compliantFixedRule());
 results.properties.push(checkP3_silentFailMetamorphic());
+results.properties.push(checkP6_blankFieldsNeverCompliant());
+results.properties.push(await checkP5_buildArtifactNeverThrows());
 results.boundary_forced = checkP4_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);

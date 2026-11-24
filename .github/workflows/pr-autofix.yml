@@ -42,7 +42,9 @@ name: PR Autofix
 #           `node scripts/check-a11y-tree.mjs --write` (no --only flag exists;
 #           the writer itself rewrites only pages whose chrome drifted —
 #           byte-exact pages are skipped — and holds hand-authored pages and
-#           tools/ pages out of scope by its own fence).
+#           tools/ pages out of scope by its own fence), plus
+#           `node scripts/gen-proof-links.mjs --only <node id>` (rewrites the
+#           PROOF-LINKS block from the PR's own kernel digest).
 #   4. a NEW root *.html
 #        -> fail with the exact `gen-sitemap-html` rootPages message. That list
 #           is curated prose (icon/name/href per page); NOT auto-edited.
@@ -366,6 +368,11 @@ jobs:
             fi
             echo "▶ check-ask-agent-block --write --only $id"
             node scripts/check-ask-agent-block.mjs --write --only "$id"
+            # Proof-links block: a main sync leaves main's block on the page, naming
+            # main's kernel digest, while this PR's registry record is the new
+            # digest. Rewrite the block from the PR's own kernel (scoped to this id).
+            echo "▶ gen-proof-links --only $id"
+            node scripts/gen-proof-links.mjs --only "$id"
           done
           # No --only flag exists on the a11y writer; it rewrites only pages
           # whose chrome drifted — INCLUDING pre-existing check-clean
@@ -613,7 +620,7 @@ jobs:
           # (measured 2026-08-16: 11 zero-job failure runs across every branch).
           git commit \
             -m "chore(autofix): apply PR derivables (#${PR_NUMBER})" \
-            -m "Automated by .github/workflows/pr-autofix.yml: the per-PR derivables (manifest examples, ask-agent + a11y writer stamps, kernel identity stamp, manifest input schema, root chrome) are deterministic from this PR's own files and ride the PR branch."
+            -m "Automated by .github/workflows/pr-autofix.yml: the per-PR derivables (manifest examples, ask-agent + a11y writer stamps, proof-links block, kernel identity stamp, manifest input schema, root chrome) are deterministic from this PR's own files and ride the PR branch."
 
           # App-authored push: a GITHUB_TOKEN-authored push would not retrigger
           # the PR's checks (the whole reason this row exists); the App's does.
