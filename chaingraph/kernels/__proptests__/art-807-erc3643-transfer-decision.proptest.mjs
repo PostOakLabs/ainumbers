@@ -1,5 +1,5 @@
 // art-807-erc3643-transfer-decision — class-K property-test FLOOR (KERNEL-SCAFFOLD-1 scaffold, authored).
-// kernel_digest_at_authoring: sha256:57eb0b9025c42a807ea3e257e5bcc25351ee04ccd337eca02bcd97027f8f3f77
+// kernel_digest_at_authoring: sha256:e9129dad58541f1aa86887c5e2f34a4a6fe5bf02c03af8797fb28a4cc5d802c0
 // spec: permissioned-token transfer decision recomputed from declared registry, claim, module and token state
 // human_sign_off: PENDING
 //
@@ -18,7 +18,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-807-erc3643-transfer-decision.proptest.mjs
 
-import { compute } from '../art-807-erc3643-transfer-decision.kernel.mjs';
+import { compute, buildArtifact } from '../art-807-erc3643-transfer-decision.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, findShapeViolations } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-807-erc3643-transfer-decision';
@@ -238,6 +238,49 @@ function checkDeterminism() {
   return { name: 'determinism', checked, violations };
 }
 
+// buildArtifact_never_throws (D6): an input whose {policy_parameters, output_payload}
+// preimage the shared canonicalizer would reject mints an artifact with a null
+// execution_hash and a named hash_refusal (path and class, never the value); a clean
+// input, accepted or refused, gets a 64-hex hash and no hash_refusal.
+async function checkBuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  /** @type {Array<[any, RegExp]>} */
+  const hostile = [
+    [{ chain_id: NaN }, /^REFUSED_INPUT_UNSAFE_NUMBER$/],
+    [{ chain_id: Infinity }, /^REFUSED_INPUT_UNSAFE_NUMBER$/],
+    [{ chain_id: 1e300 }, /^REFUSED_INPUT_UNSAFE_NUMBER$/],
+    [{ zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } }, /^REFUSED_INPUT_UNSAFE_NUMBER$/],
+    [{ zzz: 10n }, /^REFUSED_INPUT_UNSAFE_NUMBER$/],
+    [{ zzz: deep }, /^REFUSED_INPUT_HASH_LIMIT$/],
+    [{ zzz: wide }, /^REFUSED_INPUT_HASH_LIMIT$/],
+  ];
+  for (const [delta, reasonRe] of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...randomPP(), ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !reasonRe.test(r.reason) || typeof r.detail !== 'string' || r.detail.indexOf('pp') !== 0) { violations++; console.log('buildArtifact_never_throws violation: artifact shape for ' + Object.keys(delta)[0]); }
+      if (/e\+3\d\d|Infinity|NaN|9007199254740992/.test(r ? r.detail : '')) { violations++; console.log('buildArtifact_never_throws violation: hostile value echoed'); }
+    } catch (e) { violations++; console.log('buildArtifact_never_throws violation: threw: ' + String(e.message).slice(0, 80)); }
+  }
+  const countryNaN = randomPP(); countryNaN.identity_registry[0].country = NaN;
+  checked++;
+  try {
+    const art = await buildArtifact(countryNaN);
+    if (art.execution_hash !== null || !art.hash_refusal || art.hash_refusal.reason !== 'REFUSED_INPUT_UNSAFE_NUMBER') { violations++; console.log('buildArtifact_never_throws violation: nested country NaN'); }
+  } catch (e) { violations++; console.log('buildArtifact_never_throws violation: threw on nested NaN: ' + String(e.message).slice(0, 80)); }
+  for (const pp of [randomPP(), randomPP(), { transfer: null }, null, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('buildArtifact_never_throws violation: clean input lost its hash'); }
+    } catch (e) { violations++; console.log('buildArtifact_never_throws violation: threw on clean input: ' + String(e.message).slice(0, 80)); }
+  }
+  return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -255,6 +298,7 @@ const properties = [
   checkTokenStateRequiredForMint(),
   checkFlagMirrorAndShape(),
   checkDeterminism(),
+  await checkBuildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — permissioned-token transfer decision.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
