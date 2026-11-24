@@ -6,6 +6,7 @@
 <!-- WEBMCP:OT-META-END -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="kernel-digest" content="sha256:05b8c0c228321335e7ba3d1133c961b3ba2aebcd9e92f1735833b892d78170ce">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>EMIR 3 SIMM Approval-Scope Classifier · ART-581 · OpenChainGraph · AINumbers.co</title>
 <meta name="description" content="Classify which EMIR 3 initial-margin model-approval obligations apply to a declared counterparty profile: NCA authorisation, EBA central pro forma validation, annual updates, 2026 onboarding window. Zero SIMM methodology content. Zero network.">
@@ -347,6 +348,27 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-581
 </script>
 <!-- A11Y-TREE:END -->
 
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-581-emir3-simm-approval-scope-classifier.kernel.mjs">art-581-emir3-simm-approval-scope-classifier.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:05b8c0c228321335e7ba3d1133c961b3ba2aebcd9e92f1735833b892d78170ce</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-581-emir3-simm-approval-scope-classifier.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-581-emir3-simm-approval-scope-classifier.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="graph/nodes/art-581-emir3-simm-approval-scope-classifier.json">art-581-emir3-simm-approval-scope-classifier.json</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: verified</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/05b8c0c228321335e7ba3d1133c961b3ba2aebcd9e92f1735833b892d78170ce.json">05b8c0c228321335e7ba3d1133c961b3ba2aebcd9e92f1735833b892d78170ce</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=154fbcfe9d1e50041f2dfc0d1930d2bbd78e4398dd319d74252a7b34efbfef3e">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">
@@ -472,54 +494,123 @@ const MANIFEST = {
 
 const ONBOARDING_WINDOW_CLOSE = '2026-08-31';
 
+const MODEL_TYPES = new Set(['isda_simm', 'internal_model', 'none']);
+const MODEL_STATUSES = new Set(['new_application', 'modification', 'already_authorised', 'not_applicable']);
+function verdictObj(obligation_id, description, verdict, basis) {
+  return { obligation_id, description, verdict, basis };
+}
 function compute(pp) {
   const {
-    counterparty_type='financial_counterparty', subject_to_bilateral_im=false,
-    model_type='none', model_status='not_applicable',
-    competent_authority_declared=false, as_of_date='2026-08-07'
+    counterparty_type = 'financial_counterparty',
+    subject_to_bilateral_im = false,
+    model_type = 'none',
+    model_status = 'not_applicable',
+    competent_authority_declared = false,
+    as_of_date = '2026-08-07',
   } = pp;
-  const MODEL_TYPES=new Set(['isda_simm','internal_model','none']);
-  const MODEL_STATUSES=new Set(['new_application','modification','already_authorised','not_applicable']);
-  const safe_model_type=MODEL_TYPES.has(model_type)?model_type:'none';
-  const safe_model_status=MODEL_STATUSES.has(model_status)?model_status:'not_applicable';
-  const safe_subject=!!subject_to_bilateral_im;
-  const safe_ca_declared=!!competent_authority_declared;
-  const safe_date=/^\d{4}-\d{2}-\d{2}$/.test(as_of_date)?as_of_date:'2026-08-07';
 
-  const obligations=[];
-  function v(id,desc,verdict,basis){return{obligation_id:id,description:desc,verdict,basis};}
+  const safe_model_type = MODEL_TYPES.has(model_type) ? model_type : 'none';
+  const safe_model_status = MODEL_STATUSES.has(model_status) ? model_status : 'not_applicable';
+  const safe_subject = !!subject_to_bilateral_im;
+  const safe_ca_declared = !!competent_authority_declared;
+  const safe_date = /^\d{4}-\d{2}-\d{2}$/.test(as_of_date) ? as_of_date : '2026-08-07';
 
+  const obligations = [];
+
+  // 1 -- prior NCA authorisation before using/changing an IM model (Art. 11(12a))
   {
-    const inScopeFacts=safe_subject&&safe_model_type!=='none'&&(safe_model_status==='new_application'||safe_model_status==='modification');
-    if(!inScopeFacts) obligations.push(v('NCA_PRIOR_AUTHORISATION','Prior NCA authorisation before using/changing an IM model','OUT_OF_SCOPE','EMIR Art. 11(12a): no new-model application or model change declared, or entity not subject to the bilateral IM requirement.'));
-    else if(!safe_ca_declared) obligations.push(v('NCA_PRIOR_AUTHORISATION','Prior NCA authorisation before using/changing an IM model','INDETERMINATE','EMIR Art. 11(12a) obligation facts are met, but no home competent authority is declared -- the applicable NCA timeline cannot be resolved.'));
-    else obligations.push(v('NCA_PRIOR_AUTHORISATION','Prior NCA authorisation before using/changing an IM model','IN_SCOPE','EMIR Art. 11(12a): counterparty is subject to the bilateral IM requirement and declares a new model or a model change requiring prior NCA authorisation.'));
-  }
-  {
-    if(safe_model_type==='isda_simm') obligations.push(v('EBA_CENTRAL_VALIDATION_PROFORMA','EBA central validation of pro forma model elements/general aspects','IN_SCOPE','EMIR Art. 11(12a): the pro forma model case -- elements and general aspects are validated centrally by EBA rather than separately by each NCA.'));
-    else obligations.push(v('EBA_CENTRAL_VALIDATION_PROFORMA','EBA central validation of pro forma model elements/general aspects','OUT_OF_SCOPE','EMIR Art. 11(12a): declared model is not the pro forma-model case, so EBA central validation of general elements does not apply.'));
-  }
-  {
-    if(safe_model_type==='isda_simm'&&safe_model_status==='already_authorised') obligations.push(v('ANNUAL_APPLICATION_DATA_UPDATE','Annual application-data update to home NCA (end-March)','IN_SCOPE','EBA validation process under EMIR Art. 11(15) supervisory procedures: an already-authorised SIMM user submits an annual update of application data to its NCA.'));
-    else if(safe_model_type==='isda_simm'&&safe_model_status==='new_application') obligations.push(v('ANNUAL_APPLICATION_DATA_UPDATE','Annual application-data update to home NCA (end-March)','INDETERMINATE','EBA validation process under EMIR Art. 11(15): entity declares a new SIMM application not yet authorised -- whether the annual-update cycle applies before initial authorisation completes is not resolved by this classifier.'));
-    else obligations.push(v('ANNUAL_APPLICATION_DATA_UPDATE','Annual application-data update to home NCA (end-March)','OUT_OF_SCOPE','No already-authorised or pending ISDA SIMM use declared.'));
-  }
-  {
-    if(safe_model_type!=='isda_simm'||safe_model_status==='not_applicable') obligations.push(v('EBA_ONBOARDING_WINDOW_2026','2026 EBA validation-system onboarding window for SIMM applicants','OUT_OF_SCOPE','No ISDA SIMM use declared, so the EBA RIM Model Validation System onboarding window does not apply.'));
-    else if(safe_date>ONBOARDING_WINDOW_CLOSE) obligations.push(v('EBA_ONBOARDING_WINDOW_2026','2026 EBA validation-system onboarding window for SIMM applicants','INDETERMINATE','Declared evaluation date is after the published end-August 2026 EBA onboarding cutoff; whether a late-onboarding path exists is not settled at consultation stage (RTS/Guidelines still in draft as of build date).'));
-    else obligations.push(v('EBA_ONBOARDING_WINDOW_2026','2026 EBA validation-system onboarding window for SIMM applicants','IN_SCOPE','SIMM applicant on or before the published end-August 2026 EBA RIM Model Validation System onboarding cutoff.'));
+    const inScopeFacts = safe_subject && safe_model_type !== 'none'
+      && (safe_model_status === 'new_application' || safe_model_status === 'modification');
+    if (!inScopeFacts) {
+      obligations.push(verdictObj(
+        'NCA_PRIOR_AUTHORISATION', 'Prior NCA authorisation before using/changing an IM model',
+        'OUT_OF_SCOPE', 'EMIR Art. 11(12a): no new-model application or model change declared, or entity not subject to the bilateral IM requirement.',
+      ));
+    } else if (!safe_ca_declared) {
+      obligations.push(verdictObj(
+        'NCA_PRIOR_AUTHORISATION', 'Prior NCA authorisation before using/changing an IM model',
+        'INDETERMINATE', 'EMIR Art. 11(12a) obligation facts are met, but no home competent authority is declared -- the applicable NCA timeline cannot be resolved.',
+      ));
+    } else {
+      obligations.push(verdictObj(
+        'NCA_PRIOR_AUTHORISATION', 'Prior NCA authorisation before using/changing an IM model',
+        'IN_SCOPE', 'EMIR Art. 11(12a): counterparty is subject to the bilateral IM requirement and declares a new model or a model change requiring prior NCA authorisation.',
+      ));
+    }
   }
 
-  const compliance_flags={EMIR3_SIMM_SCOPE_ASSESSED:true};
-  for(const o of obligations) compliance_flags['EMIR3_'+o.obligation_id+'_'+o.verdict]=true;
+  // 2 -- EBA central validation of pro forma model elements/general aspects (Art. 11(12a))
+  {
+    if (safe_model_type === 'isda_simm') {
+      obligations.push(verdictObj(
+        'EBA_CENTRAL_VALIDATION_PROFORMA', 'EBA central validation of pro forma model elements/general aspects',
+        'IN_SCOPE', 'EMIR Art. 11(12a): the pro forma model case -- elements and general aspects are validated centrally by EBA rather than separately by each NCA.',
+      ));
+    } else {
+      obligations.push(verdictObj(
+        'EBA_CENTRAL_VALIDATION_PROFORMA', 'EBA central validation of pro forma model elements/general aspects',
+        'OUT_OF_SCOPE', 'EMIR Art. 11(12a): declared model is not the pro forma-model case, so EBA central validation of general elements does not apply.',
+      ));
+    }
+  }
 
-  const output_payload={
-    obligations, counterparty_type, subject_to_bilateral_im:safe_subject,
-    model_type:safe_model_type, model_status:safe_model_status,
-    competent_authority_declared:safe_ca_declared, as_of_date:safe_date,
-    methodology_verification:'deliberately_absent', isda_endorsement:false
+  // 3 -- recurring annual application-data update to the home NCA (end-March)
+  {
+    if (safe_model_type === 'isda_simm' && safe_model_status === 'already_authorised') {
+      obligations.push(verdictObj(
+        'ANNUAL_APPLICATION_DATA_UPDATE', 'Annual application-data update to home NCA (end-March)',
+        'IN_SCOPE', 'EBA validation process under EMIR Art. 11(15) supervisory procedures: an already-authorised SIMM user submits an annual update of application data to its NCA.',
+      ));
+    } else if (safe_model_type === 'isda_simm' && safe_model_status === 'new_application') {
+      obligations.push(verdictObj(
+        'ANNUAL_APPLICATION_DATA_UPDATE', 'Annual application-data update to home NCA (end-March)',
+        'INDETERMINATE', 'EBA validation process under EMIR Art. 11(15): entity declares a new SIMM application not yet authorised -- whether the annual-update cycle applies before initial authorisation completes is not resolved by this classifier.',
+      ));
+    } else {
+      obligations.push(verdictObj(
+        'ANNUAL_APPLICATION_DATA_UPDATE', 'Annual application-data update to home NCA (end-March)',
+        'OUT_OF_SCOPE', 'No already-authorised or pending ISDA SIMM use declared.',
+      ));
+    }
+  }
+
+  // 4 -- 2026 EBA validation-system onboarding window for SIMM applicants (by end-Aug 2026)
+  {
+    if (safe_model_type !== 'isda_simm' || safe_model_status === 'not_applicable') {
+      obligations.push(verdictObj(
+        'EBA_ONBOARDING_WINDOW_2026', '2026 EBA validation-system onboarding window for SIMM applicants',
+        'OUT_OF_SCOPE', 'No ISDA SIMM use declared, so the EBA RIM Model Validation System onboarding window does not apply.',
+      ));
+    } else if (safe_date > ONBOARDING_WINDOW_CLOSE) {
+      obligations.push(verdictObj(
+        'EBA_ONBOARDING_WINDOW_2026', '2026 EBA validation-system onboarding window for SIMM applicants',
+        'INDETERMINATE', 'Declared evaluation date is after the published end-August 2026 EBA onboarding cutoff; whether a late-onboarding path exists is not settled at consultation stage (RTS/Guidelines still in draft as of build date).',
+      ));
+    } else {
+      obligations.push(verdictObj(
+        'EBA_ONBOARDING_WINDOW_2026', '2026 EBA validation-system onboarding window for SIMM applicants',
+        'IN_SCOPE', 'SIMM applicant on or before the published end-August 2026 EBA RIM Model Validation System onboarding cutoff.',
+      ));
+    }
+  }
+
+  const compliance_flags = ['EMIR3_SIMM_SCOPE_ASSESSED'];
+  for (const o of obligations) {
+    compliance_flags.push('EMIR3_' + o.obligation_id + '_' + o.verdict);
+  }
+
+  const output_payload = {
+    obligations,
+    counterparty_type,
+    subject_to_bilateral_im: safe_subject,
+    model_type: safe_model_type,
+    model_status: safe_model_status,
+    competent_authority_declared: safe_ca_declared,
+    as_of_date: safe_date,
+    methodology_verification: 'deliberately_absent',
+    isda_endorsement: false,
   };
-  return{output_payload,compliance_flags};
+  return { output_payload, compliance_flags };
 }
 
 function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
@@ -689,9 +780,9 @@ async function verifySignature(){
 // computed JSON derived from declared inputs.
 // Browser support (dated observation): WebMCP origin trial from Chrome 149
 // (May 2026) per developer.chrome.com/docs/ai/webmcp (retrieved 2026-09-01).
-const mc = document.modelContext ?? (('modelContext' in navigator) ? navigator.modelContext : null);
+const mc = document.modelContext;
 if (mc) {
-  mc.registerTool({
+  Promise.resolve(mc.registerTool({
     name: 'classify_emir3_simm_approval_scope',
     description: 'Classify which EMIR 3 initial-margin model-approval obligations apply to a declared counterparty profile: NCA prior authorisation, EBA central pro forma validation, the recurring annual application-data update, and the 2026 EBA onboarding window. Zero ISDA SIMM methodology content.',
     inputSchema: {
@@ -739,7 +830,7 @@ if (mc) {
         return { error: 'compute_failed', detail: String((err && err.message) || err) };
       }
     }
-  });
+  })).catch(() => {});
 }
 </script>
 

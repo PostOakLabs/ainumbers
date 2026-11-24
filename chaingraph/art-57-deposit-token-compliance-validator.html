@@ -268,52 +268,109 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 <script>
 // compute() — MUST mirror kernels/art-57-deposit-token-compliance-validator.kernel.mjs
-function testRedemption(b){
-  if(b==='at-par-on-demand')return{result:'PASS',note:'Redeemable at par on demand — consistent with deposit token (bank liability).'};
-  if(b==='NAV')return{result:'FAIL',note:'NAV-based redemption is characteristic of a money market fund, not a deposit.'};
-  if(b==='market')return{result:'FAIL',note:'Market-price redemption is characteristic of a security or asset-backed token, not a deposit.'};
-  return{result:'UNCLEAR',note:'Redemption basis is unclear — verify with issuer legal counsel.'};
+function testRedemption(redemption_basis) {
+  if (redemption_basis === 'at-par-on-demand') return { result: 'PASS', note: 'Redeemable at par on demand — consistent with deposit token (bank liability).' };
+  if (redemption_basis === 'NAV') return { result: 'FAIL', note: 'NAV-based redemption is characteristic of a money market fund, not a deposit.' };
+  if (redemption_basis === 'market') return { result: 'FAIL', note: 'Market-price redemption is characteristic of a security or asset-backed token, not a deposit.' };
+  return { result: 'UNCLEAR', note: 'Redemption basis is unclear — verify with issuer legal counsel.' };
 }
-function testLiability(t){
-  if(t==='on-balance-sheet-deposit')return{result:'PASS',note:'On-balance-sheet deposit liability — consistent with a commercial bank deposit token.'};
-  if(t==='segregated-reserve')return{result:'FAIL',note:'Segregated-reserve structure is characteristic of a reserve-backed stablecoin (MiCA EMT), not a bank deposit.'};
-  if(t==='bankruptcy-remote-trust')return{result:'FAIL',note:'Bankruptcy-remote trust structure indicates an e-money token, not a deposit.'};
-  return{result:'UNCLEAR',note:'Liability treatment unclear — verify issuer balance-sheet classification.'};
+function testLiability(liability_treatment) {
+  if (liability_treatment === 'on-balance-sheet-deposit') return { result: 'PASS', note: 'On-balance-sheet deposit liability — consistent with a commercial bank deposit token.' };
+  if (liability_treatment === 'segregated-reserve') return { result: 'FAIL', note: 'Segregated-reserve structure is characteristic of a reserve-backed stablecoin (e.g. MiCA EMT), not a bank deposit.' };
+  if (liability_treatment === 'bankruptcy-remote-trust') return { result: 'FAIL', note: 'Bankruptcy-remote trust structure indicates an e-money token, not a deposit.' };
+  return { result: 'UNCLEAR', note: 'Liability treatment unclear — verify issuer balance-sheet classification.' };
 }
-function testEligibility(h){
-  if(h==='allowlisted-wholesale')return{result:'PASS',note:'Allowlisted wholesale holders — consistent with bank deposit token (RLN / JPMD model).'};
-  if(h==='KYC-retail')return{result:'PARTIAL',note:'Retail holders — possible under some models (e.g. future RLN retail tranche) but increases regulatory complexity.'};
-  return{result:'FAIL',note:'Open / unrestricted holders — not consistent with a bank deposit token; assess as e-money token or stablecoin.'};
+function testEligibility(holder_eligibility) {
+  if (holder_eligibility === 'allowlisted-wholesale') return { result: 'PASS', note: 'Allowlisted wholesale holders — consistent with bank deposit token (RLN / JPMD model).' };
+  if (holder_eligibility === 'KYC-retail') return { result: 'PARTIAL', note: 'Retail holders — possible under some models (e.g. future RLN retail tranche) but increases regulatory complexity.' };
+  return { result: 'FAIL', note: 'Open / unrestricted holders — not consistent with a bank deposit token; assess as e-money token or stablecoin.' };
 }
-const REGIME_MAP={US:{label:'US',note:'A tokenized deposit is a bank liability under US deposit law. Not a security (no UCC Art.8 treatment) or e-money. FDIC insurance may apply per standard deposit rules. Verify with OCC/Fed/FDIC current guidance.'},UK:{label:'UK',note:'UK RLN tokenised-sterling-deposit model (UK Finance 2025 pilot). Deposit sits on issuing bank balance sheet. Governed by PRA/FCA. FCA e-money regime does not apply to on-balance-sheet deposits. Verify with current BoE/FCA/PRA guidance.'},EU:{label:'EU',note:'EU: deposit tokens are NOT e-money tokens under MiCA (MiCA Art. 2(6) carves out deposits held with credit institutions). Deposits remain under CRD/BRRD. An issuer tokenizing deposits does not need a MiCA EMT licence if the token represents a deposit liability. Verify with current EBA/ECB guidance.'},other:{label:'Other',note:'Verify applicable central-bank, deposit-insurance, and e-money/stablecoin legislation in this jurisdiction.'}};
-function classifyToken(tc,rr,lr){
-  if(tc==='commercial-bank-deposit-token'&&rr==='PASS'&&lr==='PASS')return'DEPOSIT_TOKEN_CONFIRMED';
-  if(tc==='central-bank-money-token')return'CBM_TOKEN';
-  if(tc==='emt-stablecoin'||tc==='e-money-token')return'EMT_STABLECOIN';
-  if(lr==='FAIL'||rr==='FAIL')return'DEPOSIT_TOKEN_MISCLASSIFIED';
-  return'CLASSIFICATION_UNCLEAR';
+const REGIME_MAP = {
+  US:  { label: 'US', note: 'A tokenized deposit is a bank liability under US deposit law. Not a security (no UCC Art.8 treatment) or e-money. FDIC insurance may apply per standard deposit rules. Verify with OCC/Fed/FDIC current guidance.' },
+  UK:  { label: 'UK', note: 'UK RLN tokenised-sterling-deposit model (UK Finance 2025 pilot). Deposit sits on issuing bank balance sheet. Governed by PRA/FCA. FCA e-money regime does not apply to on-balance-sheet deposits. Verify with current BoE/FCA/PRA guidance.' },
+  EU:  { label: 'EU', note: 'EU: deposit tokens are NOT e-money tokens under MiCA (MiCA Art. 2(6) carves out deposits held with credit institutions). Deposits remain under CRD/BRRD. An issuer tokenizing deposits does not need a MiCA EMT licence if the token represents a deposit liability. Verify with current EBA/ECB guidance.' },
+  other: { label: 'Other', note: 'Verify applicable central-bank, deposit-insurance, and e-money/stablecoin legislation in this jurisdiction.' },
+};
+function classifyToken(token_class, redemption_result, liability_result) {
+  if (token_class === 'commercial-bank-deposit-token' && redemption_result === 'PASS' && liability_result === 'PASS')
+    return 'DEPOSIT_TOKEN_CONFIRMED';
+  if (token_class === 'central-bank-money-token')
+    return 'CBM_TOKEN';
+  if (token_class === 'emt-stablecoin' || token_class === 'e-money-token')
+    return 'EMT_STABLECOIN';
+  if (liability_result === 'FAIL' || redemption_result === 'FAIL')
+    return 'DEPOSIT_TOKEN_MISCLASSIFIED';
+  return 'CLASSIFICATION_UNCLEAR';
 }
-function compute(pp){
-  const{token_class='unclear',issuer_type='non-bank',redemption_basis='unclear',liability_treatment='segregated-reserve',holder_eligibility='open',deposit_insurance='none',jurisdiction='other',governing_law='',interoperability='single-issuer-closed'}=pp;
-  const test_results={redemption:testRedemption(redemption_basis),liability:testLiability(liability_treatment),eligibility:testEligibility(holder_eligibility)};
-  const insurance_result=(deposit_insurance==='FDIC-eligible'||deposit_insurance==='FSCS'||deposit_insurance==='DGS-eligible')?{result:'PASS',note:'Deposit insurance coverage present.'}:{result:'INFO',note:'No deposit insurance — verify regulatory treatment and investor disclosure.'};
-  test_results.insurance=insurance_result;
-  const classification=classifyToken(token_class,test_results.redemption.result,test_results.liability.result);
-  const passCount=Object.values(test_results).filter(t=>t.result==='PASS').length;
-  const classification_grade=passCount===4?'A':passCount===3?'B':passCount===2?'C':passCount===1?'D':'F';
-  const regime=REGIME_MAP[jurisdiction]??REGIME_MAP.other;
-  const remediation_checklist=[];
-  if(test_results.redemption.result!=='PASS')remediation_checklist.push({test:'redemption',issue:test_results.redemption.note,action:'Confirm at-par-on-demand redemption with issuer legal counsel.'});
-  if(test_results.liability.result!=='PASS')remediation_checklist.push({test:'liability',issue:test_results.liability.note,action:'Confirm on-balance-sheet classification with issuer. If segregated-reserve: token is a stablecoin/EMT, not a deposit.'});
-  if(test_results.eligibility.result!=='PASS')remediation_checklist.push({test:'eligibility',issue:test_results.eligibility.note,action:'Restrict token holders to allowlisted wholesale counterparties or recategorise as EMT.'});
-  const capital_accounting_note=classification==='DEPOSIT_TOKEN_CONFIRMED'?'On-balance-sheet deposit liability — bank risk-weights apply. Not a security; not subject to MiCA. Capital treatment follows CRD/BRRD for EU issuers; standard deposit capital rules for US/UK.':'Classification unclear or misidentified — capital and accounting treatment depends on reclassification result. Stablecoin/EMT = MiCA Art. 48+ regime (EU) or GENIUS Act (US). Verify with current guidance.';
-  const output_payload={token_class,classification,classification_grade,test_results,applicable_regime:regime.label+': '+regime.note,capital_accounting_note,remediation_checklist,status_asof:'2026-06-20 — verify US deposit law, MiCA EMT Arts. 48+, UK RLN model, and FDIC/FCA/EBA guidance against current primary sources',note:'Educational deposit-token compliance validator. A deposit token is a bank liability, NOT a reserve-backed e-money instrument. Distinct from Wave 8 Canton tokenized-asset layer and from Tempo/Arc stablecoin tools. Not legal, capital, or accounting advice.'};
-  const compliance_flags=[];
-  if(test_results.redemption.result!=='PASS')compliance_flags.push('NOT_AT_PAR_REDEEMABLE');
-  if(classification==='DEPOSIT_TOKEN_MISCLASSIFIED')compliance_flags.push('DEPOSIT_TOKEN_MISCLASSIFIED_AS_STABLECOIN');
-  if(test_results.eligibility.result==='FAIL')compliance_flags.push('HOLDER_ELIGIBILITY_OPEN');
-  if(issuer_type==='non-bank')compliance_flags.push('NON_BANK_ISSUER_DEPOSIT_TOKEN_RISK');
-  return{output_payload,compliance_flags};
+function compute(pp) {
+  const {
+    token_class        = 'unclear',
+    issuer_type        = 'non-bank',
+    redemption_basis   = 'unclear',
+    liability_treatment= 'segregated-reserve',
+    holder_eligibility = 'open',
+    deposit_insurance  = 'none',
+    jurisdiction       = 'other',
+    governing_law      = '',
+    interoperability   = 'single-issuer-closed',
+  } = pp;
+
+  const test_results = {
+    redemption:  testRedemption(redemption_basis),
+    liability:   testLiability(liability_treatment),
+    eligibility: testEligibility(holder_eligibility),
+  };
+
+  // Insurance
+  const insurance_result = (deposit_insurance === 'FDIC-eligible' || deposit_insurance === 'FSCS')
+    ? { result: 'PASS', note: 'Deposit insurance coverage present.' }
+    : { result: 'INFO', note: 'No deposit insurance — verify regulatory treatment and investor disclosure.' };
+  test_results.insurance = insurance_result;
+
+  // Classification
+  const classification = classifyToken(token_class, test_results.redemption.result, test_results.liability.result);
+
+  // Grade
+  const passCount = Object.values(test_results).filter(t => t.result === 'PASS').length;
+  const classification_grade =
+    passCount === 4 ? 'A' :
+    passCount === 3 ? 'B' :
+    passCount === 2 ? 'C' :
+    passCount === 1 ? 'D' : 'F';
+
+  const regime = REGIME_MAP[jurisdiction] ?? REGIME_MAP.other;
+
+  const remediation_checklist = [];
+  if (test_results.redemption.result !== 'PASS')
+    remediation_checklist.push({ test: 'redemption', issue: test_results.redemption.note, action: 'Confirm at-par-on-demand redemption with issuer legal counsel.' });
+  if (test_results.liability.result !== 'PASS')
+    remediation_checklist.push({ test: 'liability', issue: test_results.liability.note, action: 'Confirm on-balance-sheet classification with issuer. If segregated-reserve: token is a stablecoin/EMT, not a deposit.' });
+  if (test_results.eligibility.result !== 'PASS')
+    remediation_checklist.push({ test: 'eligibility', issue: test_results.eligibility.note, action: 'Restrict token holders to allowlisted wholesale counterparties or recategorise as EMT.' });
+
+  const capital_accounting_note = classification === 'DEPOSIT_TOKEN_CONFIRMED'
+    ? 'On-balance-sheet deposit liability — bank risk-weights apply. Not a security; not subject to MiCA. Capital treatment follows CRD/BRRD for EU issuers; standard deposit capital rules for US/UK.'
+    : 'Classification unclear or misidentified — capital and accounting treatment depends on reclassification result. Stablecoin/EMT = MiCA Art. 48+ regime (EU) or GENIUS Act (US). Verify with current guidance.';
+
+  const output_payload = {
+    token_class,
+    classification,
+    classification_grade,
+    test_results,
+    applicable_regime: regime.label + ': ' + regime.note,
+    capital_accounting_note,
+    remediation_checklist,
+    status_asof: '2026-06-20 — verify US deposit law, MiCA EMT Arts. 48+, UK RLN model, and FDIC/FCA/EBA guidance against current primary sources',
+    note: 'Educational deposit-token compliance validator. A deposit token is a bank liability, NOT a reserve-backed e-money instrument. Distinct from Wave 8 Canton tokenized-asset layer and from Tempo/Arc stablecoin tools. Not legal, capital, or accounting advice.',
+  };
+
+  const compliance_flags = [];
+  if (test_results.redemption.result !== 'PASS') compliance_flags.push('NOT_AT_PAR_REDEEMABLE');
+  if (classification === 'DEPOSIT_TOKEN_MISCLASSIFIED') compliance_flags.push('DEPOSIT_TOKEN_MISCLASSIFIED_AS_STABLECOIN');
+  if (test_results.eligibility.result === 'FAIL') compliance_flags.push('HOLDER_ELIGIBILITY_OPEN');
+  if (issuer_type === 'non-bank') compliance_flags.push('NON_BANK_ISSUER_DEPOSIT_TOKEN_RISK');
+
+  return { output_payload, compliance_flags };
 }
 
 const canon=v=>Array.isArray(v)?v.map(canon):(v&&typeof v==='object'?Object.keys(v).sort().reduce((o,k)=>(o[k]=canon(v[k]),o),{}):v);
@@ -368,6 +425,27 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-57-
 </section>
 <!-- ASK-AGENT:END -->
 
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-57-deposit-token-compliance-validator.kernel.mjs">art-57-deposit-token-compliance-validator.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:2fd5b0a6674a558949495837e3105a855ebde50c43c0441c61008f9a10204f44</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-57-deposit-token-compliance-validator.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-57-deposit-token-compliance-validator.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="kernels/fixtures/compute-proof/art-57-deposit-token-compliance-validator.receipt.json">sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: deferred</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/2fd5b0a6674a558949495837e3105a855ebde50c43c0441c61008f9a10204f44.json">2fd5b0a6674a558949495837e3105a855ebde50c43c0441c61008f9a10204f44</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=b9f2fc2d689dd65e2400d91142dda92b82841c0a72b50f665b29a28ad7943a00">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">

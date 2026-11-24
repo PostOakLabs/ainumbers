@@ -261,39 +261,107 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 <script>
 // compute() — MUST mirror kernels/art-59-settlement-asset-finality-classifier.kernel.mjs
-const ASSET_TIER={'CBM-token':1,'commercial-bank-deposit-token':2,'regulated-stablecoin':3,'e-money-token':3,'off-chain-RTGS':2};
-const FINALITY_MOD={'SFD-designated':-1,'PFMI-compliant-FMI':0,'UCC-Art12-control':0,'contractual-only':+1,'none':+2};
-const SINGLENESS={'par-with-CBM':'SINGLENESS_CONFIRMED','pegged':'SINGLENESS_CONDITIONAL','floating':'SINGLENESS_BROKEN'};
-const REGIME_MAP={US:'US deposit law (commercial bank liability, not a security or e-money); UCC Art.12 controllable electronic record; verify current OCC/Fed guidance',UK:'UK RLN model (tokenised sterling deposit); FCA e-money / payment-services regime for EMTs; verify current FCA/BoE guidance',EU:'EU Settlement Finality Directive 98/26/EC (designated system finality); MiCA EMT/ART (Arts. 48+) for stablecoins; ECB TARGET settlement finality; verify current ECB/EBA guidance',other:'Jurisdiction-specific; verify against applicable central-bank / CSD / legislative framework'};
+const ASSET_TIER = {
+  'CBM-token':                    1,  // Central bank money — highest finality
+  'commercial-bank-deposit-token': 2,  // Tokenized deposit: on-balance-sheet bank liability
+  'regulated-stablecoin':         3,  // Reserve-backed / GENIUS/MiCA regulated
+  'e-money-token':                3,
+  'off-chain-RTGS':               2,  // Designated system finality
+};
+const FINALITY_MOD = {
+  'SFD-designated':    -1,   // Best: pull tier UP by 1 (lower tier = better finality)
+  'PFMI-compliant-FMI': 0,
+  'UCC-Art12-control':  0,
+  'contractual-only':  +1,   // Worse: push tier down
+  'none':              +2,
+};
+const SINGLENESS = {
+  'par-with-CBM':  'SINGLENESS_CONFIRMED',
+  'pegged':        'SINGLENESS_CONDITIONAL',
+  'floating':      'SINGLENESS_BROKEN',
+};
+const REGIME_MAP = {
+  US:  'US deposit law (commercial bank liability, not a security or e-money); UCC Art.12 controllable electronic record; verify current OCC/Fed guidance',
+  UK:  'UK RLN model (tokenised sterling deposit); FCA e-money / payment-services regime for EMTs; verify current FCA/BoE guidance',
+  EU:  'EU Settlement Finality Directive 98/26/EC (designated system finality); MiCA EMT/ART (Arts. 48+) for stablecoins; ECB TARGET settlement finality; verify current ECB/EBA guidance',
+  other: 'Jurisdiction-specific; verify against applicable central-bank / CSD / legislative framework',
+};
 const TIER_LABEL={1:'Tier 1 — legally final (CBM / SFD-designated)',2:'Tier 2 — conditional finality (PFMI / on-balance-sheet deposit)',3:'Tier 3 — contractual / reserve-backed finality (stablecoin/EMT)',4:'Tier 4 — finality unclear / none'};
 const TIER_COLOR={1:'#22C55E',2:'#2DD4BF',3:'#D4A847',4:'#EF4444'};
 
-function classifyTier(asset,designation){const base=ASSET_TIER[asset]??4;const mod=FINALITY_MOD[designation]??+1;return Math.min(4,Math.max(1,base+mod));}
+function classifyTier(settlement_asset, finality_designation) {
+  const base = ASSET_TIER[settlement_asset] ?? 4;
+  const mod  = FINALITY_MOD[finality_designation] ?? +1;
+  return Math.min(4, Math.max(1, base + mod));
+}
 
-function compute(pp){
-  const{settlement_asset='off-chain-RTGS',issuer='regulated-bank',finality_designation='none',jurisdiction='other',governing_law='',transfer_mechanism='DvP-conditional',singleness_test='pegged'}=pp;
-  const finality_tier=classifyTier(settlement_asset,finality_designation);
-  const singleness_verdict=SINGLENESS[singleness_test]??'SINGLENESS_BROKEN';
-  const finality_gaps=[];
-  if(transfer_mechanism==='wrapped-bridged')finality_gaps.push('WRAPPED_ASSET_FINALITY_GAP');
-  if(finality_designation==='none'||finality_designation==='contractual-only')finality_gaps.push('NO_LEGAL_FINALITY_DESIGNATION');
-  if(settlement_asset==='e-money-token'&&finality_designation!=='SFD-designated')finality_gaps.push('EMT_NOT_SFD_DESIGNATED');
-  if(singleness_verdict==='SINGLENESS_BROKEN')finality_gaps.push('SINGLENESS_BROKEN_WITH_CBM');
-  const applicable_regime=REGIME_MAP[jurisdiction]??REGIME_MAP.other;
-  let recommendation='';
-  if(finality_tier===1)recommendation='Tier 1 — legally final (CBM / SFD-designated). Proceed to ART-58 cross-network atomicity check.';
-  else if(finality_tier===2)recommendation='Tier 2 — conditional finality. Confirm SFD designation or PFMI compliance with the relevant CSD/FMI before relying on finality. Run ART-58 with finality_designation upgrade if achievable.';
-  else if(finality_tier===3)recommendation='Tier 3 — contractual / reserve-backed finality. Assess whether the issuer and product qualify as SFD-designated or PFMI-compliant. A regulated stablecoin may satisfy GENIUS Act / MiCA reserve requirements but does not achieve Tier 1 legal finality without a designation. Run wholesale-settlement-settlement-asset.';
-  else recommendation='Tier 4 — finality unclear. Do not use this asset class for wholesale settlement without legal clarification. Obtain SFD designation or PFMI compliance assessment. Run wholesale-settlement-settlement-asset.';
-  const asset_class_labels={'CBM-token':'Central Bank Money (tokenized)','commercial-bank-deposit-token':'Tokenized Commercial Bank Deposit (bank liability, redeemable at par)','regulated-stablecoin':'Regulated Stablecoin (GENIUS Act / MiCA reserve-backed)','e-money-token':'E-Money Token (MiCA Art. 48+)','off-chain-RTGS':'Off-Chain RTGS Settlement'};
-  const settlement_asset_class=asset_class_labels[settlement_asset]??settlement_asset;
-  const output_payload={settlement_asset_class,finality_tier,singleness_verdict,finality_gaps,applicable_regime,recommendation,status_asof:'2026-06-20 — verify EU SFD 98/26/EC, UCC Art.12, CPMI-IOSCO PFMI Principle 8 against current regulatory guidance',note:'Educational classification — not legal or settlement advice. Tier 1 = legally final (CBM/SFD); Tier 2 = conditional (deposit token/PFMI); Tier 3 = contractual (stablecoin); Tier 4 = unclear/none. Gates wholesale-settlement-cross-network-dvp atomicity check.'};
-  const compliance_flags=[];
-  if(finality_tier===4)compliance_flags.push('FINALITY_TIER_4_UNCLEAR');
-  if(singleness_verdict==='SINGLENESS_BROKEN')compliance_flags.push('SINGLENESS_BROKEN');
-  if(finality_gaps.includes('WRAPPED_ASSET_FINALITY_GAP'))compliance_flags.push('WRAPPED_ASSET_FINALITY_GAP');
-  if(finality_tier>=3)compliance_flags.push('FINALITY_BELOW_TIER2');
-  return{output_payload,compliance_flags};
+function compute(pp) {
+  const {
+    settlement_asset     = 'off-chain-RTGS',
+    issuer               = 'regulated-bank',
+    finality_designation = 'none',
+    jurisdiction         = 'other',
+    governing_law        = '',
+    transfer_mechanism   = 'DvP-conditional',
+    singleness_test      = 'pegged',
+  } = pp;
+
+  const finality_tier = classifyTier(settlement_asset, finality_designation);
+
+  const singleness_verdict = SINGLENESS[singleness_test] ?? 'SINGLENESS_BROKEN';
+
+  // Finality gaps
+  const finality_gaps = [];
+  if (transfer_mechanism === 'wrapped-bridged') finality_gaps.push('WRAPPED_ASSET_FINALITY_GAP');
+  if (finality_designation === 'none' || finality_designation === 'contractual-only')
+    finality_gaps.push('NO_LEGAL_FINALITY_DESIGNATION');
+  if (settlement_asset === 'e-money-token' && finality_designation !== 'SFD-designated')
+    finality_gaps.push('EMT_NOT_SFD_DESIGNATED');
+  if (singleness_verdict === 'SINGLENESS_BROKEN') finality_gaps.push('SINGLENESS_BROKEN_WITH_CBM');
+
+  // Applicable regime
+  const applicable_regime = REGIME_MAP[jurisdiction] ?? REGIME_MAP.other;
+
+  // Recommendation
+  let recommendation = '';
+  if (finality_tier === 1) {
+    recommendation = 'Tier 1 — legally final (CBM / SFD-designated). Proceed to ART-58 cross-network atomicity check.';
+  } else if (finality_tier === 2) {
+    recommendation = 'Tier 2 — conditional finality. Confirm SFD designation or PFMI compliance with the relevant CSD/FMI before relying on finality. Run ART-58 with finality_designation upgrade if achievable.';
+  } else if (finality_tier === 3) {
+    recommendation = 'Tier 3 — contractual / reserve-backed finality. Assess whether the issuer and product qualify as SFD-designated or PFMI-compliant. Stablecoin may satisfy GENIUS Act / MiCA reserve requirements but does not achieve Tier 1 legal finality without a designation. Run wts-settlement-asset.';
+  } else {
+    recommendation = 'Tier 4 — finality unclear. Do not use this asset class for wholesale settlement without legal clarification. Obtain SFD designation or PFMI compliance assessment. Run wts-settlement-asset.';
+  }
+
+  // Settlement asset class (human-readable)
+  const asset_class_labels = {
+    'CBM-token':                    'Central Bank Money (tokenized)',
+    'commercial-bank-deposit-token': 'Tokenized Commercial Bank Deposit (bank liability, redeemable at par)',
+    'regulated-stablecoin':          'Regulated Stablecoin (GENIUS Act / MiCA reserve-backed)',
+    'e-money-token':                 'E-Money Token (MiCA Art. 48+)',
+    'off-chain-RTGS':                'Off-Chain RTGS Settlement',
+  };
+  const settlement_asset_class = asset_class_labels[settlement_asset] ?? settlement_asset;
+
+  const output_payload = {
+    settlement_asset_class,
+    finality_tier,
+    singleness_verdict,
+    finality_gaps,
+    applicable_regime,
+    recommendation,
+    status_asof: '2026-06-20 — verify EU SFD 98/26/EC, UCC Art.12, CPMI-IOSCO PFMI Principle 8 against current regulatory guidance',
+    note: 'Educational classification — not legal or settlement advice. Tier 1 = legally final (CBM/SFD); Tier 2 = conditional (deposit token/PFMI); Tier 3 = contractual (stablecoin); Tier 4 = unclear/none. Gates wholesale-settlement-cross-network-dvp atomicity check.',
+  };
+
+  const compliance_flags = [];
+  if (finality_tier === 4) compliance_flags.push('FINALITY_TIER_4_UNCLEAR');
+  if (singleness_verdict === 'SINGLENESS_BROKEN') compliance_flags.push('SINGLENESS_BROKEN');
+  if (finality_gaps.includes('WRAPPED_ASSET_FINALITY_GAP')) compliance_flags.push('WRAPPED_ASSET_FINALITY_GAP');
+  if (finality_tier >= 3) compliance_flags.push('FINALITY_BELOW_TIER2');
+
+  return { output_payload, compliance_flags };
 }
 
 const canon=v=>Array.isArray(v)?v.map(canon):(v&&typeof v==='object'?Object.keys(v).sort().reduce((o,k)=>(o[k]=canon(v[k]),o),{}):v);
@@ -345,6 +413,27 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-59-
 </section>
 <!-- ASK-AGENT:END -->
 
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-59-settlement-asset-finality-classifier.kernel.mjs">art-59-settlement-asset-finality-classifier.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:f03969b8c19acf958fd9f90055c4580aa2432c04700b20a42156fa57473ace45</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-59-settlement-asset-finality-classifier.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-59-settlement-asset-finality-classifier.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="kernels/fixtures/compute-proof/art-59-settlement-asset-finality-classifier.receipt.json">sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: deferred</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/f03969b8c19acf958fd9f90055c4580aa2432c04700b20a42156fa57473ace45.json">f03969b8c19acf958fd9f90055c4580aa2432c04700b20a42156fa57473ace45</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=192e4e0dc4dcc7d3a0def3bb0bda3a4006a8cc7e7fe63d7abd2653988663aa6f">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">
