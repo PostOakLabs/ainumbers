@@ -43,8 +43,9 @@
 // and that is exactly the report this step acts on. Only an UNREADABLE report is
 // machinery failure.
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { readFileSync, writeFileSync, mkdtempSync, openSync, closeSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -103,20 +104,37 @@ export function applyPrune(quarantineDoc, removeIds) {
 /** Run the §18 gate in --json mode as its own process and return { status, report, raw }.
  *  report is null unless stdout parsed and passed planPrune's shape check. */
 export function runCheck({ checkPath = CHECK_PATH, repoRoot = REPO, spawn = spawnSync } = {}) {
-  const r = spawn(process.execPath, [checkPath, '--json'], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-    timeout: 600000,
-    killSignal: 'SIGKILL',
-    maxBuffer: 128 * 1024 * 1024,
-    env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  // CI-CURE (PR 3282): the child's --json report is ~1.5 MB and it ends with
+  // process.exit(). On Linux a pipe write is async, so process.exit() truncates
+  // stdout at the pipe buffer: CI saw exit 0 with an unparsable (cut) report.
+  // A FILE descriptor is written synchronously, so stdout goes to a temp file.
+  const dir = mkdtempSync(join(tmpdir(), 'prune-q-'));
+  const outPath = join(dir, 'stdout.json');
+  const outFd = openSync(outPath, 'w');
+  let r;
+  let stdoutText = '';
+  try {
+    r = spawn(process.execPath, [checkPath, '--json'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      timeout: 600000,
+      killSignal: 'SIGKILL',
+      maxBuffer: 128 * 1024 * 1024,
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+      stdio: ['ignore', outFd, 'pipe'],
+    });
+    closeSync(outFd);
+    try { stdoutText = readFileSync(outPath, 'utf8'); } catch { stdoutText = ''; }
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* best effort */ }
+  }
+  // Test seam: an injected spawn may return stdout directly.
+  if (r && typeof r.stdout === 'string' && r.stdout) stdoutText = r.stdout;
   if (!r || r.status === null) {
     return { ok: false, reason: `the §18 recompute-equality check did not run to an exit code${r && r.error ? ` (${r.error})` : ''}` };
   }
   let report;
-  try { report = JSON.parse(String(r.stdout || '')); } catch {
+  try { report = JSON.parse(stdoutText); } catch {
     return { ok: false, reason: `the §18 recompute-equality check printed no parsable --json report on stdout (exit ${r.status}); stderr tail: ${(String(r.stderr || '').trim().split('\n').slice(-3).join(' | ')).slice(0, 400)}` };
   }
   const plan = planPrune(report);

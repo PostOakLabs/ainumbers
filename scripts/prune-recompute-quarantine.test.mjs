@@ -203,7 +203,23 @@ await test('GREEN — runCheck fails closed when the child never reaches an exit
   assert(r.ok === false && /did not run to an exit code/.test(r.reason), `expected fail-closed, got ${JSON.stringify(r)}`);
 });
 
-// ══ 5. the step can never add an entry ═════════════════════════════════════════════════════════
+// ══ 4b. CI cure (PR 3282): a multi-MB report followed by process.exit() must parse whole ═══════
+// CI printed "no parsable --json report (exit 0)": the real check's ~1.5 MB report ends with
+// process.exit(), which truncates a pipe on Linux. The helper reads stdout from a file now.
+await test('GREEN — a multi-MB --json report written then process.exit()ed parses whole, zero cured is a pass', async () => {
+  const pad = 'x'.repeat(3 * 1024 * 1024);
+  const big = JSON.stringify({ elapsed_ms: 1, examined: 2, skippedPrivate: 0, failures: [], cured: [], excused: [{ tool_id: STAY_ID, detail: pad }], matched: [], staleQuarantineEntries: [], advisoryCured: [], ok: true });
+  const dir = makeFixture(null, { stdout: big, exitCode: 0 });
+  try {
+    const before = readQuarantine(dir);
+    const r = runCLI(dir);
+    assert(r.status === 0, `a large zero-cure report must pass, got ${r.status}: ${r.stderr}`);
+    assert(/nothing to prune/.test(r.stdout), `stdout must say nothing to prune, got: ${r.stdout}`);
+    assert(readQuarantine(dir) === before, 'bytes untouched');
+  } finally { cleanup(dir); }
+});
+
+// ══ 5. the step can never add an entry═════════════════════════════════════════════════════════
 await red('a stub that adds an entry for a phantom cured id is caught (case 5)', async () => {
   const doc = quarantineDoc();
   const { doc: next } = WRONG.phantomAdd(doc, ['art-9999-synthetic-phantom']);
