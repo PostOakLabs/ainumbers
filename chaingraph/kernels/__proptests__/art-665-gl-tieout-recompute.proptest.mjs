@@ -203,7 +203,7 @@ function checkP6_requiredFieldNeverPositiveWhenBlank() {
 
 // ---------- P7: buildArtifact_never_throws -- one case per I-JSON hash-limit class ----------
 async function checkP7_buildArtifactNeverThrows() {
-  const deep = (n) => { let o = {}; const r = o; for (let i = 0; i < n; i++) { o.x = {}; o = o.x; } return r; };
+  const deep = (n) => { /** @type {any} */ const r = {}; /** @type {any} */ let o = r; for (let i = 0; i < n; i++) { o.x = {}; o = o.x; } return r; };
   const classes = [
     ['junk_1e300', 1e300],
     ['junk_NaN', NaN],
