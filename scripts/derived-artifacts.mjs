@@ -1454,24 +1454,6 @@ export const COVERED = [
     after: 'chaingraph-assemble',
     share: '57%',
   },
-  {
-    id: 'debt-ledger',
-    // DEBT-LEDGER-1 (0xAlpha/2026-08-21-mechanical-verification-audit.md
-    // Finding 3): owns ONE self-delimited region of fv-explainer.html
-    // (`<!-- GEN:DEBT-LEDGER:START -->...:END -->`), independent of the
-    // `<!--COUNT:-->` sentinels the 'counts' entry above already owns on
-    // this same page — same "two generators, two regions, one shared file"
-    // pattern as 'chain-index' and 'chaingraph-hub' both declaring
-    // chaingraph/chaingraph-hub.html below.
-    // REGEN-COVERED-ORDER-FIX-4: LAST in the array, pinned after nav-island —
-    // it reads scripts/nav-island-baseline.json (every *-baseline.json) and
-    // must see the pruned state in the same pass (60bb7dff fixpoint incident).
-    regen: 'node scripts/gen-debt-ledger.mjs --write',
-    gate: 'node scripts/gen-debt-ledger.mjs --check',
-    artifacts: ['fv-explainer.html'],
-    after: 'nav-island',
-    share: 'n/a (new 2026-08-21, DEBT-LEDGER-1)',
-  },
 
   {
     // MANIFEST-EXAMPLES-ANNOTATIONS-1 (2026-09-19): single writer (SO #47) for the
@@ -1591,6 +1573,26 @@ export const COVERED = [
     artifacts: ['scripts/recompute-equality-quarantine.json'],
     after: 'receipt-bundles',
     share: 'n/a (new 2026-11-23, REGEN-QUARANTINE-PRUNE-1)',
+  },
+  {
+    id: 'debt-ledger',
+    // DEBT-LEDGER-1 (0xAlpha/2026-08-21-mechanical-verification-audit.md
+    // Finding 3): owns ONE self-delimited region of fv-explainer.html
+    // (`<!-- GEN:DEBT-LEDGER:START -->...:END -->`), independent of the
+    // `<!--COUNT:-->` sentinels the 'counts' entry above already owns on
+    // this same page — same "two generators, two regions, one shared file"
+    // pattern as 'chain-index' and 'chaingraph-hub' both declaring
+    // chaingraph/chaingraph-hub.html below.
+    // REGEN-PRUNE-ORDER-BEFORE-DEBT-LEDGER-1 (2026-11-24): LAST in the array,
+    // now pinned after recompute-quarantine-prune (was after nav-island, which
+    // still precedes it by array order): the ledger counts every ratchet file,
+    // including scripts/recompute-equality-quarantine.json that the prune may
+    // shrink in the same pass, so it must see the pruned state (60bb7dff incident).
+    regen: 'node scripts/gen-debt-ledger.mjs --write',
+    gate: 'node scripts/gen-debt-ledger.mjs --check',
+    artifacts: ['fv-explainer.html'],
+    after: 'recompute-quarantine-prune',
+    share: 'n/a (new 2026-08-21, DEBT-LEDGER-1)',
   },
 ];
 
