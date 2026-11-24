@@ -1558,6 +1558,40 @@ export const COVERED = [
     after: 'chaingraph-assemble',
     share: 'n/a (new 2026-10-22, RECEIPT-BUNDLE-PUBLISH-1)',
   },
+  {
+    // REGEN-QUARANTINE-PRUNE-1 (2026-11-23): the §18 recompute-equality QUARANTINE
+    // PRUNE — the main-side follow-up that never had an owner. Both 2026-11-23
+    // quarantine causes (art-350, art-713) say "DELETE this entry in the follow-up
+    // that lands the re-spliced monolith", and the re-splice happens ONLY on main
+    // (derived-artifacts-regen.yml), so no PR could ever do it: each stale entry
+    // redded main's §18 gate ("quarantined, but its receipt REPRODUCES now") until
+    // a hand heal row landed (Scripts Verify runs 45250735999 / 45270542853, each
+    // pausing lineage-arm and merge-lane). This entry closes the loop in the SAME
+    // bot commit: it re-runs the §18 gate (scripts/check-recompute-equality.mjs
+    // --json, ~8 s over the estate) as its own process and deletes exactly the
+    // entries that gate reports as cured ("quarantined, but its receipt REPRODUCES
+    // now"). ⛔ The ratchet's own law is untouched and mechanically enforced by the
+    // helper: counts only go DOWN — it can never add an entry, edit a cause or
+    // re-order; a non-reproducing entry stays verbatim; the file is written only
+    // when at least one entry goes (byte-identical serialization pinned by the
+    // helper's self-test); malformed check output fails closed with no write. The
+    // decision of WHAT reproduces stays entirely with check-recompute-equality.mjs.
+    // LAST in the array — the prune must see the fully regenerated tree (its input
+    // is the post-assemble monolith every earlier entry helped produce), and
+    // runRegenPass executes COVERED in array order; the after: edge pins the
+    // previous tail and is mechanically enforced by check-derived-fanout-coverage.mjs.
+    // prAbsentOk does NOT apply: the quarantine file is committed and present on
+    // every PR checkout. Not DERIVED_ROOT-aware by the same rule as the §18 gate
+    // itself (it reads the checkout's committed bytes), so in ephemeral mode
+    // --verify SKIPS it as main-regen-owned (MERGEGROUP-DERIVED-REGEN-FIX-1).
+    id: 'recompute-quarantine-prune',
+    regen: 'node scripts/prune-recompute-quarantine.mjs',
+    gate: 'node scripts/prune-recompute-quarantine.mjs --check',
+    writes: ['scripts/recompute-equality-quarantine.json'],
+    artifacts: ['scripts/recompute-equality-quarantine.json'],
+    after: 'receipt-bundles',
+    share: 'n/a (new 2026-11-23, REGEN-QUARANTINE-PRUNE-1)',
+  },
 ];
 
 /**
