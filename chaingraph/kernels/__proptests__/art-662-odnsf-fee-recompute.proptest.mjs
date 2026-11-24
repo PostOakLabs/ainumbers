@@ -63,7 +63,8 @@ function randomPP(rng) {
   };
 }
 
-const TRIALS = 1500;
+const RUNS = Number(process.env.MUTATION_TIER_NUM_RUNS);
+const TRIALS = Number.isSafeInteger(RUNS) && RUNS > 0 ? RUNS : 1500; // MUTATION_TIER_NUM_RUNS: per-kernel mutation-mode budget set by run-mutation-tier.mjs; unset = full 1500
 
 // ---------- P1: determinism -- same policy_parameters -> byte-identical output_payload ----------
 function checkP1_determinism() {
