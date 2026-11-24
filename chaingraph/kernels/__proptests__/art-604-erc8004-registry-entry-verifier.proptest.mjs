@@ -178,6 +178,7 @@ function checkP7_inputValidationReasons() {
   const CH = 'chain_id is required (missing, null, blank or whitespace-only)';
   const RA = 'registry_address is required (missing, null, blank or whitespace-only)';
   const good = { agentId: '1' };
+  /** @type {Array<[any, string[]]>} */
   const cases = [
     [{ ...HDR, registry_type: 5, claimed_entry: good, onchain_record: good }, [RT]],
     [{ ...HDR, registry_type: 'bogus', claimed_entry: good, onchain_record: good }, [RT]],
@@ -445,7 +446,7 @@ async function checkP11_hashRefusalBoundaries() {
   const ok = (cond) => { checked++; if (!cond) violations++; };
   const nest = (n) => { const root = {}; let cur = root; for (let i = 1; i < n; i++) { cur.n = {}; cur = cur.n; } return root; };
   const base = { ...HDR, claimed_entry: { a: '1' }, onchain_record: { a: '1' } };
-  const refuse = async (extra) => buildArtifact({ ...base, ...extra }, { now: '2026-01-01T00:00:00Z' });
+  const refuse = async (extra) => buildArtifact({ ...base, ...extra }, /** @type {any} */ ({ now: '2026-01-01T00:00:00Z' }));
   const LIM = 'REFUSED_INPUT_HASH_LIMIT', NUM = 'REFUSED_INPUT_UNSAFE_NUMBER';
   const cases = [
     [{ chain_id: NaN }, NUM, 'pp.chain_id: non_finite'],
@@ -486,7 +487,7 @@ async function checkP11_hashRefusalBoundaries() {
   }
   // safe path: a clean call returns hash, deferred proof, parent chain echo, no refusal
   const pp = { ...base };
-  const good = await buildArtifact(pp, { now: '2026-02-02T00:00:00Z', parent_hashes: ['h1'], parent_tool_ids: ['t1'], chain_depth: 2 });
+  const good = await buildArtifact(pp, /** @type {any} */ ({ now: '2026-02-02T00:00:00Z', parent_hashes: ['h1'], parent_tool_ids: ['t1'], chain_depth: 2 }));
   const expected = await executionHash(pp, compute(pp).output_payload);
   ok(good.execution_hash === expected && typeof good.execution_hash === 'string' && !('hash_refusal' in good));
   ok(good.compute_proof_ready === 'deferred' && good.generated_at === '2026-02-02T00:00:00Z' && same(good.policy_parameters, pp));
