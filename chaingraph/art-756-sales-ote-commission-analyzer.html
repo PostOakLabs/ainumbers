@@ -98,7 +98,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 .social-row a:hover{color:var(--teal)}
 .social-row svg{width:18px;height:18px;fill:currentColor}
 </style>
-<meta name="kernel-digest" content="sha256:b16c64afb3ceeef8652c4aa0d61ba66b70be5f669ed8970d4a480b4e6aa8b87f">
+<meta name="kernel-digest" content="sha256:43c1924980d70e686d9a6f5c9bc05f1040fc5530cd6f31f7fb7f56b866430416">
 <style>
 /* OCG-CHROME-CSS:v1 */
 /* Canonical nav — derived from chaingraph-hub.html */
@@ -322,6 +322,27 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-756
 </script>
 <!-- A11Y-TREE:END -->
 
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-756-sales-ote-commission-analyzer.kernel.mjs">art-756-sales-ote-commission-analyzer.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:43c1924980d70e686d9a6f5c9bc05f1040fc5530cd6f31f7fb7f56b866430416</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-756-sales-ote-commission-analyzer.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-756-sales-ote-commission-analyzer.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="kernels/fixtures/compute-proof/art-756-sales-ote-commission-analyzer.receipt.json">sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: verified</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/43c1924980d70e686d9a6f5c9bc05f1040fc5530cd6f31f7fb7f56b866430416.json">43c1924980d70e686d9a6f5c9bc05f1040fc5530cd6f31f7fb7f56b866430416</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=d2da5a3a10c87403a739e4a9963aaa4e8099376d6dfde0470d13d2d673a8589b">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">
@@ -452,7 +473,21 @@ const SCOPE_NOTE =
 const SAMPLE = { as_of: '2026-10-13', base_salary: 75000, ote: 150000, quota: 1000000, attainment_pct: 100, federal_tax_rate_pct: 32, has_accelerator: true, accelerator_threshold_pct: 100, accelerator_multiplier: 1.5, has_draw: false, draw_monthly: 5000 };
 const REFUSAL_DEMO = Object.assign({}, SAMPLE, { ote: 75000, base_salary: 75000 });
 
-function apexCoerce(v, fallback) { const n = typeof v === 'number' ? v : Number(v); return (Number.isFinite(n) && n !== 0) ? n : fallback; }
+function apexCoerce(n, fallback) { return n !== 0 ? n : fallback; }
+function hasOwn(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
+function isPlainObject(v) { if (v === null || typeof v !== 'object' || Array.isArray(v)) return false; const proto = Object.getPrototypeOf(v); return proto === Object.prototype || proto === null; }
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) { for (let i = 0; i < v.length; i++) { const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget); if (r !== null) return r; } return null; }
+  if (v !== null && typeof v === 'object') { const ks = Object.keys(v).sort(); for (let i = 0; i < ks.length; i++) { const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget); if (r !== null) return r; } return null; }
+  return null;
+}
 function isIsoDate(v) { if (typeof v !== 'string' || v.length !== 10 || v.charAt(4) !== '-' || v.charAt(7) !== '-') return false; for (let i = 0; i < 10; i++) { if (i === 4 || i === 7) continue; const c = v.charCodeAt(i); if (c < 48 || c > 57) return false; } const y = Number(v.slice(0, 4)), m = Number(v.slice(5, 7)), d = Number(v.slice(8, 10)); if (m < 1 || m > 12 || d < 1) return false; const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0; const dim = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1]; return d <= dim; }
 function apexFixed1(v) { if (!Number.isFinite(v)) return 0; return Number(v.toFixed(1)); }
 function riskLabelFor(s) { if (s >= HIGH_VARIABLE_CONCENTRATION_PCT) return 'high'; if (s >= MODERATE_VARIABLE_EXPOSURE_PCT) return 'moderate'; return 'low'; }
@@ -481,11 +516,21 @@ function refusedPayload(reason, text, coerced) {
 }
 
 function compute(pp) {
-  pp = pp || {};
-  if (!isIsoDate(pp.as_of)) return { output_payload: refusedPayload('REFUSED_BAD_AS_OF', 'as_of must be a real calendar date as a YYYY-MM-DD string; the node never reads a clock', []), compliance_flags: ['ART756_INPUT_REFUSED'] };
+  if (!isPlainObject(pp)) return { output_payload: refusedPayload('REFUSED_BAD_INPUT', 'policy_parameters must be a plain object', []), compliance_flags: ['ART756_INPUT_REFUSED'] };
+  const own = function (k) { return hasOwn(pp, k) ? pp[k] : undefined; };
+  if (!isIsoDate(own('as_of'))) return { output_payload: refusedPayload('REFUSED_BAD_AS_OF', 'as_of must be a real calendar date as a YYYY-MM-DD string; the node never reads a clock', []), compliance_flags: ['ART756_INPUT_REFUSED'] };
 
   const coerced = [];
-  const take = function (key, fallback) { const raw = pp[key]; const n = typeof raw === 'number' ? raw : Number(raw); const out = apexCoerce(raw, fallback); if (!(Number.isFinite(n) && n !== 0)) coerced.push({ field: key, supplied: Number.isFinite(n) ? n : null, substituted: fallback }); return out; };
+  let badInput = null;
+  const take = function (key, fallback) {
+    const raw = own(key);
+    if (raw === undefined) { coerced.push({ field: key, supplied: null, substituted: fallback }); return fallback; }
+    if (typeof raw !== 'number') { if (badInput === null) badInput = key + ' must be a finite number, got ' + (raw === null ? 'null' : typeof raw) + '; never coerced'; return fallback; }
+    if (!Number.isFinite(raw) || (Number.isInteger(raw) && !Number.isSafeInteger(raw))) { if (badInput === null) badInput = key + ' must be a finite number and a safe integer when integral'; return fallback; }
+    const out = apexCoerce(raw, fallback);
+    if (raw === 0) coerced.push({ field: key, supplied: 0, substituted: fallback });
+    return out;
+  };
   const base = take('base_salary', APEX_INPUT_DEFAULTS.base_salary);
   const ote = take('ote', APEX_INPUT_DEFAULTS.ote);
   const quota = take('quota', APEX_INPUT_DEFAULTS.quota);
@@ -494,8 +539,11 @@ function compute(pp) {
   const accelThresh = take('accelerator_threshold_pct', APEX_INPUT_DEFAULTS.accelerator_threshold_pct);
   const accelMult = take('accelerator_multiplier', APEX_INPUT_DEFAULTS.accelerator_multiplier);
   const drawMonthly = take('draw_monthly', APEX_INPUT_DEFAULTS.draw_monthly);
-  const hasAccel = pp.has_accelerator === true;
-  const hasDraw = pp.has_draw === true;
+  const flagKeys = ['has_accelerator', 'has_draw'];
+  for (let fi = 0; fi < flagKeys.length; fi++) { const b = own(flagKeys[fi]); if (b !== undefined && typeof b !== 'boolean' && badInput === null) badInput = flagKeys[fi] + ' must be a boolean when present; never coerced'; }
+  if (badInput !== null) return { output_payload: refusedPayload('REFUSED_BAD_INPUT', badInput, []), compliance_flags: ['ART756_INPUT_REFUSED'] };
+  const hasAccel = own('has_accelerator') === true;
+  const hasDraw = own('has_draw') === true;
 
   const compliance_flags = [];
   if (coerced.length) compliance_flags.push('APEX_ZERO_COERCION_APPLIED');
@@ -545,7 +593,7 @@ function compute(pp) {
   if (hasDraw && drawMonthly <= 0) compliance_flags.push('DRAW_ENABLED_BUT_ZERO');
   // standing disclosures ride in scope_note (FLAGS-COMPUTED-LINT-1)
 
-  return {
+  const result = {
     output_payload: {
       as_of: pp.as_of, base_salary: base, ote: ote, quota: quota, attainment_pct: attainment,
       federal_tax_rate_pct: fedTax, accelerator_threshold_pct: accelThresh, accelerator_multiplier: accelMult,
@@ -559,6 +607,9 @@ function compute(pp) {
     },
     compliance_flags: compliance_flags
   };
+  const unhashable = findHashRefusal(result.output_payload, 'output', 1, { maxDepth: 64, maxElements: 100000, n: 0 });
+  if (unhashable !== null) return { output_payload: refusedPayload('REFUSED_RESULT_NOT_HASHABLE', 'the computed result is not a finite safe number (' + unhashable.detail + '); reduce the input magnitudes', coerced), compliance_flags: compliance_flags.concat(['ART756_INPUT_REFUSED']) };
+  return result;
 }
 
 /* ── execution hash: JCS-canonical preimage over {policy_parameters, output_payload},
