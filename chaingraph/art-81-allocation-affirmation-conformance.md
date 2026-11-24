@@ -18,9 +18,9 @@ Checks allocation and confirmation/affirmation events against the 23:00 CET trad
 - dual_date_note (string, optional)
 - events_flagged (array, optional)
 - format_nonconformance_count (integer, optional)
-- input_valid (boolean, optional): false when any event or the cutoff was refused
-- input_issues (array, optional): refused inputs with index, field and reason
-- issues (array, optional): mirror of input_issues for chain-gate routing
+- input_valid (boolean, optional)
+- input_issues (array, optional)
+- issues (array, optional)
 - timezone_note (string, optional)
 - note (string, optional)
 - on_time_events (integer, optional)
