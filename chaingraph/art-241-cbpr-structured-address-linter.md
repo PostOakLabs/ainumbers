@@ -1,6 +1,6 @@
 # CBPR+ Structured Address Linter
 
-Lints a single pacs.008 PostalAddress24 block against the SWIFT CBPR+ structured-address rule set (formerly a 14 Nov 2026 mandate; deferred by Swift 27 Aug 2026 with all payments changes; new timeline expected December 2026, no new date published yet). Detects unstructured AdrLine-only addresses, hybrid silent-fail duplication (AdrLine echoing structured field values, which causes STP rejection without a visible error code), and address structure type (FULLY_STRUCTURED, HYBRID, UNSTRUCTURED, EMPTY). Per-message lint - for batch verification of migrated address archives use verify_address_migration_batch (rca-03).
+Lints a single pacs.008 PostalAddress24 block against the SWIFT CBPR+ structured-address rule set (formerly a 14 Nov 2026 mandate; deferred by Swift 27 Aug 2026 with all payments changes; new timeline expected December 2026, no new date published yet). Detects unstructured AdrLine-only addresses, hybrid silent-fail duplication (AdrLine echoing structured field values, which causes STP rejection without a visible error code), and address structure type (FULLY_STRUCTURED, HYBRID, UNSTRUCTURED, EMPTY). All seven manifest-required address fields must be present: an absent, null, empty or whitespace-only required field is never treated as compliant and yields INDETERMINATE (or an existing non-compliant refusal). Per-message lint - for batch verification of migrated address archives use verify_address_migration_batch (rca-03).
 
 - Page: https://ainumbers.co/chaingraph/art-241-cbpr-structured-address-linter.html
 - Markdown twin: https://ainumbers.co/chaingraph/art-241-cbpr-structured-address-linter.md
@@ -18,18 +18,20 @@ Lints a single pacs.008 PostalAddress24 block against the SWIFT CBPR+ structured
 
 ## Outputs
 
-- cbpr_plus_deadline (string,null, optional)
-- cbpr_plus_deadline_status (string, optional)
-- compliant (boolean, optional)
-- disambiguation (string, optional)
-- error_count (integer, optional)
-- pii_note (string, optional)
-- readiness_pct (integer, optional)
-- regulatory_basis (string, optional)
-- structure_type (string, optional)
-- table_source (string, optional)
-- table_version (string, optional)
-- violations (array, optional)
+- cbpr_plus_deadline (null, required)
+- cbpr_plus_deadline_status (string, required)
+- compliant (boolean,null, required)
+- disambiguation (string, required)
+- error_count (number, required)
+- missing_required_fields (array, optional)
+- pii_note (string, required)
+- readiness_pct (number, required)
+- regulatory_basis (string, required)
+- structure_type (string, required)
+- table_source (string, required)
+- table_version (string, required)
+- verdict (string, optional)
+- violations (array, required)
 
 ## Sample
 
@@ -40,6 +42,7 @@ Lints a single pacs.008 PostalAddress24 block against the SWIFT CBPR+ structured
   "post_code": "60311",
   "town_name": "Frankfurt",
   "country": "DE",
+  "country_subdivision": "HE",
   "address_lines": []
 }
 ```
