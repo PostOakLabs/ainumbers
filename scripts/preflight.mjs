@@ -2456,6 +2456,16 @@ const GATES = [
   // QuickJS sandbox and requires the receipt's journal.output to reproduce. ~8s over the full estate.
   ['§18 recompute-equality (SO #34)', 'node scripts/check-recompute-equality.mjs'],
   ['§18 recompute-equality controls (canary + mutation)', 'node scripts/check-recompute-equality.test.mjs'],
+  // §18 QUARANTINE PRUNE (REGEN-QUARANTINE-PRUNE-1): the freshness half of the COVERED entry
+  // 'recompute-quarantine-prune' (derived-artifacts.mjs, LAST in COVERED — the main-side regen
+  // deletes reproducing quarantine entries in the same bot commit as the re-splice). The command
+  // string is deliberately identical to that entry's `gate:` so the generic ADVISORY_ON_PR
+  // categorisation downgrades it on PRs (a PR cannot satisfy it: the committed tree still carries
+  // the stale entry by SO #35's single-writer law) while it stays BLOCKING on main. Advisory only
+  // ever reads; it writes nothing in this mode. The paired controls file proves every wrong-stub
+  // shape the helper must reject.
+  ['§18 quarantine prune freshness (REGEN-QUARANTINE-PRUNE-1)', 'node scripts/prune-recompute-quarantine.mjs --check'],
+  ['§18 quarantine prune controls (SO #40b pairing)', 'node scripts/prune-recompute-quarantine.test.mjs'],
   ['Proof-badge freshness',        'node scripts/check-proof-badge.mjs'],
   ['Kernel as-of staleness ratchet (ASOF-GATE-1)', 'node scripts/check-kernel-asof-staleness.mjs'],
   ['Kernel as-of staleness fixture proof', 'node scripts/check-kernel-asof-staleness.test.mjs'],
@@ -2502,6 +2512,15 @@ const GATES = [
   // (GATE-SELFTEST-META-1).
   ['Node-page footer freshness (FOOTER-INFRA-COLUMN-1)', 'node scripts/gen-node-footers.mjs --check'],
   ['Node-page footer writer self-test (RED+GREEN)', 'node scripts/gen-node-footers.mjs --selftest'],
+  // PROOFLINKS-GEN-1 (PR #3208 cure): the node-page proof-links region, COVERED id
+  // 'node-page-proof-links' in derived-artifacts.mjs — a <details> inventory of the
+  // node's verification artifacts between <!--PROOF-LINKS--> sentinels. The command
+  // string is byte-identical to that entry's `gate`, so the generic ADVISORY_ON_PR
+  // rule classifies it: a PR authors the page, main's regen writes the block after
+  // merge; blocking on main. --check is the alarm (exit 1 on drift or a dead
+  // relative href). Wiring here is also the generator coverage meta-gate's
+  // requirement (SSOT-GATES-1 §G2.5): a --check generator must be wired here.
+  ['Node-page proof-links freshness (PROOFLINKS-GEN-1)', 'node scripts/gen-proof-links.mjs --check'],
   // CHAIN-PROMPT-INFRA-1: the chain example prompt is mandatory for every chain
   // (CONTRACT §A3.1). The gate below is hard in both contexts — it reads the
   // authored SSOT and the assembled graph, neither of which a main-side regen
