@@ -587,6 +587,17 @@ const PREFLIGHT_ONLY = new Map([
     "'node-page-footers' (advisory on a PR, blocking on main via the generic downgrade; main-side " +
     "freshness is owned by derived-artifacts-regen.yml). The write half is the regen command, " +
     "never a PR step. Reads only tracked repo files, no CI-only input. Self-test: --selftest."],
+  // ── PROOFLINKS-GEN-1 (PR #3208 cure, 2026-11-23) ───────────────────────────
+  ["gen-proof-links.mjs",
+    "Node-page proof-links region freshness (PROOFLINKS-GEN-1): re-renders each node page's " +
+    "<!--PROOF-LINKS--> <details> block (kernel-digest + fv-explainer/verify artifact inventory) " +
+    "from the committed tree in memory and compares; --check exits 1 on drift or a dead relative " +
+    "href. Hard in preflight; its CI route is scripts-verify.yml's full preflight (the workflow " +
+    "runs `node scripts/preflight.mjs`), so a named workflow step would only duplicate the same " +
+    "suite. It is also the COVERED gate of derived-artifacts.mjs id 'node-page-proof-links' " +
+    "(advisory on a PR, blocking on main via the generic downgrade; main-side freshness is owned " +
+    "by derived-artifacts-regen.yml). The write half is the regen command, never a PR step. Reads " +
+    "only tracked repo files, no CI-only input. Self-test: --selftest."],
   // ── ZK-PAGES-SVG-PILOT-1 (2026-09-27) ───────────────────────────────────────
   ["sync-scene-kit.mjs",
     "SCENE-KIT inline-copy sync + WCAG 2.2.2 motion-timing scan (ZK-PAGES-SVG-PILOT-1). Hard in " +
