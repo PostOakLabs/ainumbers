@@ -93,7 +93,7 @@
  * L2 block, is untouched and still never affects the exit code. See the block
  * comment above `decideL2HardLeg()` for the shape and its measured blast radius.
  */
-import { execSync, exec } from 'node:child_process';
+import { execSync, exec, spawnSync } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
 import { checkPreflightCap, refusalMessage } from './lib/preflight-cap.mjs';
 import { affectedPlan, missingHygiene, AFFECTED_HYGIENE_CMDS } from './lib/affected-gates.mjs';
@@ -219,6 +219,17 @@ if (MERGE_GROUP_DERIVED_ROOT) {
 // full-estate scan, so nothing here weakens what CI checks.
 const changedIdx = process.argv.indexOf('--changed');
 const changedRef = changedIdx !== -1 ? process.argv[changedIdx + 1] : null;
+// DERIVED-SELFTEST-SPEED-1: on merge_group CI the workflow invokes preflight
+// bare (no --changed), so the live scan used to execute the ENTIRE declared set
+// — measured 1,455,996 ms / 1,226,873 ms on runs 44951224902 / 44949079663 —
+// even for a kernel-only or workflow-only push touching none of those entries'
+// inputs. `origin/main` is resolvable in that job (asserted in scripts-verify.yml).
+// The gate's --changed mode selects by regen/gate script and declared artifact
+// (a SUPERSET of what the push can affect), so every command the touched paths
+// can affect still runs; pull_request and the workflow_run/main leg still run
+// the FULL live scan as the coverage backstop. DERIVED_REGEN_LIVE_FULL=1 forces
+// the full scan unchanged.
+const regenLiveChangedRef = changedRef || (process.env.GITHUB_EVENT_NAME === 'merge_group' ? 'origin/main' : null);
 const BUDGET_MS = 60_000;
 
 // The two §18 freshness commands (ratchet + fixture proof) that read the PR-only scratch assembly.
@@ -1020,7 +1031,22 @@ const { advisoryGates, isMainContext, COVERED, DERIVED_ROOT_GATES } = await impo
 // fails OPEN (gate runs) — the live scan is read/write-scoped to a throwaway
 // worktree, never the shared tree, so running it unnecessarily costs time, not
 // correctness, which is the same tradeoff helmPathsTouched() already makes.
+//
+// DERIVED-SELFTEST-SCOPE-CLOSURE-1: primary regen/gate scripts alone
+// under-trigger the same way they under-selected. Measured 2026-11-22: a
+// rename inside scripts/counts.mjs — imported by gen-evidence-register.mjs /
+// gen-guides-index.mjs / gen-debt-ledger.mjs and others, and the SECOND
+// script of a chained (`&&`) regen command is equally invisible — matched no
+// primary script, so this trigger skipped the live gate entirely while
+// verify-counts --check exited 1. The relevant set is therefore widened with
+// the SAME per-entry key set the gate's own --changed selection uses (one
+// implementation, exported from check-derived-regen-live.mjs — the chained
+// sub-command scripts plus the transitive static import closure of every
+// regen/gate script; the lexical extractor discipline is
+// check-derived-declare-parity.mjs's, not a second parser). A closure build
+// failure fails OPEN (gate runs), the same direction as the catch below.
 const { primaryScriptPath } = await import('./check-derived-declare-parity.mjs');
+const { coveredDiffKeyUnion } = await import('./check-derived-regen-live.mjs');
 function derivedRegenLiveScopeTouched() {
   // DERIVED-SET-SELFTEST-TRIGGER-1: this gate's own script and its test were
   // absent from this set — site PR #2104 changed check-derived-regen-live.mjs
@@ -1038,6 +1064,11 @@ function derivedRegenLiveScopeTouched() {
     if (rp) relevant.add(rp);
     if (c.gate) { const gp = primaryScriptPath(c.gate); if (gp) relevant.add(gp); }
   }
+  // DERIVED-SELFTEST-SCOPE-CLOSURE-1: widen with chained-command scripts and
+  // the transitive static import closure (see the block comment above).
+  const closureUnion = coveredDiffKeyUnion({ covered: COVERED, repoPath: REPO });
+  if (!closureUnion.ok) return true; // closure build failed — fail OPEN, run the gate
+  for (const k of closureUnion.keys) relevant.add(k);
   try {
     const touched = new Set();
     execSync('git diff --name-only HEAD', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
@@ -1175,6 +1206,29 @@ if (TIER_LEG !== 'all') {
     ? `▶ tier-leg scoping (SCRIPTS-VERIFY-TIER-SHARD-1): PREFLIGHT_TIER_LEG=skip — the Mutation tier floor gate is carried by the scripts-verify-tier-shard matrix job; every OTHER gate runs here exactly once.`
     : `▶ tier-leg scoping (SCRIPTS-VERIFY-TIER-SHARD-1): PREFLIGHT_TIER_LEG=only PREFLIGHT_TIER_SHARD=${TIER_SHARD.index}/${TIER_SHARD.count} — running ONLY the Mutation tier floor gate, on ${TIER_KERNEL_SUBSET.length} of ${TOUCHED_KERNEL_IDS.length} touched kernel id(s); every other gate is carried by the main suite job.`);
 }
+
+// ── PROPTEST-FLOOR-SHARD-1: the "Property-testing floor" gate is REPLICATED ────
+// One gate cannot be split across the CI-PREFLIGHT-SHARD-1 shards by the balancer
+// (planShards owns whole gates), and this one gate measured 515 s of a ~10 min
+// shard 1 — the Scripts Verify critical path. So when THIS preflight run is itself
+// a shard (--shard i/N or PREFLIGHT_SHARD=i/N), the gate's command carries
+// --shard i/N down to scripts/run-proptests.mjs, which executes only this shard's
+// deterministic slice of the floor estate; the shard plan below then KEEPS the gate
+// on every shard (planShards' replicated marker). The spec is parsed once here from
+// the same argv/env source the shard block reads, through the same parseShardSpec,
+// so the command suffix and SHARD can never disagree; an unsharded run (every local
+// run and the pre-push hook) builds the byte-identical command it always did.
+const PROPFLOOR_GATE_LABEL = 'Property-testing floor';
+const PROPFLOOR_ARG_IDX = process.argv.indexOf('--shard');
+const PROPFLOOR_SHARD_SPEC = PROPFLOOR_ARG_IDX !== -1
+  ? (process.argv[PROPFLOOR_ARG_IDX + 1] || '')
+  : (process.env.PREFLIGHT_SHARD || '');
+const PROPFLOOR_SHARD = PROPFLOOR_SHARD_SPEC ? parseShardSpec(PROPFLOOR_SHARD_SPEC) : null;
+if (PROPFLOOR_SHARD_SPEC && !PROPFLOOR_SHARD) {
+  console.error(`❌ --shard / PREFLIGHT_SHARD="${PROPFLOOR_SHARD_SPEC}" is not i/N with 0 <= i < N — refusing to guess (PROPTEST-FLOOR-SHARD-1).`);
+  process.exit(2);
+}
+const PROPFLOOR_SHARD_SUFFIX = PROPFLOOR_SHARD ? ` --shard ${PROPFLOOR_SHARD.index}/${PROPFLOOR_SHARD.count}` : '';
 
 // [label, command] — exact CI hard gates, in CI order, + the hub-freshness gate.
 const GATES = [
@@ -1764,6 +1818,15 @@ const GATES = [
   // PAGE-KERNEL-PARITY-GATE-1 (stage 1): ADVISORY by construction, the checker always exits 0 (full estate about 50 s).
   ['Page-versus-kernel parity sweep (stage 1 advisory, always exits 0)', 'node scripts/check-page-kernel-parity.mjs'],
   ['Page-versus-kernel parity controls (RED+GREEN synthetic pages)', 'node scripts/check-page-kernel-parity.selftest.mjs'],
+  // PAGE-BUILDARTIFACT-HASH-REFUSAL-1 (stage 1 advisory): the node-page artifact-build step
+  // never throws on unhashable input. Throws and hashed-unhashable results are FINDINGS
+  // (reported, exit 0); the ONLY hard red is the baseline ratchet - a page pinned in
+  // scripts/page-hash-refusal-baseline.json carrying MORE findings than its pinned count.
+  // --changed scopes the vm probe to node pages added or modified vs origin/main and falls
+  // back to the full estate when the ref does not resolve; the estate baseline is written
+  // by --write-baseline runs, deliberately, not by the gate.
+  ['Node page hash-refusal probe (stage 1 advisory, PAGE-BUILDARTIFACT-HASH-REFUSAL-1)', 'node scripts/check-page-hash-refusal.mjs --changed origin/main'],
+  ['Node page hash-refusal probe self-test controls (RED+GREEN planted pages, ratchet red)', 'node scripts/check-page-hash-refusal.mjs --self-test'],
   ['Retired ap2_version tombstone (§3.1/A3.2, RETIREMENT-TOMBSTONE-GATES-1)','node scripts/check-retired-ap2-version.mjs'],
   ['Retired ap2_version tombstone controls (RED+GREEN mutation)', 'node scripts/check-retired-ap2-version.test.mjs'],
   ['Credits registry coverage (vendored-code license gate)', 'node scripts/check-credits-coverage.mjs repo'],
@@ -1910,6 +1973,15 @@ const GATES = [
   // snippets are prose naming the API, not API usage).
   ['WebMCP API surface (bare navigator.modelContext sweep, WEBMCP-DOCCONTEXT-REGEN-1)', 'node scripts/check-webmcp-snippet.mjs --api-surface'],
   ['WebMCP snippet gate controls (RED+GREEN)', 'node scripts/check-webmcp-snippet.mjs --self-test'],
+  // WEBMCP-SPEC-ALIGN-1: the 13 Nov 2026 WebMCP CG draft alignment gate. Over
+  // every tracked HTML page: no navigator.modelContext, every registerTool call
+  // promise-handled, name <=128 chars in ^[A-Za-z0-9_.-]+$, and only the four
+  // spec annotation booleans. Generator-owned regions are always hard gated;
+  // hand-registered pages are tolerated only inside the shrink-only baseline
+  // scripts/webmcp-spec-baseline.json (7 hand pages plus one chain page whose
+  // shard is outside the generator's live population, all measured at this base).
+  ['WebMCP registration spec alignment (WEBMCP-SPEC-ALIGN-1)', 'node scripts/check-webmcp-spec.mjs'],
+  ['WebMCP spec gate controls (RED A/B/C/D + GREEN, SO #34c pairing)', 'node scripts/check-webmcp-spec.mjs --self-test'],
   // TOOLPAGE-ASK-AGENT-1 (AGENT-REACH-BUILD-SPEC 3.6): the ask-your-agent block
   // is a derived artifact. --check rebuilds every marker-delimited block from
   // its manifest and reds any hand-edit (byte drift), duplication, tool-name
@@ -1990,6 +2062,16 @@ const GATES = [
   ['Published kernel-digest list freshness (single-writer main regen, VERIFYBINDING-DIGEST-DEFAULT-1)', 'node scripts/gen-kernel-digests.mjs --check'],
   ['Replay house line freshness (single-writer main regen, REPLAY-HOUSE-SIGN-1)', 'node scripts/gen-replay-house-line.mjs --check'],
   ['Replay house line controls (REPLAY-HOUSE-SIGN-1)', 'node scripts/replay-house-line.selftest.mjs'],
+  ['Replay witness roll freshness (single-writer main regen, REPLAY-COLLECT-1)', 'node scripts/collect-replay-witnesses.mjs --check'],
+  ['Replay witness collector controls (REPLAY-COLLECT-1)', 'node scripts/collect-replay-witnesses.selftest.mjs'],
+  // REPLAY-ROLL-SURFACE-1: the generated witness-roll section on the determinism
+  // explainer. COVERED id 'replay-roll-surface' (advisory-on-PR, blocking-on-main via
+  // the exact-string downgrade); the command string must stay byte-identical to the
+  // COVERED gate or the downgrade misses it. The wiring is also the generator
+  // coverage meta-gate's requirement (SSOT-GATES-1 §G2.5): a --check generator must
+  // be wired here.
+  ['Replay roll surface freshness (single-writer main regen, REPLAY-ROLL-SURFACE-1)', 'node scripts/gen-replay-roll-surface.mjs --check'],
+  ['Replay roll surface controls (REPLAY-ROLL-SURFACE-1)', 'node scripts/gen-replay-roll-surface.selftest.mjs'],
   ['OCG integrator profile freshness (OCG-INTEGRATOR-PROFILE-1)', 'node scripts/gen-integrator-profile.mjs --check'],
   ['Chain-builder catalog freshness (CHAINBUILDER-CATALOG-GEN-1)', 'node scripts/gen-chainbuilder-catalog.mjs --check'],
   ['Hub node-card coverage (HUB-GEN-1)', 'node scripts/gen-chaingraph-hub.mjs --check'],
@@ -2223,7 +2305,7 @@ const GATES = [
   ['§17 kernel identity (unit)',   'node chaingraph/kernels/kernel-identity.test.mjs'],
   ['§17 kernel-identity coverage', 'node chaingraph/kernels/gen-kernel-identity.mjs --check'],
   ['§17 kernel-identity coverage (shard, KERNELID-GATE-1)', 'node chaingraph/kernels/gen-kernel-identity.mjs --check --shard'],
-  ['Property-testing floor',       changedRef ? `node scripts/run-proptests.mjs --base ${changedRef}` : 'node scripts/run-proptests.mjs'],
+  ['Property-testing floor',       `node scripts/run-proptests.mjs${changedRef ? ` --base ${changedRef}` : ''}${PROPFLOOR_SHARD_SUFFIX}`],
   ['Property-vacuity backlog ratchet (PROPTEST-KILL-ATTRIBUTION-1)', 'node scripts/gen-property-vacuity-backlog.mjs --check'],
   // MUTATION-TIERED-ROLLOUT-1: pure classifier self-test, always runs (milliseconds, no Stryker
   // invocation) — proves chaingraph/kernels/mutation-tier-split.mjs still correctly separates
@@ -2374,6 +2456,16 @@ const GATES = [
   // QuickJS sandbox and requires the receipt's journal.output to reproduce. ~8s over the full estate.
   ['§18 recompute-equality (SO #34)', 'node scripts/check-recompute-equality.mjs'],
   ['§18 recompute-equality controls (canary + mutation)', 'node scripts/check-recompute-equality.test.mjs'],
+  // §18 QUARANTINE PRUNE (REGEN-QUARANTINE-PRUNE-1): the freshness half of the COVERED entry
+  // 'recompute-quarantine-prune' (derived-artifacts.mjs, LAST in COVERED — the main-side regen
+  // deletes reproducing quarantine entries in the same bot commit as the re-splice). The command
+  // string is deliberately identical to that entry's `gate:` so the generic ADVISORY_ON_PR
+  // categorisation downgrades it on PRs (a PR cannot satisfy it: the committed tree still carries
+  // the stale entry by SO #35's single-writer law) while it stays BLOCKING on main. Advisory only
+  // ever reads; it writes nothing in this mode. The paired controls file proves every wrong-stub
+  // shape the helper must reject.
+  ['§18 quarantine prune freshness (REGEN-QUARANTINE-PRUNE-1)', 'node scripts/prune-recompute-quarantine.mjs --check'],
+  ['§18 quarantine prune controls (SO #40b pairing)', 'node scripts/prune-recompute-quarantine.test.mjs'],
   ['Proof-badge freshness',        'node scripts/check-proof-badge.mjs'],
   ['Kernel as-of staleness ratchet (ASOF-GATE-1)', 'node scripts/check-kernel-asof-staleness.mjs'],
   ['Kernel as-of staleness fixture proof', 'node scripts/check-kernel-asof-staleness.test.mjs'],
@@ -2420,6 +2512,15 @@ const GATES = [
   // (GATE-SELFTEST-META-1).
   ['Node-page footer freshness (FOOTER-INFRA-COLUMN-1)', 'node scripts/gen-node-footers.mjs --check'],
   ['Node-page footer writer self-test (RED+GREEN)', 'node scripts/gen-node-footers.mjs --selftest'],
+  // PROOFLINKS-GEN-1 (PR #3208 cure): the node-page proof-links region, COVERED id
+  // 'node-page-proof-links' in derived-artifacts.mjs — a <details> inventory of the
+  // node's verification artifacts between <!--PROOF-LINKS--> sentinels. The command
+  // string is byte-identical to that entry's `gate`, so the generic ADVISORY_ON_PR
+  // rule classifies it: a PR authors the page, main's regen writes the block after
+  // merge; blocking on main. --check is the alarm (exit 1 on drift or a dead
+  // relative href). Wiring here is also the generator coverage meta-gate's
+  // requirement (SSOT-GATES-1 §G2.5): a --check generator must be wired here.
+  ['Node-page proof-links freshness (PROOFLINKS-GEN-1)', 'node scripts/gen-proof-links.mjs --check'],
   // CHAIN-PROMPT-INFRA-1: the chain example prompt is mandatory for every chain
   // (CONTRACT §A3.1). The gate below is hard in both contexts — it reads the
   // authored SSOT and the assembled graph, neither of which a main-side regen
@@ -2592,7 +2693,7 @@ const GATES = [
   // touch derived-artifacts.mjs or a generator/gate script it names.
   ['Derived-set regen selftest fixture proof (SO #40b pairing)', 'node scripts/check-derived-regen-live.test.mjs'],
   ...(DERIVED_REGEN_LIVE_SCOPE_TOUCHED
-    ? [['Derived-set live regen selftest (DERIVED-SET-SELFTEST-1)', 'node scripts/check-derived-regen-live.mjs --check' + ((changedRef && process.env.DERIVED_REGEN_LIVE_FULL !== '1') ? ' --changed ' + changedRef : '')]]
+    ? [['Derived-set live regen selftest (DERIVED-SET-SELFTEST-1)', 'node scripts/check-derived-regen-live.mjs --check' + ((regenLiveChangedRef && process.env.DERIVED_REGEN_LIVE_FULL !== '1') ? ' --changed ' + regenLiveChangedRef : '')]]
     : [['Derived-set live regen selftest (DERIVED-SET-SELFTEST-1: no derived-artifacts/generator path touched, skipped)', 'node -e "1"',
         { notRun: 'DERIVED-SET-SELFTEST-1 scoping — this push touches no scripts/derived-artifacts.mjs or generator/gate script it names, so the live regen self-test (which actually executes every regen command) was not run' }]]),
   // MERGEQUEUE-GATE-PARITY-1: the control for the merge-queue repairability probe
@@ -2797,8 +2898,10 @@ const SERIAL_GATES_PREFIXES = [
 // shard over that shard's own advisory/covered reds, because they consume
 // results only the shard that ran the gate holds.
 // Unset (every local run and the pre-push hook) = byte-identical behaviour.
-// `--shard-plan N` prints the whole list, the N shard lists and the union check,
-// then exits without running a gate.
+// `--shard-plan N` prints the whole list, the N shard lists and both union checks —
+// the once-only gate union and, since PROPTEST-FLOOR-SHARD-1, the parity of the
+// replicated floor gate's N slices against the unsharded test list (diff must be
+// empty) — then exits without running a gate.
 const SHARD_ARG_IDX = process.argv.indexOf('--shard');
 const SHARD_SPEC = SHARD_ARG_IDX !== -1 ? (process.argv[SHARD_ARG_IDX + 1] || '') : (process.env.PREFLIGHT_SHARD || '');
 const SHARD_PLAN_IDX = process.argv.indexOf('--shard-plan');
@@ -2818,12 +2921,35 @@ if ((SHARD || SHARD_PLAN_IDX !== -1) && (QUICK || PUSH_SAFETY || AFFECTED || TIE
 }
 const SHARD_TIMINGS_PATH = resolve(REPO, 'scripts', 'ci', 'preflight-gate-timings.json');
 const shardPinned = (label) => SERIAL_GATES_PREFIXES.some((p) => label.startsWith(p));
+// PROPTEST-FLOOR-SHARD-1: the floor gate is REPLICATED — planShards marks it -1
+// (every shard keeps it; each executes its own slice of the estate) and charges its
+// recorded weight to every shard's load up front, so the other gates still balance
+// against what each shard really carries.
+const shardReplicated = (label) => label === PROPFLOOR_GATE_LABEL;
 function shardPlanFor(count) {
   const timings = loadTimings(SHARD_TIMINGS_PATH);
-  return { timings, owner: planShards(FULL_RUN_GATES.map(([l]) => l), count, { timings, pinned: shardPinned }) };
+  return { timings, owner: planShards(FULL_RUN_GATES.map(([l]) => l), count, { timings, pinned: shardPinned, replicated: shardReplicated }) };
 }
+// PROPTEST-FLOOR-SHARD-1: the replicated gate's command carries this shard's own i/N
+// suffix, so the digest (equal on every shard of one run) hashes the command with the
+// suffix stripped — the partition identity, not the per-shard command, must agree.
+const SHARD_INVARIANT_COMMAND = (c) => c.replace(/ --shard \d+\/\d+$/, '');
 // The digest every shard prints: equal digests = the shards partitioned the same list.
-const FULL_LIST_SHA = createHash('sha256').update(FULL_RUN_GATES.map(([l, c]) => `${l}\t${c}`).join('\n')).digest('hex').slice(0, 16);
+const FULL_LIST_SHA = createHash('sha256').update(FULL_RUN_GATES.map(([l, c]) => `${l}\t${SHARD_INVARIANT_COMMAND(c)}`).join('\n')).digest('hex').slice(0, 16);
+// PROPTEST-FLOOR-SHARD-1: the slice listing the parity gate diffs. Runs the runner's
+// own deterministic selection (--print-slice never executes a floor file), so the
+// union proof below is computed from exactly what a shard would keep, not from a
+// re-derived copy of the partition.
+function propFloorSliceList(spec) {
+  const args = ['scripts/run-proptests.mjs', '--print-slice'];
+  if (spec) args.push('--shard', spec);
+  const r = spawnSync(process.execPath, args, { cwd: REPO, encoding: 'utf8' });
+  if (r.status !== 0 || r.error) {
+    console.error(`❌ --shard-plan: run-proptests.mjs --print-slice${spec ? ` --shard ${spec}` : ''} did not answer cleanly (exit ${r.status ?? '?'}) — refusing to assert slice parity blind.\n${r.stderr || r.stdout || ''}`);
+    process.exit(1);
+  }
+  return (r.stdout || '').split('\n').map((s) => s.trim()).filter((s) => s.endsWith('.proptest.mjs')).sort();
+}
 if (SHARD_PLAN_IDX !== -1) {
   const { timings, owner } = shardPlanFor(SHARD_PLAN_COUNT);
   const whole = [...FULL_RUN_GATES.map(([l]) => l), MFSTSEC_LABEL];
@@ -2832,19 +2958,45 @@ if (SHARD_PLAN_IDX !== -1) {
   console.log(`WHOLE ${whole.length}`);
   for (const l of whole) console.log(`  W\t${l}`);
   for (let s = 0; s < SHARD_PLAN_COUNT; s++) {
-    const mine = FULL_RUN_GATES.filter((_, i) => owner[i] === s).map(([l]) => l);
+    const mine = FULL_RUN_GATES.filter((_, i) => owner[i] === s || owner[i] === -1).map(([l]) => l);
     if (s === 0) mine.push(MFSTSEC_LABEL);
     const est = mine.reduce((a, l) => a + (timings && Number.isFinite(timings[l]) ? timings[l] : 0), 0);
     console.log(`SHARD ${s}/${SHARD_PLAN_COUNT} ${mine.length} gate(s), recorded ${(est / 1000).toFixed(1)} s${s === 0 ? ' (+ the post-loop checks)' : ''}`);
     for (const l of mine) console.log(`  S${s}\t${l}`);
     union.push(...mine);
   }
-  const same = JSON.stringify([...union].sort()) === JSON.stringify([...whole].sort());
-  console.log(`UNION ${union.length} vs WHOLE ${whole.length}: ${same ? 'EQUAL (every gate in exactly one shard)' : 'MISMATCH'}`);
-  process.exit(same ? 0 : 1);
+  // PROPTEST-FLOOR-SHARD-1: the replicated floor gate appears in the union once per
+  // shard BY CONSTRUCTION (it is kept everywhere on purpose), so the once-only union
+  // check runs over the non-replicated labels, and the replicated gate's own parity —
+  // the union of the N slices equals the unsharded test list exactly, each floor file
+  // once — is asserted as a gate right below (SO #41: a gate, not prose in a row).
+  const onceOnly = (labels) => [...new Set(labels.filter((l) => l !== PROPFLOOR_GATE_LABEL))].sort();
+  const floorOwners = FULL_RUN_GATES.map(([l], i) => (l === PROPFLOOR_GATE_LABEL ? owner[i] : null)).filter((v) => v !== null);
+  const replicatedEverywhere = floorOwners.length > 0 && floorOwners.every((o) => o === -1);
+  const onceOk = JSON.stringify(onceOnly(union)) === JSON.stringify(onceOnly(whole)) && replicatedEverywhere;
+  console.log(`UNION ${onceOnly(union).length} vs WHOLE ${onceOnly(whole).length} once-only labels: ${JSON.stringify(onceOnly(union)) === JSON.stringify(onceOnly(whole)) ? 'EQUAL (every once-only gate in exactly one shard)' : 'MISMATCH'}; replicated "${PROPFLOOR_GATE_LABEL}" kept by every shard: ${replicatedEverywhere ? 'YES' : 'NO'}`);
+  // Slice parity (PROPTEST-FLOOR-SHARD-1): what the N shards would keep vs what an
+  // unsharded run executes, from the runner's own --print-slice selection.
+  const sliceFull = propFloorSliceList(null);
+  const perSlice = [];
+  const sliceUnion = [];
+  for (let s = 0; s < SHARD_PLAN_COUNT; s++) {
+    const list = propFloorSliceList(`${s}/${SHARD_PLAN_COUNT}`);
+    perSlice.push(list.length);
+    sliceUnion.push(...list);
+  }
+  const setFull = new Set(sliceFull);
+  const setUnion = new Set(sliceUnion);
+  const diff = [...sliceFull.filter((f) => !setUnion.has(f)), ...sliceUnion.filter((f) => !setFull.has(f))];
+  const slicesOk = diff.length === 0;
+  console.log(`PROPTEST-SLICE-UNION unsharded=${sliceFull.length} slices=${JSON.stringify(perSlice)} union=${sliceUnion.length}: ${slicesOk ? 'EQUAL (diff empty — every floor file in exactly one slice)' : 'MISMATCH'}`);
+  if (!slicesOk) for (const f of diff.slice(0, 20)) console.log(`  SLICE-DIFF\t${f}`);
+  process.exit(onceOk && slicesOk ? 0 : 1);
 }
 const SHARD_OWNER = SHARD ? shardPlanFor(SHARD.count).owner : null;
-const RUN_GATES = SHARD ? FULL_RUN_GATES.filter((_, i) => SHARD_OWNER[i] === SHARD.index) : FULL_RUN_GATES;
+// PROPTEST-FLOOR-SHARD-1: owner -1 is the replicated marker — every shard keeps that
+// gate (and it self-scopes to this shard's slice via the command suffix above).
+const RUN_GATES = SHARD ? FULL_RUN_GATES.filter((_, i) => SHARD_OWNER[i] === SHARD.index || SHARD_OWNER[i] === -1) : FULL_RUN_GATES;
 // Shard 0 (or an unsharded run) carries the inline mfstSec check and the post-loop blocks.
 const SHARD_OWNS_POSTLOOP = !SHARD || SHARD.index === 0;
 if (SHARD) {

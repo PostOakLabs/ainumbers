@@ -6,7 +6,7 @@
 // totality claim is made over it. Properties below run over a committed
 // mulberry32 seed (deterministic) plus a fixed corpus of structural cases.
 //
-// kernel_digest_at_authoring: sha256:fd0ea66f269e94eee121b769cc0d0312697a8c7c1c79db90039bfab9bc5b15eb
+// kernel_digest_at_authoring: sha256:55c21fb35d931deb93c587ac6e08422791fb39aa4a8e51372abef3a5dda38106
 // spec: PAYMENT-SYSTEM-MI-PACK-1 — compute a payment system's management-information
 //   pack (speed, availability, failure, fraud, complaints, adoption, cost,
 //   transparency KPIs) from declared aggregate counts, against the pinned FSB
@@ -614,6 +614,46 @@ function checkReachabilityRefire() {
   return { name: 'P14_committed_reachability_vectors_refire', checked, violations };
 }
 
+/** P15 buildArtifact_never_throws (D6): an input whose {policy_parameters, output_payload}
+ *  preimage the shared canonicalizer would reject mints an artifact with a null
+ *  execution_hash and a named hash_refusal (path and class, never the value); a clean
+ *  input, accepted or refused, gets a 64-hex hash and no hash_refusal. */
+async function checkBuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const base = () => ({ profile: 'generic', transactions: { count: 10 } });
+  /** @type {Array<[any, RegExp]>} */
+  const hostile = [
+    [{ transactions: { count: 1e300 } }, /^REFUSED_INPUT_UNSAFE_NUMBER$/],
+    [{ transactions: { count: NaN } }, /^REFUSED_INPUT_UNSAFE_NUMBER$/],
+    [{ transactions: { count: Infinity } }, /^REFUSED_INPUT_UNSAFE_NUMBER$/],
+    [{ zzz: NaN }, /^REFUSED_INPUT_UNSAFE_NUMBER$/],
+    [{ zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } }, /^REFUSED_INPUT_UNSAFE_NUMBER$/],
+    [{ zzz: 10n }, /^REFUSED_INPUT_UNSAFE_NUMBER$/],
+    [{ transactions: { count: 10, by_channel: deep } }, /^REFUSED_INPUT_HASH_LIMIT$/],
+    [{ zzz: deep }, /^REFUSED_INPUT_HASH_LIMIT$/],
+    [{ zzz: wide }, /^REFUSED_INPUT_HASH_LIMIT$/],
+  ];
+  for (const [delta, reasonRe] of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...base(), ...delta });
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !reasonRe.test(r.reason) || typeof r.detail !== 'string' || r.detail.indexOf('pp') !== 0) { violations++; console.log('P15 violation: artifact shape for ' + Object.keys(delta)[0]); }
+      if (/e\+3\d\d|Infinity|NaN|9007199254740992/.test(r ? r.detail : '')) { violations++; console.log('P15 violation: hostile value echoed'); }
+    } catch (e) { violations++; console.log('P15 violation: buildArtifact threw: ' + String(e.message).slice(0, 80)); }
+  }
+  for (const pp of [base(), { profile: 'nonsense' }, null, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('P15 violation: clean input lost its hash'); }
+    } catch (e) { violations++; console.log('P15 violation: buildArtifact threw on clean input: ' + String(e.message).slice(0, 80)); }
+  }
+  return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -638,6 +678,7 @@ const properties = [
   checkPeriodDates(),
   checkImpossibleRelations(),
   checkReachabilityRefire(),
+  await checkBuildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — seed ${SEED}.`);
 const ok = summarize(KERNEL_ID, oracle, properties);

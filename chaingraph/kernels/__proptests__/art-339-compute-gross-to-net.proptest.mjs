@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:58c1128e8a66033dfe7cbae4e700f57f370ae362cf62b4b12ac7c70a1710afa5
+// kernel_digest_at_authoring: sha256:7a3914c54325f383deae7a39e1cc8b965811b3e7ffbba62ccadec99f70fda635
 //
 // FV-PROPFLOOR-SHARD-B20-1 — property-test floor for art-339-compute-gross-to-net.
 // Class B (bounded-numeric), FLOAT-SENSITIVE — FICA wage-base and Additional
@@ -18,7 +18,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-339-compute-gross-to-net.proptest.mjs
 
-import { compute } from '../art-339-compute-gross-to-net.kernel.mjs';
+import { compute, buildArtifact } from '../art-339-compute-gross-to-net.kernel.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -56,7 +56,7 @@ const TRIALS = 10000;
 // SSA Contribution and Benefit Base per supported year. These are the values the
 // kernel's PARAMS carry; the properties below assert against them independently
 // rather than reading the figure back out of the payload under test.
-const SS_WAGE_BASE_BY_YEAR = { '2025': 176100, '2026': 184500 };
+const SS_WAGE_BASE_BY_YEAR = { '2025': 176100, '2026': 184500, '2027': 192300 };
 const SUPPORTED_YEARS = Object.keys(SS_WAGE_BASE_BY_YEAR);
 const ADDITIONAL_MEDICARE_THRESHOLD = 200000; // statutory, not indexed, not year-keyed
 
@@ -131,7 +131,7 @@ function checkP3_ssCapEnforced() {
 // it had no wage base for. This asserts the inverse across the random corpus.
 function checkP5_unknownYearAlwaysFailsClosed() {
   let violations = 0, checked = 0;
-  const UNSUPPORTED = ['2019', '2024', '2027', '2030', '', 'twenty-twenty-six', '2026 ', ' 2026'];
+  const UNSUPPORTED = ['2019', '2024', '2028', '2030', '', 'twenty-twenty-six', '2026 ', ' 2026'];
   for (let i = 0; i < TRIALS; i++) {
     const pp = mkPP(rand);
     checked++;
@@ -150,7 +150,7 @@ const ULP_BOUNDARY_CASES = [
   // --- the year key is itself a boundary: fail-closed cases -------------------
   [{ gross_wages_per_period: 3000, federal_withholding_per_period: 300, pretax_reduces_fica_and_fit: 0, post_tax_other_deductions: 0, ytd_fica_wages_before_period: 180000 }, 'tax_year absent entirely (the v1.0.0 call shape, which silently applied the 2025 base) — must fail closed with unsupported_or_missing_tax_year and compute NOTHING'],
   [{ tax_year: '2024', gross_wages_per_period: 3000, federal_withholding_per_period: 300, pretax_reduces_fica_and_fit: 0, post_tax_other_deductions: 0, ytd_fica_wages_before_period: 180000 }, 'tax_year below the supported range — fail closed, no extrapolated wage base'],
-  [{ tax_year: '2027', gross_wages_per_period: 3000, federal_withholding_per_period: 300, pretax_reduces_fica_and_fit: 0, post_tax_other_deductions: 0, ytd_fica_wages_before_period: 180000 }, 'tax_year above the supported range — fail closed; the next COLA is not guessable and must not be guessed'],
+  [{ tax_year: '2028', gross_wages_per_period: 3000, federal_withholding_per_period: 300, pretax_reduces_fica_and_fit: 0, post_tax_other_deductions: 0, ytd_fica_wages_before_period: 180000 }, 'tax_year above the supported range — fail closed; the next COLA is not guessable and must not be guessed'],
   [{ tax_year: 2026, gross_wages_per_period: 3000, federal_withholding_per_period: 300, pretax_reduces_fica_and_fit: 0, post_tax_other_deductions: 0, ytd_fica_wages_before_period: 180000 }, 'tax_year as a NUMBER rather than the required string — fail closed, no type coercion into a supported key'],
   // --- 2026 OASDI wage base $184,500 — at, one cent below, one cent above -----
   [{ tax_year: '2026', gross_wages_per_period: 3000, federal_withholding_per_period: 300, pretax_reduces_fica_and_fit: 0, post_tax_other_deductions: 0, ytd_fica_wages_before_period: 184500 }, '2026: YTD exactly at the $184,500 SS wage base — SS_WAGE_BASE_REACHED, ss_taxable_wages_this_period must be exactly 0'],
@@ -193,6 +193,34 @@ function checkP4_forced() {
   return rows;
 }
 
+// ---------- P6: BigInt in the preimage never throws out of buildArtifact ----------
+// JSON.stringify throws on BigInt, so an unguarded executionHash rejects. The artifact must
+// mint with a null execution_hash and a hash_refusal naming the path and kind, never the value.
+async function checkP6_bigintNeverThrows() {
+  let violations = 0, checked = 0;
+  const base = { tax_year: '2026', gross_wages_per_period: 3000, federal_withholding_per_period: 300, pretax_reduces_fica_and_fit: 0, post_tax_other_deductions: 0, ytd_fica_wages_before_period: 0 };
+  const cases = [
+    { ...base, gross_wages_per_period: 3000n },
+    { ...base, ytd_fica_wages_before_period: 10n },
+    { ...base, extra: { nested: [1n] } },
+  ];
+  for (const pp of cases) {
+    checked++;
+    try {
+      const a = await buildArtifact(pp);
+      if (a.execution_hash !== null) violations++;
+      if (!a.hash_refusal || a.hash_refusal.reason !== 'REFUSED_INPUT_UNSAFE_NUMBER' || !/: bigint$/.test(a.hash_refusal.detail)) violations++;
+    } catch (e) {
+      violations++;
+    }
+  }
+  // A plain input must still hash and carry no hash_refusal.
+  checked++;
+  const ok = await buildArtifact(base);
+  if (typeof ok.execution_hash !== 'string' || 'hash_refusal' in ok) violations++;
+  return { name: 'P6_bigint_in_preimage_refused_not_thrown', trials: checked, violations };
+}
+
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
   console.error('FIXTURE ORACLE FAILED — spec/harness not trusted. Failures:', JSON.stringify(results.fixture_oracle.failures, null, 2));
@@ -203,6 +231,7 @@ results.properties.push(checkP1_netPayMonotonicInDeductions());
 results.properties.push(checkP2_boundedness());
 results.properties.push(checkP3_ssCapEnforced());
 results.properties.push(checkP5_unknownYearAlwaysFailsClosed());
+results.properties.push(await checkP6_bigintNeverThrows());
 results.boundary_forced = checkP4_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);

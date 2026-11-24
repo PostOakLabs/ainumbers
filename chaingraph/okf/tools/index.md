@@ -744,8 +744,13 @@ status: stable
 - [TAP Message Structure Check](./art-843-tap-message-validator.md) — `validate_tap_message`
 - [PFMI proportional self-assessment scorer](./art-846-assess-pfmi-proportional.md) — `assess_pfmi_proportional`
 - [Cash-Leg Window Exposure](./art-847-cashleg-window-exposure.md) — `cashleg_window_exposure`
+- [Deferred Comp 457(b) Comparison](./art-849-deferred-comp-457b.md) — `compute_deferred_comp_457b`
 - [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md) — `run_pqc_timeline_fit`
 - [Islamic MMF Placement Limits](./art-851-islamic-mmf-placement-limits.md) — `check_islamic_mmf_placement_limits`
+- [Murabahah Ibra' Settlement](./art-852-murabahah-ibra-settlement.md) — `compute_murabahah_ibra_settle`
+- [Sukuk Tradability Composition](./art-854-sukuk-tradability-composition.md) — `check_sukuk_tradability_composition`
+- [Murabahah Tawarruq Sequence Check](./art-855-murabahah-tawarruq-sequence.md) — `check_murabahah_tawarruq_seq`
+- [Ijarah IMBT Rental Schedule](./art-856-ijarah-imbt-schedule.md) — `compute_ijarah_imbt_schedule`
 - [TLS / X.509 PKI Migration Planner](./art-86-tls-pki-migration-planner.md) — `plan_tls_pki_migration`
 - [SWIFT / ISO 20022 PQC Readiness Checker](./art-87-iso20022-pqc-readiness-checker.md) — `check_iso20022_pqc_readiness`
 - [FIDO2 / WebAuthn PQC Conformance Checker](./art-88-fido-pqc-conformance-checker.md) — `check_fido_pqc_conformance`
