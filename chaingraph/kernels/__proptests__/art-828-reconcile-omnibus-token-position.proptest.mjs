@@ -35,6 +35,13 @@ const REACH = JSON.parse(
 
 const SEED = 20261107;
 const N = 200;
+// MUTATION-TRIALS-BUDGET: one read of the per-kernel mutation budget. A positive
+// safe integer caps every property loop; unset/invalid leaves every count exactly
+// as authored (the standalone floor keeps its full N=200 and fixture corpus).
+const RUNS_RAW = process.env.MUTATION_TIER_NUM_RUNS;
+const RUNS_NUM = Number(RUNS_RAW);
+const RUNS = RUNS_RAW !== undefined && Number.isSafeInteger(RUNS_NUM) && RUNS_NUM > 0 ? RUNS_NUM : null;
+const cap = (count) => (RUNS === null ? count : Math.min(count, RUNS));
 const EVENT_KINDS = ['mint', 'burn', 'forced_transfer', 'transfer'];
 const DECIMAL_RE = /^(0|[1-9][0-9]*)$/;
 
@@ -132,7 +139,7 @@ function checkDeterminism() {
   const rng = mulberry32(SEED);
   let checked = 0;
   let violations = 0;
-  for (let i = 0; i < N; i++) {
+  for (let i = 0; i < cap(N); i++) {
     const pp = randomValidPp(rng);
     const a = JSON.stringify(compute(JSON.parse(JSON.stringify(pp))));
     const b = JSON.stringify(compute(JSON.parse(JSON.stringify(pp))));
@@ -149,7 +156,7 @@ function checkReconciliationConformance() {
   const rng = mulberry32(SEED + 1);
   let checked = 0;
   let violations = 0;
-  for (let i = 0; i < N; i++) {
+  for (let i = 0; i < cap(N); i++) {
     const pp = randomValidPp(rng);
     const { output_payload: o, compliance_flags } = compute(pp);
     const e = expectedReconciliation(pp);
@@ -175,7 +182,7 @@ function checkToleranceBoundary() {
   let checked = 0;
   let violations = 0;
   const tolerances = [0, 1, 5, 999];
-  for (const t of tolerances) {
+  for (const t of tolerances.slice(0, cap(tolerances.length))) {
     /** @type {[number, string][]} */
     const edges = [[t, 'RECONCILED'], [t + 1, 'MISMATCH']];
     for (const [gap, expect] of edges) {
@@ -203,8 +210,8 @@ function checkEventChainConformance() {
     { profile: 'dtc_dts', as_of: '2026-11-07', events: [{ seq: 2, kind: 'burn', amount: '5', wallet_label: 'w1' }, { seq: 0, kind: 'mint', amount: '10', wallet_label: 'w1' }, { seq: 1, kind: 'transfer', amount: '3', wallet_label: 'w2' }] },
     { profile: 'dtc_dts', as_of: '2026-11-07', events: [] },
   ];
-  for (let i = 0; i < N; i++) cases.push(randomValidPp(rng));
-  for (const pp of cases) {
+  for (let i = 0; i < cap(N); i++) cases.push(randomValidPp(rng));
+  for (const pp of cases.slice(0, cap(cases.length))) {
     if (!pp.events) continue;
     const { output_payload: o } = compute(JSON.parse(JSON.stringify(pp)));
     checked += 3;
@@ -231,7 +238,7 @@ function checkRefusalInvariants() {
   ];
   const vectors = REACH.vectors.map((v) => ({ pp: v.policy_parameters, label: v.name }))
     .concat(extra);
-  for (const { pp, label } of vectors) {
+  for (const { pp, label } of vectors.slice(0, cap(vectors.length))) {
     const { output_payload, compliance_flags } = compute(JSON.parse(JSON.stringify(pp)));
     checked += 4;
     if (output_payload.verdict !== 'refused') { violations++; console.error(`P5 ${label}: verdict not refused`); continue; }
@@ -256,7 +263,7 @@ function checkOutputShape() {
   const rng = mulberry32(SEED + 4);
   let checked = 0;
   let violations = 0;
-  for (let i = 0; i < N; i++) {
+  for (let i = 0; i < cap(N); i++) {
     const pp = randomValidPp(rng);
     const { output_payload: o } = compute(pp);
     checked += 5;
@@ -291,7 +298,7 @@ function checkMissingRequiredNeverPositive() {
   let checked = 0;
   let violations = 0;
   const modes = ['delete', 'null', 'empty', 'space'];
-  for (const v of doc.vectors) {
+  for (const v of doc.vectors.slice(0, cap(doc.vectors.length))) {
     const baseOut = compute(JSON.parse(JSON.stringify(v.policy_parameters))).output_payload;
     if (!POSITIVE_VERDICTS.has(baseOut.verdict)) continue;
     for (const f of REQUIRED_FIELDS) {
@@ -328,7 +335,7 @@ async function checkBuildArtifactNeverThrows() {
     ['array_over_1e6', new Array(1_000_001).fill(1)],
   ];
   const outcomes = [];
-  for (const [label, val] of cases) {
+  for (const [label, val] of cases.slice(0, cap(cases.length))) {
     let threw = null, refused = false;
     try {
       const a = await buildArtifact(val);
