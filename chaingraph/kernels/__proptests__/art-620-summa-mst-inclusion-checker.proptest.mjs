@@ -52,6 +52,14 @@ const KERNEL_ID = 'art-620-summa-mst-inclusion-checker';
 const MAX_PATH_DEPTH = 64;                          // kernel's declared ceiling
 const DEFAULT_MAX_BALANCE = '1000000000000000000';  // kernel's declared domain bound
 
+// MUTATION_TIER_NUM_RUNS: per-kernel mutation-mode trial budget, injected by run-mutation-tier.mjs
+// from this kernel's sibling .mutation.json (`mutationTrials`). Read once. A positive safe integer
+// caps every property loop at that many iterations; unset leaves every hardcoded count unchanged.
+// No property, assertion, generator, seed or fixture changes.
+const MUTATION_RUNS_N = Number(process.env.MUTATION_TIER_NUM_RUNS);
+const MUTATION_RUNS = Number.isSafeInteger(MUTATION_RUNS_N) && MUTATION_RUNS_N > 0 ? MUTATION_RUNS_N : null;
+const trialCap = (count) => (MUTATION_RUNS === null ? count : Math.min(count, MUTATION_RUNS));
+
 // ── independent MST oracle (node:crypto, NOT the kernel's hand-rolled SHA-256) ───────────────────
 // Layout per the kernel's own documented spec §2:
 //   leaf   : hash = H(id + '|' + balance)                     sum = balance
@@ -150,7 +158,7 @@ function checkP1_totality() {
     } catch (e) { violations++; }
   }
   // fuzz with the shared nasty-value generator in every slot that reaches a parser
-  for (let i = 0; i < 300; i++) {
+  for (let i = 0; i < trialCap(300); i++) {
     const pp = {
       root: { hash: pickNastyJsonish(rng), sum: pickNastyJsonish(rng) },
       max_balance: pickNastyJsonish(rng),
@@ -220,7 +228,7 @@ function probeP1b_nullProtoBoundary() {
 function checkP2_differentialAgainstNodeCrypto() {
   const rng = mulberry32(620002);
   let checked = 0, violations = 0;
-  for (let i = 0; i < 200; i++) {
+  for (let i = 0; i < trialCap(200); i++) {
     const depth = 1 + Math.floor(rng() * 5); // 2..32 leaves
     const c = randomCase(rng, depth);
     checked++;
@@ -247,7 +255,7 @@ function checkP3_brokenMstHazard() {
   // combined sum at that level is unchanged and the published root still balances. A checker that
   // only walked the sums would be fooled; this kernel must reject on the negative BEFORE adding, and
   // name the path index it found it at.
-  for (let i = 0; i < 200; i++) {
+  for (let i = 0; i < trialCap(200); i++) {
     const c = randomCase(rng, 1 + Math.floor(rng() * 4));
     const k = Math.floor(rng() * c.pp.proof.path.length);
     const pp = structuredClone(c.pp);
@@ -263,7 +271,7 @@ function checkP3_brokenMstHazard() {
   }
 
   // (b) negative LEAF balance
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < trialCap(100); i++) {
     const c = randomCase(rng, 1 + Math.floor(rng() * 3));
     const pp = structuredClone(c.pp);
     pp.proof.leaf.balance = '-' + (1 + Math.floor(rng() * 1e6));
@@ -274,7 +282,7 @@ function checkP3_brokenMstHazard() {
   }
 
   // (c) a balance past the declared MAX_BALANCE domain bound (overflow-shaped input)
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < trialCap(100); i++) {
     const c = randomCase(rng, 1 + Math.floor(rng() * 3));
     const pp = structuredClone(c.pp);
     const max = BigInt(pp.max_balance);
@@ -295,7 +303,7 @@ function checkP3_brokenMstHazard() {
 function checkP4_tamperBreaksVerification() {
   const rng = mulberry32(620004);
   let checked = 0, violations = 0;
-  for (let i = 0; i < 120; i++) {
+  for (let i = 0; i < trialCap(120); i++) {
     const c = randomCase(rng, 2 + Math.floor(rng() * 3));
     const base = compute(c.pp);
     if (base.output_payload.verdict !== 'VERIFIED') { checked++; violations++; continue; }
@@ -327,7 +335,7 @@ function checkP4_tamperBreaksVerification() {
 function checkP5_determinism() {
   const rng = mulberry32(620005);
   let checked = 0, violations = 0;
-  for (let i = 0; i < 150; i++) {
+  for (let i = 0; i < trialCap(150); i++) {
     const c = randomCase(rng, 1 + Math.floor(rng() * 4));
     const pp = i % 3 === 0 ? (() => { const p = structuredClone(c.pp); p.proof.leaf.balance = '-1'; return p; })() : c.pp;
     checked++;
@@ -413,7 +421,7 @@ function checkP6_boundaryCases() {
 function checkP7_outputShape() {
   const rng = mulberry32(620007);
   let checked = 0, violations = 0;
-  for (let i = 0; i < 200; i++) {
+  for (let i = 0; i < trialCap(200); i++) {
     const c = randomCase(rng, 1 + Math.floor(rng() * 4));
     const pp = structuredClone(c.pp);
     if (i % 4 === 1) pp.proof.leaf.balance = '-5';
