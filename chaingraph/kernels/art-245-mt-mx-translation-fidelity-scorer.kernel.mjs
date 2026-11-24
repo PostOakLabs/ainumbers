@@ -1,7 +1,7 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-245-mt-mx-translation-fidelity-scorer';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.0.1';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -12,6 +12,12 @@ export const meta = {
 // Scores ISO 15022 MT103 -> ISO 20022 pacs.008 translation fidelity.
 // Checks field presence, format mapping correctness, and truncation risks
 // for the CBPR+ Nov-2026 mandatory migration.
+// Missing input (fail-closed): all manifest-required fields must be present and non-blank. If one is
+// absent, null, empty or whitespace-only, output_payload.verdict is 'INDETERMINATE', compliant is
+// null and missing_required_fields lists them; compliance_flags carries INPUT_MISSING_INDETERMINATE.
+// A shortened field set is never scored or reported as if the full set had been checked. buildArtifact
+// never throws: an unhashable input (non-finite number, unsafe integer, depth or size past the hash
+// limits) returns a refusal artifact with execution_hash null and hash_refusal.
 // table_version: "MT103-PACS008-FIELD-MAP-CBPR-V1"
 // Source: SWIFT Standards Release Guide MT103 (swift.com/standards);
 //         ISO 20022 pacs.008.001.10 message definition (iso20022.org);
@@ -19,6 +25,19 @@ export const meta = {
 
 const TABLE_VERSION = 'MT103-PACS008-FIELD-MAP-CBPR-V1';
 const TABLE_SOURCE = 'SWIFT Standards Release Guide MT103 (swift.com/standards); ISO 20022 pacs.008.001.10 message definition (iso20022.org); SWIFT CBPR+ Translation Rules for MT103 to pacs.008 migration';
+
+// Required inputs per the manifest inputSchema.required. A missing, null, empty or whitespace-only
+// one yields INDETERMINATE (output_payload.verdict, compliant: null), never a positive verdict.
+const REQUIRED_FIELDS = [
+  'mt_f20', 'mt_f23b', 'mt_f32a', 'mt_f50', 'mt_f52a', 'mt_f57a', 'mt_f59', 'mt_f70', 'mt_f71a',
+  'mx_cdtr_agt', 'mx_cdtr_nm', 'mx_chrg_br', 'mx_dbtr_agt', 'mx_dbtr_nm', 'mx_rmt_ustrd', 'mx_uetr',
+];
+
+function requiredPresent(v) {
+  if (v == null) return false;
+  if (typeof v === 'string' && v.trim().length === 0) return false;
+  return true;
+}
 
 function safeStr(v) { return typeof v === 'string' ? v.trim() : ''; }
 function safeNum(v) { const n = Number(v); return isFinite(n) ? n : 0; }
@@ -146,7 +165,31 @@ export function compute(pp) {
   const fidelity_tier = fidelity_score >= 90 ? 'HIGH' : fidelity_score >= 70 ? 'MEDIUM' : 'LOW';
 
   const error_count = issues.filter(function(i) { return i.severity === 'ERROR'; }).length;
-  const compliant = error_count === 0 && truncation_risks.filter(function(r) { return r.severity === 'ERROR'; }).length === 0;
+
+  // Fail-closed on missing input. Every required field is read literally (a dynamic pp[f] read
+  // would defeat the static schema-read sweep and unregister the page tool). Empty and
+  // whitespace-only strings count as missing exactly like null or an absent property.
+  const raw_present = {
+    mt_f20: requiredPresent(pp.mt_f20),
+    mt_f23b: requiredPresent(pp.mt_f23b),
+    mt_f32a: requiredPresent(pp.mt_f32a),
+    mt_f50: requiredPresent(pp.mt_f50),
+    mt_f52a: requiredPresent(pp.mt_f52a),
+    mt_f57a: requiredPresent(pp.mt_f57a),
+    mt_f59: requiredPresent(pp.mt_f59),
+    mt_f70: requiredPresent(pp.mt_f70),
+    mt_f71a: requiredPresent(pp.mt_f71a),
+    mx_cdtr_agt: requiredPresent(pp.mx_cdtr_agt),
+    mx_cdtr_nm: requiredPresent(pp.mx_cdtr_nm),
+    mx_chrg_br: requiredPresent(pp.mx_chrg_br),
+    mx_dbtr_agt: requiredPresent(pp.mx_dbtr_agt),
+    mx_dbtr_nm: requiredPresent(pp.mx_dbtr_nm),
+    mx_rmt_ustrd: requiredPresent(pp.mx_rmt_ustrd),
+    mx_uetr: requiredPresent(pp.mx_uetr),
+  };
+  const missing_required_fields = REQUIRED_FIELDS.filter(function(f) { return !raw_present[f]; });
+  const indeterminate = missing_required_fields.length > 0;
+  const compliant = indeterminate ? null : (error_count === 0 && truncation_risks.filter(function(r) { return r.severity === 'ERROR'; }).length === 0);
 
   const output_payload = {
     fidelity_score,
@@ -165,15 +208,71 @@ export function compute(pp) {
     regulatory_basis: 'SWIFT CBPR+ mandatory migration; Swift notice of 27 Aug 2026 (structured-address date deferred, no new date published);SWIFT MT103 Standards Release Guide; ISO 20022 pacs.008.001.10',
   };
 
+  if (indeterminate) {
+    output_payload.missing_required_fields = missing_required_fields;
+    output_payload.verdict = 'INDETERMINATE';
+  }
+
   const compliance_flags = [];
-  if (!compliant) compliance_flags.push('MT_MX_TRANSLATION_NON_COMPLIANT');
+  if (indeterminate) compliance_flags.push('INPUT_MISSING_INDETERMINATE');
+  else if (!compliant) compliance_flags.push('MT_MX_TRANSLATION_NON_COMPLIANT');
   if (fidelity_tier === 'LOW') compliance_flags.push('LOW_TRANSLATION_FIDELITY');
   if (truncation_risks.some(function(r) { return r.severity === 'ERROR'; })) compliance_flags.push('TRUNCATION_DATA_LOSS_RISK');
 
   return { output_payload, compliance_flags };
 }
 
+// Mirrors _hash.mjs limits so buildArtifact never throws: non-finite number, unsafe integer,
+// nesting past MAX_DEPTH, more values than MAX_ELEMENTS. Reports path and kind only.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > HASH_MAX_DEPTH) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > HASH_MAX_ELEMENTS) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (typeof v === 'bigint') return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': bigint' };
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const unhashable = findHashRefusal(pp, 'pp', 1, { n: 0 });
+  if (unhashable !== null) {
+    return {
+      '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+      chaingraph_version: '0.4.0',
+      mandate_type: meta.mandate_type,
+      tool_id: TOOL_ID,
+      tool_version: TOOL_VERSION,
+      generated_at: now ?? null,
+      execution_hash: null,
+      hash_refusal: { reason: unhashable.reason, detail: unhashable.detail },
+      chain: { parent_hashes, parent_tool_ids, chain_depth },
+      policy_parameters: null,
+      output_payload: { compliant: null, verdict: 'REFUSED', refusal: unhashable.reason },
+      compliance_flags: ['INPUT_REFUSED'],
+      compute_mode: 'server',
+      audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+    };
+  }
   const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
