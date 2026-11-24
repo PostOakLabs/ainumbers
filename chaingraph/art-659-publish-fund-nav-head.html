@@ -179,6 +179,27 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-659
 </section>
 <!-- ASK-AGENT:END -->
 
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-659-publish-fund-nav-head.kernel.mjs">art-659-publish-fund-nav-head.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:1cd183efa21280ceaa0367c7ba45c67583630689b6666de5e668953baf3c37b4</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-659-publish-fund-nav-head.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-659-publish-fund-nav-head.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="graph/nodes/art-659-publish-fund-nav-head.json">art-659-publish-fund-nav-head.json</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: verified</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/1cd183efa21280ceaa0367c7ba45c67583630689b6666de5e668953baf3c37b4.json">1cd183efa21280ceaa0367c7ba45c67583630689b6666de5e668953baf3c37b4</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=19672b26827960f6d6f3eb905586ef3db61939d07bf281cd78817d0dc96313af">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">
@@ -335,7 +356,7 @@ const meta = {
 
 const NOT_PROVEN = [
   { item: 'Signature / chain verification', detail: 'signature_valid and chain_valid are the CALLER\'s own verification claim (e.g. from running _head.mjs\'s verifyHeadProof/verifyChain, or chaingraph/standard/head-commit.test.mjs, off-node before calling this node), asserted and digested into this receipt -- exactly like art-649\'s own caller-verification-claim convention. This node does not itself execute Ed25519 verification (the real zkVM guest has no WebCrypto at all; an in-kernel verify() result would not be reproducible across this repo\'s required execution environments).' },
-  { item: 'Equivocation detection', detail: 'A head-file tip proves the signer\'s claimed daily-NAV tip at this seq; it does not itself detect the same signer publishing a different, conflicting NAV for the same day elsewhere. That needs the ocg-head-tlog@1 witness backing (a later WU per NAV-LINEAGE-BUILD-SPEC.md section 3), not this node.' },
+  { item: 'Equivocation detection', detail: 'A head-file tip proves the signer\'s claimed daily-NAV tip at this seq; it does not itself detect the same signer publishing a different, conflicting NAV for the same day elsewhere. That needs the ocg-head-tlog@1 witness backing (a later WU per NAV-LINEAGE-BUILD-SPEC.md §3), not this node.' },
   { item: 'Daily NAV computation accuracy', detail: 'root is a caller-supplied execution_hash citing the day\'s art-373-recompute-fund-nav receipt, asserted and digested into this receipt. This node performs no lookup against a live artifact store and does not itself verify that the cited hash corresponds to a real, still-valid upstream NAV computation, nor that the computation was accurate.' },
   { item: 'Tokenized-fund on-chain share representation', detail: 'This receipt attests a signed publication event over a declared NAV-per-share figure. It makes no claim about the tokenized fund\'s on-chain share representation, token supply, or transfer mechanics -- those are out of scope for this node.' },
   { item: 'NAV-error / fund-administration compliance', detail: 'This receipt evidences one head-commit publication event. It has no bearing on whether the underlying NAV calculation was accurate and does not itself satisfy any fund-administration, custody, or NAV-error disclosure regime (e.g. CSSF 24/856-shaped disclosure) -- those obligations live with the fund administrator and with the art-373/art-374/nav-error-evidence-pack chain this stream cites, never with this node.' },
@@ -422,12 +443,18 @@ function compute(pp) {
     rotates_to: (pp.head && pp.head.rotates_to) ?? null,
     structural_error,
     is_genesis,
+    // filled in by buildArtifact() -- independently recomputed, never asserted here:
     head_hash: null,
     signature_valid,
     signature_verified_by,
     chain_valid,
     chain_verified_by,
     chain_errors,
+    // FLAG-MIRROR-DOCTRINE (AUTHORING-STANDARD.md, flag-mirror section): NAV_HEAD_STRUCTURAL_ERROR
+    // is a conditional compliance_flags member (raised only when validateHeadShape/
+    // validateVerificationClaim reject the input) with nothing in output_payload to route on
+    // otherwise -- chain-gate steps read output_payload only, never compliance_flags. errors
+    // mirrors that one condition: non-empty exactly when structural_error is non-null.
     errors: structural_error ? [structural_error] : [],
     not_proven: NOT_PROVEN,
     fence: 'This node never accepts or handles private key material and never itself runs an Ed25519 verify. signature_valid/chain_valid are the CALLER\'s own verification claim, asserted and digested into this receipt, never independently re-derived. head_hash is the one field this node DOES independently recompute (pure SHA-256 over the caller-supplied head, never trusted as a caller-asserted value).',

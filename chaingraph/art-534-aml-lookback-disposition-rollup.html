@@ -233,6 +233,27 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-534
 </section>
 <!-- ASK-AGENT:END -->
 
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-534-aml-lookback-disposition-rollup.kernel.mjs">art-534-aml-lookback-disposition-rollup.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:2263d143a5cbc54da93c78d3d8fb7d028dd161856f55cf8007414c81efad7778</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-534-aml-lookback-disposition-rollup.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-534-aml-lookback-disposition-rollup.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="graph/nodes/art-534-aml-lookback-disposition-rollup.json">art-534-aml-lookback-disposition-rollup.json</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: verified</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/2263d143a5cbc54da93c78d3d8fb7d028dd161856f55cf8007414c81efad7778.json">2263d143a5cbc54da93c78d3d8fb7d028dd161856f55cf8007414c81efad7778</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=88ae388a3317cae6ead5a4f255f1c1c8403150ad8154cd7282ccd0ac8a7905c6">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">
@@ -362,30 +383,30 @@ var MANIFEST = {
   },
 };
 
-var COMMITMENT_RE = /^sha256:[0-9a-f]{64}$/;
-var DISPOSITIONS = ['sar_filed', 'no_sar', 'escalated'];
-var RATIONALE_REQUIRED = ['sar_filed', 'no_sar'];
+const COMMITMENT_RE = /^sha256:[0-9a-f]{64}$/;
+const DISPOSITIONS = new Set(['sar_filed', 'no_sar', 'escalated']);
+const RATIONALE_REQUIRED = new Set(['sar_filed', 'no_sar']);
 var _lastResult = null;
 
 function s(v){ return typeof v === 'string' ? v.trim() : ''; }
-function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 0; }
-function isSafeNonNegInt(v){ return typeof v === 'number' && Number.isSafeInteger(v) && v >= 0; }
-function isoDateOrNull(v){
+function isNonEmptyString(v) { return typeof v === 'string' && v.trim().length > 0; }
+function isSafeNonNegInt(v) { return typeof v === 'number' && Number.isSafeInteger(v) && v >= 0; }
+function isoDateOrNull(v) {
   if (typeof v !== 'string' || v.trim().length === 0) return null;
-  var t = Date.parse(v);
-  return isFinite(t) ? v : null;
+  const t = Date.parse(v);
+  return Number.isFinite(t) ? v : null;
 }
 
-function emptyResult(reason, base, flags){
+function emptyResult(reason, base, flags) {
   return {
     output_payload: {
-      decision: { gate_policy: 'hold', execution_state: 'did_not_run', reason: reason },
-      lookback_id: base.lookback_id || null,
-      lookback_close_date: base.lookback_close_date || null,
-      as_of: base.as_of || null,
-      population_size: (typeof base.population_size === 'number') ? base.population_size : null,
-      sample_frame_population_size: (typeof base.sample_frame_population_size === 'number') ? base.sample_frame_population_size : null,
-      sample_frame_size: (typeof base.sample_frame_size === 'number') ? base.sample_frame_size : null,
+      decision: { gate_policy: 'hold', execution_state: 'did_not_run', reason },
+      lookback_id: base.lookback_id ?? null,
+      lookback_close_date: base.lookback_close_date ?? null,
+      as_of: base.as_of ?? null,
+      population_size: base.population_size ?? null,
+      sample_frame_population_size: base.sample_frame_population_size ?? null,
+      sample_frame_size: base.sample_frame_size ?? null,
       population_tie_out_holds: false,
       sampling_frame_discrepancy_flag: base.sampling_frame_discrepancy_flag === true,
       sampled_item_count: 0,
@@ -394,107 +415,114 @@ function emptyResult(reason, base, flags){
       rationale_presence_pct: null,
       items_missing_rationale: [],
       items: [],
-      rejected_inputs: base.rejected_inputs || [],
+      rejected_inputs: base.rejected_inputs ?? [],
     },
     compliance_flags: flags,
+    private_input_pointers: [],
   };
 }
 
-function compute(pp){
+function compute(pp) {
   pp = pp || {};
-  var rejected_inputs = [];
+  const rejected_inputs = [];
 
-  var lookback_id = isNonEmptyString(pp.lookback_id) ? pp.lookback_id.trim() : null;
+  const lookback_id = isNonEmptyString(pp.lookback_id) ? pp.lookback_id.trim() : null;
 
-  var lookback_close_date = isoDateOrNull(pp.lookback_close_date);
-  if (pp.lookback_close_date !== undefined && lookback_close_date === null){
+  const lookback_close_date = isoDateOrNull(pp.lookback_close_date);
+  if (pp.lookback_close_date !== undefined && lookback_close_date === null) {
     rejected_inputs.push({ where: 'lookback_close_date', reason: 'not a parseable ISO-8601 date', supplied: String(pp.lookback_close_date) });
   }
-  var as_of = isoDateOrNull(pp.as_of);
-  if (pp.as_of !== undefined && as_of === null){
+  const as_of = isoDateOrNull(pp.as_of);
+  if (pp.as_of !== undefined && as_of === null) {
     rejected_inputs.push({ where: 'as_of', reason: 'not a parseable ISO-8601 date', supplied: String(pp.as_of) });
   }
 
-  var population_size = isSafeNonNegInt(pp.population_size) ? pp.population_size : null;
+  const population_size = isSafeNonNegInt(pp.population_size) ? pp.population_size : null;
   if (!isSafeNonNegInt(pp.population_size)) rejected_inputs.push({ where: 'population_size', reason: 'absent or not a non-negative safe integer', supplied: pp.population_size === undefined ? null : pp.population_size });
 
-  var sample_frame_population_size = isSafeNonNegInt(pp.sample_frame_population_size) ? pp.sample_frame_population_size : null;
+  const sample_frame_population_size = isSafeNonNegInt(pp.sample_frame_population_size) ? pp.sample_frame_population_size : null;
   if (!isSafeNonNegInt(pp.sample_frame_population_size)) rejected_inputs.push({ where: 'sample_frame_population_size', reason: 'absent or not a non-negative safe integer', supplied: pp.sample_frame_population_size === undefined ? null : pp.sample_frame_population_size });
 
-  var sample_frame_size = isSafeNonNegInt(pp.sample_frame_size) ? pp.sample_frame_size : null;
+  const sample_frame_size = isSafeNonNegInt(pp.sample_frame_size) ? pp.sample_frame_size : null;
   if (!isSafeNonNegInt(pp.sample_frame_size)) rejected_inputs.push({ where: 'sample_frame_size', reason: 'absent or not a non-negative safe integer', supplied: pp.sample_frame_size === undefined ? null : pp.sample_frame_size });
 
-  var base = { lookback_id: lookback_id, lookback_close_date: lookback_close_date, as_of: as_of, population_size: population_size, sample_frame_population_size: sample_frame_population_size, sample_frame_size: sample_frame_size, sampling_frame_discrepancy_flag: pp.sampling_frame_discrepancy_flag === true, rejected_inputs: rejected_inputs };
+  const base = { lookback_id, lookback_close_date, as_of, population_size, sample_frame_population_size, sample_frame_size, sampling_frame_discrepancy_flag: pp.sampling_frame_discrepancy_flag === true, rejected_inputs };
 
-  if (!lookback_close_date || population_size === null || sample_frame_population_size === null || sample_frame_size === null){
+  if (!lookback_close_date || population_size === null || sample_frame_population_size === null || sample_frame_size === null) {
     return emptyResult('required_lookback_or_frame_input_not_declared', base, ['AML_ROLLUP_REQUIRED_INPUT_NOT_DECLARED']);
   }
 
-  var itemsIn = Array.isArray(pp.sampled_items) ? pp.sampled_items : [];
-  if (itemsIn.length > sample_frame_size){
+  const itemsIn = Array.isArray(pp.sampled_items) ? pp.sampled_items : [];
+  if (itemsIn.length > sample_frame_size) {
     rejected_inputs.push({ where: 'sampled_items', reason: 'more items supplied than the declared sample_frame_size', supplied: itemsIn.length });
   }
 
-  var items = [];
-  var missing_disposition_count = 0;
-  var with_disposition_count = 0;
-  var requires_rationale_count = 0;
-  var has_rationale_count = 0;
-  var items_missing_rationale = [];
+  const items = [];
+  const private_input_pointers = [];
+  let missing_disposition_count = 0;
+  let with_disposition_count = 0;
+  let requires_rationale_count = 0;
+  let has_rationale_count = 0;
+  const items_missing_rationale = [];
 
-  for (var i = 0; i < itemsIn.length; i++){
-    var row = itemsIn[i] || {};
-    var customer_id = typeof row.customer_id === 'string' ? row.customer_id : '';
-    var alert_id = typeof row.alert_id === 'string' ? row.alert_id : '';
-    var customer_id_valid = COMMITMENT_RE.test(customer_id);
-    var alert_id_valid = COMMITMENT_RE.test(alert_id);
-    if (!customer_id_valid) rejected_inputs.push({ where: 'sampled_items[' + i + '].customer_id', reason: 'expected a §25 sha256-salted@1 commitment (sha256:<64-hex>), not plaintext', supplied: null });
-    if (!alert_id_valid) rejected_inputs.push({ where: 'sampled_items[' + i + '].alert_id', reason: 'expected a §25 sha256-salted@1 commitment (sha256:<64-hex>), not plaintext', supplied: null });
+  for (let i = 0; i < itemsIn.length; i++) {
+    const row = itemsIn[i] || {};
+    const customer_id = typeof row.customer_id === 'string' ? row.customer_id : '';
+    const alert_id = typeof row.alert_id === 'string' ? row.alert_id : '';
+    const customer_id_valid = COMMITMENT_RE.test(customer_id);
+    const alert_id_valid = COMMITMENT_RE.test(alert_id);
+    if (!customer_id_valid) rejected_inputs.push({ where: `sampled_items[${i}].customer_id`, reason: 'expected a SS25 sha256-salted@1 commitment (sha256:<64-hex>), not plaintext', supplied: null });
+    if (!alert_id_valid) rejected_inputs.push({ where: `sampled_items[${i}].alert_id`, reason: 'expected a SS25 sha256-salted@1 commitment (sha256:<64-hex>), not plaintext', supplied: null });
+    if (customer_id_valid) private_input_pointers.push({ pointer: `/sampled_items/${i}/customer_id`, commitment: customer_id, commitment_scheme: 'sha256-salted@1' });
+    if (alert_id_valid) private_input_pointers.push({ pointer: `/sampled_items/${i}/alert_id`, commitment: alert_id, commitment_scheme: 'sha256-salted@1' });
 
-    var disposition = DISPOSITIONS.indexOf(row.disposition) !== -1 ? row.disposition : null;
-    var rationale_reference = isNonEmptyString(row.rationale_reference) ? row.rationale_reference.trim() : null;
-    var identity_ok = customer_id_valid && alert_id_valid;
-    var has_disposition = identity_ok && disposition !== null;
-    var requires_rationale = has_disposition && RATIONALE_REQUIRED.indexOf(disposition) !== -1;
-    var has_rationale = requires_rationale && rationale_reference !== null;
+    const disposition = DISPOSITIONS.has(row.disposition) ? row.disposition : null;
+    const rationale_reference = isNonEmptyString(row.rationale_reference) ? row.rationale_reference.trim() : null;
+    const identity_ok = customer_id_valid && alert_id_valid;
+    const has_disposition = identity_ok && disposition !== null;
+    const requires_rationale = has_disposition && RATIONALE_REQUIRED.has(disposition);
+    const has_rationale = requires_rationale && rationale_reference !== null;
 
     if (has_disposition) with_disposition_count++; else missing_disposition_count++;
-    if (requires_rationale){
+    if (requires_rationale) {
       requires_rationale_count++;
       if (has_rationale) has_rationale_count++;
-      else items_missing_rationale.push(alert_id_valid ? alert_id : ('sampled_items[' + i + ']'));
+      else items_missing_rationale.push(alert_id_valid ? alert_id : `sampled_items[${i}]`);
     }
 
-    items.push({ index: i, identity_ok: identity_ok, disposition: disposition, has_rationale_reference: rationale_reference !== null, rationale_required: requires_rationale, rationale_ok: !requires_rationale || has_rationale });
+    items.push({ index: i, identity_ok, disposition, has_rationale_reference: rationale_reference !== null, rationale_required: requires_rationale, rationale_ok: !requires_rationale || has_rationale });
   }
+  // Items in the declared frame that were never even supplied are missing dispositions too.
   missing_disposition_count += Math.max(0, sample_frame_size - itemsIn.length);
 
-  var disposition_coverage_pct = sample_frame_size > 0 ? Math.round((with_disposition_count / sample_frame_size) * 10000) / 100 : 100;
-  var rationale_presence_pct = requires_rationale_count > 0 ? Math.round((has_rationale_count / requires_rationale_count) * 10000) / 100 : 100;
+  const disposition_coverage_pct = sample_frame_size > 0
+    ? Math.round((with_disposition_count / sample_frame_size) * 10000) / 100 : 100;
+  const rationale_presence_pct = requires_rationale_count > 0
+    ? Math.round((has_rationale_count / requires_rationale_count) * 10000) / 100 : 100;
 
-  var population_tie_out_holds = population_size === sample_frame_population_size;
-  var sampling_frame_discrepancy_flag = pp.sampling_frame_discrepancy_flag === true;
+  const population_tie_out_holds = population_size === sample_frame_population_size;
+  const sampling_frame_discrepancy_flag = pp.sampling_frame_discrepancy_flag === true;
 
-  var full_coverage = missing_disposition_count === 0;
-  var rationale_complete = items_missing_rationale.length === 0;
-  var closeDatePassed = as_of !== null && as_of >= lookback_close_date;
+  const full_coverage = missing_disposition_count === 0;
+  const rationale_complete = items_missing_rationale.length === 0;
+  const closeDatePassed = as_of !== null && as_of >= lookback_close_date;
 
-  var compliance_flags = ['AML_LOOKBACK_DISPOSITION_ROLLUP_EVALUATED'];
+  const compliance_flags = ['AML_LOOKBACK_DISPOSITION_ROLLUP_EVALUATED'];
   if (!population_tie_out_holds) compliance_flags.push('AML_POPULATION_TO_SAMPLE_TIE_OUT_FAILED');
   if (sampling_frame_discrepancy_flag) compliance_flags.push('AML_SAMPLING_FRAME_DISCREPANCY_DECLARED');
   if (!full_coverage) compliance_flags.push('AML_DISPOSITION_COVERAGE_INCOMPLETE');
   if (!rationale_complete) compliance_flags.push('AML_DISPOSITION_RATIONALE_MISSING');
   if (rejected_inputs.length > 0) compliance_flags.push('AML_ROLLUP_INPUTS_REJECTED');
 
-  var gate_policy, execution_state = 'ran', reason = null;
-  if (!population_tie_out_holds || sampling_frame_discrepancy_flag){
+  let gate_policy, execution_state = 'ran', reason = null;
+  if (!population_tie_out_holds || sampling_frame_discrepancy_flag) {
     gate_policy = 'hold';
     reason = !population_tie_out_holds ? 'population_to_sample_tie_out_failed' : 'sampling_frame_discrepancy_declared';
-  } else if (!full_coverage && closeDatePassed){
+  } else if (!full_coverage && closeDatePassed) {
     gate_policy = 'escalate';
     reason = 'missing_disposition_past_lookback_close_date';
     compliance_flags.push('AML_MISSING_DISPOSITION_PAST_CLOSE_DATE');
-  } else if (!full_coverage || !rationale_complete){
+  } else if (!full_coverage || !rationale_complete) {
     gate_policy = 'review_required';
     reason = !full_coverage ? 'disposition_coverage_incomplete' : 'disposition_rationale_missing';
   } else {
@@ -504,16 +532,17 @@ function compute(pp){
 
   return {
     output_payload: {
-      decision: { gate_policy: gate_policy, execution_state: execution_state, reason: reason },
-      lookback_id: lookback_id, lookback_close_date: lookback_close_date, as_of: as_of,
-      population_size: population_size, sample_frame_population_size: sample_frame_population_size, sample_frame_size: sample_frame_size,
-      population_tie_out_holds: population_tie_out_holds, sampling_frame_discrepancy_flag: sampling_frame_discrepancy_flag,
+      decision: { gate_policy, execution_state, reason },
+      lookback_id, lookback_close_date, as_of,
+      population_size, sample_frame_population_size, sample_frame_size,
+      population_tie_out_holds, sampling_frame_discrepancy_flag,
       sampled_item_count: itemsIn.length,
-      disposition_coverage_pct: disposition_coverage_pct, missing_disposition_count: missing_disposition_count,
-      rationale_presence_pct: rationale_presence_pct, items_missing_rationale: items_missing_rationale,
-      items: items, rejected_inputs: rejected_inputs,
+      disposition_coverage_pct, missing_disposition_count,
+      rationale_presence_pct, items_missing_rationale,
+      items, rejected_inputs,
     },
-    compliance_flags: compliance_flags,
+    compliance_flags,
+    private_input_pointers,
   };
 }
 
@@ -573,7 +602,7 @@ function runRollup(){
   var res = compute(pp);
   var op = res.output_payload;
   var generatedAt = new Date().toISOString();
-  _lastResult = { pp: pp, output_payload: op, compliance_flags: res.compliance_flags, generatedAt: generatedAt };
+  _lastResult = { pp: pp, output_payload: op, compliance_flags: res.compliance_flags, generatedAt: generatedAt, private_input_pointers: res.private_input_pointers };
 
   var state = op.decision.execution_state;
   var policy = op.decision.gate_policy;
@@ -623,6 +652,7 @@ function exportArtifact(){
   if (!_lastResult) return;
   var hash = document.getElementById('execHashBox').textContent || 'pending';
   var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'compliance_control',tool_id:'art-534-aml-lookback-disposition-rollup',tool_version:'1.0.0',generated_at:_lastResult.generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[],client_side_executed:true,zero_pii_verified:true,deterministic_run:true}};
+  if (_lastResult.private_input_pointers && _lastResult.private_input_pointers.length) artifact.private_inputs = _lastResult.private_input_pointers;
   var json = JSON.stringify(artifact, null, 2);
   document.getElementById('artifactPre').textContent = json;
   document.getElementById('artifactPre').style.display = 'block';

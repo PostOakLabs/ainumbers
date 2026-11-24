@@ -193,6 +193,27 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-654
 </section>
 <!-- ASK-AGENT:END -->
 
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-654-perp-funding-implied-yield.kernel.mjs">art-654-perp-funding-implied-yield.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:1a7986042035938b1d91987d97e2c17a6b36146d4c214dbc02ef5507d324ebab</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-654-perp-funding-implied-yield.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-654-perp-funding-implied-yield.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="graph/nodes/art-654-perp-funding-implied-yield.json">art-654-perp-funding-implied-yield.json</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: verified</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/1a7986042035938b1d91987d97e2c17a6b36146d4c214dbc02ef5507d324ebab.json">1a7986042035938b1d91987d97e2c17a6b36146d4c214dbc02ef5507d324ebab</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=8bd149da386744f390511ea8a51d86404bdbd1329299d679ede62c2731a96d78">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">
@@ -293,70 +314,132 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-654
 </footer>
 <script>
 const MANIFEST={tool_id:"art-654-perp-funding-implied-yield",version:"1.0.0",title:"Perp Funding Rate & Implied Yield Calculator",mcp_tool_definition:{name:"compute_perp_funding_implied_yield",description:"Recomputes a perpetual-contract funding rate and its simple-annualized implied yield for a declared offshore-8h-twap or kalshi-periodic mechanism, with optional hash-chaining to the prior print.",inputSchema:{type:"object",properties:{funding_mechanism:{type:"string",enum:["offshore-8h-twap","kalshi-periodic"]},mark_price:{type:"number"},index_price:{type:"number"},interval_hours:{type:"number"},position_side:{type:"string",enum:["long","short"]},position_notional:{type:"number"},premium_index_pct:{type:"number"}},required:["funding_mechanism","mark_price","index_price","interval_hours","position_side","position_notional","premium_index_pct"]}},ap2_export:true,chaingraph:true};
-const MECHANISMS=['offshore-8h-twap','kalshi-periodic'];
-const HASH_RE=/^sha256:[0-9a-f]{64}$/;
-function round6(v){return Math.round(v*1e6)/1e6;}
-function round4(v){return Math.round(v*1e4)/1e4;}
-function compute(pp){
-  pp=pp||{};
-  const domain_errors=[];
-  const funding_mechanism=pp.funding_mechanism;
-  if(!MECHANISMS.includes(funding_mechanism))domain_errors.push('INVALID_FUNDING_MECHANISM');
-  const venue=(typeof pp.venue==='string'&&pp.venue.length>0)?pp.venue:null;
-  const mark_price=Number(pp.mark_price);
-  if(!Number.isFinite(mark_price)||mark_price<=0)domain_errors.push('INVALID_MARK_PRICE');
-  const index_price=Number(pp.index_price);
-  if(!Number.isFinite(index_price)||index_price<=0)domain_errors.push('INVALID_INDEX_PRICE');
-  const interval_hours=Number(pp.interval_hours);
-  if(!Number.isFinite(interval_hours)||interval_hours<=0||interval_hours>8760)domain_errors.push('INVALID_INTERVAL_HOURS');
-  const position_notional=Number(pp.position_notional);
-  if(!Number.isFinite(position_notional)||position_notional<0)domain_errors.push('INVALID_POSITION_NOTIONAL');
-  const position_side=pp.position_side;
-  if(position_side!=='long'&&position_side!=='short')domain_errors.push('INVALID_POSITION_SIDE');
-  const premium_index_pct=Number(pp.premium_index_pct);
-  if(!Number.isFinite(premium_index_pct))domain_errors.push('INVALID_PREMIUM_INDEX_PCT');
-  const interest_rate_pct=(pp.interest_rate_pct===undefined||pp.interest_rate_pct===null)?0:Number(pp.interest_rate_pct);
-  if(!Number.isFinite(interest_rate_pct))domain_errors.push('INVALID_INTEREST_RATE_PCT');
-  const mechanismUsesClamp=funding_mechanism==='offshore-8h-twap';
-  let clamp_pct=null;
-  if(mechanismUsesClamp){
-    clamp_pct=Number(pp.clamp_pct);
-    if(!Number.isFinite(clamp_pct)||clamp_pct<0)domain_errors.push('INVALID_CLAMP_PCT');
+const MECHANISMS = ['offshore-8h-twap', 'kalshi-periodic'];
+const HASH_RE = /^sha256:[0-9a-f]{64}$/;
+function round6(v) { return Math.round(v * 1e6) / 1e6; }
+function round4(v) { return Math.round(v * 1e4) / 1e4; }
+function compute(pp) {
+  pp = pp || {};
+  const domain_errors = [];
+
+  const funding_mechanism = pp.funding_mechanism;
+  if (!MECHANISMS.includes(funding_mechanism)) domain_errors.push('INVALID_FUNDING_MECHANISM');
+
+  const venue = (typeof pp.venue === 'string' && pp.venue.length > 0) ? pp.venue : null;
+
+  const mark_price = Number(pp.mark_price);
+  if (!Number.isFinite(mark_price) || mark_price <= 0) domain_errors.push('INVALID_MARK_PRICE');
+
+  const index_price = Number(pp.index_price);
+  if (!Number.isFinite(index_price) || index_price <= 0) domain_errors.push('INVALID_INDEX_PRICE');
+
+  const interval_hours = Number(pp.interval_hours);
+  if (!Number.isFinite(interval_hours) || interval_hours <= 0 || interval_hours > 8760) domain_errors.push('INVALID_INTERVAL_HOURS');
+
+  const position_notional = Number(pp.position_notional);
+  if (!Number.isFinite(position_notional) || position_notional < 0) domain_errors.push('INVALID_POSITION_NOTIONAL');
+
+  const position_side = pp.position_side;
+  if (position_side !== 'long' && position_side !== 'short') domain_errors.push('INVALID_POSITION_SIDE');
+
+  const premium_index_pct = Number(pp.premium_index_pct);
+  if (!Number.isFinite(premium_index_pct)) domain_errors.push('INVALID_PREMIUM_INDEX_PCT');
+
+  const interest_rate_pct = (pp.interest_rate_pct === undefined || pp.interest_rate_pct === null) ? 0 : Number(pp.interest_rate_pct);
+  if (!Number.isFinite(interest_rate_pct)) domain_errors.push('INVALID_INTEREST_RATE_PCT');
+
+  const mechanismUsesClamp = funding_mechanism === 'offshore-8h-twap';
+  let clamp_pct = null;
+  if (mechanismUsesClamp) {
+    clamp_pct = Number(pp.clamp_pct);
+    if (!Number.isFinite(clamp_pct) || clamp_pct < 0) domain_errors.push('INVALID_CLAMP_PCT');
   }
-  let prev_funding_hash=null;
-  if(pp.prev_funding_hash!==undefined&&pp.prev_funding_hash!==null&&pp.prev_funding_hash!==''){
-    if(typeof pp.prev_funding_hash==='string'&&HASH_RE.test(pp.prev_funding_hash))prev_funding_hash=pp.prev_funding_hash;
-    else domain_errors.push('INVALID_PREV_FUNDING_HASH');
+
+  let prev_funding_hash = null;
+  if (pp.prev_funding_hash !== undefined && pp.prev_funding_hash !== null) {
+    if (typeof pp.prev_funding_hash === 'string' && HASH_RE.test(pp.prev_funding_hash)) {
+      prev_funding_hash = pp.prev_funding_hash;
+    } else {
+      domain_errors.push('INVALID_PREV_FUNDING_HASH');
+    }
   }
-  const compliance_flags=[];
-  if(domain_errors.length>0){
+
+  const compliance_flags = [];
+
+  if (domain_errors.length > 0) {
     compliance_flags.push('DOMAIN_ERROR');
-    return{output_payload:{funding_mechanism:MECHANISMS.includes(funding_mechanism)?funding_mechanism:null,venue,interval_hours:Number.isFinite(interval_hours)?interval_hours:null,position_side:(position_side==='long'||position_side==='short')?position_side:null,funding_rate_pct:null,funding_payment:null,funding_payment_direction:null,periods_per_year:null,implied_annual_funding_yield_pct:null,prev_funding_hash,chained:false,domain_errors,scope_note:'One or more declared inputs failed domain validation; no funding-rate or implied-yield figure is computed. Inputs are never silently clamped or coerced to a default -- correct every field named in domain_errors and resubmit.'},compliance_flags};
+    const output_payload = {
+      funding_mechanism: MECHANISMS.includes(funding_mechanism) ? funding_mechanism : null,
+      venue,
+      interval_hours: Number.isFinite(interval_hours) ? interval_hours : null,
+      position_side: (position_side === 'long' || position_side === 'short') ? position_side : null,
+      funding_rate_pct: null,
+      funding_payment: null,
+      funding_payment_direction: null,
+      periods_per_year: null,
+      implied_annual_funding_yield_pct: null,
+      prev_funding_hash,
+      chained: false,
+      domain_errors,
+      scope_note: 'One or more declared inputs failed domain validation; no funding-rate or implied-yield figure is computed. Inputs are never silently clamped or coerced to a default — correct every field named in domain_errors and resubmit.',
+    };
+    return { output_payload, compliance_flags };
   }
-  const premium_index=premium_index_pct/100;
-  const interest_component=interest_rate_pct/100;
-  let funding_rate,mechanism_note;
-  if(mechanismUsesClamp){
-    const clamp=clamp_pct/100;
-    const diffRaw=interest_component-premium_index;
-    const diffClamped=Math.max(-clamp,Math.min(clamp,diffRaw));
-    funding_rate=premium_index+diffClamped;
-    mechanism_note="offshore-8h-twap: funding_rate = premium_index + clamp(interest_rate - premium_index, -clamp_pct, +clamp_pct), applied to a TWAP-sampled premium index over the declared interval -- the continuous funding formula shape observed on offshore perpetual venues (e.g. Binance/Hyperliquid-class). The TWAP sampling and clamp bound are venue conventions this node lets the caller declare; the cited policy statement (see this node's cited_clause_digest) describes the funding-rate concept in general terms and does not itself prescribe this or any specific formula.";
-  }else{
-    funding_rate=premium_index;
-    mechanism_note="kalshi-periodic: funding_rate = premium_index, a single point-in-time price-differential reset at the declared interval, with no interest-rate offset term and no clamp -- modeled as the simpler, more directly observable mechanism shape a CFTC-regulated, manipulation-resistant DCM listing would plausibly use in place of a continuously-sampled offshore-style TWAP+clamp formula (see this node's cited_clause_digest for the reliability-at-every-funding-interval discussion this models against). The cited policy statement does not itself prescribe this or any specific formula -- this is a declared modeling choice (standards_basis: cites_informative), not a conformance claim against any venue's actual, unpublished-to-this-node computation.";
+
+  const premium_index = premium_index_pct / 100;
+  const interest_component = interest_rate_pct / 100;
+
+  let funding_rate;
+  let mechanism_note;
+  if (mechanismUsesClamp) {
+    const clamp = clamp_pct / 100;
+    const diffRaw = interest_component - premium_index;
+    const diffClamped = Math.max(-clamp, Math.min(clamp, diffRaw));
+    funding_rate = premium_index + diffClamped;
+    mechanism_note = "offshore-8h-twap: funding_rate = premium_index + clamp(interest_rate - premium_index, -clamp_pct, +clamp_pct), applied to a TWAP-sampled premium index over the declared interval -- the continuous funding formula shape observed on offshore perpetual venues (e.g. Binance/Hyperliquid-class). The TWAP sampling and clamp bound are venue conventions this node lets the caller declare; the cited policy statement (see this node's cited_clause_digest) describes the funding-rate concept in general terms and does not itself prescribe this or any specific formula.";
+  } else {
+    funding_rate = premium_index;
+    mechanism_note = "kalshi-periodic: funding_rate = premium_index, a single point-in-time price-differential reset at the declared interval, with no interest-rate offset term and no clamp -- modeled as the simpler, more directly observable mechanism shape a CFTC-regulated, manipulation-resistant DCM listing would plausibly use in place of a continuously-sampled offshore-style TWAP+clamp formula (see this node's cited_clause_digest for the reliability-at-every-funding-interval discussion this models against). The cited policy statement does not itself prescribe this or any specific formula -- this is a declared modeling choice (standards_basis: cites_informative), not a conformance claim against any venue's actual, unpublished-to-this-node computation.";
   }
-  const funding_rate_pct=round6(funding_rate*100);
-  const side_sign=position_side==='long'?1:-1;
-  const funding_payment=round6(position_notional*funding_rate*side_sign);
-  const funding_payment_direction=funding_payment>0?'position_pays':(funding_payment<0?'position_receives':'flat');
-  const periods_per_year=round4((24/interval_hours)*365);
-  const implied_annual_funding_yield_pct=round6(funding_rate_pct*periods_per_year);
-  if(Math.abs(funding_rate_pct)>=0.5)compliance_flags.push('HIGH_FUNDING_RATE');
-  if(funding_rate_pct<0)compliance_flags.push('NEGATIVE_FUNDING');
-  if(prev_funding_hash)compliance_flags.push('CHAINED_TO_PRIOR_PRINT');
-  const output_payload={funding_mechanism,venue,mark_price:round6(mark_price),index_price:round6(index_price),interval_hours,position_side,position_notional:round6(position_notional),premium_index_pct:round6(premium_index_pct),interest_rate_pct:round6(interest_rate_pct),clamp_pct:clamp_pct===null?null:round6(clamp_pct),funding_rate_pct,funding_payment,funding_payment_direction,periods_per_year,implied_annual_funding_yield_pct,prev_funding_hash,chained:prev_funding_hash!==null,domain_errors:[],mechanism_note,sign_convention_note:"Per the cited policy statement (see this node's cited_clause_digest): when the perpetual contract trades above the underlying spot/index price, long positions make payments while short positions receive them, and vice versa. funding_rate_pct > 0 with position_side=\"long\" therefore yields a positive (paying) funding_payment; the reverse holds for a short position or a negative rate.",scope_note:"Recomputes a caller-declared funding-rate formula and its simple-annualized implied yield from caller-declared inputs. Never fetches a live market price or a venue's actual current funding print, never asserts that any venue's own published print matches this recompute, and the mechanism formulas themselves are declared modeling conventions (see mechanism_note), not requirements drawn from the cited policy statement.",disclaimer:'Not financial advice. Verify actual funding mechanics, interval length, and historical prints with your venue before trading. For informational purposes only.'};
-  return{output_payload,compliance_flags};
+
+  const funding_rate_pct = round6(funding_rate * 100);
+  const side_sign = position_side === 'long' ? 1 : -1;
+  const funding_payment = round6(position_notional * funding_rate * side_sign);
+  const funding_payment_direction = funding_payment > 0 ? 'position_pays' : (funding_payment < 0 ? 'position_receives' : 'flat');
+
+  const periods_per_year = round4((24 / interval_hours) * 365);
+  const implied_annual_funding_yield_pct = round6(funding_rate_pct * periods_per_year);
+
+  if (Math.abs(funding_rate_pct) >= 0.5) compliance_flags.push('HIGH_FUNDING_RATE');
+  if (funding_rate_pct < 0) compliance_flags.push('NEGATIVE_FUNDING');
+  if (prev_funding_hash) compliance_flags.push('CHAINED_TO_PRIOR_PRINT');
+
+  const output_payload = {
+    funding_mechanism,
+    venue,
+    mark_price: round6(mark_price),
+    index_price: round6(index_price),
+    interval_hours,
+    position_side,
+    position_notional: round6(position_notional),
+    premium_index_pct: round6(premium_index_pct),
+    interest_rate_pct: round6(interest_rate_pct),
+    clamp_pct: clamp_pct === null ? null : round6(clamp_pct),
+    funding_rate_pct,
+    funding_payment,
+    funding_payment_direction,
+    periods_per_year,
+    implied_annual_funding_yield_pct,
+    prev_funding_hash,
+    chained: prev_funding_hash !== null,
+    domain_errors: [],
+    mechanism_note,
+    sign_convention_note: "Per the cited policy statement (see this node's cited_clause_digest): when the perpetual contract trades above the underlying spot/index price, long positions make payments while short positions receive them, and vice versa. funding_rate_pct > 0 with position_side=\"long\" therefore yields a positive (paying) funding_payment; the reverse holds for a short position or a negative rate.",
+    scope_note: "Recomputes a caller-declared funding-rate formula and its simple-annualized implied yield from caller-declared inputs. Never fetches a live market price or a venue's actual current funding print, never asserts that any venue's own published print matches this recompute, and the mechanism formulas themselves are declared modeling conventions (see mechanism_note), not requirements drawn from the cited policy statement.",
+    disclaimer: 'Not financial advice. Verify actual funding mechanics, interval length, and historical prints with your venue before trading. For informational purposes only.',
+  };
+
+  return { output_payload, compliance_flags };
 }
 function cgCanon(v){if(v===null||typeof v!=='object')return v;if(Array.isArray(v))return v.map(cgCanon);const o={};for(const k of Object.keys(v).sort())o[k]=cgCanon(v[k]);return o;}
 async function sha256Hex(bytes){const dig=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(dig)).map(b=>b.toString(16).padStart(2,'0')).join('');}

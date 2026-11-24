@@ -141,7 +141,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-793-government-stablecoin-acceptance.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:d44f492e6dce3ac9d6b9ea5064405ca5b994b83c4df9fa45ed2ca8732a00f812">
+<meta name="kernel-digest" content="sha256:d35efd76b9c97ae13a71db844e350570fc1a1748624f040938d56a4ecf39ba64">
 <meta name="ai-tool" content="assess_gov_stablecoin_accept">
 </head>
 <body>
@@ -282,6 +282,27 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-793
 </section>
 <!-- ASK-AGENT:END -->
 
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-793-government-stablecoin-acceptance.kernel.mjs">art-793-government-stablecoin-acceptance.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:d35efd76b9c97ae13a71db844e350570fc1a1748624f040938d56a4ecf39ba64</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-793-government-stablecoin-acceptance.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-793-government-stablecoin-acceptance.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="kernels/fixtures/compute-proof/art-793-government-stablecoin-acceptance.receipt.json">sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: verified</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/d35efd76b9c97ae13a71db844e350570fc1a1748624f040938d56a4ecf39ba64.json">d35efd76b9c97ae13a71db844e350570fc1a1748624f040938d56a4ecf39ba64</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=a3f2f84dc8e65c43da61570c905c54f935592579ee3137fe74d55f0ad2397ab5">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">
@@ -408,7 +429,10 @@ function refused(reason, text) {
   };
 }
 
-function isNonNegInt(v) { return typeof v === 'number' && Number.isInteger(v) && v >= 0; }
+// Every accepted integer is a safe integer: a value above 2^53 - 1 is already rounded
+// before the check runs, so a verdict could rest on a number the caller never sent.
+function isNonNegInt(v) { return typeof v === 'number' && Number.isSafeInteger(v) && v >= 0; }
+const UNSAFE_SUM_TEXT = 'a running total or carry exceeds Number.MAX_SAFE_INTEGER (9007199254740991); the verdict would rest on a rounded sum';
 
 function isDayStr(v) { return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v); }
 
@@ -488,9 +512,15 @@ function compute(pp) {
     totals.converted_value += r.converted_value;
     totals.fiat_credited_value += r.fiat_credited_value;
     totals.refunds_value += r.refunds_value;
+    if (!Number.isSafeInteger(totals.received_value) || !Number.isSafeInteger(totals.converted_value)
+      || !Number.isSafeInteger(totals.fiat_credited_value) || !Number.isSafeInteger(totals.refunds_value)) {
+      return refused('REFUSED_SUM_UNSAFE', UNSAFE_SUM_TEXT);
+    }
 
     if (!eligible.has(r.token_code)) {
-      ineligibleTotals.set(r.token_code, (ineligibleTotals.get(r.token_code) || 0) + r.received_value);
+      const inel = (ineligibleTotals.get(r.token_code) || 0) + r.received_value;
+      if (!Number.isSafeInteger(inel)) return refused('REFUSED_SUM_UNSAFE', UNSAFE_SUM_TEXT);
+      ineligibleTotals.set(r.token_code, inel);
     }
     if (r.max_hours_to_conversion > policy.conversion_window_hours) {
       outsideWindow.push({
@@ -506,7 +536,9 @@ function compute(pp) {
     }
 
     const opening = carry[r.token_code] || 0;
-    let closing = opening + r.received_value - r.converted_value - r.refunds_value;
+    const gross = opening + r.received_value;
+    if (!Number.isSafeInteger(gross)) return refused('REFUSED_SUM_UNSAFE', UNSAFE_SUM_TEXT);
+    let closing = gross - r.converted_value - r.refunds_value;
     if (closing < 0) {
       breaks.push({
         kind: 'RECEIPT_IDENTITY_BREAK', token_code: r.token_code, day: r.day || null,
@@ -533,6 +565,7 @@ function compute(pp) {
     }
   }
   totals.closing_unconverted_value = Object.values(carry).reduce((a, b) => a + b, 0);
+  if (!Number.isSafeInteger(totals.closing_unconverted_value)) return refused('REFUSED_SUM_UNSAFE', UNSAFE_SUM_TEXT);
 
   const policy_conformance = {
     ineligible_tokens_received: Array.from(ineligibleTotals.entries()).map(([token_code, total_received_value]) => ({ token_code, total_received_value })),

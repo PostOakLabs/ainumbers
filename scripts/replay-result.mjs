@@ -85,6 +85,13 @@ export async function replayCorpus({ kernelsDir, rulesPath }) {
     const hashes = [];
     for (const v of doc.vectors) {
       const got = await executionHash(v.policy_parameters, v.output_payload);
+      if (got === null) {
+        // HASH-REFUSAL-GUARDS-SCRIPTS-1: HASH-REFUSAL-SHARED-1 makes
+        // executionHash return null on unhashable input. A null must never be
+        // folded into the corpus digest or compared against a golden — refuse loudly.
+        console.error(`replay-result: ${toolId}/${v.name}: executionHash returned null (unhashable vector); refusing to fold a null golden into the corpus digest`);
+        process.exit(1);
+      }
       hashes.push(got);
       counts.vectors++;
       if (v.golden_hash !== got) {

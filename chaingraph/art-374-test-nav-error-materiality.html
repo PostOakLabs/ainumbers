@@ -300,23 +300,29 @@ const SCALE_EXP = 8;
 const SCALE = 10n ** BigInt(SCALE_EXP);
 
 function toFixed(value) {
-  let s = String(value == null ? 0 : value).trim();
+  let s = String(value ?? 0).trim();
   let neg = false;
   if (s.startsWith('-')) { neg = true; s = s.slice(1); }
   else if (s.startsWith('+')) { s = s.slice(1); }
   if (!/^[0-9]*\.?[0-9]*$/.test(s) || s === '' || s === '.') s = '0';
-  let parts = s.split('.');
-  let intPart = parts[0] || '0';
-  let fracPart = parts[1] || '';
-  if (fracPart.length > SCALE_EXP) fracPart = fracPart.slice(0, SCALE_EXP);
+  let [intPart, fracPart = ''] = s.split('.');
+  if (intPart === '') intPart = '0';
+  if (fracPart.length > SCALE_EXP) fracPart = fracPart.slice(0, SCALE_EXP); // truncate excess precision, never round up
   fracPart = fracPart.padEnd(SCALE_EXP, '0');
   let mag = BigInt(intPart + fracPart);
   if (neg) mag = -mag;
   return mag;
 }
-function mulFixed(a, b) { return (a * b) / SCALE; }
-function divFixed(a, b) { return b === 0n ? 0n : (a * SCALE) / b; }
-function absFixed(a) { return a < 0n ? -a : a; }
+function mulFixed(a, b) {
+  return (a * b) / SCALE;
+}
+function divFixed(a, b) {
+  if (b === 0n) return 0n;
+  return (a * SCALE) / b;
+}
+function absFixed(a) {
+  return a < 0n ? -a : a;
+}
 
 function fixedToPlainString(value, places) {
   const neg = value < 0n;
@@ -325,32 +331,37 @@ function fixedToPlainString(value, places) {
   const q = abs / divisor;
   let qs = q.toString();
   let result;
-  if (places === 0) { result = qs; }
-  else { qs = qs.padStart(places + 1, '0'); result = qs.slice(0, -places) + '.' + qs.slice(-places); }
-  return (neg && q !== 0n) ? ('-' + result) : result;
+  if (places === 0) {
+    result = qs;
+  } else {
+    qs = qs.padStart(places + 1, '0');
+    result = `${qs.slice(0, -places)}.${qs.slice(-places)}`;
+  }
+  return (neg && q !== 0n) ? `-${result}` : result;
 }
 
 const INDUSTRY_ABSOLUTE_THRESHOLD = '0.005';
 const INDUSTRY_PERCENT_THRESHOLD = '1';
 
 const NOT_PROVEN = [
-  { item: 'Accounting opinion', detail: 'This tool computes what the DECLARED materiality policy implies over the supplied error figures. It is never an accounting opinion, never a legal or regulatory determination of materiality.' },
-  { item: 'Reprocessing decision authority', detail: 'A material-verdict flag indicates a reprocessing REVIEW is warranted per the declared policy. The decision to reprocess, and how, rests with the fund’s accounting/compliance function, never this tool.' },
-  { item: 'NAV accuracy of underlying inputs', detail: 'The erroneous and corrected NAV-per-share values are caller-supplied and asserted, not independently recomputed or verified here (see recompute_fund_nav, ART-373, for that arithmetic).' },
-  { item: 'Regulatory materiality standard', detail: 'The half-cent and 1% figures are common industry conventions, not a codified SEC/40-Act materiality rule. This tool makes no compliance claim under either framework.' },
+  { item: 'Accounting opinion', detail: 'This kernel computes what the DECLARED materiality policy implies over the supplied error figures. It is never an accounting opinion, never a legal or regulatory determination of materiality.' },
+  { item: 'Reprocessing decision authority', detail: 'A material-verdict flag indicates a reprocessing REVIEW is warranted per the declared policy. The decision to reprocess, and how, rests with the fund’s accounting/compliance function, never this kernel.' },
+  { item: 'NAV accuracy of underlying inputs', detail: 'The erroneous and corrected NAV-per-share values are caller-supplied and asserted, not independently recomputed or verified here (see recompute_fund_nav, art-373, for that arithmetic).' },
+  { item: 'Regulatory materiality standard', detail: 'The half-cent and 1% figures are common industry conventions, not a codified SEC/40-Act materiality rule. This kernel makes no compliance claim under either framework.' },
 ];
 
 function compute(pp) {
-  const fundId = pp.fund_id || null;
-  const valuationDate = pp.valuation_date || null;
+  pp = pp ?? {};
+  const fundId = pp.fund_id ?? null;
+  const valuationDate = pp.valuation_date ?? null;
 
   const erroneousFixed = toFixed(pp.erroneous_nav_per_share);
   const correctedFixed = toFixed(pp.corrected_nav_per_share);
 
-  const policy = pp.materiality_policy || {};
-  const absoluteThresholdRaw = policy.absolute_threshold != null ? policy.absolute_threshold : INDUSTRY_ABSOLUTE_THRESHOLD;
-  const percentThresholdRaw = policy.percent_threshold != null ? policy.percent_threshold : INDUSTRY_PERCENT_THRESHOLD;
-  const policySource = policy.policy_source || ((policy.absolute_threshold != null || policy.percent_threshold != null) ? 'fund_declared' : 'industry_default');
+  const policy = pp.materiality_policy ?? {};
+  const absoluteThresholdRaw = policy.absolute_threshold ?? INDUSTRY_ABSOLUTE_THRESHOLD;
+  const percentThresholdRaw = policy.percent_threshold ?? INDUSTRY_PERCENT_THRESHOLD;
+  const policySource = policy.policy_source ?? ((policy.absolute_threshold != null || policy.percent_threshold != null) ? 'fund_declared' : 'industry_default');
   const absoluteThresholdFixed = toFixed(absoluteThresholdRaw);
   const percentThresholdFixed = toFixed(percentThresholdRaw);
 
@@ -361,21 +372,25 @@ function compute(pp) {
   const absErrorFixed = absFixed(errorFixed);
   const errorDirection = errorFixed > 0n ? 'overstated' : (errorFixed < 0n ? 'understated' : 'none');
 
+  // error_pct = |error| / |corrected| * 100, in the same SCALE domain
   const errorPctFixed = structuralError ? 0n : mulFixed(divFixed(absErrorFixed, absFixed(correctedFixed)), toFixed(100));
 
+  // Industry-convention checks (fixed constants, always reported for reference).
   const industryAbsoluteFixed = toFixed(INDUSTRY_ABSOLUTE_THRESHOLD);
   const industryPercentFixed = toFixed(INDUSTRY_PERCENT_THRESHOLD);
   const industryAbsoluteBreach = absErrorFixed >= industryAbsoluteFixed;
   const industryPercentBreach = errorPctFixed >= industryPercentFixed;
   const industryMaterial = industryAbsoluteBreach || industryPercentBreach;
 
+  // Declared-policy checks (may equal industry defaults if not overridden).
   const policyAbsoluteBreach = absErrorFixed >= absoluteThresholdFixed;
   const policyPercentBreach = errorPctFixed >= percentThresholdFixed;
   const policyMaterial = !structuralError && (policyAbsoluteBreach || policyPercentBreach);
 
   const materialityVerdict = structuralError ? 'INDETERMINATE' : (policyMaterial ? 'MATERIAL' : 'IMMATERIAL');
 
-  const period = pp.affected_period || {};
+  // ── affected-period math (declared inputs only, asserted) ──────────────────
+  const period = pp.affected_period ?? {};
   const affectedDays = period.days != null ? Number(period.days) : null;
   const sharesOutstandingFixed = pp.shares_outstanding != null ? toFixed(pp.shares_outstanding) : null;
   const estimatedImpactFixed = (policyMaterial && sharesOutstandingFixed != null) ? mulFixed(absErrorFixed, sharesOutstandingFixed) : null;
@@ -420,8 +435,8 @@ function compute(pp) {
     },
     materiality_verdict: materialityVerdict,
     affected_period: {
-      start_date: period.start_date || null,
-      end_date: period.end_date || null,
+      start_date: period.start_date ?? null,
+      end_date: period.end_date ?? null,
       days: affectedDays,
     },
     shares_outstanding: sharesOutstandingFixed != null ? fixedToPlainString(sharesOutstandingFixed, SCALE_EXP) : null,
@@ -431,7 +446,8 @@ function compute(pp) {
     fence: 'The erroneous and corrected NAV-per-share values are SUPPLIED, asserted, and digested into this receipt. This kernel attests the ARITHMETIC of the error comparison against a DECLARED materiality policy — never an accounting opinion, never a determination that a fund must reprocess, never advice. It computes what the declared policy implies.',
     regulatory_framework: 'Industry half-cent / 1% NAV-error materiality conventions referenced as informative context only; this kernel makes no compliance claim under any specific regulatory framework.',
   };
-  return { output_payload: output_payload, compliance_flags: compliance_flags };
+
+  return { output_payload, compliance_flags };
 }
 
 const PRESETS = {
@@ -663,6 +679,27 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-374
 </section>
 <!-- ASK-AGENT:END -->
 
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-374-test-nav-error-materiality.kernel.mjs">art-374-test-nav-error-materiality.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:ea70af686a6a7920e78cc9a8c561971099404d2b051fae1c6f6fcf613ab89e7a</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-374-test-nav-error-materiality.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-374-test-nav-error-materiality.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="graph/nodes/art-374-test-nav-error-materiality.json">art-374-test-nav-error-materiality.json</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: verified</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/ea70af686a6a7920e78cc9a8c561971099404d2b051fae1c6f6fcf613ab89e7a.json">ea70af686a6a7920e78cc9a8c561971099404d2b051fae1c6f6fcf613ab89e7a</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=fbe720cfba8864259bc35041653cc9f0e8581490c1d2dfcd5572babfc97a7238">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">

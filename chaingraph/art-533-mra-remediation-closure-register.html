@@ -215,6 +215,27 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-533
 </section>
 <!-- ASK-AGENT:END -->
 
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-533-mra-remediation-closure-register.kernel.mjs">art-533-mra-remediation-closure-register.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:ccad868f81e724e7e30de59a9c955f7ba8c69d690fe04fbc6b3984f0e9352f5a</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-533-mra-remediation-closure-register.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-533-mra-remediation-closure-register.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="graph/nodes/art-533-mra-remediation-closure-register.json">art-533-mra-remediation-closure-register.json</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: verified</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/ccad868f81e724e7e30de59a9c955f7ba8c69d690fe04fbc6b3984f0e9352f5a.json">ccad868f81e724e7e30de59a9c955f7ba8c69d690fe04fbc6b3984f0e9352f5a</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=43c5ed6ba27adc4af79d344dfe19107271fdafe1d2c10000757f53dcb6f21572">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">
@@ -334,11 +355,11 @@ var MANIFEST = {
 };
 
 var _lastResult = null;
-var SHA256_SALTED_SCHEME = 'sha256-salted@1';
-var SHA256_COMMITMENT_RE = /^sha256:[0-9a-f]{64}$/;
-var GATE_SEVERITY = { hold: 4, escalate: 3, review_required: 2, auto_pass: 1 };
-var HA_NOTE = "Not yet an approval record. A human reviewer/approver MAY later create a separate, signed approval record over this artifact's execution_hash + this issue_id; this kernel does not fabricate or reserve a mutable slot for that record inside its own hashed output.";
-var NOTE = "Deterministic consent-order/MRA remediation-closure register over a caller-declared issue/commitment set, milestone list, and remediation-status feed, evaluated against each issue's own committed_date. Reuses the art-491-ro-remediation-closure cutoff-vs-evaluated arithmetic unchanged, retargeted from a certification-period cut-off to a per-issue committed_date. This tool tracks closure and computes a routing decision only; it never itself determines that remediation was appropriate, timely, or sustainable -- that judgment is a named human's §27 approval record.";
+const SHA256_SALTED_SCHEME = 'sha256-salted@1';
+const SHA256_COMMITMENT_RE = /^sha256:[0-9a-f]{64}$/;
+const GATE_SEVERITY = { hold: 4, escalate: 3, review_required: 2, auto_pass: 1 };
+const HA_NOTE = 'Not yet an approval record. A human reviewer/approver MAY later create a separate, signed approval record over this artifact\'s execution_hash + this issue_id; this kernel does not fabricate or reserve a mutable slot for that record inside its own hashed output.';
+const NOTE = 'Deterministic consent-order/MRA remediation-closure register over a caller-declared issue/commitment set, milestone list, and remediation-status feed, evaluated against each issue\'s own committed_date. Reuses the art-491-ro-remediation-closure cutoff-vs-evaluated arithmetic unchanged, retargeted from a certification-period cut-off to a per-issue committed_date. This tool tracks closure and computes a routing decision only; it never itself determines that remediation was appropriate, timely, or sustainable -- that judgment is a named human\'s §27 approval record.';
 
 function cgCanon(v){
   return Array.isArray(v) ? v.map(cgCanon) :
@@ -351,154 +372,171 @@ async function sha256Hex(v){
 }
 async function computeExecHash(pp, op){ return sha256Hex({policy_parameters: pp, output_payload: op}); }
 
-function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 0; }
-function parseIsoOrNull(s){ if (s == null || s === '') return null; var t = Date.parse(s); return Number.isFinite(t) ? t : null; }
-function isoOrNull(ms){ return ms == null ? null : new Date(ms).toISOString(); }
-function isCommitment(v){ return typeof v === 'string' && SHA256_COMMITMENT_RE.test(v); }
+function isNonEmptyString(v) { return typeof v === 'string' && v.trim().length > 0; }
+function parseIsoOrNull(s) { if (s == null || s === '') return null; const t = Date.parse(s); return Number.isFinite(t) ? t : null; }
+function isoOrNull(ms) { return ms == null ? null : new Date(ms).toISOString(); }
+function isCommitment(v) { return typeof v === 'string' && SHA256_COMMITMENT_RE.test(v); }
 
-function emptyResult(reason, extra, flags){
+function emptyResult(reason, extra, flags) {
   return {
     output_payload: {
-      decision: { gate_policy: null, execution_state: 'did_not_run', reason: reason },
+      decision: { gate_policy: null, execution_state: 'did_not_run', reason },
       register_id: (extra && extra.register_id) || '',
       evaluated_at: (extra && extra.evaluated_at) || null,
       overdue_grace_days: (extra && typeof extra.overdue_grace_days === 'number') ? extra.overdue_grace_days : null,
-      issue_count: 0, determinations: [], closed_count: 0, open_count: 0, overdue_count: 0,
-      rejected_inputs: (extra && extra.rejected_inputs) || [], note: NOTE,
+      issue_count: 0,
+      determinations: [],
+      closed_count: 0, open_count: 0, overdue_count: 0,
+      rejected_inputs: (extra && extra.rejected_inputs) || [],
+      note: NOTE,
     },
     compliance_flags: flags,
+    private_input_candidates: [],
   };
 }
 
-function evaluateMilestone(milestone, closureByKey){
-  var milestone_id = isNonEmptyString(milestone.milestone_id) ? milestone.milestone_id.trim() : '';
-  var description = isNonEmptyString(milestone.description) ? milestone.description.trim() : '';
-  var required_evidence_type = isNonEmptyString(milestone.required_evidence_type) ? milestone.required_evidence_type.trim() : '';
+function evaluateMilestone(milestone, closureByKey) {
+  const milestone_id = isNonEmptyString(milestone.milestone_id) ? milestone.milestone_id.trim() : '';
+  const description = isNonEmptyString(milestone.description) ? milestone.description.trim() : '';
+  const required_evidence_type = isNonEmptyString(milestone.required_evidence_type) ? milestone.required_evidence_type.trim() : '';
 
-  var matches = (closureByKey[milestone_id] || [])
-    .filter(function(r){ return parseIsoOrNull(r.closed_at) != null; })
-    .sort(function(a,b){ return parseIsoOrNull(a.closed_at) - parseIsoOrNull(b.closed_at); });
-  var closure = matches.length > 0 ? matches[0] : null;
+  const matches = (closureByKey.get(milestone_id) || [])
+    .filter((r) => parseIsoOrNull(r.closed_at) != null)
+    .sort((a, b) => parseIsoOrNull(a.closed_at) - parseIsoOrNull(b.closed_at));
+  const closure = matches.length > 0 ? matches[0] : null;
 
-  var evidence = closure && Array.isArray(closure.evidence) ? closure.evidence.filter(function(e){ return e && typeof e === 'object'; }) : [];
-  var has_evidence = evidence.length > 0;
-  var evidence_type_match = has_evidence && evidence.some(function(e){ return isNonEmptyString(e.evidence_type) && e.evidence_type.trim() === required_evidence_type; });
+  const evidence = closure && Array.isArray(closure.evidence) ? closure.evidence.filter((e) => e && typeof e === 'object') : [];
+  const has_evidence = evidence.length > 0;
+  const evidence_type_match = has_evidence && evidence.some((e) => isNonEmptyString(e.evidence_type) && e.evidence_type.trim() === required_evidence_type);
 
-  var milestone_status;
+  let milestone_status;
   if (!closure) milestone_status = 'open';
   else if (!has_evidence) milestone_status = 'closed_missing_evidence';
   else if (!evidence_type_match) milestone_status = 'closed_invalid_evidence';
   else milestone_status = 'closed_valid_evidence';
 
   return {
-    milestone_id: milestone_id, description: description, required_evidence_type: required_evidence_type,
-    milestone_status: milestone_status,
+    milestone_id, description, required_evidence_type,
+    milestone_status,
     closed_at: closure ? isoOrNull(parseIsoOrNull(closure.closed_at)) : null,
-    evidence: evidence.map(function(e){ return { evidence_id: isNonEmptyString(e.evidence_id) ? e.evidence_id.trim() : null, evidence_type: isNonEmptyString(e.evidence_type) ? e.evidence_type.trim() : null }; }),
+    evidence: evidence.map((e) => ({ evidence_id: isNonEmptyString(e.evidence_id) ? e.evidence_id.trim() : null, evidence_type: isNonEmptyString(e.evidence_type) ? e.evidence_type.trim() : null })),
   };
 }
 
 // Mirrors chaingraph/kernels/art-533-mra-remediation-closure-register.kernel.mjs compute() --
 // deterministic register evaluation only, no clock, no randomness.
-function compute(pp){
-  var register_id = isNonEmptyString(pp.register_id) ? pp.register_id.trim() : '';
-  var evalMs = parseIsoOrNull(pp.evaluated_at);
-  var rejected_inputs = [];
+function compute(pp) {
+  pp = pp || {};
+  const register_id = isNonEmptyString(pp.register_id) ? pp.register_id.trim() : '';
+  const evalMs = parseIsoOrNull(pp.evaluated_at);
+  const rejected_inputs = [];
 
-  var grace = pp.overdue_grace_days;
-  var overdue_grace_days = (typeof grace === 'number' && Number.isFinite(grace) && Number.isInteger(grace) && grace >= 0) ? grace : null;
+  const grace = pp.overdue_grace_days;
+  const overdue_grace_days = (typeof grace === 'number' && Number.isFinite(grace) && Number.isInteger(grace) && grace >= 0) ? grace : null;
   if (overdue_grace_days === null) {
     rejected_inputs.push({ where: 'overdue_grace_days', reason: 'absent or not a non-negative integer -- a grace window must be declared, never defaulted', supplied: grace === undefined ? null : grace });
-    return emptyResult('overdue_grace_days_not_declared', { register_id: register_id, evaluated_at: isoOrNull(evalMs), rejected_inputs: rejected_inputs }, ['MRA_CLOSURE_KILL_CONDITION_GRACE_DAYS_UNDECLARED']);
+    return emptyResult('overdue_grace_days_not_declared', { register_id, evaluated_at: isoOrNull(evalMs), rejected_inputs }, ['MRA_CLOSURE_KILL_CONDITION_GRACE_DAYS_UNDECLARED']);
   }
 
-  var issuesIn = Array.isArray(pp.issues) ? pp.issues : [];
-  var remediationIn = Array.isArray(pp.remediation_status) ? pp.remediation_status : [];
+  const issuesIn = Array.isArray(pp.issues) ? pp.issues : [];
+  const remediationIn = Array.isArray(pp.remediation_status) ? pp.remediation_status : [];
 
-  var declaredScheme = isNonEmptyString(pp.issue_id_commitment_scheme) ? pp.issue_id_commitment_scheme.trim() : null;
-  var schemeOk = declaredScheme === SHA256_SALTED_SCHEME;
+  const declaredScheme = isNonEmptyString(pp.issue_id_commitment_scheme) ? pp.issue_id_commitment_scheme.trim() : null;
+  const schemeOk = declaredScheme === SHA256_SALTED_SCHEME;
   if (issuesIn.length > 0 && !schemeOk) {
-    rejected_inputs.push({ where: 'issue_id_commitment_scheme', reason: 'must be exactly "'+SHA256_SALTED_SCHEME+'" (SPEC.md §25.1) -- an MRA/consent-order issue id is a low-entropy enumerable identifier and a bare digest is barred', supplied: declaredScheme });
-    return emptyResult('issue_id_commitment_scheme_missing_or_invalid', { register_id: register_id, evaluated_at: isoOrNull(evalMs), overdue_grace_days: overdue_grace_days, rejected_inputs: rejected_inputs }, ['MRA_CLOSURE_KILL_CONDITION_COMMITMENT_SCHEME_INVALID']);
+    rejected_inputs.push({ where: 'issue_id_commitment_scheme', reason: `must be exactly "${SHA256_SALTED_SCHEME}" (SPEC.md §25.1) -- an MRA/consent-order issue id is a low-entropy enumerable identifier and a bare digest is barred`, supplied: declaredScheme });
+    return emptyResult('issue_id_commitment_scheme_missing_or_invalid', { register_id, evaluated_at: isoOrNull(evalMs), overdue_grace_days, rejected_inputs }, ['MRA_CLOSURE_KILL_CONDITION_COMMITMENT_SCHEME_INVALID']);
   }
 
-  var remediationByIssue = {};
-  remediationIn.forEach(function(r, i){
+  // Group remediation_status rows by issue_id commitment, then by milestone_id.
+  const remediationByIssue = new Map();
+  const private_input_candidates = [];
+  remediationIn.forEach((r, i) => {
     r = r && typeof r === 'object' ? r : {};
-    var issue_id = isNonEmptyString(r.issue_id) ? r.issue_id.trim() : '';
+    const issue_id = isNonEmptyString(r.issue_id) ? r.issue_id.trim() : '';
     if (!isCommitment(issue_id)) {
-      rejected_inputs.push({ where: 'remediation_status['+i+'].issue_id', reason: 'not a well-formed '+SHA256_SALTED_SCHEME+' commitment', supplied: issue_id || null });
+      rejected_inputs.push({ where: `remediation_status[${i}].issue_id`, reason: `not a well-formed ${SHA256_SALTED_SCHEME} commitment`, supplied: issue_id || null });
       return;
     }
-    if (!remediationByIssue[issue_id]) remediationByIssue[issue_id] = {};
-    var byMilestone = remediationByIssue[issue_id];
-    var milestone_id = isNonEmptyString(r.milestone_id) ? r.milestone_id.trim() : '';
-    if (!byMilestone[milestone_id]) byMilestone[milestone_id] = [];
-    byMilestone[milestone_id].push(r);
+    private_input_candidates.push({ pointer: `/remediation_status/${i}/issue_id`, commitment: issue_id, commitment_scheme: SHA256_SALTED_SCHEME });
+    if (!remediationByIssue.has(issue_id)) remediationByIssue.set(issue_id, new Map());
+    const byMilestone = remediationByIssue.get(issue_id);
+    const milestone_id = isNonEmptyString(r.milestone_id) ? r.milestone_id.trim() : '';
+    if (!byMilestone.has(milestone_id)) byMilestone.set(milestone_id, []);
+    byMilestone.get(milestone_id).push(r);
   });
 
-  var determinations = [];
-  issuesIn.forEach(function(iss, i){
+  const determinations = [];
+  issuesIn.forEach((iss, i) => {
     iss = iss && typeof iss === 'object' ? iss : {};
-    var issue_id = isNonEmptyString(iss.issue_id) ? iss.issue_id.trim() : '';
+    const issue_id = isNonEmptyString(iss.issue_id) ? iss.issue_id.trim() : '';
     if (!isCommitment(issue_id)) {
-      rejected_inputs.push({ where: 'issues['+i+'].issue_id', reason: 'not a well-formed '+SHA256_SALTED_SCHEME+' commitment', supplied: issue_id || null });
+      rejected_inputs.push({ where: `issues[${i}].issue_id`, reason: `not a well-formed ${SHA256_SALTED_SCHEME} commitment`, supplied: issue_id || null });
       return;
     }
-    var commitment_text = isNonEmptyString(iss.commitment_text) ? iss.commitment_text.trim() : '';
-    var committedMs = parseIsoOrNull(iss.committed_date);
-    var milestonesIn = Array.isArray(iss.milestones) ? iss.milestones : [];
-    var closureByKey = remediationByIssue[issue_id] || {};
-    var milestones = milestonesIn.map(function(m){ return evaluateMilestone(m || {}, closureByKey); });
+    private_input_candidates.push({ pointer: `/issues/${i}/issue_id`, commitment: issue_id, commitment_scheme: SHA256_SALTED_SCHEME });
 
-    var milestones_total = milestones.length;
-    var milestones_valid_count = milestones.filter(function(m){ return m.milestone_status === 'closed_valid_evidence'; }).length;
-    var all_milestones_valid = milestones_total > 0 && milestones_valid_count === milestones_total;
+    const commitment_text = isNonEmptyString(iss.commitment_text) ? iss.commitment_text.trim() : '';
+    const committedMs = parseIsoOrNull(iss.committed_date);
+    const milestonesIn = Array.isArray(iss.milestones) ? iss.milestones : [];
+    const closureByKey = remediationByIssue.get(issue_id) || new Map();
+    const milestones = milestonesIn.map((m) => evaluateMilestone(m || {}, closureByKey));
 
-    var overdue = !all_milestones_valid && committedMs != null && evalMs != null && evalMs > committedMs;
-    var overdue_days = overdue ? Math.floor((evalMs - committedMs) / 86400000) : 0;
-    var past_grace = overdue && overdue_days > overdue_grace_days;
+    const milestones_total = milestones.length;
+    const milestones_valid_count = milestones.filter((m) => m.milestone_status === 'closed_valid_evidence').length;
+    const all_milestones_valid = milestones_total > 0 && milestones_valid_count === milestones_total;
 
-    var closure_status = all_milestones_valid ? 'closed' : (overdue ? 'overdue' : 'open');
-    var root_cause_identified = typeof iss.root_cause_identified === 'boolean' ? iss.root_cause_identified : true;
+    const overdue = !all_milestones_valid && committedMs != null && evalMs != null && evalMs > committedMs;
+    const overdue_days = overdue ? Math.floor((evalMs - committedMs) / 86400000) : 0;
+    const past_grace = overdue && overdue_days > overdue_grace_days;
 
-    var gate_policy;
+    const closure_status = all_milestones_valid ? 'closed' : (overdue ? 'overdue' : 'open');
+
+    const root_cause_identified = typeof iss.root_cause_identified === 'boolean' ? iss.root_cause_identified : true;
+
+    let gate_policy;
     if (root_cause_identified === false) gate_policy = 'hold';
     else if (closure_status === 'closed') gate_policy = 'auto_pass';
     else if (past_grace) gate_policy = 'escalate';
     else gate_policy = 'review_required';
 
     determinations.push({
-      issue_id: issue_id, commitment_text: commitment_text, committed_date: isoOrNull(committedMs),
-      milestones_total: milestones_total, milestones_valid_count: milestones_valid_count, milestones: milestones,
-      closure_status: closure_status, overdue_days: overdue_days, root_cause_identified: root_cause_identified,
-      decision: gate_policy, ha_note: HA_NOTE,
+      issue_id, commitment_text, committed_date: isoOrNull(committedMs),
+      milestones_total, milestones_valid_count, milestones,
+      closure_status, overdue_days, root_cause_identified,
+      decision: gate_policy,
+      ha_note: HA_NOTE,
     });
   });
 
-  var closed_count = determinations.filter(function(d){ return d.closure_status === 'closed'; }).length;
-  var overdue_count = determinations.filter(function(d){ return d.closure_status === 'overdue'; }).length;
-  var open_count = determinations.filter(function(d){ return d.closure_status === 'open'; }).length;
+  const closed_count = determinations.filter((d) => d.closure_status === 'closed').length;
+  const overdue_count = determinations.filter((d) => d.closure_status === 'overdue').length;
+  const open_count = determinations.filter((d) => d.closure_status === 'open').length;
 
-  var rollup_gate_policy = determinations.length === 0 ? 'auto_pass' :
-    determinations.reduce(function(worst, d){ return GATE_SEVERITY[d.decision] > GATE_SEVERITY[worst] ? d.decision : worst; }, 'auto_pass');
+  const rollup_gate_policy = determinations.length === 0
+    ? 'auto_pass'
+    : determinations.reduce((worst, d) => (GATE_SEVERITY[d.decision] > GATE_SEVERITY[worst] ? d.decision : worst), 'auto_pass');
 
-  var compliance_flags = ['MRA_CLOSURE_REGISTER_EVALUATED'];
-  if (determinations.some(function(d){ return d.decision === 'hold'; })) compliance_flags.push('MRA_CLOSURE_ISSUE_HOLD_PRESENT');
-  if (determinations.some(function(d){ return d.decision === 'escalate'; })) compliance_flags.push('MRA_CLOSURE_ISSUE_ESCALATE_PRESENT');
-  if (determinations.some(function(d){ return d.decision === 'review_required'; })) compliance_flags.push('MRA_CLOSURE_ISSUE_REVIEW_REQUIRED_PRESENT');
+  const compliance_flags = ['MRA_CLOSURE_REGISTER_EVALUATED'];
+  if (determinations.some((d) => d.decision === 'hold')) compliance_flags.push('MRA_CLOSURE_ISSUE_HOLD_PRESENT');
+  if (determinations.some((d) => d.decision === 'escalate')) compliance_flags.push('MRA_CLOSURE_ISSUE_ESCALATE_PRESENT');
+  if (determinations.some((d) => d.decision === 'review_required')) compliance_flags.push('MRA_CLOSURE_ISSUE_REVIEW_REQUIRED_PRESENT');
   if (determinations.length > 0 && rollup_gate_policy === 'auto_pass') compliance_flags.push('MRA_CLOSURE_ALL_ISSUES_CLOSED');
   if (rejected_inputs.length > 0) compliance_flags.push('MRA_CLOSURE_INPUTS_REJECTED');
 
-  var output_payload = {
+  const output_payload = {
     decision: { gate_policy: rollup_gate_policy, execution_state: 'ran', reason: null },
-    register_id: register_id, evaluated_at: isoOrNull(evalMs), overdue_grace_days: overdue_grace_days,
-    issue_count: determinations.length, determinations: determinations,
-    closed_count: closed_count, open_count: open_count, overdue_count: overdue_count,
-    rejected_inputs: rejected_inputs, note: NOTE,
+    register_id,
+    evaluated_at: isoOrNull(evalMs),
+    overdue_grace_days,
+    issue_count: determinations.length,
+    determinations,
+    closed_count, open_count, overdue_count,
+    rejected_inputs,
+    note: NOTE,
   };
 
-  return { output_payload: output_payload, compliance_flags: compliance_flags };
+  return { output_payload, compliance_flags, private_input_candidates };
 }
 
 async function runRegister(){
@@ -514,7 +552,7 @@ async function runRegister(){
     issues: issues, remediation_status: remediation_status,
   };
   var res = compute(pp);
-  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags };
+  _lastResult = { pp: pp, output_payload: res.output_payload, compliance_flags: res.compliance_flags, private_input_candidates: res.private_input_candidates };
 
   var op = res.output_payload;
   var gp = op.decision.gate_policy;
@@ -564,6 +602,7 @@ function exportArtifact(){
   const generatedAt = new Date().toISOString();
   document.getElementById('generatedAt').textContent='generated_at '+generatedAt;
   var artifact = {'@context':'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',chaingraph_version:'0.4.0',mandate_type:'attestation_mandate',tool_id:'art-533-mra-remediation-closure-register',tool_version:'1.0.0',generated_at:generatedAt,execution_hash:hash,chain:{parent_hashes:[],parent_tool_ids:[],chain_depth:0},policy_parameters:_lastResult.pp,output_payload:_lastResult.output_payload,compliance_flags:_lastResult.compliance_flags,compute_mode:'browser',compute_proof_ready:'deferred',audit_signature:{payloadType:'application/vnd.openchain.graph+json;version=0.4',payload:'',signatures:[]}};
+  if (_lastResult.private_input_candidates && _lastResult.private_input_candidates.length) artifact.private_inputs = _lastResult.private_input_candidates;
   var json = JSON.stringify(artifact, null, 2);
   document.getElementById('artifactPre').textContent = json;
   document.getElementById('artifactPre').style.display = 'block';

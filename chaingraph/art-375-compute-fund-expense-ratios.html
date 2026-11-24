@@ -299,22 +299,26 @@ const SCALE_EXP = 8;
 const SCALE = 10n ** BigInt(SCALE_EXP);
 
 function toFixed(value) {
-  let s = String(value == null ? 0 : value).trim();
+  let s = String(value ?? 0).trim();
   let neg = false;
   if (s.startsWith('-')) { neg = true; s = s.slice(1); }
   else if (s.startsWith('+')) { s = s.slice(1); }
   if (!/^[0-9]*\.?[0-9]*$/.test(s) || s === '' || s === '.') s = '0';
-  let parts = s.split('.');
-  let intPart = parts[0] || '0';
-  let fracPart = parts[1] || '';
-  if (fracPart.length > SCALE_EXP) fracPart = fracPart.slice(0, SCALE_EXP);
+  let [intPart, fracPart = ''] = s.split('.');
+  if (intPart === '') intPart = '0';
+  if (fracPart.length > SCALE_EXP) fracPart = fracPart.slice(0, SCALE_EXP); // truncate excess precision, never round up
   fracPart = fracPart.padEnd(SCALE_EXP, '0');
   let mag = BigInt(intPart + fracPart);
   if (neg) mag = -mag;
   return mag;
 }
-function mulFixed(a, b) { return (a * b) / SCALE; }
-function divFixed(a, b) { return b === 0n ? 0n : (a * SCALE) / b; }
+function mulFixed(a, b) {
+  return (a * b) / SCALE;
+}
+function divFixed(a, b) {
+  if (b === 0n) return 0n;
+  return (a * SCALE) / b;
+}
 
 function roundFixedToString(value, places, mode) {
   const neg = value < 0n;
@@ -328,76 +332,94 @@ function roundFixedToString(value, places, mode) {
   } else if (mode === 'half_even') {
     if (twiceR > divisor || (twiceR === divisor && q % 2n === 1n)) q += 1n;
   } else {
+    // 'half_up' (default) — round half away from zero
     if (twiceR >= divisor) q += 1n;
   }
   let qs = q.toString();
   let result;
-  if (places === 0) { result = qs; }
-  else { qs = qs.padStart(places + 1, '0'); result = qs.slice(0, -places) + '.' + qs.slice(-places); }
-  return (neg && q !== 0n) ? ('-' + result) : result;
+  if (places === 0) {
+    result = qs;
+  } else {
+    qs = qs.padStart(places + 1, '0');
+    result = `${qs.slice(0, -places)}.${qs.slice(-places)}`;
+  }
+  return (neg && q !== 0n) ? `-${result}` : result;
 }
-function fixedToPlainString(value, places) { return roundFixedToString(value, places, 'truncate'); }
+function fixedToPlainString(value, places) {
+  return roundFixedToString(value, places, 'truncate');
+}
 
-const DAY_COUNT_DENOMINATORS = { '30/360': 360, 'actual/360': 360, 'actual/365': 365, 'actual/actual': 365 };
+const DAY_COUNT_DENOMINATORS = {
+  '30/360': 360,
+  'actual/360': 360,
+  'actual/365': 365,
+  'actual/actual': 365, // approximation; caller may override via year_days
+};
 
 function computeAccrualAmount(item) {
   if (item.amount != null) return toFixed(item.amount);
-  const principal = toFixed(item.principal || 0);
-  const rate = toFixed(item.annual_rate || 0);
-  const days = Number(item.days || 0);
-  const convention = item.day_count_convention || '30/360';
-  const yearDays = Number(item.year_days || DAY_COUNT_DENOMINATORS[convention] || 365);
-  const dayFraction = divFixed(toFixed(days), toFixed(yearDays));
+  const principal = toFixed(item.principal ?? 0);
+  const rate = toFixed(item.annual_rate ?? 0); // e.g. 0.0075 for 75bps
+  const days = Number(item.days ?? 0);
+  const convention = item.day_count_convention ?? '30/360';
+  const yearDays = Number(item.year_days ?? DAY_COUNT_DENOMINATORS[convention] ?? 365);
+  const daysFixed = toFixed(days);
+  const yearDaysFixed = toFixed(yearDays);
+  const dayFraction = divFixed(daysFixed, yearDaysFixed);
   return mulFixed(mulFixed(principal, rate), dayFraction);
 }
 
 const NOT_PROVEN = [
-  { item: 'Expense accuracy', detail: 'Every gross expense component, average-net-assets figure, and waiver term is caller-supplied and asserted. This tool performs no fund-administrator or market-data lookups (zero-egress) and does not verify these figures against any external source.' },
-  { item: 'Waiver economic substance / permissibility', detail: 'This tool applies declared waiver terms arithmetically in the declared order. It makes no judgment on whether a waiver is contractually valid, economically reasonable, or permitted under a fund’s governing documents.' },
-  { item: 'Regulatory NAV/expense filing compliance', detail: '40-Act/UCITS references are informative context only; this tool makes no claim of compliance with either framework’s expense-ratio disclosure or filing rules.' },
-  { item: 'Total Expense Ratio scope completeness', detail: 'TER here equals the gross expense ratio over the declared gross_expense_components. If acquired-fund fees, transaction costs, or other components belong in a fund’s reported TER, they must be declared as gross_expense_components — this tool cannot infer omissions.' },
+  { item: 'Expense accuracy', detail: 'Every gross expense component, average-net-assets figure, and waiver term is caller-supplied and asserted. This kernel performs no fund-administrator or market-data lookups (zero-egress) and does not verify these figures against any external source.' },
+  { item: 'Waiver economic substance / permissibility', detail: 'This kernel applies declared waiver terms arithmetically in the declared order. It makes no judgment on whether a waiver is contractually valid, economically reasonable, or permitted under a fund\'s governing documents.' },
+  { item: 'Regulatory NAV/expense filing compliance', detail: '40-Act/UCITS references are informative context only; this kernel makes no claim of compliance with either framework\'s expense-ratio disclosure or filing rules.' },
+  { item: 'Total Expense Ratio scope completeness', detail: 'TER here equals the gross expense ratio over the declared gross_expense_components. If acquired-fund fees, transaction costs, or other components belong in a fund\'s reported TER, they must be declared as gross_expense_components — this kernel cannot infer omissions.' },
 ];
 
-const WAIVER_METHODS = { fixed_amount: true, percent_of_remaining: true, cap_to_rate: true };
+const WAIVER_METHODS = new Set(['fixed_amount', 'percent_of_remaining', 'cap_to_rate']);
 
 function compute(pp) {
   const grossComponentsIn = Array.isArray(pp.gross_expense_components) ? pp.gross_expense_components : [];
   const waiversIn = Array.isArray(pp.waivers) ? pp.waivers : [];
-  const rounding = pp.rounding || {};
+  const rounding = pp.rounding ?? {};
   const decimalPlaces = Number.isInteger(rounding.decimal_places) ? rounding.decimal_places : 4;
-  const roundingMode = ['half_up','half_even','truncate'].indexOf(rounding.mode) >= 0 ? rounding.mode : 'half_up';
+  const roundingMode = ['half_up', 'half_even', 'truncate'].includes(rounding.mode) ? rounding.mode : 'half_up';
 
   const averageNetAssetsFixed = toFixed(pp.average_net_assets);
 
-  const componentLines = grossComponentsIn.map(function (it) {
+  const componentLines = grossComponentsIn.map((it) => {
     const amountFixed = computeAccrualAmount(it);
     return {
-      description: it.description || null,
-      day_count_convention: it.day_count_convention || (it.amount != null ? null : '30/360'),
+      description: it.description ?? null,
+      day_count_convention: it.day_count_convention ?? (it.amount != null ? null : '30/360'),
       amount: fixedToPlainString(amountFixed, SCALE_EXP),
     };
   });
-  const grossExpenseFixed = componentLines.reduce(function (acc, l) { return acc + toFixed(l.amount); }, 0n);
+  const grossExpenseFixed = componentLines.reduce((acc, l) => acc + toFixed(l.amount), 0n);
 
   let structuralError = null;
-  if (averageNetAssetsFixed <= 0n) structuralError = 'average_net_assets must be a positive number.';
+  if (averageNetAssetsFixed <= 0n) {
+    structuralError = 'average_net_assets must be a positive number.';
+  }
 
+  // Waivers apply STRICTLY in ascending declared `order` — never input array
+  // order, never insertion order. Ties keep their relative input order
+  // (stable sort), which is itself part of the declared convention.
   const orderedWaivers = waiversIn
-    .map(function (w, idx) { return { w: w, idx: idx }; })
-    .sort(function (a, b) { return (Number(a.w.order || 0) - Number(b.w.order || 0)) || (a.idx - b.idx); })
-    .map(function (o) { return o.w; });
+    .map((w, idx) => ({ w, idx }))
+    .sort((a, b) => (Number(a.w.order ?? 0) - Number(b.w.order ?? 0)) || (a.idx - b.idx))
+    .map(({ w }) => w);
 
   const waiverLines = [];
   let remainingFixed = grossExpenseFixed;
   if (!structuralError) {
-    for (let i = 0; i < orderedWaivers.length; i++) {
-      const w = orderedWaivers[i];
-      const method = WAIVER_METHODS[w.method] ? w.method : null;
+    for (const w of orderedWaivers) {
+      const method = WAIVER_METHODS.has(w.method) ? w.method : null;
       const before = remainingFixed;
       let reductionFixed = 0n;
       let waiverError = null;
       if (!method) {
-        waiverError = 'unknown waiver method: ' + String(w.method);
+        waiverError = `unknown waiver method: ${String(w.method)}`;
       } else if (method === 'fixed_amount') {
         const amt = toFixed(w.amount);
         reductionFixed = amt > remainingFixed ? remainingFixed : (amt < 0n ? 0n : amt);
@@ -412,8 +434,12 @@ function compute(pp) {
       if (reductionFixed < 0n) reductionFixed = 0n;
       remainingFixed = before - reductionFixed;
       waiverLines.push({
-        description: w.description || null, order: Number(w.order || 0), method: w.method || null, error: waiverError,
-        remaining_before: fixedToPlainString(before, SCALE_EXP), reduction: fixedToPlainString(reductionFixed, SCALE_EXP),
+        description: w.description ?? null,
+        order: Number(w.order ?? 0),
+        method: w.method ?? null,
+        error: waiverError,
+        remaining_before: fixedToPlainString(before, SCALE_EXP),
+        reduction: fixedToPlainString(reductionFixed, SCALE_EXP),
         remaining_after: fixedToPlainString(remainingFixed, SCALE_EXP),
       });
     }
@@ -422,16 +448,19 @@ function compute(pp) {
 
   const grossExpenseRatioFixed = structuralError ? 0n : divFixed(grossExpenseFixed, averageNetAssetsFixed);
   const netExpenseRatioFixed = structuralError ? 0n : divFixed(netExpenseFixed, averageNetAssetsFixed);
-  const terFixed = grossExpenseRatioFixed;
+  const terFixed = grossExpenseRatioFixed; // TER == gross ratio over declared components; see NOT_PROVEN scope note.
 
   const compliance_flags = [];
-  if (structuralError) compliance_flags.push('EXPENSE_STRUCTURAL_ERROR'); else compliance_flags.push('EXPENSE_RATIOS_COMPUTED');
-  if (waiverLines.some(function (l) { return l.error; })) compliance_flags.push('EXPENSE_WAIVER_METHOD_UNKNOWN');
+  if (structuralError) compliance_flags.push('EXPENSE_STRUCTURAL_ERROR');
+  else compliance_flags.push('EXPENSE_RATIOS_COMPUTED');
+  if (waiverLines.some((l) => l.error)) compliance_flags.push('EXPENSE_WAIVER_METHOD_UNKNOWN');
   if (orderedWaivers.length > 0) compliance_flags.push('EXPENSE_WAIVER_ORDER_DECLARED');
   if (compliance_flags.length === 1 && compliance_flags[0] === 'EXPENSE_RATIOS_COMPUTED') compliance_flags.push('EXPENSE_INPUTS_SUPPLIED_NOT_VERIFIED');
 
   const output_payload = {
-    fund_id: pp.fund_id || null, period_start: pp.period_start || null, period_end: pp.period_end || null,
+    fund_id: pp.fund_id ?? null,
+    period_start: pp.period_start ?? null,
+    period_end: pp.period_end ?? null,
     structural_error: structuralError,
     components: {
       average_net_assets: fixedToPlainString(averageNetAssetsFixed, SCALE_EXP),
@@ -448,7 +477,8 @@ function compute(pp) {
     fence: 'Expense components, average net assets, and waiver terms are SUPPLIED, asserted, and digested into this receipt. This kernel recomputes the ARITHMETIC over those declared inputs, applying waivers strictly in the DECLARED order, and attests THAT — never an opinion on expense accuracy, never a compliance determination.',
     regulatory_framework: '40-Act/UCITS expense-ratio disclosure conventions referenced as informative context only; this kernel makes no compliance claim under either framework.',
   };
-  return { output_payload: output_payload, compliance_flags: compliance_flags };
+
+  return { output_payload, compliance_flags };
 }
 
 const PRESETS = {
@@ -684,6 +714,27 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-375
 </section>
 <!-- ASK-AGENT:END -->
 
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-375-compute-fund-expense-ratios.kernel.mjs">art-375-compute-fund-expense-ratios.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:21e7330a4b9eb3f27ddcd9bbe5fb4dcf6e3143f9aa9c05faea150bb6c5a2c1c1</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-375-compute-fund-expense-ratios.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-375-compute-fund-expense-ratios.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="graph/nodes/art-375-compute-fund-expense-ratios.json">art-375-compute-fund-expense-ratios.json</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: verified</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/21e7330a4b9eb3f27ddcd9bbe5fb4dcf6e3143f9aa9c05faea150bb6c5a2c1c1.json">21e7330a4b9eb3f27ddcd9bbe5fb4dcf6e3143f9aa9c05faea150bb6c5a2c1c1</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=8b2846bebd04f6f1408b3175138a428d822e522b7a84f31b558ce7caf7dc9f4c">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">

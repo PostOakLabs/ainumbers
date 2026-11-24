@@ -14,37 +14,42 @@ Classifies a ledger-consensus position under a deadline-bounded-inclusion model 
 - claimed_tier (any, required): type not evidenced by kernel source
 - continuous_history_ok (any, required): type not evidenced by kernel source
 - externalized (any, required): type not evidenced by kernel source
+- finalize_stake_pct (any, optional): Percentage value; type not evidenced by kernel source
 - highest_validated_ledger (any, required): type not evidenced by kernel source
 - included_in_ledger (any, required): type not evidenced by kernel source
 - issuer_clawback_enabled (any, required): type not evidenced by kernel source
 - last_ledger_sequence (any, required): type not evidenced by kernel source
 - ledger_validated (any, required): type not evidenced by kernel source
+- notarize_stake_pct (any, optional): Percentage value; type not evidenced by kernel source
+- observed_epoch (any, optional): type not evidenced by kernel source
+- observed_slot (any, optional): type not evidenced by kernel source
 - quorum_slice_trust_ok (any, required): type not evidenced by kernel source
 - required_tier (any, required): type not evidenced by kernel source
 - result_class (any, required): type not evidenced by kernel source
 - settlement_model (any, required): type not evidenced by kernel source
+- skip_stake_pct (any, optional): Percentage value; type not evidenced by kernel source
 - submitted_at_ledger (any, required): type not evidenced by kernel source
 - time_bounds_max (any, required): type not evidenced by kernel source
 
 ## Outputs
 
-- settlement_model (string, optional)
-- outcome (string, optional)
-- finality_tier (string, optional)
-- reorg_exposure (string, optional)
-- required_tier (string, optional)
-- meets_required_tier (boolean, optional)
-- claimed_tier (string,null, optional)
-- claim_verdict (string, optional)
-- chain_label (string,null, optional)
-- as_of_ts (integer, optional)
-- draft_pinned (boolean, optional)
-- rationale (array, optional)
-- submitted_at_ledger (integer,null, optional)
-- included_in_ledger (integer,null, optional)
-- highest_validated_ledger (integer,null, optional)
-- result_class (string,null, optional)
-- time_bounds_max (integer,null, optional)
+- as_of_ts (number, required)
+- chain_label (string,null, required)
+- claim_verdict (string, required)
+- claimed_tier (string,null, required)
+- draft_pinned (boolean, required)
+- finality_tier (string, required)
+- highest_validated_ledger (number,null, required)
+- included_in_ledger (number,null, required)
+- meets_required_tier (boolean, required)
+- outcome (string, required)
+- rationale (array, required)
+- reorg_exposure (string, required)
+- required_tier (string, required)
+- result_class (string,null, required)
+- settlement_model (string, required)
+- submitted_at_ledger (number,null, required)
+- time_bounds_max (null,number, required)
 
 ## Sample
 
