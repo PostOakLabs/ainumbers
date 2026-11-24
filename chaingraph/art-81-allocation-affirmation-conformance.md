@@ -1,6 +1,6 @@
 # Allocation/Affirmation Conformance Checker
 
-Checks allocation and confirmation/affirmation events against the ESMA CSDR SDR RTS 23:00 CET trade-date rule and the machine-readable-format mandate (binding Dec 2026). Computes per-event pass/fail and batch on-time rate.
+Checks allocation and confirmation/affirmation events against the 23:00 CET trade-date rule in Delegated Regulation (EU) 2026/1536 and the machine-readable-format mandate, refusing malformed timestamps and computing per-event pass/fail and batch on-time rate.
 
 - Page: https://ainumbers.co/chaingraph/art-81-allocation-affirmation-conformance.html
 - Markdown twin: https://ainumbers.co/chaingraph/art-81-allocation-affirmation-conformance.md
@@ -18,6 +18,10 @@ Checks allocation and confirmation/affirmation events against the ESMA CSDR SDR 
 - dual_date_note (string, optional)
 - events_flagged (array, optional)
 - format_nonconformance_count (integer, optional)
+- input_valid (boolean, optional)
+- input_issues (array, optional)
+- issues (array, optional)
+- timezone_note (string, optional)
 - note (string, optional)
 - on_time_events (integer, optional)
 - on_time_rate (integer, optional)
