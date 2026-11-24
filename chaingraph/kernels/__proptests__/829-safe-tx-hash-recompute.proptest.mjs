@@ -1,5 +1,5 @@
 // 829-safe-tx-hash-recompute — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:fac28ca7f2d3a1d967e68d87358349cf8a682b930c83681cc9880eac22884a17
+// kernel_digest_at_authoring: sha256:6d769a843fc2ebea51b35f9e276675969ee689337a738532703b12149840418c
 // spec: research/SAFE-TX-PIN-2026-11.md (typehashes sections 2, selector table section 3)
 // human_sign_off: PENDING
 //

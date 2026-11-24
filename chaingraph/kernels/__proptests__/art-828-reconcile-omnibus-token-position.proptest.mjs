@@ -7,7 +7,7 @@
 // Properties run over a committed mulberry32 seed (deterministic) plus a fixed
 // corpus of structural cases.
 //
-// kernel_digest_at_authoring: sha256:24a8b2b70f405359b4d7370c5bead58876560de0dcb030698981496e52db6b14
+// kernel_digest_at_authoring: sha256:29d56a8b435f1159f4c6964f88f12acd68b0cb982f2b4deff986d60a53feda53
 // spec: reconcile a declared tokenized-securities omnibus position against the
 //   sum of declared wallet balances and the declared book-entry position, with a
 //   SHA-256 hash-chained head over declared mint/burn/forced-transfer/transfer
