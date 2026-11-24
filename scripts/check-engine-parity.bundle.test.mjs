@@ -146,6 +146,58 @@ for (const [label, text, offendingLine] of BAD_FORMS) {
   rmSync(root, { recursive: true, force: true });
 }
 
+// --- GREEN (ENGINE-PARITY-PROTO-LITERAL-FIX-1): a `__proto__` key in a fixture's
+// policy_parameters must survive the bundle's literal embedding as own DATA.
+// Before the cure the bundler emitted `const _v = <object literal>`; a
+// `"__proto__"` member in an object literal sets the prototype instead of
+// creating an own key, so the bundle's manifest diverges from the Node manifest
+// (which reads the same fixture through JSON.parse). After the cure the bundler
+// emits `const _v = JSON.parse(<json string>)` and the two manifests agree.
+{
+  const root = mkdtempSync(resolve(tmpdir(), 'bundle-proto-key-'));
+  mkdirSync(resolve(root, 'fixtures'), { recursive: true });
+  const kernelId = 'proto-key-vector';
+  writeFileSync(
+    resolve(root, `${kernelId}.kernel.mjs`),
+    [
+      'export function compute(pp) {',
+      "  return { output_payload: { keys: Object.keys(pp), hasOwnProto: Object.prototype.hasOwnProperty.call(pp, '__proto__') } };",
+      '}',
+      'export async function buildArtifact(pp) { return compute(pp); }',
+      '',
+    ].join('\n'),
+  );
+  // Written as raw JSON so `"__proto__"` is an OWN data key: an object literal
+  // `{ __proto__: ... }` would set the prototype and drop the key before it ever
+  // reached the bundler.
+  writeFileSync(
+    resolve(root, 'fixtures', `${kernelId}.fixtures.json`),
+    '{"tool_id":"proto-key-vector","note":"ENGINE-PARITY-PROTO-LITERAL-FIX-1 selftest fixture",'
+    + '"vectors":[{"name":"proto-key","policy_parameters":{"__proto__":"sentinel","normal":1}}]}',
+  );
+  const env = { ...process.env, PARITY_BUNDLE_KERNELS_DIR: root };
+  const nodeOut = resolve(root, 'node-manifest.json');
+  const bundlePath = resolve(root, 'pb.js');
+  const rNode = spawnSync(process.execPath, [RUNNER, '--out', nodeOut], { encoding: 'utf8', env });
+  const rBundle = spawnSync(process.execPath, [RUNNER, '--bundle', bundlePath], { encoding: 'utf8', env });
+  check('proto key: node-mode runner exits 0', rNode.status === 0, rNode.stderr.slice(0, 300));
+  check('proto key: bundler exits 0', rBundle.status === 0, rBundle.stderr.slice(0, 300));
+  if (rNode.status === 0 && rBundle.status === 0) {
+    const bundle = readFileSync(bundlePath, 'utf8');
+    check('proto key: bundle embeds _v via JSON.parse (not an object literal)',
+      /const _v = JSON\.parse\(/.test(bundle),
+      (bundle.split('\n').find((l) => l.includes('const _v =')) || '').slice(0, 200));
+    const rRun = spawnSync(process.execPath, [bundlePath], { encoding: 'utf8', env });
+    check('proto key: bundle runs under node', rRun.status === 0, rRun.stderr.slice(0, 300));
+    if (rRun.status === 0) {
+      const nodeManifest = readFileSync(nodeOut, 'utf8');
+      check('proto key: bundle manifest equals node manifest', rRun.stdout.trim() === nodeManifest.trim(),
+        `node=${nodeManifest.trim().slice(0, 400)} bundle=${rRun.stdout.trim().slice(0, 400)}`);
+    }
+  }
+  rmSync(root, { recursive: true, force: true });
+}
+
 // --- REAL TREE (ENGINE-BUNDLE-REAL-KERNELS-SELFTEST-1): bundle the repo's own
 // chaingraph/kernels/ exactly as cross-engine-parity.yml does. The cases above
 // prove the lint on a synthetic tree; this one proves every kernel actually on

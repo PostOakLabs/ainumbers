@@ -233,6 +233,27 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-431
 </section>
 <!-- ASK-AGENT:END -->
 
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-431-fdic-assessment-rate-calculator.kernel.mjs">art-431-fdic-assessment-rate-calculator.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:b1df1b03484fa6c52ac635f0e59f3d0c3f8d2fade923f4ad223a7d39202d1e26</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-431-fdic-assessment-rate-calculator.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-431-fdic-assessment-rate-calculator.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="graph/nodes/art-431-fdic-assessment-rate-calculator.json">art-431-fdic-assessment-rate-calculator.json</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: verified</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/b1df1b03484fa6c52ac635f0e59f3d0c3f8d2fade923f4ad223a7d39202d1e26.json">b1df1b03484fa6c52ac635f0e59f3d0c3f8d2fade923f4ad223a7d39202d1e26</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=8ff8ea5a88d11ed54254be1ab42d3e417dfa5a27e8d3986f2674fa52094bbd17">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">
@@ -377,8 +398,8 @@ var _lastResult = null;
 var _rowSeq = 0;
 
 function g(v){ var n = Number(v); return Number.isFinite(n) ? n : 0; }
-function r2(v){ return (v === null || !Number.isFinite(v)) ? null : Math.round(v * 100) / 100; }
-function clamp(v, lo, hi){ return Math.min(hi, Math.max(lo, v)); }
+function r2(v) { return (v === null || !Number.isFinite(v)) ? null : Math.round(v * 100) / 100; }
+function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
 
 function addBracketRow(maxScore, baseRate){
   _rowSeq++;
@@ -414,32 +435,46 @@ function readBrackets(){
   return out;
 }
 
-function lookupBaseRate(totalScore, brackets){
-  var rows = brackets
-    .map(function(b){ return { max_score: b.max_score === null ? Infinity : g(b.max_score), base_rate_bp: b.base_rate_bp }; })
-    .sort(function(a,b){ return a.max_score - b.max_score; });
+function lookupBaseRate(totalScore, brackets) {
+  const rows = arr(brackets)
+    .map((b) => ({
+      max_score: b && b.max_score === null ? Infinity : safeNum(b && b.max_score, Infinity),
+      base_rate_bp: safeNum(b && b.base_rate_bp, null),
+    }))
+    .filter((b) => b.base_rate_bp !== null)
+    .sort((a, b) => a.max_score - b.max_score);
   if (rows.length === 0) return null;
-  for (var i = 0; i < rows.length; i++) { if (totalScore <= rows[i].max_score) return rows[i].base_rate_bp; }
-  return rows[rows.length-1].base_rate_bp;
+  const hit = rows.find((b) => totalScore <= b.max_score);
+  return hit ? hit.base_rate_bp : rows[rows.length - 1].base_rate_bp;
 }
 
-function compute(pp){
+function safeNum(v, def) { const n = Number(v); return Number.isFinite(n) ? n : def; }
+function arr(v) { return Array.isArray(v) ? v : []; }
+function compute(pp) {
   pp = pp || {};
-  var rateScheduleVersion = (typeof pp.rate_schedule_version === 'string' && pp.rate_schedule_version) || null;
-  var totalScore = clamp(g(pp.total_score), 0, 100);
-  var assessmentBaseMusd = Math.max(0, g(pp.assessment_base_musd));
-  var unsecuredDebtAdjBp = g(pp.unsecured_debt_adjustment_bp);
-  var brokeredDepositAdjBp = g(pp.brokered_deposit_adjustment_bp);
-  var rateFloorBp = g(pp.rate_floor_bp);
-  var rateCapBp = pp.rate_cap_bp === undefined || pp.rate_cap_bp === null || pp.rate_cap_bp === '' ? Infinity : g(pp.rate_cap_bp);
 
-  var baseRateBp = lookupBaseRate(totalScore, pp.rate_brackets || []);
-  var preClampRateBp = baseRateBp === null ? null : baseRateBp + unsecuredDebtAdjBp + brokeredDepositAdjBp;
-  var totalRateBp = preClampRateBp === null ? null : clamp(preClampRateBp, rateFloorBp, rateCapBp);
-  var rateClamped = preClampRateBp !== null && totalRateBp !== null && totalRateBp !== preClampRateBp;
-  var quarterlyAssessmentMusd = totalRateBp === null ? null : r2(assessmentBaseMusd * (totalRateBp / 10000) / 4);
+  const rateScheduleVersion = (typeof pp.rate_schedule_version === 'string' && pp.rate_schedule_version) || null;
+  const totalScore = clamp(safeNum(pp.total_score, 0), 0, 100);
+  const assessmentBaseMusd = Math.max(0, safeNum(pp.assessment_base_musd, 0));
+  const unsecuredDebtAdjBp = safeNum(pp.unsecured_debt_adjustment_bp, 0);
+  const brokeredDepositAdjBp = safeNum(pp.brokered_deposit_adjustment_bp, 0);
+  const rateFloorBp = safeNum(pp.rate_floor_bp, 0);
+  const rateCapBp = safeNum(pp.rate_cap_bp, Infinity);
 
-  var output_payload = {
+  const baseRateBp = lookupBaseRate(totalScore, pp.rate_brackets);
+  const preClampRateBp = baseRateBp === null ? null : baseRateBp + unsecuredDebtAdjBp + brokeredDepositAdjBp;
+  const totalRateBp = preClampRateBp === null ? null : clamp(preClampRateBp, rateFloorBp, rateCapBp);
+  const rateClamped = preClampRateBp !== null && totalRateBp !== null && totalRateBp !== preClampRateBp;
+
+  const quarterlyAssessmentMusd = totalRateBp === null ? null
+    : r2(assessmentBaseMusd * (totalRateBp / 10000) / 4);
+
+  const compliance_flags = [];
+  if (baseRateBp === null) compliance_flags.push('FDIC_RATE_SCHEDULE_MISSING_OR_EMPTY');
+  else compliance_flags.push('FDIC_ASSESSMENT_RATE_COMPUTED');
+  if (rateClamped) compliance_flags.push('FDIC_ASSESSMENT_RATE_FLOOR_OR_CAP_APPLIED');
+
+  const output_payload = {
     rate_schedule_version: rateScheduleVersion,
     total_score: r2(totalScore),
     base_rate_bp: r2(baseRateBp),
@@ -454,7 +489,8 @@ function compute(pp){
     npr_banner: 'A pending FDIC assessments rulemaking (NPR, June 2026) may revise this rate schedule -- verify the current published schedule at fdic.gov before relying on this output for any live filing decision.',
     note: 'Base rate = lookup of the supplied composite CAMELS + financial-ratio score against a caller-supplied rate-bracket schedule (policy input, not hardcoded), then adjusted for unsecured debt and brokered deposits and floored/capped to the caller-supplied statutory range. Does NOT compute the composite score itself and is NOT a filing-ready assessment invoice.',
   };
-  return { output_payload: output_payload };
+
+  return { output_payload, compliance_flags };
 }
 
 function cgCanon(v){
