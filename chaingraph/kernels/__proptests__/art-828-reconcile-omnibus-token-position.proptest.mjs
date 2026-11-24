@@ -7,7 +7,7 @@
 // Properties run over a committed mulberry32 seed (deterministic) plus a fixed
 // corpus of structural cases.
 //
-// kernel_digest_at_authoring: sha256:244e06c7cefd3bae92387a5258f61abacd8262681516cdeb488e318b1cf588bf
+// kernel_digest_at_authoring: sha256:29d56a8b435f1159f4c6964f88f12acd68b0cb982f2b4deff986d60a53feda53
 // spec: reconcile a declared tokenized-securities omnibus position against the
 //   sum of declared wallet balances and the declared book-entry position, with a
 //   SHA-256 hash-chained head over declared mint/burn/forced-transfer/transfer
@@ -24,7 +24,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { compute } from '../art-828-reconcile-omnibus-token-position.kernel.mjs';
+import { compute, buildArtifact } from '../art-828-reconcile-omnibus-token-position.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32, findShapeViolations } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-828-reconcile-omnibus-token-position';
@@ -97,6 +97,7 @@ function expectedReconciliation(pp) {
   if (book === null) flags.push('BOOK_LEG_ABSENT');
   const wallets = pp.wallets ?? null;
   if (wallets === null) flags.push('WALLET_LEG_ABSENT');
+  else if (wallets.length === 0) flags.push('WALLET_LEG_EMPTY');
   const events = pp.events ?? null;
   if (events === null) flags.push('EVENTS_ABSENT');
   const tolerance = BigInt(pp.tolerance_units ?? 0);
@@ -278,6 +279,80 @@ function checkOutputShape() {
   return { name: 'completed_payload_exact_decimals_and_counts', checked, violations };
 }
 
+// P7 (828-F1) -- unsafe numbers are refused at compute() entry, never coerced
+// and never left for buildArtifact() to throw on. The hostile value is named by
+// field, never echoed, and the decision no longer flips on a rounded tolerance.
+function checkUnsafeNumberRefusals() {
+  const base = { profile: 'dtc_dts', as_of: '2026-11-07', omnibus_balance: '1000', book_entry_position: '900',
+    wallets: [{ wallet_label: 'w1', balance: '900', registered: true }], events: [] };
+  const cases = [
+    ['tolerance_units', { ...base, tolerance_units: Number.MAX_SAFE_INTEGER + 2 }],
+    ['tolerance_units', { ...base, tolerance_units: 1e300 }],
+    ['tolerance_units', { ...base, tolerance_units: NaN }],
+    ['events[0].seq', { ...base, events: [{ seq: Number.MAX_SAFE_INTEGER + 2, kind: 'mint', amount: '1', wallet_label: 'w1' }] }],
+    ['events[0].seq', { ...base, events: [{ seq: 1e300, kind: 'mint', amount: '1', wallet_label: 'w1' }] }],
+  ];
+  let checked = 0, violations = 0;
+  for (const [field, pp] of cases) {
+    checked += 4;
+    const o = compute(pp).output_payload;
+    if (o.verdict !== 'refused' || o.refused_field !== field) { violations++; console.error(`P7 ${field}: expected refusal naming the field, got ${JSON.stringify(o).slice(0, 120)}`); }
+    if (JSON.stringify(o).includes('1e+300')) { violations++; console.error(`P7 ${field}: hostile value echoed`); }
+    if (compute(pp).compliance_flags.join(',') !== 'INPUT_REFUSED') { violations++; console.error(`P7 ${field}: flags not exactly INPUT_REFUSED`); }
+    if (o.manual_review_required !== true) { violations++; console.error(`P7 ${field}: manual review not required`); }
+  }
+  // Safe-integer boundary stays accepted and echoes exactly.
+  checked++;
+  const boundary = compute({ ...base, tolerance_units: Number.MAX_SAFE_INTEGER }).output_payload;
+  if (boundary.tolerance_units !== Number.MAX_SAFE_INTEGER || boundary.verdict !== 'RECONCILED') { violations++; console.error('P7 safe boundary refused'); }
+  return { name: 'unsafe_numbers_refused_at_compute_entry', checked, violations };
+}
+
+// P8 (828-F2) -- a declared empty wallets[] is flagged, not silently reconciled.
+function checkEmptyWalletFlag() {
+  const base = { profile: 'dtc_dts', as_of: '2026-11-07', omnibus_balance: '0', book_entry_position: '0', events: [] };
+  const empty = compute({ ...base, wallets: [] }).output_payload;
+  const absent = compute(base).output_payload;
+  let checked = 5, violations = 0;
+  if (empty.verdict !== 'RECONCILED' || empty.wallet_count !== 0) { violations++; console.error('P8 empty verdict/count wrong'); }
+  if (JSON.stringify(empty.warnings) !== JSON.stringify(['WALLET_LEG_EMPTY'])) { violations++; console.error('P8 empty warnings wrong: ' + JSON.stringify(empty.warnings)); }
+  if (empty.manual_review_required !== true) { violations++; console.error('P8 empty manual review false'); }
+  if (!absent.warnings.includes('WALLET_LEG_ABSENT') || absent.warnings.includes('WALLET_LEG_EMPTY')) { violations++; console.error('P8 absent leg mislabelled'); }
+  if (absent.verdict !== 'RECONCILED') { violations++; console.error('P8 absent-leg control verdict wrong'); }
+  return { name: 'empty_wallet_leg_flagged_not_reconciled', checked, violations };
+}
+
+// P9 (D6) -- buildArtifact_never_throws: unhashable preimages mint a null hash
+// with hash_refusal; clean inputs keep the 64-hex execution_hash.
+async function checkBuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const hostile = [
+    { zzz: NaN }, { zzz: 1e300 }, { zzz: Infinity }, { zzz: { a: [Number.MAX_SAFE_INTEGER + 2] } },
+    { tolerance_units: 1e300 }, { wallets: [{ wallet_label: 'w1', balance: '1', registered: true, seq: 1e300 }] },
+    { zzz: deep }, { zzz: new Array(1000001).fill(0) },
+    { zzz: 5n }, { zzz: { a: [5n] } }, { zzz: [5n] },
+  ];
+  for (const delta of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact(delta);
+      const r = art.hash_refusal;
+      if (art.execution_hash !== null || !r || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(r.reason)) { violations++; console.log(`P9 violation: ${Object.keys(delta)[0]} artifact shape`); }
+      if (/e\+3\d\d|Infinity|9007199254740992/.test(JSON.stringify(r))) { violations++; console.log('P9 violation: hostile value echoed'); }
+    } catch (e) { violations++; console.log(`P9 violation: buildArtifact threw: ${String(e.message).slice(0, 80)}`); }
+  }
+  const clean = { profile: 'dtc_dts', as_of: '2026-11-07', omnibus_balance: '0', book_entry_position: '0', wallets: [], events: [] };
+  for (const pp of [clean, null, undefined, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) { violations++; console.log('P9 violation: clean input lost its hash'); }
+    } catch (e) { violations++; console.log(`P9 violation: buildArtifact threw on clean input: ${String(e.message).slice(0, 80)}`); }
+  }
+  return { name: 'buildArtifact_never_throws', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -292,6 +367,9 @@ const properties = [
   checkEventChainConformance(),
   checkRefusalInvariants(),
   checkOutputShape(),
+  checkUnsafeNumberRefusals(),
+  checkEmptyWalletFlag(),
+  await checkBuildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — authored 2026-11-07 against the pinned no-action-letter excerpt.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
