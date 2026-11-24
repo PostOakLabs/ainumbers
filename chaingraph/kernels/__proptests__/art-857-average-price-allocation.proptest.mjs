@@ -1,5 +1,5 @@
 // art-857-average-price-allocation — class-K property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
-// kernel_digest_at_authoring: sha256:37543c9279b6e96874dcd31f39f479b21dcfd4d2034b61d25beb1129b800f176
+// kernel_digest_at_authoring: sha256:6487cb6fdee65a7b749af930022f3d3df0f9a536a6395e5e5dda595da81a7b17
 // spec: board row AVG-PRICE-ALLOC-NODE-1 (SPEC.md §4 execution_hash, §18 deferred landing)
 // human_sign_off: PENDING
 //

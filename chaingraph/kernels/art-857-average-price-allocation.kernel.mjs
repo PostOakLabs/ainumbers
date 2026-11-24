@@ -113,6 +113,10 @@ function own(o, k) {
   const v = o[k];
   return v === null ? undefined : v;
 }
+// Same rule for a value already read from an own property; inherited values never reach it.
+function nn(v) {
+  return v === null ? undefined : v;
+}
 
 // Half-up division for non-negative BigInt numerator and positive denominator.
 function halfUp(num, den) {
@@ -149,23 +153,23 @@ function validate(pp) {
   /** @type {{currency: any, exp: any, side: any, basis: any, dp: any, rule: any, fills: Array<{price: bigint, qty: bigint}>|null, allocs: Array<{account: string, shares: bigint}>|null}} */
   const out = { currency: null, exp: null, side: null, basis: null, dp: null, rule: null, fills: null, allocs: null };
 
-  const currency = own(pp, 'currency');
+  const currency = Object.hasOwn(pp, 'currency') ? nn(pp['currency']) : undefined;
   if (currency === undefined) refusals.push('currency: REFUSED_INPUT_MISSING');
   else if (typeof currency !== 'string') refusals.push('currency: REFUSED_INPUT_WRONG_TYPE');
   else if (!MINOR_UNITS.has(currency)) refusals.push('currency: REFUSED_INPUT_UNKNOWN_CURRENCY');
   else { out.currency = currency; out.exp = MINOR_UNITS.get(currency); }
 
-  const side = own(pp, 'side');
+  const side = Object.hasOwn(pp, 'side') ? nn(pp['side']) : undefined;
   if (side === undefined) refusals.push('side: REFUSED_INPUT_MISSING');
   else if (typeof side !== 'string' || !SIDES.includes(side)) refusals.push('side: REFUSED_INPUT_NOT_ALLOWED');
   else out.side = side;
 
-  const basis = own(pp, 'amount_basis');
+  const basis = Object.hasOwn(pp, 'amount_basis') ? nn(pp['amount_basis']) : undefined;
   if (basis === undefined) out.basis = 'unrounded_average';
   else if (typeof basis !== 'string' || !AMOUNT_BASES.includes(basis)) refusals.push('amount_basis: REFUSED_INPUT_NOT_ALLOWED');
   else out.basis = basis;
 
-  const dp = own(pp, 'average_price_dp');
+  const dp = Object.hasOwn(pp, 'average_price_dp') ? nn(pp['average_price_dp']) : undefined;
   if (out.basis === 'rounded_average_dp') {
     if (dp === undefined) refusals.push('average_price_dp: REFUSED_INPUT_MISSING');
     else if (typeof dp !== 'number' || !Number.isSafeInteger(dp)) refusals.push('average_price_dp: REFUSED_INPUT_NOT_INTEGER');
@@ -175,14 +179,14 @@ function validate(pp) {
     refusals.push('average_price_dp: REFUSED_INPUT_NOT_APPLICABLE');
   }
 
-  const rule = own(pp, 'residual_handling');
+  const rule = Object.hasOwn(pp, 'residual_handling') ? nn(pp['residual_handling']) : undefined;
   if (rule === undefined) {
     if (out.basis === 'unrounded_average') out.rule = 'assign_largest';
     else if (out.basis === 'rounded_average_dp') refusals.push('residual_handling: REFUSED_INPUT_MISSING');
   } else if (typeof rule !== 'string' || !RESIDUAL_RULES.includes(rule)) refusals.push('residual_handling: REFUSED_INPUT_NOT_ALLOWED');
   else out.rule = rule;
 
-  const fills = own(pp, 'fills');
+  const fills = Object.hasOwn(pp, 'fills') ? nn(pp['fills']) : undefined;
   if (fills === undefined) refusals.push('fills: REFUSED_INPUT_MISSING');
   else if (!Array.isArray(fills)) refusals.push('fills: REFUSED_INPUT_WRONG_TYPE');
   else if (fills.length < 1) refusals.push('fills: REFUSED_INPUT_EMPTY');
@@ -216,7 +220,7 @@ function validate(pp) {
     if (ok) out.fills = parsed;
   }
 
-  const allocs = own(pp, 'allocations');
+  const allocs = Object.hasOwn(pp, 'allocations') ? nn(pp['allocations']) : undefined;
   if (allocs === undefined) refusals.push('allocations: REFUSED_INPUT_MISSING');
   else if (!Array.isArray(allocs)) refusals.push('allocations: REFUSED_INPUT_WRONG_TYPE');
   else if (allocs.length < 1) refusals.push('allocations: REFUSED_INPUT_EMPTY');
@@ -260,7 +264,8 @@ function validate(pp) {
 }
 
 function refused(v, refusals) {
-  const compliance_flags = ['INPUT_REFUSED'];
+  const compliance_flags = [];
+  if (refusals.length > 0) compliance_flags.push('INPUT_REFUSED');
   return {
     output_payload: {
       currency: v.currency, minor_unit_exponent: v.exp, side: v.side,
