@@ -109,12 +109,21 @@ function randomPP(rng) {
   return fullPP(rng, Math.floor(rng() * 1_000_000), Math.floor(rng() * 1_000_000), Math.floor(rng() * 6));
 }
 
-const TRIALS = 1200;
+// MUTATION-TIERBUDGET-1 trial-budget opt-in: run-mutation-tier.mjs exports MUTATION_TIER_NUM_RUNS
+// (per-kernel sibling <id>.mutation.json key mutationTrials) to this file when it runs the tier.
+// Set (positive safe integer): the trial loops below run AT MOST that many iterations (Math.min).
+// Unset: every count is exactly what it was before this opt-in (1200 / 800 / 500 verbatim) — no
+// property, assertion, generator, seed or fixture is changed by this, and depth fixtures
+// (buildValidProof/fullPP depth, deepObj, the 1e6-element array in P6) are never capped.
+const MUTATION_NUM_RUNS_RAW = Number(process.env.MUTATION_TIER_NUM_RUNS);
+const MUTATION_NUM_RUNS = Number.isSafeInteger(MUTATION_NUM_RUNS_RAW) && MUTATION_NUM_RUNS_RAW > 0 ? MUTATION_NUM_RUNS_RAW : null;
+const trialCount = (n) => (MUTATION_NUM_RUNS === null ? n : Math.min(n, MUTATION_NUM_RUNS));
+const TRIALS = trialCount(1200);
 
 // ---------- P1: termination/boundedness — MAX_PATH_DEPTH=40 hard cap ----------
 function checkP1_boundedness() {
   let violations = 0, checked = 0;
-  for (let i = 0; i < 800; i++) {
+  for (let i = 0; i < trialCount(800); i++) {
     const { output_payload: o } = compute(randomPP(rand));
     checked++;
     if (o.coverage_ratio_pct !== null && !Number.isFinite(o.coverage_ratio_pct)) violations++;
@@ -167,7 +176,7 @@ function checkP3_differential() {
 // ---------- P4: determinism ----------
 function checkP4_determinism() {
   let violations = 0, checked = 0;
-  for (let i = 0; i < 500; i++) {
+  for (let i = 0; i < trialCount(500); i++) {
     const pp = randomPP(rand);
     const a = compute(pp).output_payload;
     const b = compute(pp).output_payload;
