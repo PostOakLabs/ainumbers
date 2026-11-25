@@ -1367,6 +1367,10 @@ const PREFLIGHT_ONLY = new Map([
     "invokes via `node \"$g\"`. The array entry is real blocking CI enforcement; " +
     "this declaration records the shape, it does not excuse an unwired gate."],
   ["check-workflow-step-uses.test.mjs", SELF_TEST],
+  ["derived-regen-deadman-retry.test.mjs",
+    "Control for derived-regen-deadman.yml's retry step (DEADMAN-RERUN-STALE-SHA-1): it executes that " +
+    "step's own shell against a stub gh and can only be reddened by a change to that workflow, a PR shape " +
+    "the preflight route already lands on. Preflight-only is the same CI-minutes trade as the self-tests."],
   ["sync-ain-bridge.test.mjs", SELF_TEST],
   ["check-chain-edge-contracts.selftest.mjs", SELF_TEST],
   ["check-chain-l2-contracts.selftest.mjs", SELF_TEST],
