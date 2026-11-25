@@ -2000,6 +2000,8 @@ const GATES = [
   // HARD on pull_request and locally; not run on merge_group / push:main, which carry the regen's commits.
   ['Main-only derived paths (MAIN-ONLY-PATHS-GATE-1)', 'node scripts/check-main-only-paths.mjs'],
   ['Main-only derived paths controls (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-main-only-paths.mjs --self-test'],
+  // COVERED-DELTA-IMPACT-1: fixtures for the advisory COVERED-delta impact report (#3208 / #3282 shapes).
+  ['COVERED delta impact controls (RED+GREEN, COVERED-DELTA-IMPACT-1)', 'node scripts/check-covered-delta-impact.mjs --self-test'],
   // VINTAGE-TABLE-1: gates V1 (declared literal equals the dated table), V2 (kernels sharing a
   // fact and vintage agree) and V4 (every source digest resolves in the clause snapshot registry).
   ['Vintage table V1/V2/V4 (VINTAGE-TABLE-1)', 'node chaingraph/kernels/__vintages__/check-vintages.mjs'],
@@ -4139,6 +4141,25 @@ gateStart(BRIDGE_SYNC_LABEL);
       console.log('\n' + r.out.trim() + '\n');
       process.exit(1); // BLOCKING (was advisory): discovered after the gate loop, like L2-HARDLEG-BLOCKING-1 — no later checkpoint would otherwise make a recorded failure exit non-zero.
     }
+  }
+}
+
+// ── Advisory (non-blocking): COVERED delta impact (COVERED-DELTA-IMPACT-1) ──
+// When this diff changes scripts/derived-artifacts.mjs COVERED, reports the knock-on effects the
+// entry's own vet missed on 2026-11-24 (#3208 PER_PR_PAGE_PATCHERS, #3282 regen order / main-only
+// path): main-only delta, pr-sync delta, order / fixpoint, PR-side readers. Silent when COVERED is
+// unchanged. ADVISORY BY DESIGN, exit 0 always (--strict is for manual use only).
+const COVERED_DELTA_LABEL = 'COVERED delta impact (advisory, COVERED-DELTA-IMPACT-1)';
+gateStart(COVERED_DELTA_LABEL);
+{
+  const r = runAdvisoryChecker('node scripts/check-covered-delta-impact.mjs');
+  if (r.state === 'UNAVAILABLE') {
+    gateUnavailable(COVERED_DELTA_LABEL, r.reason, r.out);
+  } else {
+    const flags = (r.out.match(/^\s*FLAG\b/gm) || []).length;
+    gatePass(flags ? `${flags} FLAG(s), advisory: run node scripts/check-covered-delta-impact.mjs` : 'COVERED unchanged or no flags');
+    if (flags) console.log('\n' + r.out.trim() + '\n');
+    if (r.state === 'WARNED') gateFail(`   ⚠ note: ${r.reason} (its documented contract is exit 0 always)`);
   }
 }
 
