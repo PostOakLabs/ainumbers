@@ -1,5 +1,5 @@
 // art-662-odnsf-fee-recompute.proptest.mjs -- class-A property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
-// kernel_digest_at_authoring: sha256:08217afde2dfb95ca1d609a0f728de20f5c0786e6784d47b79847984109622a3
+// kernel_digest_at_authoring: sha256:96b81492f13d9e398309ad1e6ffc48f4c4b91f2afd27992e83fed452bcad9fa6
 // spec: CORE-VERIFY-BUILD-SPEC.md Sec0, Sec3.
 // human_sign_off: PENDING
 //
@@ -13,10 +13,14 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-662-odnsf-fee-recompute.proptest.mjs
 
-import { compute } from '../art-662-odnsf-fee-recompute.kernel.mjs';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { compute, buildArtifact } from '../art-662-odnsf-fee-recompute.kernel.mjs';
 import { runFixtureOracle, summarize, findShapeViolations, mulberry32, pick } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-662-odnsf-fee-recompute';
+const FIXTURES_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', `${KERNEL_ID}.fixtures.json`);
 const rand = mulberry32(0x662A11);
 
 const TXN_TYPES = ['debit_check', 'debit_ach', 'debit_card_pos', 'debit_atm', 'credit_deposit', 'credit_transfer', 'fee', 'other'];
@@ -59,7 +63,8 @@ function randomPP(rng) {
   };
 }
 
-const TRIALS = 1500;
+const RUNS = Number(process.env.MUTATION_TIER_NUM_RUNS);
+const TRIALS = Number.isSafeInteger(RUNS) && RUNS > 0 ? RUNS : 1500; // MUTATION_TIER_NUM_RUNS: per-kernel mutation-mode budget set by run-mutation-tier.mjs; unset = full 1500
 
 // ---------- P1: determinism -- same policy_parameters -> byte-identical output_payload ----------
 function checkP1_determinism() {
@@ -142,6 +147,69 @@ function checkP5_fee_charge_exclusivity() {
   return { name: 'P5_fee_charge_exclusivity', checked, violations };
 }
 
+// ---------- P6 (D6-ANYKERNEL-1115): buildArtifact_never_throws, one class per _hash.mjs refusal ----------
+function deepObj(n) { const root = /** @type {any} */ ({}); let o = root; for (let i = 0; i < n; i++) { o.x = {}; o = o.x; } return root; }
+const UNHASHABLE_CLASSES = [
+  ['junk_1e300', 1e300],
+  ['junk_NaN', NaN],
+  ['junk_minus_Infinity', -Infinity],
+  ['depth_511', deepObj(511)],
+  ['values_over_1e6', new Array(1000001).fill(1)],
+];
+async function checkP6_buildArtifactNeverThrows() {
+  let violations = 0;
+  const rows = [];
+  for (const [label, junk] of UNHASHABLE_CLASSES) {
+    let artifact;
+    try { artifact = await buildArtifact(junk); }
+    catch (e) {
+      violations++;
+      rows.push({ label, threw: true, error: e && e.message });
+      continue;
+    }
+    const refused = Boolean(artifact && artifact.execution_hash === null
+      && artifact.hash_refusal && typeof artifact.hash_refusal.reason === 'string');
+    if (!refused) violations++;
+    rows.push({ label, threw: false, refused });
+  }
+  return { name: 'buildArtifact_never_throws', checked: UNHASHABLE_CLASSES.length, violations, rows };
+}
+
+// ---------- P7: a required field mutated to missing/null/blank/whitespace never gives a positive verdict ----------
+// The node's only inputSchema.required fields are ledger and fee_schedule. account_token,
+// period_label, opening_balance_minor_units and posting_order_policy are optional by that same
+// contract (each carries a documented default) and are deliberately not mutated here.
+const REQUIRED_FIELDS = ['ledger', 'fee_schedule'];
+const REQUIRED_MUTATIONS = [
+  { mode: 'delete', apply: (pp, f) => { delete pp[f]; } },
+  { mode: 'null', apply: (pp, f) => { pp[f] = null; } },
+  { mode: 'empty_string', apply: (pp, f) => { pp[f] = ''; } },
+  { mode: 'whitespace_only', apply: (pp, f) => { pp[f] = '   '; } },
+];
+const isNonIndeterminate = (op) => Boolean(op && (op.verdict === 'MATCHES' || op.verdict === 'DIVERGES'));
+function checkP7_requiredFieldNeverPositive() {
+  const fixtures = JSON.parse(readFileSync(FIXTURES_PATH, 'utf8'));
+  let violations = 0, checked = 0;
+  const offenders = [];
+  for (const v of fixtures.vectors) {
+    const base = v.policy_parameters;
+    if (!isNonIndeterminate(compute(base).output_payload)) continue;
+    for (const f of REQUIRED_FIELDS) {
+      for (const { mode, apply } of REQUIRED_MUTATIONS) {
+        const pp = structuredClone(base);
+        apply(pp, f);
+        const op = compute(pp).output_payload;
+        checked++;
+        if (isNonIndeterminate(op)) {
+          violations++;
+          if (offenders.length < 10) offenders.push({ vector: v.name, field: f, mode, verdict: op.verdict });
+        }
+      }
+    }
+  }
+  return { name: 'required_field_missing_never_positive', checked, violations, offenders };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -155,6 +223,8 @@ const properties = [
   checkP3_termination_bounded(),
   checkP4_daily_cap_differential(),
   checkP5_fee_charge_exclusivity(),
+  await checkP6_buildArtifactNeverThrows(),
+  checkP7_requiredFieldNeverPositive(),
 ];
 console.log(`[${KERNEL_ID}] class-A floor property test.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
