@@ -1,5 +1,5 @@
 // art-350-fedwire-address-sweep.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C14-1).
-// kernel_digest_at_authoring: sha256:3ae08c2f86a8a34e3be03ac7e3df38b0d5d2d0ee47fda15364f8d365f6c295d2
+// kernel_digest_at_authoring: sha256:b4e82c38e4a19bd506f3a195fb346f9917425ea3e00a285fa12ed91dfbcdfffa
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -18,8 +18,10 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-350-fedwire-address-sweep.proptest.mjs
 
-import { compute } from '../art-350-fedwire-address-sweep.kernel.mjs';
-import { readFileSync } from 'node:fs';
+import { compute, buildArtifact as realBuildArtifact } from '../art-350-fedwire-address-sweep.kernel.mjs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -195,6 +197,61 @@ function checkP4_status_not_date_and_asof_propagation() {
   return { name: 'P4_deadline_null_status_string_asof_propagation_csv_edges', trials: checked, violations };
 }
 
+// ---------- P5: aux digest never writes the literal 'sha256:null' ----------
+// (a) real _hash.mjs: an unhashable value must throw or refuse, never mint 'sha256:null';
+// (b) a stub _hash.mjs whose executionHash returns null: the artifact must refuse
+//     (execution_hash null + hash_refusal), with no 'sha256:null' anywhere.
+async function checkP5_aux_digest_null_refusal() {
+  let violations = 0, checked = 0;
+  const kernelPath = path.join(__dirname, '..', 'art-350-fedwire-address-sweep.kernel.mjs');
+  const unhashable = { records: [{ town_name: 'Springfield', country: 'US', post_code: 1e300 }] };
+  checked++;
+  try {
+    const art = await realBuildArtifact(unhashable);
+    if (JSON.stringify(art).includes('sha256:null')) violations++;
+  } catch (_e) { /* a throw is acceptable with today's hash module */ }
+
+  // Stub leg: run a copy of the kernel next to a null-returning _hash.mjs in a child process.
+  const dir = mkdtempSync(path.join(tmpdir(), 'art350-aux-'));
+  try {
+    writeFileSync(path.join(dir, '_hash.mjs'), 'export async function executionHash() { return null; }\n');
+    writeFileSync(path.join(dir, 'k.mjs'), readFileSync(kernelPath, 'utf8'));
+    writeFileSync(path.join(dir, 'run.mjs'),
+      "import { buildArtifact } from './k.mjs';\n" +
+      "const a = await buildArtifact({ records: [{ town_name: 'A', country: 'US' }] });\n" +
+      'process.stdout.write(JSON.stringify(a));\n');
+    const child = spawnSync(process.execPath, [path.join(dir, 'run.mjs')], { encoding: 'utf8' });
+    checked++;
+    if (child.status !== 0) { violations++; return { name: 'P5_aux_digest_null_refuses_never_writes_sha256_null', trials: checked, violations }; }
+    const art = JSON.parse(child.stdout);
+    if (art.execution_hash !== null) violations++;
+    if (!art.hash_refusal || typeof art.hash_refusal.reason !== 'string' || art.hash_refusal.detail !== 'file_digest') violations++;
+    if (JSON.stringify(art).includes('sha256:null')) violations++;
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+  return { name: 'P5_aux_digest_null_refuses_never_writes_sha256_null', trials: checked, violations };
+}
+
+// ---------- P6: buildArtifact never throws (D6), including BigInt inputs ----------
+async function checkP6_buildArtifactNeverThrows() {
+  const deep = (n) => { let o = /** @type {any} */ ({}); const r = o; for (let i = 0; i < n; i++) { o.x = {}; o = o.x; } return r; };
+  const big = () => new Array(1_000_001).fill(1);
+  const cases = [
+    { zzz: 10n },                      // top-level field
+    { zzz: { a: [3n] } },              // nested
+    { records: [{ town_name: 7n }] },  // in-field
+    { file_content: 5n },              // in-field (aux digest input)
+    NaN, -Infinity, 1e300, deep(600), big(), null, undefined, 'junk', {}, [],
+  ];
+  let throws = 0, refused = 0;
+  for (const pp of cases) {
+    let a;
+    try { a = await realBuildArtifact(pp); }
+    catch (_e) { throws++; continue; }
+    if (a && a.execution_hash === null && a.hash_refusal && typeof a.hash_refusal.reason === 'string') refused++;
+  }
+  return { name: 'P6_buildArtifact_never_throws_bigint', trials: cases.length, throws, refused, violations: throws };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -206,6 +263,8 @@ results.properties.push(checkP1_termination());
 results.properties.push(checkP2_rollup_differential());
 results.properties.push(checkP3_categorical_boundary_forcing());
 results.properties.push(checkP4_status_not_date_and_asof_propagation());
+results.properties.push(await checkP5_aux_digest_null_refusal());
+results.properties.push(await checkP6_buildArtifactNeverThrows());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
