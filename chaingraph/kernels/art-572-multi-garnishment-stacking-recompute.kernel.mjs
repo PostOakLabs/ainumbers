@@ -88,6 +88,20 @@
  * Zero network, zero randomness, zero wall-clock reads inside compute().
  *
  * Spec: RECOMP-WAVE-BUILD-SPEC.md §7, §Common.
+ *
+ * FAIL-CLOSED ON MISSING REQUIRED INPUT. currency, employee_ref and period_label are manifest-required
+ * labels. A deleted, null, empty or whitespace-only value of any of them no longer falls back to a
+ * default and still yields MATCHES: it yields INDETERMINATE with the field named in
+ * missing_required_fields, never an agreement verdict. gross_minor_units and orders are likewise
+ * refused when absent or null. The five inputs with a defined no-value behavior (the deductions
+ * list, the notice, the wage prefill/date and the state overlay) keep absent and null identical so
+ * valid-input goldens do not move and the R4 absent-vs-null ratchet is not regressed; an empty or
+ * whitespace-only value is refused for them too. No new verdict vocabulary is introduced; the new
+ * compliance flag GARNISH_REQUIRED_INPUTS_MISSING names the refusal path.
+ *
+ * buildArtifact never throws: a caller value that cannot be canonicalised for I-JSON hashing
+ * (non-finite number, unsafe integer, nesting past MAX_DEPTH, more than MAX_ELEMENTS values)
+ * returns a refusal artifact with execution_hash null and hash_refusal instead of throwing.
  */
 import { executionHash } from './_hash.mjs';
 
@@ -102,6 +116,27 @@ export const meta = {
 };
 
 const ORDER_TYPES = ['child_support', 'federal_tax_levy', 'state_levy', 'hea_awg', 'creditor', 'other'];
+
+// Required inputs that fail closed when deleted, null, empty or whitespace-only. Blank strings are
+// treated exactly like a deleted or null value, never as a label default. Literal property reads
+// below are what the static schema-read sweep consumes, so every field here is also read literally
+// in compute().
+const REQUIRED_FIELDS = ['currency', 'employee_ref', 'gross_minor_units', 'orders', 'period_label'];
+// The five manifest-required inputs with a defined no-value behavior (no deductions, no notice,
+// the documented wage prefill/date and an empty overlay) keep absent AND null identical so valid
+// goldens do not move and the R4 absent-vs-null ratchet is not regressed. An empty or whitespace-only
+// string is still refused for them, never accepted as a value.
+const BLANK_REFUSAL_FIELDS = ['federal_minimum_wage_dated', 'federal_minimum_wage_minor_units', 'legally_required_deductions', 'noticed_amounts', 'state_overlay'];
+function isFilled(v) { return v != null && !(typeof v === 'string' && v.trim() === ''); }
+function isBlankString(v) { return typeof v === 'string' && v.trim() === ''; }
+function missingAtEntry(pp) {
+  const out = REQUIRED_FIELDS.filter((f) => !isFilled(pp[f]));
+  for (const f of BLANK_REFUSAL_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(pp, f) && isBlankString(pp[f])) out.push(f);
+  }
+  return out.sort();
+}
+
 const FEDERAL_MINIMUM_WAGE_CENTS_PREFILL = 725; // $7.25/hr, dated 2009-07-24, unchanged as of this build.
 const FEDERAL_MINIMUM_WAGE_PREFILL_DATED = '2009-07-24';
 
@@ -197,6 +232,7 @@ function capForOrder(order, disposable, floorMinorUnits, state_overlay, rejected
 export function compute(pp) {
   pp = pp || {};
   const rejected_inputs = [];
+  const missing_required_fields = missingAtEntry(pp);
 
   const employee_ref = str(pp.employee_ref, 'UNSTATED');
   const period_label = str(pp.period_label, 'UNSTATED');
@@ -357,7 +393,10 @@ export function compute(pp) {
   //    required input is absent -- never guessed, never defaulted. ───────────
   let verdict;
   let indeterminate_reason;
-  if (orders.length === 0) {
+  if (missing_required_fields.length > 0) {
+    verdict = 'INDETERMINATE';
+    indeterminate_reason = `Required input ${missing_required_fields.length === 1 ? 'field' : 'fields'} missing or blank: ${missing_required_fields.join(', ')}. The stack cannot be certified without the caller-declared evidence the contract requires.`;
+  } else if (orders.length === 0) {
     verdict = 'INDETERMINATE';
     indeterminate_reason = 'No garnishment orders were supplied, so no stack could be recomputed.';
   } else if (disposable_earnings_minor_units === 0 && !disposable_negative && gross_minor_units === 0) {
@@ -404,6 +443,7 @@ export function compute(pp) {
   if (orders.some((o) => o.type === 'federal_tax_levy')) compliance_flags.push('GARNISH_TAX_LEVY_NOT_CCPA_CAPPED');
   if (orders.some((o) => o.type === 'state_levy') && (state_overlay.state_levy_cap_percent === undefined || state_overlay.state_levy_cap_percent === null)) compliance_flags.push('GARNISH_STATE_LEVY_DEFAULTED_TO_CCPA');
   if (rejected_inputs.length > 0) compliance_flags.push('GARNISH_STACK_INPUTS_REJECTED');
+  if (missing_required_fields.length > 0) compliance_flags.push('GARNISH_REQUIRED_INPUTS_MISSING');
 
   const output_payload = {
     employee_ref,
@@ -445,12 +485,68 @@ export function compute(pp) {
     fence: 'This is not legal advice. Orders are withheld in the priority order the caller supplies, subject to each order\'s own statutory cap and an aggregate ceiling equal to the single highest individual cap present in the stack. A federal tax levy is capped only at remaining disposable earnings, not the IRS exempt-amount table. A state levy uses a caller-declared percentage where supplied, otherwise the general CCPA cap. No 50-state table is bundled. A divergence against a supplied notice is an arithmetic finding about the figures supplied here, never a legal determination.',
     note: 'Deterministic multi-garnishment stacking recomputation for one stated pay period. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing. It performs no payroll processing and makes no assertion that any order is valid, enforceable, or correctly served.',
   };
+  if (missing_required_fields.length > 0) output_payload.missing_required_fields = missing_required_fields;
 
   return { output_payload, compliance_flags };
 }
 
+// Mirrors _hash.mjs limits (kept as local literals so the guest VM, which shims only executionHash,
+// sees them) so buildArtifact never throws: non-finite number, unsafe integer, nesting past
+// MAX_DEPTH, more values than MAX_ELEMENTS. Reports path and kind only.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > HASH_MAX_DEPTH) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > HASH_MAX_ELEMENTS) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
+function refusalArtifact(unhashable, now, parent_hashes, parent_tool_ids, chain_depth) {
+  const refusal_flags = unhashable && unhashable.reason ? ['INPUT_REFUSED'] : [];
+  return {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: meta.mandate_type,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: null,
+    hash_refusal: { reason: unhashable.reason, detail: unhashable.detail },
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: null,
+    output_payload: { verdict: 'REFUSED', refusal: unhashable.reason },
+    compliance_flags: refusal_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+}
+
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const unhashable = findHashRefusal(pp, 'pp', 1, { n: 0 });
+  if (unhashable !== null) return refusalArtifact(unhashable, now, parent_hashes, parent_tool_ids, chain_depth);
   const { output_payload, compliance_flags } = compute(pp);
+  const outRefusal = findHashRefusal(output_payload, 'output_payload', 1, { n: 0 });
+  if (outRefusal !== null) return refusalArtifact(outRefusal, now, parent_hashes, parent_tool_ids, chain_depth);
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
