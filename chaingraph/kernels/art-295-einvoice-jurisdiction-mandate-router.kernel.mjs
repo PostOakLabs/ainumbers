@@ -9,27 +9,32 @@ export const meta = {
   mandate_type: 'compliance_mandate', gpu: false,
 };
 
-const TABLE_VERSION = 'einvoice-mandate-table-2026-07-24';
+const TABLE_VERSION = 'einvoice-mandate-table-2027';
 
-// Version-pinned mandate table. FR receive-obligation date (2026-09-01) is the
-// confirmed research-cited date for this build. DE/AE/MY dates are DRAFT-PIN
-// (could not be re-confirmed against a live source at build time).
+// Version-pinned mandate table, re-verified 2026-11-25 against official sources.
+// Confirmed rows: FR receive obligation 2026-09-01 (impots.gouv.fr), DE issue phases
+// 2027-01-01 / 2028-01-01 (§27 Abs. 38 UStG, gesetze-im-internet.de), BE 2026-01-01
+// (einvoice.belgium.be), PL 2026-02-01 / 2026-04-01 (ksef.podatki.gov.pl). Rows whose
+// date could not be confirmed on an official page carry the DRAFT-PIN form, which
+// routes to phase_unconfirmed: DE receive date, AE timeline, MY tiered rollout.
+// The table pin names 2027 because the confirmed dates are statutory and govern 2027;
+// it makes no currency claim for the DRAFT-PIN rows.
 const MANDATE_TABLE = {
   FR: {
     applicable_format: 'factur-x_or_ubl', mandatory_from: '2026-09-01',
-    transmission_channel: 'PDP', note: 'B2B receive obligation via Plateforme de Dematerialisation Partenaire',
+    transmission_channel: 'PDP', note: 'All businesses must be able to receive e-invoices from 2026-09-01; large and mid-size issue from 2026-09-01 (impots.gouv.fr, read 2026-11-25; official pages now say plateforme agreee). SME/micro issue date unverified on an official page as of 2026-11-25.',
   },
   DE: {
-    applicable_format: 'xrechnung', mandatory_from: '2025-01-01',
-    transmission_channel: 'direct', note: 'B2B receive live; issue obligation phases 2027-01-01/2028-01-01 (DRAFT-PIN, unconfirmed as of 2026-07-13)',
+    applicable_format: 'xrechnung', mandatory_from: 'DRAFT-PIN unconfirmed as of 2026-11-25',
+    transmission_channel: 'direct', note: 'Issue obligation for supplies from 2027-01-01 (prior-year turnover above EUR 800,000) and from 2028-01-01 for all others, per §27 Abs. 38 UStG; EN 16931 format per §14 UStG. The 2025-01-01 receive date is not stated in those sections and is unverified as of 2026-11-25.',
   },
   AE: {
-    applicable_format: 'pint-ae', mandatory_from: 'DRAFT-PIN unconfirmed as of 2026-07-13',
-    transmission_channel: 'direct', note: 'PINT-AE pilot phase',
+    applicable_format: 'pint-ae', mandatory_from: 'DRAFT-PIN unconfirmed as of 2026-11-25',
+    transmission_channel: 'direct', note: 'Ministerial Decisions No. 243 and 244 of 2025; Peppol 5-corner model, UAE PINT (tax.gov.ae). Timeline dates unverified on an official page as of 2026-11-25.',
   },
   MY: {
-    applicable_format: 'myinvois', mandatory_from: 'DRAFT-PIN unconfirmed as of 2026-07-13',
-    transmission_channel: 'direct', note: 'MyInvois phased rollout by taxpayer tier',
+    applicable_format: 'myinvois', mandatory_from: 'DRAFT-PIN unconfirmed as of 2026-11-25',
+    transmission_channel: 'direct', note: 'MyInvois rollout is tiered by annual turnover (LHDN timeline, updated 2026-08-30), with tier dates 2024-08-01, 2025-01-01, 2025-07-01 and 2026-01-01; turnover below RM3m exempt. A single-date table cannot represent the tiers, so the date stays unpinned.',
   },
   BE: {
     applicable_format: 'peppol-bis3', mandatory_from: '2026-01-01',
@@ -37,7 +42,7 @@ const MANDATE_TABLE = {
   },
   PL: {
     applicable_format: 'ksef-fa3', mandatory_from: '2026-02-01',
-    transmission_channel: 'KSeF', note: 'Poland Krajowy System e-Faktur, FA(3) schema, mandatory-use phase-in from 2026-02-01',
+    transmission_channel: 'KSeF', note: 'KSeF 2.0 mandatory from 2026-02-01 for taxpayers with 2024 sales above PLN 200m and from 2026-04-01 for others; FA(3) from 2026-02-01 (ksef.podatki.gov.pl, read 2026-11-25). mandatory_from carries the first phase.',
   },
 };
 
