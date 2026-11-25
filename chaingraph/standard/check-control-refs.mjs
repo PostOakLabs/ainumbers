@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// check-control-refs.mjs — SPEC §CTRLREF-1 gate for the optional node `control_refs` field.
+// check-control-refs.mjs — CTRLREF-1 gate (chaingraph/standard/CONTROL-REFS.md) for the optional node `control_refs` field.
 //
 // Every `control_refs` entry on every node shard must:
 //   1. be exactly { framework, id } (no title, description, or text member),
