@@ -95,7 +95,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 </style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-572-multi-garnishment-stacking-recompute.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:40566c4874e0229d5ecd0a9656e3643dfaabfb3bfdc79ddc78a332d900bec3bf">
+<meta name="kernel-digest" content="sha256:8c136d165c60f037c99acb56b103c599d56337090c9d99a2e14739af14ff7a0c">
 </head>
 <body>
 <nav>
@@ -235,6 +235,30 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
   <div id="mfstBody"><pre id="mfstCode"></pre></div>
 </div>
+
+
+
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-572-multi-garnishment-stacking-recompute.kernel.mjs">art-572-multi-garnishment-stacking-recompute.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:8c136d165c60f037c99acb56b103c599d56337090c9d99a2e14739af14ff7a0c</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-572-multi-garnishment-stacking-recompute.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-572-multi-garnishment-stacking-recompute.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="kernels/fixtures/compute-proof/art-572-multi-garnishment-stacking-recompute.receipt.json">sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: verified</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/8c136d165c60f037c99acb56b103c599d56337090c9d99a2e14739af14ff7a0c.json">8c136d165c60f037c99acb56b103c599d56337090c9d99a2e14739af14ff7a0c</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=21199b610f535806e7813e4941d3fa295a45f00785761936eccd08b3160e58c3">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 
 <!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=manifests/art-572-multi-garnishment-stacking-recompute.manifest.json -->
 <section id="ask-agent" style="max-width:900px;margin:32px auto 0;border:1px solid var(--border);border-radius:10px;padding:14px 18px;background:var(--bg-2)">
@@ -477,9 +501,28 @@ function capForOrder(order, disposable, floorMinorUnits, state_overlay, rejected
   return { cap_minor_units: generalCcpaCap, cap_basis: 'General CCPA cap: lesser of 25% of disposable earnings and the amount by which disposable earnings exceed 30x the federal minimum wage.', ccpa_capped: true };
 }
 
+// Required-input fail-closed (mirrors the kernel): a deleted, null, empty or whitespace-only
+// currency / employee_ref / period_label no longer defaults to a label and still yields MATCHES.
+// The five defined no-value inputs keep absent and null identical (no golden or R4 ratchet move);
+// an empty or whitespace-only value is refused for them too. Blank fields in the form therefore
+// produce INDETERMINATE, not agreement.
+var REQUIRED_FIELDS = ['currency', 'employee_ref', 'gross_minor_units', 'orders', 'period_label'];
+var BLANK_REFUSAL_FIELDS = ['federal_minimum_wage_dated', 'federal_minimum_wage_minor_units', 'legally_required_deductions', 'noticed_amounts', 'state_overlay'];
+function isFilled(v) { return v != null && !(typeof v === 'string' && v.trim() === ''); }
+function isBlankString(v) { return typeof v === 'string' && v.trim() === ''; }
+function missingAtEntry(pp) {
+  var out = REQUIRED_FIELDS.filter(function (f) { return !isFilled(pp[f]); });
+  for (var i = 0; i < BLANK_REFUSAL_FIELDS.length; i++) {
+    var f = BLANK_REFUSAL_FIELDS[i];
+    if (Object.prototype.hasOwnProperty.call(pp, f) && isBlankString(pp[f])) out.push(f);
+  }
+  return out.sort();
+}
+
 function compute(pp) {
   pp = pp || {};
   const rejected_inputs = [];
+  const missing_required_fields = missingAtEntry(pp);
 
   const employee_ref = str(pp.employee_ref, 'UNSTATED');
   const period_label = str(pp.period_label, 'UNSTATED');
@@ -640,7 +683,10 @@ function compute(pp) {
   //    required input is absent -- never guessed, never defaulted. ───────────
   let verdict;
   let indeterminate_reason;
-  if (orders.length === 0) {
+  if (missing_required_fields.length > 0) {
+    verdict = 'INDETERMINATE';
+    indeterminate_reason = 'Required input ' + (missing_required_fields.length === 1 ? 'field' : 'fields') + ' missing or blank: ' + missing_required_fields.join(', ') + '. The stack cannot be certified without the caller-declared evidence the contract requires.';
+  } else if (orders.length === 0) {
     verdict = 'INDETERMINATE';
     indeterminate_reason = 'No garnishment orders were supplied, so no stack could be recomputed.';
   } else if (disposable_earnings_minor_units === 0 && !disposable_negative && gross_minor_units === 0) {
@@ -687,6 +733,7 @@ function compute(pp) {
   if (orders.some((o) => o.type === 'federal_tax_levy')) compliance_flags.push('GARNISH_TAX_LEVY_NOT_CCPA_CAPPED');
   if (orders.some((o) => o.type === 'state_levy') && (state_overlay.state_levy_cap_percent === undefined || state_overlay.state_levy_cap_percent === null)) compliance_flags.push('GARNISH_STATE_LEVY_DEFAULTED_TO_CCPA');
   if (rejected_inputs.length > 0) compliance_flags.push('GARNISH_STACK_INPUTS_REJECTED');
+  if (missing_required_fields.length > 0) compliance_flags.push('GARNISH_REQUIRED_INPUTS_MISSING');
 
   const output_payload = {
     employee_ref,
@@ -728,6 +775,7 @@ function compute(pp) {
     fence: 'This is not legal advice. Orders are withheld in the priority order the caller supplies, subject to each order\'s own statutory cap and an aggregate ceiling equal to the single highest individual cap present in the stack. A federal tax levy is capped only at remaining disposable earnings, not the IRS exempt-amount table. A state levy uses a caller-declared percentage where supplied, otherwise the general CCPA cap. No 50-state table is bundled. A divergence against a supplied notice is an arithmetic finding about the figures supplied here, never a legal determination.',
     note: 'Deterministic multi-garnishment stacking recomputation for one stated pay period. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing. It performs no payroll processing and makes no assertion that any order is valid, enforceable, or correctly served.',
   };
+  if (missing_required_fields.length > 0) output_payload.missing_required_fields = missing_required_fields;
 
   return { output_payload, compliance_flags };
 }
