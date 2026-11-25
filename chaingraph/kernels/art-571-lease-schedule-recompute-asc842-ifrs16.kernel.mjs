@@ -6,8 +6,8 @@ const TOOL_ID = 'art-571-lease-schedule-recompute-asc842-ifrs16';
 // 1.1.1: a missing, null, empty or whitespace-only required field now takes the existing
 // did_not_run / INDETERMINATE required-inputs path instead of defaulting to a zero value or a
 // positive verdict. buildArtifact never throws: an unhashable {policy_parameters, output_payload}
-// preimage returns a refusal artifact with execution_hash null and hash_refusal. Valid-input figures
-// are unchanged.
+// preimage returns a refusal artifact with execution_hash null and hash_refusal. Valid-input outputs
+// match the 1.1.0 fixture vectors (their golden_hash pins hold).
 const TOOL_VERSION = '1.1.1';
 
 export const meta = {

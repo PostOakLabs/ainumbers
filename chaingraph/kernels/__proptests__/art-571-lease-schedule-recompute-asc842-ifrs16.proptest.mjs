@@ -1,6 +1,6 @@
 // art-571-lease-schedule-recompute-asc842-ifrs16.proptest.mjs -- FV property-test FLOOR
 // (FV-PROPFLOOR-SHARD-C29-1).
-// kernel_digest_at_authoring: sha256:dcb902f819f3dee2814a1708e4da6548242f932242c66d4577f5ee184960b534
+// kernel_digest_at_authoring: sha256:e613e38e72d7ce4c3b135f3ffbeb8126378499e4000ee94aae7eb182e53af10a
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md Sec3, class C). NOT a proof, NOT Dafny.
