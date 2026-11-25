@@ -1,6 +1,6 @@
 {
   "tool_id": "art-572-multi-garnishment-stacking-recompute",
-  "note": "Vectors computed directly from the shipped kernel. Every employee, order and figure here is SYNTHETIC and is not a copy of any real payroll record or garnishment notice. Covers the aggregate ceiling shorting a lower-priority order while still MATCHING a notice, a DIVERGES single-order case, both INDETERMINATE finite-gate states (no notice supplied; empty order stack), and a federal-tax-levy-then-AWG stack that MATCHES.",
+  "note": "Vectors computed directly from the shipped kernel. Every employee, order and figure here is SYNTHETIC and is not a copy of any real payroll record or garnishment notice. Covers the aggregate ceiling shorting a lower-priority order while still MATCHING a notice, a DIVERGES single-order case, both INDETERMINATE finite-gate states (no notice supplied; empty order stack), and a federal-tax-levy-then-AWG stack that MATCHES. The final twelve vectors fail closed when a required label (currency, employee_ref, period_label) is deleted, null, empty or whitespace-only: each yields INDETERMINATE with missing_required_fields, never MATCHES.",
   "vectors": [
     {
       "name": "matches-stack-aggregate-ceiling-shortfall",
@@ -880,6 +880,2763 @@
         "note": "Deterministic multi-garnishment stacking recomputation for one stated pay period. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing. It performs no payroll processing and makes no assertion that any order is valid, enforceable, or correctly served."
       },
       "golden_hash": "cbda8f7f9625f94897c1146ea9a9405c0f2f66e9cf531ca5cdde9ac353ada371"
+    },
+    {
+      "name": "missing_currency_indeterminate",
+      "description": "Required currency field deleted from the positive base vector; fail-closed INDETERMINATE, never MATCHES.",
+      "policy_parameters": {
+        "employee_ref": "SYNTH-EMP-001",
+        "period_label": "2026-01-15 biweekly pay period",
+        "gross_minor_units": 100000,
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000
+          }
+        ],
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "claimed_amount_minor_units": 30000
+          }
+        ],
+        "noticed_amounts": [
+          {
+            "order_id": "ord-1",
+            "amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "amount_minor_units": 0
+          }
+        ]
+      },
+      "output_payload": {
+        "employee_ref": "SYNTH-EMP-001",
+        "period_label": "2026-01-15 biweekly pay period",
+        "currency": "USD",
+        "minor_unit_exponent": 2,
+        "gross_minor_units": 100000,
+        "gross_display": "1000.00",
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000,
+            "amount_display": "150.00"
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650,
+            "amount_display": "76.50"
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000,
+            "amount_display": "40.00"
+          }
+        ],
+        "total_deductions_minor_units": 26650,
+        "total_deductions_display": "266.50",
+        "disposable_earnings_minor_units": 73350,
+        "disposable_earnings_display": "733.50",
+        "disposable_earnings_floored_at_zero": false,
+        "federal_minimum_wage_minor_units": 725,
+        "federal_minimum_wage_display": "7.25",
+        "federal_minimum_wage_source": {
+          "kind": "dated_prefill",
+          "dated": "2009-07-24"
+        },
+        "ccpa_floor_minor_units": 21750,
+        "ccpa_floor_display": "217.50",
+        "state_overlay": {},
+        "order_count": 2,
+        "aggregate_cap_minor_units": 44010,
+        "aggregate_cap_display": "440.10",
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010,
+            "claimed_display": "440.10",
+            "cap_minor_units": 44010,
+            "cap_display": "440.10",
+            "cap_basis": "CCPA Title III support tier: 60% of disposable earnings (arrears>12wk=false, second_family=false).",
+            "ccpa_capped": true,
+            "withheld_minor_units": 44010,
+            "withheld_display": "440.10",
+            "shortfall_minor_units": 0,
+            "shortfall_display": "0.00",
+            "fully_withheld": true
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "arrears_over_12wk": null,
+            "second_family": null,
+            "claimed_amount_minor_units": 30000,
+            "claimed_display": "300.00",
+            "cap_minor_units": 18338,
+            "cap_display": "183.38",
+            "cap_basis": "General CCPA cap: lesser of 25% of disposable earnings and the amount by which disposable earnings exceed 30x the federal minimum wage.",
+            "ccpa_capped": true,
+            "withheld_minor_units": 0,
+            "withheld_display": "0.00",
+            "shortfall_minor_units": 30000,
+            "shortfall_display": "300.00",
+            "fully_withheld": false
+          }
+        ],
+        "first_uncapped_shortfall": "ord-2",
+        "total_withheld_minor_units": 44010,
+        "total_withheld_display": "440.10",
+        "employee_net_minor_units": 29340,
+        "employee_net_display": "293.40",
+        "noticed_supplied": true,
+        "comparison_basis": "The recomputed side of every comparison is derived here from disposable earnings and the caller-declared order stack, allocated in the order the orders[] array was supplied. It is not read from a garnishment notice. A comparison is only meaningful because the two sides have independent provenance.",
+        "diff": [
+          {
+            "order_id": "ord-1",
+            "in_order_stack": true,
+            "recomputed_minor_units": 44010,
+            "recomputed_display": "440.10",
+            "noticed_minor_units": 44010,
+            "noticed_display": "440.10",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          },
+          {
+            "order_id": "ord-2",
+            "in_order_stack": true,
+            "recomputed_minor_units": 0,
+            "recomputed_display": "0.00",
+            "noticed_minor_units": 0,
+            "noticed_display": "0.00",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          }
+        ],
+        "verdict": "INDETERMINATE",
+        "indeterminate_reason": "Required input field missing or blank: currency. The stack cannot be certified without the caller-declared evidence the contract requires.",
+        "rejected_inputs": [],
+        "citations": {
+          "ccpa_support_tiers": {
+            "source": "Consumer Credit Protection Act Title III, 15 U.S.C. Sec. 1673(b)",
+            "detail": "Support-order withholding tiers of 50/55/60/65% of disposable earnings, keyed on whether the obligor supports another spouse/child and whether arrears exceed 12 weeks. Re-verify against primary text before relying on it (research findings, not facts)."
+          },
+          "ccpa_general_cap": {
+            "source": "29 CFR Part 870 / CCPA Sec. 303",
+            "detail": "General garnishment ceiling of 25% of disposable earnings, or the amount by which disposable earnings exceed 30 times the federal minimum wage, whichever is less."
+          },
+          "federal_tax_levy_exemption": {
+            "source": "26 U.S.C. Sec. 6334; CCPA Sec. 303(b)",
+            "detail": "A federal tax levy is exempt from the CCPA percentage limitations that bind every other order type modelled here. The IRS Publication 1494 wage-bracket exempt-amount table is NOT computed by this kernel."
+          },
+          "hea_awg": {
+            "source": "34 CFR Part 34 (Administrative Wage Garnishment); DOL Fact Sheet 30",
+            "detail": "Administrative Wage Garnishment on defaulted federal student loans is capped at 15% of disposable earnings, and may not reduce weekly pay below 30 times the federal minimum wage."
+          },
+          "dol_fact_sheet_30": {
+            "source": "U.S. DOL Wage and Hour Division, Fact Sheet 30",
+            "detail": "General guidance on Title III of the CCPA, cited for the aggregate-ceiling pattern this kernel applies across a multi-order stack."
+          }
+        },
+        "rationale": [
+          "Garnishment stack recomputed for period 2026-01-15 biweekly pay period on employee reference SYNTH-EMP-001.",
+          "Disposable earnings of 733.50 USD were derived from gross earnings of 1000.00 USD less 266.50 USD of legally-required deductions.",
+          "The federal minimum wage figure used was 7.25 USD/hour (a dated prefill from 2009-07-24), giving a 30x weekly floor of 217.50 USD.",
+          "2 orders were withheld in the priority order supplied, subject to each order's own statutory cap and an aggregate ceiling of 440.10 USD (the single highest individual cap present in the stack).",
+          "The stack ran out of capacity at order ord-2, the first order whose claimed amount could not be withheld in full within its cap and the remaining disposable earnings and aggregate ceiling.",
+          "Total withheld across the stack is 440.10 USD, leaving the employee 293.40 USD of disposable earnings for the period.",
+          "Verdict is INDETERMINATE: Required input field missing or blank: currency. The stack cannot be certified without the caller-declared evidence the contract requires.",
+          "This is not legal advice. The statutory caps modelled here (CCPA support tiers, the general CCPA cap, the HEA AWG cap, and the federal-tax-levy CCPA exemption) are a simplification of a fact-specific area of law; a state's own wage-garnishment statute, a court's instructions, or counsel govern over this arithmetic."
+        ],
+        "not_proven": [
+          {
+            "item": "Not legal advice",
+            "detail": "This kernel recomputes statutory-cap arithmetic from caller-declared facts about one pay period. It is not a substitute for counsel, a state agency, or the employer's own legal review."
+          },
+          {
+            "item": "Federal tax levy exempt amount",
+            "detail": "A federal_tax_levy order is capped only at remaining disposable earnings, not at the IRS Publication 1494 wage-bracket exempt-amount table, which this kernel does not compute."
+          },
+          {
+            "item": "State levy percentage",
+            "detail": "No 50-state table is bundled. A state_levy order uses the caller-declared state_overlay.state_levy_cap_percent where supplied; absent that, it defaults to the general CCPA cap, which may not be the correct figure for the governing state."
+          },
+          {
+            "item": "Aggregate-ceiling simplification",
+            "detail": "The combined cap across every order in the stack is modelled here as the single highest individual statutory cap present. This is a documented simplification of a fact-specific area of law, not a comprehensive multi-order interaction rule for every jurisdiction."
+          },
+          {
+            "item": "Priority ordering",
+            "detail": "Orders are withheld in the order the caller lists orders[] in. This kernel infers no priority from order type and does not verify that the supplied order matches the governing statute or a court's instructions."
+          },
+          {
+            "item": "Input accuracy",
+            "detail": "Gross earnings, legally-required deductions, and every order's claimed amount are caller-supplied and asserted, not independently verified against payroll records or a court order."
+          }
+        ],
+        "fence": "This is not legal advice. Orders are withheld in the priority order the caller supplies, subject to each order's own statutory cap and an aggregate ceiling equal to the single highest individual cap present in the stack. A federal tax levy is capped only at remaining disposable earnings, not the IRS exempt-amount table. A state levy uses a caller-declared percentage where supplied, otherwise the general CCPA cap. No 50-state table is bundled. A divergence against a supplied notice is an arithmetic finding about the figures supplied here, never a legal determination.",
+        "note": "Deterministic multi-garnishment stacking recomputation for one stated pay period. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing. It performs no payroll processing and makes no assertion that any order is valid, enforceable, or correctly served.",
+        "missing_required_fields": [
+          "currency"
+        ]
+      },
+      "golden_hash": "e8ff812490fbbc3c48e463569088669b197897d18e3b534b0a07d1f8b0ccb620"
+    },
+    {
+      "name": "null_currency_indeterminate",
+      "description": "Required currency field null on the positive base vector; fail-closed INDETERMINATE, never MATCHES.",
+      "policy_parameters": {
+        "employee_ref": "SYNTH-EMP-001",
+        "period_label": "2026-01-15 biweekly pay period",
+        "currency": null,
+        "gross_minor_units": 100000,
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000
+          }
+        ],
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "claimed_amount_minor_units": 30000
+          }
+        ],
+        "noticed_amounts": [
+          {
+            "order_id": "ord-1",
+            "amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "amount_minor_units": 0
+          }
+        ]
+      },
+      "output_payload": {
+        "employee_ref": "SYNTH-EMP-001",
+        "period_label": "2026-01-15 biweekly pay period",
+        "currency": "USD",
+        "minor_unit_exponent": 2,
+        "gross_minor_units": 100000,
+        "gross_display": "1000.00",
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000,
+            "amount_display": "150.00"
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650,
+            "amount_display": "76.50"
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000,
+            "amount_display": "40.00"
+          }
+        ],
+        "total_deductions_minor_units": 26650,
+        "total_deductions_display": "266.50",
+        "disposable_earnings_minor_units": 73350,
+        "disposable_earnings_display": "733.50",
+        "disposable_earnings_floored_at_zero": false,
+        "federal_minimum_wage_minor_units": 725,
+        "federal_minimum_wage_display": "7.25",
+        "federal_minimum_wage_source": {
+          "kind": "dated_prefill",
+          "dated": "2009-07-24"
+        },
+        "ccpa_floor_minor_units": 21750,
+        "ccpa_floor_display": "217.50",
+        "state_overlay": {},
+        "order_count": 2,
+        "aggregate_cap_minor_units": 44010,
+        "aggregate_cap_display": "440.10",
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010,
+            "claimed_display": "440.10",
+            "cap_minor_units": 44010,
+            "cap_display": "440.10",
+            "cap_basis": "CCPA Title III support tier: 60% of disposable earnings (arrears>12wk=false, second_family=false).",
+            "ccpa_capped": true,
+            "withheld_minor_units": 44010,
+            "withheld_display": "440.10",
+            "shortfall_minor_units": 0,
+            "shortfall_display": "0.00",
+            "fully_withheld": true
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "arrears_over_12wk": null,
+            "second_family": null,
+            "claimed_amount_minor_units": 30000,
+            "claimed_display": "300.00",
+            "cap_minor_units": 18338,
+            "cap_display": "183.38",
+            "cap_basis": "General CCPA cap: lesser of 25% of disposable earnings and the amount by which disposable earnings exceed 30x the federal minimum wage.",
+            "ccpa_capped": true,
+            "withheld_minor_units": 0,
+            "withheld_display": "0.00",
+            "shortfall_minor_units": 30000,
+            "shortfall_display": "300.00",
+            "fully_withheld": false
+          }
+        ],
+        "first_uncapped_shortfall": "ord-2",
+        "total_withheld_minor_units": 44010,
+        "total_withheld_display": "440.10",
+        "employee_net_minor_units": 29340,
+        "employee_net_display": "293.40",
+        "noticed_supplied": true,
+        "comparison_basis": "The recomputed side of every comparison is derived here from disposable earnings and the caller-declared order stack, allocated in the order the orders[] array was supplied. It is not read from a garnishment notice. A comparison is only meaningful because the two sides have independent provenance.",
+        "diff": [
+          {
+            "order_id": "ord-1",
+            "in_order_stack": true,
+            "recomputed_minor_units": 44010,
+            "recomputed_display": "440.10",
+            "noticed_minor_units": 44010,
+            "noticed_display": "440.10",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          },
+          {
+            "order_id": "ord-2",
+            "in_order_stack": true,
+            "recomputed_minor_units": 0,
+            "recomputed_display": "0.00",
+            "noticed_minor_units": 0,
+            "noticed_display": "0.00",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          }
+        ],
+        "verdict": "INDETERMINATE",
+        "indeterminate_reason": "Required input field missing or blank: currency. The stack cannot be certified without the caller-declared evidence the contract requires.",
+        "rejected_inputs": [],
+        "citations": {
+          "ccpa_support_tiers": {
+            "source": "Consumer Credit Protection Act Title III, 15 U.S.C. Sec. 1673(b)",
+            "detail": "Support-order withholding tiers of 50/55/60/65% of disposable earnings, keyed on whether the obligor supports another spouse/child and whether arrears exceed 12 weeks. Re-verify against primary text before relying on it (research findings, not facts)."
+          },
+          "ccpa_general_cap": {
+            "source": "29 CFR Part 870 / CCPA Sec. 303",
+            "detail": "General garnishment ceiling of 25% of disposable earnings, or the amount by which disposable earnings exceed 30 times the federal minimum wage, whichever is less."
+          },
+          "federal_tax_levy_exemption": {
+            "source": "26 U.S.C. Sec. 6334; CCPA Sec. 303(b)",
+            "detail": "A federal tax levy is exempt from the CCPA percentage limitations that bind every other order type modelled here. The IRS Publication 1494 wage-bracket exempt-amount table is NOT computed by this kernel."
+          },
+          "hea_awg": {
+            "source": "34 CFR Part 34 (Administrative Wage Garnishment); DOL Fact Sheet 30",
+            "detail": "Administrative Wage Garnishment on defaulted federal student loans is capped at 15% of disposable earnings, and may not reduce weekly pay below 30 times the federal minimum wage."
+          },
+          "dol_fact_sheet_30": {
+            "source": "U.S. DOL Wage and Hour Division, Fact Sheet 30",
+            "detail": "General guidance on Title III of the CCPA, cited for the aggregate-ceiling pattern this kernel applies across a multi-order stack."
+          }
+        },
+        "rationale": [
+          "Garnishment stack recomputed for period 2026-01-15 biweekly pay period on employee reference SYNTH-EMP-001.",
+          "Disposable earnings of 733.50 USD were derived from gross earnings of 1000.00 USD less 266.50 USD of legally-required deductions.",
+          "The federal minimum wage figure used was 7.25 USD/hour (a dated prefill from 2009-07-24), giving a 30x weekly floor of 217.50 USD.",
+          "2 orders were withheld in the priority order supplied, subject to each order's own statutory cap and an aggregate ceiling of 440.10 USD (the single highest individual cap present in the stack).",
+          "The stack ran out of capacity at order ord-2, the first order whose claimed amount could not be withheld in full within its cap and the remaining disposable earnings and aggregate ceiling.",
+          "Total withheld across the stack is 440.10 USD, leaving the employee 293.40 USD of disposable earnings for the period.",
+          "Verdict is INDETERMINATE: Required input field missing or blank: currency. The stack cannot be certified without the caller-declared evidence the contract requires.",
+          "This is not legal advice. The statutory caps modelled here (CCPA support tiers, the general CCPA cap, the HEA AWG cap, and the federal-tax-levy CCPA exemption) are a simplification of a fact-specific area of law; a state's own wage-garnishment statute, a court's instructions, or counsel govern over this arithmetic."
+        ],
+        "not_proven": [
+          {
+            "item": "Not legal advice",
+            "detail": "This kernel recomputes statutory-cap arithmetic from caller-declared facts about one pay period. It is not a substitute for counsel, a state agency, or the employer's own legal review."
+          },
+          {
+            "item": "Federal tax levy exempt amount",
+            "detail": "A federal_tax_levy order is capped only at remaining disposable earnings, not at the IRS Publication 1494 wage-bracket exempt-amount table, which this kernel does not compute."
+          },
+          {
+            "item": "State levy percentage",
+            "detail": "No 50-state table is bundled. A state_levy order uses the caller-declared state_overlay.state_levy_cap_percent where supplied; absent that, it defaults to the general CCPA cap, which may not be the correct figure for the governing state."
+          },
+          {
+            "item": "Aggregate-ceiling simplification",
+            "detail": "The combined cap across every order in the stack is modelled here as the single highest individual statutory cap present. This is a documented simplification of a fact-specific area of law, not a comprehensive multi-order interaction rule for every jurisdiction."
+          },
+          {
+            "item": "Priority ordering",
+            "detail": "Orders are withheld in the order the caller lists orders[] in. This kernel infers no priority from order type and does not verify that the supplied order matches the governing statute or a court's instructions."
+          },
+          {
+            "item": "Input accuracy",
+            "detail": "Gross earnings, legally-required deductions, and every order's claimed amount are caller-supplied and asserted, not independently verified against payroll records or a court order."
+          }
+        ],
+        "fence": "This is not legal advice. Orders are withheld in the priority order the caller supplies, subject to each order's own statutory cap and an aggregate ceiling equal to the single highest individual cap present in the stack. A federal tax levy is capped only at remaining disposable earnings, not the IRS exempt-amount table. A state levy uses a caller-declared percentage where supplied, otherwise the general CCPA cap. No 50-state table is bundled. A divergence against a supplied notice is an arithmetic finding about the figures supplied here, never a legal determination.",
+        "note": "Deterministic multi-garnishment stacking recomputation for one stated pay period. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing. It performs no payroll processing and makes no assertion that any order is valid, enforceable, or correctly served.",
+        "missing_required_fields": [
+          "currency"
+        ]
+      },
+      "golden_hash": "7d1e2f402ee5f1c3a7cbe63ff1bb8b8055cc10fe89d7a0492fba8e17ae53ce25"
+    },
+    {
+      "name": "empty_currency_indeterminate",
+      "description": "Required currency field is an empty string on the positive base vector; blank counts as missing, never MATCHES.",
+      "policy_parameters": {
+        "employee_ref": "SYNTH-EMP-001",
+        "period_label": "2026-01-15 biweekly pay period",
+        "currency": "",
+        "gross_minor_units": 100000,
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000
+          }
+        ],
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "claimed_amount_minor_units": 30000
+          }
+        ],
+        "noticed_amounts": [
+          {
+            "order_id": "ord-1",
+            "amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "amount_minor_units": 0
+          }
+        ]
+      },
+      "output_payload": {
+        "employee_ref": "SYNTH-EMP-001",
+        "period_label": "2026-01-15 biweekly pay period",
+        "currency": "USD",
+        "minor_unit_exponent": 2,
+        "gross_minor_units": 100000,
+        "gross_display": "1000.00",
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000,
+            "amount_display": "150.00"
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650,
+            "amount_display": "76.50"
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000,
+            "amount_display": "40.00"
+          }
+        ],
+        "total_deductions_minor_units": 26650,
+        "total_deductions_display": "266.50",
+        "disposable_earnings_minor_units": 73350,
+        "disposable_earnings_display": "733.50",
+        "disposable_earnings_floored_at_zero": false,
+        "federal_minimum_wage_minor_units": 725,
+        "federal_minimum_wage_display": "7.25",
+        "federal_minimum_wage_source": {
+          "kind": "dated_prefill",
+          "dated": "2009-07-24"
+        },
+        "ccpa_floor_minor_units": 21750,
+        "ccpa_floor_display": "217.50",
+        "state_overlay": {},
+        "order_count": 2,
+        "aggregate_cap_minor_units": 44010,
+        "aggregate_cap_display": "440.10",
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010,
+            "claimed_display": "440.10",
+            "cap_minor_units": 44010,
+            "cap_display": "440.10",
+            "cap_basis": "CCPA Title III support tier: 60% of disposable earnings (arrears>12wk=false, second_family=false).",
+            "ccpa_capped": true,
+            "withheld_minor_units": 44010,
+            "withheld_display": "440.10",
+            "shortfall_minor_units": 0,
+            "shortfall_display": "0.00",
+            "fully_withheld": true
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "arrears_over_12wk": null,
+            "second_family": null,
+            "claimed_amount_minor_units": 30000,
+            "claimed_display": "300.00",
+            "cap_minor_units": 18338,
+            "cap_display": "183.38",
+            "cap_basis": "General CCPA cap: lesser of 25% of disposable earnings and the amount by which disposable earnings exceed 30x the federal minimum wage.",
+            "ccpa_capped": true,
+            "withheld_minor_units": 0,
+            "withheld_display": "0.00",
+            "shortfall_minor_units": 30000,
+            "shortfall_display": "300.00",
+            "fully_withheld": false
+          }
+        ],
+        "first_uncapped_shortfall": "ord-2",
+        "total_withheld_minor_units": 44010,
+        "total_withheld_display": "440.10",
+        "employee_net_minor_units": 29340,
+        "employee_net_display": "293.40",
+        "noticed_supplied": true,
+        "comparison_basis": "The recomputed side of every comparison is derived here from disposable earnings and the caller-declared order stack, allocated in the order the orders[] array was supplied. It is not read from a garnishment notice. A comparison is only meaningful because the two sides have independent provenance.",
+        "diff": [
+          {
+            "order_id": "ord-1",
+            "in_order_stack": true,
+            "recomputed_minor_units": 44010,
+            "recomputed_display": "440.10",
+            "noticed_minor_units": 44010,
+            "noticed_display": "440.10",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          },
+          {
+            "order_id": "ord-2",
+            "in_order_stack": true,
+            "recomputed_minor_units": 0,
+            "recomputed_display": "0.00",
+            "noticed_minor_units": 0,
+            "noticed_display": "0.00",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          }
+        ],
+        "verdict": "INDETERMINATE",
+        "indeterminate_reason": "Required input field missing or blank: currency. The stack cannot be certified without the caller-declared evidence the contract requires.",
+        "rejected_inputs": [],
+        "citations": {
+          "ccpa_support_tiers": {
+            "source": "Consumer Credit Protection Act Title III, 15 U.S.C. Sec. 1673(b)",
+            "detail": "Support-order withholding tiers of 50/55/60/65% of disposable earnings, keyed on whether the obligor supports another spouse/child and whether arrears exceed 12 weeks. Re-verify against primary text before relying on it (research findings, not facts)."
+          },
+          "ccpa_general_cap": {
+            "source": "29 CFR Part 870 / CCPA Sec. 303",
+            "detail": "General garnishment ceiling of 25% of disposable earnings, or the amount by which disposable earnings exceed 30 times the federal minimum wage, whichever is less."
+          },
+          "federal_tax_levy_exemption": {
+            "source": "26 U.S.C. Sec. 6334; CCPA Sec. 303(b)",
+            "detail": "A federal tax levy is exempt from the CCPA percentage limitations that bind every other order type modelled here. The IRS Publication 1494 wage-bracket exempt-amount table is NOT computed by this kernel."
+          },
+          "hea_awg": {
+            "source": "34 CFR Part 34 (Administrative Wage Garnishment); DOL Fact Sheet 30",
+            "detail": "Administrative Wage Garnishment on defaulted federal student loans is capped at 15% of disposable earnings, and may not reduce weekly pay below 30 times the federal minimum wage."
+          },
+          "dol_fact_sheet_30": {
+            "source": "U.S. DOL Wage and Hour Division, Fact Sheet 30",
+            "detail": "General guidance on Title III of the CCPA, cited for the aggregate-ceiling pattern this kernel applies across a multi-order stack."
+          }
+        },
+        "rationale": [
+          "Garnishment stack recomputed for period 2026-01-15 biweekly pay period on employee reference SYNTH-EMP-001.",
+          "Disposable earnings of 733.50 USD were derived from gross earnings of 1000.00 USD less 266.50 USD of legally-required deductions.",
+          "The federal minimum wage figure used was 7.25 USD/hour (a dated prefill from 2009-07-24), giving a 30x weekly floor of 217.50 USD.",
+          "2 orders were withheld in the priority order supplied, subject to each order's own statutory cap and an aggregate ceiling of 440.10 USD (the single highest individual cap present in the stack).",
+          "The stack ran out of capacity at order ord-2, the first order whose claimed amount could not be withheld in full within its cap and the remaining disposable earnings and aggregate ceiling.",
+          "Total withheld across the stack is 440.10 USD, leaving the employee 293.40 USD of disposable earnings for the period.",
+          "Verdict is INDETERMINATE: Required input field missing or blank: currency. The stack cannot be certified without the caller-declared evidence the contract requires.",
+          "This is not legal advice. The statutory caps modelled here (CCPA support tiers, the general CCPA cap, the HEA AWG cap, and the federal-tax-levy CCPA exemption) are a simplification of a fact-specific area of law; a state's own wage-garnishment statute, a court's instructions, or counsel govern over this arithmetic."
+        ],
+        "not_proven": [
+          {
+            "item": "Not legal advice",
+            "detail": "This kernel recomputes statutory-cap arithmetic from caller-declared facts about one pay period. It is not a substitute for counsel, a state agency, or the employer's own legal review."
+          },
+          {
+            "item": "Federal tax levy exempt amount",
+            "detail": "A federal_tax_levy order is capped only at remaining disposable earnings, not at the IRS Publication 1494 wage-bracket exempt-amount table, which this kernel does not compute."
+          },
+          {
+            "item": "State levy percentage",
+            "detail": "No 50-state table is bundled. A state_levy order uses the caller-declared state_overlay.state_levy_cap_percent where supplied; absent that, it defaults to the general CCPA cap, which may not be the correct figure for the governing state."
+          },
+          {
+            "item": "Aggregate-ceiling simplification",
+            "detail": "The combined cap across every order in the stack is modelled here as the single highest individual statutory cap present. This is a documented simplification of a fact-specific area of law, not a comprehensive multi-order interaction rule for every jurisdiction."
+          },
+          {
+            "item": "Priority ordering",
+            "detail": "Orders are withheld in the order the caller lists orders[] in. This kernel infers no priority from order type and does not verify that the supplied order matches the governing statute or a court's instructions."
+          },
+          {
+            "item": "Input accuracy",
+            "detail": "Gross earnings, legally-required deductions, and every order's claimed amount are caller-supplied and asserted, not independently verified against payroll records or a court order."
+          }
+        ],
+        "fence": "This is not legal advice. Orders are withheld in the priority order the caller supplies, subject to each order's own statutory cap and an aggregate ceiling equal to the single highest individual cap present in the stack. A federal tax levy is capped only at remaining disposable earnings, not the IRS exempt-amount table. A state levy uses a caller-declared percentage where supplied, otherwise the general CCPA cap. No 50-state table is bundled. A divergence against a supplied notice is an arithmetic finding about the figures supplied here, never a legal determination.",
+        "note": "Deterministic multi-garnishment stacking recomputation for one stated pay period. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing. It performs no payroll processing and makes no assertion that any order is valid, enforceable, or correctly served.",
+        "missing_required_fields": [
+          "currency"
+        ]
+      },
+      "golden_hash": "12e536559bfb0a6463a15eeadd293599148411cdac579dcbfd4e3de47b674ab6"
+    },
+    {
+      "name": "blank_currency_indeterminate",
+      "description": "Required currency field is whitespace-only on the positive base vector; blank counts as missing, never MATCHES.",
+      "policy_parameters": {
+        "employee_ref": "SYNTH-EMP-001",
+        "period_label": "2026-01-15 biweekly pay period",
+        "currency": "   ",
+        "gross_minor_units": 100000,
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000
+          }
+        ],
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "claimed_amount_minor_units": 30000
+          }
+        ],
+        "noticed_amounts": [
+          {
+            "order_id": "ord-1",
+            "amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "amount_minor_units": 0
+          }
+        ]
+      },
+      "output_payload": {
+        "employee_ref": "SYNTH-EMP-001",
+        "period_label": "2026-01-15 biweekly pay period",
+        "currency": "USD",
+        "minor_unit_exponent": 2,
+        "gross_minor_units": 100000,
+        "gross_display": "1000.00",
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000,
+            "amount_display": "150.00"
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650,
+            "amount_display": "76.50"
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000,
+            "amount_display": "40.00"
+          }
+        ],
+        "total_deductions_minor_units": 26650,
+        "total_deductions_display": "266.50",
+        "disposable_earnings_minor_units": 73350,
+        "disposable_earnings_display": "733.50",
+        "disposable_earnings_floored_at_zero": false,
+        "federal_minimum_wage_minor_units": 725,
+        "federal_minimum_wage_display": "7.25",
+        "federal_minimum_wage_source": {
+          "kind": "dated_prefill",
+          "dated": "2009-07-24"
+        },
+        "ccpa_floor_minor_units": 21750,
+        "ccpa_floor_display": "217.50",
+        "state_overlay": {},
+        "order_count": 2,
+        "aggregate_cap_minor_units": 44010,
+        "aggregate_cap_display": "440.10",
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010,
+            "claimed_display": "440.10",
+            "cap_minor_units": 44010,
+            "cap_display": "440.10",
+            "cap_basis": "CCPA Title III support tier: 60% of disposable earnings (arrears>12wk=false, second_family=false).",
+            "ccpa_capped": true,
+            "withheld_minor_units": 44010,
+            "withheld_display": "440.10",
+            "shortfall_minor_units": 0,
+            "shortfall_display": "0.00",
+            "fully_withheld": true
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "arrears_over_12wk": null,
+            "second_family": null,
+            "claimed_amount_minor_units": 30000,
+            "claimed_display": "300.00",
+            "cap_minor_units": 18338,
+            "cap_display": "183.38",
+            "cap_basis": "General CCPA cap: lesser of 25% of disposable earnings and the amount by which disposable earnings exceed 30x the federal minimum wage.",
+            "ccpa_capped": true,
+            "withheld_minor_units": 0,
+            "withheld_display": "0.00",
+            "shortfall_minor_units": 30000,
+            "shortfall_display": "300.00",
+            "fully_withheld": false
+          }
+        ],
+        "first_uncapped_shortfall": "ord-2",
+        "total_withheld_minor_units": 44010,
+        "total_withheld_display": "440.10",
+        "employee_net_minor_units": 29340,
+        "employee_net_display": "293.40",
+        "noticed_supplied": true,
+        "comparison_basis": "The recomputed side of every comparison is derived here from disposable earnings and the caller-declared order stack, allocated in the order the orders[] array was supplied. It is not read from a garnishment notice. A comparison is only meaningful because the two sides have independent provenance.",
+        "diff": [
+          {
+            "order_id": "ord-1",
+            "in_order_stack": true,
+            "recomputed_minor_units": 44010,
+            "recomputed_display": "440.10",
+            "noticed_minor_units": 44010,
+            "noticed_display": "440.10",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          },
+          {
+            "order_id": "ord-2",
+            "in_order_stack": true,
+            "recomputed_minor_units": 0,
+            "recomputed_display": "0.00",
+            "noticed_minor_units": 0,
+            "noticed_display": "0.00",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          }
+        ],
+        "verdict": "INDETERMINATE",
+        "indeterminate_reason": "Required input field missing or blank: currency. The stack cannot be certified without the caller-declared evidence the contract requires.",
+        "rejected_inputs": [],
+        "citations": {
+          "ccpa_support_tiers": {
+            "source": "Consumer Credit Protection Act Title III, 15 U.S.C. Sec. 1673(b)",
+            "detail": "Support-order withholding tiers of 50/55/60/65% of disposable earnings, keyed on whether the obligor supports another spouse/child and whether arrears exceed 12 weeks. Re-verify against primary text before relying on it (research findings, not facts)."
+          },
+          "ccpa_general_cap": {
+            "source": "29 CFR Part 870 / CCPA Sec. 303",
+            "detail": "General garnishment ceiling of 25% of disposable earnings, or the amount by which disposable earnings exceed 30 times the federal minimum wage, whichever is less."
+          },
+          "federal_tax_levy_exemption": {
+            "source": "26 U.S.C. Sec. 6334; CCPA Sec. 303(b)",
+            "detail": "A federal tax levy is exempt from the CCPA percentage limitations that bind every other order type modelled here. The IRS Publication 1494 wage-bracket exempt-amount table is NOT computed by this kernel."
+          },
+          "hea_awg": {
+            "source": "34 CFR Part 34 (Administrative Wage Garnishment); DOL Fact Sheet 30",
+            "detail": "Administrative Wage Garnishment on defaulted federal student loans is capped at 15% of disposable earnings, and may not reduce weekly pay below 30 times the federal minimum wage."
+          },
+          "dol_fact_sheet_30": {
+            "source": "U.S. DOL Wage and Hour Division, Fact Sheet 30",
+            "detail": "General guidance on Title III of the CCPA, cited for the aggregate-ceiling pattern this kernel applies across a multi-order stack."
+          }
+        },
+        "rationale": [
+          "Garnishment stack recomputed for period 2026-01-15 biweekly pay period on employee reference SYNTH-EMP-001.",
+          "Disposable earnings of 733.50 USD were derived from gross earnings of 1000.00 USD less 266.50 USD of legally-required deductions.",
+          "The federal minimum wage figure used was 7.25 USD/hour (a dated prefill from 2009-07-24), giving a 30x weekly floor of 217.50 USD.",
+          "2 orders were withheld in the priority order supplied, subject to each order's own statutory cap and an aggregate ceiling of 440.10 USD (the single highest individual cap present in the stack).",
+          "The stack ran out of capacity at order ord-2, the first order whose claimed amount could not be withheld in full within its cap and the remaining disposable earnings and aggregate ceiling.",
+          "Total withheld across the stack is 440.10 USD, leaving the employee 293.40 USD of disposable earnings for the period.",
+          "Verdict is INDETERMINATE: Required input field missing or blank: currency. The stack cannot be certified without the caller-declared evidence the contract requires.",
+          "This is not legal advice. The statutory caps modelled here (CCPA support tiers, the general CCPA cap, the HEA AWG cap, and the federal-tax-levy CCPA exemption) are a simplification of a fact-specific area of law; a state's own wage-garnishment statute, a court's instructions, or counsel govern over this arithmetic."
+        ],
+        "not_proven": [
+          {
+            "item": "Not legal advice",
+            "detail": "This kernel recomputes statutory-cap arithmetic from caller-declared facts about one pay period. It is not a substitute for counsel, a state agency, or the employer's own legal review."
+          },
+          {
+            "item": "Federal tax levy exempt amount",
+            "detail": "A federal_tax_levy order is capped only at remaining disposable earnings, not at the IRS Publication 1494 wage-bracket exempt-amount table, which this kernel does not compute."
+          },
+          {
+            "item": "State levy percentage",
+            "detail": "No 50-state table is bundled. A state_levy order uses the caller-declared state_overlay.state_levy_cap_percent where supplied; absent that, it defaults to the general CCPA cap, which may not be the correct figure for the governing state."
+          },
+          {
+            "item": "Aggregate-ceiling simplification",
+            "detail": "The combined cap across every order in the stack is modelled here as the single highest individual statutory cap present. This is a documented simplification of a fact-specific area of law, not a comprehensive multi-order interaction rule for every jurisdiction."
+          },
+          {
+            "item": "Priority ordering",
+            "detail": "Orders are withheld in the order the caller lists orders[] in. This kernel infers no priority from order type and does not verify that the supplied order matches the governing statute or a court's instructions."
+          },
+          {
+            "item": "Input accuracy",
+            "detail": "Gross earnings, legally-required deductions, and every order's claimed amount are caller-supplied and asserted, not independently verified against payroll records or a court order."
+          }
+        ],
+        "fence": "This is not legal advice. Orders are withheld in the priority order the caller supplies, subject to each order's own statutory cap and an aggregate ceiling equal to the single highest individual cap present in the stack. A federal tax levy is capped only at remaining disposable earnings, not the IRS exempt-amount table. A state levy uses a caller-declared percentage where supplied, otherwise the general CCPA cap. No 50-state table is bundled. A divergence against a supplied notice is an arithmetic finding about the figures supplied here, never a legal determination.",
+        "note": "Deterministic multi-garnishment stacking recomputation for one stated pay period. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing. It performs no payroll processing and makes no assertion that any order is valid, enforceable, or correctly served.",
+        "missing_required_fields": [
+          "currency"
+        ]
+      },
+      "golden_hash": "5a21c0a255501e796752eb5d92f9482ceec72cdd9f1355bc0cb06627540d9de8"
+    },
+    {
+      "name": "missing_employee_ref_indeterminate",
+      "description": "Required employee_ref field deleted from the positive base vector; fail-closed INDETERMINATE, never MATCHES.",
+      "policy_parameters": {
+        "period_label": "2026-01-15 biweekly pay period",
+        "currency": "USD",
+        "gross_minor_units": 100000,
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000
+          }
+        ],
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "claimed_amount_minor_units": 30000
+          }
+        ],
+        "noticed_amounts": [
+          {
+            "order_id": "ord-1",
+            "amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "amount_minor_units": 0
+          }
+        ]
+      },
+      "output_payload": {
+        "employee_ref": "UNSTATED",
+        "period_label": "2026-01-15 biweekly pay period",
+        "currency": "USD",
+        "minor_unit_exponent": 2,
+        "gross_minor_units": 100000,
+        "gross_display": "1000.00",
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000,
+            "amount_display": "150.00"
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650,
+            "amount_display": "76.50"
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000,
+            "amount_display": "40.00"
+          }
+        ],
+        "total_deductions_minor_units": 26650,
+        "total_deductions_display": "266.50",
+        "disposable_earnings_minor_units": 73350,
+        "disposable_earnings_display": "733.50",
+        "disposable_earnings_floored_at_zero": false,
+        "federal_minimum_wage_minor_units": 725,
+        "federal_minimum_wage_display": "7.25",
+        "federal_minimum_wage_source": {
+          "kind": "dated_prefill",
+          "dated": "2009-07-24"
+        },
+        "ccpa_floor_minor_units": 21750,
+        "ccpa_floor_display": "217.50",
+        "state_overlay": {},
+        "order_count": 2,
+        "aggregate_cap_minor_units": 44010,
+        "aggregate_cap_display": "440.10",
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010,
+            "claimed_display": "440.10",
+            "cap_minor_units": 44010,
+            "cap_display": "440.10",
+            "cap_basis": "CCPA Title III support tier: 60% of disposable earnings (arrears>12wk=false, second_family=false).",
+            "ccpa_capped": true,
+            "withheld_minor_units": 44010,
+            "withheld_display": "440.10",
+            "shortfall_minor_units": 0,
+            "shortfall_display": "0.00",
+            "fully_withheld": true
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "arrears_over_12wk": null,
+            "second_family": null,
+            "claimed_amount_minor_units": 30000,
+            "claimed_display": "300.00",
+            "cap_minor_units": 18338,
+            "cap_display": "183.38",
+            "cap_basis": "General CCPA cap: lesser of 25% of disposable earnings and the amount by which disposable earnings exceed 30x the federal minimum wage.",
+            "ccpa_capped": true,
+            "withheld_minor_units": 0,
+            "withheld_display": "0.00",
+            "shortfall_minor_units": 30000,
+            "shortfall_display": "300.00",
+            "fully_withheld": false
+          }
+        ],
+        "first_uncapped_shortfall": "ord-2",
+        "total_withheld_minor_units": 44010,
+        "total_withheld_display": "440.10",
+        "employee_net_minor_units": 29340,
+        "employee_net_display": "293.40",
+        "noticed_supplied": true,
+        "comparison_basis": "The recomputed side of every comparison is derived here from disposable earnings and the caller-declared order stack, allocated in the order the orders[] array was supplied. It is not read from a garnishment notice. A comparison is only meaningful because the two sides have independent provenance.",
+        "diff": [
+          {
+            "order_id": "ord-1",
+            "in_order_stack": true,
+            "recomputed_minor_units": 44010,
+            "recomputed_display": "440.10",
+            "noticed_minor_units": 44010,
+            "noticed_display": "440.10",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          },
+          {
+            "order_id": "ord-2",
+            "in_order_stack": true,
+            "recomputed_minor_units": 0,
+            "recomputed_display": "0.00",
+            "noticed_minor_units": 0,
+            "noticed_display": "0.00",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          }
+        ],
+        "verdict": "INDETERMINATE",
+        "indeterminate_reason": "Required input field missing or blank: employee_ref. The stack cannot be certified without the caller-declared evidence the contract requires.",
+        "rejected_inputs": [],
+        "citations": {
+          "ccpa_support_tiers": {
+            "source": "Consumer Credit Protection Act Title III, 15 U.S.C. Sec. 1673(b)",
+            "detail": "Support-order withholding tiers of 50/55/60/65% of disposable earnings, keyed on whether the obligor supports another spouse/child and whether arrears exceed 12 weeks. Re-verify against primary text before relying on it (research findings, not facts)."
+          },
+          "ccpa_general_cap": {
+            "source": "29 CFR Part 870 / CCPA Sec. 303",
+            "detail": "General garnishment ceiling of 25% of disposable earnings, or the amount by which disposable earnings exceed 30 times the federal minimum wage, whichever is less."
+          },
+          "federal_tax_levy_exemption": {
+            "source": "26 U.S.C. Sec. 6334; CCPA Sec. 303(b)",
+            "detail": "A federal tax levy is exempt from the CCPA percentage limitations that bind every other order type modelled here. The IRS Publication 1494 wage-bracket exempt-amount table is NOT computed by this kernel."
+          },
+          "hea_awg": {
+            "source": "34 CFR Part 34 (Administrative Wage Garnishment); DOL Fact Sheet 30",
+            "detail": "Administrative Wage Garnishment on defaulted federal student loans is capped at 15% of disposable earnings, and may not reduce weekly pay below 30 times the federal minimum wage."
+          },
+          "dol_fact_sheet_30": {
+            "source": "U.S. DOL Wage and Hour Division, Fact Sheet 30",
+            "detail": "General guidance on Title III of the CCPA, cited for the aggregate-ceiling pattern this kernel applies across a multi-order stack."
+          }
+        },
+        "rationale": [
+          "Garnishment stack recomputed for period 2026-01-15 biweekly pay period on employee reference UNSTATED.",
+          "Disposable earnings of 733.50 USD were derived from gross earnings of 1000.00 USD less 266.50 USD of legally-required deductions.",
+          "The federal minimum wage figure used was 7.25 USD/hour (a dated prefill from 2009-07-24), giving a 30x weekly floor of 217.50 USD.",
+          "2 orders were withheld in the priority order supplied, subject to each order's own statutory cap and an aggregate ceiling of 440.10 USD (the single highest individual cap present in the stack).",
+          "The stack ran out of capacity at order ord-2, the first order whose claimed amount could not be withheld in full within its cap and the remaining disposable earnings and aggregate ceiling.",
+          "Total withheld across the stack is 440.10 USD, leaving the employee 293.40 USD of disposable earnings for the period.",
+          "Verdict is INDETERMINATE: Required input field missing or blank: employee_ref. The stack cannot be certified without the caller-declared evidence the contract requires.",
+          "This is not legal advice. The statutory caps modelled here (CCPA support tiers, the general CCPA cap, the HEA AWG cap, and the federal-tax-levy CCPA exemption) are a simplification of a fact-specific area of law; a state's own wage-garnishment statute, a court's instructions, or counsel govern over this arithmetic."
+        ],
+        "not_proven": [
+          {
+            "item": "Not legal advice",
+            "detail": "This kernel recomputes statutory-cap arithmetic from caller-declared facts about one pay period. It is not a substitute for counsel, a state agency, or the employer's own legal review."
+          },
+          {
+            "item": "Federal tax levy exempt amount",
+            "detail": "A federal_tax_levy order is capped only at remaining disposable earnings, not at the IRS Publication 1494 wage-bracket exempt-amount table, which this kernel does not compute."
+          },
+          {
+            "item": "State levy percentage",
+            "detail": "No 50-state table is bundled. A state_levy order uses the caller-declared state_overlay.state_levy_cap_percent where supplied; absent that, it defaults to the general CCPA cap, which may not be the correct figure for the governing state."
+          },
+          {
+            "item": "Aggregate-ceiling simplification",
+            "detail": "The combined cap across every order in the stack is modelled here as the single highest individual statutory cap present. This is a documented simplification of a fact-specific area of law, not a comprehensive multi-order interaction rule for every jurisdiction."
+          },
+          {
+            "item": "Priority ordering",
+            "detail": "Orders are withheld in the order the caller lists orders[] in. This kernel infers no priority from order type and does not verify that the supplied order matches the governing statute or a court's instructions."
+          },
+          {
+            "item": "Input accuracy",
+            "detail": "Gross earnings, legally-required deductions, and every order's claimed amount are caller-supplied and asserted, not independently verified against payroll records or a court order."
+          }
+        ],
+        "fence": "This is not legal advice. Orders are withheld in the priority order the caller supplies, subject to each order's own statutory cap and an aggregate ceiling equal to the single highest individual cap present in the stack. A federal tax levy is capped only at remaining disposable earnings, not the IRS exempt-amount table. A state levy uses a caller-declared percentage where supplied, otherwise the general CCPA cap. No 50-state table is bundled. A divergence against a supplied notice is an arithmetic finding about the figures supplied here, never a legal determination.",
+        "note": "Deterministic multi-garnishment stacking recomputation for one stated pay period. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing. It performs no payroll processing and makes no assertion that any order is valid, enforceable, or correctly served.",
+        "missing_required_fields": [
+          "employee_ref"
+        ]
+      },
+      "golden_hash": "acbfd3a57900a9c2b27cc4ff9d12e22af69325e6c2f1b4d69179f73d36dc1c5c"
+    },
+    {
+      "name": "null_employee_ref_indeterminate",
+      "description": "Required employee_ref field null on the positive base vector; fail-closed INDETERMINATE, never MATCHES.",
+      "policy_parameters": {
+        "employee_ref": null,
+        "period_label": "2026-01-15 biweekly pay period",
+        "currency": "USD",
+        "gross_minor_units": 100000,
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000
+          }
+        ],
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "claimed_amount_minor_units": 30000
+          }
+        ],
+        "noticed_amounts": [
+          {
+            "order_id": "ord-1",
+            "amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "amount_minor_units": 0
+          }
+        ]
+      },
+      "output_payload": {
+        "employee_ref": "UNSTATED",
+        "period_label": "2026-01-15 biweekly pay period",
+        "currency": "USD",
+        "minor_unit_exponent": 2,
+        "gross_minor_units": 100000,
+        "gross_display": "1000.00",
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000,
+            "amount_display": "150.00"
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650,
+            "amount_display": "76.50"
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000,
+            "amount_display": "40.00"
+          }
+        ],
+        "total_deductions_minor_units": 26650,
+        "total_deductions_display": "266.50",
+        "disposable_earnings_minor_units": 73350,
+        "disposable_earnings_display": "733.50",
+        "disposable_earnings_floored_at_zero": false,
+        "federal_minimum_wage_minor_units": 725,
+        "federal_minimum_wage_display": "7.25",
+        "federal_minimum_wage_source": {
+          "kind": "dated_prefill",
+          "dated": "2009-07-24"
+        },
+        "ccpa_floor_minor_units": 21750,
+        "ccpa_floor_display": "217.50",
+        "state_overlay": {},
+        "order_count": 2,
+        "aggregate_cap_minor_units": 44010,
+        "aggregate_cap_display": "440.10",
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010,
+            "claimed_display": "440.10",
+            "cap_minor_units": 44010,
+            "cap_display": "440.10",
+            "cap_basis": "CCPA Title III support tier: 60% of disposable earnings (arrears>12wk=false, second_family=false).",
+            "ccpa_capped": true,
+            "withheld_minor_units": 44010,
+            "withheld_display": "440.10",
+            "shortfall_minor_units": 0,
+            "shortfall_display": "0.00",
+            "fully_withheld": true
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "arrears_over_12wk": null,
+            "second_family": null,
+            "claimed_amount_minor_units": 30000,
+            "claimed_display": "300.00",
+            "cap_minor_units": 18338,
+            "cap_display": "183.38",
+            "cap_basis": "General CCPA cap: lesser of 25% of disposable earnings and the amount by which disposable earnings exceed 30x the federal minimum wage.",
+            "ccpa_capped": true,
+            "withheld_minor_units": 0,
+            "withheld_display": "0.00",
+            "shortfall_minor_units": 30000,
+            "shortfall_display": "300.00",
+            "fully_withheld": false
+          }
+        ],
+        "first_uncapped_shortfall": "ord-2",
+        "total_withheld_minor_units": 44010,
+        "total_withheld_display": "440.10",
+        "employee_net_minor_units": 29340,
+        "employee_net_display": "293.40",
+        "noticed_supplied": true,
+        "comparison_basis": "The recomputed side of every comparison is derived here from disposable earnings and the caller-declared order stack, allocated in the order the orders[] array was supplied. It is not read from a garnishment notice. A comparison is only meaningful because the two sides have independent provenance.",
+        "diff": [
+          {
+            "order_id": "ord-1",
+            "in_order_stack": true,
+            "recomputed_minor_units": 44010,
+            "recomputed_display": "440.10",
+            "noticed_minor_units": 44010,
+            "noticed_display": "440.10",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          },
+          {
+            "order_id": "ord-2",
+            "in_order_stack": true,
+            "recomputed_minor_units": 0,
+            "recomputed_display": "0.00",
+            "noticed_minor_units": 0,
+            "noticed_display": "0.00",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          }
+        ],
+        "verdict": "INDETERMINATE",
+        "indeterminate_reason": "Required input field missing or blank: employee_ref. The stack cannot be certified without the caller-declared evidence the contract requires.",
+        "rejected_inputs": [],
+        "citations": {
+          "ccpa_support_tiers": {
+            "source": "Consumer Credit Protection Act Title III, 15 U.S.C. Sec. 1673(b)",
+            "detail": "Support-order withholding tiers of 50/55/60/65% of disposable earnings, keyed on whether the obligor supports another spouse/child and whether arrears exceed 12 weeks. Re-verify against primary text before relying on it (research findings, not facts)."
+          },
+          "ccpa_general_cap": {
+            "source": "29 CFR Part 870 / CCPA Sec. 303",
+            "detail": "General garnishment ceiling of 25% of disposable earnings, or the amount by which disposable earnings exceed 30 times the federal minimum wage, whichever is less."
+          },
+          "federal_tax_levy_exemption": {
+            "source": "26 U.S.C. Sec. 6334; CCPA Sec. 303(b)",
+            "detail": "A federal tax levy is exempt from the CCPA percentage limitations that bind every other order type modelled here. The IRS Publication 1494 wage-bracket exempt-amount table is NOT computed by this kernel."
+          },
+          "hea_awg": {
+            "source": "34 CFR Part 34 (Administrative Wage Garnishment); DOL Fact Sheet 30",
+            "detail": "Administrative Wage Garnishment on defaulted federal student loans is capped at 15% of disposable earnings, and may not reduce weekly pay below 30 times the federal minimum wage."
+          },
+          "dol_fact_sheet_30": {
+            "source": "U.S. DOL Wage and Hour Division, Fact Sheet 30",
+            "detail": "General guidance on Title III of the CCPA, cited for the aggregate-ceiling pattern this kernel applies across a multi-order stack."
+          }
+        },
+        "rationale": [
+          "Garnishment stack recomputed for period 2026-01-15 biweekly pay period on employee reference UNSTATED.",
+          "Disposable earnings of 733.50 USD were derived from gross earnings of 1000.00 USD less 266.50 USD of legally-required deductions.",
+          "The federal minimum wage figure used was 7.25 USD/hour (a dated prefill from 2009-07-24), giving a 30x weekly floor of 217.50 USD.",
+          "2 orders were withheld in the priority order supplied, subject to each order's own statutory cap and an aggregate ceiling of 440.10 USD (the single highest individual cap present in the stack).",
+          "The stack ran out of capacity at order ord-2, the first order whose claimed amount could not be withheld in full within its cap and the remaining disposable earnings and aggregate ceiling.",
+          "Total withheld across the stack is 440.10 USD, leaving the employee 293.40 USD of disposable earnings for the period.",
+          "Verdict is INDETERMINATE: Required input field missing or blank: employee_ref. The stack cannot be certified without the caller-declared evidence the contract requires.",
+          "This is not legal advice. The statutory caps modelled here (CCPA support tiers, the general CCPA cap, the HEA AWG cap, and the federal-tax-levy CCPA exemption) are a simplification of a fact-specific area of law; a state's own wage-garnishment statute, a court's instructions, or counsel govern over this arithmetic."
+        ],
+        "not_proven": [
+          {
+            "item": "Not legal advice",
+            "detail": "This kernel recomputes statutory-cap arithmetic from caller-declared facts about one pay period. It is not a substitute for counsel, a state agency, or the employer's own legal review."
+          },
+          {
+            "item": "Federal tax levy exempt amount",
+            "detail": "A federal_tax_levy order is capped only at remaining disposable earnings, not at the IRS Publication 1494 wage-bracket exempt-amount table, which this kernel does not compute."
+          },
+          {
+            "item": "State levy percentage",
+            "detail": "No 50-state table is bundled. A state_levy order uses the caller-declared state_overlay.state_levy_cap_percent where supplied; absent that, it defaults to the general CCPA cap, which may not be the correct figure for the governing state."
+          },
+          {
+            "item": "Aggregate-ceiling simplification",
+            "detail": "The combined cap across every order in the stack is modelled here as the single highest individual statutory cap present. This is a documented simplification of a fact-specific area of law, not a comprehensive multi-order interaction rule for every jurisdiction."
+          },
+          {
+            "item": "Priority ordering",
+            "detail": "Orders are withheld in the order the caller lists orders[] in. This kernel infers no priority from order type and does not verify that the supplied order matches the governing statute or a court's instructions."
+          },
+          {
+            "item": "Input accuracy",
+            "detail": "Gross earnings, legally-required deductions, and every order's claimed amount are caller-supplied and asserted, not independently verified against payroll records or a court order."
+          }
+        ],
+        "fence": "This is not legal advice. Orders are withheld in the priority order the caller supplies, subject to each order's own statutory cap and an aggregate ceiling equal to the single highest individual cap present in the stack. A federal tax levy is capped only at remaining disposable earnings, not the IRS exempt-amount table. A state levy uses a caller-declared percentage where supplied, otherwise the general CCPA cap. No 50-state table is bundled. A divergence against a supplied notice is an arithmetic finding about the figures supplied here, never a legal determination.",
+        "note": "Deterministic multi-garnishment stacking recomputation for one stated pay period. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing. It performs no payroll processing and makes no assertion that any order is valid, enforceable, or correctly served.",
+        "missing_required_fields": [
+          "employee_ref"
+        ]
+      },
+      "golden_hash": "16b5b5185d0968d1b8f8dc4ee5a9bcd3f7acd0c21a0440acaa919a72ca30ac7c"
+    },
+    {
+      "name": "empty_employee_ref_indeterminate",
+      "description": "Required employee_ref field is an empty string on the positive base vector; blank counts as missing, never MATCHES.",
+      "policy_parameters": {
+        "employee_ref": "",
+        "period_label": "2026-01-15 biweekly pay period",
+        "currency": "USD",
+        "gross_minor_units": 100000,
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000
+          }
+        ],
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "claimed_amount_minor_units": 30000
+          }
+        ],
+        "noticed_amounts": [
+          {
+            "order_id": "ord-1",
+            "amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "amount_minor_units": 0
+          }
+        ]
+      },
+      "output_payload": {
+        "employee_ref": "UNSTATED",
+        "period_label": "2026-01-15 biweekly pay period",
+        "currency": "USD",
+        "minor_unit_exponent": 2,
+        "gross_minor_units": 100000,
+        "gross_display": "1000.00",
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000,
+            "amount_display": "150.00"
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650,
+            "amount_display": "76.50"
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000,
+            "amount_display": "40.00"
+          }
+        ],
+        "total_deductions_minor_units": 26650,
+        "total_deductions_display": "266.50",
+        "disposable_earnings_minor_units": 73350,
+        "disposable_earnings_display": "733.50",
+        "disposable_earnings_floored_at_zero": false,
+        "federal_minimum_wage_minor_units": 725,
+        "federal_minimum_wage_display": "7.25",
+        "federal_minimum_wage_source": {
+          "kind": "dated_prefill",
+          "dated": "2009-07-24"
+        },
+        "ccpa_floor_minor_units": 21750,
+        "ccpa_floor_display": "217.50",
+        "state_overlay": {},
+        "order_count": 2,
+        "aggregate_cap_minor_units": 44010,
+        "aggregate_cap_display": "440.10",
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010,
+            "claimed_display": "440.10",
+            "cap_minor_units": 44010,
+            "cap_display": "440.10",
+            "cap_basis": "CCPA Title III support tier: 60% of disposable earnings (arrears>12wk=false, second_family=false).",
+            "ccpa_capped": true,
+            "withheld_minor_units": 44010,
+            "withheld_display": "440.10",
+            "shortfall_minor_units": 0,
+            "shortfall_display": "0.00",
+            "fully_withheld": true
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "arrears_over_12wk": null,
+            "second_family": null,
+            "claimed_amount_minor_units": 30000,
+            "claimed_display": "300.00",
+            "cap_minor_units": 18338,
+            "cap_display": "183.38",
+            "cap_basis": "General CCPA cap: lesser of 25% of disposable earnings and the amount by which disposable earnings exceed 30x the federal minimum wage.",
+            "ccpa_capped": true,
+            "withheld_minor_units": 0,
+            "withheld_display": "0.00",
+            "shortfall_minor_units": 30000,
+            "shortfall_display": "300.00",
+            "fully_withheld": false
+          }
+        ],
+        "first_uncapped_shortfall": "ord-2",
+        "total_withheld_minor_units": 44010,
+        "total_withheld_display": "440.10",
+        "employee_net_minor_units": 29340,
+        "employee_net_display": "293.40",
+        "noticed_supplied": true,
+        "comparison_basis": "The recomputed side of every comparison is derived here from disposable earnings and the caller-declared order stack, allocated in the order the orders[] array was supplied. It is not read from a garnishment notice. A comparison is only meaningful because the two sides have independent provenance.",
+        "diff": [
+          {
+            "order_id": "ord-1",
+            "in_order_stack": true,
+            "recomputed_minor_units": 44010,
+            "recomputed_display": "440.10",
+            "noticed_minor_units": 44010,
+            "noticed_display": "440.10",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          },
+          {
+            "order_id": "ord-2",
+            "in_order_stack": true,
+            "recomputed_minor_units": 0,
+            "recomputed_display": "0.00",
+            "noticed_minor_units": 0,
+            "noticed_display": "0.00",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          }
+        ],
+        "verdict": "INDETERMINATE",
+        "indeterminate_reason": "Required input field missing or blank: employee_ref. The stack cannot be certified without the caller-declared evidence the contract requires.",
+        "rejected_inputs": [],
+        "citations": {
+          "ccpa_support_tiers": {
+            "source": "Consumer Credit Protection Act Title III, 15 U.S.C. Sec. 1673(b)",
+            "detail": "Support-order withholding tiers of 50/55/60/65% of disposable earnings, keyed on whether the obligor supports another spouse/child and whether arrears exceed 12 weeks. Re-verify against primary text before relying on it (research findings, not facts)."
+          },
+          "ccpa_general_cap": {
+            "source": "29 CFR Part 870 / CCPA Sec. 303",
+            "detail": "General garnishment ceiling of 25% of disposable earnings, or the amount by which disposable earnings exceed 30 times the federal minimum wage, whichever is less."
+          },
+          "federal_tax_levy_exemption": {
+            "source": "26 U.S.C. Sec. 6334; CCPA Sec. 303(b)",
+            "detail": "A federal tax levy is exempt from the CCPA percentage limitations that bind every other order type modelled here. The IRS Publication 1494 wage-bracket exempt-amount table is NOT computed by this kernel."
+          },
+          "hea_awg": {
+            "source": "34 CFR Part 34 (Administrative Wage Garnishment); DOL Fact Sheet 30",
+            "detail": "Administrative Wage Garnishment on defaulted federal student loans is capped at 15% of disposable earnings, and may not reduce weekly pay below 30 times the federal minimum wage."
+          },
+          "dol_fact_sheet_30": {
+            "source": "U.S. DOL Wage and Hour Division, Fact Sheet 30",
+            "detail": "General guidance on Title III of the CCPA, cited for the aggregate-ceiling pattern this kernel applies across a multi-order stack."
+          }
+        },
+        "rationale": [
+          "Garnishment stack recomputed for period 2026-01-15 biweekly pay period on employee reference UNSTATED.",
+          "Disposable earnings of 733.50 USD were derived from gross earnings of 1000.00 USD less 266.50 USD of legally-required deductions.",
+          "The federal minimum wage figure used was 7.25 USD/hour (a dated prefill from 2009-07-24), giving a 30x weekly floor of 217.50 USD.",
+          "2 orders were withheld in the priority order supplied, subject to each order's own statutory cap and an aggregate ceiling of 440.10 USD (the single highest individual cap present in the stack).",
+          "The stack ran out of capacity at order ord-2, the first order whose claimed amount could not be withheld in full within its cap and the remaining disposable earnings and aggregate ceiling.",
+          "Total withheld across the stack is 440.10 USD, leaving the employee 293.40 USD of disposable earnings for the period.",
+          "Verdict is INDETERMINATE: Required input field missing or blank: employee_ref. The stack cannot be certified without the caller-declared evidence the contract requires.",
+          "This is not legal advice. The statutory caps modelled here (CCPA support tiers, the general CCPA cap, the HEA AWG cap, and the federal-tax-levy CCPA exemption) are a simplification of a fact-specific area of law; a state's own wage-garnishment statute, a court's instructions, or counsel govern over this arithmetic."
+        ],
+        "not_proven": [
+          {
+            "item": "Not legal advice",
+            "detail": "This kernel recomputes statutory-cap arithmetic from caller-declared facts about one pay period. It is not a substitute for counsel, a state agency, or the employer's own legal review."
+          },
+          {
+            "item": "Federal tax levy exempt amount",
+            "detail": "A federal_tax_levy order is capped only at remaining disposable earnings, not at the IRS Publication 1494 wage-bracket exempt-amount table, which this kernel does not compute."
+          },
+          {
+            "item": "State levy percentage",
+            "detail": "No 50-state table is bundled. A state_levy order uses the caller-declared state_overlay.state_levy_cap_percent where supplied; absent that, it defaults to the general CCPA cap, which may not be the correct figure for the governing state."
+          },
+          {
+            "item": "Aggregate-ceiling simplification",
+            "detail": "The combined cap across every order in the stack is modelled here as the single highest individual statutory cap present. This is a documented simplification of a fact-specific area of law, not a comprehensive multi-order interaction rule for every jurisdiction."
+          },
+          {
+            "item": "Priority ordering",
+            "detail": "Orders are withheld in the order the caller lists orders[] in. This kernel infers no priority from order type and does not verify that the supplied order matches the governing statute or a court's instructions."
+          },
+          {
+            "item": "Input accuracy",
+            "detail": "Gross earnings, legally-required deductions, and every order's claimed amount are caller-supplied and asserted, not independently verified against payroll records or a court order."
+          }
+        ],
+        "fence": "This is not legal advice. Orders are withheld in the priority order the caller supplies, subject to each order's own statutory cap and an aggregate ceiling equal to the single highest individual cap present in the stack. A federal tax levy is capped only at remaining disposable earnings, not the IRS exempt-amount table. A state levy uses a caller-declared percentage where supplied, otherwise the general CCPA cap. No 50-state table is bundled. A divergence against a supplied notice is an arithmetic finding about the figures supplied here, never a legal determination.",
+        "note": "Deterministic multi-garnishment stacking recomputation for one stated pay period. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing. It performs no payroll processing and makes no assertion that any order is valid, enforceable, or correctly served.",
+        "missing_required_fields": [
+          "employee_ref"
+        ]
+      },
+      "golden_hash": "96e696c1d123c5bb8b34bd74f2bbb824bbaf120354396291f8f4ae34f1cd6597"
+    },
+    {
+      "name": "blank_employee_ref_indeterminate",
+      "description": "Required employee_ref field is whitespace-only on the positive base vector; blank counts as missing, never MATCHES.",
+      "policy_parameters": {
+        "employee_ref": "   ",
+        "period_label": "2026-01-15 biweekly pay period",
+        "currency": "USD",
+        "gross_minor_units": 100000,
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000
+          }
+        ],
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "claimed_amount_minor_units": 30000
+          }
+        ],
+        "noticed_amounts": [
+          {
+            "order_id": "ord-1",
+            "amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "amount_minor_units": 0
+          }
+        ]
+      },
+      "output_payload": {
+        "employee_ref": "UNSTATED",
+        "period_label": "2026-01-15 biweekly pay period",
+        "currency": "USD",
+        "minor_unit_exponent": 2,
+        "gross_minor_units": 100000,
+        "gross_display": "1000.00",
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000,
+            "amount_display": "150.00"
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650,
+            "amount_display": "76.50"
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000,
+            "amount_display": "40.00"
+          }
+        ],
+        "total_deductions_minor_units": 26650,
+        "total_deductions_display": "266.50",
+        "disposable_earnings_minor_units": 73350,
+        "disposable_earnings_display": "733.50",
+        "disposable_earnings_floored_at_zero": false,
+        "federal_minimum_wage_minor_units": 725,
+        "federal_minimum_wage_display": "7.25",
+        "federal_minimum_wage_source": {
+          "kind": "dated_prefill",
+          "dated": "2009-07-24"
+        },
+        "ccpa_floor_minor_units": 21750,
+        "ccpa_floor_display": "217.50",
+        "state_overlay": {},
+        "order_count": 2,
+        "aggregate_cap_minor_units": 44010,
+        "aggregate_cap_display": "440.10",
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010,
+            "claimed_display": "440.10",
+            "cap_minor_units": 44010,
+            "cap_display": "440.10",
+            "cap_basis": "CCPA Title III support tier: 60% of disposable earnings (arrears>12wk=false, second_family=false).",
+            "ccpa_capped": true,
+            "withheld_minor_units": 44010,
+            "withheld_display": "440.10",
+            "shortfall_minor_units": 0,
+            "shortfall_display": "0.00",
+            "fully_withheld": true
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "arrears_over_12wk": null,
+            "second_family": null,
+            "claimed_amount_minor_units": 30000,
+            "claimed_display": "300.00",
+            "cap_minor_units": 18338,
+            "cap_display": "183.38",
+            "cap_basis": "General CCPA cap: lesser of 25% of disposable earnings and the amount by which disposable earnings exceed 30x the federal minimum wage.",
+            "ccpa_capped": true,
+            "withheld_minor_units": 0,
+            "withheld_display": "0.00",
+            "shortfall_minor_units": 30000,
+            "shortfall_display": "300.00",
+            "fully_withheld": false
+          }
+        ],
+        "first_uncapped_shortfall": "ord-2",
+        "total_withheld_minor_units": 44010,
+        "total_withheld_display": "440.10",
+        "employee_net_minor_units": 29340,
+        "employee_net_display": "293.40",
+        "noticed_supplied": true,
+        "comparison_basis": "The recomputed side of every comparison is derived here from disposable earnings and the caller-declared order stack, allocated in the order the orders[] array was supplied. It is not read from a garnishment notice. A comparison is only meaningful because the two sides have independent provenance.",
+        "diff": [
+          {
+            "order_id": "ord-1",
+            "in_order_stack": true,
+            "recomputed_minor_units": 44010,
+            "recomputed_display": "440.10",
+            "noticed_minor_units": 44010,
+            "noticed_display": "440.10",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          },
+          {
+            "order_id": "ord-2",
+            "in_order_stack": true,
+            "recomputed_minor_units": 0,
+            "recomputed_display": "0.00",
+            "noticed_minor_units": 0,
+            "noticed_display": "0.00",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          }
+        ],
+        "verdict": "INDETERMINATE",
+        "indeterminate_reason": "Required input field missing or blank: employee_ref. The stack cannot be certified without the caller-declared evidence the contract requires.",
+        "rejected_inputs": [],
+        "citations": {
+          "ccpa_support_tiers": {
+            "source": "Consumer Credit Protection Act Title III, 15 U.S.C. Sec. 1673(b)",
+            "detail": "Support-order withholding tiers of 50/55/60/65% of disposable earnings, keyed on whether the obligor supports another spouse/child and whether arrears exceed 12 weeks. Re-verify against primary text before relying on it (research findings, not facts)."
+          },
+          "ccpa_general_cap": {
+            "source": "29 CFR Part 870 / CCPA Sec. 303",
+            "detail": "General garnishment ceiling of 25% of disposable earnings, or the amount by which disposable earnings exceed 30 times the federal minimum wage, whichever is less."
+          },
+          "federal_tax_levy_exemption": {
+            "source": "26 U.S.C. Sec. 6334; CCPA Sec. 303(b)",
+            "detail": "A federal tax levy is exempt from the CCPA percentage limitations that bind every other order type modelled here. The IRS Publication 1494 wage-bracket exempt-amount table is NOT computed by this kernel."
+          },
+          "hea_awg": {
+            "source": "34 CFR Part 34 (Administrative Wage Garnishment); DOL Fact Sheet 30",
+            "detail": "Administrative Wage Garnishment on defaulted federal student loans is capped at 15% of disposable earnings, and may not reduce weekly pay below 30 times the federal minimum wage."
+          },
+          "dol_fact_sheet_30": {
+            "source": "U.S. DOL Wage and Hour Division, Fact Sheet 30",
+            "detail": "General guidance on Title III of the CCPA, cited for the aggregate-ceiling pattern this kernel applies across a multi-order stack."
+          }
+        },
+        "rationale": [
+          "Garnishment stack recomputed for period 2026-01-15 biweekly pay period on employee reference UNSTATED.",
+          "Disposable earnings of 733.50 USD were derived from gross earnings of 1000.00 USD less 266.50 USD of legally-required deductions.",
+          "The federal minimum wage figure used was 7.25 USD/hour (a dated prefill from 2009-07-24), giving a 30x weekly floor of 217.50 USD.",
+          "2 orders were withheld in the priority order supplied, subject to each order's own statutory cap and an aggregate ceiling of 440.10 USD (the single highest individual cap present in the stack).",
+          "The stack ran out of capacity at order ord-2, the first order whose claimed amount could not be withheld in full within its cap and the remaining disposable earnings and aggregate ceiling.",
+          "Total withheld across the stack is 440.10 USD, leaving the employee 293.40 USD of disposable earnings for the period.",
+          "Verdict is INDETERMINATE: Required input field missing or blank: employee_ref. The stack cannot be certified without the caller-declared evidence the contract requires.",
+          "This is not legal advice. The statutory caps modelled here (CCPA support tiers, the general CCPA cap, the HEA AWG cap, and the federal-tax-levy CCPA exemption) are a simplification of a fact-specific area of law; a state's own wage-garnishment statute, a court's instructions, or counsel govern over this arithmetic."
+        ],
+        "not_proven": [
+          {
+            "item": "Not legal advice",
+            "detail": "This kernel recomputes statutory-cap arithmetic from caller-declared facts about one pay period. It is not a substitute for counsel, a state agency, or the employer's own legal review."
+          },
+          {
+            "item": "Federal tax levy exempt amount",
+            "detail": "A federal_tax_levy order is capped only at remaining disposable earnings, not at the IRS Publication 1494 wage-bracket exempt-amount table, which this kernel does not compute."
+          },
+          {
+            "item": "State levy percentage",
+            "detail": "No 50-state table is bundled. A state_levy order uses the caller-declared state_overlay.state_levy_cap_percent where supplied; absent that, it defaults to the general CCPA cap, which may not be the correct figure for the governing state."
+          },
+          {
+            "item": "Aggregate-ceiling simplification",
+            "detail": "The combined cap across every order in the stack is modelled here as the single highest individual statutory cap present. This is a documented simplification of a fact-specific area of law, not a comprehensive multi-order interaction rule for every jurisdiction."
+          },
+          {
+            "item": "Priority ordering",
+            "detail": "Orders are withheld in the order the caller lists orders[] in. This kernel infers no priority from order type and does not verify that the supplied order matches the governing statute or a court's instructions."
+          },
+          {
+            "item": "Input accuracy",
+            "detail": "Gross earnings, legally-required deductions, and every order's claimed amount are caller-supplied and asserted, not independently verified against payroll records or a court order."
+          }
+        ],
+        "fence": "This is not legal advice. Orders are withheld in the priority order the caller supplies, subject to each order's own statutory cap and an aggregate ceiling equal to the single highest individual cap present in the stack. A federal tax levy is capped only at remaining disposable earnings, not the IRS exempt-amount table. A state levy uses a caller-declared percentage where supplied, otherwise the general CCPA cap. No 50-state table is bundled. A divergence against a supplied notice is an arithmetic finding about the figures supplied here, never a legal determination.",
+        "note": "Deterministic multi-garnishment stacking recomputation for one stated pay period. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing. It performs no payroll processing and makes no assertion that any order is valid, enforceable, or correctly served.",
+        "missing_required_fields": [
+          "employee_ref"
+        ]
+      },
+      "golden_hash": "7c8ab86db7089e9d189facae3264d21b9e990126e0ac9e3d9adda90bae5c2ce5"
+    },
+    {
+      "name": "missing_period_label_indeterminate",
+      "description": "Required period_label field deleted from the positive base vector; fail-closed INDETERMINATE, never MATCHES.",
+      "policy_parameters": {
+        "employee_ref": "SYNTH-EMP-001",
+        "currency": "USD",
+        "gross_minor_units": 100000,
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000
+          }
+        ],
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "claimed_amount_minor_units": 30000
+          }
+        ],
+        "noticed_amounts": [
+          {
+            "order_id": "ord-1",
+            "amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "amount_minor_units": 0
+          }
+        ]
+      },
+      "output_payload": {
+        "employee_ref": "SYNTH-EMP-001",
+        "period_label": "UNSTATED",
+        "currency": "USD",
+        "minor_unit_exponent": 2,
+        "gross_minor_units": 100000,
+        "gross_display": "1000.00",
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000,
+            "amount_display": "150.00"
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650,
+            "amount_display": "76.50"
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000,
+            "amount_display": "40.00"
+          }
+        ],
+        "total_deductions_minor_units": 26650,
+        "total_deductions_display": "266.50",
+        "disposable_earnings_minor_units": 73350,
+        "disposable_earnings_display": "733.50",
+        "disposable_earnings_floored_at_zero": false,
+        "federal_minimum_wage_minor_units": 725,
+        "federal_minimum_wage_display": "7.25",
+        "federal_minimum_wage_source": {
+          "kind": "dated_prefill",
+          "dated": "2009-07-24"
+        },
+        "ccpa_floor_minor_units": 21750,
+        "ccpa_floor_display": "217.50",
+        "state_overlay": {},
+        "order_count": 2,
+        "aggregate_cap_minor_units": 44010,
+        "aggregate_cap_display": "440.10",
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010,
+            "claimed_display": "440.10",
+            "cap_minor_units": 44010,
+            "cap_display": "440.10",
+            "cap_basis": "CCPA Title III support tier: 60% of disposable earnings (arrears>12wk=false, second_family=false).",
+            "ccpa_capped": true,
+            "withheld_minor_units": 44010,
+            "withheld_display": "440.10",
+            "shortfall_minor_units": 0,
+            "shortfall_display": "0.00",
+            "fully_withheld": true
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "arrears_over_12wk": null,
+            "second_family": null,
+            "claimed_amount_minor_units": 30000,
+            "claimed_display": "300.00",
+            "cap_minor_units": 18338,
+            "cap_display": "183.38",
+            "cap_basis": "General CCPA cap: lesser of 25% of disposable earnings and the amount by which disposable earnings exceed 30x the federal minimum wage.",
+            "ccpa_capped": true,
+            "withheld_minor_units": 0,
+            "withheld_display": "0.00",
+            "shortfall_minor_units": 30000,
+            "shortfall_display": "300.00",
+            "fully_withheld": false
+          }
+        ],
+        "first_uncapped_shortfall": "ord-2",
+        "total_withheld_minor_units": 44010,
+        "total_withheld_display": "440.10",
+        "employee_net_minor_units": 29340,
+        "employee_net_display": "293.40",
+        "noticed_supplied": true,
+        "comparison_basis": "The recomputed side of every comparison is derived here from disposable earnings and the caller-declared order stack, allocated in the order the orders[] array was supplied. It is not read from a garnishment notice. A comparison is only meaningful because the two sides have independent provenance.",
+        "diff": [
+          {
+            "order_id": "ord-1",
+            "in_order_stack": true,
+            "recomputed_minor_units": 44010,
+            "recomputed_display": "440.10",
+            "noticed_minor_units": 44010,
+            "noticed_display": "440.10",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          },
+          {
+            "order_id": "ord-2",
+            "in_order_stack": true,
+            "recomputed_minor_units": 0,
+            "recomputed_display": "0.00",
+            "noticed_minor_units": 0,
+            "noticed_display": "0.00",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          }
+        ],
+        "verdict": "INDETERMINATE",
+        "indeterminate_reason": "Required input field missing or blank: period_label. The stack cannot be certified without the caller-declared evidence the contract requires.",
+        "rejected_inputs": [],
+        "citations": {
+          "ccpa_support_tiers": {
+            "source": "Consumer Credit Protection Act Title III, 15 U.S.C. Sec. 1673(b)",
+            "detail": "Support-order withholding tiers of 50/55/60/65% of disposable earnings, keyed on whether the obligor supports another spouse/child and whether arrears exceed 12 weeks. Re-verify against primary text before relying on it (research findings, not facts)."
+          },
+          "ccpa_general_cap": {
+            "source": "29 CFR Part 870 / CCPA Sec. 303",
+            "detail": "General garnishment ceiling of 25% of disposable earnings, or the amount by which disposable earnings exceed 30 times the federal minimum wage, whichever is less."
+          },
+          "federal_tax_levy_exemption": {
+            "source": "26 U.S.C. Sec. 6334; CCPA Sec. 303(b)",
+            "detail": "A federal tax levy is exempt from the CCPA percentage limitations that bind every other order type modelled here. The IRS Publication 1494 wage-bracket exempt-amount table is NOT computed by this kernel."
+          },
+          "hea_awg": {
+            "source": "34 CFR Part 34 (Administrative Wage Garnishment); DOL Fact Sheet 30",
+            "detail": "Administrative Wage Garnishment on defaulted federal student loans is capped at 15% of disposable earnings, and may not reduce weekly pay below 30 times the federal minimum wage."
+          },
+          "dol_fact_sheet_30": {
+            "source": "U.S. DOL Wage and Hour Division, Fact Sheet 30",
+            "detail": "General guidance on Title III of the CCPA, cited for the aggregate-ceiling pattern this kernel applies across a multi-order stack."
+          }
+        },
+        "rationale": [
+          "Garnishment stack recomputed for period UNSTATED on employee reference SYNTH-EMP-001.",
+          "Disposable earnings of 733.50 USD were derived from gross earnings of 1000.00 USD less 266.50 USD of legally-required deductions.",
+          "The federal minimum wage figure used was 7.25 USD/hour (a dated prefill from 2009-07-24), giving a 30x weekly floor of 217.50 USD.",
+          "2 orders were withheld in the priority order supplied, subject to each order's own statutory cap and an aggregate ceiling of 440.10 USD (the single highest individual cap present in the stack).",
+          "The stack ran out of capacity at order ord-2, the first order whose claimed amount could not be withheld in full within its cap and the remaining disposable earnings and aggregate ceiling.",
+          "Total withheld across the stack is 440.10 USD, leaving the employee 293.40 USD of disposable earnings for the period.",
+          "Verdict is INDETERMINATE: Required input field missing or blank: period_label. The stack cannot be certified without the caller-declared evidence the contract requires.",
+          "This is not legal advice. The statutory caps modelled here (CCPA support tiers, the general CCPA cap, the HEA AWG cap, and the federal-tax-levy CCPA exemption) are a simplification of a fact-specific area of law; a state's own wage-garnishment statute, a court's instructions, or counsel govern over this arithmetic."
+        ],
+        "not_proven": [
+          {
+            "item": "Not legal advice",
+            "detail": "This kernel recomputes statutory-cap arithmetic from caller-declared facts about one pay period. It is not a substitute for counsel, a state agency, or the employer's own legal review."
+          },
+          {
+            "item": "Federal tax levy exempt amount",
+            "detail": "A federal_tax_levy order is capped only at remaining disposable earnings, not at the IRS Publication 1494 wage-bracket exempt-amount table, which this kernel does not compute."
+          },
+          {
+            "item": "State levy percentage",
+            "detail": "No 50-state table is bundled. A state_levy order uses the caller-declared state_overlay.state_levy_cap_percent where supplied; absent that, it defaults to the general CCPA cap, which may not be the correct figure for the governing state."
+          },
+          {
+            "item": "Aggregate-ceiling simplification",
+            "detail": "The combined cap across every order in the stack is modelled here as the single highest individual statutory cap present. This is a documented simplification of a fact-specific area of law, not a comprehensive multi-order interaction rule for every jurisdiction."
+          },
+          {
+            "item": "Priority ordering",
+            "detail": "Orders are withheld in the order the caller lists orders[] in. This kernel infers no priority from order type and does not verify that the supplied order matches the governing statute or a court's instructions."
+          },
+          {
+            "item": "Input accuracy",
+            "detail": "Gross earnings, legally-required deductions, and every order's claimed amount are caller-supplied and asserted, not independently verified against payroll records or a court order."
+          }
+        ],
+        "fence": "This is not legal advice. Orders are withheld in the priority order the caller supplies, subject to each order's own statutory cap and an aggregate ceiling equal to the single highest individual cap present in the stack. A federal tax levy is capped only at remaining disposable earnings, not the IRS exempt-amount table. A state levy uses a caller-declared percentage where supplied, otherwise the general CCPA cap. No 50-state table is bundled. A divergence against a supplied notice is an arithmetic finding about the figures supplied here, never a legal determination.",
+        "note": "Deterministic multi-garnishment stacking recomputation for one stated pay period. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing. It performs no payroll processing and makes no assertion that any order is valid, enforceable, or correctly served.",
+        "missing_required_fields": [
+          "period_label"
+        ]
+      },
+      "golden_hash": "af84803243a6aaa1cb099e2e974b7a84616f93b9785dceb3e450c67fded6f374"
+    },
+    {
+      "name": "null_period_label_indeterminate",
+      "description": "Required period_label field null on the positive base vector; fail-closed INDETERMINATE, never MATCHES.",
+      "policy_parameters": {
+        "employee_ref": "SYNTH-EMP-001",
+        "period_label": null,
+        "currency": "USD",
+        "gross_minor_units": 100000,
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000
+          }
+        ],
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "claimed_amount_minor_units": 30000
+          }
+        ],
+        "noticed_amounts": [
+          {
+            "order_id": "ord-1",
+            "amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "amount_minor_units": 0
+          }
+        ]
+      },
+      "output_payload": {
+        "employee_ref": "SYNTH-EMP-001",
+        "period_label": "UNSTATED",
+        "currency": "USD",
+        "minor_unit_exponent": 2,
+        "gross_minor_units": 100000,
+        "gross_display": "1000.00",
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000,
+            "amount_display": "150.00"
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650,
+            "amount_display": "76.50"
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000,
+            "amount_display": "40.00"
+          }
+        ],
+        "total_deductions_minor_units": 26650,
+        "total_deductions_display": "266.50",
+        "disposable_earnings_minor_units": 73350,
+        "disposable_earnings_display": "733.50",
+        "disposable_earnings_floored_at_zero": false,
+        "federal_minimum_wage_minor_units": 725,
+        "federal_minimum_wage_display": "7.25",
+        "federal_minimum_wage_source": {
+          "kind": "dated_prefill",
+          "dated": "2009-07-24"
+        },
+        "ccpa_floor_minor_units": 21750,
+        "ccpa_floor_display": "217.50",
+        "state_overlay": {},
+        "order_count": 2,
+        "aggregate_cap_minor_units": 44010,
+        "aggregate_cap_display": "440.10",
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010,
+            "claimed_display": "440.10",
+            "cap_minor_units": 44010,
+            "cap_display": "440.10",
+            "cap_basis": "CCPA Title III support tier: 60% of disposable earnings (arrears>12wk=false, second_family=false).",
+            "ccpa_capped": true,
+            "withheld_minor_units": 44010,
+            "withheld_display": "440.10",
+            "shortfall_minor_units": 0,
+            "shortfall_display": "0.00",
+            "fully_withheld": true
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "arrears_over_12wk": null,
+            "second_family": null,
+            "claimed_amount_minor_units": 30000,
+            "claimed_display": "300.00",
+            "cap_minor_units": 18338,
+            "cap_display": "183.38",
+            "cap_basis": "General CCPA cap: lesser of 25% of disposable earnings and the amount by which disposable earnings exceed 30x the federal minimum wage.",
+            "ccpa_capped": true,
+            "withheld_minor_units": 0,
+            "withheld_display": "0.00",
+            "shortfall_minor_units": 30000,
+            "shortfall_display": "300.00",
+            "fully_withheld": false
+          }
+        ],
+        "first_uncapped_shortfall": "ord-2",
+        "total_withheld_minor_units": 44010,
+        "total_withheld_display": "440.10",
+        "employee_net_minor_units": 29340,
+        "employee_net_display": "293.40",
+        "noticed_supplied": true,
+        "comparison_basis": "The recomputed side of every comparison is derived here from disposable earnings and the caller-declared order stack, allocated in the order the orders[] array was supplied. It is not read from a garnishment notice. A comparison is only meaningful because the two sides have independent provenance.",
+        "diff": [
+          {
+            "order_id": "ord-1",
+            "in_order_stack": true,
+            "recomputed_minor_units": 44010,
+            "recomputed_display": "440.10",
+            "noticed_minor_units": 44010,
+            "noticed_display": "440.10",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          },
+          {
+            "order_id": "ord-2",
+            "in_order_stack": true,
+            "recomputed_minor_units": 0,
+            "recomputed_display": "0.00",
+            "noticed_minor_units": 0,
+            "noticed_display": "0.00",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          }
+        ],
+        "verdict": "INDETERMINATE",
+        "indeterminate_reason": "Required input field missing or blank: period_label. The stack cannot be certified without the caller-declared evidence the contract requires.",
+        "rejected_inputs": [],
+        "citations": {
+          "ccpa_support_tiers": {
+            "source": "Consumer Credit Protection Act Title III, 15 U.S.C. Sec. 1673(b)",
+            "detail": "Support-order withholding tiers of 50/55/60/65% of disposable earnings, keyed on whether the obligor supports another spouse/child and whether arrears exceed 12 weeks. Re-verify against primary text before relying on it (research findings, not facts)."
+          },
+          "ccpa_general_cap": {
+            "source": "29 CFR Part 870 / CCPA Sec. 303",
+            "detail": "General garnishment ceiling of 25% of disposable earnings, or the amount by which disposable earnings exceed 30 times the federal minimum wage, whichever is less."
+          },
+          "federal_tax_levy_exemption": {
+            "source": "26 U.S.C. Sec. 6334; CCPA Sec. 303(b)",
+            "detail": "A federal tax levy is exempt from the CCPA percentage limitations that bind every other order type modelled here. The IRS Publication 1494 wage-bracket exempt-amount table is NOT computed by this kernel."
+          },
+          "hea_awg": {
+            "source": "34 CFR Part 34 (Administrative Wage Garnishment); DOL Fact Sheet 30",
+            "detail": "Administrative Wage Garnishment on defaulted federal student loans is capped at 15% of disposable earnings, and may not reduce weekly pay below 30 times the federal minimum wage."
+          },
+          "dol_fact_sheet_30": {
+            "source": "U.S. DOL Wage and Hour Division, Fact Sheet 30",
+            "detail": "General guidance on Title III of the CCPA, cited for the aggregate-ceiling pattern this kernel applies across a multi-order stack."
+          }
+        },
+        "rationale": [
+          "Garnishment stack recomputed for period UNSTATED on employee reference SYNTH-EMP-001.",
+          "Disposable earnings of 733.50 USD were derived from gross earnings of 1000.00 USD less 266.50 USD of legally-required deductions.",
+          "The federal minimum wage figure used was 7.25 USD/hour (a dated prefill from 2009-07-24), giving a 30x weekly floor of 217.50 USD.",
+          "2 orders were withheld in the priority order supplied, subject to each order's own statutory cap and an aggregate ceiling of 440.10 USD (the single highest individual cap present in the stack).",
+          "The stack ran out of capacity at order ord-2, the first order whose claimed amount could not be withheld in full within its cap and the remaining disposable earnings and aggregate ceiling.",
+          "Total withheld across the stack is 440.10 USD, leaving the employee 293.40 USD of disposable earnings for the period.",
+          "Verdict is INDETERMINATE: Required input field missing or blank: period_label. The stack cannot be certified without the caller-declared evidence the contract requires.",
+          "This is not legal advice. The statutory caps modelled here (CCPA support tiers, the general CCPA cap, the HEA AWG cap, and the federal-tax-levy CCPA exemption) are a simplification of a fact-specific area of law; a state's own wage-garnishment statute, a court's instructions, or counsel govern over this arithmetic."
+        ],
+        "not_proven": [
+          {
+            "item": "Not legal advice",
+            "detail": "This kernel recomputes statutory-cap arithmetic from caller-declared facts about one pay period. It is not a substitute for counsel, a state agency, or the employer's own legal review."
+          },
+          {
+            "item": "Federal tax levy exempt amount",
+            "detail": "A federal_tax_levy order is capped only at remaining disposable earnings, not at the IRS Publication 1494 wage-bracket exempt-amount table, which this kernel does not compute."
+          },
+          {
+            "item": "State levy percentage",
+            "detail": "No 50-state table is bundled. A state_levy order uses the caller-declared state_overlay.state_levy_cap_percent where supplied; absent that, it defaults to the general CCPA cap, which may not be the correct figure for the governing state."
+          },
+          {
+            "item": "Aggregate-ceiling simplification",
+            "detail": "The combined cap across every order in the stack is modelled here as the single highest individual statutory cap present. This is a documented simplification of a fact-specific area of law, not a comprehensive multi-order interaction rule for every jurisdiction."
+          },
+          {
+            "item": "Priority ordering",
+            "detail": "Orders are withheld in the order the caller lists orders[] in. This kernel infers no priority from order type and does not verify that the supplied order matches the governing statute or a court's instructions."
+          },
+          {
+            "item": "Input accuracy",
+            "detail": "Gross earnings, legally-required deductions, and every order's claimed amount are caller-supplied and asserted, not independently verified against payroll records or a court order."
+          }
+        ],
+        "fence": "This is not legal advice. Orders are withheld in the priority order the caller supplies, subject to each order's own statutory cap and an aggregate ceiling equal to the single highest individual cap present in the stack. A federal tax levy is capped only at remaining disposable earnings, not the IRS exempt-amount table. A state levy uses a caller-declared percentage where supplied, otherwise the general CCPA cap. No 50-state table is bundled. A divergence against a supplied notice is an arithmetic finding about the figures supplied here, never a legal determination.",
+        "note": "Deterministic multi-garnishment stacking recomputation for one stated pay period. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing. It performs no payroll processing and makes no assertion that any order is valid, enforceable, or correctly served.",
+        "missing_required_fields": [
+          "period_label"
+        ]
+      },
+      "golden_hash": "d9a28238e26414e67d08321087b76214b0ce10e1942ffb314d9ff000b3fd15d5"
+    },
+    {
+      "name": "empty_period_label_indeterminate",
+      "description": "Required period_label field is an empty string on the positive base vector; blank counts as missing, never MATCHES.",
+      "policy_parameters": {
+        "employee_ref": "SYNTH-EMP-001",
+        "period_label": "",
+        "currency": "USD",
+        "gross_minor_units": 100000,
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000
+          }
+        ],
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "claimed_amount_minor_units": 30000
+          }
+        ],
+        "noticed_amounts": [
+          {
+            "order_id": "ord-1",
+            "amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "amount_minor_units": 0
+          }
+        ]
+      },
+      "output_payload": {
+        "employee_ref": "SYNTH-EMP-001",
+        "period_label": "UNSTATED",
+        "currency": "USD",
+        "minor_unit_exponent": 2,
+        "gross_minor_units": 100000,
+        "gross_display": "1000.00",
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000,
+            "amount_display": "150.00"
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650,
+            "amount_display": "76.50"
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000,
+            "amount_display": "40.00"
+          }
+        ],
+        "total_deductions_minor_units": 26650,
+        "total_deductions_display": "266.50",
+        "disposable_earnings_minor_units": 73350,
+        "disposable_earnings_display": "733.50",
+        "disposable_earnings_floored_at_zero": false,
+        "federal_minimum_wage_minor_units": 725,
+        "federal_minimum_wage_display": "7.25",
+        "federal_minimum_wage_source": {
+          "kind": "dated_prefill",
+          "dated": "2009-07-24"
+        },
+        "ccpa_floor_minor_units": 21750,
+        "ccpa_floor_display": "217.50",
+        "state_overlay": {},
+        "order_count": 2,
+        "aggregate_cap_minor_units": 44010,
+        "aggregate_cap_display": "440.10",
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010,
+            "claimed_display": "440.10",
+            "cap_minor_units": 44010,
+            "cap_display": "440.10",
+            "cap_basis": "CCPA Title III support tier: 60% of disposable earnings (arrears>12wk=false, second_family=false).",
+            "ccpa_capped": true,
+            "withheld_minor_units": 44010,
+            "withheld_display": "440.10",
+            "shortfall_minor_units": 0,
+            "shortfall_display": "0.00",
+            "fully_withheld": true
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "arrears_over_12wk": null,
+            "second_family": null,
+            "claimed_amount_minor_units": 30000,
+            "claimed_display": "300.00",
+            "cap_minor_units": 18338,
+            "cap_display": "183.38",
+            "cap_basis": "General CCPA cap: lesser of 25% of disposable earnings and the amount by which disposable earnings exceed 30x the federal minimum wage.",
+            "ccpa_capped": true,
+            "withheld_minor_units": 0,
+            "withheld_display": "0.00",
+            "shortfall_minor_units": 30000,
+            "shortfall_display": "300.00",
+            "fully_withheld": false
+          }
+        ],
+        "first_uncapped_shortfall": "ord-2",
+        "total_withheld_minor_units": 44010,
+        "total_withheld_display": "440.10",
+        "employee_net_minor_units": 29340,
+        "employee_net_display": "293.40",
+        "noticed_supplied": true,
+        "comparison_basis": "The recomputed side of every comparison is derived here from disposable earnings and the caller-declared order stack, allocated in the order the orders[] array was supplied. It is not read from a garnishment notice. A comparison is only meaningful because the two sides have independent provenance.",
+        "diff": [
+          {
+            "order_id": "ord-1",
+            "in_order_stack": true,
+            "recomputed_minor_units": 44010,
+            "recomputed_display": "440.10",
+            "noticed_minor_units": 44010,
+            "noticed_display": "440.10",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          },
+          {
+            "order_id": "ord-2",
+            "in_order_stack": true,
+            "recomputed_minor_units": 0,
+            "recomputed_display": "0.00",
+            "noticed_minor_units": 0,
+            "noticed_display": "0.00",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          }
+        ],
+        "verdict": "INDETERMINATE",
+        "indeterminate_reason": "Required input field missing or blank: period_label. The stack cannot be certified without the caller-declared evidence the contract requires.",
+        "rejected_inputs": [],
+        "citations": {
+          "ccpa_support_tiers": {
+            "source": "Consumer Credit Protection Act Title III, 15 U.S.C. Sec. 1673(b)",
+            "detail": "Support-order withholding tiers of 50/55/60/65% of disposable earnings, keyed on whether the obligor supports another spouse/child and whether arrears exceed 12 weeks. Re-verify against primary text before relying on it (research findings, not facts)."
+          },
+          "ccpa_general_cap": {
+            "source": "29 CFR Part 870 / CCPA Sec. 303",
+            "detail": "General garnishment ceiling of 25% of disposable earnings, or the amount by which disposable earnings exceed 30 times the federal minimum wage, whichever is less."
+          },
+          "federal_tax_levy_exemption": {
+            "source": "26 U.S.C. Sec. 6334; CCPA Sec. 303(b)",
+            "detail": "A federal tax levy is exempt from the CCPA percentage limitations that bind every other order type modelled here. The IRS Publication 1494 wage-bracket exempt-amount table is NOT computed by this kernel."
+          },
+          "hea_awg": {
+            "source": "34 CFR Part 34 (Administrative Wage Garnishment); DOL Fact Sheet 30",
+            "detail": "Administrative Wage Garnishment on defaulted federal student loans is capped at 15% of disposable earnings, and may not reduce weekly pay below 30 times the federal minimum wage."
+          },
+          "dol_fact_sheet_30": {
+            "source": "U.S. DOL Wage and Hour Division, Fact Sheet 30",
+            "detail": "General guidance on Title III of the CCPA, cited for the aggregate-ceiling pattern this kernel applies across a multi-order stack."
+          }
+        },
+        "rationale": [
+          "Garnishment stack recomputed for period UNSTATED on employee reference SYNTH-EMP-001.",
+          "Disposable earnings of 733.50 USD were derived from gross earnings of 1000.00 USD less 266.50 USD of legally-required deductions.",
+          "The federal minimum wage figure used was 7.25 USD/hour (a dated prefill from 2009-07-24), giving a 30x weekly floor of 217.50 USD.",
+          "2 orders were withheld in the priority order supplied, subject to each order's own statutory cap and an aggregate ceiling of 440.10 USD (the single highest individual cap present in the stack).",
+          "The stack ran out of capacity at order ord-2, the first order whose claimed amount could not be withheld in full within its cap and the remaining disposable earnings and aggregate ceiling.",
+          "Total withheld across the stack is 440.10 USD, leaving the employee 293.40 USD of disposable earnings for the period.",
+          "Verdict is INDETERMINATE: Required input field missing or blank: period_label. The stack cannot be certified without the caller-declared evidence the contract requires.",
+          "This is not legal advice. The statutory caps modelled here (CCPA support tiers, the general CCPA cap, the HEA AWG cap, and the federal-tax-levy CCPA exemption) are a simplification of a fact-specific area of law; a state's own wage-garnishment statute, a court's instructions, or counsel govern over this arithmetic."
+        ],
+        "not_proven": [
+          {
+            "item": "Not legal advice",
+            "detail": "This kernel recomputes statutory-cap arithmetic from caller-declared facts about one pay period. It is not a substitute for counsel, a state agency, or the employer's own legal review."
+          },
+          {
+            "item": "Federal tax levy exempt amount",
+            "detail": "A federal_tax_levy order is capped only at remaining disposable earnings, not at the IRS Publication 1494 wage-bracket exempt-amount table, which this kernel does not compute."
+          },
+          {
+            "item": "State levy percentage",
+            "detail": "No 50-state table is bundled. A state_levy order uses the caller-declared state_overlay.state_levy_cap_percent where supplied; absent that, it defaults to the general CCPA cap, which may not be the correct figure for the governing state."
+          },
+          {
+            "item": "Aggregate-ceiling simplification",
+            "detail": "The combined cap across every order in the stack is modelled here as the single highest individual statutory cap present. This is a documented simplification of a fact-specific area of law, not a comprehensive multi-order interaction rule for every jurisdiction."
+          },
+          {
+            "item": "Priority ordering",
+            "detail": "Orders are withheld in the order the caller lists orders[] in. This kernel infers no priority from order type and does not verify that the supplied order matches the governing statute or a court's instructions."
+          },
+          {
+            "item": "Input accuracy",
+            "detail": "Gross earnings, legally-required deductions, and every order's claimed amount are caller-supplied and asserted, not independently verified against payroll records or a court order."
+          }
+        ],
+        "fence": "This is not legal advice. Orders are withheld in the priority order the caller supplies, subject to each order's own statutory cap and an aggregate ceiling equal to the single highest individual cap present in the stack. A federal tax levy is capped only at remaining disposable earnings, not the IRS exempt-amount table. A state levy uses a caller-declared percentage where supplied, otherwise the general CCPA cap. No 50-state table is bundled. A divergence against a supplied notice is an arithmetic finding about the figures supplied here, never a legal determination.",
+        "note": "Deterministic multi-garnishment stacking recomputation for one stated pay period. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing. It performs no payroll processing and makes no assertion that any order is valid, enforceable, or correctly served.",
+        "missing_required_fields": [
+          "period_label"
+        ]
+      },
+      "golden_hash": "fe7ac48758c2695aa6af74fc92354f570ee09e68e99d47ab3bdb84a8f43feb2c"
+    },
+    {
+      "name": "blank_period_label_indeterminate",
+      "description": "Required period_label field is whitespace-only on the positive base vector; blank counts as missing, never MATCHES.",
+      "policy_parameters": {
+        "employee_ref": "SYNTH-EMP-001",
+        "period_label": "   ",
+        "currency": "USD",
+        "gross_minor_units": 100000,
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000
+          }
+        ],
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "claimed_amount_minor_units": 30000
+          }
+        ],
+        "noticed_amounts": [
+          {
+            "order_id": "ord-1",
+            "amount_minor_units": 44010
+          },
+          {
+            "order_id": "ord-2",
+            "amount_minor_units": 0
+          }
+        ]
+      },
+      "output_payload": {
+        "employee_ref": "SYNTH-EMP-001",
+        "period_label": "UNSTATED",
+        "currency": "USD",
+        "minor_unit_exponent": 2,
+        "gross_minor_units": 100000,
+        "gross_display": "1000.00",
+        "legally_required_deductions": [
+          {
+            "label": "Federal income tax withholding",
+            "amount_minor_units": 15000,
+            "amount_display": "150.00"
+          },
+          {
+            "label": "FICA",
+            "amount_minor_units": 7650,
+            "amount_display": "76.50"
+          },
+          {
+            "label": "State income tax withholding",
+            "amount_minor_units": 4000,
+            "amount_display": "40.00"
+          }
+        ],
+        "total_deductions_minor_units": 26650,
+        "total_deductions_display": "266.50",
+        "disposable_earnings_minor_units": 73350,
+        "disposable_earnings_display": "733.50",
+        "disposable_earnings_floored_at_zero": false,
+        "federal_minimum_wage_minor_units": 725,
+        "federal_minimum_wage_display": "7.25",
+        "federal_minimum_wage_source": {
+          "kind": "dated_prefill",
+          "dated": "2009-07-24"
+        },
+        "ccpa_floor_minor_units": 21750,
+        "ccpa_floor_display": "217.50",
+        "state_overlay": {},
+        "order_count": 2,
+        "aggregate_cap_minor_units": 44010,
+        "aggregate_cap_display": "440.10",
+        "orders": [
+          {
+            "order_id": "ord-1",
+            "label": "Child support order, county court",
+            "type": "child_support",
+            "arrears_over_12wk": false,
+            "second_family": false,
+            "claimed_amount_minor_units": 44010,
+            "claimed_display": "440.10",
+            "cap_minor_units": 44010,
+            "cap_display": "440.10",
+            "cap_basis": "CCPA Title III support tier: 60% of disposable earnings (arrears>12wk=false, second_family=false).",
+            "ccpa_capped": true,
+            "withheld_minor_units": 44010,
+            "withheld_display": "440.10",
+            "shortfall_minor_units": 0,
+            "shortfall_display": "0.00",
+            "fully_withheld": true
+          },
+          {
+            "order_id": "ord-2",
+            "label": "Creditor garnishment",
+            "type": "creditor",
+            "arrears_over_12wk": null,
+            "second_family": null,
+            "claimed_amount_minor_units": 30000,
+            "claimed_display": "300.00",
+            "cap_minor_units": 18338,
+            "cap_display": "183.38",
+            "cap_basis": "General CCPA cap: lesser of 25% of disposable earnings and the amount by which disposable earnings exceed 30x the federal minimum wage.",
+            "ccpa_capped": true,
+            "withheld_minor_units": 0,
+            "withheld_display": "0.00",
+            "shortfall_minor_units": 30000,
+            "shortfall_display": "300.00",
+            "fully_withheld": false
+          }
+        ],
+        "first_uncapped_shortfall": "ord-2",
+        "total_withheld_minor_units": 44010,
+        "total_withheld_display": "440.10",
+        "employee_net_minor_units": 29340,
+        "employee_net_display": "293.40",
+        "noticed_supplied": true,
+        "comparison_basis": "The recomputed side of every comparison is derived here from disposable earnings and the caller-declared order stack, allocated in the order the orders[] array was supplied. It is not read from a garnishment notice. A comparison is only meaningful because the two sides have independent provenance.",
+        "diff": [
+          {
+            "order_id": "ord-1",
+            "in_order_stack": true,
+            "recomputed_minor_units": 44010,
+            "recomputed_display": "440.10",
+            "noticed_minor_units": 44010,
+            "noticed_display": "440.10",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          },
+          {
+            "order_id": "ord-2",
+            "in_order_stack": true,
+            "recomputed_minor_units": 0,
+            "recomputed_display": "0.00",
+            "noticed_minor_units": 0,
+            "noticed_display": "0.00",
+            "difference_minor_units": 0,
+            "difference_display": "0.00",
+            "agrees": true,
+            "detail": "The independently recomputed withholding equals the amount the notice states for this order."
+          }
+        ],
+        "verdict": "INDETERMINATE",
+        "indeterminate_reason": "Required input field missing or blank: period_label. The stack cannot be certified without the caller-declared evidence the contract requires.",
+        "rejected_inputs": [],
+        "citations": {
+          "ccpa_support_tiers": {
+            "source": "Consumer Credit Protection Act Title III, 15 U.S.C. Sec. 1673(b)",
+            "detail": "Support-order withholding tiers of 50/55/60/65% of disposable earnings, keyed on whether the obligor supports another spouse/child and whether arrears exceed 12 weeks. Re-verify against primary text before relying on it (research findings, not facts)."
+          },
+          "ccpa_general_cap": {
+            "source": "29 CFR Part 870 / CCPA Sec. 303",
+            "detail": "General garnishment ceiling of 25% of disposable earnings, or the amount by which disposable earnings exceed 30 times the federal minimum wage, whichever is less."
+          },
+          "federal_tax_levy_exemption": {
+            "source": "26 U.S.C. Sec. 6334; CCPA Sec. 303(b)",
+            "detail": "A federal tax levy is exempt from the CCPA percentage limitations that bind every other order type modelled here. The IRS Publication 1494 wage-bracket exempt-amount table is NOT computed by this kernel."
+          },
+          "hea_awg": {
+            "source": "34 CFR Part 34 (Administrative Wage Garnishment); DOL Fact Sheet 30",
+            "detail": "Administrative Wage Garnishment on defaulted federal student loans is capped at 15% of disposable earnings, and may not reduce weekly pay below 30 times the federal minimum wage."
+          },
+          "dol_fact_sheet_30": {
+            "source": "U.S. DOL Wage and Hour Division, Fact Sheet 30",
+            "detail": "General guidance on Title III of the CCPA, cited for the aggregate-ceiling pattern this kernel applies across a multi-order stack."
+          }
+        },
+        "rationale": [
+          "Garnishment stack recomputed for period UNSTATED on employee reference SYNTH-EMP-001.",
+          "Disposable earnings of 733.50 USD were derived from gross earnings of 1000.00 USD less 266.50 USD of legally-required deductions.",
+          "The federal minimum wage figure used was 7.25 USD/hour (a dated prefill from 2009-07-24), giving a 30x weekly floor of 217.50 USD.",
+          "2 orders were withheld in the priority order supplied, subject to each order's own statutory cap and an aggregate ceiling of 440.10 USD (the single highest individual cap present in the stack).",
+          "The stack ran out of capacity at order ord-2, the first order whose claimed amount could not be withheld in full within its cap and the remaining disposable earnings and aggregate ceiling.",
+          "Total withheld across the stack is 440.10 USD, leaving the employee 293.40 USD of disposable earnings for the period.",
+          "Verdict is INDETERMINATE: Required input field missing or blank: period_label. The stack cannot be certified without the caller-declared evidence the contract requires.",
+          "This is not legal advice. The statutory caps modelled here (CCPA support tiers, the general CCPA cap, the HEA AWG cap, and the federal-tax-levy CCPA exemption) are a simplification of a fact-specific area of law; a state's own wage-garnishment statute, a court's instructions, or counsel govern over this arithmetic."
+        ],
+        "not_proven": [
+          {
+            "item": "Not legal advice",
+            "detail": "This kernel recomputes statutory-cap arithmetic from caller-declared facts about one pay period. It is not a substitute for counsel, a state agency, or the employer's own legal review."
+          },
+          {
+            "item": "Federal tax levy exempt amount",
+            "detail": "A federal_tax_levy order is capped only at remaining disposable earnings, not at the IRS Publication 1494 wage-bracket exempt-amount table, which this kernel does not compute."
+          },
+          {
+            "item": "State levy percentage",
+            "detail": "No 50-state table is bundled. A state_levy order uses the caller-declared state_overlay.state_levy_cap_percent where supplied; absent that, it defaults to the general CCPA cap, which may not be the correct figure for the governing state."
+          },
+          {
+            "item": "Aggregate-ceiling simplification",
+            "detail": "The combined cap across every order in the stack is modelled here as the single highest individual statutory cap present. This is a documented simplification of a fact-specific area of law, not a comprehensive multi-order interaction rule for every jurisdiction."
+          },
+          {
+            "item": "Priority ordering",
+            "detail": "Orders are withheld in the order the caller lists orders[] in. This kernel infers no priority from order type and does not verify that the supplied order matches the governing statute or a court's instructions."
+          },
+          {
+            "item": "Input accuracy",
+            "detail": "Gross earnings, legally-required deductions, and every order's claimed amount are caller-supplied and asserted, not independently verified against payroll records or a court order."
+          }
+        ],
+        "fence": "This is not legal advice. Orders are withheld in the priority order the caller supplies, subject to each order's own statutory cap and an aggregate ceiling equal to the single highest individual cap present in the stack. A federal tax levy is capped only at remaining disposable earnings, not the IRS exempt-amount table. A state levy uses a caller-declared percentage where supplied, otherwise the general CCPA cap. No 50-state table is bundled. A divergence against a supplied notice is an arithmetic finding about the figures supplied here, never a legal determination.",
+        "note": "Deterministic multi-garnishment stacking recomputation for one stated pay period. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing. It performs no payroll processing and makes no assertion that any order is valid, enforceable, or correctly served.",
+        "missing_required_fields": [
+          "period_label"
+        ]
+      },
+      "golden_hash": "3e69e1c92f26460686f7f41ae9ca83e70f0df097faa2e4163023bafbb3bdf0f6"
     }
   ]
 }

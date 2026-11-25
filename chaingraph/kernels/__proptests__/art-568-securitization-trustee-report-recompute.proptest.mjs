@@ -1,6 +1,6 @@
 // art-568-securitization-trustee-report-recompute.proptest.mjs -- FV property-test FLOOR
 // (FV-PROPFLOOR-SHARD-C29-1).
-// kernel_digest_at_authoring: sha256:d055891899f36887772e5e5edccb200703d03fa965edd3ea178f6c6933e98578
+// kernel_digest_at_authoring: sha256:a05c9a9868a8e92ca6f96c21e1d7d68226af851f2f513be4ad0af973fc3046d9
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md Sec3, class C). NOT a proof, NOT Dafny.
@@ -167,6 +167,66 @@ function checkP4_conservation_identity() {
   return { name: 'P4_paid_plus_residual_equals_total_collections', trials: checked, violations };
 }
 
+const REQUIRED_FIELDS = ['currency', 'deal_ref', 'indenture_ref', 'period_collections',
+  'period_label', 'tiers', 'triggers', 'trustee_reported_distribution'];
+
+// ---------- P5: fail-closed -- deleting/nulling/blanking any required field of every positive vector never leaves a positive verdict ----------
+function checkP5_requiredFieldNeverPositive() {
+  const fixturesPath = path.join(__dirname, '..', 'fixtures', 'art-568-securitization-trustee-report-recompute.fixtures.json');
+  const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
+  const isPositive = (v) => v === 'MATCHES' || v === 'DIVERGES';
+  let positives = 0, checked = 0, violations = 0;
+  for (const vec of fixtures.vectors) {
+    const baseVerdict = compute(vec.policy_parameters).output_payload.verdict;
+    if (!isPositive(baseVerdict)) continue;
+    positives++;
+    for (const f of REQUIRED_FIELDS) {
+      for (const mode of ['delete', 'null', 'empty', 'blank']) {
+        const pp = JSON.parse(JSON.stringify(vec.policy_parameters));
+        if (mode === 'delete') delete pp[f];
+        else pp[f] = mode === 'null' ? null : mode === 'empty' ? '' : '   ';
+        checked++;
+        let out;
+        try { out = compute(pp); } catch (e) { violations++; continue; }
+        if (isPositive(out.output_payload.verdict)) violations++;
+      }
+    }
+  }
+  if (positives === 0) violations++;
+  return { name: 'P5_required_field_never_positive', positive_vectors: positives, trials: checked, violations };
+}
+
+// ---------- P6: buildArtifact_never_throws -- one fixture per unhashable class ----------
+async function checkP6_buildArtifactNeverThrows() {
+  const { buildArtifact } = await import('../art-568-securitization-trustee-report-recompute.kernel.mjs');
+  let deep = {}; let cur = deep;
+  for (let i = 0; i < 511; i++) { cur.n = {}; cur = cur.n; }
+  const base = fixturesBase();
+  const classes = [
+    ['junk_1e300', { ...base, currency: 1e300 }],
+    ['nan', { ...base, currency: NaN }],
+    ['neg_infinity', { ...base, currency: -Infinity }],
+    ['depth_511', { ...base, currency: deep }],
+    ['over_1e6_values', { ...base, currency: new Array(1000001).fill(0) }],
+  ];
+  let violations = 0; const rows = [];
+  for (const [label, pp] of classes) {
+    try {
+      const a = await buildArtifact(pp);
+      const ok = a.execution_hash === null && a.hash_refusal && typeof a.hash_refusal.reason === 'string';
+      if (!ok) violations++;
+      rows.push({ label, refused: !!ok });
+    } catch (e) { violations++; rows.push({ label, threw: String(e && e.message).slice(0, 80) }); }
+  }
+  return { name: 'buildArtifact_never_throws', trials: classes.length, violations, rows };
+}
+
+function fixturesBase() {
+  const fixturesPath = path.join(__dirname, '..', 'fixtures', 'art-568-securitization-trustee-report-recompute.fixtures.json');
+  const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
+  return JSON.parse(JSON.stringify(fixtures.vectors[0].policy_parameters));
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -178,6 +238,8 @@ results.properties.push(checkP1_termination_bounded());
 results.properties.push(checkP2_waterfall_differential());
 results.properties.push(checkP3_ulp_display_boundary());
 results.properties.push(checkP4_conservation_identity());
+results.properties.push(checkP5_requiredFieldNeverPositive());
+results.properties.push(await checkP6_buildArtifactNeverThrows());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 

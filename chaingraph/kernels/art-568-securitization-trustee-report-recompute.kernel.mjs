@@ -62,11 +62,29 @@
  * triggers vs. measured ratio/amount tests).
  *
  * Spec: RECOMP-WAVE-BUILD-SPEC.md §3, §Common.
+ *
+ * MISSING-INPUT FAIL-CLOSED. Every field in the manifest's inputSchema.required must be
+ * supplied. An absent, null, empty-string or whitespace-only required field is not evidence
+ * of agreement: the verdict is INDETERMINATE (never MATCHES or DIVERGES), the missing fields
+ * are named in output_payload.missing_required_fields, and the artifact is flagged
+ * INPUT_MISSING_INDETERMINATE. This keeps an absent trigger set from reading as "no trigger
+ * breached". buildArtifact never throws on unhashable input (non-finite or unsafe number,
+ * excessive depth or element count): such input becomes a refusal artifact with a null
+ * execution_hash and a hash_refusal, mirroring the shared hash limits without editing _hash.mjs.
  */
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-568-securitization-trustee-report-recompute';
 const TOOL_VERSION = '1.0.0';
+
+// Required inputs per the manifest inputSchema.required. A missing, null, empty-string or
+// whitespace-only one prevents any positive verdict. Literal property reads below (never a
+// dynamic pp[f]) keep the static kernel-input-usage sweep and the page tool registration intact.
+const REQUIRED_FIELDS = [
+  'currency', 'deal_ref', 'indenture_ref', 'period_collections',
+  'period_label', 'tiers', 'triggers', 'trustee_reported_distribution',
+];
+function isFilled(v) { return v != null && !(typeof v === 'string' && v.trim() === ''); }
 export const meta = {
   tool_id: TOOL_ID,
   tool_version: TOOL_VERSION,
@@ -124,6 +142,18 @@ function obj(v) { return v && typeof v === 'object' && !Array.isArray(v) ? v : {
 export function compute(pp) {
   pp = pp || {};
   const rejected_inputs = [];
+
+  const required_present = {
+    currency: isFilled(pp.currency),
+    deal_ref: isFilled(pp.deal_ref),
+    indenture_ref: isFilled(pp.indenture_ref),
+    period_collections: isFilled(pp.period_collections),
+    period_label: isFilled(pp.period_label),
+    tiers: isFilled(pp.tiers),
+    triggers: isFilled(pp.triggers),
+    trustee_reported_distribution: isFilled(pp.trustee_reported_distribution),
+  };
+  const missing_required_fields = REQUIRED_FIELDS.filter((f) => !required_present[f]);
 
   const deal_ref = str(pp.deal_ref, 'UNSTATED');
   const period_label = str(pp.period_label, 'UNSTATED');
@@ -329,12 +359,17 @@ export function compute(pp) {
   //    required input is absent -- never guessed, never defaulted. ───────────
   let verdict;
   let indeterminate_reason;
+  let missingRequiredIndeterminate = false;
   if (tiers.length === 0) {
     verdict = 'INDETERMINATE';
     indeterminate_reason = 'No tier definitions were supplied, so no waterfall could be recomputed.';
   } else if (!trusteeSupplied) {
     verdict = 'INDETERMINATE';
     indeterminate_reason = 'No trustee-reported distribution was supplied, so the recomputed allocation has nothing to compare against.';
+  } else if (missing_required_fields.length > 0) {
+    verdict = 'INDETERMINATE';
+    indeterminate_reason = 'Required inputs absent, null, empty or whitespace-only: ' + missing_required_fields.join(', ') + '. The recompute cannot state agreement or divergence without the full required evidence.';
+    missingRequiredIndeterminate = true;
   } else {
     verdict = disagreeing.length === 0 ? 'MATCHES' : 'DIVERGES';
     indeterminate_reason = null;
@@ -380,6 +415,7 @@ export function compute(pp) {
   if (tiers.length === 0) compliance_flags.push('TRUSTEE_WFALL_TIER_LIST_EMPTY');
   if (total_collections_minor_units === 0) compliance_flags.push('TRUSTEE_WFALL_NO_COLLECTIONS');
   if (rejected_inputs.length > 0) compliance_flags.push('TRUSTEE_WFALL_INPUTS_REJECTED');
+  if (missingRequiredIndeterminate) compliance_flags.push('INPUT_MISSING_INDETERMINATE');
 
   const output_payload = {
     deal_ref,
@@ -414,11 +450,62 @@ export function compute(pp) {
     fence: 'Trigger states are caller-declared booleans, never computed from market or collateral data. This kernel recomputes the arithmetic of a priority-of-payments waterfall over a caller-declared tier list and caller-supplied period collections, and compares it against the trustee-reported distribution where supplied. It is never a compliance determination, never an audit opinion, and never advice. The deal indenture governs.',
     note: 'Deterministic securitization trustee-report waterfall recomputation for one stated period. Single-run and stateless: it holds no records, runs on no schedule, and retains nothing. It forecasts nothing, models no scenario, performs no credit or rating analysis, and makes no assertion about the compliance status of the deal.',
   };
+  if (missingRequiredIndeterminate) output_payload.missing_required_fields = missing_required_fields;
 
   return { output_payload, compliance_flags };
 }
 
+// Mirrors _hash.mjs limits so buildArtifact never throws: non-finite number, unsafe integer,
+// nesting past MAX_DEPTH, more values than MAX_ELEMENTS. Reports path and kind only; _hash.mjs
+// itself is never edited.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > HASH_MAX_DEPTH) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > HASH_MAX_ELEMENTS) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const unhashable = findHashRefusal(pp, 'pp', 1, { n: 0 });
+  if (unhashable !== null) {
+    return {
+      '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+      chaingraph_version: '0.4.0',
+      mandate_type: meta.mandate_type,
+      tool_id: TOOL_ID,
+      tool_version: TOOL_VERSION,
+      generated_at: now ?? null,
+      execution_hash: null,
+      hash_refusal: { reason: unhashable.reason, detail: unhashable.detail },
+      chain: { parent_hashes, parent_tool_ids, chain_depth },
+      policy_parameters: null,
+      output_payload: { verdict: 'REFUSED', refusal: unhashable.reason },
+      compliance_flags: ['INPUT_REFUSED'],
+      compute_mode: 'server',
+      audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+    };
+  }
   const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
