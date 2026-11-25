@@ -88,7 +88,16 @@ function randomPP(rng) {
   };
 }
 
-const TRIALS = 4000;
+// PR-3301-MUTATION-TIERBUDGET-1: opt-in trial budget for the mutation tier. MUTATION_TIER_NUM_RUNS
+// is exported to this test child by scripts/run-mutation-tier.mjs from the sibling
+// <id>.mutation.json "mutationTrials" key (read once here: a positive safe integer, else unset).
+// When set, the TRIALS loops and the P2 determinism loop run at most that many iterations
+// (Math.min); when unset — standalone runs, preflight — every count is exactly what it is today.
+// The 600-deep nesting builder in P11 is a fixture shape, not a trial count; it is never capped.
+const TRIAL_RUNS = Number(process.env.MUTATION_TIER_NUM_RUNS);
+const TRIAL_BUDGET = Number.isSafeInteger(TRIAL_RUNS) && TRIAL_RUNS > 0 ? TRIAL_RUNS : undefined;
+const TRIALS = Math.min(4000, TRIAL_BUDGET ?? 4000);
+const P2_TRIALS = Math.min(800, TRIAL_BUDGET ?? 800);
 
 // ---------- P1: output shape + boundedness ----------
 function checkP1_outputShape() {
@@ -114,7 +123,7 @@ function checkP1_outputShape() {
 // ---------- P2: determinism ----------
 function checkP2_determinism() {
   let violations = 0, checked = 0;
-  for (let i = 0; i < 800; i++) {
+  for (let i = 0; i < P2_TRIALS; i++) {
     const pp = randomPP(rand);
     const a = JSON.stringify(compute(pp));
     const b = JSON.stringify(compute(pp));
