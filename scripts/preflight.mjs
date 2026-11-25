@@ -1258,6 +1258,10 @@ const GATES = [
   // helpers (automerge-label.yml dequeued path). Was authored with #2918 but never run.
   ['Merge-queue eject hold fixture proof (cancelled ejecting run, MQ-EJECT-CANCELLED-RUN-1)',
     'node --test scripts/mq-eject-hold.test.mjs'],
+  // The regen deadman retries a failed main regen only for a transient step,
+  // never for a deterministic gate red.
+  ['Regen deadman retry decision fixture proof (gate red skips the retry)',
+    'node --test scripts/ci/regen-retry-decide.test.mjs'],
   // PREPUSH-NARROW-1: red/green controls for the hook's full-suite trigger
   // (which diff paths owe the FULL leg; docs-only scripts/ edits no longer do).
   ['Pre-push full-suite trigger controls (RED/GREEN path classes, PREPUSH-NARROW-1)',
