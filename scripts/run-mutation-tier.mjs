@@ -276,6 +276,226 @@ export function mutationEnvForKernel(id, config = null) {
   return n === null ? {} : { MUTATION_TIER_NUM_RUNS: String(n) };
 }
 
+// ── MUTATION-TRIALS-AUTO-BUDGET-1: sandbox trial hook + measured auto budget ──
+// Seven P3 kernel PRs in two days (#3277 #3289 #3290 #3293 #3301 #3305 + floor
+// class) each hit the 600 s bound and each needed the same two-file cure: a
+// `mutationTrials` sibling AND a hand edit to the proptest so its trial count
+// reads MUTATION_TIER_NUM_RUNS. Only 2 of 778 proptests read that env; 565
+// declare a plain `const TRIALS = <int>;`. Two pieces remove the per-kernel cure:
+//
+//  1. sandboxTrialsHook: on the SANDBOX copy only (never a tracked byte, same
+//     shape as the surface split and the fixture-leg neutralization), rewrite
+//     the single top-level `const TRIALS = <int>;` so it reads
+//     MUTATION_TIER_NUM_RUNS and falls back to the same literal. With the env
+//     unset the floor runs exactly the trials it ships with. A proptest that
+//     already reads the env or carries its own mutation-mode cap
+//     (MUTATION_MODE / PROPFLOOR_TRIAL_CAP) is left alone. This alone makes a
+//     `mutationTrials` sibling work without touching the proptest.
+//  2. chooseAutoTrials: when a kernel has NO explicit `mutationTrials` sibling,
+//     time the unmutated floor raw at 1 trial and at its full count. A cheap
+//     pessimistic SCREEN (raw full time x screenFactor x max(1.5 x baseline
+//     mutants, screenMutants) / concurrency) lets the typical kernel skip
+//     everything else. Only a kernel the screen cannot clear pays for Stryker's
+//     own `dryRunOnly` pass, which reports the real mutant count and the
+//     INSTRUMENTED per-run time (measured 11-25 on art-584: raw floor 0.45 s,
+//     instrumented dry run 4.2 s, and 607 mutants at the PR head against 429 in
+//     the baseline, so raw timings and baseline counts alone under-estimate by
+//     an order of magnitude). Estimate = mutants x instrumented time /
+//     concurrency; only when it exceeds the kernel's own bound pick the largest
+//     trial count fitting `targetFraction` of the bound (never below
+//     `minTrials`). A kernel whose estimate fits keeps full trials, so nothing
+//     changes for a kernel that finishes today. A failed dry run means no
+//     budget. The chosen count is re-run once on the unmutated floor and must
+//     exit 0, or the count doubles until it does.
+//
+// Config-declared (SO #41): mutation-tiers.config.json `autoTrialBudget`.
+// Absent or `enabled: false` = today's behaviour byte-for-byte. Env
+// MUTATION_TIER_AUTO_BUDGET=0 turns it off for one run. The applied count is
+// printed per kernel, so a budgeted score is never silent.
+
+const TRIALS_DECL_RE = /^const TRIALS = (\d+);/gm;
+
+/**
+ * @param {string} source proptest source
+ * @returns {{ status: string, source: string | null, fullTrials: number | null }}
+ *   status 'patched' (source = sandbox text) | 'native' | 'own-cap' | 'no-single-decl'
+ */
+export function sandboxTrialsHook(source) {
+  if (source.includes('MUTATION_TIER_NUM_RUNS')) return { status: 'native', source: null, fullTrials: null };
+  if (/\bMUTATION_MODE\b|PROPFLOOR_TRIAL_CAP/.test(source)) return { status: 'own-cap', source: null, fullTrials: null };
+  const matches = [...source.matchAll(TRIALS_DECL_RE)];
+  if (matches.length !== 1) return { status: 'no-single-decl', source: null, fullTrials: null };
+  const full = Number(matches[0][1]);
+  if (!Number.isSafeInteger(full) || full <= 0) return { status: 'no-single-decl', source: null, fullTrials: null };
+  const repl = `const TRIALS = Number.isSafeInteger(Number(process.env.MUTATION_TIER_NUM_RUNS)) && Number(process.env.MUTATION_TIER_NUM_RUNS) > 0 ? Math.min(Number(process.env.MUTATION_TIER_NUM_RUNS), ${full}) : ${full}; /* MUTATION-TRIALS-AUTO-BUDGET-1 sandbox-only hook; tracked file declares ${full} */`;
+  const idx = matches[0].index;
+  return { status: 'patched', source: source.slice(0, idx) + repl + source.slice(idx + matches[0][0].length), fullTrials: full };
+}
+
+/**
+ * Resolve the config block. Returns null when the auto budget is off; a
+ * malformed block fails loudly (same shape as the other per-kernel keys).
+ * @returns {{ minTrials: number, targetFraction: number, screenFactor: number, screenMutants: number } | null}
+ */
+export function autoTrialBudgetConfig(config = null, env = process.env) {
+  const c = config && config.autoTrialBudget;
+  if (!c || c.enabled !== true) return null;
+  if (env.MUTATION_TIER_AUTO_BUDGET === '0') return null;
+  const { minTrials, targetFraction, screenFactor, screenMutants } = c;
+  const posInt = (v) => Number.isSafeInteger(v) && v > 0;
+  if (!posInt(minTrials)) throw new Error(`autoTrialBudget.minTrials must be a positive safe integer, got ${JSON.stringify(minTrials)}`);
+  if (typeof targetFraction !== 'number' || !(targetFraction > 0 && targetFraction <= 1)) throw new Error(`autoTrialBudget.targetFraction must be in (0, 1], got ${JSON.stringify(targetFraction)}`);
+  if (typeof screenFactor !== 'number' || !(screenFactor >= 1)) throw new Error(`autoTrialBudget.screenFactor must be a number >= 1, got ${JSON.stringify(screenFactor)}`);
+  if (!posInt(screenMutants)) throw new Error(`autoTrialBudget.screenMutants must be a positive safe integer, got ${JSON.stringify(screenMutants)}`);
+  return { minTrials, targetFraction, screenFactor, screenMutants };
+}
+
+/** Parse Stryker's dryRunOnly log: mutant count and the dry run's net ms. */
+export function parseDryRunLog(text) {
+  const plain = String(text || '').replace(/\x1b\[[0-9;]*m/g, '');
+  const m = /Instrumented \d+ source file\(s\) with (\d+) mutant/.exec(plain);
+  const t = /Initial test run succeeded\. Ran \d+ tests? in [^(]*\(net (\d+) ms/.exec(plain);
+  if (!m || !t) return { ok: false, mutants: null, netMs: null };
+  return { ok: true, mutants: Number(m[1]), netMs: Number(t[1]) };
+}
+
+/**
+ * Pure decision. Per-run time model: t(n) = t1 + (n - 1) * perTrial, with
+ * perTrial = (tFull - t1) / (full - 1). Stryker wall ~= mutants * t(n) / concurrency
+ * (an over-estimate: killed mutants usually exit early, which is why the
+ * trigger is the whole bound and the target only a fraction of it).
+ *
+ * @returns {{ trials: number | null, estimateS: number, reason: string }}
+ */
+export function chooseAutoTrials({ fullTrials, t1Ms, tFullMs, mutants, boundS, concurrency, minTrials, targetFraction }) {
+  const conc = Math.max(1, concurrency || 1);
+  const t1 = Math.max(0, t1Ms) / 1000;
+  const tFull = Math.max(t1, tFullMs / 1000);
+  const estimateS = (mutants * tFull) / conc;
+  if (!(boundS > 0)) return { trials: null, estimateS, reason: 'unbounded run' };
+  if (estimateS <= boundS) return { trials: null, estimateS, reason: `estimate ${Math.round(estimateS)}s fits the ${boundS}s bound` };
+  if (fullTrials <= minTrials) return { trials: null, estimateS, reason: `floor ships ${fullTrials} trials, at or below minTrials ${minTrials}` };
+  const perTrial = fullTrials > 1 ? (tFull - t1) / (fullTrials - 1) : 0;
+  const targetPerRun = (targetFraction * boundS * conc) / mutants;
+  let n = perTrial <= 0 ? minTrials : Math.floor((targetPerRun - t1) / perTrial) + 1;
+  n = Math.max(minTrials, Math.min(n, fullTrials - 1));
+  return { trials: n, estimateS, reason: `estimate ${Math.round(estimateS)}s exceeds the ${boundS}s bound (${mutants} mutants, ${tFull.toFixed(2)}s per full run, concurrency ${conc})` };
+}
+
+/** Baseline mutant total (money-math + peripheral) for a kernel, or null. */
+export function baselineMutants(id, repoRoot = REPO) {
+  try {
+    const b = JSON.parse(readFileSync(path.join(repoRoot, 'scripts', 'mutation-tier-baseline.json'), 'utf8'));
+    const k = (b.kernels || {})[id];
+    if (!k) return null;
+    const n = (Array.isArray(k.mm) ? k.mm[1] : 0) + (Array.isArray(k.pe) ? k.pe[1] : 0);
+    return n > 0 ? n : null;
+  } catch { return null; }
+}
+
+/** Time one unmutated floor run in the sandbox (trials null = env unset). */
+function timeFloorRun(scratchRoot, proptestRel, trials, budgetMs) {
+  const env = { ...process.env };
+  if (trials == null) delete env.MUTATION_TIER_NUM_RUNS; else env.MUTATION_TIER_NUM_RUNS = String(trials);
+  const t0 = Date.now();
+  const r = spawnSync(process.execPath, [proptestRel], { cwd: scratchRoot, env, stdio: 'ignore', timeout: Math.max(1000, budgetMs) });
+  const timedOut = !!(r.error && r.error.code === 'ETIMEDOUT');
+  return { ok: r.status === 0 && !r.error, timedOut, ms: Date.now() - t0 };
+}
+
+/**
+ * Resolve this kernel's trial budget and prepare the sandbox floor. Returns the
+ * child-env fragment for Stryker (empty object = run the floor as shipped).
+ * Never throws for a measurement problem: any failure falls back to no budget
+ * and says why.
+ */
+export function resolveTrialsEnv({ id, scratchRoot, proptestRelPath, tierConfig, repoRoot, boundS, concurrency, remainingS, log = console.log, timeRun = timeFloorRun, dryRun = null }) {
+  const explicit = mutationTrialsForKernel(id, tierConfig);
+  const auto = autoTrialBudgetConfig(tierConfig);
+  if (explicit === null && auto === null) return {};
+  const sandboxProptest = path.join(scratchRoot, proptestRelPath);
+  const hook = sandboxTrialsHook(readFileSync(sandboxProptest, 'utf8'));
+  if (explicit !== null) {
+    if (hook.status === 'patched') {
+      writeFileSync(sandboxProptest, hook.source);
+      log(`  mutation trials budget: ${explicit} (per-kernel sibling; sandbox trial hook applied to const TRIALS = ${hook.fullTrials})`);
+    } else {
+      log(`  mutation trials budget: ${explicit} (per-kernel sibling; proptest ${hook.status === 'native' ? 'reads MUTATION_TIER_NUM_RUNS itself' : `not hooked: ${hook.status}`})`);
+    }
+    return { MUTATION_TIER_NUM_RUNS: String(explicit) };
+  }
+  if (hook.status !== 'patched') {
+    log(`  auto trial budget: not applicable (${hook.status}); floor runs as shipped`);
+    return {};
+  }
+  writeFileSync(sandboxProptest, hook.source);
+  const measureMs = Math.max(5000, Math.min(120000, Math.floor((remainingS * 1000) / 4)));
+  const one = timeRun(scratchRoot, proptestRelPath, 1, measureMs);
+  const full = timeRun(scratchRoot, proptestRelPath, null, measureMs);
+  if (!full.ok && !full.timedOut) {
+    log(`  auto trial budget: unmutated floor did not exit 0 at full trials; floor runs as shipped (Stryker's dry run will report it)`);
+    return {};
+  }
+  // Screen: pessimistic on both axes, so a kernel it clears cannot need a budget.
+  const conc = Math.max(1, concurrency || 1);
+  const base = baselineMutants(id, repoRoot);
+  // Node start-up (~the 1-trial run) is not slowed by instrumentation; only the
+  // per-trial work is scaled. Mutants: 1.5 x the kernel's own baseline count,
+  // or screenMutants (about the estate p90) for a kernel with no baseline.
+  const t1s = (one.ok ? Math.min(one.ms, full.ms) : 0) / 1000;
+  const screenMutants = base ? Math.ceil(base * 1.5) : auto.screenMutants;
+  const screenS = ((t1s + auto.screenFactor * Math.max(0, full.ms / 1000 - t1s)) * screenMutants) / conc;
+  if (!full.timedOut && boundS > 0 && screenS <= boundS) {
+    log(`  auto trial budget: none (screen ${Math.round(screenS)}s fits the ${boundS}s bound: raw 1-trial ${t1s.toFixed(2)}s, full ${(full.ms / 1000).toFixed(2)}s, work x${auto.screenFactor}, ${screenMutants} mutants / ${conc})`);
+    return {};
+  }
+  // Stryker's own dry run: real mutant count + instrumented per-run time.
+  const dr = dryRun ? dryRun() : { ok: false };
+  if (!dr || !dr.ok) {
+    log(`  auto trial budget: none (screen ${Math.round(screenS)}s did not clear the bound, but Stryker's dryRunOnly measurement was unavailable; floor runs as shipped)`);
+    return {};
+  }
+  // t(n) = start-up + (n - 1) x instrumented per-trial work, anchored on the
+  // dry run's full-trial time (chooseAutoTrials' model with t1 = raw start-up).
+  const d = chooseAutoTrials({ fullTrials: hook.fullTrials, t1Ms: t1s * 1000, tFullMs: dr.netMs, mutants: dr.mutants, boundS, concurrency, minTrials: auto.minTrials, targetFraction: auto.targetFraction });
+  if (d.trials === null) {
+    log(`  auto trial budget: none (${d.reason}; Stryker dry run: ${dr.mutants} mutants, ${dr.netMs} ms instrumented)`);
+    return {};
+  }
+  // Verify the pick on the real floor. A floor's time does not always scale
+  // with TRIALS alone (art-584 has fixed-count loops beside it), so predict the
+  // instrumented time at n from the MEASURED raw time at n x the dry run's
+  // instrumented/raw ratio, and halve n while that still misses the target.
+  // The unmutated floor must also pass at n; a failing count doubles, and after
+  // a halving it returns to the last passing count.
+  const ratio = dr.netMs / Math.max(1, full.ms);
+  const targetS = auto.targetFraction * boundS;
+  const predictS = (rawMs) => (dr.mutants * ratio * (rawMs / 1000)) / conc;
+  let n = d.trials;
+  let lastPass = null;
+  let lastPred = null;
+  for (let i = 0; i < 12 && n < hook.fullTrials; i++) {
+    const chk = timeRun(scratchRoot, proptestRelPath, n, measureMs);
+    if (!chk.ok) {
+      if (lastPass !== null) { n = lastPass; break; }
+      n = Math.min(hook.fullTrials, n * 2);
+      continue;
+    }
+    lastPass = n;
+    lastPred = predictS(chk.ms);
+    if (lastPred <= targetS || n <= auto.minTrials) break;
+    n = Math.max(auto.minTrials, Math.floor(n / 2));
+  }
+  if (lastPass === null || n >= hook.fullTrials) {
+    log(`  auto trial budget: none (the unmutated floor needs its full ${hook.fullTrials} trials to pass)`);
+    return {};
+  }
+  n = lastPass;
+  const over = lastPred !== null && lastPred > boundS ? `; WARNING: still predicted ${Math.round(lastPred)}s at ${n} trials, the floor has fixed costs the trial count does not reach` : '';
+  log(`  auto trial budget: ${n} of ${hook.fullTrials} trials (${d.reason}; Stryker dry run: ${dr.mutants} mutants, ${dr.netMs} ms instrumented; predicted ${lastPred === null ? '?' : Math.round(lastPred)}s at ${n}${over}; MUTATION-TRIALS-AUTO-BUDGET-1)`);
+  return { MUTATION_TIER_NUM_RUNS: String(n) };
+}
+
 export function timeoutMessage(id, elapsedS) {
   return `MUTATION-TIER TIMEOUT ${id} after ${elapsedS}s — treat as FAIL, see MUTATION-TIER-HANG-MMS03-PNR01-1`;
 }
@@ -1266,9 +1486,25 @@ export async function runOneKernel(id, scratchRoot, opts, strykerVersion, repoRo
   // kernel's Stryker child env. The per-mutant command is
   // `node chaingraph/kernels/__proptests__/<proptest>`, so the override reaches
   // every mutant (and the dry run) without touching global process.env.
-  const mutationEnv = mutationEnvForKernel(id, tierConfig);
-  if (mutationEnv.MUTATION_TIER_NUM_RUNS !== undefined) {
-    console.log(`  mutation trials budget: ${mutationEnv.MUTATION_TIER_NUM_RUNS} (per-kernel sibling)`);
+  // MUTATION-TRIALS-AUTO-BUDGET-1: an explicit sibling budget now also hooks a
+  // plain `const TRIALS = N` floor in the sandbox; with no sibling, the
+  // config-declared auto budget measures and caps only kernels whose estimate
+  // exceeds their bound. The measurement draws on this kernel's own deadline.
+  let mutationEnv;
+  try {
+    // dryRunOnly: same mutate surface and floor command, no mutant phase.
+    // Stdout is captured (not inherited) so its two summary lines can be read.
+    const dryRun = () => {
+      const dryConfigPath = path.join(scratchRoot, `stryker.${id}.dryrun.json`);
+      writeFileSync(dryConfigPath, JSON.stringify({ ...config, dryRunOnly: true, reporters: [], tempDirName: path.join(scratchRoot, '.stryker-tmp', `${id}-dryrun`) }, null, 2));
+      const inv = resolveStrykerInvocation({ strykerVersion, configPath: dryConfigPath });
+      const env = { ...process.env }; delete env.MUTATION_TIER_NUM_RUNS;
+      const r = spawnSync(inv.cmd, inv.args, { cwd: scratchRoot, env, encoding: 'utf8', timeout: Math.max(30000, Math.min(240000, Math.floor((budgetS() || 600) * 1000 / 3))), maxBuffer: 1 << 26 });
+      return parseDryRunLog(`${r.stdout || ''}\n${r.stderr || ''}`);
+    };
+    mutationEnv = resolveTrialsEnv({ id, scratchRoot, proptestRelPath, tierConfig, repoRoot, boundS: opts.kernelTimeoutS, concurrency: opts.concurrency, remainingS: budgetS() || 600, dryRun });
+  } catch (e) {
+    return { id, hardFail: e.message };
   }
 
   const t0 = Date.now();
@@ -1375,7 +1611,9 @@ export async function runOneKernel(id, scratchRoot, opts, strykerVersion, repoRo
       writeFileSync(config2Path, JSON.stringify(config2, null, 2));
 
       const t1 = Date.now();
-      const run2 = await runStryker(config2Path, scratchRoot, strykerVersion, budgetS());
+      // MUTATION-TRIALS-AUTO-BUDGET-1: the second run uses the SAME trial budget
+      // as the first, so the per-mutant diff compares like with like.
+      const run2 = await runStryker(config2Path, scratchRoot, strykerVersion, budgetS(), mutationEnv);
       const runtime2Ms = Date.now() - t1;
       if (run2.timedOut) {
         // Same loud bound as the as-shipped run, but a decomposed second-run
@@ -1492,6 +1730,9 @@ export async function runTier(argv, repoRoot = REPO) {
   // Stryker work, naming the kernel and the bad value.
   try {
     for (const id of toRun) mutationTrialsForKernel(id, config);
+    // MUTATION-TRIALS-AUTO-BUDGET-1: a malformed autoTrialBudget block fails here too.
+    const auto = autoTrialBudgetConfig(config);
+    console.log(`run-mutation-tier: auto trial budget ${auto ? `ON (minTrials ${auto.minTrials}, targetFraction ${auto.targetFraction}, screen x${auto.screenFactor} / ${auto.screenMutants} mutants; applies only when a kernel's measured estimate exceeds its bound)` : 'off'}`);
   } catch (e) {
     console.error(`run-mutation-tier: ${e.message}`);
     process.exit(1);

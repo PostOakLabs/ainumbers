@@ -26,6 +26,7 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
+import { fileURLToPath as fileURLToPathLocal } from 'node:url';
 import { copySandboxDeps, shortCircuitFixtureOracle, neutralizationTargets, decomposeMoneyMath, decomposedGateDecision, kernelTimeoutSecondsFromEnv, kernelTimeoutSecondsForKernel, mutationTrialsForKernel, mutationEnvForKernel, runProcessBounded, resolveStrykerInvocation, findDetmathMarkerRange, surfaceSplitPatch, resolveSurfaceSplit, survivorLocations, assertSurvivorsComplete, buildJsonResult, artifactConstRanges, tierOfMutantWithArtifact, tierReportWithArtifact, loadConfig } from './run-mutation-tier.mjs';
 import { mergeMutationSiblings, loadOriginalAuthorshipAllowlist } from './lib-per-kernel-config.mjs';
 import { classifyKernelSource, tierReport } from '../chaingraph/kernels/mutation-tier-split.mjs';
@@ -894,6 +895,151 @@ await asyncTest('R37 the computed env reaches a spawned child for the keyed kern
   const b = spawnSync(process.execPath, ['-e', code], { env: envForB, encoding: 'utf8' });
   assert(a.status === 0 && a.stdout === '1000', `the keyed kernel's child must see 1000 (got ${a.stdout})`);
   assert(b.status === 0 && b.stdout === '', `the unkeyed kernel's child must see no var (got ${b.stdout})`);
+});
+
+// Numbered AB1..AB8 (not R38+) so this block cannot collide with #3271's R-numbers.
+console.log('\nrun-mutation-tier controls — sandbox trial hook + auto budget (MUTATION-TRIALS-AUTO-BUDGET-1)');
+
+const { sandboxTrialsHook, chooseAutoTrials, autoTrialBudgetConfig, resolveTrialsEnv, parseDryRunLog } = await import('./run-mutation-tier.mjs');
+const PLAIN_FLOOR = "import x from './y.mjs';\nconst TRIALS = 4000;\nlet n = 0; for (let i = 0; i < TRIALS; i++) n++;\nprocess.stdout.write(String(n));\n";
+
+test('AB1 the hook rewrites exactly one top-level `const TRIALS = N;` and the env reaches it (unset = shipped count, cap never above it)', () => {
+  const h = sandboxTrialsHook(PLAIN_FLOOR);
+  assert(h.status === 'patched' && h.fullTrials === 4000, `expected patched/4000, got ${h.status}/${h.fullTrials}`);
+  assert(!/^const TRIALS = 4000;/m.test(h.source) && h.source.includes('MUTATION_TIER_NUM_RUNS'), 'the literal declaration must be replaced by the env-reading one');
+  assert(h.source.split('\n')[0] === PLAIN_FLOOR.split('\n')[0], 'nothing outside the declaration may change');
+  const body = h.source.split('\n').slice(1).join('\n');
+  const run = (env) => {
+    const e = { ...process.env }; delete e.MUTATION_TIER_NUM_RUNS; Object.assign(e, env);
+    return spawnSync(process.execPath, ['--input-type=module', '-e', body], { env: e, encoding: 'utf8' }).stdout;
+  };
+  assert(run({}) === '4000', `unset env must run the shipped 4000 trials (got ${run({})})`);
+  assert(run({ MUTATION_TIER_NUM_RUNS: '50' }) === '50', 'a budget of 50 must run 50 trials');
+  assert(run({ MUTATION_TIER_NUM_RUNS: '99999' }) === '4000', 'a budget above the shipped count must never raise it');
+  assert(run({ MUTATION_TIER_NUM_RUNS: 'junk' }) === '4000', 'a junk value falls back to the shipped count');
+});
+
+test('AB2 the hook leaves native, own-cap and ambiguous floors alone', () => {
+  assert(sandboxTrialsHook('const TRIALS = Number(process.env.MUTATION_TIER_NUM_RUNS) || 10;\n').status === 'native', 'env-reading floor is native');
+  assert(sandboxTrialsHook('const MUTATION_MODE = true;\nconst TRIALS = MUTATION_MODE ? 50 : 4000;\n').status === 'own-cap', 'MUTATION_MODE floor keeps its own cap');
+  assert(sandboxTrialsHook('let c = process.env.PROPFLOOR_TRIAL_CAP;\nconst TRIALS = 4000;\n').status === 'own-cap', 'PROPFLOOR_TRIAL_CAP floor keeps its own cap');
+  assert(sandboxTrialsHook('const TRIALS = 10;\nconst TRIALS = 20;\n').status === 'no-single-decl', 'two declarations are ambiguous');
+  assert(sandboxTrialsHook('function f() {\n  const TRIALS = 10;\n}\n').status === 'no-single-decl', 'an indented (non-top-level) declaration is not hooked');
+  assert(sandboxTrialsHook('const N = 3;\n').status === 'no-single-decl', 'no declaration, no hook');
+});
+
+test('AB3 chooseAutoTrials: a kernel whose estimate fits keeps full trials; one that does not gets the largest count fitting the target', () => {
+  const base = { fullTrials: 5000, t1Ms: 100, minTrials: 50, targetFraction: 0.6, boundS: 600, concurrency: 2 };
+  const fits = chooseAutoTrials({ ...base, tFullMs: 1000, mutants: 400 }); // 400 x 1 s / 2 = 200 s
+  assert(fits.trials === null && /fits/.test(fits.reason), `200 s estimate must keep full trials: ${JSON.stringify(fits)}`);
+  const big = chooseAutoTrials({ ...base, tFullMs: 5100, mutants: 400 }); // 400 x 5.1 / 2 = 1020 s
+  assert(big.trials !== null && big.trials >= 50 && big.trials < 5000, `1020 s estimate must budget: ${JSON.stringify(big)}`);
+  const perTrial = (5.1 - 0.1) / 4999;
+  const est = (k) => (400 * (0.1 + (k - 1) * perTrial)) / 2;
+  assert(est(big.trials) <= 0.6 * 600 + 1e-6, `the chosen count must fit 60% of the bound (est ${est(big.trials).toFixed(1)} s)`);
+  assert(est(big.trials + 1) > 0.6 * 600 - 1e-6, 'the chosen count must be the LARGEST that fits');
+  const huge = chooseAutoTrials({ ...base, t1Ms: 3000, tFullMs: 60000, mutants: 2000 });
+  assert(huge.trials === 50, `start-up cost alone over target still floors at minTrials: ${JSON.stringify(huge)}`);
+  assert(chooseAutoTrials({ ...base, fullTrials: 50, tFullMs: 60000, mutants: 2000 }).trials === null, 'a floor already at minTrials is never budgeted');
+  assert(chooseAutoTrials({ ...base, boundS: 0, tFullMs: 60000, mutants: 2000 }).trials === null, 'an unbounded run is never budgeted');
+});
+
+test('AB4 autoTrialBudgetConfig: absent / disabled / env=0 mean off; malformed values refuse loudly', () => {
+  assert(autoTrialBudgetConfig(null) === null && autoTrialBudgetConfig({}) === null, 'absent = off');
+  const good = { autoTrialBudget: { enabled: true, minTrials: 50, targetFraction: 0.6, screenFactor: 15, screenMutants: 600 } };
+  assert(autoTrialBudgetConfig({ autoTrialBudget: { ...good.autoTrialBudget, enabled: false } }) === null, 'enabled false = off');
+  assert(autoTrialBudgetConfig(good, { MUTATION_TIER_AUTO_BUDGET: '0' }) === null, 'env 0 = off for one run');
+  assert(autoTrialBudgetConfig(good, {}).minTrials === 50, 'a good block resolves');
+  for (const bad of [{ minTrials: 0 }, { targetFraction: 1.5 }, { targetFraction: 0 }, { screenFactor: 0.5 }, { screenMutants: -3 }]) {
+    let threw = null;
+    try { autoTrialBudgetConfig({ autoTrialBudget: { ...good.autoTrialBudget, ...bad } }, {}); } catch (e) { threw = e; }
+    assert(threw && /autoTrialBudget\./.test(threw.message), `${JSON.stringify(bad)} must refuse loudly`);
+  }
+});
+
+function trialsScratch(source) {
+  const root = mkdtempSync(join(tmpdir(), 'rmt-trials-'));
+  cleanup.push(root);
+  const rel = 'chaingraph/kernels/__proptests__/k-x.proptest.mjs';
+  mkdirSync(join(root, 'chaingraph', 'kernels', '__proptests__'), { recursive: true });
+  writeFileSync(join(root, rel), source);
+  return { root, rel };
+}
+const AUTO_ON = { autoTrialBudget: { enabled: true, minTrials: 50, targetFraction: 0.6, screenFactor: 15, screenMutants: 600 } };
+const quiet = () => {};
+// Default dry run: the art-584 shape measured 11-25 (607 mutants, 4243 ms instrumented).
+const DRY_584 = () => ({ ok: true, mutants: 607, netMs: 4243 });
+const callResolve = (s, tierConfig, timeRun, dryRun = DRY_584) => resolveTrialsEnv({ id: 'k-x', scratchRoot: s.root, proptestRelPath: s.rel, tierConfig, repoRoot: s.root, boundS: 600, concurrency: 2, remainingS: 600, log: quiet, timeRun, dryRun });
+
+test('AB5 resolveTrialsEnv: an explicit sibling hooks the plain floor in the sandbox and never measures', () => {
+  const s = trialsScratch(PLAIN_FLOOR);
+  let measured = 0;
+  const env = callResolve(s, { ...AUTO_ON, mutationTrials: { 'k-x': 50 } }, () => { measured++; return { ok: true, timedOut: false, ms: 1 }; });
+  assert(env.MUTATION_TIER_NUM_RUNS === '50', `sibling budget must pass through: ${JSON.stringify(env)}`);
+  assert(measured === 0, 'an explicit sibling must never trigger the auto measurement');
+  assert(readFileSync(join(s.root, s.rel), 'utf8').includes('MUTATION-TRIALS-AUTO-BUDGET-1 sandbox-only hook'), 'the sandbox floor must be hooked so the sibling takes effect');
+});
+
+test('AB6 resolveTrialsEnv: auto off leaves the sandbox floor byte-identical; a kernel the screen clears never pays for a dry run', () => {
+  const a = trialsScratch(PLAIN_FLOOR);
+  const off = callResolve(a, {}, () => { throw new Error('must not measure'); }, () => { throw new Error('must not dry-run'); });
+  assert(JSON.stringify(off) === '{}' && readFileSync(join(a.root, a.rel), 'utf8') === PLAIN_FLOOR, 'auto off = no env, no sandbox write');
+  let dry = 0;
+  // raw 0.1 s x 15 x 600 / 2 = 450 s <= 600 s: screened out.
+  const fit = callResolve(trialsScratch(PLAIN_FLOOR), AUTO_ON, (_r, _p, n) => ({ ok: true, timedOut: false, ms: n === 1 ? 50 : 100 }), () => { dry++; return DRY_584(); });
+  assert(JSON.stringify(fit) === '{}' && dry === 0, `a screened-out kernel gets no env and no dry run: ${JSON.stringify(fit)} dry=${dry}`);
+  // Screen fails (raw 0.45 s), dry run says it fits: 300 mutants x 1.5 s / 2 = 225 s.
+  const fits2 = callResolve(trialsScratch(PLAIN_FLOOR), AUTO_ON, (_r, _p, n) => ({ ok: true, timedOut: false, ms: n === 1 ? 60 : 450 }), () => ({ ok: true, mutants: 300, netMs: 1500 }));
+  assert(JSON.stringify(fits2) === '{}', `a dry-run estimate inside the bound keeps full trials: ${JSON.stringify(fits2)}`);
+  // Screen fails and the dry run is unavailable: no budget (never worse than today).
+  const nodry = callResolve(trialsScratch(PLAIN_FLOOR), AUTO_ON, (_r, _p, n) => ({ ok: true, timedOut: false, ms: n === 1 ? 60 : 450 }), () => ({ ok: false }));
+  assert(JSON.stringify(nodry) === '{}', 'no dry-run measurement = no budget');
+});
+
+test('AB7 resolveTrialsEnv: the measured art-584 shape is capped; a count the unmutated floor fails at doubles until it passes', () => {
+  const raw = (passFrom) => (_r, _p, n) => (n === 1 ? { ok: true, timedOut: false, ms: 60 } : n === null ? { ok: true, timedOut: false, ms: 450 } : { ok: n >= passFrom, timedOut: false, ms: 50 });
+  const env = callResolve(trialsScratch(PLAIN_FLOOR), AUTO_ON, raw(0));
+  const n = Number(env.MUTATION_TIER_NUM_RUNS);
+  // 607 x 4.243 / 2 = 1288 s > 600: budget; 4000-trial floor scaled by the 9.4x instrumented ratio.
+  assert(n >= 50 && n < 4000, `art-584 shape must be capped, got ${JSON.stringify(env)}`);
+  const env2 = callResolve(trialsScratch(PLAIN_FLOOR), AUTO_ON, raw(Math.max(n * 2, 200)));
+  assert(Number(env2.MUTATION_TIER_NUM_RUNS) >= Math.max(n * 2, 200), `a failing count must double until the unmutated floor passes: ${JSON.stringify(env2)}`);
+  const none = callResolve(trialsScratch(PLAIN_FLOOR), AUTO_ON, raw(Infinity));
+  assert(JSON.stringify(none) === '{}', 'a floor that only passes at full trials gets no budget');
+  const broken = callResolve(trialsScratch(PLAIN_FLOOR), AUTO_ON, () => ({ ok: false, timedOut: false, ms: 10 }));
+  assert(JSON.stringify(broken) === '{}', 'a floor that fails unmutated gets no budget (Stryker reports it)');
+});
+
+test('AB10 resolveTrialsEnv: a floor whose time does not shrink with TRIALS is halved to minTrials and warned, never left at the model pick', () => {
+  const logs = [];
+  const seen = [];
+  // Fixed-cost floor: 400 ms raw at ANY trial count (the art-584 shape: other loops dominate).
+  const env = resolveTrialsEnv({ id: 'k-x', scratchRoot: trialsScratch(PLAIN_FLOOR).root, proptestRelPath: 'chaingraph/kernels/__proptests__/k-x.proptest.mjs', tierConfig: AUTO_ON, repoRoot: tmpdir(), boundS: 600, concurrency: 2, remainingS: 600, log: (l) => logs.push(l),
+    timeRun: (_r, _p, n) => { seen.push(n); return n === 1 ? { ok: true, timedOut: false, ms: 60 } : { ok: true, timedOut: false, ms: n === null ? 450 : 400 }; }, dryRun: DRY_584 });
+  assert(env.MUTATION_TIER_NUM_RUNS === '50', `must halve down to minTrials: ${JSON.stringify(env)} calls ${JSON.stringify(seen)}`);
+  assert(logs.some((l) => /WARNING: still predicted/.test(l)), `must warn that fixed costs remain: ${logs.join(' | ')}`);
+});
+
+test('AB9 parseDryRunLog reads Stryker 8.7.1 dryRunOnly lines (ANSI included) and refuses partial logs', () => {
+  const log = '\x1b[32m21:49:24 (40268) INFO Instrumenter\x1b[39m Instrumented 1 source file(s) with 607 mutant(s)\n\x1b[32m21:49:29 (40268) INFO DryRunExecutor\x1b[39m Initial test run succeeded. Ran 1 tests in 4 seconds (net 4243 ms, overhead 1 ms).\n';
+  const p = parseDryRunLog(log);
+  assert(p.ok && p.mutants === 607 && p.netMs === 4243, `got ${JSON.stringify(p)}`);
+  assert(!parseDryRunLog('Instrumented 1 source file(s) with 607 mutant(s)').ok, 'no dry-run line = not ok');
+  assert(!parseDryRunLog('').ok, 'empty = not ok');
+});
+
+test('AB8 the live config block resolves and most estate floors have the shape the hook expects', () => {
+  const live = loadConfig();
+  const a = autoTrialBudgetConfig(live, {});
+  assert(a && a.minTrials === 50 && a.targetFraction > 0 && a.targetFraction <= 1, `live autoTrialBudget must resolve: ${JSON.stringify(a)}`);
+  const dir = join(fileURLToPathLocal(new URL('..', import.meta.url)), 'chaingraph', 'kernels', '__proptests__');
+  const counts = {};
+  for (const f of readdirSync(dir).filter((x) => x.endsWith('.proptest.mjs'))) {
+    const st = sandboxTrialsHook(readFileSync(join(dir, f), 'utf8')).status;
+    counts[st] = (counts[st] || 0) + 1;
+  }
+  assert((counts.patched || 0) > 500, `expected most estate floors hookable, got ${JSON.stringify(counts)}`);
+  console.log(`      estate floor shapes: ${JSON.stringify(counts)}`);
 });
 
 console.log(`\nrun-mutation-tier controls: ${passed} passed, ${failed} failed`);
