@@ -134,6 +134,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ needs.gate.outputs.run_id }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -uo pipefail
           DECISION=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" | node scripts/ci/regen-retry-decide.mjs); RC=$?
@@ -145,6 +146,22 @@ jobs:
           fi
           echo "first failure of run $RUN_ID — backing off 10 minutes, then retrying once"
           sleep 600
+          # SUPERSEDED-SKIP: only re-run while the
+          # failed run's commit is still main's head. A re-run checks out its
+          # ORIGINAL commit, and the regen's concurrency group
+          # (derived-regen-main, cancel-in-progress: false) keeps one pending
+          # run, so a late re-run of an old commit CANCELS the pending regen of
+          # the newest commit. Measured 2026-11-25: re-runs of 58d1b4eb and
+          # 205223c1 cancelled the regen of 018b75f8 (#3324, the fix itself),
+          # so main got no regen on the commit that could go green. A push-race
+          # failure (one of the retryable steps above) means main moved by
+          # definition. When main has moved on, the newer push already has its
+          # own regen run.
+          MAIN_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          if [ "$MAIN_SHA" != "$HEAD_SHA" ]; then
+            echo "main moved from $HEAD_SHA to $MAIN_SHA during the back-off; not re-running $RUN_ID (a newer regen covers main)."
+            exit 0
+          fi
           # Bound, not cure: the failure class is deterministic (copy gate), so
           # this is courtesy for the transient tail. attempt 2 failing fires
           # this listener again with run_attempt=2 — it alarms there, and this

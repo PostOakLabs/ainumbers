@@ -1,5 +1,5 @@
 // 827-agent-cred-class-matrix -- class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:958f0ba4ec1952e6069a73353e103148c7b697d61cc12de33d2522c3705cdf59
+// kernel_digest_at_authoring: sha256:0ad413441a1a4729ed7ee331f28cbbb6d77bda47b00549b72185e64e278f94c3
 // spec: AGENT-CRED-CLASS-MATRIX-1 (agent credential class matrix; consumes the art-133 rail
 // verdict and chains scope/expiry/replay cells to the sibling verdicts; local facts for the two
 // uncovered classes). human_sign_off: PENDING
@@ -203,6 +203,68 @@ function checkEmptyInputIsSafe() {
   return { name: 'empty-input-degrades-without-throwing', checked: 1, violations };
 }
 
+function hostileRail() {
+  return {
+    any_accepted: true,
+    rails: {
+      mastercard_agent_pay: { accepted: false, gaps: [] },
+      visa_tap: { accepted: true, gaps: [] },
+      web_bot_auth: { accepted: false, gaps: [] },
+    },
+  };
+}
+
+function checkMalformedClassEntryRefuses() {
+  const bad = ['x', null, [], 0, 'constructor', '__proto__'];
+  let violations = 0;
+  let checked = 0;
+  const cellsToCheck = [...COLUMNS, 'revocability', 'learn'];
+  for (const cls of CLASSES) {
+    for (const value of bad) {
+      checked += 1;
+      const pp = { rail_verdict: hostileRail(), classes: { [cls]: value } };
+      const { output_payload, compliance_flags } = compute(pp);
+      if (!compliance_flags.includes(FLAGS.MALFORMED_CLASS_ENTRY)) violations += 1;
+      const row = output_payload.matrix.find((r) => r.credential_class === cls);
+      for (const col of cellsToCheck) {
+        const cell = row.cells[col];
+        if (cell.kind !== 'refused' || cell.reason !== FLAGS.MALFORMED_CLASS_ENTRY) violations += 1;
+      }
+      if (!output_payload.manual_review_required.some((e) => e.flag === FLAGS.MALFORMED_CLASS_ENTRY)) violations += 1;
+    }
+    const absent = compute({ rail_verdict: hostileRail(), classes: {} });
+    const absentRow = absent.output_payload.matrix.find((r) => r.credential_class === cls);
+    if (absentRow.cells.scope.kind !== 'not_declared') violations += 1;
+    if (absent.compliance_flags.includes(FLAGS.MALFORMED_CLASS_ENTRY)) violations += 1;
+  }
+  return { name: 'malformed-class-entry-refuses', checked, violations };
+}
+
+function checkNonObjectLocalFactsRefuses() {
+  const bad = ['x', null, [], 0, 'constructor', '__proto__'];
+  let violations = 0;
+  let checked = 0;
+  for (const cls of ['api_key_card_proxy', 'wallet_session_key']) {
+    for (const value of bad) {
+      checked += 1;
+      const pp = { rail_verdict: hostileRail(), classes: { [cls]: { local_facts: value } } };
+      const { output_payload, compliance_flags } = compute(pp);
+      if (!compliance_flags.includes(FLAGS.MISSING_LOCAL_FACTS)) violations += 1;
+      const row = output_payload.matrix.find((r) => r.credential_class === cls);
+      for (const col of COLUMNS) {
+        const cell = row.cells[col];
+        if (cell.kind !== 'refused' || cell.reason !== FLAGS.MISSING_LOCAL_FACTS) violations += 1;
+      }
+      if (!output_payload.manual_review_required.some((e) => e.flag === FLAGS.MISSING_LOCAL_FACTS)) violations += 1;
+    }
+    const absent = compute({ rail_verdict: hostileRail(), classes: { [cls]: {} } });
+    const absentRow = absent.output_payload.matrix.find((r) => r.credential_class === cls);
+    if (absentRow.cells.scope.kind !== 'not_declared') violations += 1;
+    if (absent.compliance_flags.includes(FLAGS.MISSING_LOCAL_FACTS)) violations += 1;
+  }
+  return { name: 'non-object-local-facts-refuses', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -221,6 +283,8 @@ const properties = [
   checkClosedVocabulary(corpus),
   checkFlagMirror(corpus),
   checkRefusalReachability(),
+  checkMalformedClassEntryRefuses(),
+  checkNonObjectLocalFactsRefuses(),
   checkNoShapeViolations(corpus),
   checkEmptyInputIsSafe(),
 ];
