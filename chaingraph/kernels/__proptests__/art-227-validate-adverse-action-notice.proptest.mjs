@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:8e6f6cc5b36d30e20843f8cc21fc37c9ed8e4e3e3754df6df4f74bb1f12ce44a
+// kernel_digest_at_authoring: sha256:74463b7230ff069a46ee9b8a95e5269e5219fa45604666a28c6e277a5d4595ad
 //
 // FV-PROPFLOOR-SHARD-B7-1 — property-test floor for art-227-validate-adverse-action-notice.
 // Class B (bounded-numeric), stated float:no exception — inputs are booleans/small arrays/
@@ -138,6 +138,62 @@ function checkP5_forced() {
   return rows;
 }
 
+// ---------- P6: fail-closed — every positive fixture vector with one required field deleted,
+// nulled, emptied or blanked must never keep a positive verdict. ----------
+function checkP6_requiredFieldNeverPositive() {
+  const fixtures = JSON.parse(readFileSync(path.join(__dirname, '..', 'fixtures', 'art-227-validate-adverse-action-notice.fixtures.json'), 'utf8'));
+  const required = [
+    'action_taken', 'credit_score_used', 'notice_includes_action_taken',
+    'notice_includes_credit_bureau_info', 'notice_includes_creditor_name',
+    'notice_includes_date', 'notice_includes_dispute_right',
+    'notice_includes_fcra_rights', 'notice_includes_right_to_copy',
+    'reason_code_source', 'reasons',
+  ];
+  const readAndIgnored = ['action_taken', 'credit_score_used', 'notice_includes_fcra_rights', 'reason_code_source'];
+  let violations = 0, checked = 0, positives = 0;
+  for (const vec of fixtures.vectors) {
+    if (compute(vec.policy_parameters).output_payload.compliant !== true) continue;
+    positives++;
+    for (const f of required) {
+      for (const mode of ['delete', 'null', 'empty', 'blank']) {
+        const pp = JSON.parse(JSON.stringify(vec.policy_parameters));
+        if (mode === 'delete') delete pp[f];
+        else pp[f] = mode === 'null' ? null : mode === 'empty' ? '' : '   ';
+        checked++;
+        const r = compute(pp).output_payload;
+        if (r.compliant === true || r.verdict === 'COMPLIANT' || r.verdict === 'PASS') violations++;
+        if (readAndIgnored.indexOf(f) >= 0 && r.verdict !== 'INDETERMINATE') violations++;
+      }
+    }
+  }
+  if (positives === 0) violations++;
+  return { name: 'P6_required_field_never_positive_including_blank', trials: checked, violations };
+}
+
+// ---------- P5: buildArtifact_never_throws — one fixture per unhashable class ----------
+async function checkP5_buildArtifactNeverThrows() {
+  const { buildArtifact } = await import('../art-227-validate-adverse-action-notice.kernel.mjs');
+  let deep = {}; let cur = deep;
+  for (let i = 0; i < 511; i++) { cur.n = {}; cur = cur.n; }
+  const classes = [
+    ['junk_1e300', { action_taken: 1e300 }],
+    ['nan', { action_taken: NaN }],
+    ['neg_infinity', { action_taken: -Infinity }],
+    ['depth_511', { action_taken: deep }],
+    ['over_1e6_values', { action_taken: new Array(1000001).fill(0) }],
+  ];
+  let violations = 0; const rows = [];
+  for (const [label, pp] of classes) {
+    try {
+      const a = await buildArtifact(pp);
+      const ok = a.execution_hash === null && a.hash_refusal && typeof a.hash_refusal.reason === 'string';
+      if (!ok) violations++;
+      rows.push({ label, refused: !!ok });
+    } catch (e) { violations++; rows.push({ label, threw: String(e && e.message).slice(0, 80) }); }
+  }
+  return { name: 'buildArtifact_never_throws', trials: classes.length, violations, rows };
+}
+
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
   console.error('FIXTURE ORACLE FAILED — spec/harness not trusted. Failures:', JSON.stringify(results.fixture_oracle.failures, null, 2));
@@ -148,6 +204,8 @@ results.properties.push(checkP1_compliantMatchesViolations());
 results.properties.push(checkP2_complianceScoreBounded());
 results.properties.push(checkP3_reasonCountValidAgreement());
 results.properties.push(checkP4_fcraViolationsGatedByRequired());
+results.properties.push(checkP6_requiredFieldNeverPositive());
+results.properties.push(await checkP5_buildArtifactNeverThrows());
 results.boundary_forced = checkP5_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
