@@ -13,7 +13,7 @@ const TABLE_VERSION = 'einvoice-mandate-table-2027';
 
 // Version-pinned mandate table, re-verified 2026-11-25 against official sources.
 // Confirmed rows: FR receive obligation 2026-09-01 (impots.gouv.fr), DE issue phases
-// 2027-01-01 / 2028-01-01 (§27 Abs. 38 UStG, gesetze-im-internet.de), BE 2026-01-01
+// 2027-01-01 / 2028-01-01 (German UStG transitional provision, gesetze-im-internet.de), BE 2026-01-01
 // (einvoice.belgium.be), PL 2026-02-01 / 2026-04-01 (ksef.podatki.gov.pl). Rows whose
 // date could not be confirmed on an official page carry the DRAFT-PIN form, which
 // routes to phase_unconfirmed: DE receive date, AE timeline, MY tiered rollout.
@@ -29,8 +29,8 @@ const MANDATE_TABLE = {
     transmission_channel: 'direct', note: 'Issue obligation for supplies from 2027-01-01 (prior-year turnover above EUR 800,000) and from 2028-01-01 for all others, per §27 Abs. 38 UStG; EN 16931 format per §14 UStG. The 2025-01-01 receive date is not stated in those sections and is unverified as of 2026-11-25.',
   },
   AE: {
-    applicable_format: 'pint-ae', mandatory_from: 'DRAFT-PIN unconfirmed as of 2026-11-25',
-    transmission_channel: 'direct', note: 'Ministerial Decisions No. 243 and 244 of 2025; Peppol 5-corner model, UAE PINT (tax.gov.ae). Timeline dates unverified on an official page as of 2026-11-25.',
+    applicable_format: 'pint-ae', mandatory_from: '2027-01-01',
+    transmission_channel: 'direct', note: 'Phase 1 (>= AED 50M) mandatory implementation from 2027-01-01 (ASP by 2026-10-30); Phase 2 (< AED 50M) from 2027-07-01 (ASP by 2027-03-31) (https://tax.gov.ae/en/media.centre/news/federal.tax.authority.calls.on.persons.subject.to.einvoicing.to.comply.wit.the.prescribed.legal.deadlines.and.avoid.administrative.penalties.aspx)',
   },
   MY: {
     applicable_format: 'myinvois', mandatory_from: 'DRAFT-PIN unconfirmed as of 2026-11-25',

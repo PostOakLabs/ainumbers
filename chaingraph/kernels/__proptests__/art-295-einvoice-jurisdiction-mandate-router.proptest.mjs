@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:b694ed354fd12767ad2af0a8c79c7e09a5b1417f328e91ba53facf09221e8cba
+// kernel_digest_at_authoring: sha256:8a2cbba14b21c6af020c037f11334cbd7ea54a0b62eb89d71ad6e336959abb0f
 //
 // FV-PROPFLOOR-SHARD-B28-1 — property-test floor for art-295-einvoice-jurisdiction-mandate-router.
 // Class B (bounded-numeric per the WU row), NOT float-sensitive — this kernel routes on lexical
