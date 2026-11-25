@@ -2676,6 +2676,10 @@ const GATES = [
   // local and owner/repo shapes RED, job-level and normal actions GREEN) plus the
   // ratchet states (missing baseline RED, ceiling never raised).
   ['Workflow step-uses controls (RED/GREEN + ratchet states)', 'node scripts/check-workflow-step-uses.test.mjs'],
+  // DEADMAN-RERUN-STALE-SHA-1: the deadman's retry-once re-runs a failed regen only while its
+  // commit is still main's head. A late re-run of an old commit takes the regen concurrency
+  // group's single pending slot and cancels the newest commit's regen (2026-11-25, 018b75f8).
+  ['Deadman retry skips a superseded commit (GREEN re-run / SKIP when main moved)', 'node scripts/derived-regen-deadman-retry.test.mjs'],
   // JSON-parse + no-read-only-fields check for .github/rulesets/*.json (RULESET-AS-CODE-1).
   // Purely local — the "does it match live" half needs an App token and stays CI-only
   // (ruleset-apply.yml / ruleset-drift-gate.yml).
