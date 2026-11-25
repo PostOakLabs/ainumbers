@@ -186,8 +186,13 @@ console.log('round-trip leg (real generator output vs real coverage files):');
     if (!t.obligations) { fail(`coverage ${f} exists but the collector rendered no block for ${covReal.node_id}`); continue; }
     const rendered = renderObligationBlock(t.obligations);
     const parsed = parseNotCovered(rendered);
-    if (!parsed) { fail(`rendered block for ${covReal.node_id} has no Not covered section to parse`); continue; }
-    if (JSON.stringify(parsed.items) === JSON.stringify(expectedNotCovered(covReal))) ok(`${covReal.node_id}: rendered Not covered list round-trips to the coverage file`);
+    const expected = expectedNotCovered(covReal);
+    if (!parsed) {
+      if (expected.length === 0) ok(`${covReal.node_id}: empty out_of_scope renders section-less, matching coverage`);
+      else fail(`rendered block for ${covReal.node_id} has no Not covered section to parse`);
+      continue;
+    }
+    if (JSON.stringify(parsed.items) === JSON.stringify(expected)) ok(`${covReal.node_id}: rendered Not covered list round-trips to the coverage file`);
     else fail(`${covReal.node_id}: rendered Not covered list != coverage file: ${JSON.stringify(parsed.items).slice(0, 200)}`);
     if (parsed.dups.length === 0) ok(`${covReal.node_id}: no duplicate block ids in the render`);
     else fail(`${covReal.node_id}: duplicate block ids ${parsed.dups.join(', ')}`);
