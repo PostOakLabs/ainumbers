@@ -73,6 +73,21 @@
  * letter figure is supplied, or transactions[] is empty, or no matchable
  * pair exists, the verdict is INDETERMINATE, never guessed toward MATCHES.
  *
+ * MISSING INPUT FAILS CLOSED. The six manifest-required inputs (currency,
+ * demand_letter_claimed_profit_minor_units, insider_ref, insider_status,
+ * issuer_ref, transactions) must be present. A deleted, null, empty or
+ * whitespace-only required field is never reported as MATCHES or DIVERGES:
+ * the verdict is INDETERMINATE (this kernel's own refusal vocabulary) with a
+ * named missing_required_fields list. Labels the kernel merely echoes are
+ * still required, because the node's contract says the caller must send them.
+ * No optional field was introduced by this edit.
+ *
+ * NEVER THROW. buildArtifact walks the policy_parameters preimage against the
+ * _hash.mjs limits (non-finite numbers, unsafe integers, MAX_DEPTH,
+ * MAX_ELEMENTS) and returns an artifact with execution_hash null and a
+ * hash_refusal reason instead of throwing on unhashable input. Goldens for
+ * valid inputs are unchanged.
+ *
  * FIXED-POINT MONEY MATH. Every price and profit amount crosses the boundary
  * as an INTEGER NUMBER OF MINOR UNITS (cents). 2dp display strings come from
  * integer division plus string padding, never toFixed() on a float. Share
@@ -96,7 +111,7 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-573-section16b-short-swing-profit-recompute';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.0.1';
 export const meta = {
   tool_id: TOOL_ID,
   tool_version: TOOL_VERSION,
@@ -172,6 +187,7 @@ function display(minor) {
   return (neg ? '-' : '') + String(whole) + '.' + String(frac).padStart(MINOR_UNIT_EXPONENT, '0');
 }
 function isNonEmptyString(v) { return typeof v === 'string' && v.trim().length > 0; }
+function isFilled(v) { return v !== undefined && v !== null && !(typeof v === 'string' && v.trim() === ''); }
 function str(v, fallback) { return isNonEmptyString(v) ? v.trim() : fallback; }
 function arr(v) { return Array.isArray(v) ? v : []; }
 function obj(v) { return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }
@@ -303,6 +319,22 @@ export function compute(pp) {
     indeterminate_reason = null;
   }
 
+  // Required inputs per the manifest inputSchema.required, read with LITERAL
+  // property reads (no dynamic pp[f]). A missing, null, empty or whitespace-only
+  // required field is treated as absent and never leaves a positive verdict.
+  const missing_required_fields = [];
+  if (!isFilled(pp.currency)) missing_required_fields.push('currency');
+  if (!isFilled(pp.demand_letter_claimed_profit_minor_units)) missing_required_fields.push('demand_letter_claimed_profit_minor_units');
+  if (!isFilled(pp.insider_ref)) missing_required_fields.push('insider_ref');
+  if (!isFilled(pp.insider_status)) missing_required_fields.push('insider_status');
+  if (!isFilled(pp.issuer_ref)) missing_required_fields.push('issuer_ref');
+  if (!isFilled(pp.transactions)) missing_required_fields.push('transactions');
+  const failClosed = missing_required_fields.length > 0 && verdict !== 'INDETERMINATE';
+  if (failClosed) {
+    verdict = 'INDETERMINATE';
+    indeterminate_reason = 'Required input field(s) missing, null, empty or whitespace-only: ' + missing_required_fields.join(', ') + '. The recompute cannot state agreement or divergence on incomplete evidence.';
+  }
+
   // ── Rationale. ───────────────────────────────────────────────────────────
   const rationale = [];
   rationale.push(`Section 16(b) matchable-pair recompute for insider reference ${insider_ref} on issuer reference ${issuer_ref}.`);
@@ -323,6 +355,9 @@ export function compute(pp) {
   if (rejected_inputs.length > 0) {
     rationale.push(`${rejected_inputs.length} supplied value${rejected_inputs.length === 1 ? ' was' : 's were'} not usable and ${rejected_inputs.length === 1 ? 'was' : 'were'} treated as zero, ignored, or excluded. Each one is named in rejected_inputs rather than silently dropped.`);
   }
+  if (failClosed) {
+    rationale.push(`Verdict forced to INDETERMINATE because required input field(s) ${missing_required_fields.join(', ')} were deleted, null, empty or whitespace-only; no agreement or divergence is stated on incomplete evidence.`);
+  }
   rationale.push('This is not legal advice. The six-month window applied here is a day-count approximation of the statutory calendar-month boundary, and no exemption was independently determined -- both are named in not_proven. No computed figure resolves a matchability or exemption dispute.');
 
   // ── Flags. ───────────────────────────────────────────────────────────────
@@ -333,6 +368,7 @@ export function compute(pp) {
   if (excluded_transactions.some((t) => t.exemption_flags && t.exemption_flags.length > 0)) compliance_flags.push('SEC16B_EXEMPT_TRANSACTIONS_EXCLUDED');
   if (foreign_private_issuer && officer_or_director) compliance_flags.push('SEC16B_HFIAA_16A_ONLY_NOT_16B_LIABLE');
   if (rejected_inputs.length > 0) compliance_flags.push('SEC16B_INPUTS_REJECTED');
+  if (failClosed) compliance_flags.push('SEC16B_MISSING_REQUIRED_FIELDS');
 
   const output_payload = {
     insider_ref,
@@ -360,6 +396,7 @@ export function compute(pp) {
     difference_display: difference_minor_units === null ? null : display(difference_minor_units),
     verdict,
     indeterminate_reason,
+    ...(failClosed ? { missing_required_fields } : {}),
     rejected_inputs,
     citations: CITATIONS,
     rationale,
@@ -371,7 +408,57 @@ export function compute(pp) {
   return { output_payload, compliance_flags };
 }
 
+// Mirrors the _hash.mjs limits so buildArtifact never throws: non-finite number,
+// unsafe integer, nesting past MAX_DEPTH, more values than MAX_ELEMENTS. Reports
+// path and kind only, never the caller's values.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > HASH_MAX_DEPTH) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > HASH_MAX_ELEMENTS) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const unhashable = findHashRefusal(pp, 'pp', 1, { n: 0 });
+  if (unhashable !== null) {
+    return {
+      '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+      chaingraph_version: '0.4.0',
+      mandate_type: meta.mandate_type,
+      tool_id: TOOL_ID,
+      tool_version: TOOL_VERSION,
+      generated_at: now ?? null,
+      execution_hash: null,
+      hash_refusal: { reason: unhashable.reason, detail: unhashable.detail },
+      chain: { parent_hashes, parent_tool_ids, chain_depth },
+      policy_parameters: null,
+      output_payload: { verdict: 'REFUSED', refusal: unhashable.reason },
+      compliance_flags: ['INPUT_REFUSED'],
+      compute_mode: 'server',
+      audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+    };
+  }
   const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
