@@ -1343,6 +1343,9 @@ const PREFLIGHT_ONLY = new Map([
   ["workbook.test.mjs", SELF_TEST],
   ["roundtrip-verify.test.mjs", SELF_TEST],
   ["check-derived-fanout-coverage.test.mjs", SELF_TEST],
+  // COVERED-DELTA-IMPACT-1: the report itself is an ADVISORY preflight block (not a gate); only its
+  // `--self-test` leg (in-memory #3208 / #3282 fixtures) is a GATES entry.
+  ["check-covered-delta-impact.mjs", SELF_TEST],
   ["check-derived-declare-parity.test.mjs", SELF_TEST],
   ["check-derived-regen-live.test.mjs", SELF_TEST],
   ["check-regen-repairable.test.mjs", SELF_TEST],
