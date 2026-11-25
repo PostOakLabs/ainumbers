@@ -1,7 +1,10 @@
 // Unit test for scripts/mq-eject-hold.mjs. No network, no gh.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { holdComment, isHoldComment, recordedSha, isHeld, LABEL, pickEjectRun, findEjectRun } from './mq-eject-hold.mjs';
+import {
+  holdComment, isHoldComment, recordedSha, isHeld, LABEL, pickEjectRun, findEjectRun,
+  recordedClass, ownDiffMoved, clearVerdict, prDiff, newestHoldComment,
+} from './mq-eject-hold.mjs';
 
 const info = { workflow: 'scripts-verify', step: 'Run gates', runId: '123', sha: 'abc1234def' };
 
@@ -84,4 +87,71 @@ test('findEjectRun asks for every merge_group run, not status=failure only', () 
   };
   assert.equal(findEjectRun('PostOakLabs/ainumbers', '3222', gh), 45184774612);
   assert.ok(!calls[0].includes('status=failure'), calls[0]);
+});
+
+// MQ-EJECT-HOLD-OWN-CHANGE-1. Replay of #3278 (2026-11-25): ejected 09:33 for a
+// dead link in its own page, then a merge-from-main at 09:55:58 cleared the hold
+// and the same change was re-armed at 10:34. The PR's own diff did not move.
+const own = [
+  { filename: 'tools/700-x.html', status: 'modified', sha: 'b1' },
+  { filename: 'manifests/700-x.manifest.json', status: 'added', sha: 'b2' },
+];
+const diff = (files) => ({ files, complete: true });
+const otherHold = holdComment({ ...info, kind: 'other' });
+const derivedHold = holdComment({ ...info, kind: 'derived-gate' });
+
+test('hold comment records the eject class; old comments have none', () => {
+  assert.equal(recordedClass(otherHold), 'other');
+  assert.equal(recordedClass(derivedHold), 'derived-gate');
+  assert.equal(recordedClass(holdComment(info)), null);
+  assert.equal(recordedSha(derivedHold), 'abc1234def');
+  assert.ok(derivedHold.includes('merge main in'));
+  assert.ok(otherHold.includes('a merge from main alone does not'));
+});
+
+test('#3278 replay: refresh from main only keeps a PR-owned eject held', () => {
+  const v = clearVerdict({ holdBody: otherHold, before: diff(own), after: diff(own.map((f) => ({ ...f }))) });
+  assert.deepEqual(v, { clear: false, reason: 'main-refresh-only:other' });
+});
+
+test('old hold comment with no class is kept on a main refresh', () => {
+  const v = clearVerdict({ holdBody: holdComment(info), before: diff(own), after: diff(own) });
+  assert.deepEqual(v, { clear: false, reason: 'main-refresh-only:unclassified' });
+});
+
+test('own file content changed: clear', () => {
+  const after = [{ ...own[0], sha: 'b9' }, own[1]];
+  assert.equal(clearVerdict({ holdBody: otherHold, before: diff(own), after: diff(after) }).reason, 'own-files-changed');
+});
+
+test('own file added, removed or renamed: clear', () => {
+  assert.ok(ownDiffMoved(own, [...own, { filename: 'scripts/a.mjs', status: 'added', sha: 'c1' }]));
+  assert.ok(ownDiffMoved(own, own.slice(0, 1)));
+  assert.ok(ownDiffMoved(own, [own[0], { filename: 'manifests/701.json', status: 'renamed', sha: 'b2', previous_filename: 'manifests/700-x.manifest.json' }]));
+  assert.ok(!ownDiffMoved(own, [...own].reverse()));
+});
+
+test('eject caused by main moving on (derived-gate): a main refresh clears', () => {
+  const v = clearVerdict({ holdBody: derivedHold, before: diff(own), after: diff(own) });
+  assert.deepEqual(v, { clear: true, reason: 'eject-from-main-move:derived-gate' });
+});
+
+test('unknown inputs clear, as before', () => {
+  assert.equal(clearVerdict({ holdBody: null, before: diff(own), after: diff(own) }).reason, 'no-hold-record');
+  assert.equal(clearVerdict({ holdBody: otherHold, before: null, after: diff(own) }).reason, 'own-diff-unknown');
+  assert.equal(clearVerdict({ holdBody: otherHold, before: diff(own), after: { files: own, complete: false } }).reason, 'own-diff-unknown');
+});
+
+test('prDiff and newestHoldComment: fake gh, failures read as unknown', () => {
+  const calls = [];
+  const gh = (args) => { calls.push(args.join(' ')); return own; };
+  assert.deepEqual(prDiff('o/r', 'main', 'abc', gh), { files: own, complete: true });
+  assert.ok(calls[0].includes('repos/o/r/compare/main...abc'), calls[0]);
+  const many = Array.from({ length: 300 }, (_, i) => ({ filename: `f${i}`, status: 'added', sha: `${i}` }));
+  assert.equal(prDiff('o/r', 'main', 'abc', () => many).complete, false);
+  assert.equal(prDiff('o/r', 'main', 'abc', () => { throw new Error('404'); }), null);
+  const bodies = ['hello', holdComment(info), 'lgtm', derivedHold];
+  assert.equal(newestHoldComment('o/r', 1, () => bodies), derivedHold);
+  assert.equal(newestHoldComment('o/r', 1, () => ['hi']), null);
+  assert.equal(newestHoldComment('o/r', 1, () => { throw new Error('x'); }), null);
 });
