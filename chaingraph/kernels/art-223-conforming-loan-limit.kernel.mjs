@@ -9,20 +9,29 @@ export const meta = {
   mandate_type: 'compliance_mandate', gpu: false,
 };
 
-// ─── FHFA Conforming Loan Limit (CLL) table ───────────────────────────────────
-// Source: FHFA Conforming Loan Limit Values for 2026, announced 2025-11-25.
-//   Federal Housing Finance Agency, fhfa.gov news release
-//   "FHFA Announces Conforming Loan Limit Values for 2026".
-// table_version: "FHFA-CLL-2026"
+// ─── FHFA Conforming Loan Limit (CLL) tables ──────────────────────────────────
+// Sources (one per vintage; each year's output cites its own):
+//   2027: FHFA news release "FHFA Announces Conforming Loan Limit for 2027",
+//         2026-11-24, https://www.fhfa.gov/news/news-release/fhfa-announces-conforming-loan-limit-for-2027
+//         (1-unit baseline $855,400, ceiling $1,283,100); 2-4 unit values from FHFA's
+//         FullCountyLoanLimitList2027_HERA-BASED_FINAL_FLAT.csv (baseline-county rows).
+//   2026: FHFA Conforming Loan Limit Values for 2026, announced 2025-11-25.
+// table_version (build pin, latest vintage carried): "FHFA-CLL-2027"
+// Default year when the caller omits one: 2027, the latest announced vintage. A loan
+//   delivered in calendar 2026 must pass year: 2026.
 //
 // Disambiguation: check_conforming_loan_limit determines whether a loan amount
 //   meets FHFA conforming size limits for agency delivery.
 //   It is NOT check_agency_eligibility_matrix (DU/LPA approval grid for DTI/LTV).
 //   It is NOT lookup_reg_z_thresholds (Reg Z consumer-protection dollar thresholds).
 //
-// 2026 baseline limits (contiguous US, standard counties):
+// 2027 baseline limits (contiguous US, standard counties):
+//   1-unit: $855,400   2-unit: $1,095,250   3-unit: $1,323,900   4-unit: $1,645,350
+// 2027 high-cost ceiling (150% of baseline by unit count):
+//   1-unit: $1,283,100  2-unit: $1,642,875  3-unit: $1,985,850  4-unit: $2,468,025
+// 2026 baseline limits:
 //   1-unit: $832,750   2-unit: $1,066,250   3-unit: $1,288,800   4-unit: $1,601,750
-// High-cost areas (where 115% of the local median exceeds the baseline), ceiling
+// 2026 high-cost ceiling (where 115% of the local median exceeds the baseline),
 //   at 150% of baseline by unit count:
 //   1-unit: $1,249,125  2-unit: $1,599,375  3-unit: $1,933,200  4-unit: $2,402,625
 // AK / HI / Guam / USVI: a statutory provision raises their BASELINE to 150% of
@@ -46,22 +55,36 @@ export const meta = {
 
 function safeNum(v, def) { const n = Number(v); return Number.isFinite(n) ? n : def; }
 
-// 2026 limits by tier and unit count
-const LIMITS_2026 = {
-  baseline: [832750, 1066250, 1288800, 1601750],            // 1-4 units
-  high_cost_ceiling: [1249125, 1599375, 1933200, 2402625],  // 150% of baseline
+// Limits by vintage, tier and unit count. Each vintage carries its own citation so a
+// 2026 answer stays byte-identical to the 2026 build. A vintage's table_version string is
+// derived ('FHFA-CLL-' + year) rather than written as a literal: the only currency pin this
+// build declares is TABLE_VERSION below. An older vintage kept for historical lookups is
+// not a claim that its data is current, so it must not read as a stale pin.
+const TABLES = {
+  2026: {
+    baseline: [832750, 1066250, 1288800, 1601750],            // 1-4 units
+    high_cost_ceiling: [1249125, 1599375, 1933200, 2402625],  // 150% of baseline
+    table_source: 'FHFA Conforming Loan Limit Values for 2026 (fhfa.gov news release, 2025-11-25)',
+    regulatory_basis: '12 U.S.C. §§ 1454(a)(2), 1717 (as amended by HERA §1124); FHFA CLL notice 2025-11-25',
+  },
+  2027: {
+    baseline: [855400, 1095250, 1323900, 1645350],            // 1-4 units
+    high_cost_ceiling: [1283100, 1642875, 1985850, 2468025],  // 150% of baseline
+    table_source: 'FHFA Conforming Loan Limit Values for 2027 (fhfa.gov news release, 2026-11-24)',
+    regulatory_basis: '12 U.S.C. §§ 1454(a)(2), 1717 (as amended by HERA §1124); FHFA CLL notice 2026-11-24',
+  },
 };
 
-// The single table vintage this build carries. Any other year is not answerable.
-const TABLE_YEAR = 2026;
-const AVAILABLE_YEARS = [TABLE_YEAR];
-const TABLE_VERSION = 'FHFA-CLL-2026';
+// The vintages this build carries. Any other year is not answerable.
+const TABLE_YEAR = 2027;                 // default when the caller omits year
+const AVAILABLE_YEARS = [2026, 2027];
+const TABLE_VERSION = 'FHFA-CLL-2027';   // build pin (latest vintage)
 
 // Jurisdictions receiving the statutory baseline uplift.
 const AK_HI_TERRITORY = ['AK', 'HI', 'GU', 'VI'];
 
-const TABLE_SOURCE = 'FHFA Conforming Loan Limit Values for 2026 (fhfa.gov news release, 2025-11-25)';
-const REGULATORY_BASIS = '12 U.S.C. §§ 1454(a)(2), 1717 (as amended by HERA §1124); FHFA CLL notice 2025-11-25';
+const TABLE_SOURCE = TABLES[TABLE_YEAR].table_source;
+const REGULATORY_BASIS = TABLES[TABLE_YEAR].regulatory_basis;
 const PII_NOTE = 'All inputs processed locally in your browser. No data is transmitted.';
 
 // County-level limits are supplied by the caller via county_limit_override;
@@ -89,7 +112,7 @@ export function compute(pp) {
         table_version: TABLE_VERSION,
         table_source: TABLE_SOURCE,
         regulatory_basis: REGULATORY_BASIS,
-        note: 'Only year ' + TABLE_YEAR + ' is in this version-pinned table. No classification is returned for any other year: the limits are re-set annually, so answering from the wrong vintage would be silently wrong.',
+        note: 'Only years ' + AVAILABLE_YEARS.join(' and ') + ' are in this version-pinned table. No classification is returned for any other year: the limits are re-set annually, so answering from the wrong vintage would be silently wrong.',
         pii_note: PII_NOTE,
       },
       compliance_flags: ['LOOKUP_YEAR_UNAVAILABLE'],
@@ -126,9 +149,10 @@ export function compute(pp) {
   const high_cost_county = Boolean(pp.high_cost_county); // caller signals county designation
   const county_limit_override = safeNum(pp.county_limit_override, 0); // exact FHFA county limit
 
-  const idx = units - 1; // 0-based into LIMITS arrays
-  const baseline = LIMITS_2026.baseline[idx];
-  const hcc = LIMITS_2026.high_cost_ceiling[idx];
+  const T = TABLES[year];
+  const idx = units - 1; // 0-based into the limit arrays
+  const baseline = T.baseline[idx];
+  const hcc = T.high_cost_ceiling[idx];
 
   // The area's own baseline. AK/HI/GU/VI carry the statutory 150% uplift.
   const isAkHi = AK_HI_TERRITORY.includes(state);
@@ -174,10 +198,10 @@ export function compute(pp) {
     year,
     state_code:    state || null,
     is_ak_hi_territory: isAkHi,
-    table_version: TABLE_VERSION,
-    table_source:  TABLE_SOURCE,
-    regulatory_basis: REGULATORY_BASIS,
-    note: 'County-level limit sourced from the caller (county_limit_override) when provided. Baseline and ceiling values are the 2026 FHFA announcement. Verify high-cost designation against the FHFA county dataset for the exact limit; in AK, HI, Guam and USVI an above-baseline county limit must be supplied as an override.',
+    table_version: 'FHFA-CLL-' + year,
+    table_source:  T.table_source,
+    regulatory_basis: T.regulatory_basis,
+    note: 'County-level limit sourced from the caller (county_limit_override) when provided. Baseline and ceiling values are the ' + year + ' FHFA announcement. Verify high-cost designation against the FHFA county dataset for the exact limit; in AK, HI, Guam and USVI an above-baseline county limit must be supplied as an override.',
     pii_note: PII_NOTE,
   };
 
