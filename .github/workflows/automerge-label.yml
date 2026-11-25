@@ -321,7 +321,10 @@ jobs:
             }' -f id="$NODE_ID" | jq -r '.data.node.timelineItems.nodes[0].reason // "none"')
           echo "last removal reason: $REASON (webhook reason: $WEBHOOK_REASON)"
           case "$REASON" in failed_checks|merge_conflict) ;; *) echo "reason $REASON is never re-queued"; exit 0 ;; esac
-          RUN=$(gh api "repos/$REPO/actions/runs?event=merge_group&status=failure&per_page=50" | jq -r --arg p "gh-readonly-queue/main/pr-$PR-" '[.workflow_runs[] | select(.head_branch | startswith($p))][0].id // empty')
+          # The ejecting run usually concludes
+          # `cancelled` (its failed job cancels the rest), so status=failure
+          # missed 39 of 45 ejections; the helper also reads failed jobs.
+          RUN=$(node scripts/mq-eject-hold.mjs find-run "$REPO" "$PR" || true)
           if [ -z "$RUN" ]; then echo "::notice title=No merge_group run::no failed merge_group run found for #$PR"; exit 0; fi
           VERDICT=$(gh run view "$RUN" -R "$REPO" --log-failed 2>/dev/null | node scripts/mq-eject-classify.mjs || echo '{"kind":"other","gates":[]}')
           KIND=$(echo "$VERDICT" | jq -r .kind)
