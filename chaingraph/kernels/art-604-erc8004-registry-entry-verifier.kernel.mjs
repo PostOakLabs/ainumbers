@@ -1196,12 +1196,18 @@ const NOT_PROVEN = [
  * compute(pp) -- pure verify_erc8004_registry_entry kernel.
  * pp: {
  *   registry_type: 'identity' | 'reputation' | 'validation',  -- required, echoed only
- *   chain_id?: string|number,                                  -- optional, echoed only
- *   registry_address?: string,                                 -- optional, echoed only
+ *   chain_id: string|number,                                  -- required, echoed only
+ *   registry_address: string,                                 -- required, echoed only
  *   claimed_entry: { ...arbitrary key:value pairs },           -- required
  *   onchain_record: { ...arbitrary key:value pairs },          -- required, caller-supplied
  * }
+ * Every required field must be present and filled: absent, null, an empty string and a
+ * whitespace-only string are all treated as missing and yield INDETERMINATE, never CONSISTENT.
  */
+function isFilled(v) {
+  return v !== undefined && v !== null && !(typeof v === 'string' && v.trim() === '');
+}
+
 export function compute(pp) {
   pp = (pp !== null && typeof pp === 'object') ? pp : {};
   const reasons = [];
@@ -1221,7 +1227,14 @@ export function compute(pp) {
     reasons.push('onchain_record is required and must be a non-empty object (independently read by the caller from the registry contract -- this tool never fetches it)');
   }
 
-  const chainIdEcho = (pp.chain_id !== undefined && pp.chain_id !== null && pp.chain_id !== '') ? String(pp.chain_id) : null;
+  if (!isFilled(pp.chain_id)) {
+    reasons.push('chain_id is required (missing, null, blank or whitespace-only)');
+  }
+  if (!isFilled(pp.registry_address)) {
+    reasons.push('registry_address is required (missing, null, blank or whitespace-only)');
+  }
+
+  const chainIdEcho = isFilled(pp.chain_id) ? String(pp.chain_id) : null;
   const registryAddressEcho = (typeof pp.registry_address === 'string' && pp.registry_address.trim() !== '') ? pp.registry_address.trim() : null;
 
   if (reasons.length > 0) {
@@ -1361,7 +1374,56 @@ export const meta = {
   gpu: false,
 };
 
+// Mirrors _hash.mjs limits so buildArtifact never throws: non-finite number, unsafe integer,
+// nesting past MAX_DEPTH, more values than MAX_ELEMENTS. Reports path and kind only.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > HASH_MAX_DEPTH) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > HASH_MAX_ELEMENTS) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const unhashable = findHashRefusal(pp, 'pp', 1, { n: 0 });
+  if (unhashable !== null) {
+    return {
+      '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+      chaingraph_version: '0.4.0',
+      mandate_type: meta.mandate_type,
+      tool_id: TOOL_ID,
+      tool_version: TOOL_VERSION,
+      generated_at: now ?? null,
+      execution_hash: null,
+      hash_refusal: { reason: unhashable.reason, detail: unhashable.detail },
+      chain: { parent_hashes, parent_tool_ids, chain_depth },
+      policy_parameters: null,
+      output_payload: { overall_determination: 'INDETERMINATE', refusal: unhashable.reason },
+      compliance_flags: ['INPUT_REFUSED'],
+      compute_mode: 'server',
+      audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+    };
+  }
   const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
