@@ -109,8 +109,12 @@ name: PR Autofix
 # gets, via scripts/ci/pr-autofix-kernel.mjs, the identity stamp in its own node shard
 # (gen-kernel-identity --write --shard=<id>), a manifest input-schema backfill
 # (gen-input-schemas --write --only <id>), and, for a touched non-derived root page,
-# the footer chrome writer. Each writer has its own path allowlist and a write outside
-# it is reverted and fails the job; shared derived artifacts are never allowlisted.
+# the footer chrome writer. A touched kernel OR node shard also gets the proof-links
+# block on its own node page (gen-proof-links --only <id>), even when the PR never
+# touched the page: the one write onto a covered path, fenced to that page's
+# <!--PROOF-LINKS--> region (PR-AUTOFIX-PROOFLINKS-ON-KERNEL-1). Each writer has its own
+# path allowlist and a write outside it is reverted and fails the job; no other shared
+# derived artifact is ever allowlisted.
 # The page kernel-digest meta is deliberately NOT written: re-stamping it would bless
 # a stale inline compute copy, which is what that sentinel exists to catch.
 #
@@ -280,7 +284,9 @@ jobs:
             echo "has_manifests=$([[ ${#MANIFESTS[@]} -gt 0 ]] && echo true || echo false)"
             echo "has_pages=$([[ ${#PAGES[@]} -gt 0 ]] && echo true || echo false)"
             echo "has_root_html=$([[ ${#ROOTHTML[@]} -gt 0 ]] && echo true || echo false)"
-            echo "has_kernel_writers=$([[ ${#KERNELS[@]} -gt 0 || ${#ROOTPAGES[@]} -gt 0 ]] && echo true || echo false)"
+            # Node shards trigger the kernel writers too: a re-prove that only adds the receipt
+            # to the shard still moves the page's proof-links block (PR-AUTOFIX-PROOFLINKS-ON-KERNEL-1).
+            echo "has_kernel_writers=$([[ ${#KERNELS[@]} -gt 0 || ${#NODES[@]} -gt 0 || ${#ROOTPAGES[@]} -gt 0 ]] && echo true || echo false)"
           } >> "$GITHUB_OUTPUT"
 
       - name: New root page — the curated rootPages list is prose, not autofixable
@@ -406,12 +412,14 @@ jobs:
           done
 
       # Kernel-PR writers: the node shard's kernel identity stamp, the manifest input
-      # schema, and the root-page footer chrome. Each writer sits behind its own path
+      # schema, the root-page footer chrome, and the node page's proof-links block when
+      # the kernel or node shard changed. Each writer sits behind its own path
       # allowlist inside scripts/ci/pr-autofix-kernel.mjs (header lists the triggers and
       # allowlists); a write outside a writer's allowlist is reverted and, for the stamp
-      # and schema writers, fails the job. No shared derived artifact is ever allowlisted:
-      # those have one writer, derived-artifacts-regen.yml on main.
-      - name: Kernel writers (identity stamp, input schema, root chrome) behind per-writer allowlists
+      # and schema writers, fails the job. Apart from the proof-links region of the PR's
+      # own node page, no shared derived artifact is ever allowlisted: those have one
+      # writer, derived-artifacts-regen.yml on main.
+      - name: Kernel writers (identity stamp, input schema, root chrome, proof-links) behind per-writer allowlists
         if: steps.guard.outputs.skip != 'true' && steps.touched.outputs.has_kernel_writers == 'true'
         run: |
           set -euo pipefail
@@ -563,17 +571,26 @@ jobs:
           for f in "${FILES[@]}"; do printf '%s\n' "$f" >> "${RUNNER_TEMP}/allowed.txt"; done
           printf '%s\n' scripts/a11y-baseline.json scripts/manifest-examples-baseline.json >> "${RUNNER_TEMP}/allowed.txt"
           # Kernel writers' per-writer allowlists, recomputed here in trusted shell: a
-          # touched kernel's own node shard and manifest. Root pages and every shared
+          # touched kernel's own node shard and manifest, and for a touched kernel or node
+          # shard its own node page chaingraph/<id>.html (the proof-links writer; its
+          # region fence lives in pr-autofix-kernel.mjs). Root pages and every other shared
           # derived artifact are never added here (those have one writer, the main
           # regen). Ids are filename stems and must match the estate id alphabet.
           for f in "${FILES[@]}"; do
+            kid=""
             case "$f" in
               chaingraph/kernels/*.kernel.mjs)
                 kid="${f#chaingraph/kernels/}"; kid="${kid%.kernel.mjs}"
                 if [[ "$kid" =~ ^[a-z0-9][a-z0-9._-]*$ ]]; then
                   printf '%s\n' "chaingraph/graph/nodes/${kid}.json" "manifests/${kid}.manifest.json" >> "${RUNNER_TEMP}/allowed.txt"
                 fi ;;
+              chaingraph/graph/nodes/*.json)
+                kid="${f#chaingraph/graph/nodes/}"; kid="${kid%.json}" ;;
             esac
+            if [ -n "$kid" ] && [[ "$kid" =~ ^[a-z0-9][a-z0-9._-]*$ ]] \
+               && [ -f "chaingraph/graph/nodes/${kid}.json" ] && [ -f "chaingraph/${kid}.html" ]; then
+              printf '%s\n' "chaingraph/${kid}.html" >> "${RUNNER_TEMP}/allowed.txt"
+            fi
           done
           sort -u -o "${RUNNER_TEMP}/allowed.txt" "${RUNNER_TEMP}/allowed.txt"
           : > "${RUNNER_TEMP}/patched.txt"
