@@ -55,6 +55,42 @@ function isInt(v) {
   return typeof v === 'number' && Number.isSafeInteger(v);
 }
 
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+const PP_MAX_DEPTH = HASH_MAX_DEPTH - 8;
+const PP_MAX_ELEMENTS = 199000;
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+  }
+  return null;
+}
+
+function isPlainObject(v) {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
+
 function malformed(reasons) {
   const flags = [];
   for (const f of ['CURATOR_VAULT_CAPS_INDETERMINATE', 'CURATOR_VAULT_CAPS_MALFORMED_INPUT']) {
@@ -78,13 +114,19 @@ function malformed(reasons) {
 }
 
 /**
- * compute(pp) — pure decision kernel.
- * @param {object} pp policy_parameters
+ * compute(rawPp) — pure decision kernel.
+ * @param {object} rawPp policy_parameters
  * @returns {{ output_payload: object, compliance_flags: string[] }}
  */
-export function compute(pp) {
-  pp = pp || {};
+export function compute(rawPp) {
   const reasons = [];
+  if (!isPlainObject(rawPp)) {
+    reasons.push('REFUSED_INPUT_WRONG_TYPE: policy_parameters must be a plain object');
+  } else {
+    const unhashable = findHashRefusal(rawPp, 'pp', 1, { maxDepth: PP_MAX_DEPTH, maxElements: PP_MAX_ELEMENTS, n: 0 });
+    if (unhashable !== null) reasons.push(`${unhashable.reason}: ${unhashable.detail}`);
+  }
+  const pp = reasons.length === 0 ? Object.fromEntries(Object.entries(rawPp)) : {};
   const profile = pp.profile;
   if (!PROFILES.includes(profile)) {
     reasons.push(`profile must be one of ${PROFILES.join(' | ')} (got ${profile == null ? 'undefined' : (JSON.stringify(profile) ?? 'undefined')}); generic carries caller-declared cap semantics`);
@@ -113,10 +155,18 @@ export function compute(pp) {
   }
   const man = pp.mandate || {};
   if (!isInt(man.max_per_market_bp) || man.max_per_market_bp < 0 || man.max_per_market_bp > 1000000) reasons.push('mandate.max_per_market_bp must be an integer in [0, 1000000]');
-  const classCaps = man.max_per_asset_class_bp || {};
-  for (const k of Object.keys(classCaps)) {
-    if (!ASSET_CLASSES.includes(k)) reasons.push(`mandate.max_per_asset_class_bp key "${k}" is outside the declared asset_class enum`);
-    else if (!isInt(classCaps[k]) || classCaps[k] < 0 || classCaps[k] > 1000000) reasons.push(`mandate.max_per_asset_class_bp.${k} must be an integer in [0, 1000000]`);
+  const rawClassCaps = man.max_per_asset_class_bp;
+  let classCaps = {};
+  if (rawClassCaps !== undefined) {
+    if (rawClassCaps === null || typeof rawClassCaps !== 'object' || Array.isArray(rawClassCaps)) {
+      reasons.push('mandate.max_per_asset_class_bp must be an object of asset_class -> integer bp when declared (present null or wrong type refuses)');
+    } else {
+      for (const k of Object.keys(rawClassCaps)) {
+        if (!ASSET_CLASSES.includes(k)) reasons.push(`mandate.max_per_asset_class_bp key "${k}" is outside the declared asset_class enum`);
+        else if (!isInt(rawClassCaps[k]) || rawClassCaps[k] < 0 || rawClassCaps[k] > 1000000) reasons.push(`mandate.max_per_asset_class_bp.${k} must be an integer in [0, 1000000]`);
+      }
+      classCaps = rawClassCaps;
+    }
   }
   if (!isInt(man.min_idle_bp) || man.min_idle_bp < 0 || man.min_idle_bp > 1000000) reasons.push('mandate.min_idle_bp must be an integer in [0, 1000000]');
   if (man.min_rwa_bp != null && (!isInt(man.min_rwa_bp) || man.min_rwa_bp < 0 || man.min_rwa_bp > 1000000)) reasons.push('mandate.min_rwa_bp must be an integer in [0, 1000000] when declared');
@@ -286,15 +336,15 @@ export function compute(pp) {
 
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
     tool_id: TOOL_ID,
     tool_version: TOOL_VERSION,
     generated_at: now ?? null,
-    execution_hash: hash,
+    execution_hash: unhashable === null ? await executionHash(pp, output_payload) : null,
     chain: { parent_hashes, parent_tool_ids, chain_depth },
     policy_parameters: pp,
     output_payload,
@@ -303,4 +353,6 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }
