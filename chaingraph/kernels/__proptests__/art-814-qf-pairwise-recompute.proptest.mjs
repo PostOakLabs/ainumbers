@@ -1,5 +1,5 @@
 // art-814-qf-pairwise-recompute -- class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:bbfed88877a9fdee108d9e5f9d8630c385c5189a03ffbe826ac2f334413f311f
+// kernel_digest_at_authoring: sha256:8225ffacee1d4a3679dd04456aac5017c0b4453384c215bf2b284ef12fa4a008
 // spec: research/QF-PIN-2026-11.md (row QF-PRIMARY-1); node metadata cites the pinned excerpts.
 // human_sign_off: PENDING
 //
@@ -192,6 +192,27 @@ function checkDeterminism() {
   return { name: 'compute_is_deterministic', checked, violations };
 }
 
+// Names that collide with Object.prototype members are data, never a crash, a vanished row or an inherited read.
+function checkReservedNamesAreData() {
+  const names = ['__proto__', 'constructor', 'toString', 'hasOwnProperty', 'valueOf'];
+  let checked = 0, violations = 0;
+  for (const n of names) {
+    const asProject = compute({ matching_pool: 100, contributions: [
+      { project: 'p1', contributor: 'c1', amount: 4 }, { project: 'p1', contributor: 'c2', amount: 9 },
+      { project: n, contributor: 'c3', amount: 100 }, { project: n, contributor: 'c4', amount: 100 },
+    ] }).output_payload;
+    checked++;
+    const hit = asProject.ok && asProject.projects.find((p) => p.project === n);
+    if (!hit || asProject.projects.length !== 2 || hit.contributor_count !== 2 || hit.total_contributed !== 200 || asProject.sum_check.allocated !== 100) violations++;
+    const asContributor = compute({ matching_pool: 100, contributions: [
+      { project: 'p1', contributor: n, amount: 4 }, { project: 'p1', contributor: 'c2', amount: 9 },
+    ] }).output_payload;
+    checked++;
+    if (!asContributor.ok || asContributor.inputs_summary.contributors !== 2 || asContributor.projects[0].contributor_count !== 2 || asContributor.projects[0].total_contributed !== 13) violations++;
+  }
+  return { name: 'prototype_member_names_for_projects_and_contributors_are_data', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -209,6 +230,7 @@ const properties = [
   checkCollusionBound(),
   checkRefusals(),
   checkDeterminism(),
+  checkReservedNamesAreData(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test`);
 const ok = summarize(KERNEL_ID, oracle, properties);
