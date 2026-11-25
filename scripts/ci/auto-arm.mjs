@@ -27,12 +27,16 @@
 //       whenever either PR touches them). A PR that still carries a registry
 //       write ("serial" class) keeps the baton and needs zero other lineage
 //       PRs armed or queued.
+//       CO-ARM (opt-in, off unless AUTO_ARM_LINEAGE_COARM=1, LINEAGE-COARM-1):
+//       a second lineage PR whose only registry write is its own kernel
+//       record may arm beside one armed lineage PR when a gate verdict on the
+//       exact combined tree is green; see coarmDecision() for every condition.
 // Never removes labels, never merges, never touches non-allowlisted PRs.
 //
 // Usage: node scripts/ci/auto-arm.mjs [--dry-run] [--repo OWNER/NAME]
 //   --dry-run  print the decision per open PR, change nothing.
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -93,12 +97,96 @@ export function parallelSlotBlocker(pr, armed, max = PARALLEL_MAX) {
   return null;
 }
 
-// pr: {number, isDraft, labels:[names], files:[paths], branch}
+// ── CO-ARM (LINEAGE-COARM-1, opt-in, off by default) ───────────────────────
+// The mainside mode above never lets two "serial" PRs fly together, and almost
+// every kernel PR is serial today only because it renames its OWN content-
+// addressed record under registry/kernel/. Those records have no shared index
+// (each is linked only from its own node page), and the lineage log, absence
+// tree, receipt bundles and counts are main-only regen outputs, rebuilt once
+// per push to main. Measured Nov 1-25: no kernel-vs-kernel semantic eject
+// after 11-07; the ejects that did happen were PR-vs-main (stale proof links
+// after a record rename, #3278; SPEC.md drift making every record stale,
+// #2831) or a since-fixed ID-collision false positive (#2524). A textual merge
+// test catches none of those, so co-arm needs an executed gate VERDICT on the
+// exact combined tree (scripts/ci/coarm-gates.mjs), not just a clean merge.
+//
+// A second lineage PR may arm beside ONE armed/queued lineage PR only when ALL
+// hold (any missing fact fails closed to the serial rule):
+//   - both are co-arm eligible (coarmIneligible() === null): lineage-class,
+//     under the 100-file list cap, registry writes are only
+//     registry/kernel/<64 hex>.json records, no lineage log, no receipt
+//     bundles, no SPEC.md or SHARED_RESIDUAL file, no new node file;
+//   - at most COARM_MAX (2) lineage PRs armed/queued at once, matching the
+//     queue's build width (max_entries_to_build 2): a third would only wait;
+//   - file-disjoint (sharedFiles, residual files count as overlap);
+//   - main's latest completed derived-artifacts-regen run is green (a stale
+//     main is what feeds the #3278 class);
+//   - no recent eject (no open PR carries mq-ejected and no merge_group run
+//     failed inside COARM_EJECT_COOLDOWN_H): after any eject the lane falls
+//     back to one at a time;
+//   - a verdict with ok:true exists for exactly this set, bound to main's tip
+//     and to each PR's head sha.
+export const COARM_MAX = 2;
+export const COARM_EJECT_COOLDOWN_H = 6;
+export const SPEC_PATH = 'chaingraph/standard/SPEC.md';
+export const NODE_PREFIX = 'chaingraph/graph/nodes/';
+const KERNEL_RECORD = /^registry\/kernel\/[0-9a-f]{64}\.json$/;
+
+// pr: {files, newNodePaths?}. newNodePaths are the PR's node files absent on
+// main (the CLI fills it; undefined = unknown, which fails closed).
+export function coarmIneligible(pr) {
+  const files = pr.files || [];
+  if (!isLineageClass(files)) return 'not-lineage-class';
+  if (files.length >= FILE_CAP) return 'file-list-capped';
+  const mainOnly = files.find((f) => f === LINEAGE_LOG_FILE || f.startsWith(RECEIPT_BUNDLE_PREFIX));
+  if (mainOnly) return `main-only-path:${mainOnly}`;
+  const reg = files.find((f) => f.startsWith('registry/') && !KERNEL_RECORD.test(f));
+  if (reg) return `registry-path-not-a-kernel-record:${reg}`;
+  const shared = files.find((f) => f === SPEC_PATH || SHARED_RESIDUAL.includes(f));
+  if (shared) return `touches-shared-file:${shared}`;
+  if (!Array.isArray(pr.newNodePaths)) return 'new-node-check-unknown';
+  if (pr.newNodePaths.length) return `adds-node:${pr.newNodePaths[0]}`;
+  return null;
+}
+
+// The verdict key: main tip + sorted "number:headSha" pairs.
+export const coarmKey = (base, prs) => `${base}|${prs.map((p) => `${p.number}:${p.headSha}`).sort().join(',')}`;
+
+// coarm: {regenGreen, recentEject, verdicts:[{base, prs:[{number, headSha}], ok}]}
+// armed: [{number, files, headSha, newNodePaths}] lineage PRs labelled or queued.
+// Returns {mode:'serial'} when co-arm does not apply (nothing armed: the
+// baton decides as before), {block: reason}, or {mode:'coarm'}.
+export function coarmDecision(pr, armed, coarm, mainTip) {
+  const others = (armed || []).filter((o) => o.number !== pr.number);
+  if (others.length === 0) return { mode: 'serial' };
+  if (!coarm) return { block: 'another-lineage-pr-armed-or-queued' };
+  if (coarm.regenGreen !== true) return { block: 'coarm-hold:main-regen-not-green' };
+  if (coarm.recentEject !== false) return { block: 'coarm-hold:recent-eject' };
+  if (others.length >= COARM_MAX) return { block: `coarm-full:${others.length}/${COARM_MAX}` };
+  const mine = coarmIneligible(pr);
+  if (mine) return { block: `coarm-ineligible:${mine}` };
+  for (const o of others) {
+    const why = coarmIneligible(o);
+    if (why) return { block: `coarm-armed-pr-ineligible:#${o.number}:${why}` };
+    const sh = sharedFiles(pr.files, o.files);
+    if (sh.length) return { block: `coarm-overlap-with:#${o.number}:${sh.slice(0, 3).join(',')}` };
+  }
+  const set = [pr, ...others];
+  if (set.some((p) => !p.headSha) || !mainTip) return { block: 'coarm-head-or-tip-unknown' };
+  const want = coarmKey(mainTip, set);
+  const v = (coarm.verdicts || []).find((x) => x && x.base && Array.isArray(x.prs) && coarmKey(x.base, x.prs) === want);
+  if (!v) return { block: 'coarm-no-verdict-for-set' };
+  if (v.ok !== true) return { block: 'coarm-verdict-red' };
+  return { mode: 'coarm' };
+}
+
+// pr: {number, isDraft, labels:[names], files:[paths], branch, headSha?, newNodePaths?}
 // checks: [{name, bucket}] for REQUIRED checks on the current head
 // ctx: {allow:{prs,lineage}, mainTip, mergeFirstParent, openBranches:[...],
 //       otherLineageArmed:boolean,
 //       lineageParallel?: {max}      (opt-in parallel slots for mainside PRs; absent = one lineage PR at a time)
-//       armedLineage?: [{number, files}]  (lineage-class PRs labelled or queued, for the parallel slot rule)}
+//       armedLineage?: [{number, files}]  (lineage-class PRs labelled or queued, for the parallel slot rule)
+//       coarm?: {regenGreen, recentEject, verdicts}  (opt-in LINEAGE-COARM-1; absent = off)}
 export function decide(pr, checks, ctx) {
   const wait = (reason) => ({ action: 'wait', reason });
   const row = ctx.allow.prs?.[pr.branch];
@@ -111,16 +199,23 @@ export function decide(pr, checks, ctx) {
   }
   const lineage = isLineageClass(pr.files);
   const parallel = lineage && ctx.lineageParallel && lineageKind(pr.files) === 'mainside';
+  let coarmed = false;
   if (parallel) {
     // No baton for a mainside PR. Without an armed list, any armed lineage PR blocks (fail closed).
     if (!ctx.armedLineage && ctx.otherLineageArmed) return wait('another-lineage-pr-armed-or-queued');
     const why = parallelSlotBlocker(pr, ctx.armedLineage || [], ctx.lineageParallel.max ?? PARALLEL_MAX);
     if (why) return wait(why);
   } else if (lineage) {
+    // Co-arm (opt-in): with exactly one other lineage PR armed and every
+    // co-arm condition met, the baton passes to the next open branch in order.
+    const cd = ctx.coarm ? coarmDecision(pr, ctx.armedLineage, ctx.coarm, ctx.mainTip) : { mode: 'serial' };
+    if (cd.block) return wait(cd.block);
+    coarmed = cd.mode === 'coarm';
+    const armedBranches = new Set(coarmed ? (ctx.armedLineage || []).map((o) => o.branch) : []);
     const order = ctx.allow.lineage || [];
-    const first = order.find((b) => ctx.openBranches.includes(b));
+    const first = order.find((b) => ctx.openBranches.includes(b) && !armedBranches.has(b));
     if (first !== pr.branch) return wait(`lineage-baton-held-by:${first || 'unlisted'}`);
-    if (ctx.otherLineageArmed) return wait('another-lineage-pr-armed-or-queued');
+    if (!coarmed && ctx.otherLineageArmed) return wait('another-lineage-pr-armed-or-queued');
   }
   if (!checks.length) return wait('no-required-checks-reported');
   const bad = checks.filter((c) => !['pass', 'skipping'].includes(c.bucket));
@@ -130,12 +225,40 @@ export function decide(pr, checks, ctx) {
   if (!ctx.mergeFirstParent || ctx.mergeFirstParent !== ctx.mainTip) {
     return { action: 'update-branch', reason: 'merge-ref-first-parent-not-main-tip' };
   }
-  return { action: 'arm', reason: `green+fresh row=${row}${lineage ? (parallel ? ' lineage-parallel' : ' lineage') : ''}` };
+  const lane = parallel ? ' lineage-parallel' : coarmed ? ' lineage-coarm' : ' lineage';
+  return { action: 'arm', reason: `green+fresh row=${row}${lineage ? lane : ''}` };
 }
 
 // --- CLI ---------------------------------------------------------------
 const gh = (args) => execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 64 << 20 });
 const ghJson = (args) => JSON.parse(gh(args));
+
+// LINEAGE-COARM-1 facts. regenGreen: main's latest completed derived-artifacts-regen run succeeded.
+// recentEject: an open PR carries mq-ejected, or a merge_group run failed in the cooldown window.
+// verdicts: the JSON array that scripts/ci/coarm-gates.mjs wrote, at $AUTO_ARM_COARM_VERDICTS (absent = none).
+export function readCoarmFacts(repo, info, now = Date.now()) {
+  let regenGreen = null;
+  try {
+    const r = ghJson(['api', `repos/${repo}/actions/workflows/derived-artifacts-regen.yml/runs?branch=main&status=completed&per_page=1`]);
+    regenGreen = r.workflow_runs?.[0]?.conclusion === 'success';
+  } catch { regenGreen = null; }
+  let recentEject = null;
+  try {
+    if (info.some((p) => p.labels.includes('mq-ejected'))) recentEject = true;
+    else {
+      const since = new Date(now - COARM_EJECT_COOLDOWN_H * 3600_000).toISOString().replace(/\.\d+Z$/, 'Z');
+      const r = ghJson(['api', `repos/${repo}/actions/runs?event=merge_group&status=failure&created=%3E%3D${since}&per_page=1`]);
+      recentEject = (r.total_count || 0) > 0;
+    }
+  } catch { recentEject = null; }
+  let verdicts = [];
+  const vp = process.env.AUTO_ARM_COARM_VERDICTS;
+  if (vp) {
+    try { verdicts = JSON.parse(readFileSync(vp, 'utf8')); } catch { verdicts = []; }
+    if (!Array.isArray(verdicts)) verdicts = [];
+  }
+  return { regenGreen, recentEject, verdicts };
+}
 
 function main() {
   const argv = process.argv.slice(2);
@@ -146,11 +269,13 @@ function main() {
   const allow = JSON.parse(readFileSync(resolve(here, 'auto-arm-allow.json'), 'utf8'));
 
   const prs = ghJson(['pr', 'list', '-R', repo, '--state', 'open', '--limit', '200', '--json',
-    'number,headRefName,isDraft,labels,files,headRepositoryOwner']);
+    'number,headRefName,headRefOid,isDraft,labels,files,headRepositoryOwner']);
   const mainTip = ghJson(['api', `repos/${repo}/commits/main`]).sha;
   const info = prs.map((p) => ({
     number: p.number, branch: p.headRefName, isDraft: p.isDraft,
-    labels: p.labels.map((l) => l.name), files: p.files.map((f) => f.path),
+    labels: p.labels.map((l) => l.name), files: p.files.map((f) => f.path), headSha: p.headRefOid,
+    // Node files the PR carries that main's checkout (this job runs on main) does not have.
+    newNodePaths: p.files.map((f) => f.path).filter((f) => f.startsWith(NODE_PREFIX) && !existsSync(resolve(here, '../..', f))),
   }));
   const queued = (n) => {
     const id = ghJson(['pr', 'view', String(n), '-R', repo, '--json', 'id']).id;
@@ -161,6 +286,9 @@ function main() {
   // Parallel mainside slots are opt-in: the workflow sets AUTO_ARM_LINEAGE_PARALLEL=1 only when the operator turns
   // them on. Unset (today's workflow) keeps one lineage PR at a time.
   const lineageParallel = process.env.AUTO_ARM_LINEAGE_PARALLEL === '1' ? { max: PARALLEL_MAX } : null;
+  // Co-arm is opt-in too (AUTO_ARM_LINEAGE_COARM=1). Its facts are read once per run; any read failure leaves
+  // a fact unknown, and decide() treats unknown as "hold" (serial).
+  const coarm = process.env.AUTO_ARM_LINEAGE_COARM === '1' ? readCoarmFacts(repo, info) : null;
   let failed = 0;
   const lines = [];
   for (const pr of info) {
@@ -183,10 +311,12 @@ function main() {
           mergeFirstParent = ghJson(['api', `repos/${repo}/git/commits/${ref}`]).parents[0]?.sha || null;
         } catch { mergeFirstParent = null; }
         armedLineage = info.filter((o) => o.number !== pr.number && isLineageClass(o.files)
-          && (o.labels.includes(LABEL) || queued(o.number))).map((o) => ({ number: o.number, files: o.files }));
+          && (o.labels.includes(LABEL) || queued(o.number))).map((o) => ({
+          number: o.number, files: o.files, branch: o.branch, headSha: o.headSha, newNodePaths: o.newNodePaths,
+        }));
         otherLineageArmed = armedLineage.length > 0;
       }
-      d = decide(pr, checks, { allow, mainTip, mergeFirstParent, openBranches, otherLineageArmed, armedLineage, lineageParallel });
+      d = decide(pr, checks, { allow, mainTip, mergeFirstParent, openBranches, otherLineageArmed, armedLineage, lineageParallel, coarm });
       if (!dry && d.action === 'arm') gh(['pr', 'edit', String(pr.number), '-R', repo, '--add-label', LABEL]);
       if (!dry && d.action === 'update-branch') {
         gh(['api', '-X', 'PUT', `repos/${repo}/pulls/${pr.number}/update-branch`]);
