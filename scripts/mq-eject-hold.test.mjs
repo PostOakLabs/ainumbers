@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   holdComment, isHoldComment, recordedSha, isHeld, LABEL, pickEjectRun, findEjectRun,
   recordedClass, ownDiffMoved, clearVerdict, prDiff, newestHoldComment,
+  mainMovedCause, recordedStep, holdMainMovedCause, MAIN_OWNED_FRESHNESS_STEPS,
 } from './mq-eject-hold.mjs';
 
 const info = { workflow: 'scripts-verify', step: 'Run gates', runId: '123', sha: 'abc1234def' };
@@ -134,6 +135,41 @@ test('own file added, removed or renamed: clear', () => {
 test('eject caused by main moving on (derived-gate): a main refresh clears', () => {
   const v = clearVerdict({ holdBody: derivedHold, before: diff(own), after: diff(own) });
   assert.deepEqual(v, { clear: true, reason: 'eject-from-main-move:derived-gate' });
+});
+
+// A dead-link eject is classed `other` (not a DERIVED_ROOT_GATES command) but
+// main owns the step, so a merge of main lifts the hold. bot-sync forces that
+// merge on the same rule (scripts/ci/pr-sync-main.mjs).
+const DEAD_LINK_STEP = 'CSP + copy-hallmarks + dead-link + chrome gates / Dead-link gate';
+const deadLinkHold = holdComment({ ...info, workflow: 'HTML Verify', step: DEAD_LINK_STEP, kind: 'other' });
+// #3278's real comment, written before the class field existed.
+const HOLD_3278 = 'merge-queue: ejected for a failed check (workflow HTML Verify, step CSP + copy-hallmarks + dead-link + chrome gates / Dead-link gate, run 45585938105), head cf945547ba9de296aa36c600052a42b8249edbc0. Not re-armed at this head: push a new commit to clear the `mq-ejected` label.';
+
+test('mainMovedCause: a main-moved class or a main-owned step, matched on the step name only', () => {
+  assert.equal(mainMovedCause({ kind: 'derived-gate', step: 'x / Run gates' }), 'derived-gate');
+  assert.equal(mainMovedCause({ kind: 'other', step: DEAD_LINK_STEP }), 'step:Dead-link gate');
+  assert.equal(mainMovedCause({ kind: null, step: 'Dead-link gate' }), 'step:Dead-link gate');
+  for (const s of MAIN_OWNED_FRESHNESS_STEPS) {
+    assert.equal(mainMovedCause({ kind: 'other', step: `scripts-verify / ${s}` }), `step:${s}`);
+  }
+  assert.equal(mainMovedCause({ kind: 'other', step: 'scripts-verify / MCP output-schema coverage' }), null);
+  assert.equal(mainMovedCause({ kind: 'other', step: 'Dead-link gate extra / Run gates' }), null);
+  assert.equal(mainMovedCause({ kind: 'checkout-fatal', step: 'unknown' }), null);
+  assert.equal(mainMovedCause({}), null);
+});
+
+test('dead-link eject (class other): recorded step is read, a main refresh clears', () => {
+  assert.equal(recordedStep(deadLinkHold), DEAD_LINK_STEP);
+  assert.equal(holdMainMovedCause(deadLinkHold), 'step:Dead-link gate');
+  assert.ok(deadLinkHold.includes('merge main in'));
+  const v = clearVerdict({ holdBody: deadLinkHold, before: diff(own), after: diff(own) });
+  assert.deepEqual(v, { clear: true, reason: 'eject-from-main-move:step:Dead-link gate' });
+});
+
+test('#3278 real dead-link hold (no class): a main refresh clears', () => {
+  assert.equal(recordedStep(HOLD_3278), DEAD_LINK_STEP);
+  const v = clearVerdict({ holdBody: HOLD_3278, before: diff(own), after: diff(own) });
+  assert.deepEqual(v, { clear: true, reason: 'eject-from-main-move:step:Dead-link gate' });
 });
 
 test('unknown inputs clear, as before', () => {
