@@ -1262,6 +1262,10 @@ const GATES = [
   // (which diff paths owe the FULL leg; docs-only scripts/ edits no longer do).
   ['Pre-push full-suite trigger controls (RED/GREEN path classes, PREPUSH-NARROW-1)',
     'node scripts/prepush-full-trigger.mjs --self-test'],
+  // The push:main queue drain heartbeat (dispatch-heartbeat.yml): red when no
+  // schedule or dispatch run of the drain workflows came within the hour.
+  ['Queue drain heartbeat fixture proof (quiet over an hour is red)',
+    'node --test scripts/ci/dispatch-heartbeat.test.mjs'],
   // PREPUSH-PRID-ENV-1: red/green controls for the hook's PR_ID_COLLISION_PR export
   // (open PR on the pushed branch only; every error path exports nothing).
   ['Pre-push PR-id env export controls (RED/GREEN, PREPUSH-PRID-ENV-1)',

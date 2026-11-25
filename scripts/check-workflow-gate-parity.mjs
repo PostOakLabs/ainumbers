@@ -249,6 +249,10 @@ const NOT_A_GATE = new Map([
     "run and can never be required. It has no pull_request, merge_group or push trigger of " +
     "its own, runs no estate gate, and blocks no merge — it reports a main-side red after " +
     "the fact."],
+  ["dispatch-heartbeat.yml",
+    "push main only — post-merge report that the queue drain workflows were dispatched within the " +
+    "hour, via ONE tracking issue on the shared scheduled-red-issue tracker. No pull_request or " +
+    "merge_group trigger, runs no estate gate, never a required check, blocks no merge."],
   ["fullsuite-schedule.yml",
     "schedule (weekly) + workflow_dispatch only; steps are continue-on-error by design " +
     "so the whole suite reports rather than stopping at the first red."],

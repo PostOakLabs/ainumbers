@@ -162,9 +162,9 @@ test('LEDGER-ECHO: --harvest recovers pointers into the ledger with no session r
   assert.equal(readFileSync(ledger, 'utf8'), text);
 });
 
-test('registry covers exactly the surfaces the rows name (three scheduled + the regen listener)', () => {
+test('registry covers exactly the surfaces the rows name (three scheduled + the regen listener + the drain heartbeat)', () => {
   assert.deepEqual([...SURFACES.keys()].sort(),
-    ['derived-regen', 'fullsuite-weekly', 'mutation-nightly', 'prepush-attestation', 'regen-reader', 'vintage-horizon']);
+    ['derived-regen', 'dispatch-heartbeat', 'fullsuite-weekly', 'mutation-nightly', 'prepush-attestation', 'regen-reader', 'vintage-horizon']);
   for (const [key, s] of SURFACES) {
     assert.ok(existsSync(resolve(HERE, '..', s.workflow)), `${key}: ${s.workflow} must exist`);
   }
