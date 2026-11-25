@@ -8287,7 +8287,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Allocation/Affirmation Conformance Checker",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-81-allocation-affirmation-conformance.html",
-    "description": "Checks allocation and confirmation/affirmation events against the ESMA CSDR SDR RTS 23:00 CET trade-date rule and the machine-readable-forma",
+    "description": "Checks allocation and confirmation/affirmation events against the 23:00 CET trade-date rule in Delegated Regulation (EU) 2026/1536 and the m",
     "consumes": [
       "art-77-t1-settlement-readiness-diagnostic"
     ],
