@@ -123,6 +123,35 @@ t('draft → skip draft', () => {
 t(`labelled ${SKIP_LABEL} → skip label`, () => {
   assert.equal(run({ pr: { labels: ['automerge', SKIP_LABEL] } }).reason, `label:${SKIP_LABEL}`);
 });
+// BOT-SYNC-OPTOUT-DERIVED-CONFLICT-1: the opt-out yields only to a conflict
+// that sits entirely in main-owned derived paths (or sentinel-only pages).
+t(`${SKIP_LABEL} + conflict only in main-owned derived paths → merge-derived (armed too)`, () => {
+  for (const labels of [[SKIP_LABEL], ['automerge', SKIP_LABEL]]) {
+    const d = run({ pr: { labels }, conflicts: ['mcp/catalog.json', 'sitemap.xml'] });
+    assert.equal(d.action, 'merge-derived');
+    assert.deepEqual(d.paths, ['mcp/catalog.json', 'sitemap.xml']);
+  }
+});
+t(`${SKIP_LABEL} + conflict only in a sentinel-only page → merge-derived`, () => {
+  const d = run({ pr: { labels: [SKIP_LABEL] }, conflicts: ['tools/x.html'], sentinelOk: new Set(['tools/x.html']) });
+  assert.equal(d.action, 'merge-derived');
+});
+t(`${SKIP_LABEL} + a real conflict beside derived ones → still skip label (no comment)`, () => {
+  assert.equal(run({ pr: { labels: [SKIP_LABEL] }, conflicts: ['mcp/catalog.json', 'chaingraph/kernels/a.kernel.mjs'] }).reason, `label:${SKIP_LABEL}`);
+});
+t(`${SKIP_LABEL} + the legacy id registry conflict → still skip label`, () => {
+  assert.equal(run({ pr: { labels: [SKIP_LABEL] }, conflicts: [RESERVATIONS_LEGACY] }).reason, `label:${SKIP_LABEL}`);
+});
+t(`${SKIP_LABEL} + clean BEHIND or unknown merge → still skip label`, () => {
+  assert.equal(run({ pr: { labels: [SKIP_LABEL] }, conflicts: [] }).reason, `label:${SKIP_LABEL}`);
+  assert.equal(run({ pr: { labels: [SKIP_LABEL] }, conflicts: null }).reason, `label:${SKIP_LABEL}`);
+});
+t(`${SKIP_LABEL} + derived-only conflict still honours queue, fresh-head and attempt guards`, () => {
+  const c = ['mcp/catalog.json'];
+  assert.equal(run({ pr: { labels: [SKIP_LABEL], inMergeQueue: true }, conflicts: c }).reason, 'in-merge-queue');
+  assert.equal(run({ pr: { labels: [SKIP_LABEL] }, conflicts: c, attempts: MAX_ATTEMPTS_PER_HEAD }).reason, `attempts:${MAX_ATTEMPTS_PER_HEAD}`);
+  assert.equal(run({ pr: { labels: [SKIP_LABEL], headCommittedAt: new Date(NOW - 60_000).toISOString() }, conflicts: c }).reason, 'fresh-head');
+});
 t('in the merge queue → skip (a push would eject it)', () => {
   assert.equal(run({ pr: { inMergeQueue: true } }).reason, 'in-merge-queue');
 });
