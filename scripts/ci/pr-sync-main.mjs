@@ -14,7 +14,9 @@
  *   `no-bot-sync` label, PRs in the merge queue, and heads pushed in the last
  *   few minutes, where a builder may still be pushing):
  *     - current (head already contains main)      -> nothing to do
- *     - BEHIND, merges clean                       -> merge origin/main in, push
+ *     - BEHIND, merges clean, head green           -> nothing (queue tests on main)
+ *     - BEHIND, merges clean, head red or no CI    -> merge origin/main in, push
+ *       (red only when main can repair it; see decide())
  *     - DIRTY only in main-owned derived paths     -> merge, take main's side of
  *                                                     those paths, commit, push
  *     - DIRTY in the legacy id registry (alone or  -> keep main's frozen
@@ -352,6 +354,17 @@ export function decide(input) {
       && !(redHeadFreshnessOnly(input) || redHeadStale(input));
   if (redUnrepairable && Array.isArray(input.failingSteps) && input.failingSteps.length > 0) return skip('required-failed-on-head');
   if (redUnrepairable && Array.isArray(input.sharedFiles) && input.sharedFiles.length === 0) return skip('red-head-no-shared-files');
+  // Green head, clean BEHIND: a merge of main only restarts CI on a PR that
+  // is already armable. main-ci-anchor sets strict_required_status_checks_policy
+  // false, so BEHIND never blocks arming (GitHub reports such a PR CLEAN), and
+  // the merge queue tests the PR on current main anyway. Measured Nov 4-25:
+  // 2,176 syncs of unarmed green heads, about 44% of PR CI wall time, each
+  // leaving the PR un-armable for a median 24 min (114 turned it red); arms on
+  // a just-synced head were ejected no less often. Conflicts, main-repairable
+  // reds, unknown CI and the opt-in label still sync.
+  if (conflicts.length === 0 && pr.checksState === 'SUCCESS' && !(pr.labels || []).includes(SYNC_ANYWAY_LABEL)) {
+    return skip('green-queue-rebuilds');
+  }
 
   if (conflicts.length === 0) return { action: 'merge-clean', reason: 'behind', paths: [] };
   const sentinelOk = input.sentinelOk || new Set();

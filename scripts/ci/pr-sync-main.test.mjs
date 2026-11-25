@@ -143,10 +143,9 @@ t('fresh head (builder may still be pushing) → skip; same head past the window
   assert.equal(run({ pr: { headCommittedAt: '2026-11-03T11:55:00Z' } }).reason, 'fresh-head');
   assert.equal(run({ pr: { headCommittedAt: '2026-11-03T11:55:00Z' }, minHeadAgeMs: 60_000 }).action, 'merge-clean');
 });
-t('CI pending on a recent head → skip checks-running; pending past the window or SUCCESS → acts', () => {
+t('CI pending on a recent head → skip checks-running; pending past the window → acts', () => {
   assert.equal(run({ pr: { checksState: 'PENDING', headCommittedAt: '2026-11-03T11:30:00Z' } }).reason, 'checks-running');
   assert.equal(run({ pr: { checksState: 'PENDING', headCommittedAt: OLD } }).action, 'merge-clean');
-  assert.equal(run({ pr: { checksState: 'SUCCESS', headCommittedAt: '2026-11-03T11:30:00Z' } }).action, 'merge-clean');
 });
 t('armed + BEHIND clean → skip (queue rebuilds); armed + derived-DIRTY still acts (queue cannot take a conflict)', () => {
   assert.equal(run({ pr: { labels: ['automerge'] } }).reason, 'armed-queue-rebuilds');
@@ -171,10 +170,26 @@ t('red + overlap unknown (null/undefined) → syncs, never skips blind', () => {
   assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: null }).action, 'merge-clean');
   assert.equal(run({ pr: { checksState: 'FAILURE' } }).action, 'merge-clean');
 });
-t('green / pending-past-window / no rollup → unchanged behaviour even with no shared files', () => {
-  for (const checksState of ['SUCCESS', 'PENDING', null]) {
+t('pending-past-window / no rollup → unchanged behaviour even with no shared files', () => {
+  for (const checksState of ['PENDING', null]) {
     assert.equal(run({ pr: { checksState }, sharedFiles: [] }).action, 'merge-clean');
   }
+});
+// BOT-SYNC-GREEN-SKIP-1: a clean merge of main into an unarmed GREEN head
+// only restarts CI (strict up-to-date is off; the queue tests on main).
+t('green + clean BEHIND → skip green-queue-rebuilds (no CI restart on an armable PR)', () => {
+  assert.deepEqual(run({ pr: { checksState: 'SUCCESS' } }), { action: 'skip', reason: 'green-queue-rebuilds', paths: [] });
+  assert.equal(run({ pr: { checksState: 'SUCCESS', headCommittedAt: OLD }, sharedFiles: ['scripts/x.mjs'] }).reason, 'green-queue-rebuilds');
+});
+t('green + CONFLICTING → still resolves / reports (the queue cannot take a conflict)', () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS' }, conflicts: ['mcp/catalog.json'] }).action, 'merge-derived');
+  assert.equal(run({ pr: { checksState: 'SUCCESS' }, conflicts: ['scripts/x.mjs'] }).action, 'conflict-real');
+});
+t(`green + ${SYNC_ANYWAY_LABEL} label → syncs (opt-in still forces a merge of main)`, () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: [SYNC_ANYWAY_LABEL] } }).action, 'merge-clean');
+});
+t('red head that main can repair still syncs alongside the green skip', () => {
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [FRESH_STEP] }).action, 'merge-clean');
 });
 t('red + only a main-owned freshness step failing → syncs (a merge of main repairs it)', () => {
   for (const step of MAIN_OWNED_FRESHNESS_STEPS) {
@@ -198,8 +213,8 @@ t(`red + PR-owned failing step + ${SYNC_ANYWAY_LABEL} label → syncs`, () => {
 t('red + PR-owned failing step + CONFLICTING → still syncs / reports (D1 does not touch conflicted PRs)', () => {
   assert.equal(run({ pr: { checksState: 'FAILURE' }, conflicts: ['mcp/catalog.json'], sharedFiles: [], failingSteps: [PR_STEP] }).action, 'merge-derived');
 });
-t('green + failing steps array left over (stale facts) → unchanged, still syncs', () => {
-  assert.equal(run({ pr: { checksState: 'SUCCESS' }, sharedFiles: [], failingSteps: [PR_STEP] }).action, 'merge-clean');
+t('green + failing steps array left over (stale facts) → green rule decides, skip', () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS' }, sharedFiles: [], failingSteps: [PR_STEP] }).reason, 'green-queue-rebuilds');
 });
 t('red + mixed failing steps (one unlisted) → still skip (exact names only, no prefix match)', () => {
   assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [FRESH_STEP, PR_STEP] }).reason, 'required-failed-on-head');
