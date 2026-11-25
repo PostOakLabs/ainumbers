@@ -59,8 +59,9 @@ import { join } from 'node:path';
 import {
   decide, mainOwnedPaths, sentinelOwnedPaths, isSentinelOnlyDiff, parseMergeTree, syncOne,
   waitForRegen, regenGate, planReservations, shardBytes, RESERVATIONS_LEGACY, SKIP_LABEL, MAX_ATTEMPTS_PER_HEAD, SYNC_ANYWAY_LABEL,
-  MAIN_OWNED_FRESHNESS_STEPS, recoveryFromRuns, EJECTED_LABEL, ejectFromMainMove, ejectStepFor,
+  MAIN_OWNED_FRESHNESS_STEPS, recoveryFromRuns, EJECTED_LABEL, ejectFromMainMove, ejectClassFor,
 } from './pr-sync-main.mjs';
+import { holdComment, MAIN_MOVED_KINDS } from '../mq-eject-hold.mjs';
 import { canonicalRecordBytes, NEVER_LIVE_DEPENDENCY_NOTE } from '../gen-registry-kernel-resolve.mjs';
 import { sourceDigest } from '../../chaingraph/kernels/_buildid.mjs';
 import { gitEnv } from '../_git-env-lib.mjs';
@@ -217,38 +218,42 @@ t('green + overlap unknown (null/undefined) → syncs, never skips blind', () =>
   assert.equal(run({ pr: { checksState: 'SUCCESS' }, sharedFiles: null }).action, 'merge-clean');
   assert.equal(run({ pr: { checksState: 'SUCCESS' } }).action, 'merge-clean');
 });
-// Eject hold: force a sync only for a main-moved eject cause, and before the
-// armed skip, since a real ejected PR keeps `automerge` (#3278's real comment).
+// Eject hold: force a sync only for an eject class main moving on caused (the
+// rule that lifts the hold), and before the armed skip, since a real ejected
+// PR keeps `automerge`. Fixtures come from mq-eject-hold.mjs's own writer.
+const EJ_HEAD = 'cf945547ba9de296aa36c600052a42b8249edbc0';
+const hold = (kind) => holdComment({ workflow: 'Scripts Verify', step: 'scripts-verify / Full preflight', runId: '45585938105', sha: EJ_HEAD, kind });
+const MAIN_MOVED = [...MAIN_MOVED_KINDS][0];
+// #3278's real comment, written before the class field existed.
 const HOLD_3278 = 'merge-queue: ejected for a failed check (workflow HTML Verify, step CSP + copy-hallmarks + dead-link + chrome gates / Dead-link gate, run 45585938105), head cf945547ba9de296aa36c600052a42b8249edbc0. Not re-armed at this head: push a new commit to clear the `mq-ejected` label.';
-const DEAD_LINK = 'CSP + copy-hallmarks + dead-link + chrome gates / Dead-link gate';
-const OWN_GATE = 'scripts-verify / MCP output-schema coverage';
-t('ejectStepFor reads the step from the hold comment at this head only', () => {
-  assert.equal(ejectStepFor([HOLD_3278], 'cf945547ba9de296aa36c600052a42b8249edbc0'), DEAD_LINK);
-  assert.equal(ejectStepFor(['other', HOLD_3278], 'cf945547ba9de296aa36c600052a42b8249edbc0'), DEAD_LINK);
-  assert.equal(ejectStepFor([HOLD_3278], 'aaaaaaa'), null);
-  assert.equal(ejectStepFor(['bot-sync: real conflict'], 'cf945547'), null);
-  assert.equal(ejectStepFor(null, 'cf945547'), null);
+t('ejectClassFor reads the class from the newest hold comment at this head only', () => {
+  assert.equal(ejectClassFor([hold(MAIN_MOVED)], EJ_HEAD), MAIN_MOVED);
+  assert.equal(ejectClassFor(['other', hold('other')], EJ_HEAD), 'other');
+  assert.equal(ejectClassFor([hold('other'), hold(MAIN_MOVED)], EJ_HEAD), MAIN_MOVED);
+  assert.equal(ejectClassFor([hold(MAIN_MOVED)], 'aaaaaaa'), null);
+  assert.equal(ejectClassFor([HOLD_3278], EJ_HEAD), null);
+  assert.equal(ejectClassFor(['bot-sync: real conflict'], EJ_HEAD), null);
+  assert.equal(ejectClassFor(null, EJ_HEAD), null);
 });
-t('ejectFromMainMove: dead-link and main-owned freshness steps yes, PR-owned gates no', () => {
-  assert.equal(ejectFromMainMove(DEAD_LINK), true);
-  assert.equal(ejectFromMainMove(`scripts-verify / ${FRESH_STEP}`), true);
-  assert.equal(ejectFromMainMove(OWN_GATE), false);
-  assert.equal(ejectFromMainMove('unknown'), false);
+t('ejectFromMainMove: MAIN_MOVED_KINDS yes, any other class or none no', () => {
+  assert.equal(ejectFromMainMove(MAIN_MOVED), true);
+  assert.equal(ejectFromMainMove('other'), false);
+  assert.equal(ejectFromMainMove('checkout-fatal'), false);
   assert.equal(ejectFromMainMove(null), false);
 });
-t(`armed + ${EJECTED_LABEL} + main-moved eject cause → syncs (eject check runs before the armed skip)`, () => {
-  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: ['automerge', EJECTED_LABEL] }, sharedFiles: [], ejectStep: DEAD_LINK }).action, 'merge-clean');
+t(`armed + ${EJECTED_LABEL} + main-moved eject class → syncs (eject check runs before the armed skip)`, () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: ['automerge', EJECTED_LABEL] }, sharedFiles: [], ejectClass: MAIN_MOVED }).action, 'merge-clean');
 });
-t(`armed + ${EJECTED_LABEL} + PR-owned eject cause → still skip armed (no sync / re-arm loop)`, () => {
-  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: ['automerge', EJECTED_LABEL] }, sharedFiles: [], ejectStep: OWN_GATE }).reason, 'armed-queue-rebuilds');
+t(`armed + ${EJECTED_LABEL} + any other class or none → still skip armed (the hold would stay)`, () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: ['automerge', EJECTED_LABEL] }, sharedFiles: [], ejectClass: 'other' }).reason, 'armed-queue-rebuilds');
   assert.equal(run({ pr: { checksState: 'SUCCESS', labels: ['automerge', EJECTED_LABEL] }, sharedFiles: [] }).reason, 'armed-queue-rebuilds');
 });
-t(`green unarmed + ${EJECTED_LABEL}: main-moved cause syncs, PR-owned cause takes the green skip`, () => {
-  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: [EJECTED_LABEL] }, sharedFiles: [], ejectStep: DEAD_LINK }).action, 'merge-clean');
-  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: [EJECTED_LABEL] }, sharedFiles: [], ejectStep: OWN_GATE }).reason, 'green-queue-rebuilds');
+t(`green unarmed + ${EJECTED_LABEL}: main-moved class syncs, any other class takes the green skip`, () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: [EJECTED_LABEL] }, sharedFiles: [], ejectClass: MAIN_MOVED }).action, 'merge-clean');
+  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: [EJECTED_LABEL] }, sharedFiles: [], ejectClass: 'other' }).reason, 'green-queue-rebuilds');
 });
-t('an eject step without the label forces nothing', () => {
-  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: ['automerge'] }, sharedFiles: [], ejectStep: DEAD_LINK }).reason, 'armed-queue-rebuilds');
+t('an eject class without the label forces nothing', () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: ['automerge'] }, sharedFiles: [], ejectClass: MAIN_MOVED }).reason, 'armed-queue-rebuilds');
 });
 t('green + CONFLICTING → still resolves / reports (the queue cannot take a conflict)', () => {
   assert.equal(run({ pr: { checksState: 'SUCCESS' }, conflicts: ['mcp/catalog.json'], sharedFiles: [] }).action, 'merge-derived');

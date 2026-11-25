@@ -69,6 +69,7 @@ import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { COVERED, REPO } from '../derived-artifacts.mjs';
 import { gitEnv } from '../_git-env-lib.mjs';
+import { MAIN_MOVED_KINDS, isHoldComment, recordedClass, recordedSha } from '../mq-eject-hold.mjs';
 
 export const BOT_LOGIN = 'ainumbers-spec-sync[bot]';
 export const BOT_EMAIL = 'ainumbers-spec-sync[bot]@users.noreply.github.com';
@@ -98,25 +99,24 @@ export const CHECKS_PENDING_MAX_MIN = 45;
 export const SYNC_ANYWAY_LABEL = 'sync-anyway';
 // The merge-queue eject hold (automerge-label.yml, scripts/mq-eject-hold.mjs).
 export const EJECTED_LABEL = 'mq-ejected';
-// The hold comment's step is "<job> / <step>". A merge of current main repairs
-// an eject only when the failing step is a main-owned freshness step (exact
-// name, MAIN_OWNED_FRESHNESS_STEPS below) or the dead-link gate (a page main
-// still carries links a record the PR renamed; #3278 merged after one sync).
-export const EJECT_MAIN_MOVED_STEPS = Object.freeze(new Set(['Dead-link gate']));
-export function ejectFromMainMove(step) {
-  if (typeof step !== 'string' || !step) return false;
-  const last = step.includes(' / ') ? step.slice(step.lastIndexOf(' / ') + 3) : step;
-  return EJECT_MAIN_MOVED_STEPS.has(last) || MAIN_OWNED_FRESHNESS_STEPS.has(last);
+// The hold comment records the eject class (scripts/mq-eject-classify.mjs). A
+// merge of current main forces a sync only when that class is one main moving
+// on caused (MAIN_MOVED_KINDS). It is the same rule automerge-label.yml's
+// should-clear uses to lift the hold, so a forced sync always clears it and
+// lets the hourly re-arm pick the PR up. Any other class (or a hold with no
+// class) stays held until the PR's own files change, so syncing it would only
+// re-run CI on a PR that cannot re-arm.
+export function ejectFromMainMove(kind) {
+  return typeof kind === 'string' && MAIN_MOVED_KINDS.has(kind);
 }
-// The failing step recorded in the bot's eject-hold comment for this head,
-// or null (no comment, or one recorded at another head).
-export function ejectStepFor(bodies, headSha) {
-  const hold = [...(bodies || [])].reverse().find((b) => String(b).startsWith('merge-queue: ejected'));
+// The eject class recorded in the newest eject-hold comment, or null (no
+// comment, one recorded at another head, or one with no class).
+export function ejectClassFor(bodies, headSha) {
+  const hold = [...(bodies || [])].reverse().find(isHoldComment);
   if (!hold) return null;
-  const sha = /\bhead ([0-9a-f]{7,40})\b/.exec(hold);
-  if (!sha || !headSha || !headSha.startsWith(sha[1])) return null;
-  const m = /\bstep (.+), run \d+\)/.exec(hold);
-  return m ? m[1] : null;
+  const sha = recordedSha(hold);
+  if (!sha || !headSha || !headSha.startsWith(sha)) return null;
+  return recordedClass(hold);
 }
 export const RED_STATES = new Set(['FAILURE', 'ERROR']);
 // The red-head skip below yields to two main-repairable red classes:
@@ -275,7 +275,7 @@ export function parseMergeTree(stdout) {
  * @param {Set<string>} [input.sentinelOk]  sentinel-owned pages whose PR diff is sentinel-only
  * @param {number} [input.attempts]   failed bot-sync attempts already on this head
  * @param {string[]|null} [input.sharedFiles]  files changed by both main and the PR since their merge base (null/undefined = unknown, allows a sync)
- * @param {string|null} [input.ejectStep]  failing "<job> / <step>" from the eject-hold comment at this head (ejectStepFor)
+ * @param {string|null} [input.ejectClass]  eject class from the eject-hold comment at this head (ejectClassFor)
  * @param {string[]|null} [input.failingSteps]  failing step names on the head's latest required Scripts Verify / Land Verify runs (null/undefined = unreadable, keeps the red-head skip)
  * @param {number|null} [input.headRunStartedAt]  epoch ms: start of the head's latest required run
  * @param {number|null} [input.mainRecoveredAt]  epoch ms: completion of main's latest Scripts Verify recovery from a red episode
@@ -377,12 +377,12 @@ export function decide(input) {
   const committed = pr.headCommittedAt ? Date.parse(pr.headCommittedAt) : NaN;
   if (Number.isFinite(committed) && now - committed < minAge) return skip('fresh-head');
   if (pr.checksState === 'PENDING' && Number.isFinite(committed) && now - committed < CHECKS_PENDING_MAX_MIN * 60_000) return skip('checks-running');
-  // Eject hold, main-moved cause: the queue ejected the PR on a gate that a
-  // merge of current main repairs (ejectFromMainMove). An ejected PR keeps its
+  // Eject hold, main-moved cause: the queue ejected the PR for an eject class
+  // main moving on caused (ejectFromMainMove). An ejected PR keeps its
   // automerge label, so this check runs before the armed skip, or it could
   // never fire. A PR-owned eject cause never forces a sync, so a red PR cannot
   // loop through sync, clear-mq-eject and the hourly re-arm (the #3222 shape).
-  const ejectForce = (pr.labels || []).includes(EJECTED_LABEL) && ejectFromMainMove(input.ejectStep);
+  const ejectForce = (pr.labels || []).includes(EJECTED_LABEL) && ejectFromMainMove(input.ejectClass);
   if (conflicts.length === 0 && (pr.labels || []).includes(ARMED_LABEL) && !ejectForce) return skip('armed-queue-rebuilds');
   // Red head: a clean merge cannot fix it. Conflicting PRs, unknown overlap
   // and the opt-in label keep syncing. The skip yields to the two
@@ -411,7 +411,7 @@ export function decide(input) {
   // reds, unknown CI and the opt-in label still sync. So does a green head
   // whose files main has also changed since their merge base (its green may
   // not hold on current main; unknown overlap syncs, never skips blind), and a
-  // PR the queue ejected on a main-moved gate (ejectForce above).
+  // PR the queue ejected on a main-moved class (ejectForce above).
   const labels = pr.labels || [];
   if (conflicts.length === 0 && pr.checksState === 'SUCCESS'
       && !labels.includes(SYNC_ANYWAY_LABEL) && !ejectForce
@@ -942,11 +942,11 @@ async function main() {
   for (const pr of prs) {
     const pred = predictFor(pr, mainSha, o.repo);
     let attempts = 0, notified = false, bodies = null;
-    // An eject-held PR's hold comment names the failing step (one API call,
-    // held PRs only); decide() forces a sync only for a main-moved step.
+    // An eject-held PR's hold comment records the eject class (one API call,
+    // held PRs only); decide() forces a sync only for a main-moved class.
     if ((pr.labels || []).includes(EJECTED_LABEL)) {
       bodies = botComments(o.repo, pr.number);
-      pred.ejectStep = ejectStepFor(bodies, pr.headRefOid);
+      pred.ejectClass = ejectClassFor(bodies, pr.headRefOid);
     }
     // Comment markers are read only for PRs that would act (one API call each).
     const first = decide({ pr, ...pred, mainOwned: owned, minHeadAgeMs: o.minHeadAgeMin * 60_000 });
