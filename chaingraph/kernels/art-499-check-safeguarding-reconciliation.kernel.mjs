@@ -34,6 +34,12 @@
  * resolve to a DEFINED verdict. No branch can emit NaN, Infinity, null-as-a-number, or an
  * undefined verdict.
  *
+ * FAIL-CLOSED ON REQUIRED INPUT. as_of_date, currency, reconciliation_type and
+ * tolerance_minor_units are required. A missing, null, empty or whitespace-only value of any
+ * of them yields INDETERMINATE (this kernel's added refusal verdict), never a reconciliation
+ * verdict, and is listed in missing_required_fields. buildArtifact never throws: on input the
+ * shared hasher would refuse it returns execution_hash null with a hash_refusal record.
+ *
  * §28 CLAUSE BINDING (profile `ocg-clause-binding@1`): the rule references this kernel relies on
  * are emitted as §1.2 pinned citation OBJECTS inside output_payload, so they sit inside the
  * execution_hash preimage. This is a NEW mint, which is the only case where adoption is in scope
@@ -127,9 +133,72 @@ function isNonEmptyString(v) { return typeof v === 'string' && v.trim().length >
 /** ISO yyyy-mm-dd shape check only. No Date parsing, so no clock and no timezone drift. */
 function isoDateOrNull(v) { return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null; }
 
+/**
+ * FAIL-CLOSED REQUIRED INPUTS. A required field that is absent, null, an empty string or a
+ * whitespace-only string is not evidence on which a reconciliation verdict may be asserted.
+ * This kernel's incumbent vocabulary has no refusal verdict, so INDETERMINATE is added for
+ * that case; a blank or whitespace-only value is treated exactly as missing. The presence map
+ * below uses LITERAL property reads so the static schema-read sweep still registers each
+ * required field as read (there is no dynamic pp[f] access).
+ */
+function isRequiredPresent(v) {
+  if (v === undefined || v === null) return false;
+  if (typeof v === 'string') return v.trim().length > 0;
+  return true;
+}
+
+/**
+ * Hashability walk (D6, never-throw). Mirrors the classes _hash.mjs assertIJson() refuses
+ * before canonicalising: a non-finite number, an integer outside the 2^53 safe range, nesting
+ * past MAX_DEPTH, or more values than MAX_ELEMENTS. Returns { reason, detail } with the path
+ * and kind only, never the value; null when the subtree is safe to hash. The shared _hash.mjs
+ * is never edited.
+ */
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > HASH_MAX_DEPTH) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > HASH_MAX_ELEMENTS) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (const k of ks) {
+      const r = findHashRefusal(v[k], path + '.' + k, depth + 1, budget);
+      if (r !== null) return r;
+    }
+  }
+  return null;
+}
+
 export function compute(pp) {
   pp = pp || {};
   const rejected_inputs = [];
+
+  // Required-input presence: absent, null, blank and whitespace-only are all missing.
+  // Literal reads keep the static schema-read sweep intact (chain-execute registration).
+  const raw_present = {
+    as_of_date: isRequiredPresent(pp.as_of_date),
+    currency: isRequiredPresent(pp.currency),
+    reconciliation_type: isRequiredPresent(pp.reconciliation_type),
+    tolerance_minor_units: isRequiredPresent(pp.tolerance_minor_units),
+  };
+  const missing_required_fields = [];
+  if (!raw_present.as_of_date) missing_required_fields.push('as_of_date');
+  if (!raw_present.currency) missing_required_fields.push('currency');
+  if (!raw_present.reconciliation_type) missing_required_fields.push('reconciliation_type');
+  if (!raw_present.tolerance_minor_units) missing_required_fields.push('tolerance_minor_units');
+  const required_missing = missing_required_fields.length > 0;
 
   const as_of_date = isoDateOrNull(pp.as_of_date);
   const currency = isNonEmptyString(pp.currency) ? pp.currency.trim().toUpperCase() : 'GBP';
@@ -195,10 +264,12 @@ export function compute(pp) {
   if (within_tolerance) verdict = 'reconciled';
   else if (difference_minor_units < 0) verdict = 'shortfall';
   else verdict = 'excess';
+  if (required_missing) verdict = 'INDETERMINATE';
 
-  const difference_direction = difference_minor_units === 0
-    ? 'level'
-    : difference_minor_units < 0 ? 'resource_below_requirement' : 'resource_above_requirement';
+  const difference_direction = required_missing ? 'not_evaluated'
+    : difference_minor_units === 0
+      ? 'level'
+      : difference_minor_units < 0 ? 'resource_below_requirement' : 'resource_above_requirement';
 
   const freqCite = reconciliation_type === 'external' ? CITATIONS.external_frequency : CITATIONS.internal_frequency;
   const typeCite = reconciliation_type === 'external' ? CITATIONS.external_reconciliation : CITATIONS.internal_reconciliation;
@@ -214,7 +285,9 @@ export function compute(pp) {
   if (rejected_inputs.length > 0) {
     rationale.push(`${rejected_inputs.length} supplied value${rejected_inputs.length === 1 ? ' was' : 's were'} not usable as an integer minor-unit amount or a recognised component type, and ${rejected_inputs.length === 1 ? 'was' : 'were'} treated as zero. Each one is named in rejected_inputs.`);
   }
-  if (verdict === 'shortfall') {
+  if (required_missing) {
+    rationale.push(`One or more required inputs are missing or blank (${missing_required_fields.join(', ')}). The verdict is INDETERMINATE: a reconciliation cannot be asserted on incomplete evidence, and no agreement verdict is emitted.`);
+  } else if (verdict === 'shortfall') {
     rationale.push(`On these figures the resource is below the requirement by more than the declared tolerance. ${CITATIONS.discrepancy_treatment.id} requires a firm to pay a shortfall into a relevant funds bank account, or invest it in relevant assets, by the end of the day on which the reconciliation is performed. This is an arithmetic finding about the figures supplied here. It is not a determination that the firm has breached CASS 15, which is for the firm's own records and its safeguarding auditor.`);
   } else if (verdict === 'excess') {
     rationale.push(`On these figures the resource exceeds the requirement by more than the declared tolerance. ${CITATIONS.discrepancy_treatment.id} requires a firm to withdraw an excess from the accounts holding relevant funds or relevant assets. This is an arithmetic finding about the figures supplied here, not a determination about the firm's compliance.`);
@@ -223,6 +296,7 @@ export function compute(pp) {
   }
 
   const compliance_flags = [];
+  if (required_missing) compliance_flags.push('INPUT_MISSING_INDETERMINATE');
   if (verdict === 'reconciled') compliance_flags.push('SAFEGUARDING_RECONCILED');
   if (verdict === 'shortfall') { compliance_flags.push('SAFEGUARDING_SHORTFALL'); compliance_flags.push('ESCALATION_RAISED'); }
   if (verdict === 'excess') compliance_flags.push('SAFEGUARDING_EXCESS');
@@ -246,7 +320,7 @@ export function compute(pp) {
     difference_display: display(difference_minor_units),
     tolerance_minor_units,
     tolerance_display: display(tolerance_minor_units),
-    within_tolerance,
+    within_tolerance: required_missing ? false : within_tolerance,
     component_count: components.length,
     components,
     subtotals_by_component_type,
@@ -255,6 +329,8 @@ export function compute(pp) {
     rationale,
     note: 'Deterministic UK CASS 15 safeguarding reconciliation check over a caller-supplied figure set for one declared as-of date. Single-run and stateless: this tool holds no records, runs on no schedule, and retains nothing. The verdict is an arithmetic comparison of the supplied safeguarding resource against the supplied safeguarding requirement. It is not a determination that the firm has or has not complied with CASS 15, it is not a regulatory filing, and it is not legal advice.',
   };
+
+  if (required_missing) output_payload.missing_required_fields = missing_required_fields;
 
   return { output_payload, compliance_flags };
 }
@@ -266,7 +342,26 @@ export const CLAUSE_BINDING_POINTERS = Object.keys(CITATIONS).map((k) => ({
 }));
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  // D6: never throw. Walk the {policy_parameters, output_payload} preimage against the same
+  // I-JSON limits _hash.mjs enforces; on a hit mint a refusal artifact with a null hash and a
+  // hash_refusal record instead of letting canonicalisation throw.
   const { output_payload, compliance_flags } = compute(pp);
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { n: 0 });
+  if (unhashable !== null) {
+    return {
+      '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+      chaingraph_version: '0.4.0', mandate_type: meta.mandate_type,
+      tool_id: TOOL_ID, tool_version: TOOL_VERSION, generated_at: now ?? null,
+      execution_hash: null,
+      hash_refusal: { reason: unhashable.reason, detail: unhashable.detail },
+      chain: { parent_hashes, parent_tool_ids, chain_depth },
+      policy_parameters: null,
+      output_payload: { verdict: 'REFUSED', refusal: unhashable.reason },
+      compliance_flags: ['INPUT_REFUSED'],
+      compute_mode: 'server',
+      audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+    };
+  }
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',

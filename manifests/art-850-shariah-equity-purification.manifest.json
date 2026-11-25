@@ -1,0 +1,417 @@
+{
+  "tool_id": "art-850-shariah-equity-purification",
+  "version": "1.0.0",
+  "title": "Shariah Equity Purification",
+  "description": "Screens one company's caller-supplied financial values under four pinned Shariah screening methodologies (MSCI long-form and average-cap, FTSE daily-average, NIFTY TASIS conservative), each verdict reported separately, never merged. Threshold comparisons are exact integer cross-multiplication on minor units; the compliant-debt carve-out covers eleven pinned country codes; purification runs per profile; unlisted methodologies refuse by name. Outputs verdict rows and purification arithmetic only.",
+  "category": "chaingraph",
+  "tags": [
+    "shariah-screening",
+    "equity-index",
+    "dividend-purification",
+    "islamic-finance",
+    "mcp:screen_shariah_equity"
+  ],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "methodologies": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "msci_islamic",
+            "msci_islamic_m",
+            "ftse_idealratings",
+            "nifty_tasis"
+          ]
+        },
+        "minItems": 1,
+        "maxItems": 4,
+        "description": "Authority profiles to screen under, each verdict reported separately and never merged. An entry outside the pinned set refuses by name and never approximates."
+      },
+      "is_current_constituent": {
+        "type": "boolean",
+        "description": "Required when either MSCI profile is requested: true applies the retention threshold set, false applies the lower new-inclusion set and raises a flag saying so."
+      },
+      "country_code": {
+        "type": "string",
+        "pattern": "^[A-Z]{2}$",
+        "description": "Required when either MSCI profile is requested: two-letter uppercase ISO-3166-1 alpha-2 code. One of eleven pinned codes activates the compliant-debt carve-out."
+      },
+      "shariah_compliant_debt_minor": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000000000000,
+        "description": "Required when the carve-out country set applies: the portion of total debt a cited supervisory list treats as Shariah-compliant and excludes from the total-debt numerator. Must not exceed total_debt_minor."
+      },
+      "total_assets_minor": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000000000000000,
+        "description": "Total assets in integer minor units; the long-form, daily-average-fallback and conservative denominators. Must be positive."
+      },
+      "total_debt_minor": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000000000000,
+        "description": "Total (conventional or interest-bearing) debt in integer minor units."
+      },
+      "cash_and_interest_bearing_securities_minor": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000000000000,
+        "description": "Cash plus interest-bearing securities in integer minor units; its own ratio row on every profile."
+      },
+      "receivables_minor": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000000000000,
+        "description": "Trade and other receivables in integer minor units; combined with cash on the long-form, average-cap and conservative rows."
+      },
+      "total_revenue_minor": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000000000000,
+        "description": "Required for the daily-average profile: total revenue in integer minor units, the denominator of the business-activity row."
+      },
+      "non_permissible_revenue_minor": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000000000000,
+        "description": "Revenue from non-permissible business activities in integer minor units; numerator of the business-activity row and a purification input."
+      },
+      "interest_income_minor": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000000000000,
+        "description": "Interest income in integer minor units; a non-permissible-income numerator member and the conservative purification numerator."
+      },
+      "total_income_minor": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000000000000000,
+        "description": "Total income in integer minor units; the non-permissible-income and purification denominators. Must be positive."
+      },
+      "interest_based_investments_minor": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000000000000,
+        "description": "Required for the conservative profile: interest-bearing investments in integer minor units, imputed at 7.5 percent in the income row."
+      },
+      "market_cap_series_minor": {
+        "type": "array",
+        "items": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000000000000
+        },
+        "minItems": 1,
+        "maxItems": 600,
+        "description": "Required for the average-cap and daily-average profiles: period market capitalizations in integer minor units, 1 to 600 elements, each at most 1e13. Averages are reported floored with named rounding while verdicts use the exact mean."
+      },
+      "market_cap_series_period": {
+        "type": "string",
+        "enum": [
+          "month_end",
+          "day"
+        ],
+        "description": "Required alongside the series: exactly month_end or day. The average-cap profile is defined on month-end observations and refuses a daily series rather than mis-averaging."
+      },
+      "dividend_minor": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000000000000,
+        "description": "Optional dividend in integer minor units. When present, purification runs per profile: the long-form adjustment factor, the conservative pro-rata income ratio; the daily-average profile pins no rule and says so."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "screen_shariah_equity",
+    "description": "Screens one company's caller-supplied financial values under four pinned Shariah screening methodologies (MSCI long-form and average-cap, FTSE daily-average, NIFTY TASIS conservative), each verdict reported separately, never merged, with exact integer threshold comparisons on integer minor units. The compliant-debt carve-out covers eleven pinned country codes; purification runs per profile; unlisted methodologies refuse by name. Outputs verdict rows and purification arithmetic only.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "methodologies": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "msci_islamic",
+              "msci_islamic_m",
+              "ftse_idealratings",
+              "nifty_tasis"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 4
+        },
+        "is_current_constituent": {
+          "type": "boolean"
+        },
+        "country_code": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$"
+        },
+        "shariah_compliant_debt_minor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000000
+        },
+        "total_assets_minor": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000000000000
+        },
+        "total_debt_minor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000000
+        },
+        "cash_and_interest_bearing_securities_minor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000000
+        },
+        "receivables_minor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000000
+        },
+        "total_revenue_minor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000000
+        },
+        "non_permissible_revenue_minor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000000
+        },
+        "interest_income_minor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000000
+        },
+        "total_income_minor": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000000000000
+        },
+        "interest_based_investments_minor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000000
+        },
+        "market_cap_series_minor": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000000000000
+          },
+          "minItems": 1,
+          "maxItems": 600
+        },
+        "market_cap_series_period": {
+          "type": "string",
+          "enum": [
+            "month_end",
+            "day"
+          ]
+        },
+        "dividend_minor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000000000
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-850-shariah-equity-purification.html",
+    "function_name": "runCheck",
+    "timeout_ms": 5000
+  },
+  "source": "chaingraph/kernels/art-850-shariah-equity-purification.kernel.mjs",
+  "input_schema_provenance": "Top-level properties are exactly the policy_parameters members the kernel reads, with the declared bounds mirrored from the kernel constants. No required array at the schema layer: which fields are mandatory depends on the requested authority profiles, and the kernel refuses each absent required field by name as a structured refusal payload, so every refusal branch stays reachable through every call path.",
+  "ap2_export": true,
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "methodologies": [
+      "msci_islamic",
+      "nifty_tasis"
+    ],
+    "is_current_constituent": true,
+    "country_code": "US",
+    "total_assets_minor": 100000000,
+    "total_debt_minor": 28000000,
+    "cash_and_interest_bearing_securities_minor": 5000000,
+    "receivables_minor": 5000000,
+    "non_permissible_revenue_minor": 1000000,
+    "interest_income_minor": 2000000,
+    "total_income_minor": 100000000,
+    "interest_based_investments_minor": 0,
+    "dividend_minor": 10000000
+  },
+  "output_example": {
+    "valid_input": true,
+    "not_a_shariah_ruling": true,
+    "methodologies": [
+      "msci_islamic",
+      "nifty_tasis"
+    ],
+    "verdicts": {
+      "msci_islamic": {
+        "methodology_as_of": "2024-10",
+        "profile": "retention",
+        "is_current_constituent": true,
+        "ratios": [
+          {
+            "ratio": "total_debt",
+            "numerator_minor": 28000000,
+            "denominator_minor": 100000000,
+            "denominator_used": "total_assets",
+            "threshold_bp": 3333,
+            "comparison": "lte",
+            "compliant": true
+          },
+          {
+            "ratio": "cash_and_interest_bearing_securities",
+            "numerator_minor": 5000000,
+            "denominator_minor": 100000000,
+            "denominator_used": "total_assets",
+            "threshold_bp": 3333,
+            "comparison": "lte",
+            "compliant": true
+          },
+          {
+            "ratio": "receivables_and_cash",
+            "numerator_minor": 10000000,
+            "denominator_minor": 100000000,
+            "denominator_used": "total_assets",
+            "threshold_bp": 3333,
+            "comparison": "lte",
+            "compliant": true
+          }
+        ],
+        "compliant": true,
+        "purification": {
+          "rule": "dividend_adjustment_factor",
+          "dividend_minor": 10000000,
+          "factor_numerator_minor": 97000000,
+          "factor_denominator_minor": 100000000,
+          "purified_portion_minor": 300000,
+          "purification_remainder_minor": 0,
+          "rounding": "floor_minor_unit"
+        }
+      },
+      "nifty_tasis": {
+        "methodology_as_of": "2022-02",
+        "profile": "standard",
+        "is_current_constituent": null,
+        "ratios": [
+          {
+            "ratio": "interest_based_debt",
+            "numerator_minor": 28000000,
+            "denominator_minor": 100000000,
+            "denominator_used": "total_assets",
+            "threshold_bp": 2500,
+            "comparison": "lte",
+            "compliant": false
+          },
+          {
+            "ratio": "interest_income_plus_imputed",
+            "numerator_minor": 2000000,
+            "denominator_minor": 100000000,
+            "denominator_used": "total_income",
+            "threshold_bp": 300,
+            "comparison": "lte",
+            "compliant": true,
+            "numerator_rounding": "floor_minor_unit"
+          },
+          {
+            "ratio": "receivables_and_cash_bank",
+            "numerator_minor": 10000000,
+            "denominator_minor": 100000000,
+            "denominator_used": "total_assets",
+            "threshold_bp": 9000,
+            "comparison": "lte",
+            "compliant": true
+          }
+        ],
+        "compliant": false,
+        "purification": {
+          "rule": "income_purification_ratio",
+          "dividend_minor": 10000000,
+          "factor_numerator_minor": 2000000,
+          "factor_denominator_minor": 100000000,
+          "purified_portion_minor": 200000,
+          "purification_remainder_minor": 0,
+          "rounding": "floor_minor_unit"
+        }
+      }
+    },
+    "warnings": []
+  },
+  "example_execution_hash": "f2e32f7ea1e3713747da94e55a5ae134b22e87672073ff1edab09c5604e0188d",
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "valid_input": {
+        "type": "boolean"
+      },
+      "not_a_shariah_ruling": {
+        "type": "boolean",
+        "const": true
+      },
+      "methodologies": {
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "string"
+        }
+      },
+      "verdicts": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "description": "One verdict group per requested authority profile, keyed by profile name; null on refusal. Groups are never merged."
+      },
+      "domain_errors": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "purification": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "required": [
+      "valid_input",
+      "not_a_shariah_ruling",
+      "verdicts",
+      "warnings"
+    ]
+  }
+}

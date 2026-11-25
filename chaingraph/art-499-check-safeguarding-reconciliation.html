@@ -98,7 +98,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 </style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-499-check-safeguarding-reconciliation.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:ee7c278f77ba168b6c221d6a703d01ad0390c884fd1551198e71f423d3fe4554">
+<meta name="kernel-digest" content="sha256:5ff532f59382cb2447813161167dfe615fc462f54f6a67b18d6113ac6bbcd9f8">
 <meta name="ai-tool" content="check_safeguarding_reconciliation">
 </head>
 <body>
@@ -220,6 +220,32 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
   <div id="mfstBody"><pre id="mfstCode"></pre></div>
 </div>
+
+
+
+
+
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-499-check-safeguarding-reconciliation.kernel.mjs">art-499-check-safeguarding-reconciliation.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:5ff532f59382cb2447813161167dfe615fc462f54f6a67b18d6113ac6bbcd9f8</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-499-check-safeguarding-reconciliation.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-499-check-safeguarding-reconciliation.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="kernels/fixtures/compute-proof/art-499-check-safeguarding-reconciliation.receipt.json">sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: verified</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/5ff532f59382cb2447813161167dfe615fc462f54f6a67b18d6113ac6bbcd9f8.json">5ff532f59382cb2447813161167dfe615fc462f54f6a67b18d6113ac6bbcd9f8</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=dce113c1a4a22d06eeb997624ad0f17b4cf9848d134d9204351f1a66fb247d3d">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 
 <!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=manifests/art-499-check-safeguarding-reconciliation.manifest.json -->
 <section id="ask-agent" style="max-width:900px;margin:32px auto 0;border:1px solid var(--border);border-radius:10px;padding:14px 18px;background:var(--bg-2)">
@@ -489,9 +515,29 @@ function display(minor){
 function isNonEmptyString(v){ return typeof v === 'string' && v.trim().length > 0; }
 function isoDateOrNull(v){ return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null; }
 
+/* Fail-closed mirror: a required field that is absent, null, empty or whitespace-only is missing. */
+function isRequiredPresent(v){
+  if (v === undefined || v === null) return false;
+  if (typeof v === 'string') return v.trim().length > 0;
+  return true;
+}
+
 function compute(pp){
   pp = pp || {};
   var rejected_inputs = [];
+  var raw_present = {
+    as_of_date: isRequiredPresent(pp.as_of_date),
+    currency: isRequiredPresent(pp.currency),
+    reconciliation_type: isRequiredPresent(pp.reconciliation_type),
+    tolerance_minor_units: isRequiredPresent(pp.tolerance_minor_units),
+  };
+  var missing_required_fields = [];
+  if (!raw_present.as_of_date) missing_required_fields.push('as_of_date');
+  if (!raw_present.currency) missing_required_fields.push('currency');
+  if (!raw_present.reconciliation_type) missing_required_fields.push('reconciliation_type');
+  if (!raw_present.tolerance_minor_units) missing_required_fields.push('tolerance_minor_units');
+  var required_missing = missing_required_fields.length > 0;
+
   var as_of_date = isoDateOrNull(pp.as_of_date);
   var currency = isNonEmptyString(pp.currency) ? pp.currency.trim().toUpperCase() : 'GBP';
   var reconciliation_type = pp.reconciliation_type === 'external' ? 'external' : 'internal';
@@ -546,9 +592,11 @@ function compute(pp){
   if (within_tolerance) verdict = 'reconciled';
   else if (difference_minor_units < 0) verdict = 'shortfall';
   else verdict = 'excess';
+  if (required_missing) verdict = 'INDETERMINATE';
 
-  var difference_direction = difference_minor_units === 0 ? 'level'
-    : (difference_minor_units < 0 ? 'resource_below_requirement' : 'resource_above_requirement');
+  var difference_direction = required_missing ? 'not_evaluated'
+    : (difference_minor_units === 0 ? 'level'
+      : (difference_minor_units < 0 ? 'resource_below_requirement' : 'resource_above_requirement'));
 
   var freqCite = reconciliation_type === 'external' ? CITATIONS.external_frequency : CITATIONS.internal_frequency;
   var typeCite = reconciliation_type === 'external' ? CITATIONS.external_reconciliation : CITATIONS.internal_reconciliation;
@@ -564,7 +612,9 @@ function compute(pp){
   if (rejected_inputs.length > 0) {
     rationale.push(rejected_inputs.length + ' supplied value' + (rejected_inputs.length === 1 ? ' was' : 's were') + ' not usable as an integer minor-unit amount or a recognised component type, and ' + (rejected_inputs.length === 1 ? 'was' : 'were') + ' treated as zero. Each one is named in rejected_inputs.');
   }
-  if (verdict === 'shortfall') {
+  if (required_missing) {
+    rationale.push('One or more required inputs are missing or blank (' + missing_required_fields.join(', ') + '). The verdict is INDETERMINATE: a reconciliation cannot be asserted on incomplete evidence, and no agreement verdict is emitted.');
+  } else if (verdict === 'shortfall') {
     rationale.push('On these figures the resource is below the requirement by more than the declared tolerance. ' + CITATIONS.discrepancy_treatment.id + ' requires a firm to pay a shortfall into a relevant funds bank account, or invest it in relevant assets, by the end of the day on which the reconciliation is performed. This is an arithmetic finding about the figures supplied here. It is not a determination that the firm has breached CASS 15, which is for the firm\'s own records and its safeguarding auditor.');
   } else if (verdict === 'excess') {
     rationale.push('On these figures the resource exceeds the requirement by more than the declared tolerance. ' + CITATIONS.discrepancy_treatment.id + ' requires a firm to withdraw an excess from the accounts holding relevant funds or relevant assets. This is an arithmetic finding about the figures supplied here, not a determination about the firm\'s compliance.');
@@ -573,6 +623,7 @@ function compute(pp){
   }
 
   var compliance_flags = [];
+  if (required_missing) compliance_flags.push('INPUT_MISSING_INDETERMINATE');
   if (verdict === 'reconciled') compliance_flags.push('SAFEGUARDING_RECONCILED');
   if (verdict === 'shortfall') { compliance_flags.push('SAFEGUARDING_SHORTFALL'); compliance_flags.push('ESCALATION_RAISED'); }
   if (verdict === 'excess') compliance_flags.push('SAFEGUARDING_EXCESS');
@@ -596,7 +647,7 @@ function compute(pp){
     difference_display: display(difference_minor_units),
     tolerance_minor_units: tolerance_minor_units,
     tolerance_display: display(tolerance_minor_units),
-    within_tolerance: within_tolerance,
+    within_tolerance: required_missing ? false : within_tolerance,
     component_count: components.length,
     components: components,
     subtotals_by_component_type: subtotals_by_component_type,
@@ -605,6 +656,7 @@ function compute(pp){
     rationale: rationale,
     note: 'Deterministic UK CASS 15 safeguarding reconciliation check over a caller-supplied figure set for one declared as-of date. Single-run and stateless: this tool holds no records, runs on no schedule, and retains nothing. The verdict is an arithmetic comparison of the supplied safeguarding resource against the supplied safeguarding requirement. It is not a determination that the firm has or has not complied with CASS 15, it is not a regulatory filing, and it is not legal advice.',
   };
+  if (required_missing) output_payload.missing_required_fields = missing_required_fields;
   return { output_payload: output_payload, compliance_flags: compliance_flags };
 }
 /* --- end mirror --- */

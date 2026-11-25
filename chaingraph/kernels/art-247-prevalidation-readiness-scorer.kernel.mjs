@@ -12,6 +12,14 @@ export const meta = {
 // Aggregate CBPR+ pre-validation readiness check for a single pacs.008 payment instruction.
 // Combines IBAN mod-97, BIC format, LEI format, UUIDv4 UETR, and PostalAddress24 structure checks
 // into a single /ready boolean for STP gate use.
+// Missing input (fail-closed): the four structured-address fields the node contract requires
+// (address_building_number, address_post_code, address_street_name, address_town_name) must all be
+// present. If one is absent or null and no other check already fails, ready is false and
+// output_payload.verdict is the new token 'INDETERMINATE' with missing_required_fields listing them
+// and compliance_flags carrying INPUT_MISSING_INDETERMINATE. IBAN/BIC/LEI stay optional checks
+// (only checked when provided) and their absence is not a refusal. buildArtifact never throws: an
+// unhashable input (non-finite number, unsafe integer, depth or size past the hash limits) returns
+// a refusal artifact with execution_hash null and hash_refusal.
 // This is the gate node for the cross-border-payment-prevalidation chain:
 //   art-243 (purpose-code-requirement-checker) -> art-247 (prevalidation-readiness-scorer)
 //   gate: /ready = true -> end (payment ready for STP); /ready = false -> end (remediation required).
@@ -21,6 +29,10 @@ export const meta = {
 
 const TABLE_VERSION = 'CBPR-PLUS-PREVALIDATION-COMPOSITE-V1';
 const TABLE_SOURCE = 'SWIFT CBPR+ Structured Address Migration Bulletin (swift.com/cbpr-plus-migration); BIS CPMI d218; ISO 13616:2020 IBAN; ISO 9362:2022 BIC; ISO 17442:2020 LEI; ISO 20022 pacs.008.001.10 (iso20022.org)';
+
+// Required structured-address fields per the node contract. IBAN/BIC/LEI are optional checks
+// (only checked when provided) and are deliberately not in this list.
+const REQUIRED_ADDRESS_FIELDS = ['address_building_number', 'address_post_code', 'address_street_name', 'address_town_name'];
 
 // IBAN country lengths per ISO 13616 (representative set -- not exhaustive)
 const IBAN_LENGTHS = {
@@ -146,7 +158,28 @@ export function compute(pp) {
 
   // /ready = true only if UETR is valid AND address is not unstructured/empty/invalid
   // (IBAN/BIC/LEI are optional -- only checked if provided)
-  const ready = required_failed.length === 0 && optional_failed.length === 0;
+  const ready_base = required_failed.length === 0 && optional_failed.length === 0;
+
+  // Fail-closed on a missing required structured-address field. Literal property reads only:
+  // a dynamic pp[f] read is invisible to the static schema-read sweep. A present null or absent
+  // key is not evidence of a fully-structured address, so a verdict that would otherwise be
+  // positive is downgraded to INDETERMINATE (never ready=true). An empty or whitespace-only
+  // string counts as missing (never a positive verdict). A hybrid address (AdrLine present) legitimately carries
+  // only TownName of the four, so its required set is shape-scoped; requiring all four there would
+  // break a valid hybrid address.
+  // Blank is missing: an empty or whitespace-only string is treated exactly like an absent field.
+  const isPresent = function(v) { return v != null && (typeof v !== 'string' || v.trim().length > 0); };
+  const raw_present = {
+    address_building_number: isPresent(pp.address_building_number),
+    address_post_code: isPresent(pp.address_post_code),
+    address_street_name: isPresent(pp.address_street_name),
+    address_town_name: isPresent(pp.address_town_name),
+  };
+  const hasAdrLine = Array.isArray(pp.address_lines) && pp.address_lines.length > 0;
+  const shapeRequired = hasAdrLine ? ['address_town_name'] : REQUIRED_ADDRESS_FIELDS;
+  const missing_required_fields = shapeRequired.filter(function(f) { return !raw_present[f]; });
+  const indeterminate = missing_required_fields.length > 0 && ready_base;
+  const ready = ready_base && !indeterminate;
 
   const check_details = {
     iban: { provided: iban.length > 0, valid: iban_result.valid, error: iban_result.error },
@@ -179,16 +212,82 @@ export function compute(pp) {
     regulatory_basis: 'SWIFT CBPR+ Structured Address Migration Bulletin; BIS CPMI d218; ISO 13616 IBAN; ISO 9362 BIC; ISO 17442 LEI; ISO 20022 pacs.008.001.10',
   };
 
+  if (indeterminate) {
+    output_payload.missing_required_fields = missing_required_fields;
+    output_payload.verdict = 'INDETERMINATE';
+  }
+
   const compliance_flags = [];
   if (!ready) compliance_flags.push('CBPR_PREVALIDATION_FAILED');
   if (!uetr_result.valid) compliance_flags.push('UETR_INVALID');
   if (addr_result.valid === false) compliance_flags.push('ADDRESS_INVALID');
+  if (indeterminate) compliance_flags.push('INPUT_MISSING_INDETERMINATE');
 
   return { output_payload, compliance_flags };
 }
 
+// Mirrors _hash.mjs I-JSON limits so buildArtifact never throws: non-finite number, unsafe integer,
+// nesting past MAX_DEPTH, more values than MAX_ELEMENTS. Reports path and kind only.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > HASH_MAX_DEPTH) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > HASH_MAX_ELEMENTS) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (typeof v === 'bigint') return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': bigint' };
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const refusalArtifact = (unhashable) => {
+  const refusal_flags = [];
+  if (unhashable.reason) refusal_flags.push('INPUT_REFUSED');
+  return {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: meta.mandate_type,
+    tool_id: TOOL_ID,
+    tool_version: TOOL_VERSION,
+    generated_at: now ?? null,
+    execution_hash: null,
+    hash_refusal: { reason: unhashable.reason, detail: unhashable.detail },
+    chain: { parent_hashes, parent_tool_ids, chain_depth },
+    policy_parameters: null,
+    output_payload: { ready: false, verdict: 'REFUSED', refusal: unhashable.reason },
+    compliance_flags: refusal_flags,
+    compute_mode: 'server',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+  };
+  };
+
+  // The hash walk starts the wrapper at depth 1 and each of the two members at depth 2, sharing
+  // one element budget; start there so the refusal fires before executionHash could ever throw.
+  const budget = { n: 0 };
+  const ppRefusal = findHashRefusal(pp, 'policy_parameters', 2, budget);
+  if (ppRefusal !== null) return refusalArtifact(ppRefusal);
+
   const { output_payload, compliance_flags } = compute(pp);
+  const outRefusal = findHashRefusal(output_payload, 'output_payload', 2, budget);
+  if (outRefusal !== null) return refusalArtifact(outRefusal);
+
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',

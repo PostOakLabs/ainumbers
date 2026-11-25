@@ -90,6 +90,8 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 .related-topics{max-width:900px;margin:0 auto}
 
 </style>
+<!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-620-summa-mst-inclusion-checker.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
+<meta name="kernel-digest" content="sha256:b1d00b37e7585853e001320d57d046d9a9fde7008d810c8df91000726f21f864">
 </head>
 <body>
 <nav>
@@ -175,6 +177,27 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
   <button class="mfst-btn" onclick="toggleMfst()">Show Tool Manifest</button>
   <div id="mfstBody" class="card"><pre id="mfstCode"></pre></div>
 </div>
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-620-summa-mst-inclusion-checker.kernel.mjs">art-620-summa-mst-inclusion-checker.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:b1d00b37e7585853e001320d57d046d9a9fde7008d810c8df91000726f21f864</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-620-summa-mst-inclusion-checker.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-620-summa-mst-inclusion-checker.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="kernels/fixtures/compute-proof/art-620-summa-mst-inclusion-checker.receipt.json">sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: verified</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/b1d00b37e7585853e001320d57d046d9a9fde7008d810c8df91000726f21f864.json">b1d00b37e7585853e001320d57d046d9a9fde7008d810c8df91000726f21f864</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=4b681c97e065c330a3982dd9999eb786f334d957916ef7f3dc6644ca81dd1a7e">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">
@@ -281,6 +304,8 @@ const VERIFY_ONLY_NOTE='Verify-only: this tool reports "this leaf\'s inclusion i
 function stripHexPrefix(h){return String(h??'').replace(/^(sha256:|0x)/i,'').toLowerCase();}
 function isHex(s){return typeof s==='string'&&s.length>0&&/^[0-9a-f]+$/i.test(s);}
 function parseDecimalBigInt(v){if(typeof v!=='string'&&typeof v!=='number')return null;const s=String(v);if(!/^-?\d+$/.test(s))return null;try{return BigInt(s);}catch(e){return null;}}
+var REQUIRED_FIELDS=['root','proof'];
+function isRequiredPresent(v){if(v===undefined||v===null)return false;if(typeof v==='string')return v.trim().length>0;return true;}
 async function sha256Hex(str){const bytes=new TextEncoder().encode(str);const digest=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 async function leafHash(id,balanceStr){return sha256Hex(id+'|'+balanceStr);}
 async function middleHash(sumStr,hL,hR){return sha256Hex(sumStr+'|'+hL+'|'+hR);}
@@ -297,6 +322,9 @@ async function compute(pp){
       path_length:pathIn.length,max_balance_used:maxBalanceStrIn,
       residual_limitation_note:RESIDUAL_LIMITATION_NOTE,verify_only_note:VERIFY_ONLY_NOTE},extra||{}),compliance_flags};
   }
+  var required_present={root:isRequiredPresent(pp.root),proof:isRequiredPresent(pp.proof)};
+  var missing_required_fields=REQUIRED_FIELDS.filter(function(f){return !required_present[f];});
+  if(missing_required_fields.length>0)return finalize('NOT_VERIFIED','required_input_missing: '+missing_required_fields.join(', '),{missing_required_fields:missing_required_fields});
   if(maxBalance===null||maxBalance<0n)return finalize('NOT_VERIFIED','malformed_proof: max_balance must be a non-negative decimal string');
   if(pathIn.length>MAX_PATH_DEPTH)return finalize('NOT_VERIFIED','malformed_proof: path depth '+pathIn.length+' exceeds the '+MAX_PATH_DEPTH+'-level bound');
   if(!isHex(leafIn.id)||String(leafIn.id).length>128)return finalize('NOT_VERIFIED','malformed_proof: leaf.id must be an opaque hex identifier');

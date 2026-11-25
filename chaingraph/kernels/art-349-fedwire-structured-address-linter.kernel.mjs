@@ -31,6 +31,16 @@ export const meta = {
 // FA-2 is folded into this kernel as the `network` param instead of a separate WU.
 // Disambiguates from: lint_cbpr_structured_address (art-241), the SWIFT CBPR+ equivalent for
 // pacs.008 cross-border messages -- this kernel covers the US domestic Fedwire/CHIPS rules.
+// Fail-closed (missing-input cure): the nine manifest-required fields must be present and
+// non-blank. A required field that is absent, null, an empty string or whitespace-only yields
+// output_payload.verdict 'INDETERMINATE', compliant null and missing_required_fields, with the
+// INPUT_MISSING_INDETERMINATE compliance flag. That refusal applies only when no ERROR was
+// found, so an already-rejected address keeps its existing non-positive verdict; a reduced
+// field set is never reported as fully-structured/compliant.
+// buildArtifact never throws: an unhashable input (non-finite number, unsafe integer, depth or
+// size past the hash limits) returns a refusal artifact with execution_hash null and
+// hash_refusal. The shared _hash.mjs is never edited and execution_hash uses executionHash()
+// from that module only.
 
 const MAX_ADR_LINE_LEN = 70;
 const MAX_ADR_LINES = 2;
@@ -40,8 +50,13 @@ const FEDWIRE_ADDRESS_RULE_STATUS = 'Fedwire accepts unstructured and fully-stru
 const FEDWIRE_ENFORCEMENT_DATE = null; // no day-precision enforcement date published (FRFS 2026-08-27: exact date TBA); set from a sourced day to restore hard-error semantics
 const NETWORKS = ['fedwire', 'chips'];
 
+// Required inputs per the manifest inputSchema.required (all nine) are read below with LITERAL
+// property reads; a missing, null, empty or whitespace-only one yields INDETERMINATE (compliant:
+// null), never compliant: true. An absent optional field (none here) would behave as before.
+
 function safeStr(v) { return typeof v === 'string' ? v.trim() : ''; }
 function safeArr(v) { return Array.isArray(v) ? v : (v && typeof v === 'string' ? [v] : []); }
+function isFilled(v) { return v != null && !(typeof v === 'string' && v.trim() === ''); }
 
 export function compute(pp) {
   pp = pp || {};
@@ -128,9 +143,25 @@ export function compute(pp) {
   }
 
   const error_count = violations.filter(function(v) { return v.severity === 'ERROR'; }).length;
+  // Fail-closed on missing input: a required field that is absent, null, empty or whitespace-only
+  // is not evidence of compliance. With no ERROR already found the verdict is INDETERMINATE
+  // (compliant: null); an already-rejected address keeps the same non-positive verdict.
+  const required_presence = [
+    { field: 'address_lines', present: isFilled(pp.address_lines) },
+    { field: 'as_of_date', present: isFilled(pp.as_of_date) },
+    { field: 'building_number', present: isFilled(pp.building_number) },
+    { field: 'country', present: isFilled(pp.country) },
+    { field: 'country_subdivision', present: isFilled(pp.country_subdivision) },
+    { field: 'network', present: isFilled(pp.network) },
+    { field: 'post_code', present: isFilled(pp.post_code) },
+    { field: 'street_name', present: isFilled(pp.street_name) },
+    { field: 'town_name', present: isFilled(pp.town_name) },
+  ];
+  const missing_required_fields = required_presence.filter(function(e) { return !e.present; }).map(function(e) { return e.field; });
+  const indeterminate = missing_required_fields.length > 0 && error_count === 0;
   // Fully-structured is the only default-compliant state today; hybrid counts as compliant
   // only once enforcement is in force (November 2027 release) per the caller's as_of_date.
-  const compliant = error_count === 0 && (structure_type === 'FULLY_STRUCTURED' || (structure_type === 'HYBRID' && enforcement_in_force));
+  const compliant = indeterminate ? null : (error_count === 0 && (structure_type === 'FULLY_STRUCTURED' || (structure_type === 'HYBRID' && enforcement_in_force)));
   const readiness_pct = compliant ? 100 : Math.max(0, 100 - error_count * 20);
 
   const output_payload = {
@@ -149,25 +180,65 @@ export function compute(pp) {
     regulatory_basis: 'Federal Reserve Financial Services announcement of 27 August 2026 (Fedwire Funds Service November 2026 release rescheduled to the November 2027 release; unstructured and fully-structured addresses accepted until then, hybrid from the November 2027 release); The Clearing House CHIPS ISO 20022 implementation (aligned to Fedwire address rules; CHIPS cycle undated, TBC)',
   };
 
+  if (indeterminate) {
+    output_payload.missing_required_fields = missing_required_fields;
+    output_payload.verdict = 'INDETERMINATE';
+  }
+
   const compliance_flags = [];
-  if (!compliant) compliance_flags.push('FEDWIRE_ADDRESS_NON_COMPLIANT');
+  if (indeterminate) compliance_flags.push('INPUT_MISSING_INDETERMINATE');
+  else if (!compliant) compliance_flags.push('FEDWIRE_ADDRESS_NON_COMPLIANT');
   if (violations.some(function(v) { return v.code === 'SILENT_FAIL_DUPLICATION'; })) compliance_flags.push('SILENT_FAIL_DUPLICATION_DETECTED');
   if (violations.some(function(v) { return v.code === 'UNSTRUCTURED_ADDRESS'; })) compliance_flags.push('UNSTRUCTURED_ADDRESS_FLAGGED');
 
   return { output_payload, compliance_flags };
 }
 
+// Mirrors _hash.mjs limits so buildArtifact never throws: non-finite number, unsafe integer,
+// nesting past MAX_DEPTH, more values than MAX_ELEMENTS. Reports path and kind only, never the
+// value. The shared _hash.mjs stays untouched.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // Walk the exact execution_hash preimage. When the shared canonicalizer would refuse it, mint
+  // the artifact with a null execution_hash and hash_refusal beside it instead of throwing (D6).
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'preimage', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
     tool_id: TOOL_ID,
     tool_version: TOOL_VERSION,
     generated_at: now ?? null,
-    execution_hash: hash,
+    execution_hash: unhashable === null ? await executionHash(pp, output_payload) : null,
     chain: { parent_hashes, parent_tool_ids, chain_depth },
     policy_parameters: pp,
     output_payload,
@@ -175,4 +246,6 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
     compute_mode: 'server',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }

@@ -7,6 +7,7 @@
 <title>Curator Vault Cap Auditor · OpenChainGraph · AINumbers.co</title>
 <meta name="description" content="Audit a vault curator's allocation snapshot against per-market absolute and relative caps and a declared mandate: concentration, idle liquidity, redemption coverage and conservation, from declared values only.">
 <meta name="robots" content="index, follow">
+<meta name="kernel-digest" content="sha256:4acc868648ee3b4a2e474aa09cced8aa966e36dbc2500a40698f3218d4498a72">
 <meta name="ain:category" content="run">
 <link rel="canonical" href="https://ainumbers.co/chaingraph/792-curator-vault-cap-auditor.html">
 <link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/792-curator-vault-cap-auditor.md">
@@ -175,6 +176,27 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 
 <div id="manifest" style="position:relative;top:-60px"></div>
 
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/792-curator-vault-cap-auditor.kernel.mjs">792-curator-vault-cap-auditor.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:4acc868648ee3b4a2e474aa09cced8aa966e36dbc2500a40698f3218d4498a72</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/792-curator-vault-cap-auditor.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/792-curator-vault-cap-auditor.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="kernels/fixtures/compute-proof/792-curator-vault-cap-auditor.receipt.json">sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: verified</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/4acc868648ee3b4a2e474aa09cced8aa966e36dbc2500a40698f3218d4498a72.json">4acc868648ee3b4a2e474aa09cced8aa966e36dbc2500a40698f3218d4498a72</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=05cb24264cc84e0d90a3089154b50dd7c2e67e32a2d639e86179d5f3eb5a88c7">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">
@@ -410,11 +432,19 @@ function compute(pp) {
   });
   const man = pp.mandate || {};
   if (!isInt(man.max_per_market_bp) || man.max_per_market_bp < 0 || man.max_per_market_bp > 1000000) reasons.push('mandate.max_per_market_bp must be an integer in [0, 1000000]');
-  const classCaps = man.max_per_asset_class_bp || {};
-  Object.keys(classCaps).forEach(function (k) {
-    if (!ASSET_CLASSES.includes(k)) reasons.push('mandate.max_per_asset_class_bp key "' + k + '" is outside the declared asset_class enum');
-    else if (!isInt(classCaps[k]) || classCaps[k] < 0 || classCaps[k] > 1000000) reasons.push('mandate.max_per_asset_class_bp.' + k + ' must be an integer in [0, 1000000]');
-  });
+  const rawClassCaps = man.max_per_asset_class_bp;
+  let classCaps = {};
+  if (rawClassCaps !== undefined) {
+    if (rawClassCaps === null || typeof rawClassCaps !== 'object' || Array.isArray(rawClassCaps)) {
+      reasons.push('mandate.max_per_asset_class_bp must be an object of asset_class -> integer bp when declared (present null or wrong type refuses)');
+    } else {
+      Object.keys(rawClassCaps).forEach(function (k) {
+        if (!ASSET_CLASSES.includes(k)) reasons.push('mandate.max_per_asset_class_bp key "' + k + '" is outside the declared asset_class enum');
+        else if (!isInt(rawClassCaps[k]) || rawClassCaps[k] < 0 || rawClassCaps[k] > 1000000) reasons.push('mandate.max_per_asset_class_bp.' + k + ' must be an integer in [0, 1000000]');
+      });
+      classCaps = rawClassCaps;
+    }
+  }
   if (!isInt(man.min_idle_bp) || man.min_idle_bp < 0 || man.min_idle_bp > 1000000) reasons.push('mandate.min_idle_bp must be an integer in [0, 1000000]');
   if (man.min_rwa_bp !== undefined && (!isInt(man.min_rwa_bp) || man.min_rwa_bp < 0 || man.min_rwa_bp > 1000000)) reasons.push('mandate.min_rwa_bp must be an integer in [0, 1000000] when declared');
   if (man.max_defi_bp !== undefined && (!isInt(man.max_defi_bp) || man.max_defi_bp < 0 || man.max_defi_bp > 1000000)) reasons.push('mandate.max_defi_bp must be an integer in [0, 1000000] when declared');

@@ -17,6 +17,10 @@
 // A3 control: a normal payload's preimage and a pinned golden hash are byte-unchanged, so the
 // fix cannot have moved any existing execution_hash.
 //
+// A4 (HASH-REFUSAL-SHARED-1): executionHash returns null instead of throwing on every input the
+// canonicalizer refuses (BigInt, non-finite, unsafe integer, over-limit, cyclic), so kernels get
+// the never-throw contract without a per-kernel guard; a WebCrypto failure still throws.
+//
 // Node 18+ (WebCrypto + node: builtins only — zero npm deps).
 // Run:  node chaingraph/kernels/_hash.test.mjs
 import { readFileSync } from 'node:fs';
@@ -58,9 +62,15 @@ let shallowHash = null;
 try { shallowHash = await executionHash({}, deep(500)); } catch (e) { fail++; console.error('  ✗ depth 500 threw ' + e.name + ': ' + e.message); }
 ok(typeof shallowHash === 'string' && shallowHash.length === 64, 'depth 500 still hashes normally (the limit does not bite real payloads)');
 
+// HASH-REFUSAL-SHARED-1: executionHash itself no longer throws on an over-deep preimage; it
+// returns null. The named HashLimitError still comes from canonicalPreimage() and assertIJson().
+let deepHash, deepHashThrew = null;
+try { deepHash = await executionHash({}, deep(5000)); } catch (e) { deepHashThrew = e; }
+ok(deepHashThrew === null && deepHash === null, 'depth 5 000: executionHash returns null instead of throwing');
+
 let thrown = null;
-try { await executionHash({}, deep(5000)); } catch (e) { thrown = e; }
-ok(thrown instanceof HashLimitError, 'depth 5 000 throws HashLimitError');
+try { canonicalPreimage({}, deep(5000)); } catch (e) { thrown = e; }
+ok(thrown instanceof HashLimitError, 'depth 5 000: canonicalPreimage() throws HashLimitError');
 ok(thrown && thrown.name === 'HashLimitError', 'the thrown error is NAMED HashLimitError (not a bare RangeError)');
 ok(thrown && !(thrown instanceof RangeError), 'the thrown error is NOT a RangeError (no stack overflow reaches the caller)');
 ok(thrown && String(thrown.message).includes(String(MAX_DEPTH)), 'the message names the limit hit (MAX_DEPTH ' + MAX_DEPTH + ')');
@@ -74,6 +84,47 @@ ok(assertThrew instanceof HashLimitError, 'assertIJson() itself refuses the over
 let nonFinite = null;
 try { assertIJson({ x: Infinity }); } catch (e) { nonFinite = e; }
 ok(nonFinite instanceof Error && !(nonFinite instanceof HashLimitError), 'a non-finite number still fails the original I-JSON refusal (RFC 8785 §3.2.2.3), not the limit');
+
+// ---- A4: executionHash never throws on unhashable input (HASH-REFUSAL-SHARED-1) --------------
+// Every shape the canonicalizer refuses comes back as null, so a kernel's buildArtifact mints
+// `execution_hash: null` instead of crashing. Each case is checked to really be refused by
+// canonicalPreimage() first, so a null here can't be a vacuous pass.
+const cyclic = { a: 1 }; cyclic.self = cyclic;
+const REFUSED = [
+  ['BigInt top-level field', { n: 10n }],
+  ['BigInt nested in an array', { a: { b: [3n] } }],
+  ['NaN', { x: NaN }],
+  ['Infinity', { x: -Infinity }],
+  ['integer beyond 2^53', { n: 2 ** 53 + 2 }],
+  ['over MAX_DEPTH', deep(5000)],
+  ['cyclic object', cyclic],
+];
+for (const [label, payload] of REFUSED) {
+  let preimageThrew = false;
+  try { canonicalPreimage({}, payload); } catch { preimageThrew = true; }
+  let h, hashThrew = null;
+  try { h = await executionHash({}, payload); } catch (e) { hashThrew = e; }
+  ok(preimageThrew && hashThrew === null && h === null, `${label}: canonicalPreimage refuses and executionHash returns null (no throw)`);
+}
+// The refusal is symmetric across the two halves of the preimage.
+ok(await executionHash({ n: 10n }, {}) === null, 'a BigInt in policy_parameters also returns null');
+// A WebCrypto failure is not an input refusal and must still surface.
+{
+  // Node exposes `subtle` as a getter on Crypto.prototype: shadow it with an own property, then
+  // delete that property to fall back to the real getter.
+  const realSubtle = globalThis.crypto.subtle;
+  let digestThrew = null;
+  try {
+    Object.defineProperty(globalThis.crypto, 'subtle', { configurable: true, get: () => ({ digest: async () => { throw new Error('digest unavailable'); } }) });
+    await executionHash({}, { ok: true });
+  } catch (e) { digestThrew = e; }
+  finally {
+    delete globalThis.crypto.subtle;
+    if (globalThis.crypto.subtle !== realSubtle) Object.defineProperty(globalThis.crypto, 'subtle', { configurable: true, value: realSubtle });
+  }
+  ok(digestThrew && digestThrew.message === 'digest unavailable', 'a WebCrypto digest failure still throws (only canonicalization is caught)');
+  ok(globalThis.crypto.subtle === realSubtle, 'control: WebCrypto restored after the stub');
+}
 
 // ---- A3 control: nothing that hashes today moves ---------------------------------------------
 ok(canonicalPreimage({ b: 1, a: { d: 2, c: [3, { f: 4, e: 5 }] } }, { z: 'y' })
