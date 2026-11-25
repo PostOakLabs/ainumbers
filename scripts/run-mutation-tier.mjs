@@ -55,7 +55,7 @@
  * provisioned out-of-repo Stryker entry file (WSL: /root/.ain-tools/stryker-8.7.1/
  * node_modules/@stryker-mutator/core/bin/stryker.js) and the tier spawns
  * `node <bin> run <config>` instead of npx. Unset = CI path, unchanged. A
- * missing file warns and falls back to npx. See research/MUTATION-TIER-LOCAL-RUNBOOK.md.
+ * missing file warns and falls back to npx.
  *
  * Usage:
  *   node scripts/run-mutation-tier.mjs --kernel <id> [<id> ...]

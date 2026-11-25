@@ -1031,7 +1031,22 @@ const { advisoryGates, isMainContext, COVERED, DERIVED_ROOT_GATES } = await impo
 // fails OPEN (gate runs) — the live scan is read/write-scoped to a throwaway
 // worktree, never the shared tree, so running it unnecessarily costs time, not
 // correctness, which is the same tradeoff helmPathsTouched() already makes.
+//
+// DERIVED-SELFTEST-SCOPE-CLOSURE-1: primary regen/gate scripts alone
+// under-trigger the same way they under-selected. Measured 2026-11-22: a
+// rename inside scripts/counts.mjs — imported by gen-evidence-register.mjs /
+// gen-guides-index.mjs / gen-debt-ledger.mjs and others, and the SECOND
+// script of a chained (`&&`) regen command is equally invisible — matched no
+// primary script, so this trigger skipped the live gate entirely while
+// verify-counts --check exited 1. The relevant set is therefore widened with
+// the SAME per-entry key set the gate's own --changed selection uses (one
+// implementation, exported from check-derived-regen-live.mjs — the chained
+// sub-command scripts plus the transitive static import closure of every
+// regen/gate script; the lexical extractor discipline is
+// check-derived-declare-parity.mjs's, not a second parser). A closure build
+// failure fails OPEN (gate runs), the same direction as the catch below.
 const { primaryScriptPath } = await import('./check-derived-declare-parity.mjs');
+const { coveredDiffKeyUnion } = await import('./check-derived-regen-live.mjs');
 function derivedRegenLiveScopeTouched() {
   // DERIVED-SET-SELFTEST-TRIGGER-1: this gate's own script and its test were
   // absent from this set — site PR #2104 changed check-derived-regen-live.mjs
@@ -1049,6 +1064,11 @@ function derivedRegenLiveScopeTouched() {
     if (rp) relevant.add(rp);
     if (c.gate) { const gp = primaryScriptPath(c.gate); if (gp) relevant.add(gp); }
   }
+  // DERIVED-SELFTEST-SCOPE-CLOSURE-1: widen with chained-command scripts and
+  // the transitive static import closure (see the block comment above).
+  const closureUnion = coveredDiffKeyUnion({ covered: COVERED, repoPath: REPO });
+  if (!closureUnion.ok) return true; // closure build failed — fail OPEN, run the gate
+  for (const k of closureUnion.keys) relevant.add(k);
   try {
     const touched = new Set();
     execSync('git diff --name-only HEAD', { cwd: REPO, env, stdio: ['ignore', 'pipe', 'ignore'] })
@@ -1798,6 +1818,15 @@ const GATES = [
   // PAGE-KERNEL-PARITY-GATE-1 (stage 1): ADVISORY by construction, the checker always exits 0 (full estate about 50 s).
   ['Page-versus-kernel parity sweep (stage 1 advisory, always exits 0)', 'node scripts/check-page-kernel-parity.mjs'],
   ['Page-versus-kernel parity controls (RED+GREEN synthetic pages)', 'node scripts/check-page-kernel-parity.selftest.mjs'],
+  // PAGE-BUILDARTIFACT-HASH-REFUSAL-1 (stage 1 advisory): the node-page artifact-build step
+  // never throws on unhashable input. Throws and hashed-unhashable results are FINDINGS
+  // (reported, exit 0); the ONLY hard red is the baseline ratchet - a page pinned in
+  // scripts/page-hash-refusal-baseline.json carrying MORE findings than its pinned count.
+  // --changed scopes the vm probe to node pages added or modified vs origin/main and falls
+  // back to the full estate when the ref does not resolve; the estate baseline is written
+  // by --write-baseline runs, deliberately, not by the gate.
+  ['Node page hash-refusal probe (stage 1 advisory, PAGE-BUILDARTIFACT-HASH-REFUSAL-1)', 'node scripts/check-page-hash-refusal.mjs --changed origin/main'],
+  ['Node page hash-refusal probe self-test controls (RED+GREEN planted pages, ratchet red)', 'node scripts/check-page-hash-refusal.mjs --self-test'],
   ['Retired ap2_version tombstone (§3.1/A3.2, RETIREMENT-TOMBSTONE-GATES-1)','node scripts/check-retired-ap2-version.mjs'],
   ['Retired ap2_version tombstone controls (RED+GREEN mutation)', 'node scripts/check-retired-ap2-version.test.mjs'],
   ['Credits registry coverage (vendored-code license gate)', 'node scripts/check-credits-coverage.mjs repo'],
@@ -1971,6 +2000,8 @@ const GATES = [
   // HARD on pull_request and locally; not run on merge_group / push:main, which carry the regen's commits.
   ['Main-only derived paths (MAIN-ONLY-PATHS-GATE-1)', 'node scripts/check-main-only-paths.mjs'],
   ['Main-only derived paths controls (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-main-only-paths.mjs --self-test'],
+  // COVERED-DELTA-IMPACT-1: fixtures for the advisory COVERED-delta impact report (#3208 / #3282 shapes).
+  ['COVERED delta impact controls (RED+GREEN, COVERED-DELTA-IMPACT-1)', 'node scripts/check-covered-delta-impact.mjs --self-test'],
   // VINTAGE-TABLE-1: gates V1 (declared literal equals the dated table), V2 (kernels sharing a
   // fact and vintage agree) and V4 (every source digest resolves in the clause snapshot registry).
   ['Vintage table V1/V2/V4 (VINTAGE-TABLE-1)', 'node chaingraph/kernels/__vintages__/check-vintages.mjs'],
@@ -1988,6 +2019,9 @@ const GATES = [
   // ADVISORY hostile-input census of kernels this diff adds or changes (always exits 0).
   ['Kernel hostile-input census (ADVISORY)', 'node scripts/check-kernel-hostile-census.mjs'],
   ['Kernel hostile-input census controls (RED+GREEN)', 'node scripts/check-kernel-hostile-census.mjs --self-test'],
+  // BigInt never-throw probe; BLOCKING for new-node kernels, edited kernels no worse than main.
+  ['Kernel BigInt never-throw (new node blocking)', 'node scripts/check-kernel-bigint-newnode.mjs'],
+  ['Kernel BigInt never-throw controls (RED+GREEN)', 'node scripts/check-kernel-bigint-newnode.mjs --self-test'],
   // COMPOSER-PLAN-AND-ROOT-WEBMCP-1: parity gate A (in-repo SSOT recompute of every
   // chain plan hash vs the committed derived set + page-literal sample) and parity
   // gate B fixtures (session-receipt Merkle; the site-side routine test is
@@ -2427,6 +2461,16 @@ const GATES = [
   // QuickJS sandbox and requires the receipt's journal.output to reproduce. ~8s over the full estate.
   ['§18 recompute-equality (SO #34)', 'node scripts/check-recompute-equality.mjs'],
   ['§18 recompute-equality controls (canary + mutation)', 'node scripts/check-recompute-equality.test.mjs'],
+  // §18 QUARANTINE PRUNE (REGEN-QUARANTINE-PRUNE-1): the freshness half of the COVERED entry
+  // 'recompute-quarantine-prune' (derived-artifacts.mjs, LAST in COVERED — the main-side regen
+  // deletes reproducing quarantine entries in the same bot commit as the re-splice). The command
+  // string is deliberately identical to that entry's `gate:` so the generic ADVISORY_ON_PR
+  // categorisation downgrades it on PRs (a PR cannot satisfy it: the committed tree still carries
+  // the stale entry by SO #35's single-writer law) while it stays BLOCKING on main. Advisory only
+  // ever reads; it writes nothing in this mode. The paired controls file proves every wrong-stub
+  // shape the helper must reject.
+  ['§18 quarantine prune freshness (REGEN-QUARANTINE-PRUNE-1)', 'node scripts/prune-recompute-quarantine.mjs --check'],
+  ['§18 quarantine prune controls (SO #40b pairing)', 'node scripts/prune-recompute-quarantine.test.mjs'],
   ['Proof-badge freshness',        'node scripts/check-proof-badge.mjs'],
   ['Kernel as-of staleness ratchet (ASOF-GATE-1)', 'node scripts/check-kernel-asof-staleness.mjs'],
   ['Kernel as-of staleness fixture proof', 'node scripts/check-kernel-asof-staleness.test.mjs'],
@@ -2473,6 +2517,15 @@ const GATES = [
   // (GATE-SELFTEST-META-1).
   ['Node-page footer freshness (FOOTER-INFRA-COLUMN-1)', 'node scripts/gen-node-footers.mjs --check'],
   ['Node-page footer writer self-test (RED+GREEN)', 'node scripts/gen-node-footers.mjs --selftest'],
+  // PROOFLINKS-GEN-1 (PR #3208 cure): the node-page proof-links region, COVERED id
+  // 'node-page-proof-links' in derived-artifacts.mjs — a <details> inventory of the
+  // node's verification artifacts between <!--PROOF-LINKS--> sentinels. The command
+  // string is byte-identical to that entry's `gate`, so the generic ADVISORY_ON_PR
+  // rule classifies it: a PR authors the page, main's regen writes the block after
+  // merge; blocking on main. --check is the alarm (exit 1 on drift or a dead
+  // relative href). Wiring here is also the generator coverage meta-gate's
+  // requirement (SSOT-GATES-1 §G2.5): a --check generator must be wired here.
+  ['Node-page proof-links freshness (PROOFLINKS-GEN-1)', 'node scripts/gen-proof-links.mjs --check'],
   // CHAIN-PROMPT-INFRA-1: the chain example prompt is mandatory for every chain
   // (CONTRACT §A3.1). The gate below is hard in both contexts — it reads the
   // authored SSOT and the assembled graph, neither of which a main-side regen
@@ -4088,6 +4141,25 @@ gateStart(BRIDGE_SYNC_LABEL);
       console.log('\n' + r.out.trim() + '\n');
       process.exit(1); // BLOCKING (was advisory): discovered after the gate loop, like L2-HARDLEG-BLOCKING-1 — no later checkpoint would otherwise make a recorded failure exit non-zero.
     }
+  }
+}
+
+// ── Advisory (non-blocking): COVERED delta impact (COVERED-DELTA-IMPACT-1) ──
+// When this diff changes scripts/derived-artifacts.mjs COVERED, reports the knock-on effects the
+// entry's own vet missed on 2026-11-24 (#3208 PER_PR_PAGE_PATCHERS, #3282 regen order / main-only
+// path): main-only delta, pr-sync delta, order / fixpoint, PR-side readers. Silent when COVERED is
+// unchanged. ADVISORY BY DESIGN, exit 0 always (--strict is for manual use only).
+const COVERED_DELTA_LABEL = 'COVERED delta impact (advisory, COVERED-DELTA-IMPACT-1)';
+gateStart(COVERED_DELTA_LABEL);
+{
+  const r = runAdvisoryChecker('node scripts/check-covered-delta-impact.mjs');
+  if (r.state === 'UNAVAILABLE') {
+    gateUnavailable(COVERED_DELTA_LABEL, r.reason, r.out);
+  } else {
+    const flags = (r.out.match(/^\s*FLAG\b/gm) || []).length;
+    gatePass(flags ? `${flags} FLAG(s), advisory: run node scripts/check-covered-delta-impact.mjs` : 'COVERED unchanged or no flags');
+    if (flags) console.log('\n' + r.out.trim() + '\n');
+    if (r.state === 'WARNED') gateFail(`   ⚠ note: ${r.reason} (its documented contract is exit 0 always)`);
   }
 }
 
