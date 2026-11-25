@@ -71,6 +71,17 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      # gh with bounded retries (scripts/ci/gh-retry.sh): a transient GitHub
+      # API error (GraphQL "Something went wrong", 5xx, 429) is retried up to
+      # 4 tries with backoff; any other error returns at once, unchanged.
+      - name: Retry transient GitHub API failures
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/gh-retry"
+          install -m 0755 scripts/ci/gh-retry.sh "$RUNNER_TEMP/gh-retry/gh"
+          echo "GH_RETRY_REAL=$(command -v gh)" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/gh-retry" >> "$GITHUB_PATH"
+
       # Held-draft shard PRs must never auto-merge (board/STANDING-ORDERS.md
       # -0.7) and a fork PR's head repo differs from the base repo, which the
       # App token cannot push/merge across without a second grant — skip both.
@@ -411,12 +422,15 @@ jobs:
             echo "auto-merge confirmed: merged=$MERGED autoMergeRequest=$AUTO mergeQueueEntry=$QUEUED"
           else
             echo "::notice title=Fallback::native auto-merge left PR #$PR untouched (already green); enqueueing directly via GraphQL enqueuePullRequest"
+            # Not fatal by itself: a call that errors after the server applied
+            # it would otherwise fail a PR that is in fact queued. The state
+            # read below decides.
             gh api graphql -f query='
               mutation($id: ID!) {
                 enqueuePullRequest(input: {pullRequestId: $id}) {
                   mergeQueueEntry { id }
                 }
-              }' -f id="$NODE_ID"
+              }' -f id="$NODE_ID" || echo "::warning title=Enqueue call failed::enqueuePullRequest errored for PR #$PR; reading the PR state to decide"
 
             RESULT=$(check_state)
             MERGED=$(echo "$RESULT" | jq -r '.data.node.merged')
@@ -430,7 +444,11 @@ jobs:
             echo "auto-merge confirmed via fallback: merged=$MERGED autoMergeRequest=$AUTO mergeQueueEntry=$QUEUED"
           fi
 
-          gh pr comment "$PR" -R "$REPO" --body "auto-merge enabled by automerge-label.yml; GitHub merges this PR itself once every required check passes. No further \`gh pr merge\` needed."
+          # The PR is armed or queued by now; the comment only reports it, so a
+          # failed comment call warns and never fails the run (#3285: queued,
+          # then the comment hit a GraphQL error and the run went red).
+          gh pr comment "$PR" -R "$REPO" --body "auto-merge enabled by automerge-label.yml; GitHub merges this PR itself once every required check passes. No further \`gh pr merge\` needed." \
+            || echo "::warning title=Comment not posted::PR #$PR is armed or queued, but the confirmation comment could not be posted"
 
   # Eject hold: a new head commit clears the hold. Removing the label by
   # hand (with a `[MQ-EJECT-OVERRIDE] #n <reason>` channel line) is the only
@@ -453,6 +471,17 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 1
           persist-credentials: false
+
+      # gh with bounded retries (scripts/ci/gh-retry.sh): a transient GitHub
+      # API error (GraphQL "Something went wrong", 5xx, 429) is retried up to
+      # 4 tries with backoff; any other error returns at once, unchanged.
+      - name: Retry transient GitHub API failures
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/gh-retry"
+          install -m 0755 scripts/ci/gh-retry.sh "$RUNNER_TEMP/gh-retry/gh"
+          echo "GH_RETRY_REAL=$(command -v gh)" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/gh-retry" >> "$GITHUB_PATH"
 
       - name: Remove mq-ejected label when the PR's own change moved
         env:
@@ -486,6 +515,17 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
+
+      # gh with bounded retries (scripts/ci/gh-retry.sh): a transient GitHub
+      # API error (GraphQL "Something went wrong", 5xx, 429) is retried up to
+      # 4 tries with backoff; any other error returns at once, unchanged.
+      - name: Retry transient GitHub API failures
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/gh-retry"
+          install -m 0755 scripts/ci/gh-retry.sh "$RUNNER_TEMP/gh-retry/gh"
+          echo "GH_RETRY_REAL=$(command -v gh)" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/gh-retry" >> "$GITHUB_PATH"
 
       - name: Mint PR token
         id: app-token
