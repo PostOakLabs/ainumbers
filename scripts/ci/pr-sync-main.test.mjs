@@ -59,7 +59,7 @@ import { join } from 'node:path';
 import {
   decide, mainOwnedPaths, sentinelOwnedPaths, isSentinelOnlyDiff, parseMergeTree, syncOne,
   waitForRegen, regenGate, planReservations, shardBytes, RESERVATIONS_LEGACY, SKIP_LABEL, MAX_ATTEMPTS_PER_HEAD, SYNC_ANYWAY_LABEL,
-  MAIN_OWNED_FRESHNESS_STEPS, recoveryFromRuns,
+  MAIN_OWNED_FRESHNESS_STEPS, recoveryFromRuns, EJECTED_LABEL,
 } from './pr-sync-main.mjs';
 import { canonicalRecordBytes, NEVER_LIVE_DEPENDENCY_NOTE } from '../gen-registry-kernel-resolve.mjs';
 import { sourceDigest } from '../../chaingraph/kernels/_buildid.mjs';
@@ -143,10 +143,9 @@ t('fresh head (builder may still be pushing) → skip; same head past the window
   assert.equal(run({ pr: { headCommittedAt: '2026-11-03T11:55:00Z' } }).reason, 'fresh-head');
   assert.equal(run({ pr: { headCommittedAt: '2026-11-03T11:55:00Z' }, minHeadAgeMs: 60_000 }).action, 'merge-clean');
 });
-t('CI pending on a recent head → skip checks-running; pending past the window or SUCCESS → acts', () => {
+t('CI pending on a recent head → skip checks-running; pending past the window → acts', () => {
   assert.equal(run({ pr: { checksState: 'PENDING', headCommittedAt: '2026-11-03T11:30:00Z' } }).reason, 'checks-running');
   assert.equal(run({ pr: { checksState: 'PENDING', headCommittedAt: OLD } }).action, 'merge-clean');
-  assert.equal(run({ pr: { checksState: 'SUCCESS', headCommittedAt: '2026-11-03T11:30:00Z' } }).action, 'merge-clean');
 });
 t('armed + BEHIND clean → skip (queue rebuilds); armed + derived-DIRTY still acts (queue cannot take a conflict)', () => {
   assert.equal(run({ pr: { labels: ['automerge'] } }).reason, 'armed-queue-rebuilds');
@@ -171,10 +170,36 @@ t('red + overlap unknown (null/undefined) → syncs, never skips blind', () => {
   assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: null }).action, 'merge-clean');
   assert.equal(run({ pr: { checksState: 'FAILURE' } }).action, 'merge-clean');
 });
-t('green / pending-past-window / no rollup → unchanged behaviour even with no shared files', () => {
-  for (const checksState of ['SUCCESS', 'PENDING', null]) {
+t('pending-past-window / no rollup → unchanged behaviour even with no shared files', () => {
+  for (const checksState of ['PENDING', null]) {
     assert.equal(run({ pr: { checksState }, sharedFiles: [] }).action, 'merge-clean');
   }
+});
+// BOT-SYNC-GREEN-SKIP-1: a clean merge of main into an unarmed GREEN head
+// only restarts CI (strict up-to-date is off; the queue tests on main).
+t('green + clean BEHIND, main touched none of the PR files → skip green-queue-rebuilds', () => {
+  assert.deepEqual(run({ pr: { checksState: 'SUCCESS' }, sharedFiles: [] }), { action: 'skip', reason: 'green-queue-rebuilds', paths: [] });
+  assert.equal(run({ pr: { checksState: 'SUCCESS', headCommittedAt: OLD }, sharedFiles: [] }).reason, 'green-queue-rebuilds');
+});
+t('green + main changed a file the PR also changes → syncs (its green may not hold on main)', () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS' }, sharedFiles: ['scripts/x.mjs'] }).action, 'merge-clean');
+});
+t('green + overlap unknown (null/undefined) → syncs, never skips blind', () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS' }, sharedFiles: null }).action, 'merge-clean');
+  assert.equal(run({ pr: { checksState: 'SUCCESS' } }).action, 'merge-clean');
+});
+t(`green + ${EJECTED_LABEL} label → syncs (the queue saw it fail on main)`, () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: [EJECTED_LABEL] }, sharedFiles: [] }).action, 'merge-clean');
+});
+t('green + CONFLICTING → still resolves / reports (the queue cannot take a conflict)', () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS' }, conflicts: ['mcp/catalog.json'], sharedFiles: [] }).action, 'merge-derived');
+  assert.equal(run({ pr: { checksState: 'SUCCESS' }, conflicts: ['scripts/x.mjs'], sharedFiles: [] }).action, 'conflict-real');
+});
+t(`green + ${SYNC_ANYWAY_LABEL} label → syncs (opt-in still forces a merge of main)`, () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: [SYNC_ANYWAY_LABEL] }, sharedFiles: [] }).action, 'merge-clean');
+});
+t('red head that main can repair still syncs alongside the green skip', () => {
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [FRESH_STEP] }).action, 'merge-clean');
 });
 t('red + only a main-owned freshness step failing → syncs (a merge of main repairs it)', () => {
   for (const step of MAIN_OWNED_FRESHNESS_STEPS) {
@@ -198,8 +223,8 @@ t(`red + PR-owned failing step + ${SYNC_ANYWAY_LABEL} label → syncs`, () => {
 t('red + PR-owned failing step + CONFLICTING → still syncs / reports (D1 does not touch conflicted PRs)', () => {
   assert.equal(run({ pr: { checksState: 'FAILURE' }, conflicts: ['mcp/catalog.json'], sharedFiles: [], failingSteps: [PR_STEP] }).action, 'merge-derived');
 });
-t('green + failing steps array left over (stale facts) → unchanged, still syncs', () => {
-  assert.equal(run({ pr: { checksState: 'SUCCESS' }, sharedFiles: [], failingSteps: [PR_STEP] }).action, 'merge-clean');
+t('green + failing steps array left over (stale facts) → green rule decides, skip', () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS' }, sharedFiles: [], failingSteps: [PR_STEP] }).reason, 'green-queue-rebuilds');
 });
 t('red + mixed failing steps (one unlisted) → still skip (exact names only, no prefix match)', () => {
   assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [FRESH_STEP, PR_STEP] }).reason, 'required-failed-on-head');

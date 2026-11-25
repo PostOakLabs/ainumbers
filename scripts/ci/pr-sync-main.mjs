@@ -14,7 +14,10 @@
  *   `no-bot-sync` label, PRs in the merge queue, and heads pushed in the last
  *   few minutes, where a builder may still be pushing):
  *     - current (head already contains main)      -> nothing to do
- *     - BEHIND, merges clean                       -> merge origin/main in, push
+ *     - BEHIND, merges clean, head green, main     -> nothing (queue tests on main)
+ *       changed none of the PR's files
+ *     - BEHIND, merges clean, head red or no CI    -> merge origin/main in, push
+ *       (red only when main can repair it; see decide())
  *     - DIRTY only in main-owned derived paths     -> merge, take main's side of
  *                                                     those paths, commit, push
  *     - DIRTY in the legacy id registry (alone or  -> keep main's frozen
@@ -93,6 +96,8 @@ export const CHECKS_PENDING_MAX_MIN = 45;
 // required run is a main-owned freshness step, or the head's run started
 // before main's latest recovery from a red episode completed (a stale red).
 export const SYNC_ANYWAY_LABEL = 'sync-anyway';
+// The merge-queue eject hold (automerge-label.yml, scripts/mq-eject-hold.mjs).
+export const EJECTED_LABEL = 'mq-ejected';
 export const RED_STATES = new Set(['FAILURE', 'ERROR']);
 // The red-head skip below yields to two main-repairable red classes:
 //   (a) every failing step on the head's latest Scripts Verify / Land Verify
@@ -352,6 +357,24 @@ export function decide(input) {
       && !(redHeadFreshnessOnly(input) || redHeadStale(input));
   if (redUnrepairable && Array.isArray(input.failingSteps) && input.failingSteps.length > 0) return skip('required-failed-on-head');
   if (redUnrepairable && Array.isArray(input.sharedFiles) && input.sharedFiles.length === 0) return skip('red-head-no-shared-files');
+  // Green head, clean BEHIND: a merge of main only restarts CI on a PR that
+  // is already armable. main-ci-anchor sets strict_required_status_checks_policy
+  // false, so BEHIND never blocks arming (GitHub reports such a PR CLEAN), and
+  // the merge queue tests the PR on current main anyway. Measured Nov 4-25:
+  // 2,176 syncs of unarmed green heads, about 44% of PR CI wall time, each
+  // leaving the PR un-armable for a median 24 min (114 turned it red); arms on
+  // a just-synced head were ejected no less often. Conflicts, main-repairable
+  // reds, unknown CI and the opt-in label still sync. So does a green head
+  // whose files main has also changed since their merge base (its green may
+  // not hold on current main; unknown overlap syncs, never skips blind), and a
+  // PR carrying the eject-hold label (the queue saw it fail on main, so its own
+  // CI should re-run on current main and show why).
+  const labels = pr.labels || [];
+  if (conflicts.length === 0 && pr.checksState === 'SUCCESS'
+      && !labels.includes(SYNC_ANYWAY_LABEL) && !labels.includes(EJECTED_LABEL)
+      && Array.isArray(input.sharedFiles) && input.sharedFiles.length === 0) {
+    return skip('green-queue-rebuilds');
+  }
 
   if (conflicts.length === 0) return { action: 'merge-clean', reason: 'behind', paths: [] };
   const sentinelOk = input.sentinelOk || new Set();
@@ -487,11 +510,13 @@ function sharedFilesWithMain(headSha, mainSha) {
   const mine = new Set(lines(h.out));
   return lines(m.out).filter((f) => mine.has(f));
 }
-/** predict() plus the red-head overlap probe and the CI facts the red-head
- * skip exceptions read, run only for a red, clean-BEHIND PR. */
+/** predict() plus the overlap probe (red or green clean-BEHIND PR; local git
+ * only) and the CI facts the red-head skip exceptions read (red only). */
 function predictFor(pr, mainSha, repo = REPO) {
   const pred = pr.isCrossRepository ? { behind: false, conflicts: [] } : predict(pr.headRefOid, mainSha);
-  if (pred.behind && pred.conflicts && pred.conflicts.length === 0 && RED_STATES.has(pr.checksState)) {
+  const cleanBehind = pred.behind && pred.conflicts && pred.conflicts.length === 0;
+  if (cleanBehind && pr.checksState === 'SUCCESS') pred.sharedFiles = sharedFilesWithMain(pr.headRefOid, mainSha);
+  if (cleanBehind && RED_STATES.has(pr.checksState)) {
     pred.sharedFiles = sharedFilesWithMain(pr.headRefOid, mainSha);
     Object.assign(pred, headRunFacts(repo, pr.headRefOid));
     pred.mainRecoveredAt = mainRecoveredAt(repo);
