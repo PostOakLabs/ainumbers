@@ -666,6 +666,21 @@ const PREFLIGHT_ONLY = new Map([
     "never a workflow. In-memory mutation self-test: gen-changelog.selftest.mjs (its own GATES " +
     "entry)."],
   ["gen-changelog.selftest.mjs", SELF_TEST],
+  // ── REGEN-QUARANTINE-PRUNE-1 (2026-11-23) ──────────────────────────────────
+  ["prune-recompute-quarantine.mjs",
+    "§18 quarantine prune (REGEN-QUARANTINE-PRUNE-1): the main-side derived regen deletes " +
+    "recompute-equality quarantine entries whose receipts reproduce on the regenerated tree, in the " +
+    "same bot commit as the re-splice. Hard in preflight; its CI route is scripts-verify.yml full " +
+    "preflight (the workflow runs `node scripts/preflight.mjs`), so a named workflow step would only " +
+    "duplicate the same suite. It is ALSO the COVERED gate of derived-artifacts.mjs id " +
+    "'recompute-quarantine-prune' (advisory-on-PR / blocking-on-main via the generic downgrade — a " +
+    "PR cannot satisfy it: the committed tree still carries the stale entry by SO #35's single-writer " +
+    "law, and the prune that removes it is main's writer), and the single writer is " +
+    "derived-artifacts-regen.yml, which prunes post-merge exactly like the sitemap. The prune half is " +
+    "a regen command, never a workflow step by name. Its --check mode is read-only and fail-closed; " +
+    "the write path (delete-only, never adds, never edits a cause) is pinned by " +
+    "prune-recompute-quarantine.test.mjs."],
+  ["prune-recompute-quarantine.test.mjs", SELF_TEST],
   // ── TRUST-SIGNALS-WELLKNOWN-1 (2026-09-28) ──────────────────────────────────
   ["gen-trust-signals.mjs",
     "Trust-signals digest freshness --check (TRUST-SIGNALS-WELLKNOWN-1): re-derives " +
@@ -1328,6 +1343,9 @@ const PREFLIGHT_ONLY = new Map([
   ["workbook.test.mjs", SELF_TEST],
   ["roundtrip-verify.test.mjs", SELF_TEST],
   ["check-derived-fanout-coverage.test.mjs", SELF_TEST],
+  // COVERED-DELTA-IMPACT-1: the report itself is an ADVISORY preflight block (not a gate); only its
+  // `--self-test` leg (in-memory #3208 / #3282 fixtures) is a GATES entry.
+  ["check-covered-delta-impact.mjs", SELF_TEST],
   ["check-derived-declare-parity.test.mjs", SELF_TEST],
   ["check-derived-regen-live.test.mjs", SELF_TEST],
   ["check-regen-repairable.test.mjs", SELF_TEST],
