@@ -315,6 +315,16 @@ export function planReservations({ base, ours, theirs, existingShard }) {
   return refuse.length ? { ok: false, why: refuse.join('; ') } : { ok: true, shards };
 }
 
+// True when the predicted merge conflicts, and only in main-owned derived
+// paths or sentinel-only pages: the conflicts decide() resolves as
+// `merge-derived`. Unknown (null) or empty conflict lists are false.
+export function derivedOnlyConflict(input) {
+  const { conflicts, mainOwned } = input;
+  if (!Array.isArray(conflicts) || conflicts.length === 0 || !mainOwned) return false;
+  const sentinelOk = input.sentinelOk || new Set();
+  return conflicts.every((p) => mainOwned.has(p) || sentinelOk.has(p));
+}
+
 export function decide(input) {
   const { pr, behind, conflicts, mainOwned } = input;
   const attempts = input.attempts || 0;
@@ -326,7 +336,14 @@ export function decide(input) {
   if (pr.baseRefName !== 'main') return skip('base-not-main');
   if (pr.headRefName === 'main') return skip('head-is-main');
   if (pr.isDraft) return skip('draft');
-  if ((pr.labels || []).includes(SKIP_LABEL)) return skip(`label:${SKIP_LABEL}`);
+  // `no-bot-sync` opts a PR out of syncs, with one exception
+  // (BOT-SYNC-OPTOUT-DERIVED-CONFLICT-1): a merge whose every conflict is in a
+  // main-owned derived path (or a sentinel-only page) still resolves, taking
+  // main's side. Main is the single writer of those paths, the merge queue
+  // cannot take a conflicting PR, and nobody else resolves them, so the
+  // opt-out would otherwise park the PR (armed ones included) until a builder
+  // pushes. A clean merge, a real conflict or an unknown merge still skips.
+  if ((pr.labels || []).includes(SKIP_LABEL) && !derivedOnlyConflict(input)) return skip(`label:${SKIP_LABEL}`);
   if (pr.inMergeQueue) return skip('in-merge-queue');
   if (!behind && (!conflicts || conflicts.length === 0)) return skip('current');
   if (conflicts === null) return skip('merge-unknown');
