@@ -44,9 +44,51 @@ export const meta = {
 // Pure ECMA-262 arithmetic only -- no Date.now/new Date(), no Math.random, no
 // TextEncoder/atob/btoa/URL (QuickJS-ng zkVM guest subset).
 
-function safeNum(v, def) { const n = Number(v); return Number.isFinite(n) ? n : def; }
 function str(v, def) { return (typeof v === 'string' && v) ? v : def; }
 function arr(v) { return Array.isArray(v) ? v : []; }
+
+// Strict numeric validation (K-FULL INPUT CONTRACT): caller numbers are never coerced.
+function isStrictNumber(v) { return typeof v === 'number' && Number.isFinite(v); }
+function sessionNumber(v) { return isStrictNumber(v) && v >= 0 ? v : null; }
+
+// D6 buildArtifact-never-throw (K-FULL INPUT CONTRACT): walk the
+// {policy_parameters, output_payload} preimage against the _hash.mjs limits and refuse
+// with a named code instead of letting executionHash throw.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+const PP_MAX_DEPTH = HASH_MAX_DEPTH - 8;
+const PP_MAX_ELEMENTS = 199000;
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+  }
+  return null;
+}
+
+function isPlainObject(v) {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
 
 // The closed authenticator-kind enum owned by this node's contract. Restricted-kind
 // criteria and kind validation operate on these strings only.
@@ -70,17 +112,21 @@ function findLevelIndex(levels, levelId) {
   return -1;
 }
 
-function numericCriterion(level, key) {
-  if (level[key] === undefined || level[key] === null) return { present: false };
-  const n = Number(level[key]);
-  if (!Number.isFinite(n) || n < 0) return { present: true, ok: false };
-  return { present: true, ok: true, required: n };
+function numericCriterion(level, key, { integer = false } = {}) {
+  const raw = level[key];
+  if (raw === undefined || raw === null) return { present: false };
+  if (!isStrictNumber(raw) || raw < 0) return { present: true, ok: false };
+  if (Number.isInteger(raw) && !Number.isSafeInteger(raw)) return { present: true, ok: false };
+  if (integer && !Number.isSafeInteger(raw)) return { present: true, ok: false };
+  return { present: true, ok: true, required: raw };
 }
 
 function arrayCriterion(level, key) {
   if (level[key] === undefined || level[key] === null) return { present: false };
   if (!Array.isArray(level[key])) return { present: true, ok: false };
-  return { present: true, ok: true, required: level[key].filter((k) => typeof k === 'string' && k) };
+  const raw = level[key];
+  for (let i = 0; i < raw.length; i++) if (typeof raw[i] !== 'string' || !raw[i]) return { present: true, ok: false };
+  return { present: true, ok: true, required: raw.slice() };
 }
 
 function boolCriterion(level, key) {
@@ -119,7 +165,7 @@ function evalLevel(level, authenticators, session, factorKinds) {
 
   // -- min_factors: distinct factor categories across the declared set (a
   //    multi-factor unit carries several categories and counts for each) --
-  const mf = numericCriterion(level, 'min_factors');
+  const mf = numericCriterion(level, 'min_factors', { integer: true });
   if (mf.present) {
     if (!mf.ok) undecidable.push({ criterion: 'min_factors', reason: 'min_factors is not a finite non-negative number -- the definition cannot express the factor floor it is asking for' });
     else if (factorKinds.size < mf.required) {
@@ -161,8 +207,7 @@ function evalLevel(level, authenticators, session, factorKinds) {
   if (mr.present) {
     if (!mr.ok) undecidable.push({ criterion: 'max_reauth_interval_minutes', reason: 'max_reauth_interval_minutes is not a finite non-negative number -- the definition cannot express the interval ceiling it is asking for' });
     else {
-      const raw = s.reauth_interval_minutes;
-      const found = raw === undefined || raw === null ? null : safeNum(raw, null);
+      const found = sessionNumber(s.reauth_interval_minutes);
       if (found === null || found > mr.required) {
         flags.push('AAL_REAUTH_INTERVAL_EXCEEDED');
         unmet.push({ criterion: 'max_reauth_interval_minutes', required: mr.required, found });
@@ -173,8 +218,7 @@ function evalLevel(level, authenticators, session, factorKinds) {
   if (mi.present) {
     if (!mi.ok) undecidable.push({ criterion: 'max_idle_minutes', reason: 'max_idle_minutes is not a finite non-negative number -- the definition cannot express the idle ceiling it is asking for' });
     else {
-      const raw = s.idle_timeout_minutes;
-      const found = raw === undefined || raw === null ? null : safeNum(raw, null);
+      const found = sessionNumber(s.idle_timeout_minutes);
       if (found === null || found > mi.required) {
         flags.push('AAL_IDLE_TIMEOUT_EXCEEDED');
         unmet.push({ criterion: 'max_idle_minutes', required: mi.required, found });
@@ -202,8 +246,15 @@ function evalLevel(level, authenticators, session, factorKinds) {
   return { criteria_evaluated: criteriaCount(level), unmet, undecidable, flags };
 }
 
-export function compute(pp) {
-  pp = pp || {};
+export function compute(rawPp) {
+  const refusalReasons = [];
+  if (!isPlainObject(rawPp)) {
+    refusalReasons.push('REFUSED_INPUT_WRONG_TYPE: policy_parameters must be a plain object');
+  } else {
+    const unhashable = findHashRefusal(rawPp, 'pp', 1, { maxDepth: PP_MAX_DEPTH, maxElements: PP_MAX_ELEMENTS, n: 0 });
+    if (unhashable !== null) refusalReasons.push(`${unhashable.reason}: ${unhashable.detail}`);
+  }
+  const pp = refusalReasons.length === 0 ? rawPp : {};
 
   const framework = pp.framework && typeof pp.framework === 'object' ? pp.framework : {};
   const frameworkId = str(framework.id, null);
@@ -241,17 +292,19 @@ export function compute(pp) {
     flags = targetResult.flags;
 
     const decidableAtTarget = criteriaEvaluated - undecidable.length;
-    targetMet = decidableAtTarget > 0 && unmet.length === 0;
-    if (criteriaEvaluated === 0) targetMet = true; // vacuous: level declares no criteria
+    // A level with no decidable criteria, any undecidable criterion, or no declared
+    // authenticator is never met (Muse 71 B1/B2). Vacuous MET is not a pass.
+    targetMet = decidableAtTarget > 0 && undecidable.length === 0 && unmet.length === 0 && authenticators.length > 0;
 
     if (targetMet) {
       achievedLevel = targetLevel;
     } else {
       // Walk down from the level below target to find the highest fully-met level.
+      // A vacuous or partly-undecidable level cannot be an achieved level either.
       for (let i = targetIdx - 1; i >= 0; i--) {
         const r = evalLevel(levels[i], authenticators, session, factorKinds);
         const decidable = r.criteria_evaluated - r.undecidable.length;
-        const passes = r.criteria_evaluated === 0 || (decidable > 0 && r.unmet.length === 0);
+        const passes = decidable > 0 && r.undecidable.length === 0 && r.unmet.length === 0 && authenticators.length > 0;
         if (passes) { achievedLevel = levels[i].level_id; break; }
       }
     }
@@ -259,6 +312,7 @@ export function compute(pp) {
 
   if (!definitionUsable || undecidable.length > 0) compliance_flags.push('AAL_DEFINITION_INSUFFICIENT');
   if (authenticators.length === 0) compliance_flags.push('AAL_AUTHENTICATOR_UNDECLARED');
+  if (refusalReasons.length > 0) compliance_flags.push('AAL_INPUT_REFUSED');
   if (definitionUsable) {
     if (targetMet) compliance_flags.push('AAL_MET');
     else if (unmet.length > 0) compliance_flags.push('AAL_SHORTFALL');
@@ -288,15 +342,15 @@ export function compute(pp) {
 
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
     tool_id: TOOL_ID,
     tool_version: TOOL_VERSION,
     generated_at: now ?? null,
-    execution_hash: hash,
+    execution_hash: unhashable === null ? await executionHash(pp, output_payload) : null,
     chain: { parent_hashes, parent_tool_ids, chain_depth },
     policy_parameters: pp,
     output_payload,
@@ -305,4 +359,6 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }
