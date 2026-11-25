@@ -15,7 +15,9 @@ name: Derived Regen Deadman
 # `derived-regen`). It does three other things, all bounded:
 #
 #   RETRY-ONCE (courtesy, not the cure): on the FIRST failure of a run
-#   (run_attempt == 1) it waits 10 minutes and re-runs the failed jobs. The
+#   (run_attempt == 1) it waits 10 minutes and re-runs the failed jobs, unless
+#   a gate step failed (scripts/ci/regen-retry-decide.mjs: only runner, token,
+#   checkout, toolchain, publish and push-race failures are retried). The
 #   failure class is deterministic — a copy gate red names an offending file
 #   and a retry heals nothing — so the retry exists for the transient tail
 #   (network, runner, registry) and the ALARM is the cure. run_attempt == 1
@@ -117,12 +119,30 @@ jobs:
       # can do the job: re-run THIS repo's own failed workflow run.
       actions: write
     steps:
-      - name: Back off, then re-run the failed jobs (attempt 2)
+      # The helper comes from the default branch (workflow_run always runs
+      # this file from there, and the checkout follows it).
+      - name: Check out the retry helper
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      # A gate red is deterministic: re-running it only holds the serialized
+      # regen group for 10 more minutes. Retry only when every failed step is a
+      # transient one (runner, token, checkout, toolchain, publish, push race)
+      # or the runner was lost. The alarm job runs either way.
+      - name: Back off, then re-run the failed jobs (attempt 2) unless a gate failed
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ needs.gate.outputs.run_id }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          DECISION=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" | node scripts/ci/regen-retry-decide.mjs); RC=$?
+          set -e
+          echo "retry decision for run $RUN_ID: $DECISION"
+          if [ "$RC" -eq 1 ]; then
+            echo "gate failure: no retry, the alarm job reports it" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           echo "first failure of run $RUN_ID — backing off 10 minutes, then retrying once"
           sleep 600
           # Bound, not cure: the failure class is deterministic (copy gate), so
