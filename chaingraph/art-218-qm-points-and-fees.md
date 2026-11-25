@@ -42,3 +42,11 @@ Qualified Mortgage points-and-fees test per Reg Z §1026.43(e)(3). Applies versi
 ## Verify
 
 Run the sample policy_parameters through MCP tool `check_qm_points_and_fees` at https://mcp.ainumbers.co/mcp (or the page form) and check the returned receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+## Covered
+
+Obligations of the cited rule text that this tool implements, each with test vectors on both the passing and the refusing side:
+
+- O1: a covered transaction is not a qualified mortgage when its total points and fees, as defined in 1026.32(b)(1), exceed the applicable tier limit
+- O2: tier A limit: 3 percent of the total loan amount when the loan amount is at or above the adjusted 100,000 dollar figure
+- O4: tier C limit: 5 percent of the total loan amount when the loan amount is between the adjusted 20,000 and 60,000 dollar figures

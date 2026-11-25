@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (777 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (778 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -8567,6 +8567,16 @@ window.CHAINBUILDER_CATALOG = [
       "499-crypto-asset-inventory-classifier",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-850-shariah-equity-purification",
+    "display_name": "Shariah Equity Purification",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-850-shariah-equity-purification.html",
+    "description": "Screens one company's caller-supplied financials under four pinned Shariah screening methodologies, each as its own independent verdict grou",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
