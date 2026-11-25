@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:9a5ed82513d2fd9cb6bbeb2f71b2591791f0fb3887ce0c6472badb25dce95f94
+// kernel_digest_at_authoring: sha256:297e64e539d8fff5f6ce0e74900a39ae9498ebb1ec8dc02d16f06630c9c54fff
 //
 // FV-PROPFLOOR-SHARD-B5-1 — property-test floor for art-212-prediction-market-arbitrage.
 // Class B (bounded cross-venue arbitrage calculator). float-sensitive: yes -- venue-specific

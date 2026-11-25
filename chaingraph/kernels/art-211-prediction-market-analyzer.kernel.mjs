@@ -1596,11 +1596,12 @@ function parabolic(theta_num, theta_den, cu, cs, pu) {
 // Polymarket global taker rates by market category (docs.polymarket.com/trading/fees,
 // retrieved 2026-10-30). Makers pay 0; maker rebates are paid out of collected
 // taker fees and are not a per-trade fee, so they stay out of this node.
-const POLYMARKET_GLOBAL_RATES = {
+// Prototype-free table: a caller-supplied category can only resolve to an own entry.
+const POLYMARKET_GLOBAL_RATES = Object.assign(Object.create(null), {
   crypto: [7n, 100n], sports: [5n, 100n], finance: [4n, 100n], politics: [4n, 100n],
   economics: [5n, 100n], culture: [5n, 100n], weather: [5n, 100n], other: [5n, 100n],
   mentions: [4n, 100n], tech: [4n, 100n], geopolitics: [0n, 1n], combos: [5n, 100n],
-};
+});
 // Polymarket US taker theta by effective date (CFTC 40.6(d) letters dated 2026-07-07
 // and 2026-09-21; both effective 12:00 a.m. ET on the date shown).
 const POLYMARKET_US_THETA = [

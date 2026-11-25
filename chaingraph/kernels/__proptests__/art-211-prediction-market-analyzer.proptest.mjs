@@ -1,5 +1,5 @@
 // art-211-prediction-market-analyzer.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C7-1).
-// kernel_digest_at_authoring: sha256:181e511f17ddc58d5415726f8a8974a9ad43739b79a6d5d8a1438d63a87125f2
+// kernel_digest_at_authoring: sha256:b94790338df2d7dd21fa648a5d3428053357095753e34f908342e4bfb7eb3120
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -62,7 +62,11 @@ function randomBinaryInput(rng) {
   };
 }
 
-const TRIALS = 5000;
+// run-mutation-tier.mjs exports the sibling art-211-prediction-market-analyzer.mutation.json
+// "mutationTrials" key as MUTATION_TIER_NUM_RUNS into the per-mutant child only (1632 mutants at
+// 5000 trials each exceeded the 600 s per-kernel bound). Unset, the count stays 5000.
+const envRuns = Number(process.env.MUTATION_TIER_NUM_RUNS);
+const TRIALS = Number.isSafeInteger(envRuns) && envRuns > 0 ? envRuns : 5000;
 
 // ---------- P1: boundedness — probabilities/scores stay within their declared ranges ----------
 function checkP1_boundedness() {
