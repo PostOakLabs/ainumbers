@@ -2366,7 +2366,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Conforming Loan Limit Check",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-223-conforming-loan-limit.html",
-    "description": "FHFA annual conforming loan limit classifier. 2026 baseline: $832,750 (1-unit), $1,066,250 (2-unit), $1,288,800 (3-unit), $1,601,750 (4-unit",
+    "description": "FHFA annual conforming loan limit classifier. 2027 baseline: $855,400 (1-unit), $1,095,250 (2-unit), $1,323,900 (3-unit), $1,645,350 (4-unit",
     "consumes": [],
     "feeds": [
       "art-222-agency-eligibility-matrix"
