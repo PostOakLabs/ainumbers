@@ -21,6 +21,17 @@
 // #3225/#3263/#3265 out with it). pickEjectRun() reads a run as the ejecting
 // run when it concluded `failure`, or concluded `cancelled` / is unfinished
 // with at least one failed job.
+//
+// MQ-EJECT-HOLD-OWN-CHANGE-1 (2026-11-25): any `synchronize` used to clear the
+// hold, so a refresh from main (a main-watch merge, a bot-sync, an autofix
+// commit) cleared a hold on a PR-owned failure and the same broken change was
+// re-armed (#3278: ejected 09:33, cleared 09:56 by a merge-from-main, re-armed
+// 10:34). The hold comment now also records the eject class, and
+//   node scripts/mq-eject-hold.mjs should-clear <owner/repo> <pr> <base> <before> <after>
+// clears the label only when the PR's own diff against <base> changed between
+// <before> and <after>, or when the eject class says main moving on caused it
+// (MAIN_MOVED_KINDS). It prints one JSON verdict line and exits 0 to clear,
+// 1 to keep. Anything it cannot read clears (the old behaviour).
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -28,10 +39,61 @@ import { fileURLToPath } from 'node:url';
 export const LABEL = 'mq-ejected';
 const MARKER = 'merge-queue: ejected';
 const SHA_RE = /\bhead ([0-9a-f]{7,40})\b/;
+const CLASS_RE = /\bclass ([a-z][a-z-]*)\b/;
 
-export function holdComment({ workflow, step, runId, sha }) {
-  return `${MARKER} for a failed check (workflow ${workflow}, step ${step}, run ${runId}), head ${sha}. `
-    + `Not re-armed at this head: push a new commit to clear the \`${LABEL}\` label.`;
+// Eject classes (scripts/mq-eject-classify.mjs) caused by main moving on, not by
+// the PR's own change: a refresh from main alone may clear these holds.
+export const MAIN_MOVED_KINDS = new Set(['derived-gate']);
+
+export function holdComment({ workflow, step, runId, sha, kind }) {
+  const cls = kind ? `, class ${kind}` : '';
+  const how = kind && MAIN_MOVED_KINDS.has(kind)
+    ? 'push a commit or merge main in to clear'
+    : "push a commit that changes this PR's own files to clear (a merge from main alone does not)";
+  return `${MARKER} for a failed check (workflow ${workflow}, step ${step}, run ${runId}), head ${sha}${cls}. `
+    + `Not re-armed at this head: ${how} the \`${LABEL}\` label.`;
+}
+
+export function recordedClass(body) {
+  const m = CLASS_RE.exec(String(body));
+  return m ? m[1] : null;
+}
+
+// filename -> status:blob for a compare API `files` list. A rename also keys
+// its old name, so renaming a file counts as a change.
+function diffKey(files) {
+  const m = new Map();
+  for (const f of files) {
+    m.set(f.filename, `${f.status}:${f.sha ?? ''}`);
+    if (f.previous_filename) m.set(f.previous_filename, `renamed-to:${f.filename}`);
+  }
+  return m;
+}
+
+/** True when the PR's own changed files (path, status, blob) differ. Pure. */
+export function ownDiffMoved(beforeFiles, afterFiles) {
+  const a = diffKey(beforeFiles);
+  const b = diffKey(afterFiles);
+  if (a.size !== b.size) return true;
+  for (const [k, v] of a) if (b.get(k) !== v) return true;
+  return false;
+}
+
+/**
+ * Decide whether a `synchronize` clears the hold. Pure.
+ * holdBody: the newest hold comment, or null.
+ * before / after: { files, complete } for the PR's own diff (base...sha) at the
+ * old and new head, or null when it could not be read. `complete` is false when
+ * the compare API cut the file list short.
+ * Returns { clear, reason }.
+ */
+export function clearVerdict({ holdBody, before, after }) {
+  if (!holdBody || recordedSha(holdBody) === null) return { clear: true, reason: 'no-hold-record' };
+  if (!before || !after || !before.complete || !after.complete) return { clear: true, reason: 'own-diff-unknown' };
+  if (ownDiffMoved(before.files, after.files)) return { clear: true, reason: 'own-files-changed' };
+  const kind = recordedClass(holdBody);
+  if (kind && MAIN_MOVED_KINDS.has(kind)) return { clear: true, reason: `eject-from-main-move:${kind}` };
+  return { clear: false, reason: `main-refresh-only:${kind ?? 'unclassified'}` };
 }
 
 export function isHoldComment(body) {
@@ -88,18 +150,61 @@ export function findEjectRun(repo, pr, gh = ghJson) {
   });
 }
 
+// The compare API lists at most 300 files.
+const COMPARE_FILE_CAP = 300;
+
+// The PR's own diff at `sha`: files changed since its merge base with `base`.
+export function prDiff(repo, base, sha, gh = ghJson) {
+  try {
+    const files = gh(['api', `repos/${repo}/compare/${encodeURIComponent(base)}...${sha}`,
+      '--jq', '[.files[] | {filename, status, sha, previous_filename}]']);
+    if (!Array.isArray(files)) return null;
+    return { files, complete: files.length < COMPARE_FILE_CAP };
+  } catch {
+    return null;
+  }
+}
+
+// Newest hold comment on the PR, or null.
+export function newestHoldComment(repo, pr, gh = ghLines) {
+  try {
+    const bodies = gh(['api', `repos/${repo}/issues/${pr}/comments?per_page=100`, '--paginate',
+      '--jq', '.[].body']);
+    const list = Array.isArray(bodies) ? bodies : [];
+    return list.filter(isHoldComment).at(-1) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// `--paginate --jq '.[].body'` prints one JSON string per line, not an array.
+function ghLines(args) {
+  const out = execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  if (args.includes('--paginate')) return out.split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  return JSON.parse(out);
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [cmd, ...a] = process.argv.slice(2);
-  if (cmd === 'find-run') {
+  if (cmd === 'should-clear') {
+    const [repo, pr, base, before, after] = a;
+    const v = clearVerdict({
+      holdBody: newestHoldComment(repo, pr, ghLines),
+      before: prDiff(repo, base, before, ghLines),
+      after: prDiff(repo, base, after, ghLines),
+    });
+    console.log(JSON.stringify(v));
+    process.exit(v.clear ? 0 : 1);
+  } else if (cmd === 'find-run') {
     const id = findEjectRun(a[0], a[1]);
     if (id !== null) console.log(id);
   } else if (cmd === 'comment') {
-    const [workflow, step, runId, sha] = a;
-    console.log(holdComment({ workflow, step, runId, sha }));
+    const [workflow, step, runId, sha, kind] = a;
+    console.log(holdComment({ workflow, step, runId, sha, kind }));
   } else if (cmd === 'held') {
     process.exit(recordedSha(readFileSync(0, 'utf8')) === a[0] ? 0 : 1);
   } else {
-    console.error('usage: mq-eject-hold.mjs comment <workflow> <step> <run-id> <head-sha> | held <head-sha> | find-run <owner/repo> <pr>');
+    console.error('usage: mq-eject-hold.mjs comment <workflow> <step> <run-id> <head-sha> [class] | held <head-sha> | find-run <owner/repo> <pr> | should-clear <owner/repo> <pr> <base> <before> <after>');
     process.exit(2);
   }
 }

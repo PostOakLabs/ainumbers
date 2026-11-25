@@ -59,7 +59,7 @@ import { join } from 'node:path';
 import {
   decide, mainOwnedPaths, sentinelOwnedPaths, isSentinelOnlyDiff, parseMergeTree, syncOne,
   waitForRegen, regenGate, planReservations, shardBytes, RESERVATIONS_LEGACY, SKIP_LABEL, MAX_ATTEMPTS_PER_HEAD, SYNC_ANYWAY_LABEL,
-  MAIN_OWNED_FRESHNESS_STEPS, recoveryFromRuns, EJECTED_LABEL,
+  MAIN_OWNED_FRESHNESS_STEPS, recoveryFromRuns, EJECTED_LABEL, ejectFromMainMove, ejectStepFor,
 } from './pr-sync-main.mjs';
 import { canonicalRecordBytes, NEVER_LIVE_DEPENDENCY_NOTE } from '../gen-registry-kernel-resolve.mjs';
 import { sourceDigest } from '../../chaingraph/kernels/_buildid.mjs';
@@ -122,6 +122,35 @@ t('draft → skip draft', () => {
 });
 t(`labelled ${SKIP_LABEL} → skip label`, () => {
   assert.equal(run({ pr: { labels: ['automerge', SKIP_LABEL] } }).reason, `label:${SKIP_LABEL}`);
+});
+// BOT-SYNC-OPTOUT-DERIVED-CONFLICT-1: the opt-out yields only to a conflict
+// that sits entirely in main-owned derived paths (or sentinel-only pages).
+t(`${SKIP_LABEL} + conflict only in main-owned derived paths → merge-derived (armed too)`, () => {
+  for (const labels of [[SKIP_LABEL], ['automerge', SKIP_LABEL]]) {
+    const d = run({ pr: { labels }, conflicts: ['mcp/catalog.json', 'sitemap.xml'] });
+    assert.equal(d.action, 'merge-derived');
+    assert.deepEqual(d.paths, ['mcp/catalog.json', 'sitemap.xml']);
+  }
+});
+t(`${SKIP_LABEL} + conflict only in a sentinel-only page → merge-derived`, () => {
+  const d = run({ pr: { labels: [SKIP_LABEL] }, conflicts: ['tools/x.html'], sentinelOk: new Set(['tools/x.html']) });
+  assert.equal(d.action, 'merge-derived');
+});
+t(`${SKIP_LABEL} + a real conflict beside derived ones → still skip label (no comment)`, () => {
+  assert.equal(run({ pr: { labels: [SKIP_LABEL] }, conflicts: ['mcp/catalog.json', 'chaingraph/kernels/a.kernel.mjs'] }).reason, `label:${SKIP_LABEL}`);
+});
+t(`${SKIP_LABEL} + the legacy id registry conflict → still skip label`, () => {
+  assert.equal(run({ pr: { labels: [SKIP_LABEL] }, conflicts: [RESERVATIONS_LEGACY] }).reason, `label:${SKIP_LABEL}`);
+});
+t(`${SKIP_LABEL} + clean BEHIND or unknown merge → still skip label`, () => {
+  assert.equal(run({ pr: { labels: [SKIP_LABEL] }, conflicts: [] }).reason, `label:${SKIP_LABEL}`);
+  assert.equal(run({ pr: { labels: [SKIP_LABEL] }, conflicts: null }).reason, `label:${SKIP_LABEL}`);
+});
+t(`${SKIP_LABEL} + derived-only conflict still honours queue, fresh-head and attempt guards`, () => {
+  const c = ['mcp/catalog.json'];
+  assert.equal(run({ pr: { labels: [SKIP_LABEL], inMergeQueue: true }, conflicts: c }).reason, 'in-merge-queue');
+  assert.equal(run({ pr: { labels: [SKIP_LABEL] }, conflicts: c, attempts: MAX_ATTEMPTS_PER_HEAD }).reason, `attempts:${MAX_ATTEMPTS_PER_HEAD}`);
+  assert.equal(run({ pr: { labels: [SKIP_LABEL], headCommittedAt: new Date(NOW - 60_000).toISOString() }, conflicts: c }).reason, 'fresh-head');
 });
 t('in the merge queue → skip (a push would eject it)', () => {
   assert.equal(run({ pr: { inMergeQueue: true } }).reason, 'in-merge-queue');
@@ -188,8 +217,38 @@ t('green + overlap unknown (null/undefined) → syncs, never skips blind', () =>
   assert.equal(run({ pr: { checksState: 'SUCCESS' }, sharedFiles: null }).action, 'merge-clean');
   assert.equal(run({ pr: { checksState: 'SUCCESS' } }).action, 'merge-clean');
 });
-t(`green + ${EJECTED_LABEL} label → syncs (the queue saw it fail on main)`, () => {
-  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: [EJECTED_LABEL] }, sharedFiles: [] }).action, 'merge-clean');
+// Eject hold: force a sync only for a main-moved eject cause, and before the
+// armed skip, since a real ejected PR keeps `automerge` (#3278's real comment).
+const HOLD_3278 = 'merge-queue: ejected for a failed check (workflow HTML Verify, step CSP + copy-hallmarks + dead-link + chrome gates / Dead-link gate, run 45585938105), head cf945547ba9de296aa36c600052a42b8249edbc0. Not re-armed at this head: push a new commit to clear the `mq-ejected` label.';
+const DEAD_LINK = 'CSP + copy-hallmarks + dead-link + chrome gates / Dead-link gate';
+const OWN_GATE = 'scripts-verify / MCP output-schema coverage';
+t('ejectStepFor reads the step from the hold comment at this head only', () => {
+  assert.equal(ejectStepFor([HOLD_3278], 'cf945547ba9de296aa36c600052a42b8249edbc0'), DEAD_LINK);
+  assert.equal(ejectStepFor(['other', HOLD_3278], 'cf945547ba9de296aa36c600052a42b8249edbc0'), DEAD_LINK);
+  assert.equal(ejectStepFor([HOLD_3278], 'aaaaaaa'), null);
+  assert.equal(ejectStepFor(['bot-sync: real conflict'], 'cf945547'), null);
+  assert.equal(ejectStepFor(null, 'cf945547'), null);
+});
+t('ejectFromMainMove: dead-link and main-owned freshness steps yes, PR-owned gates no', () => {
+  assert.equal(ejectFromMainMove(DEAD_LINK), true);
+  assert.equal(ejectFromMainMove(`scripts-verify / ${FRESH_STEP}`), true);
+  assert.equal(ejectFromMainMove(OWN_GATE), false);
+  assert.equal(ejectFromMainMove('unknown'), false);
+  assert.equal(ejectFromMainMove(null), false);
+});
+t(`armed + ${EJECTED_LABEL} + main-moved eject cause → syncs (eject check runs before the armed skip)`, () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: ['automerge', EJECTED_LABEL] }, sharedFiles: [], ejectStep: DEAD_LINK }).action, 'merge-clean');
+});
+t(`armed + ${EJECTED_LABEL} + PR-owned eject cause → still skip armed (no sync / re-arm loop)`, () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: ['automerge', EJECTED_LABEL] }, sharedFiles: [], ejectStep: OWN_GATE }).reason, 'armed-queue-rebuilds');
+  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: ['automerge', EJECTED_LABEL] }, sharedFiles: [] }).reason, 'armed-queue-rebuilds');
+});
+t(`green unarmed + ${EJECTED_LABEL}: main-moved cause syncs, PR-owned cause takes the green skip`, () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: [EJECTED_LABEL] }, sharedFiles: [], ejectStep: DEAD_LINK }).action, 'merge-clean');
+  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: [EJECTED_LABEL] }, sharedFiles: [], ejectStep: OWN_GATE }).reason, 'green-queue-rebuilds');
+});
+t('an eject step without the label forces nothing', () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: ['automerge'] }, sharedFiles: [], ejectStep: DEAD_LINK }).reason, 'armed-queue-rebuilds');
 });
 t('green + CONFLICTING → still resolves / reports (the queue cannot take a conflict)', () => {
   assert.equal(run({ pr: { checksState: 'SUCCESS' }, conflicts: ['mcp/catalog.json'], sharedFiles: [] }).action, 'merge-derived');
