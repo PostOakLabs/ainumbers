@@ -1,4 +1,7 @@
 import { executionHash } from './_hash.mjs';
+// Refusal-detail formatter: JSON.stringify throws on a BigInt, so render one as `<digits>n`.
+// Output for every non-BigInt value is identical to JSON.stringify.
+const fmt = (v) => JSON.stringify(v, (_k, x) => (typeof x === 'bigint' ? `${x}n` : x));
 
 // art-708-v4-hook-permission-reconciler — decodes a Uniswap v4 hook address's 14 permission
 // bits (the low 14 bits of the address) against a caller-declared callback set, and reconciles
@@ -135,7 +138,7 @@ export function compute(pp) {
   if (typeof addrHex !== 'string' || !HEX40.test(addrHex)) {
     return refusal('HOOK_ADDRESS_INVALID',
       'hook_address must be a 0x-prefixed 40-hex-digit address (checksum not required); got '
-      + JSON.stringify(addrHex ?? null) + '.');
+      + fmt(addrHex ?? null) + '.');
   }
   addrHex = addrHex.toLowerCase();
 
@@ -143,7 +146,7 @@ export function compute(pp) {
   if (!declared || typeof declared !== 'object' || Array.isArray(declared)) {
     return refusal('DECLARED_PERMISSIONS_INVALID',
       'declared_permissions must be an object carrying all 14 flag booleans (flat, or a Uniswap hooklist entry with a flags object); got '
-      + JSON.stringify(declared ?? null) + '.');
+      + fmt(declared ?? null) + '.');
   }
   const missing = FLAG_NAMES.filter((f) => typeof declared[f] !== 'boolean');
   if (missing.length > 0) {
@@ -159,7 +162,7 @@ export function compute(pp) {
       || pp.pool_fee < 0 || pp.pool_fee > 0xffffff) {
       return refusal('POOL_FEE_INVALID',
         'pool_fee, when present, must be a uint24 integer (0..16777215); got '
-        + JSON.stringify(pp.pool_fee) + '.');
+        + fmt(pp.pool_fee) + '.');
     }
     poolFee = BigInt(pp.pool_fee);
   }
@@ -169,7 +172,7 @@ export function compute(pp) {
   if (pp.declaration_source !== undefined) {
     if (typeof pp.declaration_source !== 'string') {
       return refusal('DECLARATION_SOURCE_INVALID',
-        'declaration_source, when present, must be a string; got ' + JSON.stringify(pp.declaration_source) + '.');
+        'declaration_source, when present, must be a string; got ' + fmt(pp.declaration_source) + '.');
     }
     declarationSource = pp.declaration_source;
   }

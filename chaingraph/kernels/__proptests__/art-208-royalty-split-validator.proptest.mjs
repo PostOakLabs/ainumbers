@@ -1,5 +1,5 @@
 // art-208-royalty-split-validator.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C6-1).
-// kernel_digest_at_authoring: sha256:e264583d242ab0d715775d7f1ac1a87d7a26916f3fa44a5082a6c2facfa61705
+// kernel_digest_at_authoring: sha256:20ed9dff4580fedd37d55f70933ea67a9c7396e92759cd1e8636dd1226067ecd
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -157,6 +157,169 @@ function checkP4_entry_order_invariance() {
   return { name: 'P4_entry_order_invariance', trials: checked, violations };
 }
 
+// ---------- PF1 (KERNEL-BIGINT-F1-SAFE-FORMAT-1): a BigInt on entries[0].basis_points refuses, never throws ----------
+// RED on main: compute() threw "Do not know how to serialize a BigInt" while building the
+// share-field validation detail and while canonicalizing the config fingerprint. GREEN on head:
+// the same input fails the share_type rule with the kernel's existing flag shape
+// (measured across 4 BigInt values on this field, origin/main 0289be7577 vs this branch).
+function checkPF1_bigintInputRefusesWithoutThrowing() {
+  let violations = 0, checked = 0;
+  const fixturesPath = path.join(__dirname, '..', 'fixtures', 'art-208-royalty-split-validator.fixtures.json');
+  const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
+  for (const big of [7n, 123456789012345678901234567890n, -1n, 0n]) {
+    const pp = structuredClone(fixtures.vectors[0].policy_parameters);
+    if (!pp.entries || !Array.isArray(pp.entries) || pp.entries.length === 0) pp.entries = [{ recipient: 'R1', share_type: 'percent', value: 50 }];
+    pp.entries[0].basis_points = big;
+    checked++;
+    try {
+      const r = compute(pp);
+      if (!r || !r.compliance_flags || !r.compliance_flags.includes('VALIDATION_FAILED')) violations++;
+    } catch (e) {
+      violations++; // the serialization throw this cure removes
+    }
+  }
+  return { name: 'PF1_bigint_entry_basis_points_refuses_without_throwing', trials: checked, violations };
+}
+
+// ---------- PD1 (MUTATION-FLOOR-CURE): exact differential against an independent reference model ----------
+// Re-derives the complete output (mode, count, sum, cap, every rule verdict AND detail string,
+// the config fingerprint and the flags) from the rule text over boundary-heavy inputs.
+function refDjb2(s) {
+  let h = 5381;
+  for (const ch of s) h = (Math.imul(h, 33) ^ ch.charCodeAt(0)) >>> 0;
+  return '0x' + h.toString(16).padStart(8, '0');
+}
+const refNorm = (a) => (typeof a === 'string' ? a : String(a || '')).toLowerCase().trim();
+const refStr = (a) => String(a || '').trim();
+function refCompute(pp) {
+  pp = pp || {};
+  const ci = pp.cap_bps;
+  let cap;
+  if (typeof ci === 'number' && ci >= 1 && ci <= 10000) cap = ci;
+  else {
+    const pi = parseInt(String(ci || ''), 10);
+    cap = pi >= 1 ? Math.min(10000, Math.max(1, pi)) : 5000;
+  }
+  let entries = [];
+  if (Array.isArray(pp.entries)) entries = pp.entries;
+  else if (typeof pp.config === 'string' && pp.config.trim()) { try { entries = JSON.parse(pp.config); } catch (_) { entries = []; } }
+  else if (typeof pp.config === 'object' && Array.isArray(pp.config)) entries = pp.config;
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return {
+      output_payload: { valid: false, mode: 'bps', recipient_count: 0, sum: 0, cap_bps: cap, rules: [{ id: 'input', label: 'Input entries', pass: false, detail: 'No entries provided (empty-input mode).' }], config_hash: refDjb2('[]'), disclaimer: 'Not legal advice. Validation only; no on-chain calls. Consult a licensed attorney and review ERC-2981 / 0xSplits documentation for your deployment.' },
+      compliance_flags: ['EMPTY_INPUT'],
+    };
+  }
+  const E = entries.map((e) => e || {});
+  const pctMode = E.some((e) => e.percent !== undefined || e.pct !== undefined);
+  const mode = pctMode ? 'percent' : 'bps';
+  const total = pctMode ? 100 : 10000;
+  const capIn = pctMode ? cap / 100 : cap;
+  const tol = pctMode ? 0.001 : 0;
+  const sh = E.map((e) => {
+    let s;
+    if (!pctMode) s = e.basis_points !== undefined ? e.basis_points : e.bps !== undefined ? e.bps : e.shares !== undefined ? e.shares : null;
+    else s = e.percent !== undefined ? e.percent : e.pct !== undefined ? e.pct : null;
+    return { address: e.address, share: s };
+  });
+  const rules = [];
+  let sum = 0;
+  for (const x of sh) { const n = Number(x.share); if (!Number.isNaN(n)) sum += n; }
+  const gap = Math.abs(sum - total);
+  const sumOk = gap <= tol;
+  rules.push({ id: 'sum', label: 'Share sum', pass: sumOk, detail: `Sum: ${sum}${pctMode ? '% (must equal 100)' : ' bps (must equal 10000)'}${sumOk ? '' : ' -- off by ' + (gap < 1 ? gap.toFixed(4) : String(Math.round(gap)))}` });
+  const viol = [];
+  for (const x of sh) { const n = Number(x.share); if (!Number.isNaN(n) && n > capIn) viol.push(`${String(x.address || '(blank)').slice(0, 12)}... (${n})`); }
+  rules.push({ id: 'cap', label: 'Per-recipient cap', pass: viol.length === 0, detail: `Cap: ${cap} bps (${cap / 100}%)${viol.length === 0 ? ' -- all entries within cap' : ' -- exceeds cap: ' + viol.join(', ')}` });
+  const seen = new Map();
+  const dups = [];
+  for (const x of sh) {
+    const na = refNorm(x.address);
+    if (na && seen.get(na)) dups.push(`${String(x.address).slice(0, 12)}...`);
+    seen.set(na, true);
+  }
+  rules.push({ id: 'dups', label: 'No duplicate addresses', pass: dups.length === 0, detail: dups.length === 0 ? 'All addresses are unique' : 'Duplicates found: ' + dups.join(', ') });
+  const zero = '0x' + '0'.repeat(40);
+  const blanks = [];
+  sh.forEach((x, i) => { const a = refStr(x.address); if (a === '' || a === '0x' || refNorm(a) === zero) blanks.push(`entry ${i + 1}`); });
+  rules.push({ id: 'no_blank', label: 'No zero/blank addresses', pass: blanks.length === 0, detail: blanks.length === 0 ? 'No blank or zero addresses' : 'Blank or zero address at: ' + blanks.join(', ') });
+  const oor = [];
+  sh.forEach((x, i) => { const n = Number(x.share); if (Number.isNaN(n) || n < 0 || n > total) oor.push(`entry ${i + 1} (${x.share})`); });
+  rules.push({ id: 'range', label: pctMode ? 'Share values 0-100%' : 'Share values 0-10000 bps', pass: oor.length === 0, detail: oor.length === 0 ? 'All values in range' : 'Out of range: ' + oor.join(', ') });
+  const bad = [];
+  sh.forEach((x, i) => { const a = refStr(x.address); if (!/^0x[0-9a-fA-F]{40}$/.test(a)) bad.push(`entry ${i + 1}: ${a.slice(0, 16) || '(empty)'}${a.length > 16 ? '...' : ''}`); });
+  rules.push({ id: 'addr_fmt', label: 'Address format (0x + 40 hex chars)', pass: bad.length === 0, detail: bad.length === 0 ? 'All addresses pass format check' : 'Format failures: ' + bad.join('; ') });
+  const big = [];
+  sh.forEach((x, i) => { if (typeof x.share === 'bigint') big.push(`entry ${i + 1}`); });
+  if (big.length) rules.push({ id: 'share_type', label: 'Share values are numbers', pass: false, detail: 'BigInt share value at: ' + big.join(', ') + ' (use a JSON number)' });
+  const allPass = rules.every((r) => r.pass);
+  const canon = JSON.stringify(E.map((e) => {
+    const sv = pctMode ? (e.percent !== undefined ? e.percent : e.pct) : (e.basis_points !== undefined ? e.basis_points : e.bps !== undefined ? e.bps : e.shares);
+    return { address: refNorm(e.address), share: sv };
+  }).sort((p, q) => (p.address < q.address ? -1 : 1)), (_k, x) => (typeof x === 'bigint' ? x.toString() + 'n' : x));
+  const flags = ['ROYALTY_SPLIT_VALIDATED', 'VALIDATE_ONLY', 'NO_ON_CHAIN_ACTION'];
+  if (!allPass) flags.push('VALIDATION_FAILED');
+  return {
+    output_payload: { valid: allPass, mode, recipient_count: entries.length, sum, cap_bps: cap, rules, config_hash: refDjb2(canon), disclaimer: 'Not legal advice. Validation only; no on-chain calls, no royalty distribution. ERC-2981 is advisory. Consult a licensed attorney and review the 0xSplits documentation for your deployment.' },
+    compliance_flags: flags,
+  };
+}
+
+const BE = mulberry32(0xB0A208);
+const pickB = (arr) => arr[Math.floor(BE() * arr.length)];
+const ADDR_A = '0x' + 'a'.repeat(40), ADDR_B = '0x' + 'B'.repeat(40), ADDR_C = '0x' + '1234567890'.repeat(4);
+const EDGE_ADDR = [ADDR_A, ADDR_B, ADDR_C, ADDR_A.toUpperCase().replace('0X', '0x'), ' ' + ADDR_A + ' ', '0x' + '0'.repeat(40), '0x', '0X' + '0'.repeat(40), '', '   ', undefined, null, 0, 12345, '0x' + 'g'.repeat(40), '0x' + 'a'.repeat(39), '0x' + 'a'.repeat(41), 'a'.repeat(42), '0xABCDEF0123456789abcdef0123456789ABCDEF01', 'short', 'a-very-long-address-string-over-16'];
+const EDGE_BPS = [0, 1, 4999, 5000, 5001, 9999, 10000, 10001, -1, 2500, 3333, 3334, 100, 0.5, 33.33, '5000', '', 'abc', null, NaN, 1e9, undefined];
+const EDGE_PCT = [0, 50, 33.33, 33.34, 99.999, 100, 100.0005, 100.001, 100.002, 101, -5, 0.001, 25, 40, 50.5, '50', null, NaN, undefined];
+const EDGE_CAP = [undefined, null, 0, 1, 2, 5000, 5000.5, 9999, 10000, 10001, 20000, -5, '2500', '0', '1', 'abc', '12abc', '10001', '', NaN, 1e9, 250];
+function edgeEntry(pctM) {
+  const e = {};
+  const ad = pickB(EDGE_ADDR);
+  if (ad !== undefined) e.address = ad;
+  const f = pctM ? pickB(['percent', 'pct', 'percent']) : pickB(['basis_points', 'bps', 'shares', 'basis_points']);
+  const v = pctM ? pickB(EDGE_PCT) : pickB(EDGE_BPS);
+  if (v !== undefined || BE() < 0.5) e[f] = v;
+  if (BE() < 0.1) e[pickB(['basis_points', 'bps', 'shares', 'percent', 'pct'])] = pickB([100, 7, undefined, 0]);
+  return e;
+}
+function edgeInput() {
+  const pctM = BE() < 0.4;
+  const n = Math.floor(BE() * 5);
+  const entries = Array.from({ length: n }, () => (BE() < 0.04 ? pickB([null, undefined]) : edgeEntry(pctM)));
+  if (BE() < 0.25 && entries.length >= 2) {
+    // exact-sum and duplicate-address structures
+    entries[1] = { ...(entries[0] || {}), address: pickB([entries[0] && entries[0].address, String(entries[0] && entries[0].address || '').toUpperCase()]) };
+  }
+  if (BE() < 0.3 && entries.length >= 1) {
+    const t = pctM ? 100 : 10000;
+    const share = pickB([t, t / 2, t - 1, t + 1, 0]);
+    const k = pctM ? 'percent' : 'basis_points';
+    for (let i = 0; i < entries.length; i++) if (entries[i] && typeof entries[i] === 'object') entries[i] = { ...entries[i], [k]: i === 0 ? share : (t - share) / (entries.length - 1 || 1) };
+  }
+  const pp = {};
+  const cap = pickB(EDGE_CAP);
+  if (cap !== undefined) pp.cap_bps = cap;
+  const form = Math.floor(BE() * 8);
+  if (form < 4) pp.entries = entries;
+  else if (form === 4) pp.config = JSON.stringify(entries);
+  else if (form === 5) pp.config = entries;
+  else if (form === 6) pp.config = pickB(['', '  ', 'not json', '[]', '{}', '[1', 5, null]);
+  else if (BE() < 0.5) pp.entries = pickB(['x', {}, null, []]);
+  return pp;
+}
+function checkPD1_reference_model_differential() {
+  let violations = 0, checked = 0;
+  const inputs = [undefined, null, {}, { entries: [] }, { entries: [{ address: ADDR_A, basis_points: 10000 }] }];
+  for (let i = 0; i < 12000; i++) inputs.push(edgeInput());
+  for (const pp of inputs) {
+    checked++;
+    let got;
+    try { got = compute(pp); } catch (e) { violations++; continue; }
+    if (JSON.stringify(got, (k, x) => (typeof x === 'number' && !Number.isFinite(x) ? String(x) : x)) !== JSON.stringify(refCompute(pp), (k, x) => (typeof x === 'number' && !Number.isFinite(x) ? String(x) : x))) violations++;
+  }
+  return { name: 'PD1_reference_model_differential_exact', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -168,6 +331,8 @@ results.properties.push(checkP1_termination_and_finiteness());
 results.properties.push(checkP2_sum_cap_differential());
 results.properties.push(checkP3_ulp_boundary_forcing());
 results.properties.push(checkP4_entry_order_invariance());
+results.properties.push(checkPF1_bigintInputRefusesWithoutThrowing());
+results.properties.push(checkPD1_reference_model_differential());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 

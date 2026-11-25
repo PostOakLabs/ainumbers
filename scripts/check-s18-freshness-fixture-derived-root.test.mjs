@@ -71,9 +71,9 @@ function assembleTree(root) {
 const committed = JSON.parse(readFileSync(CG_SRC, 'utf8'));
 {
   const KDIR = resolve(REPO, 'chaingraph', 'kernels');
-  const { sourceDigest } = await import(pathToFileURL(resolve(KDIR, '_buildid.mjs')).href);
+  var sourceDigest = (await import(pathToFileURL(resolve(KDIR, '_buildid.mjs')).href)).sourceDigest;
   const live = (committed.nodes ?? []).filter((n) => n.status === 'live' && n.gpu === false);
-  const kernelSources = {};
+  var kernelSources = {};
   for (const n of live) {
     try { kernelSources[n.tool_id] = readFileSync(resolve(KDIR, `${n.tool_id}.kernel.mjs`), 'utf8'); } catch { /* left undefined -> NO_KERNEL_FILE */ }
   }
@@ -92,18 +92,36 @@ try {
     assert(r.status === 0, `expected exit 0, got ${r.status}\nstdout: ${(r.stdout || '').slice(-800)}\nstderr: ${(r.stderr || '').slice(-800)}`);
   });
 
-  await test('e2e RED: a bogus journal.kernel_digest in a tampered copy of the ASSEMBLED tree fails the fixture with the calibration stale message', async () => {
+  await test('e2e RED: bogus journal.kernel_digests in fresh nodes of a tampered copy of the ASSEMBLED tree fail the fixture with the calibration stale message', async () => {
+    // S18-E2E-HEADROOM-1 (2026-11-23, KERNEL-BIGINT-F1-SAFE-FORMAT-1 ci-red): the tamper must
+    // push recomputed stale PAST the calibration artifact's stale count, not merely by one.
+    // A PR that legitimately CURES one of main's pre-existing stale nodes lands with
+    // assembled stale = calibration stale - cures, so a single tamper lands ON the budget
+    // (measured: calibration 113, assembled 112, tamper -> 113, not > 113) and this leg
+    // false-greened while the fixture was in fact reading the tampered tree. Cure count
+    // headroom is real PR state, so the leg now tampers headroom+1 fresh nodes; on main
+    // (headroom 0) that is the same single tamper as before. If tampering every fresh
+    // node still cannot exceed the budget, the assert below fails loudly - a genuine
+    // wiring break, not a waived red.
+    const { fresh: assembledFresh, stale: assembledStale } = await computeStaleness(assembled, kernelSources, sourceDigest);
+    const calibration = JSON.parse(readFileSync(resolve(REPO, 'scripts', 's18-freshness-calibration.json'), 'utf8'));
+    const headroom = Math.max(0, (calibration.stale ?? 0) - assembledStale.length);
+    const tamperCount = headroom + 1;
+    assert(assembledFresh.length >= tamperCount, `only ${assembledFresh.length} fresh node(s) in the assembled tree but the calibration headroom needs ${tamperCount} tamper victim(s)`);
     const tampered = structuredClone(assembled);
-    const victim = tampered.nodes.find(
-      (n) => n.tool_id === FRESH_TOOL_ID
-    );
-    assert(victim, `tamper target ${FRESH_TOOL_ID} missing from the assembled tree`);
-    (victim.audit_signature?.compute_proof ?? victim.compute_proof).journal.kernel_digest = 'bogus-digest-not-a-real-receipt';
+    const victimIds = [];
+    for (let k = 0; k < tamperCount; k++) {
+      const victimId = assembledFresh[k].tool_id;
+      const victim = tampered.nodes.find((n) => n.tool_id === victimId);
+      assert(victim, `tamper target ${victimId} missing from the assembled tree`);
+      (victim.audit_signature?.compute_proof ?? victim.compute_proof).journal.kernel_digest = `bogus-digest-not-a-real-receipt-${k}`;
+      victimIds.push(victimId);
+    }
     const root = resolve(scratch, 'tampered');
     writeTree(root, tampered);
     const r = spawnFixture(root);
     const out = `${r.stdout || ''}\n${r.stderr || ''}`;
-    assert(r.status === 1, `expected exit 1, got ${r.status} — the fixture did not read the tampered tree\nstdout: ${out.slice(-800)}`);
+    assert(r.status === 1, `expected exit 1 after tampering ${tamperCount} fresh node(s) (${victimIds.join(', ')}), got ${r.status} — the fixture did not read the tampered tree\nstdout: ${out.slice(-800)}`);
     assert(/recomputed stale \(\d+\) > calibration artifact stale \(\d+\)/.test(out), `calibration-leg PR-context stale message missing from output:\n${out.slice(-1200)}`);
   });
 } finally {

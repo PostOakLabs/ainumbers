@@ -5,6 +5,9 @@
 // policy_parameters carries the full payload so the execution_hash anchors the complete input.
 
 import { executionHash } from './_hash.mjs';
+// Refusal-detail formatter: JSON.stringify throws on a BigInt, so render one as `<digits>n`.
+// Output for every non-BigInt value is identical to JSON.stringify.
+const fmt = (v) => JSON.stringify(v, (_k, x) => (typeof x === 'bigint' ? `${x}n` : x));
 
 // Deterministic https-scheme + non-empty-authority check (ASCII; no regex/no /u, no URL state machine) — used so
 // the ACP-R09 redirect_url rule evaluates identically in V8 and the QuickJS-ng runner-guest (faithful WHATWG URL
@@ -140,7 +143,7 @@ export function compute(pp) {
       checks.push({ status: 'pass', code: rule.code, text: rule.label });
       passCount++;
     } else {
-      checks.push({ status: 'fail', code: rule.code, text: rule.label, detail: !present ? `Field "${rule.key}" is absent` : `Invalid value: ${JSON.stringify(value)}` });
+      checks.push({ status: 'fail', code: rule.code, text: rule.label, detail: !present ? `Field "${rule.key}" is absent` : `Invalid value: ${fmt(value)}` });
       failCount++;
     }
   }
