@@ -981,7 +981,8 @@ await asyncTest('R42 runTier end to end: a seeded PASS with the equal key prints
   const key = keyOf(fx);
   writePassedVerdict(dir, 'fixture-id', key, { moneyMath: 95, peripheral: 70 });
   const out = await captureTier(['--kernel', 'fixture-id'], fx.root, { MUTATION_VERDICT_DIR: dir });
-  assert(out.includes(`REUSED fixture-id key=${key.slice(0, 12)} from run local`), `expected a REUSED line, got:\n${out}`);
+  // The seeded record stores GITHUB_RUN_ID || 'local' (writePassedVerdict), so on CI the run id is the job's own.
+  assert(out.includes(`REUSED fixture-id key=${key.slice(0, 12)} from run ${process.env.GITHUB_RUN_ID || 'local'}`), `expected a REUSED line, got:\n${out}`);
   assert(out.includes('1 of 1 kernel(s) REUSED'), 'summary counts the reuse');
   assert(!out.includes('stryker path:'), 'stryker must not start on a reused kernel');
   // Mutate the proptest: the seeded record's key no longer matches, so the kernel is NOT reused.
