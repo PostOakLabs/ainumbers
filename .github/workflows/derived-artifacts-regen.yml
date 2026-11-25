@@ -205,6 +205,19 @@ jobs:
           REGISTRY_LINEAGE_LOG_KEY: ${{ secrets.REGISTRY_LINEAGE_LOG_KEY }}
         run: node scripts/gen-registry-lineage.mjs
 
+      # Every receipt bundle embeds registry/lineage/checkpoint and its Sigsum record as its log
+      # anchor (gen-receipt-bundles.mjs lineageAnchor()). The receipt-bundles
+      # COVERED entry rendered them inside --regen, BEFORE the publish above
+      # moved the checkpoint, so on any regen that grew the F2 key set (a new
+      # node) all 600 bundles came out one checkpoint behind and --verify
+      # failed the run as a non-fixpoint (ae3073df, d0fdea74, 8c4c8adb).
+      # Re-render them against the checkpoint just published. Same generator,
+      # same declared receipt-bundles paths, so staging is unchanged; on a
+      # regen that published nothing the bundles are already fresh and this
+      # writes no byte.
+      - name: Re-render receipt bundles against the published checkpoint
+        run: node scripts/gen-receipt-bundles.mjs --write
+
       # §15 gate suite validates the regenerated tree BEFORE anything is
       # staged or committed. A red run here stops the job — no commit step
       # executes — so a bad assemble is a visible failed run, never a
