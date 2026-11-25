@@ -106,8 +106,25 @@ export function canonicalPreimage(policy_parameters, output_payload) {
 }
 
 // Bare lowercase hex (matches worker.mjs and the browser tools). No "sha256:" prefix.
+//
+// HASH-REFUSAL-SHARED-1: returns null, never throws, when the preimage cannot be canonicalized
+// (outside I-JSON, past MAX_DEPTH / MAX_ELEMENTS, a BigInt, or any other value JSON cannot carry).
+// A kernel's buildArtifact then mints `execution_hash: null` instead of crashing, which is the
+// never-throw contract (OCG §4) without a per-kernel guard. Callers that need the reason still get
+// it from canonicalPreimage() / assertIJson(), which keep throwing their named errors, and every
+// repo script that consumes this value was null-guarded first (HASH-REFUSAL-GUARDS-SCRIPTS-1, #3248).
+// A caller comparing a recomputed hash against a claimed one must treat null as "no hash", never
+// as a match for a claimed null. Only canonicalization is caught: a WebCrypto failure still throws,
+// because it says nothing about the input.
+// Not in any kernel source digest: the RISC0 guest supplies its own _hash, so no receipt moves.
 export async function executionHash(policy_parameters, output_payload) {
-  const bytes = new TextEncoder().encode(canonicalPreimage(policy_parameters, output_payload));
+  let preimage;
+  try {
+    preimage = canonicalPreimage(policy_parameters, output_payload);
+  } catch {
+    return null;
+  }
+  const bytes = new TextEncoder().encode(preimage);
   const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
