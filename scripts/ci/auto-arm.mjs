@@ -5,10 +5,17 @@
 // V655: "update-branch, confirm a fresh merge ref, fresh green, ONE automerge
 // label"; V658 serial lane: lineage PRs one at a time).
 //
-// The decision is a PURE function (decide) so every condition is fixture-
-// testable (auto-arm.test.mjs). The CLI wraps it with `gh` calls.
+// The decision is a PURE function so every condition is fixture-testable
+// (auto-arm.test.mjs). The CLI wraps it with `gh` calls.
 //
-// Labels a PR ONLY when ALL hold:
+// CLI ELIGIBILITY (AUTO-ARM-LABEL-ELIGIBILITY-1): the CLI runs
+// decideLabeled(). A PR is eligible when it carries the `auto-arm` label, not
+// when its branch is listed in a committed allowlist file. See "Label
+// eligibility" below. The allowlist-based decide() and its parallel-slot
+// helpers stay exported and tested as the reference for the earlier rules;
+// the CLI no longer calls decide().
+//
+// decide() (legacy allowlist rules) labels a PR ONLY when ALL hold:
 //   (c) its head branch is in scripts/ci/auto-arm-allow.json (branch -> row id)
 //   (f) not draft, no `hold` label
 //   (d) the diff touches no .github/workflows/**
@@ -32,10 +39,9 @@
 // Usage: node scripts/ci/auto-arm.mjs [--dry-run] [--repo OWNER/NAME]
 //   --dry-run  print the decision per open PR, change nothing.
 
-import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { resolve } from 'node:path';
 
 export const LABEL = 'automerge';
 export const LINEAGE_PREFIXES = ['chaingraph/kernels/', 'registry/'];
@@ -133,6 +139,63 @@ export function decide(pr, checks, ctx) {
   return { action: 'arm', reason: `green+fresh row=${row}${lineage ? (parallel ? ' lineage-parallel' : ' lineage') : ''}` };
 }
 
+// --- Label eligibility (AUTO-ARM-LABEL-ELIGIBILITY-1) ---------------------
+// Eligibility comes from a label on the PR instead of a branch entry in a
+// committed file, so opting a PR in needs no repo commit and no second PR.
+// Rules mirror the cloud arming sweep:
+//   1. only PRs carrying ELIGIBLE_LABEL are considered; everything else skips;
+//   2. oldest first (ascending PR number);
+//   3. head-of-line for kernel (lineage-class) PRs: the oldest eligible
+//      lineage PR whose required checks are not red is the head; it keeps the
+//      head (younger lineage PRs wait behind it) until it is armed or turns red;
+//   4. no two lineage PRs sharing files: a lineage PR waits while any armed or
+//      queued lineage PR shares a file with it (SHARED_RESIDUAL counts as
+//      shared whenever either PR touches one).
+// Non-lineage PRs are not held by the head; each arms when green and fresh.
+export const ELIGIBLE_LABEL = 'auto-arm';
+
+export const isRed = (checks) => checks.some((c) => ['fail', 'cancel'].includes(c.bucket));
+const isGreen = (checks) => checks.length > 0 && checks.every((c) => ['pass', 'skipping'].includes(c.bucket));
+
+// Pick the lineage head. prs: [{number, isDraft, labels, files}] (any order);
+// checksOf: number -> required checks. Returns a PR number or null.
+export function pickLineageHead(prs, checksOf, queuedSet = new Set()) {
+  const cands = prs
+    .filter((p) => p.labels.includes(ELIGIBLE_LABEL) && isLineageClass(p.files))
+    .filter((p) => !p.isDraft && !p.labels.includes('hold'))
+    .filter((p) => !p.labels.includes(LABEL) && !queuedSet.has(p.number))
+    .sort((a, b) => a.number - b.number);
+  const head = cands.find((p) => !isRed(checksOf(p.number) || []));
+  return head ? head.number : null;
+}
+
+// ctx: {mainTip, mergeFirstParent, lineageHead:number|null, armedLineage:[{number, files}]}
+export function decideLabeled(pr, checks, ctx) {
+  const wait = (reason) => ({ action: 'wait', reason });
+  if (!pr.labels.includes(ELIGIBLE_LABEL)) return { action: 'skip', reason: `no-${ELIGIBLE_LABEL}-label` };
+  if (pr.labels.includes(LABEL)) return wait('already-labelled');
+  if (pr.isDraft) return wait('draft');
+  if (pr.labels.includes('hold')) return wait('hold-label');
+  if (pr.files.some((f) => f.startsWith('.github/workflows/'))) return wait('touches-.github/workflows');
+  const lineage = isLineageClass(pr.files);
+  if (lineage) {
+    if (ctx.lineageHead !== pr.number) return wait(`lineage-head-is:#${ctx.lineageHead ?? 'none'}`);
+    for (const o of (ctx.armedLineage || []).filter((x) => x.number !== pr.number)) {
+      const sh = sharedFiles(pr.files, o.files);
+      if (sh.length) return wait(`lineage-overlap-with:#${o.number}:${sh.slice(0, 3).join(',')}`);
+    }
+  }
+  if (!checks.length) return wait('no-required-checks-reported');
+  if (!isGreen(checks)) {
+    const bad = checks.filter((c) => !['pass', 'skipping'].includes(c.bucket));
+    return wait(`required-checks-not-green:${bad.map((c) => `${c.name}=${c.bucket}`).join(',')}`);
+  }
+  if (!ctx.mergeFirstParent || ctx.mergeFirstParent !== ctx.mainTip) {
+    return { action: 'update-branch', reason: 'merge-ref-first-parent-not-main-tip' };
+  }
+  return { action: 'arm', reason: `green+fresh label=${ELIGIBLE_LABEL}${lineage ? ' lineage-head' : ''}` };
+}
+
 // --- CLI ---------------------------------------------------------------
 const gh = (args) => execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 64 << 20 });
 const ghJson = (args) => JSON.parse(gh(args));
@@ -142,51 +205,46 @@ function main() {
   const dry = argv.includes('--dry-run');
   const ri = argv.indexOf('--repo');
   const repo = ri >= 0 ? argv[ri + 1] : process.env.GITHUB_REPOSITORY || 'PostOakLabs/ainumbers';
-  const here = dirname(fileURLToPath(import.meta.url));
-  const allow = JSON.parse(readFileSync(resolve(here, 'auto-arm-allow.json'), 'utf8'));
-
   const prs = ghJson(['pr', 'list', '-R', repo, '--state', 'open', '--limit', '200', '--json',
     'number,headRefName,isDraft,labels,files,headRepositoryOwner']);
   const mainTip = ghJson(['api', `repos/${repo}/commits/main`]).sha;
+  // Oldest first: the sweep's ordering rule.
   const info = prs.map((p) => ({
     number: p.number, branch: p.headRefName, isDraft: p.isDraft,
     labels: p.labels.map((l) => l.name), files: p.files.map((f) => f.path),
-  }));
+  })).sort((a, b) => a.number - b.number);
   const queued = (n) => {
     const id = ghJson(['pr', 'view', String(n), '-R', repo, '--json', 'id']).id;
     return ghJson(['api', 'graphql', '-f', `query=query($id:ID!){node(id:$id){... on PullRequest{mergeQueueEntry{id}}}}`,
       '-f', `id=${id}`]).data.node.mergeQueueEntry !== null;
   };
-  const openBranches = info.map((p) => p.branch);
-  // Parallel mainside slots are opt-in: the workflow sets AUTO_ARM_LINEAGE_PARALLEL=1 only when the operator turns
-  // them on. Unset (today's workflow) keeps one lineage PR at a time.
-  const lineageParallel = process.env.AUTO_ARM_LINEAGE_PARALLEL === '1' ? { max: PARALLEL_MAX } : null;
+  const requiredChecks = (n) => {
+    try {
+      return ghJson(['pr', 'checks', String(n), '-R', repo, '--required', '--json', 'name,bucket']);
+    } catch (e) {
+      // gh exits non-zero when checks are failing/pending but still prints JSON.
+      try { return JSON.parse(String(e.stdout || '[]')); } catch { return []; }
+    }
+  };
+  const eligible = info.filter((p) => p.labels.includes(ELIGIBLE_LABEL));
+  const checksByPr = new Map(eligible.map((p) => [p.number, requiredChecks(p.number)]));
+  // Lineage PRs already armed (label) or sitting in the merge queue, for the file-overlap rule.
+  const queuedSet = new Set(info.filter((o) => isLineageClass(o.files) && !o.labels.includes(LABEL) && queued(o.number))
+    .map((o) => o.number));
+  const armedLineage = info.filter((o) => isLineageClass(o.files) && (o.labels.includes(LABEL) || queuedSet.has(o.number)))
+    .map((o) => ({ number: o.number, files: o.files }));
+  const lineageHead = pickLineageHead(info, (n) => checksByPr.get(n), queuedSet);
   let failed = 0;
-  const lines = [];
-  for (const pr of info) {
+  const lines = [`lineage head: ${lineageHead ? `#${lineageHead}` : 'none'}; ${eligible.length} PR(s) carry ${ELIGIBLE_LABEL}`];
+  for (const pr of eligible) {
     let d;
     try {
-      const inAllow = !!allow.prs?.[pr.branch];
-      let checks = [];
       let mergeFirstParent = null;
-      let otherLineageArmed = false;
-      let armedLineage = [];
-      if (inAllow) {
-        try {
-          checks = ghJson(['pr', 'checks', String(pr.number), '-R', repo, '--required', '--json', 'name,bucket']);
-        } catch (e) {
-          // gh exits non-zero when checks are failing/pending but still prints JSON.
-          try { checks = JSON.parse(String(e.stdout || '[]')); } catch { checks = []; }
-        }
-        try {
-          const ref = ghJson(['api', `repos/${repo}/git/ref/pull/${pr.number}/merge`]).object.sha;
-          mergeFirstParent = ghJson(['api', `repos/${repo}/git/commits/${ref}`]).parents[0]?.sha || null;
-        } catch { mergeFirstParent = null; }
-        armedLineage = info.filter((o) => o.number !== pr.number && isLineageClass(o.files)
-          && (o.labels.includes(LABEL) || queued(o.number))).map((o) => ({ number: o.number, files: o.files }));
-        otherLineageArmed = armedLineage.length > 0;
-      }
-      d = decide(pr, checks, { allow, mainTip, mergeFirstParent, openBranches, otherLineageArmed, armedLineage, lineageParallel });
+      try {
+        const ref = ghJson(['api', `repos/${repo}/git/ref/pull/${pr.number}/merge`]).object.sha;
+        mergeFirstParent = ghJson(['api', `repos/${repo}/git/commits/${ref}`]).parents[0]?.sha || null;
+      } catch { mergeFirstParent = null; }
+      d = decideLabeled(pr, checksByPr.get(pr.number) || [], { mainTip, mergeFirstParent, lineageHead, armedLineage });
       if (!dry && d.action === 'arm') gh(['pr', 'edit', String(pr.number), '-R', repo, '--add-label', LABEL]);
       if (!dry && d.action === 'update-branch') {
         gh(['api', '-X', 'PUT', `repos/${repo}/pulls/${pr.number}/update-branch`]);
@@ -196,7 +254,7 @@ function main() {
       failed++;
     }
     const verb = d.action === 'arm' ? 'armed' : d.action === 'update-branch' ? 'updated-branch' : 'waiting';
-    lines.push(`#${pr.number} ${pr.branch} | ${dry ? 'DRY ' : ''}${d.action === 'skip' ? 'skip' : verb}: ${d.reason}`);
+    lines.push(`#${pr.number} ${pr.branch} | ${dry ? 'DRY ' : ''}${verb}: ${d.reason}`);
   }
   const out = lines.join('\n');
   console.log(out);

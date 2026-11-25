@@ -2,7 +2,8 @@
 // each of conditions (a)-(f), and the serial baton order.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { decide, isLineageClass, lineageKind, sharedFiles, parallelSlotBlocker, SHARED_RESIDUAL } from './auto-arm.mjs';
+import { decide, isLineageClass, lineageKind, sharedFiles, parallelSlotBlocker, SHARED_RESIDUAL,
+  decideLabeled, pickLineageHead, ELIGIBLE_LABEL } from './auto-arm.mjs';
 
 const TIP = 'aaaa';
 const green = [{ name: 'ci', bucket: 'pass' }, { name: 'lint', bucket: 'skipping' }];
@@ -152,4 +153,60 @@ test('isLineageClass: tooling-only kernels/ files are exempt', () => {
   assert.equal(isLineageClass([K + '_other.mjs']), true);
   assert.equal(isLineageClass([K + 'fixtures/a.json']), true);
   assert.equal(isLineageClass([K + 'sub/lint-x.mjs']), true);
+});
+
+// --- Label eligibility (AUTO-ARM-LABEL-ELIGIBILITY-1) ---------------------
+const L = ELIGIBLE_LABEL;
+const red = [{ name: 'ci', bucket: 'fail' }];
+const pending = [{ name: 'ci', bucket: 'pending' }];
+const lctx = (o = {}) => ({ mainTip: TIP, mergeFirstParent: TIP, lineageHead: null, armedLineage: [], ...o });
+const kpr = (n, files = ['chaingraph/kernels/a.mjs'], o = {}) => mkPr({ number: n, branch: `k${n}`, labels: [L], files, ...o });
+
+test('LABEL: no auto-arm label -> skip, even if green and fresh', () => {
+  assert.equal(decideLabeled(mkPr(), green, lctx()).action, 'skip');
+});
+test('LABEL: labelled non-lineage PR, green + fresh -> arm; gates still apply', () => {
+  const pr = mkPr({ labels: [L] });
+  assert.equal(decideLabeled(pr, green, lctx()).action, 'arm');
+  assert.equal(decideLabeled(pr, red, lctx()).action, 'wait');
+  assert.equal(decideLabeled(pr, [], lctx()).reason, 'no-required-checks-reported');
+  assert.equal(decideLabeled(pr, green, lctx({ mergeFirstParent: 'bbbb' })).action, 'update-branch');
+  assert.equal(decideLabeled(mkPr({ labels: [L, 'hold'] }), green, lctx()).reason, 'hold-label');
+  assert.equal(decideLabeled(mkPr({ labels: [L], isDraft: true }), green, lctx()).reason, 'draft');
+  assert.equal(decideLabeled(mkPr({ labels: [L, 'automerge'] }), green, lctx()).reason, 'already-labelled');
+  assert.match(decideLabeled(mkPr({ labels: [L], files: ['.github/workflows/x.yml'] }), green, lctx()).reason, /workflows/);
+});
+test('HEAD: oldest non-red eligible lineage PR is the head; pending head keeps it', () => {
+  const prs = [kpr(30), kpr(10), kpr(20)];
+  const checks = { 10: pending, 20: green, 30: green };
+  assert.equal(pickLineageHead(prs, (n) => checks[n]), 10);
+  // younger green PR waits behind the pending head
+  assert.match(decideLabeled(kpr(20), green, lctx({ lineageHead: 10 })).reason, /lineage-head-is:#10/);
+});
+test('HEAD: a red head loses the head to the next oldest', () => {
+  const prs = [kpr(10), kpr(20)];
+  assert.equal(pickLineageHead(prs, (n) => (n === 10 ? red : green)), 20);
+});
+test('HEAD: an armed or queued head hands the head on', () => {
+  assert.equal(pickLineageHead([kpr(10, undefined, { labels: [L, 'automerge'] }), kpr(20)], () => green), 20);
+  assert.equal(pickLineageHead([kpr(10), kpr(20)], () => green, new Set([10])), 20);
+});
+test('HEAD: unlabelled, draft and held lineage PRs are never the head', () => {
+  const prs = [mkPr({ number: 5, files: ['chaingraph/kernels/a.mjs'] }), kpr(6, undefined, { isDraft: true }),
+    kpr(7, undefined, { labels: [L, 'hold'] }), kpr(8)];
+  assert.equal(pickLineageHead(prs, () => green), 8);
+  assert.equal(pickLineageHead([mkPr({ labels: [L] })], () => green), null);
+});
+test('OVERLAP: lineage head waits while an armed lineage PR shares a file; disjoint arms', () => {
+  const pr = kpr(10, ['chaingraph/kernels/a.mjs']);
+  assert.match(decideLabeled(pr, green, lctx({ lineageHead: 10, armedLineage: [{ number: 9, files: ['chaingraph/kernels/a.mjs'] }] })).reason,
+    /lineage-overlap-with:#9/);
+  assert.match(decideLabeled(pr, green, lctx({ lineageHead: 10, armedLineage: [{ number: 9, files: [SHARED_RESIDUAL[0]] }] })).reason,
+    /lineage-overlap-with:#9/);
+  assert.equal(decideLabeled(pr, green, lctx({ lineageHead: 10, armedLineage: [{ number: 9, files: ['chaingraph/kernels/b.mjs'] }] })).action,
+    'arm');
+});
+test('OVERLAP: non-lineage PRs ignore the head and the overlap rule', () => {
+  assert.equal(decideLabeled(mkPr({ labels: [L] }), green, lctx({ lineageHead: 99, armedLineage: [{ number: 9, files: ['tools/x.html'] }] })).action,
+    'arm');
 });
