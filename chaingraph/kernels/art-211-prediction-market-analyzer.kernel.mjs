@@ -1586,10 +1586,17 @@ function priceMicro(p) {
   return BigInt(Math.min(999000, Math.max(1000, Math.round(q * 1e6))));
 }
 // num/den over one contract-unit: theta_num * cu * pu * (1e6 - pu) / (theta_den * cs * 1e12)
+/**
+ * @param {bigint} theta_num
+ * @param {bigint} theta_den
+ * @param {bigint} cu
+ * @param {bigint} cs
+ * @param {bigint} pu
+ */
 function parabolic(theta_num, theta_den, cu, cs, pu) {
   return {
-    num: theta_num * cu * pu * (PRICE_SCALE - pu),
-    den: theta_den * cs * PRICE_SCALE * PRICE_SCALE,
+    num: BigInt(theta_num) * BigInt(cu) * BigInt(pu) * (PRICE_SCALE - BigInt(pu)),
+    den: BigInt(theta_den) * BigInt(cs) * PRICE_SCALE * PRICE_SCALE,
   };
 }
 

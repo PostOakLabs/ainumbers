@@ -26,10 +26,17 @@ function priceMicro(p) {
 function contractsMicro(k) {
   return BigInt(Math.max(0, Math.round((Number.isFinite(k) ? k : 0) * 1e6)));
 }
+/**
+ * @param {bigint} theta_num
+ * @param {bigint} theta_den
+ * @param {bigint} cu
+ * @param {bigint} cs
+ * @param {bigint} pu
+ */
 function parabolic(theta_num, theta_den, cu, cs, pu) {
   return {
-    num: theta_num * cu * pu * (PRICE_SCALE - pu),
-    den: theta_den * cs * PRICE_SCALE * PRICE_SCALE,
+    num: BigInt(theta_num) * BigInt(cu) * BigInt(pu) * (PRICE_SCALE - BigInt(pu)),
+    den: BigInt(theta_den) * BigInt(cs) * PRICE_SCALE * PRICE_SCALE,
   };
 }
 
