@@ -29,9 +29,10 @@
 // 10:34). The hold comment now also records the eject class, and
 //   node scripts/mq-eject-hold.mjs should-clear <owner/repo> <pr> <base> <before> <after>
 // clears the label only when the PR's own diff against <base> changed between
-// <before> and <after>, or when the eject class says main moving on caused it
-// (MAIN_MOVED_KINDS). It prints one JSON verdict line and exits 0 to clear,
-// 1 to keep. Anything it cannot read clears (the old behaviour).
+// <before> and <after>, or when the hold says main moving on caused it
+// (mainMovedCause: a MAIN_MOVED_KINDS class or a MAIN_MOVED_STEPS step). It
+// prints one JSON verdict line and exits 0 to clear, 1 to keep. Anything it
+// cannot read clears (the old behaviour).
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -45,9 +46,36 @@ const CLASS_RE = /\bclass ([a-z][a-z-]*)\b/;
 // the PR's own change: a refresh from main alone may clear these holds.
 export const MAIN_MOVED_KINDS = new Set(['derived-gate']);
 
+// Workflow steps that main owns: a failure here comes from main moving on even
+// when the classifier calls it `other`. The freshness steps fail when main's
+// generated files moved (pr-sync-main.mjs also repairs a red head on them).
+// The dead-link gate fails when a page on main still links a record the PR
+// renamed; it is not a DERIVED_ROOT_GATES command, so its ejects are classed
+// `other` (#3278 merged after one merge of main).
+export const MAIN_OWNED_FRESHNESS_STEPS = Object.freeze(new Set([
+  'Derived-freshness, index-sync, sitemap (HARD on merge_group)',
+  'chaingraph.json shard freshness (CGSHARD-1 CS-1)',
+  'Count-drift gate (advisory on PR, HARD on merge_group via DERIVED_ROOT, blocking on main)',
+  'Manifest examples drift (HARD on pull_request — per-PR derivables promotion)',
+  'Ask-agent block freshness (HARD on pull_request — per-PR derivables promotion)',
+]));
+export const MAIN_MOVED_STEPS = Object.freeze(new Set(['Dead-link gate', ...MAIN_OWNED_FRESHNESS_STEPS]));
+
+// The one rule for "main moving on caused this eject", shared by the hold
+// (clearVerdict, holdComment) and bot-sync (scripts/ci/pr-sync-main.mjs), so a
+// merge of main that bot-sync forces always lifts the hold. `step` is the
+// "<job> / <step>" the hold records; only its last part is matched. Returns
+// the reason, or null.
+export function mainMovedCause({ kind, step }) {
+  if (kind && MAIN_MOVED_KINDS.has(kind)) return kind;
+  if (typeof step !== 'string' || !step) return null;
+  const last = step.includes(' / ') ? step.slice(step.lastIndexOf(' / ') + 3) : step;
+  return MAIN_MOVED_STEPS.has(last) ? `step:${last}` : null;
+}
+
 export function holdComment({ workflow, step, runId, sha, kind }) {
   const cls = kind ? `, class ${kind}` : '';
-  const how = kind && MAIN_MOVED_KINDS.has(kind)
+  const how = mainMovedCause({ kind, step })
     ? 'push a commit or merge main in to clear'
     : "push a commit that changes this PR's own files to clear (a merge from main alone does not)";
   return `${MARKER} for a failed check (workflow ${workflow}, step ${step}, run ${runId}), head ${sha}${cls}. `
@@ -57,6 +85,17 @@ export function holdComment({ workflow, step, runId, sha, kind }) {
 export function recordedClass(body) {
   const m = CLASS_RE.exec(String(body));
   return m ? m[1] : null;
+}
+
+const STEP_RE = /\bstep (.+), run \d+\)/;
+export function recordedStep(body) {
+  const m = STEP_RE.exec(String(body));
+  return m ? m[1] : null;
+}
+
+/** mainMovedCause() for a hold comment's recorded class and step. Pure. */
+export function holdMainMovedCause(body) {
+  return mainMovedCause({ kind: recordedClass(body), step: recordedStep(body) });
 }
 
 // filename -> status:blob for a compare API `files` list. A rename also keys
@@ -91,9 +130,9 @@ export function clearVerdict({ holdBody, before, after }) {
   if (!holdBody || recordedSha(holdBody) === null) return { clear: true, reason: 'no-hold-record' };
   if (!before || !after || !before.complete || !after.complete) return { clear: true, reason: 'own-diff-unknown' };
   if (ownDiffMoved(before.files, after.files)) return { clear: true, reason: 'own-files-changed' };
-  const kind = recordedClass(holdBody);
-  if (kind && MAIN_MOVED_KINDS.has(kind)) return { clear: true, reason: `eject-from-main-move:${kind}` };
-  return { clear: false, reason: `main-refresh-only:${kind ?? 'unclassified'}` };
+  const cause = holdMainMovedCause(holdBody);
+  if (cause) return { clear: true, reason: `eject-from-main-move:${cause}` };
+  return { clear: false, reason: `main-refresh-only:${recordedClass(holdBody) ?? 'unclassified'}` };
 }
 
 export function isHoldComment(body) {
