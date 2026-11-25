@@ -289,6 +289,34 @@ function requiresViolation(pair, protocolVersion, active) {
   return null;
 }
 
+const SCAN_DEPTH_MAX = 512;
+const SCAN_ELEMENTS_MAX = 1000000;
+
+// Hashability walk (D6): mirrors the classes _hash.mjs refuses before canonicalizing
+// (non-finite number, integer beyond 2^53, bigint, nesting past MAX_DEPTH, more values
+// than MAX_ELEMENTS). Returns { reason, detail } naming the path and class, never the
+// value; null when the subtree is safe to hash. The shared _hash.mjs stays untouched.
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > SCAN_DEPTH_MAX) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > SCAN_ELEMENTS_MAX) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  const t = typeof v;
+  if (t === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (t === 'bigint') return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': bigint' };
+  if (v !== null && t === 'object') {
+    const ks = Object.keys(v);
+    for (let i = 0; i < ks.length; i++) {
+      const seg = Array.isArray(v) ? '[' + ks[i] + ']' : '.' + ks[i];
+      const r = findHashRefusal(v[ks[i]], path + seg, depth + 1, budget);
+      if (r !== null) return r;
+    }
+  }
+  return null;
+}
+
 /**
  * compute(pp) — decide the UCP capability set two pasted profiles agree on.
  * @param {object} pp { business_profile, platform_profile }
@@ -301,7 +329,9 @@ export function compute(pp) {
   let verdict = 'AGREED';
   let protocolVersion = null;
   let primaryReason = 'capabilities_agreed';
-  const agreed = {};
+  // Null-prototype accumulator: a caller-named capability such as __proto__,
+  // constructor or toString is carried as an own data key, never dropped.
+  const agreed = Object.create(null);
   const dropped = [];
 
   const sideBiz = 'business_profile';
@@ -422,8 +452,20 @@ export function compute(pp) {
 
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // The object walked below is the exact execution_hash preimage. When the shared
+  // canonicalizer would refuse it, mint the artifact with a null execution_hash and the
+  // reason beside it (D6); the walk names the path and class, never the value. The
+  // last-resort catch keeps buildArtifact from throwing on anything the walk missed.
+  let hash = null;
+  let refusal = findHashRefusal({ policy_parameters: pp, output_payload: output_payload }, 'pp', 1, { n: 0 });
+  if (refusal === null) {
+    try {
+      hash = await executionHash(pp, output_payload);
+    } catch (e) {
+      refusal = { reason: 'REFUSED_INPUT_UNHASHABLE', detail: 'pp: canonicalizer_rejected' };
+    }
+  }
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -439,4 +481,6 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (refusal !== null) artifact.hash_refusal = { reason: refusal.reason, detail: refusal.detail };
+  return artifact;
 }

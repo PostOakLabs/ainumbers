@@ -249,6 +249,10 @@ const NOT_A_GATE = new Map([
     "run and can never be required. It has no pull_request, merge_group or push trigger of " +
     "its own, runs no estate gate, and blocks no merge — it reports a main-side red after " +
     "the fact."],
+  ["dispatch-heartbeat.yml",
+    "push main only — post-merge report that the queue drain workflows were dispatched within the " +
+    "hour, via ONE tracking issue on the shared scheduled-red-issue tracker. No pull_request or " +
+    "merge_group trigger, runs no estate gate, never a required check, blocks no merge."],
   ["fullsuite-schedule.yml",
     "schedule (weekly) + workflow_dispatch only; steps are continue-on-error by design " +
     "so the whole suite reports rather than stopping at the first red."],
@@ -1564,6 +1568,18 @@ const PREFLIGHT_ONLY = new Map([
     "only the by-construction twin-staleness red (SO #35 window between a coverage-affecting " +
     "merge and main's regen). Same CI route as the gate itself: scripts-verify.yml full " +
     "preflight."],
+  // ── OBLIGATION-BACKFILL-1 (PR #3142, 2026-11-23) ────────────────────────────
+  ["check-obligation-coverage.mjs",
+    "Obligation map gates O1 (well-formed lists), O2 (coverage vectors are real), O3 (nothing " +
+    "outside the shrinking gap baseline) and O4 (cited digests are listed or baselined). Hard in " +
+    "preflight; its CI route is scripts-verify.yml full preflight (the workflow runs " +
+    "`node scripts/preflight.mjs`), and its INPUT chaingraph/obligations/** is in the " +
+    "scripts-verify relevance list (scripts/ci-paths.json), so a coverage-only PR still runs it. " +
+    "Reads only tracked repo sidecars and fixtures - no network, no CI-only input."],
+  ["check-obligation-coverage.selftest.mjs",
+    "Gate O1/O2/O3/O4 paired red/green controls (GATE-SELFTEST-META-1). Hermetic fixture legs " +
+    "plant each defect and assert the specific red, plus a real-tree CLI leg that requires the " +
+    "coverage gate GREEN. Same CI route as the gate itself: scripts-verify.yml full preflight."],
 ]);
 
 // ── DECLARATION SYNTAX (axis 2) ───────────────────────────────────────────────

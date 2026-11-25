@@ -63,11 +63,32 @@ function walk(obj, matcher, prefix, out, depth) {
   for (const k of keys) {
     const v = obj[k];
     const path = prefix ? prefix + '.' + k : k;
-    if (matcher(k) && (typeof v === 'string' || typeof v === 'number') && String(v).length) {
-      out[path] = String(v);
+    // Type-preserving: the raw JSON value is kept, so 111 (number) and "111"
+    // (string) never compare equal downstream.
+    if (matcher(k) && ((typeof v === 'string' && v.length > 0) || typeof v === 'number')) {
+      out[path] = v;
     }
     if (v && typeof v === 'object') walk(v, matcher, path, out, depth + 1);
   }
+}
+
+// Path of the first BigInt in the subtree, or null. Stops descending past MAX_DEPTH.
+function findBigInt(v, path, depth) {
+  if (typeof v === 'bigint') return path;
+  if (v === null || typeof v !== 'object' || depth > MAX_DEPTH) return null;
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findBigInt(v[i], path + '[' + i + ']', depth + 1);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  const ks = Object.keys(v).sort();
+  for (let i = 0; i < ks.length; i++) {
+    const r = findBigInt(v[ks[i]], path + '.' + ks[i], depth + 1);
+    if (r !== null) return r;
+  }
+  return null;
 }
 
 function extractHashes(root) {
@@ -258,6 +279,12 @@ export function compute(pp) {
   if (as_of != null && (typeof as_of !== 'string' || Number.isNaN(Date.parse(as_of)))) {
     throw new Error('as_of must be an ISO 8601 date string when present');
   }
+
+  // A BigInt anywhere in pp cannot be canonicalized by executionHash; refuse it here with a
+  // named reason instead of letting buildArtifact die on an opaque serialization error.
+  // Depth-bounded: past MAX_DEPTH the walk below owns the named depth refusal.
+  const bigintPath = findBigInt(pp, 'pp', 0);
+  if (bigintPath !== null) throw new Error('REFUSED_INPUT_UNSAFE_NUMBER: ' + bigintPath + ': bigint');
 
   const kindA = classify(bundle_a);
   const kindB = classify(bundle_b);

@@ -1,4 +1,7 @@
 import { executionHash } from './_hash.mjs';
+// Refusal-detail formatter: JSON.stringify throws on a BigInt, so render one as `<digits>n`.
+// Output for every non-BigInt value is identical to JSON.stringify.
+const fmt = (v) => JSON.stringify(v, (_k, x) => (typeof x === 'bigint' ? `${x}n` : x));
 
 // art-709-v4-hook-fee-conformance — recomputes a Uniswap v4 pool's per-swap fee from
 // v4-core's own fee rules and checks the emitted fee against the declared story:
@@ -108,7 +111,7 @@ export function compute(pp) {
   if (!isUint(pp.protocol_fee, UINT24_MAX)) {
     return refusal('PROTOCOL_FEE_INVALID',
       'protocol_fee must be a uint24 integer (0..16777215) packed as v4 stores it (low 12 bits zeroForOne, bits 12-23 oneForZero); got '
-      + JSON.stringify(pp.protocol_fee ?? null) + '.');
+      + fmt(pp.protocol_fee ?? null) + '.');
   }
   const protocolFee = BigInt(pp.protocol_fee);
   const protoZeroForOne = protocolFee & 0xfffn;
@@ -120,7 +123,7 @@ export function compute(pp) {
   if (!isUint(pp.pool_fee, UINT24_MAX)) {
     return refusal('POOL_FEE_INVALID',
       'pool_fee must be a uint24 integer (0..16777215): static pips or 0x800000 (dynamic); got '
-      + JSON.stringify(pp.pool_fee ?? null) + '.');
+      + fmt(pp.pool_fee ?? null) + '.');
   }
   const poolFee = BigInt(pp.pool_fee);
   const poolFeeIsDynamic = poolFee === DYNAMIC_FEE_FLAG; // LPFeeLibrary isDynamicFee
@@ -132,7 +135,7 @@ export function compute(pp) {
     || BigInt(bounds.min_pips) > BigInt(bounds.max_pips)) {
     return refusal('LP_FEE_BOUNDS_INVALID',
       'declared_lp_fee_bounds must be { min_pips, max_pips } with 0 <= min <= max <= 1000000; got '
-      + JSON.stringify(bounds ?? null) + '.');
+      + fmt(bounds ?? null) + '.');
   }
   const minPips = BigInt(bounds.min_pips);
   const maxPips = BigInt(bounds.max_pips);
@@ -143,12 +146,12 @@ export function compute(pp) {
     || !isUint(charge.rate_pips, MAX_LP_FEE)) {
     return refusal('HOOK_CHARGE_INVALID',
       'declared_hook_charge must be { rate_pips, splits: [...] } with rate_pips a pip integer 0..1000000; got '
-      + JSON.stringify(charge ?? null) + '.');
+      + fmt(charge ?? null) + '.');
   }
   if (!Array.isArray(charge.splits)) {
     return refusal('HOOK_CHARGE_SPLITS_INVALID',
       'declared_hook_charge.splits must be an array of { recipient_label, share_bps }; got '
-      + JSON.stringify(charge.splits ?? null) + '.');
+      + fmt(charge.splits ?? null) + '.');
   }
   for (const s of charge.splits) {
     if (!s || typeof s !== 'object' || Array.isArray(s)
@@ -156,7 +159,7 @@ export function compute(pp) {
       || !isUint(s.share_bps, 10000n)) {
       return refusal('HOOK_CHARGE_SPLITS_INVALID',
         'each split must be { recipient_label: string, share_bps: integer 0..10000 }; got '
-        + JSON.stringify(s ?? null) + '.');
+        + fmt(s ?? null) + '.');
     }
   }
   const ratePips = BigInt(charge.rate_pips);
@@ -167,7 +170,7 @@ export function compute(pp) {
     if (!isUint(pp.declared_total_fee_cap_pips, MAX_LP_FEE)) {
       return refusal('TOTAL_FEE_CAP_INVALID',
         'declared_total_fee_cap_pips, when present, must be a pip integer 0..1000000; got '
-        + JSON.stringify(pp.declared_total_fee_cap_pips) + '.');
+        + fmt(pp.declared_total_fee_cap_pips) + '.');
     }
     totalCap = BigInt(pp.declared_total_fee_cap_pips);
   }
@@ -176,7 +179,7 @@ export function compute(pp) {
   if (!Array.isArray(pp.swaps) || pp.swaps.length === 0) {
     return refusal('SWAPS_INVALID',
       'swaps must be a non-empty array of { index, zero_for_one, amount_in, emitted_fee_pips, lp_fee_override?, exact_out? }; got '
-      + JSON.stringify(pp.swaps ?? null) + '.');
+      + fmt(pp.swaps ?? null) + '.');
   }
   for (const s of pp.swaps) {
     if (!s || typeof s !== 'object' || Array.isArray(s)
@@ -186,12 +189,12 @@ export function compute(pp) {
       || !isUint(s.emitted_fee_pips, UINT24_MAX)) {
       return refusal('SWAP_ENTRY_INVALID',
         'each swap must carry an integer index, a boolean zero_for_one, a non-negative integer amount_in, and an integer emitted_fee_pips 0..16777215; got '
-        + JSON.stringify(s ?? null) + '.');
+        + fmt(s ?? null) + '.');
     }
     if (s.lp_fee_override !== undefined && !isUint(s.lp_fee_override, UINT24_MAX)) {
       return refusal('LP_FEE_OVERRIDE_INVALID',
         'lp_fee_override, when present, must be a raw uint24 integer 0..16777215 (including the override flag bit); got '
-        + JSON.stringify(s.lp_fee_override) + '.');
+        + fmt(s.lp_fee_override) + '.');
     }
   }
   const seenIdx = new Set();

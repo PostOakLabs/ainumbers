@@ -1,13 +1,14 @@
 // art-708-v4-hook-permission-reconciler — class-K property test floor, authored by ART708-V4HOOK-PERMBIT-RECONCILER-1.
 // spec: RHC hooks build spec WU-1 (research/rhc-hooks/RHC-HOOKS-BUILD-SPEC-2026-10-03.md), Uniswap v4-core
 // Hooks.sol at the pinned commit a7cf038cd568801a79a9b4cf92cd5b52c95c8585
-// kernel_digest_at_authoring: sha256:e08cd99eaa433bc5d34fddce29b5bc96932043799b00ecc03f90b6e8670d25e9
+// kernel_digest_at_authoring: sha256:e94242c93a8314d9b01cc07f3ae5fa0ad7afd8d32001c408db7413d46e2bd2a2
 // human_sign_off: PENDING
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
 // Run: node chaingraph/kernels/__proptests__/art-708-v4-hook-permission-reconciler.proptest.mjs
 
+import { readFileSync } from 'node:fs';
 import { compute, FLAGS, FLAG_NAMES } from '../art-708-v4-hook-permission-reconciler.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32 } from './_pbt-common.mjs';
 
@@ -197,6 +198,30 @@ function checkP6_outputShapeDeterminism() {
   return { name: 'P6_output_shape_determinism_evidence_only', checked, violations };
 }
 
+// ---------- PF1 (KERNEL-BIGINT-F1-SAFE-FORMAT-1): a BigInt on pool_fee refuses, never throws ----------
+// RED on main: compute() threw "Do not know how to serialize a BigInt" while building the
+// pool_fee_invalid refusal detail. GREEN on head: the same input returns the refusal
+// (measured across 4 BigInt values on this field, origin/main 0289be7577 vs this branch).
+function checkPF1_bigintInputRefusesWithoutThrowing() {
+  let violations = 0, checked = 0;
+  const fixtures = JSON.parse(readFileSync(new URL('../fixtures/art-708-v4-hook-permission-reconciler.fixtures.json', import.meta.url), 'utf8'));
+  for (const big of [7n, 123456789012345678901234567890n, -1n, 0n]) {
+    const pp = structuredClone(fixtures.vectors[0].policy_parameters);
+    pp.pool_fee = big;
+    checked++;
+    try {
+      const r = compute(pp);
+      const out = r && r.output_payload;
+      if (!out) { violations++; continue; }
+      const dcode = out.domain_errors && out.domain_errors[0] && out.domain_errors[0].code;
+      if (dcode !== 'POOL_FEE_INVALID') violations++;
+    } catch (e) {
+      violations++; // the serialization throw this cure removes
+    }
+  }
+  return { name: 'PF1_bigint_pool_fee_refuses_without_throwing', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -211,6 +236,7 @@ const properties = [
   checkP4_refusalContract(),
   checkP5_hooklistShape(),
   checkP6_outputShapeDeterminism(),
+  checkPF1_bigintInputRefusesWithoutThrowing(),
 ];
 console.log('[' + KERNEL_ID + '] class-K floor property test — ' + properties.length + ' properties.');
 const ok = summarize(KERNEL_ID, oracle, properties);
