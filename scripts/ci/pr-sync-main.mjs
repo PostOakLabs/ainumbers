@@ -729,12 +729,43 @@ function headRunFacts(repo, headSha) {
 }
 
 /**
- * Main's latest recovery from a Scripts Verify red episode: the completion
- * time (updated_at) of the newest successful main run that has a failed run
- * older than it in the recent window. Null when there is no such recovery —
- * no failure in the window, or main's newest run is red, so main has not
- * recovered. Null keeps the red-head skip (fail-closed). One read per
- * process; the value cannot change under a run.
+ * Main's latest recovery from a Scripts Verify red episode, from a newest-first
+ * run list: the completion time (updated_at) of the FIRST success after the
+ * newest failure, i.e. the success immediately newer than that failure. Null
+ * when there is no such recovery: no failure in the window, or main's newest
+ * completed run is red, so main has not recovered. Pure.
+ *
+ * BOT-SYNC-RECOVERY-CLOCK-1 (2026-11-25): this used to return the NEWEST
+ * success whenever any failure sat anywhere in the 20-run window. Every new
+ * green main run then moved "recovery" forward, so every red PR whose run
+ * started before main's latest green run read as a stale red and was re-synced
+ * on each main merge, its red CI re-run for nothing. #2745 and #2763 were
+ * bot-synced 12 times each between 2026-11-23 21:32Z and 2026-11-25 01:29Z on
+ * the same Registry kernel-resolve red; main's real recovery in that window was
+ * 2026-11-24 16:33Z, so after one sync both should have stayed skipped.
+ * @param {Array<{conclusion:string|null, started:string, updated:string}>} runs newest first
+ * @returns {number|null} epoch ms
+ */
+export function recoveryFromRuns(runs) {
+  const completed = Array.isArray(runs)
+    ? runs.filter((r) => r && typeof r.conclusion === 'string'
+      && Number.isFinite(Date.parse(r.started || null)) && Number.isFinite(Date.parse(r.updated || null)))
+    : [];
+  if (!completed.length || completed[0].conclusion !== 'success') return null;
+  const lastFail = completed.findIndex((r) => r.conclusion === 'failure');
+  if (lastFail <= 0) return null;
+  // completed[lastFail - 1] is the newest run newer than that failure that is
+  // a success; cancelled or skipped runs between them are not recoveries.
+  for (let i = lastFail - 1; i >= 0; i--) {
+    if (completed[i].conclusion === 'success') return Date.parse(completed[i].updated);
+  }
+  return null;
+}
+
+/**
+ * Main's latest recovery from a Scripts Verify red episode (recoveryFromRuns
+ * over main's newest 20 runs). Null keeps the red-head skip (fail-closed).
+ * One read per process; the value cannot change under a run.
  */
 let _mainRecoveryCache;
 function mainRecoveredAt(repo) {
@@ -744,14 +775,7 @@ function mainRecoveredAt(repo) {
       const runs = JSON.parse(gh(['api', `repos/${repo}/actions/workflows/scripts-verify.yml/runs?branch=main&per_page=20`,
         '--jq', '[.workflow_runs[] | {conclusion, started: .run_started_at, updated: .updated_at}]'],
         undefined, process.env.ACTIONS_READ_TOKEN));
-      const completed = Array.isArray(runs)
-        ? runs.filter((r) => typeof r.conclusion === 'string'
-          && Number.isFinite(Date.parse(r.started || null)) && Number.isFinite(Date.parse(r.updated || null)))
-        : [];
-      if (completed.length && completed[0].conclusion === 'success'
-          && completed.slice(1).some((r) => r.conclusion === 'failure')) {
-        _mainRecoveryCache = Date.parse(completed[0].updated);
-      }
+      _mainRecoveryCache = recoveryFromRuns(runs);
     } catch { /* keep null: unreadable -> keep the skip */ }
   }
   return _mainRecoveryCache;

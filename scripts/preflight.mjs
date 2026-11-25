@@ -2019,6 +2019,9 @@ const GATES = [
   // ADVISORY hostile-input census of kernels this diff adds or changes (always exits 0).
   ['Kernel hostile-input census (ADVISORY)', 'node scripts/check-kernel-hostile-census.mjs'],
   ['Kernel hostile-input census controls (RED+GREEN)', 'node scripts/check-kernel-hostile-census.mjs --self-test'],
+  // BigInt never-throw probe; BLOCKING for new-node kernels, edited kernels no worse than main.
+  ['Kernel BigInt never-throw (new node blocking)', 'node scripts/check-kernel-bigint-newnode.mjs'],
+  ['Kernel BigInt never-throw controls (RED+GREEN)', 'node scripts/check-kernel-bigint-newnode.mjs --self-test'],
   // COMPOSER-PLAN-AND-ROOT-WEBMCP-1: parity gate A (in-repo SSOT recompute of every
   // chain plan hash vs the committed derived set + page-literal sample) and parity
   // gate B fixtures (session-receipt Merkle; the site-side routine test is

@@ -1,5 +1,5 @@
 // art-620-summa-mst-inclusion-checker — class-B PROPERTY-TEST FLOOR (NODE-REG-UNBLOCK-1).
-// kernel_digest_at_authoring: sha256:2dc3bf8bb1f5ae7c1d3c1023fdd8c19a1abd94fae7105f93541303cf0f9c77a6
+// kernel_digest_at_authoring: sha256:b1d00b37e7585853e001320d57d046d9a9fde7008d810c8df91000726f21f864
 // spec: workspace-root SUMMA-MST-BUILD-SPEC.md (kernel header cites §5a/§4/§3/§2)
 // human_sign_off: PENDING
 //
@@ -36,17 +36,29 @@
 // against (P3, eprint 2022/043 §4.1 — an inflated leaf hidden by a negative sibling that cancels in
 // the sum), single-mutation tamper detection (P4), determinism (P5), forced categorical boundary
 // cases including the MAX_PATH_DEPTH and MAX_BALANCE edges (P6), and output-shape sanity (P7).
+// The fail-closed cure adds P8 (every required field of every positive vector, deleted, nulled,
+// blank or whitespace-only, must return NOT_VERIFIED) and P9 (buildArtifact_never_throws across
+// every hash-hostile number, depth and size class).
 //
 // Run: node chaingraph/kernels/__proptests__/art-620-summa-mst-inclusion-checker.proptest.mjs
 
 import { createHash } from 'node:crypto';
-import { compute } from '../art-620-summa-mst-inclusion-checker.kernel.mjs';
+import { compute, buildArtifact } from '../art-620-summa-mst-inclusion-checker.kernel.mjs';
+import { readFileSync } from 'node:fs';
 import { runFixtureOracle, findShapeViolations, summarize, mulberry32, pickNasty, nullProtoClone } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-620-summa-mst-inclusion-checker';
 
 const MAX_PATH_DEPTH = 64;                          // kernel's declared ceiling
 const DEFAULT_MAX_BALANCE = '1000000000000000000';  // kernel's declared domain bound
+
+// MUTATION_TIER_NUM_RUNS: per-kernel mutation-mode trial budget, injected by run-mutation-tier.mjs
+// from this kernel's sibling .mutation.json (`mutationTrials`). Read once. A positive safe integer
+// caps every property loop at that many iterations; unset leaves every hardcoded count unchanged.
+// No property, assertion, generator, seed or fixture changes.
+const MUTATION_RUNS_N = Number(process.env.MUTATION_TIER_NUM_RUNS);
+const MUTATION_RUNS = Number.isSafeInteger(MUTATION_RUNS_N) && MUTATION_RUNS_N > 0 ? MUTATION_RUNS_N : null;
+const trialCap = (count) => (MUTATION_RUNS === null ? count : Math.min(count, MUTATION_RUNS));
 
 // ── independent MST oracle (node:crypto, NOT the kernel's hand-rolled SHA-256) ───────────────────
 // Layout per the kernel's own documented spec §2:
@@ -146,7 +158,7 @@ function checkP1_totality() {
     } catch (e) { violations++; }
   }
   // fuzz with the shared nasty-value generator in every slot that reaches a parser
-  for (let i = 0; i < 300; i++) {
+  for (let i = 0; i < trialCap(300); i++) {
     const pp = {
       root: { hash: pickNastyJsonish(rng), sum: pickNastyJsonish(rng) },
       max_balance: pickNastyJsonish(rng),
@@ -216,7 +228,7 @@ function probeP1b_nullProtoBoundary() {
 function checkP2_differentialAgainstNodeCrypto() {
   const rng = mulberry32(620002);
   let checked = 0, violations = 0;
-  for (let i = 0; i < 200; i++) {
+  for (let i = 0; i < trialCap(200); i++) {
     const depth = 1 + Math.floor(rng() * 5); // 2..32 leaves
     const c = randomCase(rng, depth);
     checked++;
@@ -243,7 +255,7 @@ function checkP3_brokenMstHazard() {
   // combined sum at that level is unchanged and the published root still balances. A checker that
   // only walked the sums would be fooled; this kernel must reject on the negative BEFORE adding, and
   // name the path index it found it at.
-  for (let i = 0; i < 200; i++) {
+  for (let i = 0; i < trialCap(200); i++) {
     const c = randomCase(rng, 1 + Math.floor(rng() * 4));
     const k = Math.floor(rng() * c.pp.proof.path.length);
     const pp = structuredClone(c.pp);
@@ -259,7 +271,7 @@ function checkP3_brokenMstHazard() {
   }
 
   // (b) negative LEAF balance
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < trialCap(100); i++) {
     const c = randomCase(rng, 1 + Math.floor(rng() * 3));
     const pp = structuredClone(c.pp);
     pp.proof.leaf.balance = '-' + (1 + Math.floor(rng() * 1e6));
@@ -270,7 +282,7 @@ function checkP3_brokenMstHazard() {
   }
 
   // (c) a balance past the declared MAX_BALANCE domain bound (overflow-shaped input)
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < trialCap(100); i++) {
     const c = randomCase(rng, 1 + Math.floor(rng() * 3));
     const pp = structuredClone(c.pp);
     const max = BigInt(pp.max_balance);
@@ -291,7 +303,7 @@ function checkP3_brokenMstHazard() {
 function checkP4_tamperBreaksVerification() {
   const rng = mulberry32(620004);
   let checked = 0, violations = 0;
-  for (let i = 0; i < 120; i++) {
+  for (let i = 0; i < trialCap(120); i++) {
     const c = randomCase(rng, 2 + Math.floor(rng() * 3));
     const base = compute(c.pp);
     if (base.output_payload.verdict !== 'VERIFIED') { checked++; violations++; continue; }
@@ -323,7 +335,7 @@ function checkP4_tamperBreaksVerification() {
 function checkP5_determinism() {
   const rng = mulberry32(620005);
   let checked = 0, violations = 0;
-  for (let i = 0; i < 150; i++) {
+  for (let i = 0; i < trialCap(150); i++) {
     const c = randomCase(rng, 1 + Math.floor(rng() * 4));
     const pp = i % 3 === 0 ? (() => { const p = structuredClone(c.pp); p.proof.leaf.balance = '-1'; return p; })() : c.pp;
     checked++;
@@ -409,7 +421,7 @@ function checkP6_boundaryCases() {
 function checkP7_outputShape() {
   const rng = mulberry32(620007);
   let checked = 0, violations = 0;
-  for (let i = 0; i < 200; i++) {
+  for (let i = 0; i < trialCap(200); i++) {
     const c = randomCase(rng, 1 + Math.floor(rng() * 4));
     const pp = structuredClone(c.pp);
     if (i % 4 === 1) pp.proof.leaf.balance = '-5';
@@ -427,6 +439,65 @@ function checkP7_outputShape() {
   return { name: 'P7_output_shape_and_verify_only_notes', checked, violations };
 }
 
+// ---------- P8: required fields deleted / null / blank / whitespace never stay positive ----------
+const REQUIRED_PATHS = ['root', 'proof', 'root.hash', 'root.sum', 'proof.leaf.id', 'proof.leaf.balance',
+  'proof.path.0.side', 'proof.path.0.sibling_hash', 'proof.path.0.sibling_sum'];
+const FIXTURE_DOC = JSON.parse(readFileSync(new URL('../fixtures/art-620-summa-mst-inclusion-checker.fixtures.json', import.meta.url), 'utf8'));
+function setPath(p, fieldPath, value, remove) {
+  const parts = fieldPath.split('.');
+  let cur = p;
+  for (let i = 0; i < parts.length - 1; i++) cur = cur[parts[i]];
+  const last = parts[parts.length - 1];
+  if (remove) delete cur[last];
+  else cur[last] = value;
+}
+function checkP8_required_fields_never_positive() {
+  let violations = 0, checked = 0;
+  for (const v of FIXTURE_DOC.vectors) {
+    const pp = v.policy_parameters;
+    if (!pp || typeof pp !== 'object' || Array.isArray(pp)) continue;
+    if (compute(structuredClone(pp)).output_payload.verdict !== 'VERIFIED') continue;
+    for (const fieldPath of REQUIRED_PATHS) {
+      for (const mode of ['delete', 'null', 'empty', 'whitespace']) {
+        const c = structuredClone(pp);
+        try {
+          if (mode === 'delete') setPath(c, fieldPath, undefined, true);
+          else if (mode === 'null') setPath(c, fieldPath, null, false);
+          else if (mode === 'empty') setPath(c, fieldPath, '', false);
+          else setPath(c, fieldPath, '   ', false);
+          checked++;
+          if (compute(c).output_payload.verdict !== 'NOT_VERIFIED') violations++;
+        } catch (e) { violations++; }
+      }
+    }
+  }
+  return { name: 'P8_required_field_delete_null_blank_whitespace_never_positive', checked, violations };
+}
+
+// ---------- P9: buildArtifact never throws on hash-hostile input (D6) ----------
+async function checkP9_buildArtifact_never_throws() {
+  const deep = (n) => { let o = Object.create(null); const r = o; for (let i = 0; i < n; i++) { o.x = Object.create(null); o = o.x; } return r; };
+  const big = () => new Array(1000001).fill(1);
+  const junk = { NaN: NaN, negInfinity: -Infinity, huge: 1e300, deep600: deep(600), bigArray: big() };
+  const cases = [];
+  for (const [n, j] of Object.entries(junk)) cases.push(['top=' + n, j]);
+  const base = FIXTURE_DOC.vectors.find((v) => v.name === 'verified-2-leaf-inclusion').policy_parameters;
+  for (const key of Object.keys(base)) {
+    for (const [n, j] of Object.entries(junk)) {
+      cases.push([key + '=' + n, { ...structuredClone(base), [key]: j }]);
+    }
+  }
+  let violations = 0, refusals = 0;
+  for (const [label, pp] of cases) {
+    let a;
+    try { a = await buildArtifact(pp); }
+    catch (e) { violations++; console.error(`P9 THROW ${label}: ${e && e.name}: ${e && e.message}`); continue; }
+    if (a.execution_hash === null && a.hash_refusal && typeof a.hash_refusal.reason === 'string') refusals++;
+    else if (a.execution_hash === null) violations++;
+  }
+  return { name: 'buildArtifact_never_throws', checked: cases.length, violations, refusals };
+}
+
 // ---------- run ----------
 const oracle = runFixtureOracle(KERNEL_ID, compute);
 const properties = [
@@ -438,6 +509,8 @@ const properties = [
   checkP5_determinism(),
   checkP6_boundaryCases(),
   checkP7_outputShape(),
+  checkP8_required_fields_never_positive(),
+  await checkP9_buildArtifact_never_throws(),
 ];
 console.log(`[${KERNEL_ID}] class-B property floor — P2 differentials the kernel's hand-rolled SHA-256 against node:crypto`);
 const ok = summarize(KERNEL_ID, oracle, properties);
