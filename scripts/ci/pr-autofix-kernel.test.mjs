@@ -206,3 +206,142 @@ test('whole wiring, real script, fake create path: no manifest appears, notice n
     assert.ok(out.includes('::notice title=input-schema skipped for art-1-x'), 'GREEN: one notice names the id and the reason');
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+// ---- proof-links on a kernel or node-shard change (PR-AUTOFIX-PROOFLINKS-ON-KERNEL-1) ----
+// The proof-links block names the kernel digest, the receipt and the registry record, so a kernel
+// edit or a re-prove moves it even when the PR never touched the page. Before this row only the
+// page step rewrote it, for pages in the touched set, and re-prove PRs hand-healed it (#3239, #3285).
+
+import { proofLinkIds, onlyProofLinksChanged, proofLinksStep } from './pr-autofix-kernel.mjs';
+
+const PL_BLOCK = (digest) => `<!--PROOF-LINKS-->\n<details class="proof-links">\n  <ul>\n  <li>Kernel digest: sha256:${digest}</li>\n  </ul>\n</details>\n<!--/PROOF-LINKS-->`;
+const PAGE = (body) => `<!doctype html>\n<html><head><meta name="kernel-digest" content="sha256:aaaa"></head>\n<body>\n<main>x</main>\n${body}<footer>f</footer>\n</body></html>\n`;
+// The page and shard exist for ids art-1-x and art-2-y; art-3-z has a shard but no page.
+const TREE = new Set([
+  'chaingraph/kernels/art-1-x.kernel.mjs', 'chaingraph/graph/nodes/art-1-x.json', 'chaingraph/art-1-x.html',
+  'chaingraph/graph/nodes/art-2-y.json', 'chaingraph/art-2-y.html',
+  'chaingraph/kernels/art-3-z.kernel.mjs', 'chaingraph/graph/nodes/art-3-z.json',
+]);
+const inTree = (p) => TREE.has(p);
+
+test('proof-links ids: a kernel OR a node shard triggers, once per id, only for pages the writer owns', () => {
+  const touched = [
+    'chaingraph/kernels/art-1-x.kernel.mjs',
+    'chaingraph/graph/nodes/art-1-x.json', // same id again: one entry
+    'chaingraph/graph/nodes/art-2-y.json', // shard only, page untouched: the case this row adds
+    'chaingraph/kernels/art-3-z.kernel.mjs', // no top-level page: gen-proof-links does not own it
+    'chaingraph/kernels/fixtures/art-1-x.fixtures.json',
+    'chaingraph/graph/nodes/Bad Id.json',
+    'chaingraph/graph/nodes/sub/art-1-x.json',
+  ];
+  assert.deepEqual(proofLinkIds(touched, inTree), ['art-1-x', 'art-2-y']);
+});
+
+test('proof-links ids: a deleted kernel or shard names no id', () => {
+  const gone = (p) => inTree(p) && p !== 'chaingraph/graph/nodes/art-2-y.json';
+  assert.deepEqual(proofLinkIds(['chaingraph/graph/nodes/art-2-y.json'], gone), []);
+  assert.deepEqual(proofLinkIds(['chaingraph/kernels/art-9-q.kernel.mjs'], inTree), []);
+});
+
+test('proof-links allowlist is exactly the node page of each triggering id, and nothing shared', () => {
+  const touched = ['chaingraph/kernels/art-1-x.kernel.mjs', 'chaingraph/graph/nodes/art-2-y.json', 'index.html', 'chaingraph/chaingraph.json'];
+  const a = allowlists(touched, COVERED, inTree);
+  assert.deepEqual(a['proof-links'], ['chaingraph/art-1-x.html', 'chaingraph/art-2-y.html']);
+  // the shard-only id does not widen the identity or schema writers
+  assert.deepEqual(a['kernel-identity'], ['chaingraph/graph/nodes/art-1-x.json']);
+  assert.deepEqual(a['input-schema'], ['manifests/art-1-x.manifest.json']);
+  const all = extraAllowed(touched, COVERED, inTree);
+  for (const forbidden of ['index.html', 'tools.html', 'sitemap.html', 'chaingraph/chaingraph.json', 'sitemap.xml', 'chaingraph/art-3-z.html']) {
+    assert.ok(!all.includes(forbidden), `${forbidden} must not be writable`);
+  }
+});
+
+test('region fence: replacing the block in place passes; a byte outside it fails', () => {
+  const before = PAGE(PL_BLOCK('old') + '\n');
+  assert.equal(onlyProofLinksChanged(before, PAGE(PL_BLOCK('new') + '\n')), true);
+  assert.equal(onlyProofLinksChanged(before, before), true);
+  const headEdit = PAGE(PL_BLOCK('new') + '\n').replace('sha256:aaaa', 'sha256:bbbb');
+  assert.equal(onlyProofLinksChanged(before, headEdit), false, 'RED: the kernel-digest meta must never ride this writer');
+  const footerEdit = PAGE(PL_BLOCK('new') + '\n').replace('<footer>f</footer>', '<footer>g</footer>');
+  assert.equal(onlyProofLinksChanged(before, footerEdit), false);
+  assert.equal(onlyProofLinksChanged(before, PAGE('')), false, 'a removed block is not a block rewrite');
+});
+
+test('region fence: a first insertion above the footer passes, in both of withBlock\'s shapes', () => {
+  const before = PAGE('');
+  // before ends with "\n" ahead of <footer>: withBlock adds no separator
+  assert.equal(onlyProofLinksChanged(before, PAGE(PL_BLOCK('d') + '\n')), true);
+  // before has no newline ahead of <footer>: withBlock adds one
+  const tight = before.replace('</main>\n<footer>', '</main><footer>');
+  const tightAfter = tight.replace('<footer>', '\n' + PL_BLOCK('d') + '\n<footer>');
+  assert.equal(onlyProofLinksChanged(tight, tightAfter), true);
+  // an insertion that also edits the body is still an escape
+  assert.equal(onlyProofLinksChanged(before, PAGE(PL_BLOCK('d') + '\n').replace('<main>x', '<main>y')), false);
+});
+
+test('proof-links step: runs the writer with exactly --only <id>, and classifies its result', () => {
+  const calls = [];
+  let page = PAGE(PL_BLOCK('old') + '\n');
+  const read = () => page;
+  const ok = proofLinksStep('art-2-y', (a) => { calls.push(a); page = PAGE(PL_BLOCK('new') + '\n'); return { status: 0, output: '' }; }, read);
+  assert.equal(ok, 'ok');
+  assert.deepEqual(calls[0], ['scripts/gen-proof-links.mjs', '--only', 'art-2-y']);
+  assert.equal(proofLinksStep('art-2-y', () => ({ status: 0, output: '' }), read), 'unchanged');
+  assert.equal(proofLinksStep('art-2-y', () => { page = page.replace('<main>x', '<main>y'); return { status: 0, output: '' }; }, read), 'escaped');
+  assert.equal(proofLinksStep('art-2-y', () => ({ status: 1, output: 'boom' }), read), 'error');
+});
+
+test('whole wiring, real script: a shard-only PR gets the block written; a writer that strays is reverted and fails', async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, cpSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join, resolve: res, dirname: dn } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const { spawnSync } = await import('node:child_process');
+  const repo = res(dn(fileURLToPath(import.meta.url)), '..', '..');
+  const setup = (writerBody) => {
+    const root = mkdtempSync(join(tmpdir(), 'autofix-prooflinks-'));
+    mkdirSync(join(root, 'scripts', 'ci'), { recursive: true });
+    mkdirSync(join(root, 'chaingraph', 'graph', 'nodes'), { recursive: true });
+    cpSync(join(repo, 'scripts', 'ci', 'pr-autofix-kernel.mjs'), join(root, 'scripts', 'ci', 'pr-autofix-kernel.mjs'));
+    cpSync(join(repo, 'scripts', '_git-env-lib.mjs'), join(root, 'scripts', '_git-env-lib.mjs'));
+    writeFileSync(join(root, 'scripts', 'derived-artifacts.mjs'), "export function coveredPaths() { return ['chaingraph/art-2-y.html']; }\n");
+    // A fake gen-proof-links: rewrites the block from the shard's digest field, like the real one
+    // rewrites it from the kernel digest. The stray variant also edits the page head.
+    writeFileSync(join(root, 'scripts', 'gen-proof-links.mjs'), writerBody);
+    writeFileSync(join(root, 'chaingraph', 'graph', 'nodes', 'art-2-y.json'), '{"tool_id":"art-2-y","digest":"old"}\n');
+    writeFileSync(join(root, 'chaingraph', 'art-2-y.html'), PAGE(PL_BLOCK('old') + '\n'));
+    const git = (...a) => spawnSync('git', a, { cwd: root, encoding: 'utf8', env: gitEnv() });
+    git('init', '-q'); git('config', 'user.email', 't@t'); git('config', 'user.name', 't');
+    git('add', '-A'); git('commit', '-qm', 'base');
+    // the PR: a re-prove that changed only the shard
+    writeFileSync(join(root, 'chaingraph', 'graph', 'nodes', 'art-2-y.json'), '{"tool_id":"art-2-y","digest":"new"}\n');
+    git('commit', '-qam', 'prove');
+    const touched = join(root, 'touched.nul');
+    writeFileSync(touched, 'chaingraph/graph/nodes/art-2-y.json\0');
+    const r = spawnSync(process.execPath, [join(root, 'scripts', 'ci', 'pr-autofix-kernel.mjs'), '--touched', touched], { cwd: root, encoding: 'utf8', env: gitEnv() });
+    return { root, r, out: (r.stdout || '') + (r.stderr || ''), page: () => readFileSync(join(root, 'chaingraph', 'art-2-y.html'), 'utf8') };
+  };
+  const writer = (stray) => [
+    "import { readFileSync, writeFileSync } from 'node:fs';",
+    "const id = process.argv[process.argv.indexOf('--only') + 1];",
+    "const d = JSON.parse(readFileSync(`chaingraph/graph/nodes/${id}.json`, 'utf8')).digest;",
+    "const p = `chaingraph/${id}.html`;",
+    'let h = readFileSync(p, "utf8").replace(/<!--PROOF-LINKS-->[\\s\\S]*?<!--\\/PROOF-LINKS-->/, (m) => m.replace(/sha256:\\w+/, "sha256:" + d));',
+    stray ? "h = h.replace('sha256:aaaa', 'sha256:' + d);" : '',
+    'writeFileSync(p, h);',
+  ].join('\n');
+
+  const good = setup(writer(false));
+  try {
+    assert.equal(good.r.status, 0, 'the run exits 0: ' + good.out.slice(0, 400));
+    assert.ok(good.out.includes('> node scripts/gen-proof-links.mjs --only art-2-y'), 'GREEN: the writer ran for a shard-only PR');
+    assert.equal(good.page(), PAGE(PL_BLOCK('new') + '\n'), 'GREEN: the block now names the PR\'s digest, nothing else moved');
+  } finally { rmSync(good.root, { recursive: true, force: true }); }
+
+  const bad = setup(writer(true));
+  try {
+    assert.equal(bad.r.status, 1, 'RED: a write outside the block fails the run: ' + bad.out.slice(0, 400));
+    assert.ok(bad.out.includes('proof-links wrote outside its block'), 'the error names the escape');
+    assert.equal(bad.page(), PAGE(PL_BLOCK('old') + '\n'), 'the page is restored to what it was before the writer ran');
+  } finally { rmSync(bad.root, { recursive: true, force: true }); }
+});
