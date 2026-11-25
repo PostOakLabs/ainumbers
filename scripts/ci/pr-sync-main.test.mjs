@@ -59,7 +59,7 @@ import { join } from 'node:path';
 import {
   decide, mainOwnedPaths, sentinelOwnedPaths, isSentinelOnlyDiff, parseMergeTree, syncOne,
   waitForRegen, regenGate, planReservations, shardBytes, RESERVATIONS_LEGACY, SKIP_LABEL, MAX_ATTEMPTS_PER_HEAD, SYNC_ANYWAY_LABEL,
-  MAIN_OWNED_FRESHNESS_STEPS,
+  MAIN_OWNED_FRESHNESS_STEPS, recoveryFromRuns,
 } from './pr-sync-main.mjs';
 import { canonicalRecordBytes, NEVER_LIVE_DEPENDENCY_NOTE } from '../gen-registry-kernel-resolve.mjs';
 import { sourceDigest } from '../../chaingraph/kernels/_buildid.mjs';
@@ -659,6 +659,57 @@ console.log('8. regenGate() / waitForRegen(): push:main never strands itself');
   t('a run that registers late is still waited for', () => {
     const c = clock([NONE, NONE, RUNNING, DONE]);
     assert.equal(waitForRegen(c.probe, { ...T, sleep: c.sleep, now: c.now }).outcome, 'finished');
+  });
+}
+
+// BOT-SYNC-RECOVERY-CLOCK-1: main's recovery time is the first green run after
+// the newest red, not the newest green run. Fixture: main's newest 20 Scripts
+// Verify runs as the 2026-11-25T01:21Z sync-main run saw them (one failure,
+// 2026-11-24 16:07Z, recovered by the 16:33Z run).
+{
+  const R = (created, updated, conclusion) => ({ conclusion, started: created, updated });
+  const main0121 = [
+    R('2026-11-25T00:18:55Z', '2026-11-25T00:39:39Z', 'success'), R('2026-11-25T00:12:07Z', '2026-11-25T00:15:04Z', 'success'),
+    R('2026-11-25T00:04:18Z', '2026-11-25T00:11:49Z', 'success'), R('2026-11-24T23:57:56Z', '2026-11-25T00:03:43Z', 'success'),
+    R('2026-11-24T23:57:21Z', '2026-11-24T23:57:57Z', 'cancelled'), R('2026-11-24T23:19:43Z', '2026-11-25T00:00:19Z', 'cancelled'),
+    R('2026-11-24T23:13:53Z', '2026-11-24T23:22:14Z', 'cancelled'), R('2026-11-24T20:27:56Z', '2026-11-24T21:07:36Z', 'success'),
+    R('2026-11-24T20:21:11Z', '2026-11-24T20:22:03Z', 'success'), R('2026-11-24T19:04:31Z', '2026-11-24T19:05:33Z', 'success'),
+    R('2026-11-24T18:47:01Z', '2026-11-24T18:47:51Z', 'success'), R('2026-11-24T18:40:07Z', '2026-11-24T18:42:44Z', 'success'),
+    R('2026-11-24T18:23:10Z', '2026-11-24T18:24:02Z', 'success'), R('2026-11-24T18:16:03Z', '2026-11-24T18:16:47Z', 'success'),
+    R('2026-11-24T17:58:48Z', '2026-11-24T17:59:44Z', 'success'), R('2026-11-24T16:50:02Z', '2026-11-24T16:50:56Z', 'success'),
+    R('2026-11-24T16:33:01Z', '2026-11-24T16:33:45Z', 'success'), R('2026-11-24T16:07:48Z', '2026-11-24T16:16:09Z', 'failure'),
+    R('2026-11-24T16:01:30Z', '2026-11-24T16:02:25Z', 'success'), R('2026-11-24T13:14:44Z', '2026-11-24T13:22:28Z', 'success'),
+  ];
+  t('recovery = first green after the newest red (16:33Z), not the newest green (00:39Z)', () => {
+    assert.equal(recoveryFromRuns(main0121), Date.parse('2026-11-24T16:33:45Z'));
+  });
+  t('#2763 replay: red head run from 00:20Z is not stale, so the skip holds', () => {
+    // Its Land Verify red (Registry kernel-resolve coverage) began 2026-11-25T00:20Z;
+    // the 01:21Z run bot-synced it anyway (pushed 0626c2a) under the old clock.
+    const r = decide({
+      pr: { number: 2763, isDraft: false, isCrossRepository: false, baseRefName: 'main', headRefName: 'predmkt-fee-inplace-fix-1',
+        labels: [], inMergeQueue: false, headCommittedAt: '2026-11-25T00:19:57Z', checksState: 'FAILURE' },
+      behind: true, conflicts: [], mainOwned: new Set(), now: Date.parse('2026-11-25T01:28:00Z'),
+      sharedFiles: ['chaingraph.json'], failingSteps: ['Registry kernel-resolve coverage', 'Report'],
+      headRunStartedAt: Date.parse('2026-11-25T00:20:00Z'), mainRecoveredAt: recoveryFromRuns(main0121),
+    });
+    assert.equal(r.action, 'skip');
+    assert.equal(r.reason, 'required-failed-on-head');
+  });
+  t('no failure in the window, or main red now → null (keeps the skip)', () => {
+    assert.equal(recoveryFromRuns(main0121.slice(0, 17)), null);
+    assert.equal(recoveryFromRuns([R('2026-11-24T16:07:48Z', '2026-11-24T16:16:09Z', 'failure'), ...main0121]), null);
+    assert.equal(recoveryFromRuns([]), null);
+    assert.equal(recoveryFromRuns(null), null);
+  });
+  t('cancelled runs between the red and the next green are not the recovery', () => {
+    const runs = [R('2026-11-24T03:15:57Z', '2026-11-24T03:29:39Z', 'success'), R('2026-11-24T03:09:30Z', '2026-11-24T03:16:07Z', 'cancelled'),
+      R('2026-11-24T03:03:20Z', '2026-11-24T03:12:21Z', 'failure')];
+    assert.equal(recoveryFromRuns(runs), Date.parse('2026-11-24T03:29:39Z'));
+  });
+  t('in-progress runs (no conclusion) are ignored', () => {
+    const runs = [{ conclusion: null, started: '2026-11-25T02:00:00Z', updated: '2026-11-25T02:01:00Z' }, ...main0121];
+    assert.equal(recoveryFromRuns(runs), Date.parse('2026-11-24T16:33:45Z'));
   });
 }
 
