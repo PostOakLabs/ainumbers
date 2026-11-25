@@ -1254,6 +1254,10 @@ const GATES = [
     'node .githooks/pre-push.test.mjs'],
   ['Pre-commit hygiene hook fixture proof (staged scoping, red blocks with gate and fix, green passes)',
     'node .githooks/pre-commit.test.mjs'],
+  // MQ-EJECT-CANCELLED-RUN-1: the merge-queue eject hold's run picker and comment
+  // helpers (automerge-label.yml dequeued path). Was authored with #2918 but never run.
+  ['Merge-queue eject hold fixture proof (cancelled ejecting run, MQ-EJECT-CANCELLED-RUN-1)',
+    'node --test scripts/mq-eject-hold.test.mjs'],
   // PREPUSH-NARROW-1: red/green controls for the hook's full-suite trigger
   // (which diff paths owe the FULL leg; docs-only scripts/ edits no longer do).
   ['Pre-push full-suite trigger controls (RED/GREEN path classes, PREPUSH-NARROW-1)',
