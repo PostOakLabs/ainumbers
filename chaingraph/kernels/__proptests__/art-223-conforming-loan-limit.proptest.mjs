@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:a8d8f41dc80af6482131e4333caca8533cb1f95a85979a3f51e7b6f45865f878
+// kernel_digest_at_authoring: sha256:e7f8db7b60aaff527d676307817873a54733549dc66a8de3c132986da3759eb3
 //
 // FV-PROPFLOOR-SHARD-B6-1 — property-test floor for art-223-conforming-loan-limit.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (the tier comparison is a direct continuous
@@ -31,13 +31,18 @@ import path from 'node:path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const results = { fixture_oracle: null, properties: [], boundary_forced: [] };
 
-// ── Independently pinned figures (FHFA Conforming Loan Limit Values for 2026,
-//    announced 2025-11-25). Held here so the oracle does not read the limits it
+// ── Independently pinned figures. Held here so the oracle does not read the limits it
 //    validates out of the artifact under test.
+//    2026: FHFA Conforming Loan Limit Values for 2026, announced 2025-11-25.
+//    2027: FHFA news release 2026-11-24 (1-unit $855,400 / ceiling $1,283,100) and
+//          FullCountyLoanLimitList2027_HERA-BASED_FINAL_FLAT.csv (2-4 unit baseline rows).
 const PINNED_2026_BASELINE = [832750, 1066250, 1288800, 1601750];
 const PINNED_2026_CEILING  = [1249125, 1599375, 1933200, 2402625];
+const PINNED_2027_BASELINE = [855400, 1095250, 1323900, 1645350];
+const PINNED_2027_CEILING  = [1283100, 1642875, 1985850, 2468025];
+const PINNED = { 2026: [PINNED_2026_BASELINE, PINNED_2026_CEILING], 2027: [PINNED_2027_BASELINE, PINNED_2027_CEILING] };
 const UPLIFT_JURISDICTIONS = ['AK', 'HI', 'GU', 'VI'];
-const PINNED_TABLE_YEAR = 2026;
+const PINNED_TABLE_YEAR = 2027; // default vintage when no year is supplied
 
 function runFixtureOracle() {
   const fixturesPath = path.join(__dirname, '..', 'fixtures', 'art-223-conforming-loan-limit.fixtures.json');
@@ -77,6 +82,7 @@ function mkPP(rng, overrides = {}) {
     units: pick(rng, [1, 2, 3, 4]),
     state: pick(rng, ['TX', 'CA', 'AK', 'HI']),
     high_cost_county: rng() < 0.3,
+    year: pick(rng, [2026, 2027, undefined]),
     ...overrides,
   };
 }
@@ -87,7 +93,7 @@ function mkPP(rng, overrides = {}) {
 function oracle(pp) {
   const supplied = pp.year !== undefined && pp.year !== null && pp.year !== '';
   const yr = supplied ? Number(pp.year) : PINNED_TABLE_YEAR;
-  if (!Number.isFinite(yr) || Math.round(yr) !== PINNED_TABLE_YEAR) {
+  if (!Number.isFinite(yr) || !PINNED[Math.round(yr)]) {
     return { classification: null, flag: 'LOOKUP_YEAR_UNAVAILABLE' };
   }
   const amt = Number(pp.loan_amount);
@@ -96,8 +102,9 @@ function oracle(pp) {
   }
   const rawUnits = Number(pp.units);
   const units = Math.max(1, Math.min(4, Math.round(Number.isFinite(rawUnits) ? rawUnits : 1)));
-  const base = PINNED_2026_BASELINE[units - 1];
-  const ceiling = PINNED_2026_CEILING[units - 1];
+  const [baseT, ceilT] = PINNED[Math.round(yr)];
+  const base = baseT[units - 1];
+  const ceiling = ceilT[units - 1];
   const st = String(pp.state || '').toUpperCase().trim();
   const uplifted = UPLIFT_JURISDICTIONS.includes(st);
   const areaBaseline = uplifted ? base * 1.5 : base;
@@ -164,31 +171,37 @@ function checkP3_independentOracleAgreement() {
       if (samples.length < 3) samples.push({ pp, want: want.classification, got: r.output_payload.classification });
     }
   }
-  return { name: 'P3_classification_matches_independently_pinned_fhfa_2026_table', trials: checked, violations, samples };
+  return { name: 'P3_classification_matches_independently_pinned_fhfa_2026_and_2027_tables', trials: checked, violations, samples };
 }
 
 // ---------- P4 (mandatory): ULP-boundary forcing, each case asserting ITS OWN label ----------
 // `expect` is the label's claim, restated as a machine-checkable value. FAIL_CLOSED means a
-// null verdict plus the named flag. These figures come from the FHFA 2026 announcement and
+// null verdict plus the named flag. These figures come from the FHFA 2026 and 2027 announcements and
 // the Enterprise category definitions, not from running the kernel and recording what it said.
 /** @type {{ overrides: Record<string, any>, label: string, expect: string, expectFlag?: string }[]} */
 const ULP_BOUNDARY_CASES = [
-  { overrides: { loan_amount: 832750, units: 1, state: 'TX', high_cost_county: false }, label: '1-unit baseline exactly at the $832,750 boundary, must be conforming', expect: 'conforming' },
-  { overrides: { loan_amount: 832750.01, units: 1, state: 'TX', high_cost_county: false }, label: '1-unit baseline 1 cent above the boundary in a baseline county, must be jumbo, because a baseline county has no above-baseline band', expect: 'jumbo' },
-  { overrides: { loan_amount: 1000000, units: 1, state: 'TX', high_cost_county: true }, label: 'high-cost county, above the $832,750 baseline and below the $1,249,125 ceiling, must be super_conforming, not plain conforming', expect: 'super_conforming' },
-  { overrides: { loan_amount: 1209750, units: 1, state: 'TX', high_cost_county: true }, label: 'high-cost county at the 2025 ceiling figure, still inside the 2026 band, must be super_conforming, not jumbo', expect: 'super_conforming' },
-  { overrides: { loan_amount: 1249125, units: 1, state: 'TX', high_cost_county: true }, label: 'high-cost ceiling exactly at $1,249,125, must be super_conforming under the inclusive upper bound, not jumbo', expect: 'super_conforming' },
-  { overrides: { loan_amount: 1249125.01, units: 1, state: 'TX', high_cost_county: true }, label: 'high-cost ceiling 1 cent above, must be jumbo', expect: 'jumbo' },
-  { overrides: { loan_amount: 0, units: 1, state: 'TX', high_cost_county: false }, label: 'loan_amount exactly zero, must not be conforming and must not classify at all', expect: 'FAIL_CLOSED', expectFlag: 'LOAN_AMOUNT_MISSING' },
-  { overrides: { loan_amount: -1, units: 1, state: 'TX', high_cost_county: false }, label: 'negative loan_amount, must fail closed, never a computed tier', expect: 'FAIL_CLOSED', expectFlag: 'LOAN_AMOUNT_MISSING' },
-  { overrides: { loan_amount: 700000, units: 1, state: 'TX', high_cost_county: false, year: 2027 }, label: 'year 2027 is not in the pinned table, must fail closed, never answered from the 2026 vintage', expect: 'FAIL_CLOSED', expectFlag: 'LOOKUP_YEAR_UNAVAILABLE' },
-  { overrides: { loan_amount: 500000, county_limit_override: 500000, units: 1, state: 'TX', high_cost_county: false }, label: 'county_limit_override exactly equal to loan_amount, must be conforming', expect: 'conforming' },
-  { overrides: { loan_amount: 500000.01, county_limit_override: 500000, units: 1, state: 'TX', high_cost_county: false }, label: 'loan_amount 1 cent above the override, must be jumbo', expect: 'jumbo' },
-  { overrides: { loan_amount: 832750 * 0.1 * 3 / 0.3, units: 1, state: 'TX', high_cost_county: false }, label: 'loan_amount computed via a 0.1*3/0.3 rounding-artifact chain lands exactly on the baseline, must be conforming under the inclusive bound', expect: 'conforming' },
-  { overrides: { loan_amount: 1601750, units: 4, state: 'TX', high_cost_county: false }, label: '4-unit baseline exactly at its own boundary ($1,601,750), must be conforming', expect: 'conforming' },
-  { overrides: { loan_amount: 1249125, units: 1, state: 'AK', high_cost_county: false }, label: 'AK carries the statutory uplift, so its 1-unit baseline IS $1,249,125, and a loan at exactly that figure is ordinary conforming, not super_conforming', expect: 'conforming' },
-  { overrides: { loan_amount: 1300000, units: 1, state: 'AK', high_cost_county: false }, label: 'AK has no high-cost areas in 2026, so above its uplifted baseline is jumbo with no intervening band', expect: 'jumbo' },
-  { overrides: { loan_amount: 832750, units: 1, state: 'AK', high_cost_county: false }, label: 'a contiguous-baseline-sized loan in AK sits well under the uplifted territory baseline, so conforming', expect: 'conforming' },
+  { overrides: { loan_amount: 832750, units: 1, state: 'TX', high_cost_county: false, year: 2026 }, label: '1-unit baseline exactly at the $832,750 boundary, must be conforming', expect: 'conforming' },
+  { overrides: { loan_amount: 832750.01, units: 1, state: 'TX', high_cost_county: false, year: 2026 }, label: '1-unit baseline 1 cent above the boundary in a baseline county, must be jumbo, because a baseline county has no above-baseline band', expect: 'jumbo' },
+  { overrides: { loan_amount: 1000000, units: 1, state: 'TX', high_cost_county: true, year: 2026 }, label: 'high-cost county, above the $832,750 baseline and below the $1,249,125 ceiling, must be super_conforming, not plain conforming', expect: 'super_conforming' },
+  { overrides: { loan_amount: 1209750, units: 1, state: 'TX', high_cost_county: true, year: 2026 }, label: 'high-cost county at the 2025 ceiling figure, still inside the 2026 band, must be super_conforming, not jumbo', expect: 'super_conforming' },
+  { overrides: { loan_amount: 1249125, units: 1, state: 'TX', high_cost_county: true, year: 2026 }, label: 'high-cost ceiling exactly at $1,249,125, must be super_conforming under the inclusive upper bound, not jumbo', expect: 'super_conforming' },
+  { overrides: { loan_amount: 1249125.01, units: 1, state: 'TX', high_cost_county: true, year: 2026 }, label: 'high-cost ceiling 1 cent above, must be jumbo', expect: 'jumbo' },
+  { overrides: { loan_amount: 0, units: 1, state: 'TX', high_cost_county: false, year: 2026 }, label: 'loan_amount exactly zero, must not be conforming and must not classify at all', expect: 'FAIL_CLOSED', expectFlag: 'LOAN_AMOUNT_MISSING' },
+  { overrides: { loan_amount: -1, units: 1, state: 'TX', high_cost_county: false, year: 2026 }, label: 'negative loan_amount, must fail closed, never a computed tier', expect: 'FAIL_CLOSED', expectFlag: 'LOAN_AMOUNT_MISSING' },
+  { overrides: { loan_amount: 700000, units: 1, state: 'TX', high_cost_county: false, year: 2028 }, label: 'year 2028 is not in the pinned tables, must fail closed, never answered from the 2027 vintage', expect: 'FAIL_CLOSED', expectFlag: 'LOOKUP_YEAR_UNAVAILABLE' },
+  { overrides: { loan_amount: 500000, county_limit_override: 500000, units: 1, state: 'TX', high_cost_county: false, year: 2026 }, label: 'county_limit_override exactly equal to loan_amount, must be conforming', expect: 'conforming' },
+  { overrides: { loan_amount: 500000.01, county_limit_override: 500000, units: 1, state: 'TX', high_cost_county: false, year: 2026 }, label: 'loan_amount 1 cent above the override, must be jumbo', expect: 'jumbo' },
+  { overrides: { loan_amount: 832750 * 0.1 * 3 / 0.3, units: 1, state: 'TX', high_cost_county: false, year: 2026 }, label: 'loan_amount computed via a 0.1*3/0.3 rounding-artifact chain lands exactly on the baseline, must be conforming under the inclusive bound', expect: 'conforming' },
+  { overrides: { loan_amount: 1601750, units: 4, state: 'TX', high_cost_county: false, year: 2026 }, label: '4-unit baseline exactly at its own boundary ($1,601,750), must be conforming', expect: 'conforming' },
+  { overrides: { loan_amount: 1249125, units: 1, state: 'AK', high_cost_county: false, year: 2026 }, label: 'AK carries the statutory uplift, so its 1-unit baseline IS $1,249,125, and a loan at exactly that figure is ordinary conforming, not super_conforming', expect: 'conforming' },
+  { overrides: { loan_amount: 1300000, units: 1, state: 'AK', high_cost_county: false, year: 2026 }, label: 'AK has no high-cost areas in 2026, so above its uplifted baseline is jumbo with no intervening band', expect: 'jumbo' },
+  { overrides: { loan_amount: 832750, units: 1, state: 'AK', high_cost_county: false, year: 2026 }, label: 'a contiguous-baseline-sized loan in AK sits well under the uplifted territory baseline, so conforming', expect: 'conforming' },
+  { overrides: { loan_amount: 855400, units: 1, state: 'TX', high_cost_county: false, year: 2027 }, label: '2027 1-unit baseline exactly at $855,400, must be conforming', expect: 'conforming' },
+  { overrides: { loan_amount: 855400.01, units: 1, state: 'TX', high_cost_county: false, year: 2027 }, label: '2027 1-unit baseline 1 cent above in a baseline county, must be jumbo', expect: 'jumbo' },
+  { overrides: { loan_amount: 2468025, units: 4, state: 'CA', high_cost_county: true, year: 2027 }, label: '2027 4-unit high-cost ceiling exactly at $2,468,025, must be super_conforming', expect: 'super_conforming' },
+  { overrides: { loan_amount: 2468025.01, units: 4, state: 'CA', high_cost_county: true, year: 2027 }, label: '2027 4-unit high-cost ceiling 1 cent above, must be jumbo', expect: 'jumbo' },
+  { overrides: { loan_amount: 1283100, units: 1, state: 'HI', high_cost_county: false, year: 2027 }, label: '2027 HI uplifted 1-unit baseline exactly at $1,283,100, must be conforming', expect: 'conforming' },
+  { overrides: { loan_amount: 850000, units: 1, state: 'TX', high_cost_county: false, year: undefined }, label: 'no year supplied: default vintage 2027, so $850,000 is under the $855,400 baseline and conforming (it would be jumbo in 2026)', expect: 'conforming' },
 ];
 
 function checkP4_forced() {
@@ -231,7 +244,8 @@ function checkP5_taxonomyInvariants() {
     if (op.classification === null) continue;
     checked++;
     const units = Math.max(1, Math.min(4, Math.round(Number(pp.units) || 1)));
-    const contiguousBaseline = PINNED_2026_BASELINE[units - 1];
+    const yrRaw = pp.year === undefined || pp.year === null || pp.year === '' ? PINNED_TABLE_YEAR : Math.round(Number(pp.year));
+    const contiguousBaseline = PINNED[yrRaw][0][units - 1];
     const uplifted = UPLIFT_JURISDICTIONS.includes(String(pp.state || '').toUpperCase().trim());
 
     // (i) At or below the contiguous baseline, no county designation can make a loan anything
