@@ -98,12 +98,12 @@ export function parallelSlotBlocker(pr, armed, max = PARALLEL_MAX) {
 }
 
 // ── CO-ARM (LINEAGE-COARM-1, opt-in, off by default) ───────────────────────
-// The mainside mode above never lets two "serial" PRs fly together, and almost
-// every kernel PR is serial today only because it renames its OWN content-
-// addressed record under registry/kernel/. Those records have no shared index
-// (each is linked only from its own node page), and the lineage log, absence
-// tree, receipt bundles and counts are main-only regen outputs, rebuilt once
-// per push to main. Measured Nov 1-25: no kernel-vs-kernel semantic eject
+// The mainside mode above never lets two "serial" PRs fly together. Measured
+// 2026-11-25: all 11 waiting kernel PRs were serial only because each renames
+// its OWN content-addressed record under registry/kernel/. Those records have
+// no shared index (each is linked only from its own node page), and the
+// lineage log, absence tree, receipt bundles and counts are main-only regen
+// outputs, rebuilt on every push to main. Measured Nov 1-25: no kernel-vs-kernel semantic eject
 // after 11-07; the ejects that did happen were PR-vs-main (stale proof links
 // after a record rename, #3278; SPEC.md drift making every record stale,
 // #2831) or a since-fixed ID-collision false positive (#2524). A textual merge
