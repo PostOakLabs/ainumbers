@@ -417,6 +417,31 @@ const RUN_PATH_ADAPTERS = {
       // empty fields exercise that same path through the page's own controls.
     },
   },
+  // PR-3262-DIRECT-REG-CURE-1: the two manifest-repointed FIX-MANIFEST pages
+  // (WEBMCP-FN-SHAPE-LEG-2). Their adapters map fixture policy_parameters onto
+  // the pages' own controls; with fixture 0's empty pp both run the pages'
+  // default tier / rejected-inputs paths through the real controls.
+  'art-203-embedded-license-selector': {
+    run: 'runSelector',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // the selects drive booleans via value === 'yes'; 'no' is the page's
+      // explicit all-false tier (fixture 0's empty-input default).
+      setVal(sandbox, 'commercialSel', pp.commercial_use ? 'yes' : 'no');
+      setVal(sandbox, 'displaySel', pp.public_display ? 'yes' : 'no');
+      setVal(sandbox, 'sharingSel', pp.allow_sharing ? 'yes' : 'no');
+    },
+  },
+  'art-204-license-compatibility-checker': {
+    run: 'runChecker',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // '' (not undefined) so runChecker's .trim() sees the page's empty-form
+      // rejected-inputs path, matching fixture 0's {} default.
+      setVal(sandbox, 'parentIn', pp.parent_license ?? '');
+      setVal(sandbox, 'childIn', pp.child_license ?? '');
+    },
+  },
 };
 
 function setVal(sandbox, id, v) {

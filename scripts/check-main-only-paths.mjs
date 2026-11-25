@@ -38,9 +38,12 @@
 // writer 2026-10-19 and the file is main-regen single-writer (derived-artifacts.mjs id
 // 'compute-proof-baseline'), so it is refused like any other whole-file artifact.
 //
-// ROW CARRIERS (ROW_CARRIERS below): the monolith and the lineage binding are main-regen outputs,
-// but two row shapes the regen cannot serve commit them in the PR. Each is allowed only when the
-// diff carries that row's signature.
+// ROW CARRIERS (ROW_CARRIERS below): the monolith, the lineage binding and the §18 quarantine file
+// are main-regen outputs, but three row shapes the regen cannot serve commit them in the PR. Each is
+// allowed only when the diff carries that row's signature. The quarantine carrier's signature is on
+// CONTENT (an add-only quarantine diff plus one modified node shard per added entry), not just paths,
+// so collectChanges loads both blob texts and quarantineAddOnlyVerdict compares them; a parse error
+// or any shape surprise fails closed.
 //
 // CARD HOSTS (CARD_HOSTS below, TOOL-CARD-HUNK-ALLOW-1): tools.html and index.html stay whole-file,
 // but a PR that adds tools/<n>-<slug>.html may carry card-only insertions for that page there.
@@ -84,6 +87,7 @@ export const REGION_WRITER_IDS = new Set([
   'errata-page-regions', // KERNEL-ERRATA-READER-1: table region on errata.html + vendored reader/snapshot blocks on chaingraph/receipt-bundle-verify.html (the snapshot MODULE itself is whole-file via 'errata-reader-snapshot', prAbsentOk)
   'replay-roll-surface', // REPLAY-ROLL-SURFACE-1: witness-roll section between REPLAY-ROLL-SURFACE markers on chaingraph/determinism-attestation-explainer.html (the roll JSON itself is whole-file via 'replay-witness-roll', prAbsentOk)
   'fact-stamps',        // FACT-STAMP region on the pilot node/tool pages; the page itself is PR-authored (REGEN-OWNS-FACT-STAMPS-1; gen-fact-stamps.mjs splices strictly inside FACT-STAMP:START..END)
+  'node-page-proof-links', // PROOF-LINKS block between <!--PROOF-LINKS-->..<!--/PROOF-LINKS--> on node pages; the page itself is PR-authored (PROOFLINKS-GEN-1; gen-proof-links.mjs splices strictly inside the marker pair)
 ]);
 
 // pr-autofix.yml writer-scope containment: the writers' own baseline outputs a PR may carry.
@@ -92,6 +96,12 @@ export const PER_PR_DERIVABLES = new Set([
   'scripts/a11y-baseline.json',
   'scripts/manifest-examples-baseline.json',
 ]);
+
+// MAIN-ONLY-QUARANTINE-ADD-CARRIER-1: the §18 quarantine file (COVERED 'recompute-quarantine-prune')
+// is whole-file main-only, but a re-prove whose journal output shape changed must add a NAMED entry
+// in its PR (the PR-side §18 gate reads the committed monolith, which only main's regen re-splices).
+export const QUARANTINE_PATH = 'scripts/recompute-equality-quarantine.json';
+export const NODE_SHARD_RE = /^chaingraph\/graph\/nodes\/[^/]+\.json$/;
 
 // Whole-file artifacts a sanctioned row shape still carries, each allowed ONLY when the same diff
 // has that row's signature. Anything else that touches them is refused like any other artifact.
@@ -117,6 +127,16 @@ export const ROW_CARRIERS = [
   // can never launder a drift, so that PR carries the register beside its source/*.txt or src edit.
   { paths: ['evidence/claims.json'], row: 'evidence re-review (source/*.txt modified or evidence/claims.src.json changed)',
     when: (changes) => changes.some((c) => c.path === 'evidence/claims.src.json' || (c.status === 'M' && /^source\/[^/]+\.txt$/.test(c.path))) },
+  // §18 quarantine: a re-prove whose journal output shape changed cannot satisfy the PR-side gate
+  // (it reads the committed monolith, which only main's regen re-splices), so it adds a NAMED entry
+  // in the PR and the main-side prune deletes it once the re-splice lands. `when` sees paths only,
+  // so the signature is verified on CONTENT: collectChanges attaches both blob texts and the verdict
+  // fails closed unless the diff is add-only and every added node's shard is modified in the PR.
+  { paths: [QUARANTINE_PATH], row: 're-prove with a changed receipt (node shard modified)',
+    when: (changes) => {
+      const q = (changes || []).find((c) => c.path === QUARANTINE_PATH && c.status === 'M' && typeof c.before === 'string' && typeof c.after === 'string');
+      return q ? quarantineAddOnlyVerdict(q.before, q.after, changes).ok : false;
+    } },
 ];
 
 // Main-only files INSIDE declared trees. A tree is never refused wholesale (it holds per-node
@@ -191,6 +211,49 @@ export function cardOnlyVerdict(before, after, pages) {
   while (s < a.length - p && s < b.length - p && a[a.length - 1 - s] === b[b.length - 1 - s]) s++;
   const line = (b.length - s > p ? b[p] : `(removed) ${a[p]}`).trim().slice(0, 120);
   return { ok: false, why: `changed line outside the added tool card(s): ${line}` };
+}
+
+/**
+ * Pure verdict for the §18 quarantine carrier (MAIN-ONLY-QUARANTINE-ADD-CARRIER-1). before/after are
+ * the full base-blob and head-blob texts of the quarantine file; changes is the PR's name-status
+ * list. Carried ONLY when the diff is add-only — every base entry survives byte-identical and in
+ * order, metadata outside `nodes` is untouched, at least one entry is added — AND every added
+ * tool_id has chaingraph/graph/nodes/<tool_id>.json MODIFIED in the same diff. A malformed or
+ * surprising pair returns { ok: false }, never a pass.
+ */
+export function quarantineAddOnlyVerdict(beforeText, afterText, changes) {
+  const bad = (why) => ({ ok: false, why });
+  let before, after;
+  try { before = JSON.parse(beforeText); } catch (e) { return bad(`base quarantine JSON unparseable: ${e.message}`); }
+  try { after = JSON.parse(afterText); } catch (e) { return bad(`head quarantine JSON unparseable: ${e.message}`); }
+  for (const [label, doc] of [['base', before], ['head', after]]) {
+    if (!doc || typeof doc !== 'object' || Array.isArray(doc) || !Array.isArray(doc.nodes)) return bad(`${label} quarantine has no nodes array`);
+  }
+  const idsOf = (nodes) => nodes.map((n) => (n && typeof n === 'object' && typeof n.tool_id === 'string' && n.tool_id ? n.tool_id : null));
+  const beforeIds = idsOf(before.nodes), afterIds = idsOf(after.nodes);
+  if (beforeIds.includes(null)) return bad('base quarantine carries an entry without a string tool_id');
+  if (afterIds.includes(null)) return bad('head quarantine carries an entry without a string tool_id');
+  if (new Set(beforeIds).size !== beforeIds.length) return bad('base quarantine duplicates a tool_id');
+  if (new Set(afterIds).size !== afterIds.length) return bad('head quarantine duplicates a tool_id');
+  const { nodes: _bn, ...beforeMeta } = before;
+  const { nodes: _an, ...afterMeta } = after;
+  if (JSON.stringify(beforeMeta) !== JSON.stringify(afterMeta)) return bad('quarantine metadata outside nodes changed');
+  let j = 0;
+  for (let i = 0; i < beforeIds.length; i++) {
+    while (j < afterIds.length && afterIds[j] !== beforeIds[i]) j++;
+    if (j === afterIds.length) return bad(`base entry ${beforeIds[i]} was deleted`);
+    if (JSON.stringify(after.nodes[j]) !== JSON.stringify(before.nodes[i])) return bad(`existing entry ${beforeIds[i]} was edited (deletion, cause edit or reorder)`);
+    j++;
+  }
+  const beforeSet = new Set(beforeIds);
+  const added = afterIds.filter((id) => !beforeSet.has(id));
+  if (!added.length) return bad('no entry added — the carrier only covers an add-only quarantine diff');
+  const modifiedShards = new Set((changes || []).filter((c) => c.status === 'M' && NODE_SHARD_RE.test(c.path)).map((c) => c.path));
+  for (const id of added) {
+    const shard = `chaingraph/graph/nodes/${id}.json`;
+    if (!modifiedShards.has(shard)) return bad(`added entry ${id} has no modified node shard ${shard}`);
+  }
+  return { ok: true, added };
 }
 
 // A changed line in a sentinel-only file is main-owned when it carries one of these.
@@ -333,6 +396,15 @@ export function collectChanges(baseRef, headRef, sets) {
       c.before = before.out; c.after = after.out;
     }
   }
+  // Quarantine carrier: load both blob texts (merge-base and head) so its `when` can verify the
+  // diff is add-only and carries a modified shard per added node. A missing blob fails the gate.
+  for (const c of changes) {
+    if (c.path !== QUARANTINE_PATH || c.status !== 'M') continue;
+    const before = git(['show', `${mb.out}:${c.path}`]);
+    const after = git(['show', `${headRef}:${c.path}`]);
+    if (!before.ok || !after.ok) return { error: `git show ${c.path} failed: ${before.err || after.err}` };
+    c.before = before.out; c.after = after.out;
+  }
   return { changes, mb: mb.out };
 }
 
@@ -369,6 +441,7 @@ function selfTest() {
     { id: 'errata-page-regions', artifacts: [] },
     { id: 'replay-roll-surface', artifacts: [] },
     { id: 'fact-stamps', artifacts: [] },
+    { id: 'node-page-proof-links', artifacts: [] },
     { id: 'tree', artifacts: ['dir/'] },
   ], (p) => p.endsWith('/'), []);
   check('toy: sentinel-only file is sentinel', toy.sentinel.has('a.html') && !toy.whole.has('a.html'));
@@ -385,6 +458,14 @@ function selfTest() {
   check('card verdict refuses an inline card sharing its line', !vInline.ok, vInline.why);
   const vRel = cardOnlyVerdict(fx.texts.toolsBase, fx.texts.toolsCard900.replace('href="tools/900', 'href="../tools/900'), P);
   check('card verdict accepts a ../tools/ href', vRel.ok, vRel.why);
+
+  check('quarantine carrier path is whole-file main-only', sets.whole.has(QUARANTINE_PATH));
+  const qBase = JSON.stringify({ v: 1, nodes: [{ tool_id: 'art-100-old', cause: 'c1' }, { tool_id: 'art-200-old', cause: 'c2' }] });
+  const qAdd = JSON.stringify({ v: 1, nodes: [{ tool_id: 'art-100-old', cause: 'c1' }, { tool_id: 'art-200-old', cause: 'c2' }, { tool_id: 'art-700-new', cause: 'c3' }] });
+  const qChange = [{ path: QUARANTINE_PATH, status: 'M' }, { path: 'chaingraph/graph/nodes/art-700-new.json', status: 'M' }];
+  check('quarantine verdict: add-only diff with the added node\'s shard modified passes', quarantineAddOnlyVerdict(qBase, qAdd, qChange).ok);
+  check('quarantine verdict: unparseable base fails closed', !quarantineAddOnlyVerdict('{', qAdd, qChange).ok);
+  check('quarantine verdict: unparseable head fails closed', !quarantineAddOnlyVerdict(qBase, '{', qChange).ok);
 
   console.log('layer 3 — diff parser + context');
   const parsed = parseUnifiedDiff(fx.unifiedDiff);
