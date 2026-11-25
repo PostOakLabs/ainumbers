@@ -1,0 +1,78 @@
+name: Queue Drain Heartbeat
+
+# On every merge to main, check that the queue drain is still being driven,
+# and say so in one tracking issue when it is not.
+#
+# rearm-recovered (automerge-label.yml), the sync-main drain (pr-autofix.yml)
+# and auto-arm.yml run on crons GitHub rarely delivers (72h to 2026-11-25:
+# 8 of 216, 7 of 72 and 8 of 216 slots). An external scheduler's
+# workflow_dispatch calls are what actually run them. When it stops, recovered
+# PRs stop being re-armed and BEHIND PRs stop being synced, and no run fails.
+#
+# scripts/ci/dispatch-heartbeat.mjs reads the newest schedule or dispatch run
+# of the three and reports red when it is older than an hour. The red goes to
+# the shared tracker (scripts/scheduled-red-issue.mjs, surface
+# `dispatch-heartbeat`): one issue, a comment on each further red merge, closed
+# on the first merge that finds the drain fresh. Report only: it blocks no merge
+# and dispatches nothing itself.
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dispatch-heartbeat-main
+  cancel-in-progress: true
+
+jobs:
+  heartbeat:
+    name: Queue drain driven within the hour
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - name: Check out the heartbeat and tracker scripts
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Read the newest driven drain run
+        id: beat
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          V=$(node scripts/ci/dispatch-heartbeat.mjs "$GITHUB_REPOSITORY")
+          echo "heartbeat: $V"
+          STATE=$(echo "$V" | jq -r .state)
+          LINE=$(echo "$V" | jq -r .line)
+          echo "state=$STATE" >> "$GITHUB_OUTPUT"
+          {
+            echo "line<<EOF"
+            echo "$LINE"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "$LINE" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report the drain's state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATE: ${{ steps.beat.outputs.state }}
+          LINE: ${{ steps.beat.outputs.line }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          node ./scripts/scheduled-red-issue.mjs \
+            --surface dispatch-heartbeat \
+            --state "$STATE" \
+            --event push \
+            --run-id "$RUN_ID" \
+            --run-url "$RUN_URL" \
+            --failure-line "$LINE"
