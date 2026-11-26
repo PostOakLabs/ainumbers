@@ -103,6 +103,11 @@ const QM_TIERS_BY_YEAR = {
   },
 };
 
+// Single-writer export (REGZ-TABLE-SINGLE-WRITER-3): the node page's QM_TABLES block is
+// generated from this object by scripts/check-art218-table-parity.mjs; the page never
+// hand-maintains a second copy of these constants.
+export const THRESHOLD_TABLES = QM_TIERS_BY_YEAR;
+
 function safeNum(v, def) { const n = Number(v); return Number.isFinite(n) ? n : def; }
 function r2(v) { return Number.isFinite(v) ? Math.round(v * 100) / 100 : 0; }
 
@@ -165,10 +170,46 @@ export function compute(pp) {
   return { output_payload, compliance_flags };
 }
 
+// Hashability walk: mirrors the classes _hash.mjs assertIJson() refuses (non-finite number,
+// unsafe integer, nesting past MAX_DEPTH, more values than MAX_ELEMENTS). Reports path and
+// kind only, never the value; null when the subtree is safe to hash.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // The walked object is the exact execution_hash preimage. When the shared canonicalizer
+  // would refuse it, mint the artifact with a null execution_hash and the reason beside it
+  // instead of letting the hash throw.
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const hash = unhashable === null ? await executionHash(pp, output_payload) : null;
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -183,4 +224,6 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
     compute_mode: 'server',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }

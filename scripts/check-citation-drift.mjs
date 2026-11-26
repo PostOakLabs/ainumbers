@@ -55,6 +55,7 @@
  *   node scripts/check-citation-drift.mjs --update    # regenerate the baseline from current findings
  */
 import { readFileSync, readdirSync, existsSync, statSync, writeFileSync } from 'node:fs';
+import { loadRegistryUnion } from '../chaingraph/standard/clause-snapshot-store.mjs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
@@ -102,8 +103,8 @@ export function sha256Hex(buf) {
 }
 
 export function readRegistryArray() {
-  if (!existsSync(REGISTRY_PATH)) return [];
-  return JSON.parse(readFileSync(REGISTRY_PATH, 'utf8'));
+  // CLAUSE-SNAPSHOT-SHARD-1: legacy array rows (raw, for the duplicate gate) plus per-digest shards.
+  return loadRegistryUnion(REGISTRY_PATH);
 }
 
 export function loadRegistry() {

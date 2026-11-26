@@ -20,11 +20,17 @@ export function buildMarkdownAlternateLink(pageAbsUrl) {
   return `<link ${MD_TWIN_LINK_REL} href="${pageAbsUrl.replace(/\.html$/, '.md')}">`;
 }
 
-/** Build the canonical nav for a node page. breadcrumbCurrent = "ART-NN · Title" */
-export function buildNav(breadcrumbCurrent) {
+/**
+ * Build the canonical nav. breadcrumbCurrent = "ART-NN · Title".
+ * SITE-CHROME-GAPS-1: path-parameterized so the SAME template serves root pages
+ * (root='', cg='chaingraph/'), one-level pages (root='../', cg='../chaingraph/')
+ * and two-level pages (root='../../', cg='../../chaingraph/'). The defaults are
+ * the original node-page values, so existing callers emit byte-identical bytes.
+ */
+export function buildNav(breadcrumbCurrent, { root = '../', cg = '' } = {}) {
   return `<nav>
   <div class="nav-inner">
-    <a href="../index.html" class="logo">
+    <a href="${root}index.html" class="logo">
       <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
         <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
         <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
@@ -41,15 +47,15 @@ export function buildNav(breadcrumbCurrent) {
       <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
     </a>
     <div class="nav-breadcrumb">
-      <a href="../index.html">All Tools</a>
+      <a href="${root}index.html">All Tools</a>
       <span>›</span>
-      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <a href="${cg}chaingraph-hub.html">OpenChainGraph Suite</a>
       <span>›</span>
       <span style="color:var(--gold)">${breadcrumbCurrent}</span>
     </div>
     <div class="nav-right">
-      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
-      <a href="../start.html" class="nav-cta">Start</a>
+      <a href="${cg}chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="${root}start.html" class="nav-cta">Start</a>
     </div>
   </div>
 </nav>`;
@@ -107,6 +113,9 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
     <div class="footer-cols">
       <div class="footer-col">
         <div class="footer-col-label">Platform</div>
+        <a href="${root}start.html">Start Here</a>
+        <a href="${root}front-to-back.html">Front-to-Back Prompts</a>
+        <a href="${root}prompts.html">Prompt Library</a>
         <a href="${cg}chaingraph-hub.html">ChainGraph Hub</a>
         <a href="${cg}rfp-evidence-desk.html">RFP Evidence Desk</a>
         <a href="${cg}openchain-graph-spec.html">Spec v${SPEC_VERSION}</a>
@@ -122,8 +131,10 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
       <div class="footer-col">
         <div class="footer-col-label">Hubs</div>
         <a href="${root}hub-for-hubs.html">Hubs and Guides</a>
+        <a href="${cg}visual-explainers-hub.html">Visual Explainers</a>
+        <a href="${cg}education-hub.html">Learn OpenChainGraph</a>
         <a href="${root}guides/web3-hub.html">Web3 Hub</a>
-        <a href="${root}guides/solana-hub.html">Solana</a>
+        <a href="${root}guides/canton-tmf-hub.html">Canton</a>
         <a href="${root}guides/ethereum-hub.html">Ethereum</a>
         <a href="${root}guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
         <a href="${root}guides/token-standards-hub.html">Token Standards</a>
@@ -137,6 +148,8 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
         <div class="footer-col-label">Developers</div>
         <a href="${root}mcp.html">MCP Docs</a>
         <a href="${root}mcp-playground.html">MCP Playground</a>
+        <a href="${root}webmcp.html">WebMCP</a>
+        <a href="${root}mcp-benchmark.html">MCP Benchmark</a>
         <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
         <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
         <a href="${root}openapi.json" target="_blank">openapi.json</a>
@@ -144,6 +157,7 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
         <a href="${cg}okf/index.md" target="_blank">OKF bundle</a>
         <a href="${cg}standard/SPEC.md" target="_blank">OCG SPEC.md</a>
         <a href="${root}llms.txt" target="_blank">llms.txt</a>
+        <a href="${root}verification-desk.html">Verification Desk</a>
         <a href="${cg}verify.html">Artifact Verifier</a>
         <a href="${root}ledger/index.html">Receipt Ledger</a>
       </div>
@@ -156,6 +170,8 @@ export function buildFooter({ root = '../', cg = '' } = {}) {
         <a href="${root}fv-explainer.html">FV Process Explainer</a>
         <a href="${root}errata.html">FV Errata</a>
         <a href="${root}suggest.html">Suggest</a>
+        <a href="${cg}agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="${root}privacy.html">Privacy</a>
         <a href="${root}contact.html">Contact</a>
         <a href="${root}sitemap.html">Sitemap</a>
         <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
@@ -171,15 +187,68 @@ export const FOOTER = buildFooter({ root: '../', cg: '' });
 /** Root-page footer (depth: repo root, e.g. index.html / start.html). */
 export const ROOT_FOOTER = buildFooter({ root: '', cg: 'chaingraph/' });
 
+/**
+ * SITE-CHROME-GAPS-1: path prefixes for a repo-relative page path, derived from
+ * the path itself (never hand-copied per page). Root pages have no directory and
+ * reach root assets directly; nested pages need one '../' per path segment.
+ */
+export function chromePrefixes(repoRelativePath) {
+  const slash = repoRelativePath.lastIndexOf('/');
+  const dir = slash === -1 ? '' : repoRelativePath.slice(0, slash);
+  const depth = dir === '' ? 0 : dir.split('/').length;
+  const root = depth === 0 ? '' : '../'.repeat(depth);
+  // A page already inside chaingraph/ needs NO chaingraph/ prefix: a top-level
+  // node page uses 'chaingraph-hub.html', not '../chaingraph/chaingraph-hub.html'.
+  const inCg = repoRelativePath === 'chaingraph' || repoRelativePath.startsWith('chaingraph/');
+  const cg = inCg ? (depth <= 1 ? '' : '../'.repeat(depth - 1)) : `${root}chaingraph/`;
+  return { root, cg, depth };
+}
+
+/**
+ * SITE-CHROME-GAPS-1: canonical values of the CSS custom properties the chrome
+ * CSS consumes. Injected only for tokens a page does not already define, so a
+ * page's own palette wins and a token-poor page still renders the same chrome.
+ */
+export const CHROME_TOKENS = {
+  '--bg-2': '#0D1627',
+  '--border': '#1E2F4A',
+  '--border-2': '#263855',
+  '--muted': '#3A5270',
+  '--body': '#6888A8',
+  '--text': '#A8C4DE',
+  '--bright': '#D4E8F8',
+  '--teal': '#14B8A6',
+  '--gold': '#D4A847',
+  '--radius': '6px',
+};
+
 /** Unique marker injected into <style> — used by both normalizer and gate to detect presence */
 export const CSS_MARKER = '/* OCG-CHROME-CSS:v1 */';
 
-/** CSS classes required by canonical nav + footer (appended to page's <style>) */
+/**
+ * CHROME-SELF-SUFFICIENT-1: zero-specificity defaults for every token the chrome
+ * reads. :where(:root) has specificity 0, so ANY page :root (or body) palette
+ * still wins; a page that lacks a token (hand-authored pages copied from an older
+ * template often lack --gold and --border-2, which left the Start button
+ * invisible) falls back to the canonical value instead of an undefined var.
+ */
+export const CHROME_TOKEN_DEFAULTS =
+  `:where(:root){${Object.entries(CHROME_TOKENS).map(([t, v]) => `${t}:${v}`).join(';')}}`;
+
+/**
+ * CSS classes required by canonical nav + footer (appended to page's <style>).
+ * CHROME-SELF-SUFFICIENT-1: the block sits AFTER the page's own CSS, so it also
+ * resets the properties page stylesheets commonly set on nav/.nav-inner/footer
+ * (nav padding + 52px height, space-between, footer margin + mono font). Without
+ * the resets those page rules leak into the canonical chrome and the header and
+ * footer render visibly off-template even though the markup is canonical.
+ */
 export const CHROME_CSS = `
 ${CSS_MARKER}
+${CHROME_TOKEN_DEFAULTS}
 /* Canonical nav — derived from chaingraph-hub.html */
-nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
-.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0;height:auto}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;justify-content:flex-start;flex-wrap:nowrap;gap:16px;padding:0 24px;height:58px}
 .logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
 .logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
 .logo-ai{color:var(--teal)}
@@ -194,7 +263,7 @@ nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filt
 .nav-cta:hover{opacity:.85}
 @media(max-width:768px){.nav-pill{display:none}}
 /* Canonical footer — derived from chaingraph-hub.html */
-footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0;margin:0;font-family:'Sora',sans-serif;color:var(--text)}
 .footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
 .footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
 .footer-brand-mark{display:flex;align-items:center;gap:8px}
@@ -830,6 +899,11 @@ export const ASK_AGENT_VERB_TABLE = {
   'Flags': 'Flag', 'Measures': 'Measure', 'Audits': 'Audit',
 };
 
+/** Abbreviations whose trailing period does not end a sentence (lower-case, with the period). */
+const ASK_AGENT_ABBREVIATIONS = new Set([
+  'u.s.', 'u.k.', 'e.u.', 'art.', 'no.', 'e.g.', 'i.e.', 'vs.', 'inc.', 'ltd.',
+]);
+
 /**
  * First sentence of a description + fixed verb-fronting. Deterministic:
  * sentence split on the first ". " (or the terminal "."), first word mapped
@@ -839,7 +913,15 @@ export const ASK_AGENT_VERB_TABLE = {
 export function askAgentImperative(description) {
   const d = String(description || '').trim();
   if (!d) return '';
-  const cut = d.indexOf('. ');
+  // ASKAGENT-TEMPLATE-FIX-1: a ". " that ends a known abbreviation is not a sentence end.
+  let cut = -1;
+  for (let from = 0; ; ) {
+    const at = d.indexOf('. ', from);
+    if (at === -1) break;
+    const word = d.slice(d.lastIndexOf(' ', at) + 1, at + 1);
+    if (!ASK_AGENT_ABBREVIATIONS.has(word.toLowerCase())) { cut = at; break; }
+    from = at + 2;
+  }
   const sentence = cut === -1 ? d : d.slice(0, cut + 1);
   const sp = sentence.indexOf(' ');
   const first = sp === -1 ? sentence : sentence.slice(0, sp);
@@ -1074,6 +1156,7 @@ export function buildAskAgentBlock({ manifestPath, toolName, description, sample
     verify,
     `Return the ledger link ${ASK_AGENT_LEDGER_URL} so a human can re-verify without contacting us.`,
     `PII rule: ${ASK_AGENT_PII_SENTENCE}`,
+    'Over MCP, the run happens on the AINumbers worker. No AINumbers server stores your inputs.',
     `Open the tool with the sample prefilled: ${deepLink}`,
   ].join('\n');
   const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

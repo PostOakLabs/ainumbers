@@ -21,10 +21,25 @@
 //   STALE  — beacon on a HIT-class copy only, clean unique-key refetch ⇒ WARN
 //           naming the cache, NOT a red (a pre-toggle cached copy must not
 //           false-RED alone); same beacon on the refetch ⇒ RED.
+//   RATE 1 — the 429 retry delay honours Retry-After (seconds AND HTTP-date
+//           forms), caps at RATE_LIMIT_CAP_MS, and falls back to the 5 s/10 s
+//           doubling when the header is missing or garbage (DEPLOY-DRIFT-429-1:
+//           the 2026-11-22 + 2026-11-25 runs failed on plain 429s with every
+//           page byte-matched clean — a refusal is not drift).
+//   RATE 2 — the bounded-retry decision retries 429 ONLY: every other status
+//           is final on the first attempt, and a 429 on the last attempt is
+//           final too (evidence, not throttling, past the bound).
+//   RATE 3 — the terminal verdict is three-valued and drift wins: findings +
+//           rate-limit ⇒ drift exit 1; rate-limit alone ⇒ INCONCLUSIVE exit 3
+//           — a code distinct from GREEN 0 and drift 1, so a persistent 429 is
+//           never reported as drift and never as a pass (SO #34c).
 import {
   INJECTOR_PATTERN_SRC, detectInjectorPatterns, extractExternalRefs,
   analyzePage, parseChecksumManifest, selectSample, checkChecksumEntry,
   loadAllowlist,
+  RATE_LIMIT_MAX_ATTEMPTS, RATE_LIMIT_CAP_MS,
+  EXIT_GREEN, EXIT_DRIFT, EXIT_INCONCLUSIVE,
+  rateLimitRetryDelayMs, rateLimitDecision, finalVerdict,
 } from "./check-served-egress.mjs";
 import { createHash } from "node:crypto";
 
@@ -148,6 +163,56 @@ check("sample is deterministic (same input ⇒ same sample) and spans the list h
 let mthrew = null;
 try { parseChecksumManifest("not-a-manifest-line\n"); } catch (e) { mthrew = e; }
 check("a malformed manifest line is rejected, not skipped", mthrew && /sha256sum format/.test(mthrew.message), mthrew && mthrew.message);
+
+console.log("CONTROL RATE 1 -- the 429 retry delay honours Retry-After, bounded (DEPLOY-DRIFT-429-1):");
+check("Retry-After in delay-seconds form is honoured (30 s ⇒ 30 000 ms)",
+  rateLimitRetryDelayMs({ retryAfterHeader: "30", attempt: 1 }) === 30_000,
+  String(rateLimitRetryDelayMs({ retryAfterHeader: "30", attempt: 1 })));
+check("Retry-After longer than the cap is capped, not ignored (120 s ⇒ " + RATE_LIMIT_CAP_MS + " ms)",
+  rateLimitRetryDelayMs({ retryAfterHeader: "120", attempt: 1 }) === RATE_LIMIT_CAP_MS,
+  String(rateLimitRetryDelayMs({ retryAfterHeader: "120", attempt: 1 })));
+{
+  const in20s = new Date(Date.now() + 20_000).toUTCString();
+  const got = rateLimitRetryDelayMs({ retryAfterHeader: in20s, attempt: 1 });
+  check("Retry-After in HTTP-date form is honoured (±2 s of the 20 s the date encodes)",
+    Math.abs(got - 20_000) <= 2_000, `${in20s} ⇒ ${got}`);
+}
+check("missing header falls back to the doubling backoff (attempt 1 ⇒ 5 000 ms, attempt 2 ⇒ 10 000 ms)",
+  rateLimitRetryDelayMs({ retryAfterHeader: null, attempt: 1 }) === 5_000
+  && rateLimitRetryDelayMs({ retryAfterHeader: null, attempt: 2 }) === 10_000,
+  `${rateLimitRetryDelayMs({ retryAfterHeader: null, attempt: 1 })}/${rateLimitRetryDelayMs({ retryAfterHeader: null, attempt: 2 })}`);
+check("garbage and negative Retry-After fall back to the doubling too (never negative, never NaN)",
+  rateLimitRetryDelayMs({ retryAfterHeader: "soon-ish", attempt: 1 }) === 5_000
+  && rateLimitRetryDelayMs({ retryAfterHeader: "-5", attempt: 2 }) === 10_000
+  && rateLimitRetryDelayMs({ retryAfterHeader: "", attempt: 2 }) === 10_000,
+  "fallback path");
+
+console.log("CONTROL RATE 2 -- the bounded retry fires for 429 ONLY:");
+check("429 before the last attempt ⇒ retry (attempts 1..2 of " + RATE_LIMIT_MAX_ATTEMPTS + ")",
+  rateLimitDecision(429, 1) === "retry" && rateLimitDecision(429, 2) === "retry"
+  && RATE_LIMIT_MAX_ATTEMPTS === 3, `1:${rateLimitDecision(429, 1)} 2:${rateLimitDecision(429, 2)}`);
+check("429 on the last attempt ⇒ final (the bound holds; no unbounded lane)",
+  rateLimitDecision(429, RATE_LIMIT_MAX_ATTEMPTS) === "final", rateLimitDecision(429, RATE_LIMIT_MAX_ATTEMPTS));
+check("every other status is final on the FIRST attempt (404/500/503/200 are evidence, not throttling)",
+  [200, 403, 404, 500, 503].every((s) => rateLimitDecision(s, 1) === "final"),
+  JSON.stringify([200, 403, 404, 500, 503].map((s) => rateLimitDecision(s, 1))));
+
+console.log("CONTROL RATE 3 -- a persistent 429 is INCONCLUSIVE: never drift, never a pass:");
+check("exit codes are distinct: GREEN " + EXIT_GREEN + ", drift " + EXIT_DRIFT + ", INCONCLUSIVE " + EXIT_INCONCLUSIVE,
+  EXIT_INCONCLUSIVE !== EXIT_GREEN && EXIT_INCONCLUSIVE !== EXIT_DRIFT && EXIT_DRIFT !== EXIT_GREEN,
+  `${EXIT_GREEN}/${EXIT_DRIFT}/${EXIT_INCONCLUSIVE}`);
+check("rate-limit alone ⇒ INCONCLUSIVE (code 3, kind inconclusive)",
+  finalVerdict({ redCount: 0, inconclusiveCount: 2 }).code === EXIT_INCONCLUSIVE
+  && finalVerdict({ redCount: 0, inconclusiveCount: 2 }).kind === "inconclusive",
+  JSON.stringify(finalVerdict({ redCount: 0, inconclusiveCount: 2 })));
+check("rate-limit CANNOT soften real findings: reds + rate-limit ⇒ drift (code 1)",
+  finalVerdict({ redCount: 1, inconclusiveCount: 2 }).code === EXIT_DRIFT
+  && finalVerdict({ redCount: 1, inconclusiveCount: 2 }).kind === "drift",
+  JSON.stringify(finalVerdict({ redCount: 1, inconclusiveCount: 2 })));
+check("no findings, no refusals ⇒ GREEN (code 0)",
+  finalVerdict({ redCount: 0, inconclusiveCount: 0 }).code === EXIT_GREEN
+  && finalVerdict({ redCount: 0, inconclusiveCount: 0 }).kind === "green",
+  JSON.stringify(finalVerdict({ redCount: 0, inconclusiveCount: 0 })));
 
 if (failures.length > 0) {
   console.error(`⛔ ${failures.length} control(s) failed — the detector is NOT proven:`);

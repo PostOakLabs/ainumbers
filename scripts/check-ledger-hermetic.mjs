@@ -3,7 +3,13 @@
  * scripts/check-ledger-hermetic.mjs
  * Gate: ledger/index.html must make NO network calls except the §6 anchor endpoint.
  * Grep for fetch(, XMLHttpRequest, new WebSocket, EventSource(
- * Allowlist: exactly https://anchor.ainumbers.co (the §6 anchor call).
+ * Allowlist: exactly https://anchor.ainumbers.co (the §6 anchor call), plus
+ * (VERIFYBINDING-DIGEST-DEFAULT-1, 2026-11-12) the same-origin PUBLISHED KERNEL-DIGEST
+ * LIST fetch: calls whose context names chaingraph/kernel-digests.json — a static derived
+ * artifact the site serves (single writer on main, scripts/derived-artifacts.mjs id
+ * 'kernel-digests'), fetched once per session so the kernel_digest leg of the §18
+ * compute-integrity check engages by default. No external endpoint is added; the ledger
+ * still talks only to the site itself and the anchor.
  * Any other network call = exit 1.
  */
 import { readFileSync } from 'node:fs';
@@ -13,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const TARGET = resolve(REPO, 'ledger', 'index.html');
 const ALLOWED_ENDPOINT = 'https://anchor.ainumbers.co';
+const ALLOWED_DIGEST_LIST = 'kernel-digests.json';
 
 let html;
 try {
@@ -42,6 +49,8 @@ for (const { re, label } of PATTERNS) {
     const ctxWide = html.slice(Math.max(0, m.index - 200), Math.min(html.length, m.index + 300));
     if (ctxWide.includes(ALLOWED_ENDPOINT)) continue;
     if (ctxWide.includes('ANCHOR_ENDPOINT')) continue;
+    // VERIFYBINDING-DIGEST-DEFAULT-1: the same-origin published kernel-digest list fetch.
+    if (ctxWide.includes(ALLOWED_DIGEST_LIST)) continue;
     violations.push(`  ${label} at offset ${m.index}:\n    ...${ctx}...`);
   }
 }

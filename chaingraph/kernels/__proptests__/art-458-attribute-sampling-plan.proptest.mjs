@@ -43,7 +43,7 @@ function mulberry32(seed) {
 const rand = mulberry32(0x458C3);
 function randRange(rng, lo, hi) { return lo + rng() * (hi - lo); }
 function randInt(rng, lo, hi) { return Math.floor(randRange(rng, lo, hi + 1)); }
-const TRIALS = 12000;
+const TRIALS = Number.isSafeInteger(Number(process.env.MUTATION_TIER_NUM_RUNS)) && Number(process.env.MUTATION_TIER_NUM_RUNS) > 0 ? Number(process.env.MUTATION_TIER_NUM_RUNS) : 12000; // MUTATION_TIER_NUM_RUNS: mutation-mode budget set per kernel by run-mutation-tier.mjs; unset = full 12000
 
 const CONF = [90, 95, 99];
 function mkPP(rng) {
