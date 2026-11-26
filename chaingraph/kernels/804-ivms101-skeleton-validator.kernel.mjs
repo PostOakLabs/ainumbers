@@ -144,6 +144,42 @@ const PAYLOAD = {
 
 function isInt(v) { return typeof v === 'number' && Number.isInteger(v); }
 
+// Hash-safety walk (BigInt never-throw): executionHash() canonicalizes the policy parameters as
+// I-JSON and THROWS on values outside it — bigint, non-finite numbers, integers past 2^53,
+// nesting past 512 levels, more than 1,000,000 values (the same ceilings _hash.mjs enforces).
+// At the artifact boundary such an input is a named refusal, never a throw: findHashRefusal
+// returns { path, reason } for the first offending value, or null when pp is fully hashable.
+// Limits mirror _hash.mjs so anything this walk accepts, executionHash accepts too.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > HASH_MAX_DEPTH) return { path, reason: 'too_deep' };
+  if (++budget.n > HASH_MAX_ELEMENTS) return { path, reason: 'too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { path, reason: 'non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { path, reason: 'unsafe_integer' };
+    return null;
+  }
+  if (typeof v === 'bigint') return { path, reason: 'bigint' };
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (const k of ks) {
+      const r = findHashRefusal(v[k], path + '.' + k, depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
   mcp_name: 'validate_ivms101_skeleton',
@@ -417,9 +453,10 @@ function personCheck(person, base, isOriginator, out) {
   // C2 for dateOfBirth is reported once, by dateLeaf during the field walk.
 }
 
-export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
-  const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
+// The openchain-graph v0.4 artifact envelope, shared by the normal and refusal paths so the
+// two differ only in output_payload / compliance_flags / execution_hash.
+function artifactEnvelope(output_payload, compliance_flags, pp, opts, hash) {
+  const { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = opts || {};
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
@@ -436,4 +473,26 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+}
+
+export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  // BigInt never-throw: a policy_parameters value the canonical hash would throw on is a named
+  // refusal at the artifact boundary, carrying the same finish()-shaped output_payload the
+  // manifest's output_schema pins. execution_hash is null there by construction: a refused
+  // input has no canonical hash.
+  const unhashable = findHashRefusal(pp, 'policy_parameters', 2, { n: 0 });
+  if (unhashable !== null) {
+    const rules = ['EDITION', 'PII-REFUSAL', 'REQUIRED', 'CARD', 'MAXLEN', 'CODE', 'PERSON-EXCL',
+      'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10', 'C11', 'C12', 'HASH-REFUSAL'];
+    const refused = finish(
+      [{ path: unhashable.path, rule_id: 'HASH-REFUSAL', section: 'artifact-contract' }],
+      rules,
+      typeof pp === 'object' && pp !== null && typeof pp.ivms101_edition === 'string' ? pp.ivms101_edition : '',
+    );
+    refused.compliance_flags.push('IVMS101_INPUT_UNHASHABLE_REFUSED');
+    return artifactEnvelope(refused.output_payload, refused.compliance_flags, pp, { now, parent_hashes, parent_tool_ids, chain_depth }, null);
+  }
+  const { output_payload, compliance_flags } = compute(pp);
+  const hash = await executionHash(pp, output_payload);
+  return artifactEnvelope(output_payload, compliance_flags, pp, { now, parent_hashes, parent_tool_ids, chain_depth }, hash);
 }

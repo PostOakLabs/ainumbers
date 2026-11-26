@@ -1,5 +1,5 @@
 // 804-ivms101-skeleton-validator — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:072933b6c62d7067a07f175b4521f4d054fbb58cffbfa8812173880f6dfec2dd
+// kernel_digest_at_authoring: sha256:75f2abde2d0765c80bc80a222d7adaa7a06e8d8b757abebde4dd3f25e0a7b93d
 // spec: LANDSCAPE-IVMS101-VALIDATOR-1 (zero-PII skeleton contract, pinned IVMS 101.2023 rules)
 // human_sign_off: PENDING
 //
