@@ -1,5 +1,6 @@
 // ml-02-credit-default-risk-scorer.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C14-1).
-// kernel_digest_at_authoring: sha256:ad5e65c90d06ca772a56e65a332990b9fdec2d8966a2eec552aece2dadf7d3a1 (ML02-SIGMOID-NORMALCDF-1; was sha256:b37f852a434727b80f227bc659064f44c25562bfa7a16b545f31ddf909217d13)
+// kernel_digest_at_authoring: sha256:ad5e65c90d06ca772a56e65a332990b9fdec2d8966a2eec552aece2dadf7d3a1
+// kernel_digest_at_authoring note (ML02-SIGMOID-NORMALCDF-1; was sha256:b37f852a434727b80f227bc659064f44c25562bfa7a16b545f31ddf909217d13)
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.

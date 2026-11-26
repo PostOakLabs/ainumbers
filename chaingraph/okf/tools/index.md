@@ -752,6 +752,7 @@ status: stable
 - [Sukuk Tradability Composition](./art-854-sukuk-tradability-composition.md) — `check_sukuk_tradability_composition`
 - [Murabahah Tawarruq Sequence Check](./art-855-murabahah-tawarruq-sequence.md) — `check_murabahah_tawarruq_seq`
 - [Ijarah IMBT Rental Schedule](./art-856-ijarah-imbt-schedule.md) — `compute_ijarah_imbt_schedule`
+- [Average Price Allocation](./art-857-average-price-allocation.md) — `allocate_average_price`
 - [TLS / X.509 PKI Migration Planner](./art-86-tls-pki-migration-planner.md) — `plan_tls_pki_migration`
 - [SWIFT / ISO 20022 PQC Readiness Checker](./art-87-iso20022-pqc-readiness-checker.md) — `check_iso20022_pqc_readiness`
 - [FIDO2 / WebAuthn PQC Conformance Checker](./art-88-fido-pqc-conformance-checker.md) — `check_fido_pqc_conformance`

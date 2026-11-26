@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (778 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (779 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -8625,6 +8625,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-856-ijarah-imbt-schedule.html",
     "description": "Computes a month-by-month rental schedule for an ijarah lease that ends with the lessee owning the asset, against one pinned authority profi",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-857-average-price-allocation",
+    "display_name": "Average Price Allocation",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-857-average-price-allocation.html",
+    "description": "Average-price allocation for one block order executed in several fills. Given an ISO 4217 currency, a side (buy labels amounts as cost, sell",
     "consumes": [],
     "feeds": [],
     "status": "live"
