@@ -70,3 +70,20 @@ Tests all three HOEPA high-cost mortgage triggers per Reg Z §1026.32(a)(1): (i)
 ## Verify
 
 Run the sample policy_parameters through MCP tool `test_hoepa_high_cost` at https://mcp.ainumbers.co/mcp (or the page form) and check the returned receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+## Covered
+
+Obligations of the cited rule text that this tool implements, each with test vectors on both the passing and the refusing side:
+
+- O3: a transaction is high-cost when any one of the three trigger tests is met
+- O4: APR trigger: the annual percentage rate exceeds the average prime offer rate by more than the applicable spread
+- O6: APR spread of more than 6.5 percentage points for a first-lien transaction
+- O10: points-and-fees trigger: total points and fees exceed the applicable limit
+- O11: points-and-fees limit of 5 percent of the loan amount when the loan amount is at least the adjusted $20,000 figure
+
+## Not covered
+
+Obligations of the cited rule text that this tool does not implement:
+
+- O1: dwelling securement is not modeled: no input carries the consumer's principal dwelling, every vector is trigger arithmetic on unsecured parameters
+- O2: the (a)(2) exclusion list is not modeled: the node never removes a transaction from coverage, it only tests the three triggers

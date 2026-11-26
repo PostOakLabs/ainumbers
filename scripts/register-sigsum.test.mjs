@@ -28,7 +28,7 @@
 // need, not a reuse of the production code under test.
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -205,6 +205,237 @@ await test('sigsum-generic-2025-1.tlog-policy encodes the identical log/witness/
   assert(jsWitnessKeys.every((k) => policyWitnessKeys.includes(k)), `JS WITNESSES keys ${JSON.stringify(jsWitnessKeys)} must be a subset of policy witness keys ${JSON.stringify(policyWitnessKeys)}`);
 
   assert(quorumThreshold === jsQuorum, `expected policy group threshold (${quorumThreshold}) === WITNESS_QUORUM_THRESHOLD (${jsQuorum})`);
+});
+
+// ── 5. PENDING-RECORD RESUME — the never-re-stamp rule (SIGSUM-REGISTER-PENDING-RECORD-1) ──
+// A 200/202 add-leaf means the leaf IS in the log; a run that then times out
+// polling must leave a PUBLIC pending sidecar (<out>.pending.json, schema
+// ain-sigsum-pending-v1) so a rerun RESUMES the poll instead of re-submitting
+// the leaf (seasalp: 288 add-leaf per 24 h per domain suffix — a re-submit
+// burns a budget entry and duplicates the leaf).
+// Everything here is OFFLINE: a mock seasalp is injected as a `-r` preload
+// that replaces global fetch, counts add-leaf calls into a state file, and
+// answers get-inclusion-proof 404 (timeout mode) or 200 (include mode). The
+// mock fails closed — with no state env it refuses to install, and unknown
+// URLs get a 500 from the mock, never a pass-through to the real log.
+
+const PENDING_SCHEMA = 'ain-sigsum-pending-v1';
+const PENDING_KEYS = ['anchored_hash', 'checksum', 'leaf_hash', 'leaf_signature', 'log_url', 'public_key', 'schema', 'submitted_at'];
+const HASH_MAIN = `sha256:${'aa'.repeat(32)}`;
+const HASH_OTHER = `sha256:${'bb'.repeat(32)}`;
+
+function writeMockSeasalp(dir) {
+  const mockPath = join(dir, 'mock-seasalp.cjs');
+  // Written to the test's own temp dir at runtime (not a fourth repo file) so
+  // this row's diff stays inside its three-file fence.
+  writeFileSync(mockPath, [
+    "const fs = require('node:fs');",
+    'const statePath = process.env.SIGSUM_TEST_MOCK_STATE;',
+    "if (!statePath) throw new Error('mock-seasalp: SIGSUM_TEST_MOCK_STATE not set — refusing to install (fail closed, never pass through to real fetch)');",
+    'globalThis.fetch = async (url, opts = {}) => {',
+    '  const st = JSON.parse(fs.readFileSync(statePath, "utf8"));',
+    '  const u = String(url);',
+    '  const done = (status, text) => Promise.resolve(new Response(text, { status }));',
+    "  if (u.endsWith('/add-leaf') && (opts.method || 'GET') === 'POST') {",
+    '    st.addLeafCalls = (st.addLeafCalls || 0) + 1;',
+    '    fs.writeFileSync(statePath, JSON.stringify(st));',
+    "    return done(200, '');",
+    '  }',
+    "  if (u.endsWith('/get-tree-head')) {",
+    "    return done(200, 'size=100\\nroot_hash=' + '11'.repeat(32) + '\\nsignature=' + '22'.repeat(64)",
+    "      + '\\ncosignature=' + '33'.repeat(32) + ' 1234567890 ' + '44'.repeat(64) + '\\n');",
+    '  }',
+    '  if (/\\/get-inclusion-proof\\/\\d+\\/[0-9a-f]{64}$/.test(u)) {',
+    "    if (st.mode === 'include') return done(200, 'leaf_index=42\\nnode_hash=' + '55'.repeat(32) + '\\nnode_hash=' + '66'.repeat(32) + '\\n');",
+    "    return done(404, '');",
+    '  }',
+    "  return done(500, 'mock-seasalp: unexpected URL ' + u);",
+    '};',
+  ].join('\n'));
+  return mockPath;
+}
+
+function genKey(dir, prefix) {
+  execFileSync('node', [SCRIPT, 'keygen', '--out-prefix', join(dir, prefix)], { encoding: 'utf8', timeout: 30000 });
+  return join(dir, `${prefix}.priv.jwk.json`);
+}
+
+// Drives register as a subprocess the way an operator would; the timeout
+// (expectFailure) run asserts its own non-zero exit in the caller.
+function runRegister({ mockPath, statePath, hash, keyPath, outPath, pollAttempts = '2' }) {
+  const args = ['-r', mockPath, SCRIPT, 'register', '--hash', hash, '--out', outPath, '--poll-attempts', pollAttempts, '--poll-interval-ms', '1'];
+  if (keyPath) args.push('--key', keyPath);
+  try {
+    const stdout = execFileSync('node', args, {
+      encoding: 'utf8', timeout: 30000,
+      env: { ...process.env, SIGSUM_TEST_MOCK_STATE: statePath },
+    });
+    return { status: 0, stdout, stderr: '' };
+  } catch (e) {
+    return { status: e.status, stdout: e.stdout ? e.stdout.toString() : '', stderr: e.stderr ? e.stderr.toString() : '' };
+  }
+}
+
+function writeStalePending(pendingPath, hash) {
+  writeFileSync(pendingPath, JSON.stringify({
+    schema: PENDING_SCHEMA,
+    anchored_hash: hash,
+    log_url: 'https://seasalp.glasklar.is',
+    checksum: 'cd'.repeat(32),
+    leaf_signature: 'ef'.repeat(64),
+    public_key: 'ab'.repeat(32),
+    leaf_hash: '12'.repeat(32),
+    submitted_at: '2026-11-01T00:00:00.000Z',
+  }, null, 2));
+}
+
+// Proof-record shape check: same key sets at every level, same types, same
+// string LENGTHS (all hex fields are fixed-width), pure-hex charset where the
+// fixture field is pure hex — array element shape via the first element, since
+// witness/path counts are log-state, not shape.
+function assertShape(value, shape, at = 'record') {
+  if (Array.isArray(shape)) {
+    assert(Array.isArray(value), `${at}: expected array, got ${typeof value}`);
+    assert(value.length >= 1, `${at}: expected a non-empty array`);
+    assertShape(value[0], shape[0], `${at}[0]`);
+  } else if (shape !== null && typeof shape === 'object') {
+    assert(value !== null && typeof value === 'object' && !Array.isArray(value), `${at}: expected object, got ${typeof value}`);
+    const gotKeys = Object.keys(value).sort();
+    const wantKeys = Object.keys(shape).sort();
+    assert(JSON.stringify(gotKeys) === JSON.stringify(wantKeys), `${at}: key set mismatch: got [${gotKeys}] want [${wantKeys}]`);
+    for (const k of wantKeys) assertShape(value[k], shape[k], `${at}.${k}`);
+  } else if (typeof shape === 'number') {
+    assert(typeof value === 'number' && Number.isFinite(value), `${at}: expected a number, got ${typeof value}`);
+  } else {
+    assert(typeof value === 'string', `${at}: expected a string, got ${typeof value}`);
+    assert(value.length === shape.length, `${at}: expected length ${shape.length}, got ${value.length} (${JSON.stringify(value).slice(0, 60)})`);
+    if (/^[0-9a-f]+$/.test(shape)) assert(/^[0-9a-f]+$/.test(value), `${at}: expected pure lowercase hex`);
+  }
+}
+
+await test('(a) pending-record flow — first run times out: sidecar holds public fields only, error says rerun-to-resume, rerun makes NO second add-leaf call', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'register-sigsum-pending-'));
+  try {
+    const mockPath = writeMockSeasalp(dir);
+    const statePath = join(dir, 'state.json');
+    const keyPath = genKey(dir, 'k');
+    const outPath = join(dir, 'record.json');
+    const pendingPath = `${outPath}.pending.json`;
+    writeFileSync(statePath, JSON.stringify({ mode: 'timeout', addLeafCalls: 0 }));
+
+    const first = runRegister({ mockPath, statePath, hash: HASH_MAIN, keyPath, outPath });
+    assert(first.status !== 0, `timeout run must exit non-zero, got ${first.status}`);
+    assert(first.stderr.includes('pending record kept; rerun the same command to resume (it will not re-submit)'), `timeout error must name the resume path, got: ${first.stderr}`);
+    assert(!existsSync(outPath), 'no proof record may be written on a poll timeout');
+    assert(existsSync(pendingPath), 'pending sidecar must exist after a poll timeout');
+    const pending = JSON.parse(readFileSync(pendingPath, 'utf8'));
+    assert(pending.schema === PENDING_SCHEMA, `sidecar schema must be ${PENDING_SCHEMA}`);
+    assert(pending.anchored_hash === HASH_MAIN, 'sidecar anchored_hash must match the submitted --hash');
+    assert(pending.log_url === 'https://seasalp.glasklar.is', 'sidecar log_url must name the log');
+    assert(/^[0-9a-f]{64}$/.test(pending.checksum), 'sidecar checksum must be 64-hex');
+    assert(/^[0-9a-f]{128}$/.test(pending.leaf_signature), 'sidecar leaf_signature must be 128-hex');
+    assert(/^[0-9a-f]{64}$/.test(pending.public_key), 'sidecar public_key must be 64-hex');
+    assert(/^[0-9a-f]{64}$/.test(pending.leaf_hash), 'sidecar leaf_hash must be 64-hex');
+    assert(typeof pending.submitted_at === 'string' && !Number.isNaN(Date.parse(pending.submitted_at)), 'sidecar submitted_at must be an ISO stamp');
+    assert(JSON.stringify(Object.keys(pending).sort()) === JSON.stringify(PENDING_KEYS), `sidecar must hold ONLY the public fields, got: [${Object.keys(pending).sort()}]`);
+    // Never any private material: the keygen private JWK's `d` must not appear.
+    const privJwk = JSON.parse(readFileSync(keyPath, 'utf8'));
+    assert(!readFileSync(pendingPath, 'utf8').includes(privJwk.d), 'sidecar must never contain the private key scalar');
+
+    // The rerun (same hash, mock now including) must skip add-leaf entirely.
+    const state = JSON.parse(readFileSync(statePath, 'utf8'));
+    writeFileSync(statePath, JSON.stringify({ ...state, mode: 'include' }));
+    const rerun = runRegister({ mockPath, statePath, hash: HASH_MAIN, outPath }); // NO --key: resume needs none
+    assert(rerun.status === 0, `rerun must exit 0, got ${rerun.status}: ${rerun.stderr}`);
+    assert(rerun.stdout.includes('Resuming from'), `rerun must print that it is resuming, got: ${rerun.stdout}`);
+    assert(JSON.parse(readFileSync(statePath, 'utf8')).addLeafCalls === 1, `rerun must NOT call add-leaf again (expected 1 total call, got ${JSON.parse(readFileSync(statePath, 'utf8')).addLeafCalls})`);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+await test('(b) pending-record flow — the rerun completes: proof record written, pending file deleted', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'register-sigsum-pending-'));
+  try {
+    const mockPath = writeMockSeasalp(dir);
+    const statePath = join(dir, 'state.json');
+    const keyPath = genKey(dir, 'k');
+    const outPath = join(dir, 'record.json');
+    const pendingPath = `${outPath}.pending.json`;
+    writeFileSync(statePath, JSON.stringify({ mode: 'timeout', addLeafCalls: 0 }));
+
+    const first = runRegister({ mockPath, statePath, hash: HASH_MAIN, keyPath, outPath });
+    assert(first.status !== 0 && existsSync(pendingPath), 'arc setup: first run must time out leaving a sidecar');
+
+    const state = JSON.parse(readFileSync(statePath, 'utf8'));
+    writeFileSync(statePath, JSON.stringify({ ...state, mode: 'include' }));
+    const second = runRegister({ mockPath, statePath, hash: HASH_MAIN, outPath });
+    assert(second.status === 0, `rerun must exit 0, got ${second.status}: ${second.stderr}`);
+    assert(second.stdout.includes('Registered'), `rerun must print the Registered line, got: ${second.stdout}`);
+    assert(existsSync(outPath), 'proof record must be written on completion');
+    assert(!existsSync(pendingPath), 'pending sidecar must be deleted after successful sequencing');
+    const record = JSON.parse(readFileSync(outPath, 'utf8'));
+    assert(record.anchored_hash === HASH_MAIN, 'record anchored_hash');
+    assert(record.tree_head.size === 100 && record.inclusion_proof.leaf_index === 42, 'record must carry the log answers (mock head size 100, leaf_index 42)');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+await test('(c) a pending file for a DIFFERENT anchored_hash is reported and ignored — fresh submit proceeds, stale file never resumed', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'register-sigsum-pending-'));
+  try {
+    const mockPath = writeMockSeasalp(dir);
+    const statePath = join(dir, 'state.json');
+    const keyPath = genKey(dir, 'k');
+    const outPath = join(dir, 'record.json');
+    const pendingPath = `${outPath}.pending.json`;
+    writeFileSync(statePath, JSON.stringify({ mode: 'include', addLeafCalls: 0 }));
+    writeStalePending(pendingPath, HASH_OTHER); // same out path, other hash
+
+    const run = runRegister({ mockPath, statePath, hash: HASH_MAIN, keyPath, outPath });
+    assert(run.status === 0, `fresh submit with a stale sidecar must exit 0, got ${run.status}: ${run.stderr}`);
+    assert(run.stdout.includes('different anchored_hash'), `run must report the ignored stale sidecar, got: ${run.stdout}`);
+    assert(JSON.parse(readFileSync(statePath, 'utf8')).addLeafCalls === 1, `stale sidecar must not suppress the fresh add-leaf (expected exactly 1 call, got ${JSON.parse(readFileSync(statePath, 'utf8')).addLeafCalls})`);
+    assert(existsSync(outPath), 'proof record written for the new hash');
+    assert(JSON.parse(readFileSync(outPath, 'utf8')).anchored_hash === HASH_MAIN, 'record must carry the NEW hash, never the stale one');
+    assert(!existsSync(pendingPath), 'the completed fresh submission takes over and cleans the sidecar slot');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+await test('(d) the produced proof record is shape-identical to the existing c2sp-tlog-proof-v1 fixture', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'register-sigsum-pending-'));
+  try {
+    const mockPath = writeMockSeasalp(dir);
+    const statePath = join(dir, 'state.json');
+    const keyPath = genKey(dir, 'k');
+    const outPath = join(dir, 'record.json');
+    writeFileSync(statePath, JSON.stringify({ mode: 'include', addLeafCalls: 0 }));
+
+    const run = runRegister({ mockPath, statePath, hash: HASH_MAIN, keyPath, outPath });
+    assert(run.status === 0, `register must exit 0, got ${run.status}: ${run.stderr}`);
+    const record = JSON.parse(readFileSync(outPath, 'utf8'));
+    assertShape(record, REAL_RECORD);
+    assert(record.anchor_type === REAL_RECORD.anchor_type, 'anchor_type must stay c2sp-tlog-proof-v1');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+await test('(e) a matching but corrupt pending sidecar aborts WITHOUT re-submitting (never-re-stamp)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'register-sigsum-pending-'));
+  try {
+    const mockPath = writeMockSeasalp(dir);
+    const statePath = join(dir, 'state.json');
+    const keyPath = genKey(dir, 'k');
+    const outPath = join(dir, 'record.json');
+    const pendingPath = `${outPath}.pending.json`;
+    writeFileSync(statePath, JSON.stringify({ mode: 'include', addLeafCalls: 0 }));
+    writeFileSync(pendingPath, JSON.stringify({
+      schema: PENDING_SCHEMA, anchored_hash: HASH_MAIN, log_url: 'https://seasalp.glasklar.is',
+      checksum: 'zz', leaf_signature: '', public_key: '', leaf_hash: '',
+      submitted_at: '2026-11-01T00:00:00.000Z',
+    }));
+
+    const run = runRegister({ mockPath, statePath, hash: HASH_MAIN, keyPath, outPath });
+    assert(run.status !== 0, `corrupt matching sidecar must abort, got exit ${run.status}`);
+    assert(run.stderr.includes('matches --hash but is unusable'), `error must name the unusable sidecar, got: ${run.stderr}`);
+    assert(JSON.parse(readFileSync(statePath, 'utf8')).addLeafCalls === 0, `must NOT re-submit the leaf (expected 0 add-leaf calls, got ${JSON.parse(readFileSync(statePath, 'utf8')).addLeafCalls})`);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

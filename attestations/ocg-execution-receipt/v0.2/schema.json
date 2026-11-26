@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ainumbers.co/attestations/ocg-execution-receipt/v0.2/schema.json",
+  "title": "OCG Execution Receipt predicate body, v0.2",
+  "description": "JSON Schema for the predicate body of an in-toto Statement v1 whose predicateType is https://ainumbers.co/attestations/ocg-execution-receipt/v0.2. Apply this schema to the Statement's predicate member. Additive over v0.1: every v0.1 predicate body is valid under this schema. Members unknown to this schema are allowed and passed through unvalidated; the members this version mints (controlRefs, anchors, sourceAnchor, tickmark) are strictly shaped.",
+  "type": "object",
+  "properties": {
+    "chaingraphVersion": { "type": "string" },
+    "computeMode": { "enum": ["server", "browser", "wasm-vm"] },
+    "mandateType": { "type": "string" },
+    "toolId": { "type": "string", "minLength": 1 },
+    "toolVersion": { "type": "string" },
+    "generatedAt": { "type": "string" },
+    "buildType": { "type": "string" },
+    "executionHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "chain": {
+      "type": "object",
+      "properties": {
+        "parent_hashes": { "type": "array", "items": { "type": "string" } },
+        "parent_tool_ids": { "type": "array", "items": { "type": "string" } },
+        "chain_depth": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["parent_hashes", "parent_tool_ids", "chain_depth"],
+      "additionalProperties": false
+    },
+    "policyParameters": { "type": "object" },
+    "outputPayload": { "type": "object" },
+    "complianceFlags": { "type": "array", "items": { "type": "string" } },
+    "dcp1Profile": { "const": "ocg-deterministic-compute" },
+    "kernelIdentity": {
+      "type": ["object", "null"],
+      "properties": {
+        "kernelDigest": { "type": "string", "minLength": 1 },
+        "buildType": { "type": "string" },
+        "sourceRef": { "type": "string" }
+      },
+      "required": ["kernelDigest", "buildType"],
+      "additionalProperties": false
+    },
+    "computeProof": { "type": ["object", "null"] },
+    "auditSignature": { "type": ["object", "null"] },
+    "anchorBindings": { "type": "array", "items": { "type": "object" } },
+    "controlRefs": {
+      "type": "array",
+      "description": "GRC-consumer bindings: which control ids in which framework this receipt is cited against. id carries the control identifier only, never a control title or control text (AICPA and ISO copyright).",
+      "items": {
+        "type": "object",
+        "properties": {
+          "framework": { "enum": ["nist-800-53r5", "aiuc-1", "nist-ai-rmf", "soc2-tsc", "iso27001-2022"] },
+          "id": { "type": "string", "minLength": 1 }
+        },
+        "required": ["framework", "id"],
+        "additionalProperties": false
+      }
+    },
+    "anchors": {
+      "type": "array",
+      "description": "Independent transparency-log or anchoring-service pointers for this receipt, in addition to the v0.1 anchorBindings passthrough.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": { "enum": ["sigsum", "eas-base"] },
+          "ref": { "type": "string", "minLength": 1 }
+        },
+        "required": ["type", "ref"],
+        "additionalProperties": false
+      }
+    },
+    "sourceAnchor": {
+      "type": "object",
+      "description": "Where the human-source evidence for this receipt lives: a document digest plus a locator into it (a page or region reference, or a spreadsheet cell in sheet!cell form).",
+      "properties": {
+        "documentDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "locator": { "type": "string", "minLength": 1 }
+      },
+      "required": ["documentDigest", "locator"],
+      "additionalProperties": false
+    },
+    "tickmark": {
+      "enum": ["agreed", "footed", "recalculated", "vouched", "traced", "exception"],
+      "description": "The audit workpaper action a human reviewer recorded against this receipt. An annotation about a person's procedure, never evidence on its own that a control passed."
+    }
+  },
+  "required": ["executionHash", "policyParameters", "outputPayload"]
+}

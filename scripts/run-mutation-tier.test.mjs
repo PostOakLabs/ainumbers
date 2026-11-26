@@ -26,7 +26,8 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { copySandboxDeps, shortCircuitFixtureOracle, neutralizationTargets, decomposeMoneyMath, decomposedGateDecision, kernelTimeoutSecondsFromEnv, kernelTimeoutSecondsForKernel, runProcessBounded, findDetmathMarkerRange, surfaceSplitPatch, resolveSurfaceSplit, survivorLocations, assertSurvivorsComplete, buildJsonResult, artifactConstRanges, tierOfMutantWithArtifact, tierReportWithArtifact } from './run-mutation-tier.mjs';
+import { copySandboxDeps, shortCircuitFixtureOracle, neutralizationTargets, decomposeMoneyMath, decomposedGateDecision, kernelTimeoutSecondsFromEnv, kernelTimeoutSecondsForKernel, mutationTrialsForKernel, mutationEnvForKernel, runProcessBounded, resolveStrykerInvocation, findDetmathMarkerRange, surfaceSplitPatch, resolveSurfaceSplit, survivorLocations, assertSurvivorsComplete, buildJsonResult, artifactConstRanges, tierOfMutantWithArtifact, tierReportWithArtifact, loadConfig } from './run-mutation-tier.mjs';
+import { mergeMutationSiblings, loadOriginalAuthorshipAllowlist } from './lib-per-kernel-config.mjs';
 import { classifyKernelSource, tierReport } from '../chaingraph/kernels/mutation-tier-split.mjs';
 
 let passed = 0;
@@ -267,6 +268,22 @@ test('R9 kernelTimeoutSecondsFromEnv: default 600, integer override honored, any
   }
 });
 
+test('R9b resolveStrykerInvocation (MUTATION-TIER-LOCAL-STRYKER-1): env unset = npx argv unchanged; env set + file exists = node <bin> run; env set + missing = npx fallback with warning', () => {
+  const base = { platform: 'linux', strykerVersion: '8.7.1', configPath: '/c/stryker.conf.json' };
+  const npxArgs = ['--yes', '--package=@stryker-mutator/core@8.7.1', 'stryker', 'run', '/c/stryker.conf.json'];
+  const unset = resolveStrykerInvocation({ ...base, env: {}, fileExists: () => true });
+  assert(unset.mode === 'npx' && unset.cmd === 'npx' && unset.warning === null, 'unset env must take the npx path with no warning');
+  assert(JSON.stringify(unset.args) === JSON.stringify(npxArgs), `unset env must keep the npx args byte-identical: ${unset.args}`);
+  const empty = resolveStrykerInvocation({ ...base, env: { MUTATION_TIER_STRYKER_BIN: '' }, fileExists: () => true });
+  assert(empty.mode === 'npx' && JSON.stringify(empty.args) === JSON.stringify(npxArgs), 'empty env must behave as unset');
+  const local = resolveStrykerInvocation({ ...base, env: { MUTATION_TIER_STRYKER_BIN: '/x/stryker.js' }, fileExists: (p) => p === '/x/stryker.js' });
+  assert(local.mode === 'local-bin' && local.cmd === process.execPath, 'existing file must spawn process.execPath');
+  assert(JSON.stringify(local.args) === JSON.stringify(['/x/stryker.js', 'run', '/c/stryker.conf.json']), `local args wrong: ${local.args}`);
+  const missing = resolveStrykerInvocation({ ...base, env: { MUTATION_TIER_STRYKER_BIN: '/nope.js' }, fileExists: () => false });
+  assert(missing.mode === 'npx' && JSON.stringify(missing.args) === JSON.stringify(npxArgs), 'missing file must fall back to the npx argv');
+  assert(/MUTATION_TIER_STRYKER_BIN/.test(missing.warning || ''), 'missing file must warn, naming the env var');
+});
+
 // R10 spawns a real child, so the sync harness above cannot drive it — awaited
 // explicitly before the summary (top-level await, .mjs).
 async function asyncTest(name, fn) {
@@ -365,8 +382,7 @@ const RATCHET_GREEN_1_TIMEOUT_KERNELS = [
 ];
 
 test('R15 the MUTATION-RATCHET-GREEN-1 batch: every entry in the REAL config is an integer bound 600 < v <= 1500 and resolves per kernel', () => {
-  const configPath = join(import.meta.dirname, '..', 'chaingraph', 'kernels', 'mutation-tiers.config.json');
-  const realConfig = JSON.parse(readFileSync(configPath, 'utf8'));
+  const realConfig = loadConfig(); // merges the per-kernel <id>.mutation.json siblings (PER-KERNEL-CONFIG-SHARD-1)
   const bounds = realConfig.kernelTimeoutSeconds || {};
   for (const id of RATCHET_GREEN_1_TIMEOUT_KERNELS) {
     const v = bounds[id];
@@ -507,9 +523,8 @@ test('R21 ART699 vendored kind: a stale sha256 or an out-of-source range fails L
 });
 
 test('R22 the real art-699 entry: config range+sha256 match the tracked kernel, and the tracked file carries no Stryker directive', () => {
-  const configPath = join(import.meta.dirname, '..', 'chaingraph', 'kernels', 'mutation-tiers.config.json');
   const kernelPath = join(import.meta.dirname, '..', 'chaingraph', 'kernels', 'art-699-x402-permit2-evidence-recomputer.kernel.mjs');
-  const config = JSON.parse(readFileSync(configPath, 'utf8'));
+  const config = loadConfig();
   const entry = config.mutateSurfaceSplits['art-699-x402-permit2-evidence-recomputer'];
   assert(entry && entry.kind === 'vendored', 'art-699 must carry a vendored mutateSurfaceSplits entry');
   const src = readFileSync(kernelPath, 'utf8');
@@ -782,6 +797,103 @@ test('R31 with no artifact ranges the classification is EXACTLY the pre-change t
     && JSON.stringify(after.other) === JSON.stringify(before.other),
     'an empty artifactRanges default must reclassify nothing');
   assert(after.artifact.total === 0 && after.artifact.score === null, 'the empty artifact bucket reports zero');
+});
+
+// ── per-kernel sibling config (PER-KERNEL-CONFIG-SHARD-1) ────────────────
+// Per-kernel entries live in chaingraph/kernels/<id>.mutation.json and
+// <stem>.authorship.json. loadConfig() reads from the REAL checkout (repoRoot), not the
+// Stryker sandbox, so the siblings never need to be copied into a sandbox.
+
+console.log('\nrun-mutation-tier controls — per-kernel sibling config (PER-KERNEL-CONFIG-SHARD-1)');
+
+function siblingScratch(files, base = {}) {
+  const dir = mkdtempSync(join(tmpdir(), 'rmt-pkc-'));
+  cleanup.push(dir);
+  for (const [name, body] of Object.entries(files)) writeFileSync(join(dir, name), JSON.stringify(body));
+  return { dir, base };
+}
+
+test('R32 mergeMutationSiblings merges every sibling key into its map and leaves the base untouched', () => {
+  const { dir } = siblingScratch({
+    'k-a.mutation.json': { kernelTimeoutSeconds: 1234, hookSkip: 'why' },
+    'k-b.mutation.json': { namedLead: 'lead', excluded: 'shape' },
+  });
+  const base = { moneyMathBreakFloor: 60, kernelTimeoutSeconds: { 'k-z': 9 }, hookSkipKernels: { _comment: 'c' } };
+  const m = mergeMutationSiblings(base, dir);
+  assert(m.kernelTimeoutSeconds['k-a'] === 1234 && m.kernelTimeoutSeconds['k-z'] === 9, 'sibling timeout merged alongside the base entry');
+  assert(m.hookSkipKernels['k-a'] === 'why' && m.hookSkipKernels._comment === 'c', 'hookSkip merged, _comment kept');
+  assert(m.namedLeads['k-b'] === 'lead' && m.excludedKernels['k-b'] === 'shape', 'namedLead/excluded merged into maps absent from the base');
+  assert(m.moneyMathBreakFloor === 60 && !('k-a' in base.kernelTimeoutSeconds), 'shared keys carried, base not mutated');
+});
+
+test('R33 an id present in BOTH the legacy map and a sibling, or an unknown sibling key, is a loud refusal', () => {
+  const { dir } = siblingScratch({ 'k-a.mutation.json': { kernelTimeoutSeconds: 5 } });
+  let threw = null;
+  try { mergeMutationSiblings({ kernelTimeoutSeconds: { 'k-a': 7 } }, dir); } catch (e) { threw = e; }
+  assert(threw && /already present/.test(threw.message), `duplicate must be refused, got ${threw && threw.message}`);
+  const bad = siblingScratch({ 'k-b.mutation.json': { kernelTimeoutSecond: 5 } });
+  threw = null;
+  try { mergeMutationSiblings({}, bad.dir); } catch (e) { threw = e; }
+  assert(threw && /unknown key/.test(threw.message), `unknown key must be refused, got ${threw && threw.message}`);
+});
+
+test('R34 loadOriginalAuthorshipAllowlist keys a sibling as chaingraph/kernels/<stem>.mjs and refuses a duplicate legacy key', () => {
+  const root = mkdtempSync(join(tmpdir(), 'rmt-pkc-auth-'));
+  cleanup.push(root);
+  mkdirSync(join(root, 'scripts'), { recursive: true });
+  mkdirSync(join(root, 'chaingraph', 'kernels'), { recursive: true });
+  writeFileSync(join(root, 'scripts', 'original-authorship-bundle-allowlist.json'), JSON.stringify({ _README: { reason: 'r' } }));
+  writeFileSync(join(root, 'chaingraph', 'kernels', '_x.bundle.authorship.json'), JSON.stringify({ reason: 'original' }));
+  const a = loadOriginalAuthorshipAllowlist(root);
+  assert(a['chaingraph/kernels/_x.bundle.mjs'] && a['chaingraph/kernels/_x.bundle.mjs'].reason === 'original', `sibling must key to the bundle path, got ${Object.keys(a)}`);
+  writeFileSync(join(root, 'scripts', 'original-authorship-bundle-allowlist.json'), JSON.stringify({ 'chaingraph/kernels/_x.bundle.mjs': { reason: 'dup' } }));
+  let threw = null;
+  try { loadOriginalAuthorshipAllowlist(root); } catch (e) { threw = e; }
+  assert(threw && /already present/.test(threw.message), 'a duplicate legacy+sibling entry must be refused');
+});
+
+// ── per-kernel trial budget (MUTATION-TRIALS-BUDGET-458-1) ────────────────
+// The key is sibling-only (no global env override), validated as a positive
+// safe integer, and travels into the Stryker child env ONLY for the kernel that
+// declares it. No key = empty fragment = byte-identical behaviour.
+
+console.log('\nrun-mutation-tier controls — per-kernel trial budget (MUTATION-TRIALS-BUDGET-458-1)');
+
+test('R35 mutationTrials is allowlisted, merged, accepted and validated (bad values refused loudly)', () => {
+  const { dir } = siblingScratch({ 'k-a.mutation.json': { mutationTrials: 1000 }, 'k-b.mutation.json': { mutationTrials: 0 } });
+  let m;
+  try { m = mergeMutationSiblings({}, dir); } catch (e) { throw new Error(`mutationTrials key is not allowlisted: ${e.message}`); }
+  assert(m.mutationTrials['k-a'] === 1000 && m.mutationTrials['k-b'] === 0, 'mutationTrials must merge into its own map');
+  assert(mutationTrialsForKernel('k-a', m) === 1000, 'a positive safe integer must be accepted');
+  assert(mutationTrialsForKernel('k-z', m) === null, 'a kernel without the key resolves to null (no budget)');
+  for (const bad of [0, -1, 3.5, '1000', null, Number.MAX_SAFE_INTEGER + 1]) {
+    let threw = null;
+    try { mutationTrialsForKernel('k-a', { mutationTrials: { 'k-a': bad } }); } catch (e) { threw = e; }
+    assert(threw, `${JSON.stringify(bad)} must be refused, never silently accepted`);
+    assert(threw.message.includes('k-a') && /mutationTrials/.test(threw.message), `the refusal must name the kernel and the key: ${threw && threw.message}`);
+  }
+});
+
+test('R36 no key means no env var, and computing the fragment never writes global process.env', () => {
+  const config = { mutationTrials: { 'k-a': 1000 } };
+  const before = process.env.MUTATION_TIER_NUM_RUNS;
+  const eq = (a, b, msg) => assert(JSON.stringify(a) === JSON.stringify(b), `${msg}: got ${JSON.stringify(a)}`);
+  eq(mutationEnvForKernel('k-a', config), { MUTATION_TIER_NUM_RUNS: '1000' }, 'the keyed kernel gets exactly the budget var');
+  eq(mutationEnvForKernel('k-b', config), {}, 'an unkeyed kernel gets no var at all');
+  eq(mutationEnvForKernel('k-a', null), {}, 'no config means no var');
+  assert(process.env.MUTATION_TIER_NUM_RUNS === before, 'mutationEnvForKernel must never mutate global process.env');
+});
+
+await asyncTest('R37 the computed env reaches a spawned child for the keyed kernel only', async () => {
+  const config = { mutationTrials: { 'k-a': 1000 } };
+  const envForA = { ...process.env, ...mutationEnvForKernel('k-a', config) };
+  const envForB = { ...process.env };
+  delete envForB.MUTATION_TIER_NUM_RUNS;
+  const code = "process.stdout.write(String(process.env.MUTATION_TIER_NUM_RUNS || ''));";
+  const a = spawnSync(process.execPath, ['-e', code], { env: envForA, encoding: 'utf8' });
+  const b = spawnSync(process.execPath, ['-e', code], { env: envForB, encoding: 'utf8' });
+  assert(a.status === 0 && a.stdout === '1000', `the keyed kernel's child must see 1000 (got ${a.stdout})`);
+  assert(b.status === 0 && b.stdout === '', `the unkeyed kernel's child must see no var (got ${b.stdout})`);
 });
 
 console.log(`\nrun-mutation-tier controls: ${passed} passed, ${failed} failed`);

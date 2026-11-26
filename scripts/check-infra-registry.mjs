@@ -41,11 +41,14 @@ const REG_REL = 'data/infra-registry.json';
  * @param {boolean} doCheckRegistry also verify registry byte-freshness
  * @returns {{ findings: string[], checked: number, registryEntries: number }}
  */
-export async function scan(repo, doCheckRegistry) {
+export async function scan(repo, doCheckRegistry, registryPath) {
   const findings = [];
   const rows = buildRegistry(repo);
-  const registry = existsSync(join(repo, REG_REL))
-    ? JSON.parse(readFileSync(join(repo, REG_REL), 'utf8'))
+  // MAINONLY-REMOVAL-ADVISORY-ON-PR-1: the CLI may point the registry read at
+  // the merge_group assembled tree (DERIVED_ROOT); the self-test passes nothing.
+  const regPath = registryPath || join(repo, REG_REL);
+  const registry = existsSync(regPath)
+    ? JSON.parse(readFileSync(regPath, 'utf8'))
     : null;
   if (registry) {
     const onDisk = new Set(rows.map(r => r.path));
@@ -56,7 +59,7 @@ export async function scan(repo, doCheckRegistry) {
     }
     if (doCheckRegistry) {
       const fresh = JSON.stringify(rows, null, 2) + '\n';
-      if (fresh !== readFileSync(join(repo, REG_REL), 'utf8')) {
+      if (fresh !== readFileSync(regPath, 'utf8')) {
         findings.push(`REGISTRY STALE — regenerate: node scripts/gen-infra-registry.mjs`);
       }
     }
@@ -166,6 +169,15 @@ async function selftest() {
     writeFileSync(join(dir, 'data', 'infra-registry.json'), JSON.stringify([{ path: 'guides/vanished.html' }], null, 2) + '\n');
     const stale = await scan(dir, false);
     check('RED — registry entry whose file is gone is stale', stale.findings.some(f => f.includes('STALE') && f.includes('vanished.html')), stale.findings.join(' ; '));
+    // MAINONLY-REMOVAL-ADVISORY-ON-PR-1: the same stale finding BLOCKS in a main
+    // context and is advisory in a PR context; a meta finding blocks in both.
+    const [mainBlock] = disposition(stale.findings, true);
+    check('RED (main context) — stale entry blocks', mainBlock.some(f => f.includes('vanished.html')), mainBlock.join(' ; '));
+    const [prBlock, prAdv] = disposition(stale.findings, false);
+    check('ADVISORY (PR context) — stale entry warns, does not block',
+      !prBlock.some(f => f.includes('vanished.html')) && prAdv.some(f => f.includes('vanished.html')), `block=${prBlock.length} adv=${prAdv.length}`);
+    const meta = ['MISSING ain:category — in-scope page is off the infrastructure map: guides/x.html'];
+    check('RED (PR context) — missing ain:category still blocks on a PR', disposition(meta, false)[0].length === 1, '');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -177,14 +189,39 @@ async function selftest() {
   console.log('✅ check-infra-registry --selftest PASSED — missing-meta RED, out-of-enum RED, stale-entry RED, GREEN after the fix.');
 }
 
+/**
+ * MAINONLY-REMOVAL-ADVISORY-ON-PR-1 (2026-11-05): data/infra-registry.json is a
+ * whole-file main-only artifact (MAIN-ONLY-PATHS-GATE-1). A PR that deletes or
+ * renames a page cannot rewrite it, so the two registry-staleness verdicts
+ * ("STALE registry entry", "REGISTRY STALE") were red by construction on that
+ * PR, a deadlock the PR could not cure. They now follow the shared
+ * isMainContext() policy, the MCPCARD-COUNT-ADVISORY-ON-PR-1 (#2898) pattern:
+ * a ::warning on a PR, HARD on main and on merge_group with DERIVED_ROOT, where
+ * the registry is read from the assembled derived tree when present.
+ * MISSING / INVALID ain:category stay HARD everywhere: the PR owns its page meta.
+ */
+export const isRegistryStale = (f) => f.startsWith('STALE registry entry') || f.startsWith('REGISTRY STALE');
+
+/** Split findings into [blocking, advisory] for a context (pure; self-tested). */
+export function disposition(findings, mainContext) {
+  if (mainContext) return [findings, []];
+  return [findings.filter((f) => !isRegistryStale(f)), findings.filter(isRegistryStale)];
+}
+
 if (SELFTEST) {
   await selftest();
 } else {
-  const { findings, checked, registryEntries } = await scan(REPO, CHECK);
-  if (findings.length) {
-    console.error(`check-infra-registry: ${findings.length} problem(s):`);
-    for (const f of findings) console.error(`  ${f}`);
+  const { isMainContext, derivedResolve } = await import('./derived-artifacts.mjs');
+  const derivedReg = derivedResolve(REG_REL);
+  const { findings, checked, registryEntries } = await scan(REPO, CHECK, derivedReg);
+  const [blocking, advisory] = disposition(findings, isMainContext());
+  for (const f of advisory) {
+    console.log(`::warning::${REG_REL} ${f} (advisory on a PR; main's derived-artifacts regen rewrites the registry, MAINONLY-REMOVAL-ADVISORY-ON-PR-1)`);
+  }
+  if (blocking.length) {
+    console.error(`check-infra-registry: ${blocking.length} problem(s):`);
+    for (const f of blocking) console.error(`  ${f}`);
     process.exit(1);
   }
-  console.log(`check-infra-registry: OK — ${checked} in-scope page(s) tagged in-enum, ${registryEntries} registry entr(ies) fresh${CHECK ? ', registry byte-exact' : ''}.`);
+  console.log(`check-infra-registry: OK — ${checked} in-scope page(s) tagged in-enum, ${registryEntries} registry entr(ies) ${advisory.length ? `checked (${advisory.length} staleness finding(s) advisory on this PR)` : 'fresh'}${CHECK ? ', registry byte-exact' : ''}.`);
 }

@@ -1,0 +1,131 @@
+{
+  "tool_id": "824-zip317-transfer-fee",
+  "inventory_version": "1.0.0",
+  "authored_at": "2026-11-03",
+  "error_direction": "undirected",
+  "error_direction_rationale": "The kernel is an exact integer recompute of a published formula over a declared shape: no threshold, cap, floor-tolerance, or approximation is involved, so there is no directional error to declare. The one unrepresented branch (third-party fee acceptance) is not an arithmetic error of the recompute at all -- it is outside the cited rule.",
+  "derived_from": [
+    {
+      "digest": "sha256:c41f471deb0f14566002700b575d26c8f25beefedb59d216a15494b13ae2a712",
+      "clause_path": "Fee calculation -- revisions, conventional fee formula, parameter table, Revision 0 contributions (Transparent/Sprout/Sapling/Orchard), SHOULD-status note"
+    }
+  ],
+  "branches": [
+    {
+      "id": "revision1-ironwood-contribution",
+      "clause": "Revision 1 (draft): the logical_actions sum additionally includes contribution_Ironwood = nActionsIronwood, to be enacted at NU6.3",
+      "branch": "A transaction shape declaring Ironwood-pool actions contributes nActionsIronwood logical actions.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "n_actions_ironwood": 1 },
+        "fixture": "824-zip317-transfer-fee.reachability.json#draft-revision-action-pool-reaches-refusal"
+      }
+    },
+    {
+      "id": "revision2-memo-bundle-contribution",
+      "clause": "Revision 2 (draft): free_memo_chunks (2 when shielded outputs or actions are present, else 0) and contribution_Memos = max(0, nMemoChunks - free_memo_chunks)",
+      "branch": "A transaction shape declaring memo bundles contributes max(0, nMemoChunks - free_memo_chunks) logical actions.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "n_memo_chunks": 3 },
+        "fixture": "824-zip317-transfer-fee.reachability.json#draft-revision-memo-bundles-reach-refusal"
+      }
+    },
+    {
+      "id": "revision-selector-above-active",
+      "clause": "Revisions: Revision 0 is the initial fee mechanism in effect prior to NU6.3; Revision 1 and Revision 2 are drafts",
+      "branch": "A caller selecting a revision above the in-effect one shifts the logical_actions definition to a draft contribution set.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "revision": 1, "n_actions_orchard": 2 },
+        "fixture": "824-zip317-transfer-fee.reachability.json#revision-selector-above-active-reaches-refusal"
+      }
+    },
+    {
+      "id": "declared-count-domain",
+      "clause": "Contribution inputs table: each input is a number of transaction components (JoinSplits, Sapling spends/outputs, Orchard actions) or a total size in bytes",
+      "branch": "A declared count or byte size that is negative, fractional, or beyond the exact integer range is not a number of transaction components.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "n_actions_orchard": -1 },
+        "fixture": "824-zip317-transfer-fee.reachability.json#negative-count-reaches-refusal"
+      }
+    },
+    {
+      "id": "string-in-declared-numeric-field",
+      "clause": "Contribution inputs table: declared inputs are numbers and byte totals; a string is not a declared shape value",
+      "branch": "A string in a declared numeric field is identifier-like or free text (txid, address, key material) and is refused, never parsed or echoed.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "INPUT_REFUSED",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "tx_in_total_size": "150 bytes" },
+        "fixture": "824-zip317-transfer-fee.reachability.json#string-in-declared-field-reaches-refusal"
+      }
+    },
+    {
+      "id": "grace-floor",
+      "clause": "conventional_fee = marginal_fee * max(grace_actions, logical_actions)",
+      "branch": "The fee is floored by the grace window: a shape whose logical_actions is below grace_actions pays for grace_actions.",
+      "disposition": "represented",
+      "evidence": "applied",
+      "note": "applied.grace_applied records when the floor bound; the floored amount is conventional_fee_zatoshi."
+    },
+    {
+      "id": "transparent-contribution",
+      "clause": "contribution_Transparent = max(ceiling(tx_in_total_size / p2pkh_standard_input_size), ceiling(tx_out_total_size / p2pkh_standard_output_size))",
+      "branch": "Transparent contribution from declared byte totals under the ceiling division.",
+      "disposition": "represented",
+      "evidence": "contributions",
+      "note": "carried at contributions.transparent."
+    },
+    {
+      "id": "sprout-contribution",
+      "clause": "contribution_Sprout = 2 * nJoinSplit",
+      "branch": "Sprout contribution doubling each JoinSplit.",
+      "disposition": "represented",
+      "evidence": "contributions",
+      "note": "carried at contributions.sprout."
+    },
+    {
+      "id": "sapling-contribution",
+      "clause": "contribution_Sapling = max(nSpendsSapling, nOutputsSapling)",
+      "branch": "Sapling contribution as the greater of spends and outputs.",
+      "disposition": "represented",
+      "evidence": "contributions",
+      "note": "carried at contributions.sapling."
+    },
+    {
+      "id": "orchard-contribution",
+      "clause": "contribution_Orchard = nActionsOrchard",
+      "branch": "Orchard contribution equal to the action count.",
+      "disposition": "represented",
+      "evidence": "contributions",
+      "note": "carried at contributions.orchard."
+    },
+    {
+      "id": "parameter-values",
+      "clause": "Parameter table: marginal_fee 5000 zatoshis per logical action; grace_actions 2; p2pkh_standard_input_size 150 bytes; p2pkh_standard_output_size 34 bytes",
+      "branch": "The four rule constants the recompute applies.",
+      "disposition": "represented",
+      "evidence": "applied",
+      "note": "carried at applied.marginal_fee_zatoshi and applied.grace_actions."
+    },
+    {
+      "id": "should-status-acceptance",
+      "clause": "It is not a consensus requirement that fees follow this formula; wallets SHOULD create transactions that pay this fee, in order to reduce information leakage, unless overridden by the user",
+      "branch": "Whether any wallet, miner, or node accepts or requires a particular fee at a given time is not determined by the formula.",
+      "disposition": "unrepresented_known",
+      "error_direction": "undirected",
+      "note": "The node recomputes the conventional fee for a declared shape and states nothing about acceptance; output_payload.evidence.acceptance_not_stated carries the boundary. No runtime path can exist because acceptance is a property of third-party software and chain state, not of the declared shape. This is the row's honest-label obligation, not a gap that can be closed by more arithmetic."
+    }
+  ]
+}

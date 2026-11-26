@@ -1,0 +1,144 @@
+// scripts/lib/affected-gates.mjs — AFFECTED-GATES-PREPUSH-1 (2026-11-05).
+//
+// Pure selection logic for `node scripts/preflight.mjs --affected`: given the
+// full GATES list ([label, cmd, meta?] entries) and the files a branch changed
+// against merge-base(origin/main, HEAD), pick the full-suite gates that judge
+// the path classes the diff touches.
+//
+// Why: builders ran only `--quick` (14 gates) before pushing. Measured
+// 2026-11-05, about 30 of 52 red PRs first-failed on a gate --quick lacks but
+// that runs in seconds to a minute on the PR's own files. The rest of the full
+// suite still runs in CI on the PR head and the merge_group tree; this module
+// removes no gate from anything. Design and data:
+// research/HEAL-ROWS-VS-FIRST-TIME-RIGHT-2026-11-05.md (workspace root).
+//
+// Gate-machinery controls (selftests, fixture proofs, mutation controls) are
+// skipped: a diff touching gate machinery gets the push-safety leg instead
+// (scripts/prepush-full-trigger.mjs). The plain "Workflow gate parity" gate is
+// the exception since PREFLIGHT-AFFECTED-GATE-PARITY-1: it is cheap and it is
+// the one full-suite gate a gate-machinery diff can actually move, so the
+// gate-machinery class selects it (its controls stay skipped). The Mutation
+// tier floor is skipped for cost (CI shards it six ways).
+//
+// Tests: node --test scripts/lib/affected-gates.test.mjs
+
+// [class, path test, gate-label test]
+export const AFFECTED_CLASSES = [
+  ['kernel',
+    (f) => /^chaingraph\/kernels\/(?!_)[^/]+\.mjs$/.test(f)
+      || /^chaingraph\/kernels\/(?!_)[^/]+\.json$/.test(f)
+      || /^chaingraph\/kernels\/(fixtures|__proptests__)\//.test(f)
+      || /^registry\/kernel\//.test(f),
+    // KERNEL-SURFACE-STATIC-GATES-1 (2026-11-25, PR #2763 lesson): the kernel class
+    // also names "output-schema" so an in-place kernel edit picks MCP output-schema
+    // coverage (OUTPUTSCHEMA-GAP-1) — a kernel's fixture output_payloads are what a
+    // manifest's declared output_schema re-validates against, and #2763 first-failed
+    // CI (scripts-verify's full preflight) on exactly that pair with --affected green.
+    /kernel|R4 null|flags-computed|flag-mirror|clause digest|citation|determinism|GPU flag|input-usage|§17|§18|compute-proof|WebMCP (wrapper|direct|chain)-execute|golden|parity|output-schema/i],
+  ['node',
+    (f) => /^chaingraph\/(graph|chains)\//.test(f) || f === 'chaingraph/chaingraph.meta.json',
+    /\bnode\b|accessib|a11y|shard|\bchain|§17|§18|registry|identity|compute-proof|WebMCP|manifest/i],
+  ['manifest',
+    (f) => /^manifests\//.test(f),
+    // KERNEL-SURFACE-STATIC-GATES-1: the manifest class also names "kernel-resolve"
+    // so a manifests-only diff picks Registry kernel-resolve current
+    // (REGISTRY-RESOLVE-STATIC-1) — land-verify.yml runs that check HARD on every
+    // kernel-surface PR, and manifest output_schema/fixture drift can strand a stale
+    // registry/kernel/<hex>.json record just like an in-place kernel edit can.
+    /manifest|WebMCP|server card|\bMCP\b|kernel-resolve/i],
+  ['page',
+    (f) => /\.html$/.test(f),
+    /hallmark|dead-link|install-link|PII|scene|explainer|CSP|chrome|a11y|accessib|\bpage\b|JSON-LD|tool-number/i],
+  ['mcp-surface',
+    (f) => /^(mcp|\.well-known)\//.test(f),
+    /server card|\bMCP\b|WebMCP/i],
+  // PREFLIGHT-AFFECTED-GATE-PARITY-1 (2026-11-14): gate machinery had no class,
+  // so a diff touching only preflight.mjs, a check-*.mjs gate or a workflow
+  // selected the hygiene set alone, and "Workflow gate parity (no CI↔preflight
+  // drift)" was picked only by the kernel class's broad /parity/i label regex —
+  // i.e. only when a kernel file was also touched. PRs 3107/3117/3052 pushed new
+  // gates with no workflow registration, ran --affected green, and first-failed
+  // in CI on that gate (reverse-presence, unwired-preflight-gate). The label test
+  // names the parity gate directly; its controls gate stays dropped by
+  // AFFECTED_SKIP (controls|mutation), and AFFECTED_SLOW does not match it
+  // (measured about 1 s). The kernel class still matches it too — no change
+  // there, just no longer the only path.
+  ['gate-machinery',
+    (f) => f === 'scripts/preflight.mjs'
+      || /^scripts\/check-[^/]+\.mjs$/.test(f) // includes check-workflow-gate-parity.mjs itself
+      || /^scripts\/.+\.selftest\.mjs$/.test(f)
+      || /^scripts\/.+\.test\.mjs$/.test(f)
+      || /^\.github\/workflows\/[^/]+\.ya?ml$/.test(f),
+    /Workflow gate parity/i],
+];
+
+// Left to CI, measured 2026-11-05:
+// - estate-wide and slow (129 s, 112 s, 57 s), not tied to one diff class;
+// - verify_repo: locally on a branch its sitemap check reports main-regen-owned
+//   sitemap.xml as missing pages (false red on green PR #2736); CI downgrades it
+//   on pull_request. Its PII part is covered by the --quick PII banner gate.
+export const AFFECTED_SLOW = /FV toolchain-digest|Groth16 seal parity|VM.worker parity|^verify_repo/i;
+export const AFFECTED_SKIP = /controls|fixture proof|self-?test|selftest|mutation|SO #34c|SO #40b|GATE-SELFTEST-META|Mutation tier/i;
+
+// Whole-repo hygiene gates that ALWAYS run under `--affected` (and alone under
+// `--hygiene`), whatever the touched set is. Chosen from preflight's own GATES by
+// measured wall time (2026-11-06, one warm Windows checkout, whole-repo scan):
+//   git-env scrub 2.9 s, internal-lang leak 0.3 s, copy hallmarks 5.2 s,
+//   JS syntax 1.2 s, PII banner 0.7 s, tool-number uniqueness 0.1 s (total ~10 s).
+// All are static scans with no network and no per-diff scoping, so a new spawn
+// site, a leaked internal id in a workflow comment, an em-dash or a syntax slip
+// is caught on any push, including one whose diff touches no gated path class.
+// Matching is by exact command, not label, so a label reword cannot drop one;
+// `missingHygiene` makes a renamed or removed command a loud error.
+export const AFFECTED_HYGIENE_CMDS = [
+  'node scripts/check-git-env-scrub.mjs',
+  'node scripts/check-internal-lang-leak.mjs',
+  'node scripts/check-copy-hallmarks.mjs',
+  'node scripts/check_tools.js',
+  'node scripts/check-pii-banner.mjs',
+  'node scripts/check-tool-number-unique.mjs',
+];
+
+// Hygiene commands that no entry of `gates` runs (a rename would otherwise
+// silently shrink the always-on set).
+export function missingHygiene(gates) {
+  const have = new Set(gates.map(([, cmd]) => cmd));
+  return AFFECTED_HYGIENE_CMDS.filter((c) => !have.has(c));
+}
+
+export function affectedSelection(gates, files) {
+  const classes = AFFECTED_CLASSES.filter(([, pathTest]) => files.some(pathTest));
+  const hygiene = new Set(AFFECTED_HYGIENE_CMDS);
+  const picked = gates.filter(([label, cmd]) => hygiene.has(cmd) || (!AFFECTED_SKIP.test(label) && !AFFECTED_SLOW.test(label)
+    && classes.some(([, , labelTest]) => labelTest.test(label))));
+  return { classes: classes.map(([c]) => c), picked };
+}
+
+// Plan for `--affected`: never zero gates. `files` is the touched set, or null
+// when it could not be determined (then the FULL list runs, fail closed). An EMPTY set falls back to
+// the hygiene set alone and says so loudly (`loud: true`); a determinable set
+// gets hygiene plus its path-class gates.
+export function affectedPlan(gates, files) {
+  const hygieneCount = gates.filter(([, cmd]) => AFFECTED_HYGIENE_CMDS.includes(cmd)).length;
+  if (files === null) {
+    // Undeterminable (git error, missing base): fail closed exactly as before, the
+    // FULL list (which contains the hygiene set). Never weaker than the old behaviour.
+    return {
+      classes: [], picked: gates, loud: true,
+      note: `WARNING changed files UNDETERMINABLE, so the FULL list of ${gates.length} gates runs (fail closed; includes the ${hygieneCount} hygiene gates). Check that origin/main resolves`,
+    };
+  }
+  if (files.length === 0) {
+    const picked = gates.filter(([, cmd]) => AFFECTED_HYGIENE_CMDS.includes(cmd));
+    return {
+      classes: [], picked, loud: true,
+      note: `WARNING touched set is EMPTY, so ONLY the ${hygieneCount} always-on hygiene gates run (not a diff-scoped selection). Check that the branch has commits`,
+    };
+  }
+  const { classes, picked } = affectedSelection(gates, files);
+  const classPicked = picked.length - hygieneCount;
+  return {
+    classes, picked, loud: false,
+    note: `${hygieneCount} always-on hygiene gate(s) + ${classPicked} for ${classes.length ? `path class(es) ${classes.join(', ')}` : 'no gated path class'} over ${files.length} changed file(s)`,
+  };
+}

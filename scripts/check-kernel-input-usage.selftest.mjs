@@ -98,8 +98,8 @@ try {
   check('live findings shrink -> HEALED names the dead entry', d1.healed.length === 1 && d1.healed[0] === FINDING_KEYS[0], JSON.stringify(d1.healed));
   check('the remaining two stay baselined', d1.baselined.length === 2);
 
-  check('advisoryContext: pull_request is advisory',
-    advisoryContext({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'pull_request' }) === true);
+  check('advisoryContext: pull_request is blocking (MAIN-ONLY-PATHS-GATE-1)',
+    advisoryContext({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'pull_request' }) === false);
   check('advisoryContext: push is blocking',
     advisoryContext({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'push' }) === false);
   check('advisoryContext: merge_group is blocking',
@@ -170,10 +170,10 @@ try {
   check('CLI: the un-pruned finding is NEW again and FAILS (exit 1)', r.status === 1, `status=${r.status}`);
   check('CLI: the failing row is marked [NEW]', /art-9001-declared-not-read DECLARED-NOT-READ unused_threshold \[NEW\]/.test(r.stdout || ''));
 
-  // same tree, advisory context -> exit 0 with the ADVISORY line
+  // same tree, CI pull_request context -> still FAILS (MAIN-ONLY-PATHS-GATE-1: PR-hard)
   r = run([], envOf({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'pull_request' }));
-  check('CLI: advisory context exits 0 on the same tree', r.status === 0, `status=${r.status}`);
-  check('CLI: advisory line names the new count', /ADVISORY \(context=pull_request\): 1 new/.test(r.stdout || ''));
+  check('CLI: pull_request context FAILS on the same tree (exit 1)', r.status === 1, `status=${r.status}`);
+  check('CLI: pull_request context prints no ADVISORY line', !/ADVISORY/.test(r.stdout || ''));
 
   // ---------------------------------------------------------------- layer 3: real-kernel reproduction
   console.log('layer 3 — real-kernel reproduction (the art-224 shape, in THIS checkout)');

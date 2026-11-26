@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="kernel-digest" content="sha256:3bd0f1a3cd02576428db7940732f9d87c09d2632dafbcd72eb4f5f9ee96cb040">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
 <title>Compile Model Risk Lineage Pack &middot; ART-562 &middot; OpenChainGraph &middot; AINumbers.co</title>
 <meta name="description" content="Compiles a model's model-passport-lifecycle and model-validation-cycle artifacts into one BCBS 239/RDARR-shaped bundle, cited by execution_hash and never recomputed. Zero-stages-cited is a legitimate empty state, never an error.">
@@ -81,9 +82,10 @@ pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius
 </style>
 <style>
 /* OCG-CHROME-CSS:v1 */
+:where(:root){--bg-2:#0D1627;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--teal:#14B8A6;--gold:#D4A847;--radius:6px}
 /* Canonical nav — derived from chaingraph-hub.html */
-nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
-.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0;height:auto}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;justify-content:flex-start;flex-wrap:nowrap;gap:16px;padding:0 24px;height:58px}
 .logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
 .logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
 .logo-ai{color:var(--teal)}
@@ -98,7 +100,7 @@ nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filt
 .nav-cta:hover{opacity:.85}
 @media(max-width:768px){.nav-pill{display:none}}
 /* Canonical footer — derived from chaingraph-hub.html */
-footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0;margin:0;font-family:'Sora',sans-serif;color:var(--text)}
 .footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
 .footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
 .footer-brand-mark{display:flex;align-items:center;gap:8px}
@@ -292,21 +294,22 @@ const STAGES = [
 const NOT_PROVEN = [
   { item: 'Model-run recomputation', detail: 'This pack cites the execution_hash of each stage artifact; it never re-runs the model, never re-derives the outcome analysis or replication diff, and never re-scores the test battery.' },
   { item: 'Validation sufficiency', detail: 'This pack takes no position on whether the underlying model is fit for use. Any validation opinion belongs to the cited art-453/art-489 artifacts themselves, never to this bundle.' },
-  { item: 'Referenced-artifact authenticity', detail: 'Each stage reference is a caller-supplied {tool_id, execution_hash} pair, asserted and digested into this receipt. This tool performs no lookup against a live artifact store and does not itself verify that a cited hash corresponds to a real, still-valid upstream artifact.' },
+  { item: 'Referenced-artifact authenticity', detail: 'Each stage reference is a caller-supplied {tool_id, execution_hash} pair, asserted and digested into this receipt. This node performs no lookup against a live artifact store and does not itself verify that a cited hash corresponds to a real, still-valid upstream artifact.' },
   { item: 'BCBS 239 / RDARR compliance', detail: 'This pack is a citation bundle over receipts that already exist. It has no bearing on whether the underlying model is fit for use and does not itself satisfy BCBS 239 or RDARR -- those are firm-level governance obligations this document evidences pieces of, never fulfills.' },
 ];
 
 function s(v) { return String(v == null ? '' : v).trim(); }
 
 function normalizeRef(ref) {
-  if (!ref) return null;
+  if (!ref || typeof ref !== 'object') return null;
   const execution_hash = s(ref.execution_hash);
   if (!execution_hash) return null;
   const tool_id = s(ref.tool_id) || null;
-  return { execution_hash: execution_hash, tool_id: tool_id };
+  return { execution_hash, tool_id };
 }
 
 function compute(pp) {
+  pp = pp || {};
   const model_id = s(pp.model_id) || null;
   const as_of_date = s(pp.as_of_date) || null;
 
@@ -318,12 +321,16 @@ function compute(pp) {
   const stages_present = [];
   const stages_absent = [];
 
-  for (let i = 0; i < STAGES.length; i++) {
-    const def = STAGES[i];
+  for (const def of STAGES) {
     const ref = normalizeRef(pp[def.key]);
     if (ref) {
       stages_present.push(def.stage);
-      cited_receipts.push({ stage: def.stage, label: def.label, tool_id: ref.tool_id || def.canonical_tool_id, execution_hash: ref.execution_hash });
+      cited_receipts.push({
+        stage: def.stage,
+        label: def.label,
+        tool_id: ref.tool_id || def.canonical_tool_id,
+        execution_hash: ref.execution_hash,
+      });
     } else {
       stages_absent.push(def.stage);
     }
@@ -343,14 +350,20 @@ function compute(pp) {
   }
 
   const output_payload = {
-    model_id: model_id, as_of_date: as_of_date, structural_error: structural_error,
-    cited_receipts: cited_receipts, stages_present: stages_present, stages_absent: stages_absent,
-    stage_count_present: stage_count_present, stage_count_total: stage_count_total,
+    model_id,
+    as_of_date,
+    structural_error,
+    cited_receipts,
+    stages_present,
+    stages_absent,
+    stage_count_present,
+    stage_count_total,
     not_proven: NOT_PROVEN,
     fence: 'This pack cites the referenced model-passport-lifecycle and model-validation-cycle receipts by execution_hash; it does not re-run the model, re-derive the outcome analysis, or itself opine on validation sufficiency. Zero-stages-cited is a legitimate empty state, never an error. Never a coverage percentage, never a stripped citation.',
     regulatory_framework: 'SR 26-2 (Revised Guidance on Model Risk Management, effective 2026-04-17, superseding SR 11-7) scopes this pack to conventional quantitative models only; BCBS 239 §II and RDARR Guide §3.4 references are informative context only, and this pack makes no compliance claim under any of the three.',
   };
-  return { output_payload: output_payload, compliance_flags: compliance_flags };
+
+  return { output_payload, compliance_flags };
 }
 
 const PRESETS = {
@@ -514,6 +527,27 @@ function exportJSON() {
   document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 </script>
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-562-compile-model-risk-lineage-pack.kernel.mjs">art-562-compile-model-risk-lineage-pack.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:3bd0f1a3cd02576428db7940732f9d87c09d2632dafbcd72eb4f5f9ee96cb040</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-562-compile-model-risk-lineage-pack.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-562-compile-model-risk-lineage-pack.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="graph/nodes/art-562-compile-model-risk-lineage-pack.json">art-562-compile-model-risk-lineage-pack.json</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: verified</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/3bd0f1a3cd02576428db7940732f9d87c09d2632dafbcd72eb4f5f9ee96cb040.json">3bd0f1a3cd02576428db7940732f9d87c09d2632dafbcd72eb4f5f9ee96cb040</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=d805944a4947727215618c8ff8822cf6c6fe24f725f1df2e383df19127de2881">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">
@@ -546,6 +580,9 @@ function exportJSON() {
     <div class="footer-cols">
       <div class="footer-col">
         <div class="footer-col-label">Platform</div>
+        <a href="../start.html">Start Here</a>
+        <a href="../front-to-back.html">Front-to-Back Prompts</a>
+        <a href="../prompts.html">Prompt Library</a>
         <a href="chaingraph-hub.html">ChainGraph Hub</a>
         <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
         <a href="openchain-graph-spec.html">Spec v0.8.13</a>
@@ -561,8 +598,10 @@ function exportJSON() {
       <div class="footer-col">
         <div class="footer-col-label">Hubs</div>
         <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="visual-explainers-hub.html">Visual Explainers</a>
+        <a href="education-hub.html">Learn OpenChainGraph</a>
         <a href="../guides/web3-hub.html">Web3 Hub</a>
-        <a href="../guides/solana-hub.html">Solana</a>
+        <a href="../guides/canton-tmf-hub.html">Canton</a>
         <a href="../guides/ethereum-hub.html">Ethereum</a>
         <a href="../guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
         <a href="../guides/token-standards-hub.html">Token Standards</a>
@@ -576,6 +615,8 @@ function exportJSON() {
         <div class="footer-col-label">Developers</div>
         <a href="../mcp.html">MCP Docs</a>
         <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../webmcp.html">WebMCP</a>
+        <a href="../mcp-benchmark.html">MCP Benchmark</a>
         <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
         <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
         <a href="../openapi.json" target="_blank">openapi.json</a>
@@ -583,6 +624,7 @@ function exportJSON() {
         <a href="okf/index.md" target="_blank">OKF bundle</a>
         <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
         <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../verification-desk.html">Verification Desk</a>
         <a href="verify.html">Artifact Verifier</a>
         <a href="../ledger/index.html">Receipt Ledger</a>
       </div>
@@ -595,6 +637,8 @@ function exportJSON() {
         <a href="../fv-explainer.html">FV Process Explainer</a>
         <a href="../errata.html">FV Errata</a>
         <a href="../suggest.html">Suggest</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="../privacy.html">Privacy</a>
         <a href="../contact.html">Contact</a>
         <a href="../sitemap.html">Sitemap</a>
         <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>

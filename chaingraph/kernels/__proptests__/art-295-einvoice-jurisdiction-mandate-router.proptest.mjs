@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:0b10eacc01a0d809c04d6f3548e9c09c589eb0eeb330672b8dfaab9877cd9d20
+// kernel_digest_at_authoring: sha256:8a2cbba14b21c6af020c037f11334cbd7ea54a0b62eb89d71ad6e336959abb0f
 //
 // FV-PROPFLOOR-SHARD-B28-1 — property-test floor for art-295-einvoice-jurisdiction-mandate-router.
 // Class B (bounded-numeric per the WU row), NOT float-sensitive — this kernel routes on lexical
@@ -65,7 +65,8 @@ function mkPP(rng) {
   };
 }
 
-const CONFIRMED_DATE_REGIMES = { FR: '2026-09-01', DE: '2025-01-01', BE: '2026-01-01', PL: '2026-02-01' };
+// Re-verified 2026-11-25: DE's 2025-01-01 receive date is not on an official page, so DE joins AE/MY as DRAFT-PIN.
+const CONFIRMED_DATE_REGIMES = { FR: '2026-09-01', BE: '2026-01-01', PL: '2026-02-01' };
 const ALL_REGIME_COUNTRIES = ['FR', 'DE', 'AE', 'MY', 'BE', 'PL'];
 
 // ---------- P1: boundedness — phase_status always one of the declared enum values ----------
