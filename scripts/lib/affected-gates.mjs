@@ -29,13 +29,23 @@ export const AFFECTED_CLASSES = [
       || /^chaingraph\/kernels\/(?!_)[^/]+\.json$/.test(f)
       || /^chaingraph\/kernels\/(fixtures|__proptests__)\//.test(f)
       || /^registry\/kernel\//.test(f),
-    /kernel|R4 null|flags-computed|flag-mirror|clause digest|citation|determinism|GPU flag|input-usage|§17|§18|compute-proof|WebMCP (wrapper|direct|chain)-execute|golden|parity/i],
+    // KERNEL-SURFACE-STATIC-GATES-1 (2026-11-25, PR #2763 lesson): the kernel class
+    // also names "output-schema" so an in-place kernel edit picks MCP output-schema
+    // coverage (OUTPUTSCHEMA-GAP-1) — a kernel's fixture output_payloads are what a
+    // manifest's declared output_schema re-validates against, and #2763 first-failed
+    // CI (scripts-verify's full preflight) on exactly that pair with --affected green.
+    /kernel|R4 null|flags-computed|flag-mirror|clause digest|citation|determinism|GPU flag|input-usage|§17|§18|compute-proof|WebMCP (wrapper|direct|chain)-execute|golden|parity|output-schema/i],
   ['node',
     (f) => /^chaingraph\/(graph|chains)\//.test(f) || f === 'chaingraph/chaingraph.meta.json',
     /\bnode\b|accessib|a11y|shard|\bchain|§17|§18|registry|identity|compute-proof|WebMCP|manifest/i],
   ['manifest',
     (f) => /^manifests\//.test(f),
-    /manifest|WebMCP|server card|\bMCP\b/i],
+    // KERNEL-SURFACE-STATIC-GATES-1: the manifest class also names "kernel-resolve"
+    // so a manifests-only diff picks Registry kernel-resolve current
+    // (REGISTRY-RESOLVE-STATIC-1) — land-verify.yml runs that check HARD on every
+    // kernel-surface PR, and manifest output_schema/fixture drift can strand a stale
+    // registry/kernel/<hex>.json record just like an in-place kernel edit can.
+    /manifest|WebMCP|server card|\bMCP\b|kernel-resolve/i],
   ['page',
     (f) => /\.html$/.test(f),
     /hallmark|dead-link|install-link|PII|scene|explainer|CSP|chrome|a11y|accessib|\bpage\b|JSON-LD|tool-number/i],
