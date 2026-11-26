@@ -1,5 +1,5 @@
 // art-364-compute-lcr-nsfr-leverage.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C16-1).
-// kernel_digest_at_authoring: sha256:168029eb2a2ece66535b95015170c82a1babc5d499325845f30b73065fedb204
+// kernel_digest_at_authoring: sha256:64736289925d96c1d23ba8e5ad292967d00189e820fa7e5a733fb7725038bfe3
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -17,11 +17,16 @@
 // totals themselves scale by exactly k), and mandatory ULP-boundary forcing on the HQLA haircut
 // tier boundaries (l1/l2a/l2b), the zero-denominator edges (nco=0, totalRsf=0, totalExp=0), and
 // rate_pct/factor_pct clamped at their [0,100] boundary.
+//
+// KERNEL-FAILOPEN-P3-BUILDER-364-1 amendment: the three manifest-required inputs
+// (lcr, nsfr, leverage) are now REQUIRED. Positive-path properties build all three.
+// P5 mutates each required field to delete / null / '' / '   ' and asserts the result
+// is never a positive compliance verdict; P6 asserts buildArtifact never throws.
 // Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled).
 //
 // Run: node chaingraph/kernels/__proptests__/art-364-compute-lcr-nsfr-leverage.proptest.mjs
 
-import { compute } from '../art-364-compute-lcr-nsfr-leverage.kernel.mjs';
+import { compute, buildArtifact } from '../art-364-compute-lcr-nsfr-leverage.kernel.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -80,6 +85,11 @@ function randomLeverage(rng) {
 
 function randomPP(rng) {
   return { lcr: randomLcr(rng), nsfr: randomNsfr(rng), leverage: randomLeverage(rng) };
+}
+// A partial input block is completed with empty required siblings so the
+// zero-denominator edges stay on the valid (all-required-present) path.
+function withRequired(partial) {
+  return { lcr: {}, nsfr: {}, leverage: {}, ...partial };
 }
 
 const TRIALS = 4000;
@@ -153,29 +163,68 @@ function checkP4_ulp_forcing() {
   // rate_pct / factor_pct clamp boundary [0,100]
   const rateForced = [0, -0, eps, 100 - eps, 100, 100 + eps, -eps, Number.MIN_VALUE];
   for (const rate_pct of rateForced) {
-    const { output_payload: o } = compute({ lcr: { hqla_positions: [{ level: 'l1', market_value_musd: 1000 }], outflows: [{ label: 'o', balance_musd: 100, rate_pct }], inflows: [] } });
+    const { output_payload: o } = compute(withRequired({ lcr: { hqla_positions: [{ level: 'l1', market_value_musd: 1000 }], outflows: [{ label: 'o', balance_musd: 100, rate_pct }], inflows: [] } }));
     checked++;
     if (!Number.isFinite(o.lcr.gross_outflows_musd)) violations++;
   }
   // zero-denominator edges: nco=0 (no outflows), totalRsf=0, totalExp=0
   {
-    const noOutflow = compute({ lcr: { hqla_positions: [{ level: 'l1', market_value_musd: 500 }], outflows: [], inflows: [] } }).output_payload;
+    const noOutflow = compute(withRequired({ lcr: { hqla_positions: [{ level: 'l1', market_value_musd: 500 }], outflows: [], inflows: [] } })).output_payload;
     checked++;
     if (noOutflow.lcr.lcr_pct !== null || noOutflow.lcr.lcr_compliant !== true) violations++;
-    const zeroRsf = compute({ nsfr: { asf_items: [{ label: 'a', amount_musd: 500, factor_pct: 100 }], rsf_items: [] } }).output_payload;
+    const zeroRsf = compute(withRequired({ nsfr: { asf_items: [{ label: 'a', amount_musd: 500, factor_pct: 100 }], rsf_items: [] } })).output_payload;
     checked++;
     if (zeroRsf.nsfr.nsfr_pct !== null || zeroRsf.nsfr.nsfr_compliant !== true) violations++;
-    const zeroExp = compute({ leverage: { cet1_musd: 500, at1_musd: 0 } }).output_payload;
+    const zeroExp = compute(withRequired({ leverage: { cet1_musd: 500, at1_musd: 0 } })).output_payload;
     checked++;
     if (zeroExp.leverage.leverage_ratio_pct !== null || zeroExp.leverage.leverage_ratio_compliant !== true) violations++;
   }
   // HQLA haircut tier boundary — l2b cap edge (max_total_from_l1 * 0.15)
   {
-    const denormalHqla = compute({ lcr: { hqla_positions: [{ level: 'l1', market_value_musd: eps }, { level: 'l2b', market_value_musd: Number.MIN_VALUE }], outflows: [], inflows: [] } }).output_payload;
+    const denormalHqla = compute(withRequired({ lcr: { hqla_positions: [{ level: 'l1', market_value_musd: eps }, { level: 'l2b', market_value_musd: Number.MIN_VALUE }], outflows: [], inflows: [] } })).output_payload;
     checked++;
     if (!Number.isFinite(denormalHqla.lcr.hqla_total_musd)) violations++;
   }
   return { name: 'P4_ulp_boundary_forcing_rate_clamp_zero_denominator_haircut', trials: checked, violations };
+}
+
+// ---------- P5: required fields never produce a positive compliance verdict ----------
+function checkP5_required_fields_never_positive() {
+  let violations = 0, checked = 0;
+  const base = randomPP(mulberry32(0x36499));
+  const modes = ['delete', 'null', 'empty', 'whitespace'];
+  for (const field of ['lcr', 'nsfr', 'leverage']) {
+    for (const mode of modes) {
+      const pp = structuredClone(base);
+      if (mode === 'delete') delete pp[field];
+      else if (mode === 'null') pp[field] = null;
+      else if (mode === 'empty') pp[field] = '';
+      else pp[field] = '   ';
+      const { output_payload: o } = compute(pp);
+      checked++;
+      if (o.verdict !== 'INDETERMINATE') violations++;
+      if (o.decision?.gate_policy === 'auto_pass') violations++;
+      if (!Array.isArray(o.missing_required_fields) || !o.missing_required_fields.includes(field)) violations++;
+    }
+  }
+  return { name: 'P5_required_fields_never_positive', trials: checked, violations };
+}
+
+// ---------- P6: buildArtifact never throws (incl. unhashable input) ----------
+async function checkP6_buildArtifact_never_throws() {
+  let violations = 0, checked = 0;
+  const base = randomPP(mulberry32(0x36488));
+  const probes = [
+    base,
+    { lcr: null, nsfr: {}, leverage: {} },
+    { lcr: {}, nsfr: '   ', leverage: {} },
+    { lcr: {}, nsfr: {}, leverage: { cet1_musd: Number.NaN } },
+  ];
+  for (const pp of probes) {
+    checked++;
+    try { await buildArtifact(pp); } catch { violations++; }
+  }
+  return { name: 'P6_buildArtifact_never_throws', trials: checked, violations };
 }
 
 // ---------- run ----------
@@ -189,6 +238,8 @@ results.properties.push(checkP1_termination());
 results.properties.push(checkP2_compliance_and_null_boundedness());
 results.properties.push(checkP3_scale_invariant_ratios_metamorphic());
 results.properties.push(checkP4_ulp_forcing());
+results.properties.push(checkP5_required_fields_never_positive());
+results.properties.push(await checkP6_buildArtifact_never_throws());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 
