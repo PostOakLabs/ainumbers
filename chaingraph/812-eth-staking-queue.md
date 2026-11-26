@@ -1,0 +1,46 @@
+# Ethereum Validator Queue and Sweep Wait
+
+Computes when one validator's exit, consolidation, activation and withdrawal sweep land, from the Electra consensus specification's balance-based churn rules and the queue state the caller declares. From the total active balance it derives the balance churn limit, the activation and exit churn limit and the consolidation churn limit. Given the declared exit queue head it returns the exit epoch, the churn left in that epoch and the withdrawable epoch; given the consolidation queue head it returns the consolidation epoch; given the pending deposit balance and count ahead, the deposit churn carried over and a declared finality lag, it returns the epoch the deposit is applied, the activation epoch and the wait in epochs; given the sweep position, the target index and the withdrawals ahead of it, it returns the slots until the sweep reaches the target. Every figure is a single closed-form division, with no loop over the queue. Two figures can only be bounded: the activation wait is marked as a lower bound when the deposits ahead are small enough that the 16-deposit limit, not the churn, sets the pace, and the sweep wait is marked as a lower bound whenever withdrawals are ahead of the target. The activation figure assumes no Eth1 bridge backlog and no deposits ahead that belong to exiting validators, and holds the churn at its current value, which moves as stake enters or leaves when it is below its cap. Wall-clock seconds are returned only when the caller declares the slot length. The wait follows from the declared queue state and the published rules. It is not a forecast, reads no chain, and says nothing about any live network.
+
+- Page: https://ainumbers.co/chaingraph/812-eth-staking-queue.html
+- Markdown twin: https://ainumbers.co/chaingraph/812-eth-staking-queue.md
+- MCP tool: project_eth_validator_queue_wait (endpoint https://mcp.ainumbers.co/mcp)
+
+## Sample
+
+```json
+{
+  "total_active_balance_gwei": "32400000000000000",
+  "current_epoch": 400000,
+  "withdrawal_credential_prefix": 2,
+  "seconds_per_slot": 12,
+  "exit": {
+    "state_earliest_exit_epoch": 400000,
+    "state_exit_balance_to_consume_gwei": 0,
+    "exit_balance_gwei": "2048000000000"
+  },
+  "consolidation": {
+    "state_earliest_consolidation_epoch": 400000,
+    "state_consolidation_balance_to_consume_gwei": 0,
+    "consolidation_balance_gwei": "2048000000000"
+  },
+  "activation": {
+    "deposit_balance_to_consume_gwei": 0,
+    "pending_deposit_balance_ahead_gwei": "1000000000000000",
+    "pending_deposit_count_ahead": 31250,
+    "deposit_amount_gwei": "32000000000",
+    "finality_lag_epochs": 2
+  },
+  "sweep": {
+    "validator_count": 1000000,
+    "next_withdrawal_validator_index": 0,
+    "target_validator_index": 500000,
+    "withdrawable_count_ahead": 0,
+    "prior_withdrawals_per_slot": 0
+  }
+}
+```
+
+## Verify
+
+Run the sample policy_parameters through MCP tool `project_eth_validator_queue_wait` at https://mcp.ainumbers.co/mcp (or the page form) and check the returned receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.

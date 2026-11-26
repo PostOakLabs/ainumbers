@@ -13,7 +13,10 @@
  * below either already had a per-kernel mode, or gained a small `--only <id>`
  * flag on the underlying script (behaviour-neutral: whole-estate run is
  * unchanged when the flag is absent). See the row's `done:` list for which
- * scripts were touched.
+ * scripts were touched. ONE exception: check 7c (mutation wall bound) is an
+ * ADVISORY estimate, not a gate — it wires run-mutation-tier.mjs's own
+ * exported machinery into a short sampled run and never gates anything
+ * (MUTATION-BOUND-FROM-PREFLIGHT-1).
  *
  * Usage:
  *   node scripts/kernel-preflight.mjs <art-id>            full check list
@@ -54,9 +57,11 @@
 import { execSync, execFileSync } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
 import { loadHubCategories } from './_hub-categories.mjs';
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { existsSync, readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { resolve, dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { copySandboxDeps, surfaceSplitPatch, runProcessBounded, loadConfig } from './run-mutation-tier.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const env = { ...process.env, PYTHONIOENCODING: 'utf-8' };
@@ -97,6 +102,20 @@ function na(label, reason) {
   return { label, status: 'N-A', ms: 0, note: reason };
 }
 
+/** True when relPath differs from origin/main, or is absent there (a brand-new
+ * file, genuinely touched). Shared touched-scoping: the jsdoc touched-root
+ * derivation (check 6) and the mutation wall bound advisory (check 7c) must
+ * agree on what "touched" means, so one definition serves both. */
+function differsFromOriginMain(relPath, absPath) {
+  let originContent;
+  try {
+    originContent = execFileSync('git', ['show', `origin/main:${relPath}`], { cwd: REPO, env: gitEnv(), stdio: ['ignore', 'pipe', 'ignore'] }).toString();
+  } catch {
+    return true; // absent from origin/main — brand-new file, genuinely touched
+  }
+  return originContent !== readFileSync(absPath, 'utf8');
+}
+
 const results = [];
 
 function record(r) {
@@ -126,6 +145,12 @@ if (!shouldStop()) {
 // 4. guest-builtin safety
 if (!shouldStop()) {
   record(run('Guest-builtin safety (GUEST-BUILTIN-GATE-1)', `node chaingraph/kernels/check-guest-builtin-safety.mjs --only ${ID}`));
+}
+
+// 4a. caller-key lookup (KERNEL-CALLER-KEY-LOOKUP-LINT-1) — blocking for a kernel with no
+// baseline entry (a newly added kernel), advisory for kernels already in the baseline.
+if (!shouldStop()) {
+  record(run('Caller-key lookup (KERNEL-CALLER-KEY-LOOKUP-LINT-1)', `node chaingraph/kernels/lint-caller-key-lookup.mjs --only ${ID}`));
 }
 
 // 4b. citation-in-comments (KERNEL-CITATION-CLASS-1) — kernel source is BEHAVIOUR ONLY;
@@ -167,15 +192,6 @@ if (!shouldStop()) {
   const relFloor = `chaingraph/kernels/__proptests__/${ID}.proptest.mjs`;
   const candidates = [relKernel, ...(existsSync(PROPTEST_PATH) ? [relFloor] : [])];
 
-  function differsFromOriginMain(relPath, absPath) {
-    let originContent;
-    try {
-      originContent = execFileSync('git', ['show', `origin/main:${relPath}`], { cwd: REPO, env: gitEnv(), stdio: ['ignore', 'pipe', 'ignore'] }).toString();
-    } catch {
-      return true; // absent from origin/main — brand-new file, genuinely touched
-    }
-    return originContent !== readFileSync(absPath, 'utf8');
-  }
   const files = candidates.filter((rel) => differsFromOriginMain(rel, resolve(REPO, rel)));
 
   if (files.length === 0) {
@@ -258,6 +274,213 @@ if (!shouldStop()) {
     record(na('Floor digest stamp (kernel_digest_at_authoring)', 'no floor file to check (see prior FAIL)'));
   } else {
     record(run('Floor digest stamp (kernel_digest_at_authoring)', `node scripts/check-fv-floor-coverage.mjs --verify-authoring "chaingraph/kernels/__proptests__/${ID}.proptest.mjs"`));
+  }
+}
+
+// 7c. Mutation wall bound (advisory, MUTATION-BOUND-FROM-PREFLIGHT-1). For a
+// TOUCHED kernel (its bytes differ from origin/main) that carries NO sibling
+// <id>.mutation.json bound, estimate what one full mutation-tier run of this
+// kernel would cost and, when the estimate exceeds the 600 s default bound,
+// print `would-set bound N s` plus the sibling content that would carry it.
+// Cure class it automates: the 2026-11 CI shards went red with
+// "MUTATION-TIER TIMEOUT ... after 600s" for kernels whose honest bound
+// needed a measured full run (art-783: 1787 mutants, 1377.7 s full wall) that
+// nobody could know before booking the CI minute.
+//
+// The estimate = mutants x measured seconds per mutant x 2.3 safety. The
+// per-mutant seconds come from a SHORT SAMPLED Stryker run: up to three
+// 40-line windows of the SANDBOX kernel copy stay mutable via the SAME
+// StrykerJS directive pair surfaceSplitPatch writes (tracked kernel bytes are
+// never touched); the sampled wall over the sampled active mutants gives
+// s/mutant at the tier's own concurrency, and the report's full mutant count
+// (Ignored entries included) gives the population.
+//
+// Advisory ONLY: the sibling file is never written, and every terminal state
+// below is N-A, so this step can never change this script's exit code. A
+// state the step cannot measure (no npx, budget expiry, no active sample
+// mutant) is printed as its own named N-A, never silently skipped (SO #34c).
+// --fast skips the step outright so the authoring loop keeps its 1-2 min
+// shape; run once without --fast before booking mutation-tier CI time.
+// KERNEL_PREFLIGHT_MUTATION_SAMPLE_JSON={"mutantCount":n,"secondsPerMutant":x}
+// injects a pre-measured sample (the selftest's surface, and any caller that
+// already holds a real measured sample); production runs measure for
+// themselves.
+if (!shouldStop()) {
+  const t0 = Date.now();
+  const LABEL = 'Mutation wall bound (advisory, MUTATION-BOUND-FROM-PREFLIGHT-1)';
+  const SAMPLE = {
+    DEFAULT_BOUND_S: 600, // run-mutation-tier.mjs DEFAULT_KERNEL_TIMEOUT_S: the CI per-kernel bound
+    SAFETY_FACTOR: 2.3,   // measured CI-vs-local drift of the mutation tier wall clock
+    WINDOW_LINES: 40,     // lines per sample window
+    BUDGET_S: 240,        // hard wall bound for the whole sampled run (expiry => NOT MEASURED, never a hang)
+    CONCURRENCY: 2,       // run-mutation-tier.mjs's own default
+    TIMEOUT_MS: 15000,    // per-mutant timeout, run-mutation-tier.mjs's own default
+  };
+  const siblingRel = `chaingraph/kernels/${ID}.mutation.json`;
+  const advisory = (out) => record({ label: LABEL, status: 'N-A', ms: Date.now() - t0, out });
+  const estimateBound = (mutantCount, secondsPerMutant) =>
+    Math.round(mutantCount * secondsPerMutant * SAMPLE.SAFETY_FACTOR);
+
+  // Up to three disjoint sample windows, centers at the quarters. Below twice
+  // the window size the whole file IS the sample (no directives needed).
+  // Adjacent windows keep a >= 2-line gap so the disable/restore directive
+  // pairs never share a line.
+  const sampleWindows = (totalLines) => {
+    if (totalLines <= SAMPLE.WINDOW_LINES * 2) return [[1, totalLines]];
+    const out = [];
+    for (const f of [0.25, 0.5, 0.75]) {
+      const s = Math.max(1, Math.round(totalLines * f) - Math.floor(SAMPLE.WINDOW_LINES / 2));
+      const e = Math.min(totalLines, s + SAMPLE.WINDOW_LINES - 1);
+      if (out.length && s <= out[out.length - 1][1] + 2) continue;
+      out.push([s, e]);
+    }
+    return out;
+  };
+  // The disabled complement of the active windows, as surfaceSplitPatch ranges.
+  const complementOf = (windows, totalLines) => {
+    const out = [];
+    let cursor = 1;
+    for (const [s, e] of windows) {
+      if (s > cursor) out.push([cursor, s - 1]);
+      cursor = e + 1;
+    }
+    if (cursor <= totalLines) out.push([cursor, totalLines]);
+    return out;
+  };
+
+  const sampleMutationRate = async (strykerVersion) => {
+    const sandbox = mkdtempSync(join(tmpdir(), 'ain-kpfb-sample-'));
+    try {
+      copySandboxDeps(
+        `chaingraph/kernels/${ID}.kernel.mjs`,
+        `chaingraph/kernels/__proptests__/${ID}.proptest.mjs`,
+        `chaingraph/kernels/fixtures/${ID}.fixtures.json`,
+        sandbox, REPO,
+      );
+      const kernelPath = join(sandbox, 'chaingraph', 'kernels', `${ID}.kernel.mjs`);
+      const source = readFileSync(kernelPath, 'utf8');
+      const totalLines = source.split(/\r?\n/).length;
+      const windows = sampleWindows(totalLines);
+      const complement = complementOf(windows, totalLines);
+      const patched = complement.length
+        ? surfaceSplitPatch(source, complement, 'kernel-preflight mutation-wall sample (MUTATION-BOUND-FROM-PREFLIGHT-1); sandbox copy only')
+        : source;
+      writeFileSync(kernelPath, patched);
+      const reportPath = join(sandbox, 'reports', `${ID}.sample.mutation-report.json`);
+      const configPath = join(sandbox, `stryker.${ID}.sample.json`);
+      writeFileSync(configPath, JSON.stringify({
+        mutate: [`chaingraph/kernels/${ID}.kernel.mjs`],
+        testRunner: 'command',
+        commandRunner: { command: `node chaingraph/kernels/__proptests__/${ID}.proptest.mjs` },
+        reporters: ['json'],
+        jsonReporter: { fileName: reportPath },
+        timeoutMS: SAMPLE.TIMEOUT_MS,
+        concurrency: SAMPLE.CONCURRENCY,
+        tempDirName: join(sandbox, '.stryker-tmp', ID),
+      }, null, 2));
+      // The same win32 npx-cli.js-direct invocation runStryker() uses inside
+      // run-mutation-tier.mjs (npx.cmd + shell:true reopens a shell
+      // metacharacter class on win32; running npx's own npx-cli.js through
+      // `node` directly is a normal execve on every platform).
+      const npxCliJs = resolve(dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npx-cli.js');
+      const inv = process.platform === 'win32'
+        ? (existsSync(npxCliJs) ? { cmd: process.execPath, prefixArgs: [npxCliJs] } : { cmd: 'npx.cmd', prefixArgs: [] })
+        : { cmd: 'npx', prefixArgs: [] };
+      const run = await runProcessBounded({
+        cmd: inv.cmd,
+        args: [...inv.prefixArgs, '--yes', `--package=@stryker-mutator/core@${strykerVersion}`, 'stryker', 'run', configPath],
+        cwd: sandbox,
+        budgetS: SAMPLE.BUDGET_S,
+      });
+      if (run.timedOut) return { measured: false, why: `the sampled run exceeded its ${SAMPLE.BUDGET_S}s wall budget and was killed` };
+      if (run.crashed) return { measured: false, why: `stryker could not run: ${run.error}` };
+      if (!existsSync(reportPath)) return { measured: false, why: 'the sampled run produced no report (Stryker initial-test-run failure?)' };
+      let report;
+      try { report = JSON.parse(readFileSync(reportPath, 'utf8')); } catch (e) { return { measured: false, why: `the sample report is unparseable: ${e.message}` }; }
+      let totalMutants = 0;
+      let sampled = 0;
+      for (const f of Object.values(report.files || {})) {
+        for (const m of f.mutants || []) {
+          totalMutants += 1;
+          if (m.status !== 'Ignored') sampled += 1;
+        }
+      }
+      if (sampled < 1) return { measured: false, why: `the sample windows carried no active mutant across ${totalMutants} generated (all Ignored) — nothing measurable` };
+      return { measured: true, totalMutants, sampled, sampledSeconds: run.elapsedS, windows: windows.length };
+    } finally {
+      // KERNEL-PREFLIGHT-SAMPLE-RM-EPERM-1: cleanup is best-effort. On win32 a
+      // budget-killed stryker tree releases its file handles late, so a bare
+      // rmSync threw EPERM here and crashed the whole preflight from inside an
+      // ADVISORY check (2026-11-21, art-826: exit 1 after the 240 s budget).
+      // Retry the delete, and if the OS still holds the directory, leave it in
+      // the temp dir with a note rather than fail a gate this check never owns.
+      try {
+        rmSync(sandbox, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
+      } catch (e) {
+        console.log(`  [${LABEL}] note: could not remove sample sandbox ${sandbox} (${e.code || e.message}); left in the temp dir. Advisory only, the gate result is unaffected.`);
+      }
+    }
+  };
+
+  // Precondition screen; each state its own named N-A.
+  if (FAST) {
+    advisory('skipped under --fast — the authoring loop keeps its 1-2 min shape. Run once without --fast before booking mutation-tier CI time.');
+  } else if (existsSync(resolve(REPO, siblingRel))) {
+    let boundNote = '';
+    try { boundNote = ` (kernelTimeoutSeconds ${JSON.parse(readFileSync(resolve(REPO, siblingRel), 'utf8')).kernelTimeoutSeconds})`; } catch { /* unreadable sibling: the name alone still decides */ }
+    advisory(`sibling bound present: ${siblingRel}${boundNote} — the tier already resolves its wall clock from it; nothing to estimate.`);
+  } else if (!differsFromOriginMain(`chaingraph/kernels/${ID}.kernel.mjs`, KERNEL_PATH)) {
+    advisory('kernel byte-identical to origin/main — untouched kernel bytes are the bytes the CI tier already measured; nothing to estimate.');
+  } else {
+    let tierConfig = null;
+    try { tierConfig = loadConfig(REPO); } catch { /* unreadable config: the screens below pass open; the sample itself stays honest */ }
+    const fixturesPath = resolve(REPO, 'chaingraph', 'kernels', 'fixtures', `${ID}.fixtures.json`);
+    let decision = null;
+    if (tierConfig?.excludedKernels && Object.prototype.hasOwnProperty.call(tierConfig.excludedKernels, ID)) {
+      decision = advisory(`excludedKernels names ${ID} — the tier never runs this kernel, so no wall bound can be owed.`);
+    } else if (tierConfig?.mutateSurfaceSplits && Object.prototype.hasOwnProperty.call(tierConfig.mutateSurfaceSplits, ID)) {
+      decision = advisory(`mutateSurfaceSplits names ${ID} — a named surface split already shrinks the instrumented population, so a plain-source sample would misestimate it. Bound from your own measured run instead.`);
+    } else if (!existsSync(fixturesPath)) {
+      decision = advisory(`no chaingraph/kernels/fixtures/${ID}.fixtures.json — the sampled floor has no fixtures file to run against; cannot sample.`);
+    }
+    if (!decision) {
+      let sample = null;
+      const injected = process.env.KERNEL_PREFLIGHT_MUTATION_SAMPLE_JSON;
+      if (injected) {
+        try {
+          const s = JSON.parse(injected);
+          if (!(Number.isFinite(s.mutantCount) && s.mutantCount > 0) || !(Number.isFinite(s.secondsPerMutant) && s.secondsPerMutant > 0)) {
+            throw new Error('mutantCount and secondsPerMutant must both be positive finite numbers');
+          }
+          sample = { measured: true, totalMutants: s.mutantCount, secondsPerMutant: s.secondsPerMutant, injected: true };
+        } catch (e) {
+          sample = { measured: false, why: `injected sample unreadable: ${e.message}` };
+        }
+      } else {
+        console.log(`  [${LABEL}] sampling now: one bounded stryker run over three <=${SAMPLE.WINDOW_LINES}-line windows (budget ${SAMPLE.BUDGET_S}s); stryker output follows.`);
+        sample = await sampleMutationRate(tierConfig?.strykerVersion || '8.7.1');
+      }
+      if (!sample.measured) {
+        advisory(`NOT MEASURED — ${sample.why}. The advisory cannot estimate here; measure the full run detached before booking mutation-tier CI time.`);
+      } else {
+        const secondsPerMutant = sample.injected ? sample.secondsPerMutant : sample.sampledSeconds / sample.sampled;
+        const estimateS = sample.totalMutants * secondsPerMutant * SAMPLE.SAFETY_FACTOR;
+        const boundN = estimateBound(sample.totalMutants, secondsPerMutant);
+        const basis = sample.injected
+          ? `pre-measured sample injected via KERNEL_PREFLIGHT_MUTATION_SAMPLE_JSON (${sample.totalMutants} mutants x ${secondsPerMutant.toFixed(3)} s/mutant)`
+          : `sampled ${sample.sampled} active mutant(s) across ${sample.windows} window(s) in ${sample.sampledSeconds}s at concurrency ${SAMPLE.CONCURRENCY} (${secondsPerMutant.toFixed(3)} s/mutant), ${sample.totalMutants} mutants generated in total`;
+        if (estimateS > SAMPLE.DEFAULT_BOUND_S) {
+          advisory([
+            `would-set bound ${boundN} s`,
+            `sibling ${siblingRel} would carry: ${JSON.stringify({ kernelTimeoutSeconds: boundN })}`,
+            `estimate: ${sample.totalMutants} mutants x ${secondsPerMutant.toFixed(3)} s/mutant x ${SAMPLE.SAFETY_FACTOR} safety = ${estimateS.toFixed(1)} s vs the ${SAMPLE.DEFAULT_BOUND_S}s default — past it, the CI tier hard-fails at the default bound (MUTATION-TIER TIMEOUT). ${basis}.`,
+            'Advisory only: this file was NOT written. Author the sibling from your own measured run if you adopt the bound.',
+          ].join('\n'));
+        } else {
+          advisory(`estimate ${estimateS.toFixed(1)} s (${basis}) is under the ${SAMPLE.DEFAULT_BOUND_S}s default — no sibling bound needed.`);
+        }
+      }
+    }
   }
 }
 
@@ -346,11 +569,37 @@ if (!shouldStop()) {
   } else {
     const nav = run('Node page exists + linked from a hub', 'node scripts/check-nav-reachability.mjs');
     const pageRel = `chaingraph/${ID}.html`;
-    const isIsland = nav.out.includes(pageRel);
-    if (nav.status === 'PASS' || !isIsland) {
-      record({ label: 'Node page exists + linked from a hub', status: 'PASS', ms: nav.ms, out: `chaingraph/${ID}.html exists and is not reported as an unreachable island.` });
-    } else {
+    // NAV-ISLAND-SCOPE-1 (2026-11-16): judge ONLY this PR's own page. The old rule
+    // substring-matched this page's path ANYWHERE in the gate's combined output, but the
+    // gate names our page in places that are NOT island findings — most notably the
+    // PENDING-ASSEMBLE excusal section, which is the NORMAL state of a new node page
+    // until main-side registration lands (SO #35). Measured 2026-11-13, merge_group run
+    // 43389851037: main's derived regen for chaingraph/art-832-card-data-flow-scope.html
+    // had failed its copy-hallmarks cap, so that merged-but-unlinked page sat on main,
+    // this sub-gate exited 1 on it, and our own excused page's path in the same output
+    // made this step FAIL the unrelated art-816 preflight with "1 NEW island(s):
+    // chaingraph/art-832-...". A page on main that is unreachable because main's regen
+    // is red must not fail another PR's kernel preflight. The gate now prints one
+    // machine-readable verdict line on both plain-check exits —
+    //   nav-reachability: FAILING-ISLANDS <n>[ <path>...]
+    // — and this check reads THAT set, never the prose: our page in the set is a real
+    // island we own (wire it into a hub); our page merely excused or reachable is a
+    // PASS; islands outside the set belong to main's tree and their own rows. A
+    // non-zero exit with no parsable line (sub-gate NOT_EVALUABLE, format drift) fails
+    // CLOSED — a result we cannot read is never a green (NAV-SUBGATE-CRASH-1, SO #34c).
+    const line = nav.out.split('\n').find((l) => l.startsWith('nav-reachability: FAILING-ISLANDS'));
+    const toks = line ? line.trim().split(/\s+/) : null;
+    const count = toks ? Number(toks[2]) : NaN;
+    const wellFormed = !!toks && toks.length >= 3 && Number.isInteger(count) && count === toks.length - 3;
+    const failing = wellFormed ? new Set(toks.slice(3)) : null;
+    if (nav.status === 'PASS') {
+      record({ label: 'Node page exists + linked from a hub', status: 'PASS', ms: nav.ms, out: `chaingraph/${ID}.html exists and check-nav-reachability.mjs passed with 0 failing islands.` });
+    } else if (!failing) {
+      record({ label: 'Node page exists + linked from a hub', status: 'FAIL', ms: nav.ms, out: `check-nav-reachability.mjs failed but printed no parsable FAILING-ISLANDS verdict line — its result cannot be classified, so this check fails closed rather than guess (NAV-SUBGATE-CRASH-1: a verdict that was never computed is never a green). Nothing is attributed to chaingraph/${ID}.html.\n${nav.out}` });
+    } else if (failing.has(pageRel)) {
       record({ label: 'Node page exists + linked from a hub', status: 'FAIL', ms: nav.ms, out: `chaingraph/${ID}.html is an unreachable island per check-nav-reachability.mjs (NAV-ISLAND-1) — wire it into a hub.\n${nav.out}` });
+    } else {
+      record({ label: 'Node page exists + linked from a hub', status: 'PASS', ms: nav.ms, out: `chaingraph/${ID}.html is NOT among the ${count} new island(s) check-nav-reachability.mjs failed on (NAV-ISLAND-SCOPE-1: ${[...failing].join(', ')} sit on main's tree and are owned by main-side regen or their own rows — a page unreachable because main's regen is red must not fail this PR's kernel preflight).\n${nav.out}` });
     }
   }
 }
@@ -369,6 +618,24 @@ if (!shouldStop()) {
   const kernelSrc = readFileSync(KERNEL_PATH, 'utf8');
   const looksStandardsImplementing = /\bregulatory_basis\s*:/.test(kernelSrc) || shard?.standards_basis === 'implements_standard';
 
+  // SCOPE (SPEC.md §30.4 — branch-aware; DIAG-SO38-SCOPE-1). §30 gates a node only
+  // when it is NEW or CHANGED relative to origin/main: "A pre-existing node with no
+  // standards_basis declaration is reported as a gap ... and is never itself a CI
+  // failure." The §15 SSOT gate (check-clause-digest.mjs) implements exactly that and
+  // reports the pre-existing class green (384 such nodes counted on main, NOT gating).
+  // This check's old unconditional shape hard-failed 68 pre-existing kernels on a
+  // clean main checkout (art-364 measured 2026-11-25) off the kernel-source
+  // `regulatory_basis:` string — an emitted artifact field, not a §30.3 declaration.
+  // Same touched-scoping primitive checks 6 and 7c already use. Never applied to
+  // touched bytes — nothing about NEW or CHANGED bytes is weakened (no-waiver ruling).
+  const nodeTouched =
+    differsFromOriginMain(`chaingraph/kernels/${ID}.kernel.mjs`, KERNEL_PATH) ||
+    (!existsSync(SHARD_PATH) || differsFromOriginMain(`chaingraph/graph/nodes/${ID}.json`, SHARD_PATH));
+  const recordScoped = (r, owe) => {
+    if (r.status !== 'FAIL' || nodeTouched) return record(r);
+    return record({ ...r, status: 'N-A', out: `${r.out.trimEnd()}\nSCOPE (SPEC.md §30.4, DIAG-SO38-SCOPE-1): ${ID} is byte-identical to origin/main (kernel + shard) — a pre-existing node is a visible gap, NOT gating, never backfilled; check-clause-digest.mjs reports this same class green. It gates only once a branch touches this node${owe ? ` — a touched node then owes ${owe}` : ''}.` });
+  };
+
   if (shard?.standards_basis === 'not_applicable') {
     record({ label: 'cited_clause_digest present-or-N/A (SO #38/§30)', status: 'N-A', ms: Date.now() - t0, out: `${ID} declares standards_basis:"not_applicable".` });
   } else if (shard?.standards_basis === 'implements_standard' || shard?.standards_basis === 'cites_informative') {
@@ -385,13 +652,13 @@ if (!shouldStop()) {
     if (digests.length > 0) {
       record({ label: 'cited_clause_digest present-or-N/A (SO #38/§30)', status: 'PASS', ms: Date.now() - t0, out: `standards_basis:"${basis}" with ${digests.length} cited_clause_digest entr(ies) present.` });
     } else {
-      record({ label: 'cited_clause_digest present-or-N/A (SO #38/§30)', status: 'FAIL', ms: Date.now() - t0, out: `standards_basis:"${basis}" but cited_clause_digest[] is empty — SO #38 violation (§30.5: both implements_standard and cites_informative require >=1 entry).` });
+      recordScoped({ label: 'cited_clause_digest present-or-N/A (SO #38/§30)', status: 'FAIL', ms: Date.now() - t0, out: `standards_basis:"${basis}" but cited_clause_digest[] is empty — SO #38 violation (§30.5: both implements_standard and cites_informative require >=1 entry).` }, 'a non-empty cited_clause_digest[] whose entries resolve to clause-snapshot-registry.json (§30.5)');
     }
   } else if (looksStandardsImplementing) {
     const declared = shard?.standards_basis;
-    record({ label: 'cited_clause_digest present-or-N/A (SO #38/§30)', status: 'FAIL', ms: Date.now() - t0, out: declared
+    recordScoped({ label: 'cited_clause_digest present-or-N/A (SO #38/§30)', status: 'FAIL', ms: Date.now() - t0, out: declared
       ? `kernel source declares a regulatory_basis (standards-implementing) and the shard declares standards_basis:"${declared}", which is not one of the three SPEC.md §30.3 values (implements_standard | cites_informative | not_applicable).`
-      : `kernel source declares a regulatory_basis (standards-implementing) but the shard carries no standards_basis field at all — SO #38 requires "implements_standard" or "cites_informative" + cited_clause_digest[], or an explicit "not_applicable".` });
+      : `kernel source declares a regulatory_basis (standards-implementing) but the shard carries no standards_basis field at all — SO #38 requires "implements_standard" or "cites_informative" + cited_clause_digest[], or an explicit "not_applicable".` }, 'a standards_basis declaration per §30.3 (implements_standard | cites_informative | not_applicable) plus, for the first two, resolvable cited_clause_digest[] entries (§30.5)');
     } else {
     record({ label: 'cited_clause_digest present-or-N/A (SO #38/§30)', status: 'N-A', ms: Date.now() - t0, out: `no standards_basis field and no regulatory_basis in kernel source — not a standards-implementing node by this discriminator (the same one FAST-PROVE-BATCH-1 used). Reported N-A, never silently passed: RIDER-KERNEL/CLAUSE-DIGEST-LAND-0816-1 own backfilling this class, not this row.` });
   }

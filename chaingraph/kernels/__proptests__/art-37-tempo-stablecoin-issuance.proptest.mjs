@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:252b8f7b8a64ab8a59613d891c4849f52fdc3322a68a98de86dd032a2305f6ae
+// kernel_digest_at_authoring: sha256:8a69e4f528386042c0313042e7aaf02e47a2332a7db9eb710b91e13f85467d4c
 //
 // FV-PROPFLOOR-SHARD-B13-1 — property-test floor for art-37-tempo-stablecoin-issuance.
 // Class B (bounded-numeric). ⚠ FIX-2 CARRY CORRECTION: the WU row lists this kernel as
@@ -75,7 +75,7 @@ function checkP1_verdictBounded() {
     const pp = mkPP(rand);
     const r = compute(pp);
     checked++;
-    if (!['PASS', 'WARN', 'FAIL'].includes(r.output_payload.verdict)) violations++;
+    if (!['PASS', 'WARN', 'FAIL', 'INDETERMINATE'].includes(r.output_payload.verdict)) violations++;
   }
   return { name: 'P1_verdict_bounded_to_3_state_enum', trials: checked, violations };
 }
@@ -122,10 +122,62 @@ function checkP4_forced() {
   for (const [pp, label] of CATEGORICAL_BOUNDARY_CASES) {
     const r = compute(pp);
     const o = r.output_payload;
-    const plausible = ['PASS', 'WARN', 'FAIL'].includes(o.verdict) && Number.isInteger(o.fail_count) && Number.isInteger(o.warn_count);
+    const plausible = ['PASS', 'WARN', 'FAIL', 'INDETERMINATE'].includes(o.verdict) && Number.isInteger(o.fail_count) && Number.isInteger(o.warn_count);
     rows.push({ label, input: pp, output: o, plausible });
   }
   return rows;
+}
+
+// ---------- P6: fail-closed — every positive vector with one required flag deleted, nulled,
+// emptied or whitespace-only must never keep a positive verdict. ----------
+function checkP6_requiredFieldNeverPositive() {
+  const fixtures = JSON.parse(readFileSync(path.join(__dirname, '..', 'fixtures', 'art-37-tempo-stablecoin-issuance.fixtures.json'), 'utf8'));
+  const required = [
+    'allowlistEnabled', 'blocklistEnabled', 'yieldEnabled', 'freezeEnabled',
+    'ofacEnabled', 'roleBurnBlocked', 'roleIssuer', 'rolePause',
+  ];
+  let violations = 0, checked = 0, positives = 0;
+  for (const vec of fixtures.vectors) {
+    if (compute(vec.policy_parameters).output_payload.verdict !== 'PASS') continue;
+    positives++;
+    for (const f of required) {
+      for (const mode of ['delete', 'null', 'empty', 'blank']) {
+        const pp = JSON.parse(JSON.stringify(vec.policy_parameters));
+        if (mode === 'delete') delete pp[f];
+        else pp[f] = mode === 'null' ? null : mode === 'empty' ? '' : '   ';
+        checked++;
+        const r = compute(pp).output_payload;
+        if (r.verdict === 'PASS' || r.verdict === 'WARN') violations++;
+        if (r.verdict !== 'INDETERMINATE') violations++;
+      }
+    }
+  }
+  if (positives === 0) violations++;
+  return { name: 'P6_required_field_never_positive_including_blank', trials: checked, violations };
+}
+
+// ---------- D6: buildArtifact_never_throws — one fixture per unhashable class ----------
+async function checkP5_buildArtifactNeverThrows() {
+  const { buildArtifact } = await import('../art-37-tempo-stablecoin-issuance.kernel.mjs');
+  let deep = {}; let cur = deep;
+  for (let i = 0; i < 511; i++) { cur.n = {}; cur = cur.n; }
+  const classes = [
+    ['junk_1e300', { supplyCap: 1e300 }],
+    ['nan', { supplyCap: NaN }],
+    ['neg_infinity', { supplyCap: -Infinity }],
+    ['depth_511', { supplyCap: deep }],
+    ['over_1e6_values', { supplyCap: new Array(1000001).fill(0) }],
+  ];
+  let violations = 0; const rows = [];
+  for (const [label, pp] of classes) {
+    try {
+      const a = await buildArtifact(pp);
+      const ok = a.execution_hash === null && a.hash_refusal && typeof a.hash_refusal.reason === 'string';
+      if (!ok) violations++;
+      rows.push({ label, refused: !!ok });
+    } catch (e) { violations++; rows.push({ label, threw: String(e && e.message).slice(0, 80) }); }
+  }
+  return { name: 'buildArtifact_never_throws', trials: classes.length, violations, rows };
 }
 
 const oracleOk = runFixtureOracle();
@@ -137,6 +189,8 @@ if (!oracleOk) {
 results.properties.push(checkP1_verdictBounded());
 results.properties.push(checkP2_verdictMatchesCounts());
 results.properties.push(checkP3_currencyPassCaseInsensitive());
+results.properties.push(checkP6_requiredFieldNeverPositive());
+results.properties.push(await checkP5_buildArtifactNeverThrows());
 results.boundary_forced = checkP4_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);

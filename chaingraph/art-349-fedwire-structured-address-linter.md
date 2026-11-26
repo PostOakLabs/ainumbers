@@ -20,7 +20,7 @@ Lints a Fedwire or CHIPS ISO 20022 PostalAddress24 block against the Fedwire str
 
 ## Outputs
 
-- compliant (boolean, optional)
+- compliant (boolean,null, optional)
 - disambiguation (string, optional)
 - error_count (integer, optional)
 - fedwire_chips_deadline (string,null, optional)
@@ -40,12 +40,13 @@ Lints a Fedwire or CHIPS ISO 20022 PostalAddress24 block against the Fedwire str
 {
   "network": "fedwire",
   "street_name": "400 South Hope Street",
-  "building_number": "",
+  "building_number": "400",
   "post_code": "90071",
   "town_name": "Los Angeles",
   "country": "US",
   "country_subdivision": "CA",
-  "address_lines": []
+  "address_lines": [],
+  "as_of_date": "N/A"
 }
 ```
 

@@ -101,6 +101,19 @@ export const SURFACES = new Map([
       'files. Its four checks are each continue-on-error, so one red does not hide the others:\n' +
       'read the run summary table for which of the four failed.',
   }],
+  ['vintage-horizon', {
+    name: 'Vintage Horizon (scheduled)',
+    workflow: '.github/workflows/vintage-horizon-schedule.yml',
+    context:
+      'A dated value in data/vintages.json is about to expire, or its successor was due, and\n' +
+      'no later vintage is entered. The report lists one line per fact with the reason\n' +
+      '(EXPIRING within 90 days, or OVERDUE past its expected publication date).\n' +
+      '\n' +
+      'WHAT TO DO: enter the next vintage for each listed fact from a pinned source. This\n' +
+      'issue never edits a sealed kernel; a kernel that needs the new value is an ordinary\n' +
+      'fix row with its own re-prove decision. The issue closes itself on the first weekly\n' +
+      'run where every fact has a successor.',
+  }],
   ['prepush-attestation', {
     name: 'Pre-push Attestation Check',
     workflow: '.github/workflows/prepush-attestation.yml',
@@ -161,6 +174,25 @@ export const SURFACES = new Map([
       'WHAT TO DO: the first failure line names the gate and the finding. Heal at the source\n' +
       '(the chain, manifest or generator that produced it), let the next regen land, and this\n' +
       'issue closes itself on the first run where every reader gate is green.',
+  }],
+  // Not a scheduled surface either: a push:main check
+  // (.github/workflows/dispatch-heartbeat.yml) that the queue drain jobs are
+  // still being driven. Their crons are rarely delivered, so an external
+  // scheduler's workflow_dispatch calls drive them, and when it stops nothing
+  // on GitHub fails.
+  ['dispatch-heartbeat', {
+    name: 'Queue drain heartbeat (main)',
+    workflow: '.github/workflows/dispatch-heartbeat.yml',
+    context:
+      'WHY THIS EXISTS. rearm-recovered (automerge-label.yml), the sync-main drain\n' +
+      '(pr-autofix.yml) and auto-arm.yml run on crons GitHub rarely delivers (72h to\n' +
+      '2026-11-25: 8 of 216, 7 of 72 and 8 of 216 slots). Their real heartbeat is an\n' +
+      'external scheduler that calls workflow_dispatch. When it stops, recovered PRs stop\n' +
+      'being re-armed and BEHIND PRs stop being synced, and no run fails.\n' +
+      '\n' +
+      'WHAT TO DO: check the external scheduler is running and can still dispatch (its token\n' +
+      'may have expired). Dispatching any of the three workflows by hand drains once. This\n' +
+      'issue closes itself on the next merge to main that finds a driven run within the hour.',
   }],
 ]);
 

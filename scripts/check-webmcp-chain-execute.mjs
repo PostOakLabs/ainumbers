@@ -59,7 +59,17 @@
  * NEW keys block everywhere: pull_request, merge_group, main, local.
  * MAIN-ONLY-PATHS-GATE-1 (2026-11-03) removed the pull_request advisory arm:
  * a NEW key that passed the PR as a ::warning ejected the same tree from the
- * merge queue (runs 41476416995 / 41479207322, PRs #2817 / #2818).
+ * merge queue (runs 41476416995 / 41479207322, PRs #2817 / #2818). Never
+ * reintroduce an event-keyed verdict.
+ *
+ * PRESENCE RULE (MUSE52-WEBMCP-CHAIN-EXECUTE-OVERLAY-1): the part 3 registry
+ * (loadMcpNameIndex -> deriveTargets -> registeredNodeSet) reads the same
+ * overlay monolith resolveMonolith picked for the chain list (DERIVED_ROOT, or
+ * the PR-assembled tree), identically on every event. A new chain's step whose
+ * mcp_name is in that overlay is registered and raises no part3 key; a step
+ * absent from it raises a NEW key and BLOCKS on pull_request and merge_group
+ * alike. A bare kernel or shard file on disk is not presence. Part 2 keys are
+ * unchanged: a fresh part2 key still blocks on a pull_request.
  *
  * Usage:
  *   node scripts/check-webmcp-chain-execute.mjs                 # gate
@@ -204,7 +214,8 @@ export async function runPlanChain(pageAbs, pageRel, chainName, extraGlobals = {
  * Part 2 verdict over two independent runs. Recomputes through _hash.mjs.
  * Returns { ok, problem?, hash? }.
  */
-export async function judgePart2(runA, runB) {
+export async function judgePart2(runA, runB, hashImpl = executionHash) {
+  const executionHash = hashImpl; // selftest seam (HASH-REFUSAL-GUARDS-SCRIPTS-1): defaults to the real _hash.mjs impl; the selftest stubs it to simulate HASH-REFUSAL-SHARED-1's null-on-unhashable refusal.
   for (const r of [runA, runB]) {
     if (r.network && r.network.length) return { ok: false, problem: `network access attempted: ${r.network[0]}` };
     if (!r.ok) return { ok: false, problem: r.error };
@@ -224,6 +235,7 @@ export async function judgePart2(runA, runB) {
     return { ok: false, problem: `execution_hash cannot be recomputed through _hash.mjs: ${e.message}` };
   }
   const a = strip(p.execution_hash);
+  if (recomputed === null) return { ok: false, problem: 'execution_hash recomputation refused (unhashable plan preimage)' };
   if (recomputed !== a) return { ok: false, problem: `execution_hash does not reproduce via _hash.mjs executionHash (page ${a.slice(0, 16)}…, recomputed ${recomputed.slice(0, 16)}…)` };
   const q = runB.plan;
   const b = strip(q && typeof q === 'object' ? q.execution_hash : '');
@@ -246,8 +258,8 @@ export function judgePart3(stepIds, registry) {
 
 /* ── registered node set (the generator's own adjudication) ──────────────── */
 
-export async function registeredNodeSet(repo) {
-  const { cleared, manifestIndex, mcpNameByTool } = deriveTargets(repo);
+export async function registeredNodeSet(repo, monolithPath) {
+  const { cleared, manifestIndex, mcpNameByTool } = deriveTargets(repo, monolithPath);
   const wrapper = new Set();
   const direct = new Set();
   for (const id of cleared) {
@@ -402,9 +414,11 @@ async function main() {
   const mono = resolveMonolith({ repo: REPO });
   if (mono.error) { console.error(`✗ check-webmcp-chain-execute FAILED (fail closed): ${mono.error}`); process.exit(1); }
   const cg = JSON.parse(readFileSync(mono.path, 'utf8'));
-  if (mono.tmp) rmSync(mono.tmp, { recursive: true, force: true });
   const chains = (cg.chains ?? []).filter((c) => c && c.name && (!ONLY || c.name === ONLY));
-  const registry = await registeredNodeSet(REPO);
+  // The mcp_name registry reads the SAME overlay monolith the chain list came from,
+  // on every event, so a step's presence never depends on pull_request vs merge_group.
+  const registry = await registeredNodeSet(REPO, mono.path);
+  if (mono.tmp) rmSync(mono.tmp, { recursive: true, force: true });
 
   const rows = await pool(chains, POOL, async (c) => {
     const rel = composerPageRel(c.composer_url);

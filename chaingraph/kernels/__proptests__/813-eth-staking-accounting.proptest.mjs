@@ -1,5 +1,5 @@
 // 813-eth-staking-accounting — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:3c67f800389a0cc0ff46a484c2793943fdc886a2d2f941562eb9eae23c90e52d
+// kernel_digest_at_authoring: sha256:15729396060f993d9a831853089bc5cc992ffb1d1ad17e7021e73ef3be271689
 // spec: research/ETH-STAKING-BUILD-SPEC-AMENDED-2026-11.md (Node A)
 // human_sign_off: PENDING
 //
@@ -121,6 +121,7 @@ function checkSeededRefusals() {
     ['EFFECTIVE_BALANCE_NOT_INCREMENT_MULTIPLE', (p) => { p.effective_balance_gwei = '1500000000'; p.withdrawal_credential_prefix = 1; }],
     ['EFFECTIVE_BALANCE_EXCEEDS_MAXEB', (p) => { p.effective_balance_gwei = '2049000000000'; p.withdrawal_credential_prefix = 2; }],
     ['PARTICIPATING_EXCEEDS_TOTAL', (p) => { p.unslashed_participating_balance_gwei = [p.total_active_balance_gwei, p.total_active_balance_gwei, '18446744073709551615']; }],
+    ['EFFECTIVE_BALANCE_EXCEEDS_TOTAL', (p) => { p.effective_balance_gwei = '32000000000'; p.withdrawal_credential_prefix = 1; p.total_active_balance_gwei = '1000000000'; p.unslashed_participating_balance_gwei = ['1000000000', '1000000000', '1000000000']; p.inclusion_attestations = []; }],
     ['SLOTS_COUNTED_EXCEEDS_EPOCH', (p) => { p.sync.slots_counted = 33; p.sync.slots_set = 0; }],
     ['INCLUSION_LIST_TOO_LONG', (p) => { p.inclusion_attestations = Array.from({ length: 65 }, () => ({ effective_balance_gwei: '32000000000', newly_set_flags: [true, false, false] })); }],
     ['NON_NEGATIVE_INTEGER_INPUTS', (p) => { p.inactivity_score = -1; }],

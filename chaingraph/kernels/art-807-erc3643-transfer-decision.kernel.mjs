@@ -29,6 +29,11 @@ export const meta = {
 // trusted issuer, and at least one claim on that topic from a trusted issuer
 // that the caller declares valid. Claim validity itself is caller-declared.
 //
+// Required inputs are fail-closed: an absent or null required_claim_topics,
+// trusted_issuers or compliance_modules refuses (INPUT_REFUSED, no decision);
+// an explicit empty list is the caller's own statement that nothing is
+// required, trusted or bound, and evaluates as such.
+//
 // Modules re-implemented as pure rules over declared params:
 //   max_balance          deny if amount > max, or receiver identity balance
 //                        (params.identity_balance, else balances[to]) plus
@@ -146,6 +151,9 @@ function parseInputs(pp, refuse) {
     else if (amount === 0n) refuse('AMOUNT_ZERO');
   }
 
+  // Required claim topics are a required input: absence or null refuses
+  // (fail-closed); an explicit empty list is the caller's statement.
+  if (pp.required_claim_topics === undefined) refuse('REQUIRED_CLAIM_TOPICS_MISSING');
   const rawTopics = pp.required_claim_topics === undefined ? [] : pp.required_claim_topics;
   const topics = [];
   if (!Array.isArray(rawTopics) || rawTopics.length > CAP_TOPICS) {
@@ -188,6 +196,8 @@ function parseInputs(pp, refuse) {
     }
   }
 
+  // Trusted issuers are a required input: absence or null refuses (fail-closed).
+  if (pp.trusted_issuers === undefined) refuse('TRUSTED_ISSUERS_MISSING');
   const trusted = {};
   if (pp.trusted_issuers !== undefined) {
     if (!isObj(pp.trusted_issuers) || Object.keys(pp.trusted_issuers).length > CAP_TOPICS) {
@@ -225,6 +235,10 @@ function parseInputs(pp, refuse) {
   }
 
   const modules = [];
+  // Bound compliance modules are a required input: absence or null refuses
+  // (fail-closed); an explicit empty list binds zero modules by the caller's
+  // own statement.
+  if (pp.compliance_modules === undefined) refuse('COMPLIANCE_MODULES_MISSING');
   const rawModules = pp.compliance_modules === undefined ? [] : pp.compliance_modules;
   if (!Array.isArray(rawModules) || rawModules.length > CAP_MODULES) {
     refuse('COMPLIANCE_MODULES_MALFORMED');

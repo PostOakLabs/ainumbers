@@ -23,6 +23,28 @@ os.chdir(ROOT)
 BASE_URL = "https://ainumbers.co"
 TODAY = datetime.date.today().isoformat()   # e.g. 2026-06-02
 
+SECONDARY_MCP_ENDPOINTS = [
+    {
+        "id": "anchor-suite",
+        "name": "anchor-suite",
+        "description": "Anchor MCP server (anchor-suite): anchors a SHA-256 hash to public timestamp authorities and verifies the binding later.",
+        "url": "https://anchor.ainumbers.co/mcp",
+        "execution_model": "mcp-anchor",
+        "license": "CC BY 4.0",
+        "publisher": "Post Oak Labs",
+        "tools": [
+            "anchor_batch",
+            "upgrade_ots_proof",
+            "list_anchor_authorities",
+            "anchor_hash",
+            "verify_anchor_binding",
+            "create_signature_envelope",
+            "verify_signature_envelope",
+            "verify_escalation_closure",
+        ],
+    },
+]
+
 
 # ── GENERATOR-NOOP-STABILITY-1 ────────────────────────────────────────────────
 # The single write path for every file this script emits. It closes two churn
@@ -195,10 +217,12 @@ def main():
         "name": "AINumbers Fintech Intelligence Suite",
         "description": cat_desc,
         "base_url": BASE_URL,
-        "generated": TODAY,
-        "tool_count": n,
-        "tools": entries,
-    }
+    "generated": TODAY,
+    "tool_count": n,
+    "tools": entries,
+    "secondary_endpoints": SECONDARY_MCP_ENDPOINTS,
+}
+
     try:
         _prior_generated = read_json('mcp/catalog.json').get('generated')
     except Exception:
@@ -260,9 +284,24 @@ def main():
         elif s.get('id') == 'ainumbers-apps':
             s['tool_count'] = mcp_live
             s['description'] = (f"Live MCP endpoint ({mcp_live} tools) — chainable OCG compute nodes, "
-                                f"flagship browser tool widgets, and catalog search. "
-                                f"Streamable HTTP at https://mcp.ainumbers.co/mcp, no auth.")
+                                 f"flagship browser tool widgets, and catalog search. "
+                                 f"Streamable HTTP at https://mcp.ainumbers.co/mcp, no auth.")
+    declared_ids = {e['id'] for e in SECONDARY_MCP_ENDPOINTS}
+    wk['servers'] = [s for s in wk.get('servers', []) if s.get('id') not in declared_ids]
+    for e in SECONDARY_MCP_ENDPOINTS:
+        wk['servers'].append({
+            "id": e['id'],
+            "name": e['name'],
+            "description": e['description'],
+            "endpoint_url": e['url'],
+            "execution_model": e['execution_model'],
+            "tool_count": len(e['tools']),
+            "tools": e['tools'],
+            "license": e['license'],
+            "publisher": e['publisher'],
+        })
     dump_json_stable('.well-known/mcp.json', wk)
+
 
     # ── llms.txt (text — targeted replacements) ──
     with open('llms.txt', encoding='utf-8', newline='') as _f:

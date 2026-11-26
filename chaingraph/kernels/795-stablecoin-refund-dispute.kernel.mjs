@@ -80,18 +80,102 @@ function isIdentifierLike(v) {
   return false;
 }
 
-function divFloor(num, den) { return Math.floor(num / den); }
+// Fee arithmetic in BigInt so amount_minor * early_withdrawal_fee_bp cannot pass 2^53 before the
+// division. Both operands are validated non-negative safe integers; BigInt division floors.
+function feeFloor(amountMinor, feeBp) {
+  return Number((BigInt(amountMinor) * BigInt(feeBp)) / 10000n);
+}
+
+// ---- hashability walk (D6) ----
+// Mirrors the classes _hash.mjs assertIJson() refuses: a non-finite number or an integer outside
+// the 2^53 safe range, nesting past MAX_DEPTH, more values than MAX_ELEMENTS. Reports
+// { reason, detail } with the path and kind only, never the value; null when safe to hash.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+// pp alone is held to tighter margins than the full preimage: the envelope wraps pp two levels
+// deeper and output_payload carries values too.
+const PP_MAX_DEPTH = HASH_MAX_DEPTH - 8;
+const PP_MAX_ELEMENTS = 199000;
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
+// ---- typed input checks: a present but malformed value is a refusal, never read as absent ----
+const REPORTED_STATES = ['HELD', 'RELEASED', 'REFUNDED', 'PARTIALLY_REFUNDED', 'EARLY_WITHDRAWN'];
+
+function isPlainObject(v) {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return false;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
+function isCount(v) { return typeof v === 'number' && Number.isSafeInteger(v) && v >= 0; }
+// optional non-negative safe integer: absent (undefined) is fine, present null or wrong type is not
+function badOptCount(o, k) { return o[k] !== undefined && !isCount(o[k]); }
+
+function refuse(reason, detail) {
+  const flags = [];
+  if (reason !== undefined) flags.push('input_refused');
+  return { output_payload: { refused: true, reason, detail, issues: [reason] }, compliance_flags: flags };
+}
+
+// Returns a refusal { reason, detail } for the first malformed payment field, else null.
+function findPaymentRefusal(p, i, lock) {
+  const at = 'payments[' + i + ']';
+  if (!isPlainObject(p)) return { reason: 'invalid_payment_record', detail: at + ': not_an_object' };
+  if (typeof p.payment_ref !== 'string' || p.payment_ref.length === 0) return { reason: 'invalid_payment_record', detail: at + '.payment_ref: not_a_nonempty_string' };
+  if (!isCount(p.amount_minor) || p.amount_minor <= 0) return { reason: 'invalid_payment_record', detail: at + '.amount_minor: not_a_positive_safe_integer' };
+  if (!isCount(p.paid_at) || !Number.isSafeInteger(p.paid_at + lock)) return { reason: 'invalid_payment_record', detail: at + '.paid_at: not_a_safe_integer_timestamp' };
+  if (badOptCount(p, 'early_withdrawal_at')) return { reason: 'invalid_payment_record', detail: at + '.early_withdrawal_at: not_a_safe_integer_timestamp' };
+  if (p.reported_state !== undefined && !REPORTED_STATES.includes(p.reported_state)) return { reason: 'invalid_payment_record', detail: at + '.reported_state: not_in_allowlist' };
+  if (badOptCount(p, 'reported_refunded_minor')) return { reason: 'invalid_payment_record', detail: at + '.reported_refunded_minor: not_a_safe_integer' };
+  if (badOptCount(p, 'reported_released_minor')) return { reason: 'invalid_payment_record', detail: at + '.reported_released_minor: not_a_safe_integer' };
+  if (p.arbiter_decisions !== undefined) {
+    if (!Array.isArray(p.arbiter_decisions)) return { reason: 'invalid_payment_record', detail: at + '.arbiter_decisions: not_an_array' };
+    let sum = 0;
+    for (let j = 0; j < p.arbiter_decisions.length; j++) {
+      const d = p.arbiter_decisions[j];
+      if (!isPlainObject(d)) return { reason: 'invalid_payment_record', detail: at + '.arbiter_decisions[' + j + ']: not_an_object' };
+      if (!isCount(d.refund_minor)) return { reason: 'invalid_payment_record', detail: at + '.arbiter_decisions[' + j + '].refund_minor: not_a_safe_integer' };
+      sum += d.refund_minor;
+      if (!Number.isSafeInteger(sum)) return { reason: 'invalid_payment_record', detail: at + '.arbiter_decisions: refund_sum_unsafe' };
+    }
+  }
+  return null;
+}
 
 function computeOne(pay, params) {
   const amount = pay.amount_minor;
   const lockEnd = pay.paid_at + params.lock_period_seconds;
-  const asOf = (typeof params.as_of_seconds === 'number') ? params.as_of_seconds : null;
-  const decisions = Array.isArray(pay.arbiter_decisions) ? pay.arbiter_decisions : [];
+  const asOf = params.as_of_seconds !== undefined ? params.as_of_seconds : null;
+  const decisions = pay.arbiter_decisions !== undefined ? pay.arbiter_decisions : [];
   const breaks = [];
 
   let refunded = 0;
   for (const d of decisions) {
-    if (typeof d.refund_minor === 'number' && d.refund_minor > 0) refunded += d.refund_minor;
+    if (d.refund_minor > 0) refunded += d.refund_minor;
   }
   // all-or-nothing: an arbiter refund under the pinned protocol returns the full payment
   if (decisions.length > 0 && !params.partial_refunds_allowed) {
@@ -105,7 +189,7 @@ function computeOne(pay, params) {
   if (refunded > amount) refunded = amount;
 
   let terminal_state, fee_minor = 0, released_minor = 0, held_minor = 0;
-  const earlyAt = (typeof pay.early_withdrawal_at === 'number') ? pay.early_withdrawal_at : null;
+  const earlyAt = pay.early_withdrawal_at !== undefined ? pay.early_withdrawal_at : null;
   const earlyVisible = earlyAt !== null && (asOf === null || earlyAt <= asOf);
   const lockedAtReport = asOf !== null && asOf < lockEnd;
 
@@ -113,7 +197,7 @@ function computeOne(pay, params) {
     terminal_state = 'REFUNDED';
   } else if (earlyVisible) {
     terminal_state = 'EARLY_WITHDRAWN';
-    fee_minor = divFloor(amount * params.early_withdrawal_fee_bp, 10000); // documented rounding: floor
+    fee_minor = feeFloor(amount, params.early_withdrawal_fee_bp); // documented rounding: floor
     released_minor = amount - refunded - fee_minor;
   } else if (refunded > 0) {
     terminal_state = 'PARTIALLY_REFUNDED';
@@ -128,14 +212,14 @@ function computeOne(pay, params) {
   }
 
   // reported-vs-expected breaks
-  if (pay.reported_state != null && pay.reported_state !== terminal_state) {
+  if (pay.reported_state !== undefined && pay.reported_state !== terminal_state) {
     breaks.push({ rule: (terminal_state === 'HELD' && pay.reported_state === 'RELEASED') ? RULE_LOCKED : RULE_STATE,
       field: 'reported_state', reported: pay.reported_state, expected: terminal_state });
   }
-  if (pay.reported_refunded_minor != null && pay.reported_refunded_minor !== refunded) {
+  if (pay.reported_refunded_minor !== undefined && pay.reported_refunded_minor !== refunded) {
     breaks.push({ rule: RULE_AMOUNT, field: 'reported_refunded_minor', reported: pay.reported_refunded_minor, expected: refunded });
   }
-  if (pay.reported_released_minor != null && pay.reported_released_minor !== released_minor) {
+  if (pay.reported_released_minor !== undefined && pay.reported_released_minor !== released_minor) {
     breaks.push({ rule: (terminal_state === 'HELD' && pay.reported_released_minor > 0) ? RULE_LOCKED : RULE_AMOUNT,
       field: 'reported_released_minor', reported: pay.reported_released_minor, expected: released_minor });
   }
@@ -144,28 +228,37 @@ function computeOne(pay, params) {
 }
 
 export function compute(pp) {
-  pp = pp || {};
+  if (!isPlainObject(pp)) return refuse('invalid_input', 'pp: not_a_plain_object');
   const profile = pp.profile;
-  const params = pp.params || {};
-  const payments = Array.isArray(pp.payments) ? pp.payments : null;
+  const params = pp.params;
 
   if (profile !== 'refund_protocol_a7ae494' && profile !== 'generic') {
     return { output_payload: { refused: true, reason: 'unknown_profile', expected_profile: 'refund_protocol_a7ae494 | generic', issues: ['unknown_profile'] }, compliance_flags: ['input_refused'] };
   }
-  if (typeof params.lock_period_seconds !== 'number' || params.lock_period_seconds < 0 ||
-      typeof params.early_withdrawal_fee_bp !== 'number' || params.early_withdrawal_fee_bp < 0 || params.early_withdrawal_fee_bp > 10000 ||
-      typeof params.partial_refunds_allowed !== 'boolean') {
-    return { output_payload: { refused: true, reason: 'invalid_params', issues: ['invalid_params'] }, compliance_flags: ['input_refused'] };
-  }
-  if (!payments || payments.length === 0) {
+  // D6: refuse anything buildArtifact could not hash, so compute and buildArtifact never disagree
+  const unhashable = findHashRefusal(pp, 'pp', 1, { maxDepth: PP_MAX_DEPTH, maxElements: PP_MAX_ELEMENTS, n: 0 });
+  if (unhashable !== null) return refuse(unhashable.reason, unhashable.detail);
+
+  if (!isPlainObject(params)) return refuse('invalid_params', 'params: not_an_object');
+  if (!isCount(params.lock_period_seconds)) return refuse('invalid_params', 'params.lock_period_seconds: not_a_safe_integer');
+  if (!isCount(params.early_withdrawal_fee_bp) || params.early_withdrawal_fee_bp > 10000) return refuse('invalid_params', 'params.early_withdrawal_fee_bp: not_an_integer_0_to_10000');
+  if (typeof params.partial_refunds_allowed !== 'boolean') return refuse('invalid_params', 'params.partial_refunds_allowed: not_a_boolean');
+  if (badOptCount(params, 'as_of_seconds')) return refuse('invalid_params', 'params.as_of_seconds: not_a_safe_integer');
+  if (params.arbiter_role !== undefined && typeof params.arbiter_role !== 'string') return refuse('invalid_params', 'params.arbiter_role: not_a_string');
+
+  // absent and null name the same refusal (R4: the null form answers as the absent form)
+  if (pp.payments === undefined || pp.payments === null || (Array.isArray(pp.payments) && pp.payments.length === 0)) {
     return { output_payload: { refused: true, reason: 'no_payments', issues: ['no_payments'] }, compliance_flags: ['input_refused'] };
   }
+  if (!Array.isArray(pp.payments)) return refuse('invalid_input', 'payments: not_an_array');
+  const payments = pp.payments;
 
-  for (const p of payments) {
-    if (!p || typeof p.amount_minor !== 'number' || p.amount_minor <= 0 || !Number.isInteger(p.amount_minor) ||
-        typeof p.paid_at !== 'number' || p.paid_at < 0) {
-      return { output_payload: { refused: true, reason: 'invalid_payment_record', issues: ['invalid_payment_record'] }, compliance_flags: ['input_refused'] };
-    }
+  let paidSum = 0;
+  for (let i = 0; i < payments.length; i++) {
+    const bad = findPaymentRefusal(payments[i], i, params.lock_period_seconds);
+    if (bad !== null) return refuse(bad.reason, bad.detail);
+    paidSum += payments[i].amount_minor;
+    if (!Number.isSafeInteger(paidSum)) return refuse('invalid_payment_record', 'payments: paid_total_unsafe');
   }
 
   const identRefs = [];
@@ -191,8 +284,8 @@ export function compute(pp) {
     perPayment.push({ payment_ref: p.payment_ref, paid_minor: p.amount_minor, refunded_minor: r.refunded_minor, released_minor: r.released_minor, fee_minor: r.fee_minor, held_minor: r.held_minor, balanced: sum === p.amount_minor });
     totPaid += p.amount_minor; totRef += r.refunded_minor; totRel += r.released_minor; totFee += r.fee_minor; totHeld += r.held_minor;
 
-    const repRef = (p.reported_refunded_minor != null) ? p.reported_refunded_minor : r.refunded_minor;
-    const repRel = (p.reported_released_minor != null) ? p.reported_released_minor : r.released_minor;
+    const repRef = (p.reported_refunded_minor !== undefined) ? p.reported_refunded_minor : r.refunded_minor;
+    const repRel = (p.reported_released_minor !== undefined) ? p.reported_released_minor : r.released_minor;
     if (repRef + repRel > p.amount_minor) reportedConservative = false;
   }
 
@@ -214,7 +307,7 @@ export function compute(pp) {
       profile,
       rules_basis: profile === 'generic' ? 'caller_declared' : 'refund_protocol_pinned_a7ae494',
       fee_rounding: 'floor(amount_minor * early_withdrawal_fee_bp / 10000)',
-      arbiter_role: params.arbiter_role != null ? String(params.arbiter_role) : null,
+      arbiter_role: params.arbiter_role !== undefined ? params.arbiter_role : null,
       expected, breaks, conservation, verdict,
       issues: breaks.length > 0 ? breaks.map((b) => b.rule) : [],
     },
@@ -225,8 +318,11 @@ export function compute(pp) {
 
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // D6: walk the exact execution_hash preimage; when the shared canonicalizer would refuse it,
+  // mint a null execution_hash with the reason beside it. buildArtifact never throws.
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const hash = unhashable === null ? await executionHash(pp, output_payload) : null;
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -242,4 +338,6 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }

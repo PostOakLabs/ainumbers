@@ -96,6 +96,8 @@ import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { nodeFooterPages } from './gen-node-footers.mjs';
+import { proofLinkPages } from './gen-proof-links.mjs';
+import { ROOT_CHROME_PAGES } from './gen-root-chrome.mjs';
 import { chainAskAgentPages } from './gen-chain-ask-agent.mjs';
 import { hubScenePages } from './gen-hub-scenes.mjs';
 import { WRITES_REPORT_PATH } from './gen-manifest-examples.mjs';
@@ -114,6 +116,26 @@ import {
 } from './_gen-writes-reports.mjs';
 
 export const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+// REGEN-OWNS-FACT-STAMPS-1: the fact-stamp pilot pages, enumerated exactly the way
+// scripts/gen-fact-stamps.mjs enumerates them — data/bank-fact-freshness.json
+// entries through its own node→page mapping (art-* → chaingraph/<node>.html, else
+// tools/<node>.html). Mirrored as a local helper instead of imported: the
+// generator is script-style (its module body RUNS a write pass on import — the
+// REGEN-ESCAPE-GUARD-ALL-PREFIXES-1 class), so it cannot export its page list the
+// way gen-chain-ask-agent.mjs / gen-hub-scenes.mjs do. The generator's own
+// bidirectional region check guarantees this sidecar-derived set always equals
+// the set of pages carrying a FACT-STAMP region, so the declaration can never
+// drift from what the generator writes. Sorted for a stable declaration.
+function factStampPages() {
+  const sidecar = JSON.parse(readFileSync(join(REPO, 'data', 'bank-fact-freshness.json'), 'utf8'));
+  const pages = new Set();
+  for (const entry of Array.isArray(sidecar.entries) ? sidecar.entries : []) {
+    const node = String(entry.node || '');
+    pages.add(node.startsWith('art-') ? `chaingraph/${node}.html` : `tools/${node}.html`);
+  }
+  return [...pages].sort();
+}
 
 /**
  * The covered set. One entry per generator invocation.
@@ -184,6 +206,132 @@ export const COVERED = [
     writes: ['chaingraph/chaingraph.json', 'chaingraph/chaingraph.meta.json'],
     artifacts: ['chaingraph/chaingraph.json', 'chaingraph/chaingraph.meta.json'],
     share: '8%',
+  },
+  {
+    // VERIFYBINDING-DIGEST-DEFAULT-1 (2026-11-12): the PUBLISHED KERNEL-DIGEST LIST --
+    // every live node's current kernel identity digest, derived from the node SHARDS'
+    // compute_images (system sha256-source; the kernel-identity publication), written to
+    // chaingraph/kernel-digests.json. The kernel_digest leg of verifyBinding engages by
+    // DEFAULT against this list (browser verifiers load and arm it), so a receipt from
+    // one tool can no longer pass against another tool's page. Reads only the committed
+    // shards -- no after: edge on chaingraph-assemble (they share an input, not a
+    // producer/consumer link). prAbsentOk per webmcp-manifest/ai-catalog: main's regen
+    // writes the file after merge and a PR is forbidden to commit it (SO #35).
+    id: 'kernel-digests',
+    regen: 'node scripts/gen-kernel-digests.mjs',
+    gate: 'node scripts/gen-kernel-digests.mjs --check',
+    writes: ['chaingraph/kernel-digests.json'],
+    artifacts: ['chaingraph/kernel-digests.json'],
+    prAbsentOk: true,
+    share: 'n/a (new 2026-11-12, VERIFYBINDING-DIGEST-DEFAULT-1)',
+  },
+  {
+    // KERNEL-ERRATA-READER-1 (2026-11-16), entry 1 of 2: the whole-file ERRATA SNAPSHOT
+    // MODULE chaingraph/verify.html imports for the kernel-errata reader
+    // (chaingraph/errata-check.mjs). Baked from registry/errata/checkpoint's verbatim
+    // lines plus the recorded module errata (chaingraph/errata/sources/*) and their
+    // sha256-pinned predicates. prAbsentOk per kernel-digests: main's regen writes the
+    // module after merge and a PR is forbidden to commit it (SO #35); the snapshot DATA
+    // still ships on every PR head inside receipt-bundle-verify.html's vendored block
+    // (entry 2), so the self-contained page works from the moment the PR lands.
+    id: 'errata-reader-snapshot',
+    regen: 'node scripts/gen-errata-snapshot.mjs --only errata-reader-snapshot',
+    gate: 'node scripts/gen-errata-snapshot.mjs --check',
+    writes: ['chaingraph/errata/errata-snapshot.mjs'],
+    artifacts: ['chaingraph/errata/errata-snapshot.mjs'],
+    prAbsentOk: true,
+    share: 'n/a (new 2026-11-16, KERNEL-ERRATA-READER-1)',
+  },
+  {
+    // KERNEL-ERRATA-READER-1 (2026-11-16), entry 2 of 2: the REGION writer on the two
+    // pages that host the reader. errata.html gains the generated table of module errata
+    // between KERNEL-ERRATA-TABLE markers; chaingraph/receipt-bundle-verify.html (a
+    // deliberately self-contained page, CONTRACT 1.1: it imports nothing) gets the
+    // vendored reader + snapshot blocks between ERRATA-READER-VENDORED and
+    // ERRATA-SNAPSHOT-VENDORED markers. Declared in check-main-only-paths.mjs
+    // REGION_WRITER_IDS: a PR authors the prose around these regions and carries the
+    // pages; main's regen owns the block interiors after merge.
+    id: 'errata-page-regions',
+    regen: 'node scripts/gen-errata-snapshot.mjs --only errata-page-regions',
+    gate: 'node scripts/gen-errata-snapshot.mjs --check',
+    writes: ['errata.html', 'chaingraph/receipt-bundle-verify.html'],
+    artifacts: ['errata.html', 'chaingraph/receipt-bundle-verify.html'],
+    share: 'n/a (new 2026-11-16, KERNEL-ERRATA-READER-1)',
+  },
+  {
+    // REPLAY-HOUSE-SIGN-1 (2026-11-14): the HOUSE LINE of the determinism record. Replays the
+    // tracked fixture corpus (scripts/replay-result.mjs) and writes the two digests that
+    // .github/workflows/replay-house-attest.yml signs on upstream. Content only, so a fixpoint
+    // of the committed kernels and fixtures; no PR hand-edits it (prAbsentOk, SO #35).
+    id: 'replay-house-line',
+    regen: 'node scripts/gen-replay-house-line.mjs',
+    gate: 'node scripts/gen-replay-house-line.mjs --check',
+    writes: ['data/replay-house-line.json'],
+    artifacts: ['data/replay-house-line.json'],
+    prAbsentOk: true,
+    share: 'n/a (new 2026-11-14, REPLAY-HOUSE-SIGN-1)',
+  },
+  {
+    // REPLAY-COLLECT-1 (2026-11-21): the WITNESS ROLL. Per module digest, how many distinct accounts
+    // reproduced it. The module table is a function of the tracked corpus and the house line; the
+    // witnesses come from scripts/collect-replay-witnesses.mjs, which holds the ones already in the
+    // file unless GH_TOKEN is set, so a token-less regen and --verify are a byte-stable fixpoint.
+    // No PR hand-edits it (prAbsentOk, SO #35).
+    id: 'replay-witness-roll',
+    regen: 'node scripts/collect-replay-witnesses.mjs --write',
+    gate: 'node scripts/collect-replay-witnesses.mjs --check',
+    writes: ['data/replay-witness-roll.json'],
+    artifacts: ['data/replay-witness-roll.json'],
+    prAbsentOk: true,
+    share: 'n/a (new 2026-11-21, REPLAY-COLLECT-1)',
+  },
+  {
+    // REGEN-OWNS-FACT-STAMPS-1 (2026-11-22): the visible "Verified YYYY-MM-DD
+    // against …" stamps (FACT-STAMPS-PILOT-1) join the single-writer set.
+    // Measured cause: main was red 03:35Z-11:31Z because #3244 restamped
+    // verified_on in data/bank-fact-freshness.json without rerunning
+    // gen-fact-stamps.mjs — 7 pages' FACT-STAMP regions drifted, the hard
+    // preflight gate redded every open PR, and merge-lane paused on main-red
+    // for 8 h (heal #3247). The derived-artifacts regen repairs main after
+    // every merge, but only for generators LISTED here — owning the writer
+    // here is the fix (SO #35 shape, no new gate invented).
+    // Region-only writer by construction: the generator splices bytes strictly
+    // inside FACT-STAMP:START..END and errors on any page/entry mismatch; it
+    // never reorders or rewrites page content outside the region. The page
+    // list is the generator's own enumeration (factStampPages() above, mirrored
+    // because the generator is script-style and cannot be imported), never
+    // hand-typed. Writes happen on a runtime path (one region per sidecar
+    // page), so `writes:` is declared explicitly. Idempotent: pure function of
+    // the committed sidecar + page bytes, no wall clock (generator header,
+    // DETERMINISTIC). No `after:` edge: its region span is disjoint from every
+    // other pass-internal writer of these pages (e.g. node-page-footers' footer
+    // span), and each writer re-reads the file, so any order converges to the
+    // same fixpoint.
+    id: 'fact-stamps',
+    regen: 'node scripts/gen-fact-stamps.mjs',
+    gate: 'node scripts/gen-fact-stamps.mjs --check',
+    writes: factStampPages(),
+    artifacts: factStampPages(),
+    share: 'n/a (new 2026-11-22, REGEN-OWNS-FACT-STAMPS-1)',
+  },
+  {
+    // REPLAY-ROLL-SURFACE-1 (2026-11-22): the generated WITNESS-ROLL SECTION on the
+    // determinism explainer (chaingraph/determinism-attestation-explainer.html),
+    // rendered from data/replay-witness-roll.json by
+    // scripts/gen-replay-roll-surface.mjs between REPLAY-ROLL-SURFACE markers. A
+    // REGION writer (check-main-only-paths.mjs REGION_WRITER_IDS): a PR authors the
+    // prose around the region and carries the page; main's regen owns the region
+    // interior after merge. Ordered after 'replay-witness-roll', whose file it
+    // renders. The three summary figures are replay.* count sentinels registered in
+    // scripts/counts.mjs; the page deliberately stays out of verify-counts.mjs's
+    // scan list (the vintage-calendar.html choice at birth).
+    id: 'replay-roll-surface',
+    regen: 'node scripts/gen-replay-roll-surface.mjs',
+    gate: 'node scripts/gen-replay-roll-surface.mjs --check',
+    writes: ['chaingraph/determinism-attestation-explainer.html'],
+    artifacts: ['chaingraph/determinism-attestation-explainer.html'],
+    after: 'replay-witness-roll',
+    share: 'n/a (new 2026-11-22, REPLAY-ROLL-SURFACE-1)',
   },
   {
     // PROVE-BASELINE-SINGLE-WRITER-1 (2026-10-19): the §18 deferred ratchet
@@ -874,6 +1022,27 @@ export const COVERED = [
     after: 'chaingraph-assemble',
     share: '23%',
   },  {
+    // FOOTER-LINKS-REFRESH-1 (2026-11-13): the ROOT-FOOTER (+ ROOT-FOOTER-CSS)
+    // sentinel region of every root page in scripts/gen-root-chrome.mjs
+    // ROOT_CHROME_PAGES, rewritten from chaingraph/_page-chrome.mjs ROOT_FOOTER by
+    // the ONE main-side writer gen-root-chrome.mjs. The root-page twin of
+    // 'node-page-footers': a footer change is a one-file template edit and main's
+    // regen carries it. Needed because index.html, sitemap.html and tools.html are
+    // whole-file main-only paths (catalog / sitemap-html) a PR may not touch, and
+    // no other writer refreshed their footer, so a template edit left
+    // gen-root-chrome --check red in preflight on main and in the deploy gate.
+    // Region writer (REGION_WRITER_IDS): PRs still author these pages. Placed
+    // after the whole-file writers of start.html, sitemap.html, index.html and
+    // tools.html so their passes cannot leave a stale footer behind it.
+    // Idempotent: the writer only rewrites the region, so a second pass is a no-op.
+    id: 'root-page-footers',
+    regen: 'node scripts/gen-root-chrome.mjs',
+    gate: 'node scripts/gen-root-chrome.mjs --check',
+    writes: ROOT_CHROME_PAGES,
+    artifacts: ROOT_CHROME_PAGES,
+    after: 'start-index',
+    share: 'n/a (new 2026-11-13, FOOTER-LINKS-REFRESH-1)',
+  },  {
     id: 'chain-index',
     regen: 'node scripts/gen-chain-index.mjs',
     gate: 'node scripts/gen-chain-index.mjs --check',
@@ -1112,6 +1281,40 @@ export const COVERED = [
     share: '100% (3/3 node registrations on 2026-08-21)',
   },
   {
+    // PROOFLINKS-GEN-1 (2026-11-13, Anchor Wave C merged in): the reader-facing
+    // "Verification artifacts" <details> block of every node page (the node
+    // shards intersected with the top-level pages), rendered by scripts/
+    // gen-proof-links.mjs from committed artifacts and a kernel digest
+    // recomputed from kernel bytes via _buildid.mjs sourceDigest() (SO #34),
+    // never read from the page. The block sits above the footer, outside the
+    // footer regex, so node-page-footers and this entry cooperate on the same
+    // page bytes in different regions (the declare-parity cross-entry WARN
+    // class by design, as with counts/openapi). PRs never commit the block:
+    // main's single writer does (SO #35), so the gate is advisory on a PR and
+    // blocking on main / merge_group like node-page-footers. Writes happen on
+    // a runtime path (one region per derived page), so `writes` is declared
+    // explicitly; the page list is computed from the shard/page directories,
+    // so a node page added later joins the set. Ordered after node-page-footers
+    // AND after chaingraph-assemble (it reads compute_proof_ready from the
+    // assembled graph). Idempotent: a second pass is byte-identical
+    // (gen-proof-links --selftest).
+    // REGEN-FIXPOINT-PROOFLINKS-ORDER-1 (2026-11-25): it also links each node's
+    // registry/kernel/<digest>.json (registry-kernel-resolve) and its
+    // fv-status/<spec_digest>.json (fv-status), and a NEW node's records are
+    // first written by those two entries. Placed before them, pass 1 rendered a
+    // new node's rows as "not published" and pass 2 healed them: the non-fixpoint
+    // that held main's regen red from the art-850 landing (#3222, ae3073df) on.
+    // So it sits here, after fv-status, which already runs after
+    // registry-kernel-resolve, and node-page-footers / chaingraph-assemble.
+    id: 'node-page-proof-links',
+    regen: 'node scripts/gen-proof-links.mjs',
+    gate: 'node scripts/gen-proof-links.mjs --check',
+    writes: proofLinkPages(),
+    artifacts: proofLinkPages(),
+    after: 'fv-status',
+    share: 'n/a (new 2026-11-13, PROOFLINKS-GEN-1)',
+  },
+  {
     id: 'integrator-profile',
     // OCG-INTEGRATOR-PROFILE-1. Reads chaingraph.json + CHANGELOG.md + SPEC.md
     // §15 + conformance-roster.html. The roster is deliberately NOT regenerated
@@ -1259,24 +1462,6 @@ export const COVERED = [
     after: 'chaingraph-assemble',
     share: '57%',
   },
-  {
-    id: 'debt-ledger',
-    // DEBT-LEDGER-1 (0xAlpha/2026-08-21-mechanical-verification-audit.md
-    // Finding 3): owns ONE self-delimited region of fv-explainer.html
-    // (`<!-- GEN:DEBT-LEDGER:START -->...:END -->`), independent of the
-    // `<!--COUNT:-->` sentinels the 'counts' entry above already owns on
-    // this same page — same "two generators, two regions, one shared file"
-    // pattern as 'chain-index' and 'chaingraph-hub' both declaring
-    // chaingraph/chaingraph-hub.html below.
-    // REGEN-COVERED-ORDER-FIX-4: LAST in the array, pinned after nav-island —
-    // it reads scripts/nav-island-baseline.json (every *-baseline.json) and
-    // must see the pruned state in the same pass (60bb7dff fixpoint incident).
-    regen: 'node scripts/gen-debt-ledger.mjs --write',
-    gate: 'node scripts/gen-debt-ledger.mjs --check',
-    artifacts: ['fv-explainer.html'],
-    after: 'nav-island',
-    share: 'n/a (new 2026-08-21, DEBT-LEDGER-1)',
-  },
 
   {
     // MANIFEST-EXAMPLES-ANNOTATIONS-1 (2026-09-19): single writer (SO #47) for the
@@ -1362,6 +1547,60 @@ export const COVERED = [
     // reads chaingraph.json (node scope + receipts) — must run AFTER the assembler
     after: 'chaingraph-assemble',
     share: 'n/a (new 2026-10-22, RECEIPT-BUNDLE-PUBLISH-1)',
+  },
+  {
+    // REGEN-QUARANTINE-PRUNE-1 (2026-11-23): the §18 recompute-equality QUARANTINE
+    // PRUNE — the main-side follow-up that never had an owner. Both 2026-11-23
+    // quarantine causes (art-350, art-713) say "DELETE this entry in the follow-up
+    // that lands the re-spliced monolith", and the re-splice happens ONLY on main
+    // (derived-artifacts-regen.yml), so no PR could ever do it: each stale entry
+    // redded main's §18 gate ("quarantined, but its receipt REPRODUCES now") until
+    // a hand heal row landed (Scripts Verify runs 45250735999 / 45270542853, each
+    // pausing lineage-arm and merge-lane). This entry closes the loop in the SAME
+    // bot commit: it re-runs the §18 gate (scripts/check-recompute-equality.mjs
+    // --json, ~8 s over the estate) as its own process and deletes exactly the
+    // entries that gate reports as cured ("quarantined, but its receipt REPRODUCES
+    // now"). ⛔ The ratchet's own law is untouched and mechanically enforced by the
+    // helper: counts only go DOWN — it can never add an entry, edit a cause or
+    // re-order; a non-reproducing entry stays verbatim; the file is written only
+    // when at least one entry goes (byte-identical serialization pinned by the
+    // helper's self-test); malformed check output fails closed with no write. The
+    // decision of WHAT reproduces stays entirely with check-recompute-equality.mjs.
+    // LAST in the array — the prune must see the fully regenerated tree (its input
+    // is the post-assemble monolith every earlier entry helped produce), and
+    // runRegenPass executes COVERED in array order; the after: edge pins the
+    // previous tail and is mechanically enforced by check-derived-fanout-coverage.mjs.
+    // prAbsentOk does NOT apply: the quarantine file is committed and present on
+    // every PR checkout. Not DERIVED_ROOT-aware by the same rule as the §18 gate
+    // itself (it reads the checkout's committed bytes), so in ephemeral mode
+    // --verify SKIPS it as main-regen-owned (MERGEGROUP-DERIVED-REGEN-FIX-1).
+    id: 'recompute-quarantine-prune',
+    regen: 'node scripts/prune-recompute-quarantine.mjs',
+    gate: 'node scripts/prune-recompute-quarantine.mjs --check',
+    writes: ['scripts/recompute-equality-quarantine.json'],
+    artifacts: ['scripts/recompute-equality-quarantine.json'],
+    after: 'receipt-bundles',
+    share: 'n/a (new 2026-11-23, REGEN-QUARANTINE-PRUNE-1)',
+  },
+  {
+    id: 'debt-ledger',
+    // DEBT-LEDGER-1 (0xAlpha/2026-08-21-mechanical-verification-audit.md
+    // Finding 3): owns ONE self-delimited region of fv-explainer.html
+    // (`<!-- GEN:DEBT-LEDGER:START -->...:END -->`), independent of the
+    // `<!--COUNT:-->` sentinels the 'counts' entry above already owns on
+    // this same page — same "two generators, two regions, one shared file"
+    // pattern as 'chain-index' and 'chaingraph-hub' both declaring
+    // chaingraph/chaingraph-hub.html below.
+    // REGEN-PRUNE-ORDER-BEFORE-DEBT-LEDGER-1 (2026-11-24): LAST in the array,
+    // now pinned after recompute-quarantine-prune (was after nav-island, which
+    // still precedes it by array order): the ledger counts every ratchet file,
+    // including scripts/recompute-equality-quarantine.json that the prune may
+    // shrink in the same pass, so it must see the pruned state (60bb7dff incident).
+    regen: 'node scripts/gen-debt-ledger.mjs --write',
+    gate: 'node scripts/gen-debt-ledger.mjs --check',
+    artifacts: ['fv-explainer.html'],
+    after: 'recompute-quarantine-prune',
+    share: 'n/a (new 2026-08-21, DEBT-LEDGER-1)',
   },
 ];
 
@@ -1627,6 +1866,24 @@ export const EXCLUDED = [
        + 'scripts/check-webmcp-signed-snapshot.mjs in preflight (RED only on a bad signature or malformed '
        + 'snapshot; age and drift vs the regen-on-main webmcp.json are advisory).',
   },
+  {
+    what: 'kernel sibling-stamp freshness (via scripts/stamp-writers.mjs — STALE-STAMP-WRITERS-1)',
+    script: 'scripts/stamp-writers.mjs',
+    share: 'n/a — an orchestrator of the existing repo writers, not a generator',
+    why: 'NOT A GENERATOR. It owns no artifact surface of its own: per touched kernel id it only INVOKES '
+       + 'the existing writers (gen-kernel-identity.mjs --write --shard=<id>, the proptest floor plus its '
+       + 'kernel_digest_at_authoring header restamp, check-ask-agent-block.mjs --write --only <id>), each '
+       + 'with its own owner row or gate. Its input set is the CHECKOUT DIFF, not the committed tree: '
+       + 'deriveTouchedIds() reads git diff <base>...HEAD + working tree + index + untracked files, so on '
+       + 'a clean main-regen checkout (base == HEAD, tree clean) the derived id set is EMPTY and a '
+       + 'write-mode run is a defined no-op ("no touched kernel ids - nothing to do"; measured on this '
+       + 'PR\'s post-merge tree: --check derives zero ids, writes zero bytes, exit 0). There is no '
+       + 'convergent byte set for COVERED to own, so the decision is EXCLUDED; the --check mode stays '
+       + 'wired into preflight GATES as the freshness gate that lists each stale stamp with its fix '
+       + 'command. Classification demanded by NODE-FANOUT-REGEN-CLOSE-1 at generator add; a MEASURED '
+       + 'reason, not a shrug. Fence shape per the ORCH-389 precedent: the classification rides the PR '
+       + 'whose preflight amendment surfaced the script.',
+  },
 ];
 
 /** Every path the regen may write, deduped and sorted — the commit pathspec. */
@@ -1784,6 +2041,56 @@ export const DERIVED_ROOT_GATES = new Set([
   // reads the page through the overlay too: `--out` puts the freshly healed
   // page in DERIVED_ROOT (PR-2888-DERIVED-PAGE-READ-1).
   'node scripts/check-zk-trust-page.mjs',                    // trust-page stage counts (reads the monolith)
+  // QUEUE-ASSEMBLED-NEWNODE-GATES-1 (2026-11-09): the two gates below read the CHECKOUT registry,
+  // which does not contain a new node until main's post-merge regen enrols it, so a new-node PR
+  // passed the queue and main went red on the same node: ask-agent "no block" art-756 (runs
+  // 42542899593, 42539545126), ask-agent "block drifted" art-793 (42617856331) and art-795
+  // (42508010729), output-schema coverage (42517511673). Both now overlay-read the registry, the
+  // node pages and the manifests through derivedResolve (the check-a11y-tree.mjs convention), so
+  // the merge_group verdict is on the assembled tree that will be main. Spelled exactly as
+  // preflight.mjs's GATES list runs them (the --self-test / .test.mjs siblings are hermetic
+  // fixture proofs that never overlay, so they stay out of the set).
+  'node scripts/check-ask-agent-block.mjs',                  // ask-agent block freshness (registry, pages, manifests overlay)
+  'node scripts/check-output-schema-coverage.mjs',           // output-schema coverage (registry, manifests overlay)
+  // OBLIGATION-PAGE-1 (2026-11-17): obligation gate O6 overlay-reads the twin
+  // (and the registry) through derivedResolve, so the merge_group tree is
+  // exactly the tree that will be main: the assembled tree's twins are the
+  // freshly regenerated single-writer output, and the gate's STALE findings go
+  // HARD there instead of ejecting every coverage-affecting PR on the stale
+  // committed twin a PR is forbidden to fix. Spelled exactly as preflight.mjs
+  // runs it; the .selftest.mjs sibling is a hermetic fixture proof that never
+  // overlays, so it stays out of the set.
+  'node scripts/check-obligation-page.mjs',                  // obligation page agreement (registry, twin overlay)
+  // VERIFYBINDING-DIGEST-DEFAULT-1 (2026-11-12): check-ledger-hermetic.mjs NAMES the published
+  // kernel-digest list (chaingraph/kernel-digests.json) in its fetch allowlist, so the derived-reader
+  // text-match classifies it as reading main-regen derived bytes (DERIVED-READER-COVERAGE-1). It
+  // never opens that file — it greps the LEDGER PAGE SOURCE for allowlist tokens — and it must stay
+  // hard in every context. Membership here is classification-only: the gate is not COVERED, so
+  // runVerifyGates never runs it and never skips it for non-awareness.
+  'node scripts/check-ledger-hermetic.mjs',                  // ledger hermetic (names kernel-digests.json; reads page source only)
+  // WEBMCP-SIGNED-EXPIRY-1 (DERIVED-READER-COVERAGE-1): the snapshot freshness gate reads
+  // .well-known/webmcp-signed.json through derivedResolve, so a merge_group overlay judges the
+  // assembled tree. The file itself is hand-signed (EXCLUDED, never regen-written); the gate is not
+  // COVERED, so membership is awareness classification only.
+  'node scripts/check-webmcp-snapshot-fresh.mjs',            // snapshot expiry freshness (overlay-reads the signed snapshot)
+  // DERIVED-READER-BURNDOWN-CHAIN-DOMAIN-1 (2026-11-05): chain-domain reads the monolith through
+  // derivedResolve, so a new chain's missing/invalid domain reds in the queue, not post-regen.
+  'node scripts/check-chain-domain.mjs',                     // chain domain enum (reads the monolith's chains)
+  // DERIVED-READER-BURNDOWN-CHAIN-STEP-STATUS-1: chain-step-status overlay-reads the monolith's chains/nodes through derivedResolve, so a departed step node reds in the queue, not post-regen.
+  'node scripts/check-chain-step-status.mjs',                 // chain step status (reads the monolith's chains + nodes)
+  // DERIVED-READER-BURNDOWN-CHAIN-EDGE-CONTRACTS-1: the L1 edge-contract advisory overlay-reads the monolith's chains + adjacency through derivedResolve, so an edge-contradicting chain reds in the queue on the assembled tree, not post-regen.
+  'node scripts/check-chain-edge-contracts.mjs --quiet --json', // L1 chain edge contracts (reads the monolith's chains + adjacency)
+  // PR-3187-DERIVED-READER-CURE-1 (DERIVED-READER-COVERAGE-1): the WebMCP registration
+  // spec gate reads every tracked *.html page, among them the regen-written reader
+  // surfaces (chaingraph/chaingraph-hub.html, sitemap.html, tools.html, mcp.html), so its
+  // page reads resolve through derivedResolve and a merge_group overlay judges the
+  // assembled tree. Spelled exactly as preflight.mjs's GATES list runs it; the
+  // --self-test sibling is a fixture proof and stays out of the set.
+  'node scripts/check-webmcp-spec.mjs',                      // WebMCP registration spec (page reads overlay-resolve)
+  // DERIVED-READER-BURNDOWN-CHAIN-L2-CONTRACTS-1: the L2 contract-composition advisory overlay-reads the monolith through derivedResolve (its chain shards still overlay on top at run time), so a contract-composition red shows in the queue on the assembled tree, not post-regen.
+  'node scripts/check-chain-l2-contracts.mjs --quiet --json', // L2 chain contract composition (reads the monolith's chains + nodes + manifests)
+  // DERIVED-READER-BURNDOWN-KERNEL-COVERAGE-1: kernel-coverage overlay-reads the monolith and the kernel index through derivedResolve, so a new gpu:false node whose registration is still regen-pending reds in the queue on the assembled tree, not post-regen.
+  'node scripts/check-kernel-coverage.mjs',                  // kernel coverage (reads the monolith + kernels/index.mjs)
 ]);
 
 // S18-FRESHNESS-MERGEGROUP-DERIVED-ROOT-1 (2026-10-31): derivedRoot/derivedResolve moved VERBATIM

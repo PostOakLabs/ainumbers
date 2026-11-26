@@ -51,6 +51,12 @@
  *      bound. The config entry is re-verified against the kernel's markers on
  *      every run and fails loudly on drift; see resolveSurfaceSplit().
  *
+ * Local run (MUTATION-TIER-LOCAL-STRYKER-1): set MUTATION_TIER_STRYKER_BIN to a
+ * provisioned out-of-repo Stryker entry file (WSL: /root/.ain-tools/stryker-8.7.1/
+ * node_modules/@stryker-mutator/core/bin/stryker.js) and the tier spawns
+ * `node <bin> run <config>` instead of npx. Unset = CI path, unchanged. A
+ * missing file warns and falls back to npx.
+ *
  * Usage:
  *   node scripts/run-mutation-tier.mjs --kernel <id> [<id> ...]
  *       Scoped run over the given kernel id(s) — this is the PR-incremental
@@ -246,6 +252,30 @@ export function kernelTimeoutSecondsForKernel(id, env = process.env, config = nu
   return DEFAULT_KERNEL_TIMEOUT_S;
 }
 
+// MUTATION-TRIALS-BUDGET-458-1: the opt-in per-kernel trial budget. Unlike the
+// wall-clock bound there is deliberately NO global env override — the ONLY
+// source is `<id>.mutation.json`'s `mutationTrials` key (merged into the config
+// by PER-KERNEL-CONFIG-SHARD-1). A present value must be a positive safe integer
+// or the run fails LOUDLY naming the kernel and the bad value, in the same
+// shape as kernelTimeoutSecondsForKernel above. Absent = no budget at all.
+export function mutationTrialsForKernel(id, config = null) {
+  const trials = (config && config.mutationTrials) || {};
+  if (!Object.prototype.hasOwnProperty.call(trials, id)) return null;
+  const v = trials[id];
+  if (!Number.isSafeInteger(v) || v <= 0) {
+    throw new Error(`mutationTrials["${id}"] (per-kernel sibling) must be a positive safe integer, got ${JSON.stringify(v)}`);
+  }
+  return v;
+}
+
+// The child-only env fragment. The caller merges it into the Stryker child's
+// env; it is NEVER written to the global process.env, so a multi-kernel run
+// cannot leak one kernel's budget into another's mutants.
+export function mutationEnvForKernel(id, config = null) {
+  const n = mutationTrialsForKernel(id, config);
+  return n === null ? {} : { MUTATION_TIER_NUM_RUNS: String(n) };
+}
+
 export function timeoutMessage(id, elapsedS) {
   return `MUTATION-TIER TIMEOUT ${id} after ${elapsedS}s — treat as FAIL, see MUTATION-TIER-HANG-MMS03-PNR01-1`;
 }
@@ -283,14 +313,19 @@ const KILL_GRACE_MS = 15000;
  * @returns {Promise<{ crashed: boolean, error: string | null, timedOut: boolean,
  *                     killConfirmed: boolean, elapsedS: number }>}
  */
-export function runProcessBounded({ cmd, args, cwd, budgetS }) {
+export function runProcessBounded({ cmd, args, cwd, budgetS, env }) {
   return new Promise((resolve) => {
     const t0 = Date.now();
     let settled = false;
     let timedOut = false;
     let killConfirmed = true;
     let spawnError = null;
-    const child = spawn(cmd, args, { cwd, stdio: 'inherit', detached: process.platform !== 'win32' });
+    const spawnOpts = { cwd, stdio: 'inherit', detached: process.platform !== 'win32' };
+    // No env fragment = inherit process.env exactly as before (byte-identical
+    // behaviour for kernels with no trial budget). A fragment is a per-child
+    // override only — process.env itself is never mutated.
+    if (env) spawnOpts.env = env;
+    const child = spawn(cmd, args, spawnOpts);
     const killGrace = setTimeout(() => {
       // The tree kill did not close the child within grace — stop waiting (the
       // direct child may leak; the verdict is still the loud FAIL).
@@ -317,15 +352,47 @@ export function runProcessBounded({ cmd, args, cwd, budgetS }) {
   });
 }
 
-function runStryker(configPath, cwd, strykerVersion, budgetS) {
-  const { cmd, prefixArgs } = process.platform === 'win32'
+/**
+ * MUTATION-TIER-LOCAL-STRYKER-1: pick the Stryker invocation. When
+ * MUTATION_TIER_STRYKER_BIN names an EXISTING file, run that provisioned,
+ * out-of-repo Stryker via `node <file> run <config>`. Unset (CI) or pointing at
+ * a missing file: the npx argv, byte-for-byte as before (missing file also
+ * returns a warning string for the caller to print).
+ */
+export function resolveStrykerInvocation({ env = process.env, platform = process.platform, strykerVersion, configPath, fileExists = existsSync }) {
+  const bin = env.MUTATION_TIER_STRYKER_BIN;
+  let warning = null;
+  if (bin !== undefined && bin !== '') {
+    if (fileExists(bin)) {
+      return { cmd: process.execPath, args: [bin, 'run', configPath], mode: 'local-bin', warning };
+    }
+    warning = `MUTATION_TIER_STRYKER_BIN="${bin}" does not exist; falling back to npx`;
+  }
+  const { cmd, prefixArgs } = platform === 'win32'
     ? resolveWindowsNpxInvocation()
     : { cmd: 'npx', prefixArgs: [] };
-  return runProcessBounded({
+  return {
     cmd,
     args: [...prefixArgs, '--yes', `--package=@stryker-mutator/core@${strykerVersion}`, 'stryker', 'run', configPath],
+    mode: 'npx',
+    warning,
+  };
+}
+
+function runStryker(configPath, cwd, strykerVersion, budgetS, extraEnv = {}) {
+  const inv = resolveStrykerInvocation({ strykerVersion, configPath });
+  if (inv.warning) console.warn(`[mutation-tier] WARNING: ${inv.warning}`);
+  console.log(`[mutation-tier] stryker path: ${inv.mode === 'local-bin' ? `local provisioned bin (${process.env.MUTATION_TIER_STRYKER_BIN})` : 'npx ephemeral'}, version ${strykerVersion}`);
+  const { cmd, args } = inv;
+  return runProcessBounded({
+    cmd,
+    args,
     cwd,
     budgetS,
+    // Copy process.env into a NEW object so the override reaches this Stryker
+    // child (and every per-mutant command it spawns) without ever touching the
+    // run-wide global env. Undefined when empty = inherit as before.
+    env: Object.keys(extraEnv).length ? { ...process.env, ...extraEnv } : undefined,
   });
 }
 
@@ -1072,7 +1139,26 @@ export function copySandboxDeps(kernelRelPath, proptestRelPath, fixturesRelPath,
         .filter((f) => f.startsWith(`${kernelId}.`) && f !== fixturesFile)
         .map((f) => `chaingraph/kernels/fixtures/${f}`)
     : [];
-  const files = deriveSandboxFiles({ roots: [kernelRelPath, proptestRelPath], extras: [fixturesRelPath, ...runtimeReadSiblings], repoRoot });
+  // MUTATION-TIER-SANDBOX-VENDOR-FIXTURES-1: a proptest that runtime-reads a VENDORED
+  // fixture under fixtures/vendor/ (art-831-receipt-export-envelopes.proptest.mjs:33 reads
+  // openlineage-1.55.0/OpenLineage.json to validate the exported RunEvent against the pinned
+  // upstream schema) is invisible to BOTH the import-graph derivation and the `<id>.*`
+  // sibling sweep above. The cure stays caller-side and scoped: when the proptest source
+  // names `vendor` at all, sweep every file under fixtures/vendor/ into the sandbox (the
+  // whole tree, not a guessed literal path — the same future-proofing stance as the sibling
+  // sweep; the tree is small, upstream release-pinned, and shared, so no per-kernel filter).
+  const vendorDir = path.join(fixturesDir, 'vendor');
+  const vendorFiles = [];
+  const walkVendor = (dir, relBase) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.isDirectory()) walkVendor(path.join(dir, e.name), `${relBase}/${e.name}`);
+      else vendorFiles.push(`chaingraph/kernels/fixtures/${relBase}/${e.name}`);
+    }
+  };
+  if (existsSync(vendorDir) && /vendor/.test(readFileSync(path.join(repoRoot, proptestRelPath), 'utf8'))) {
+    walkVendor(vendorDir, 'vendor');
+  }
+  const files = deriveSandboxFiles({ roots: [kernelRelPath, proptestRelPath], extras: [fixturesRelPath, ...runtimeReadSiblings, ...vendorFiles], repoRoot });
   for (const rel of files) {
     const dest = path.join(scratchRoot, rel);
     if (existsSync(dest)) continue; // already primed by an earlier kernel this process
@@ -1176,8 +1262,17 @@ export async function runOneKernel(id, scratchRoot, opts, strykerVersion, repoRo
   const configPath = path.join(scratchRoot, `stryker.${id}.json`);
   writeFileSync(configPath, JSON.stringify(config, null, 2));
 
+  // MUTATION-TRIALS-BUDGET-458-1: the opt-in budget travels ONLY into this
+  // kernel's Stryker child env. The per-mutant command is
+  // `node chaingraph/kernels/__proptests__/<proptest>`, so the override reaches
+  // every mutant (and the dry run) without touching global process.env.
+  const mutationEnv = mutationEnvForKernel(id, tierConfig);
+  if (mutationEnv.MUTATION_TIER_NUM_RUNS !== undefined) {
+    console.log(`  mutation trials budget: ${mutationEnv.MUTATION_TIER_NUM_RUNS} (per-kernel sibling)`);
+  }
+
   const t0 = Date.now();
-  const { crashed, error, timedOut, elapsedS } = await runStryker(configPath, scratchRoot, strykerVersion, budgetS());
+  const { crashed, error, timedOut, elapsedS } = await runStryker(configPath, scratchRoot, strykerVersion, budgetS(), mutationEnv);
   if (timedOut) {
     const msg = timeoutMessage(id, elapsedS);
     console.error(`  ${msg}`);
@@ -1387,6 +1482,16 @@ export async function runTier(argv, repoRoot = REPO) {
   // (same loud-failure shape as the env check above).
   try {
     for (const id of toRun) kernelTimeoutSecondsForKernel(id, process.env, config);
+  } catch (e) {
+    console.error(`run-mutation-tier: ${e.message}`);
+    process.exit(1);
+  }
+
+  // MUTATION-TRIALS-BUDGET-458-1: validate every examined kernel's opt-in trial
+  // budget up-front too — a bad sibling value fails LOUDLY here, before any
+  // Stryker work, naming the kernel and the bad value.
+  try {
+    for (const id of toRun) mutationTrialsForKernel(id, config);
   } catch (e) {
     console.error(`run-mutation-tier: ${e.message}`);
     process.exit(1);

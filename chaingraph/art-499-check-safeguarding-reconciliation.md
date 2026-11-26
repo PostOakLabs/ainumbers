@@ -1,6 +1,6 @@
 # CASS 15 Safeguarding Reconciliation Check
 
-Compares a UK payment or e-money firm's safeguarding requirement (CASS 15.8.29G) against the components of its safeguarding resource (CASS 15.8.26R) for one caller-declared as-of date, and classifies the arithmetic outcome as reconciled, shortfall, or excess against a caller-declared tolerance. Resource components carry the four component types CASS 15.8.26R enumerates: relevant funds bank account, segregated but not yet placed, relevant assets, and insurance or guarantee. Money is handled as integer minor units throughout with 2dp display, an empty or zero figure set resolves to a defined verdict, and any value that is not a usable integer amount is named in rejected_inputs rather than silently dropped. Single-run and stateless: the firm performs its reconciliation no less than once each reconciliation day because CASS 15.8.19R requires it of the firm, and this tool operates nothing, stores nothing, and retains nothing. A shortfall verdict is an arithmetic finding about the figures supplied, never a determination that the firm has breached CASS 15.
+Compares a UK payment or e-money firm's safeguarding requirement (CASS 15.8.29G) against the components of its safeguarding resource (CASS 15.8.26R) for one caller-declared as-of date, and classifies the arithmetic outcome as reconciled, shortfall, or excess against a caller-declared tolerance. Resource components carry the four component types CASS 15.8.26R enumerates: relevant funds bank account, segregated but not yet placed, relevant assets, and insurance or guarantee. Money is handled as integer minor units throughout with 2dp display, an empty or zero figure set resolves to a defined verdict, and any value that is not a usable integer amount is named in rejected_inputs rather than silently dropped. A required input (as_of_date, currency, reconciliation_type or tolerance_minor_units) that is absent, null, empty or whitespace-only yields INDETERMINATE and never a reconciliation verdict. On hash-hostile input the artifact carries execution_hash null with a hash_refusal record instead of throwing. Single-run and stateless: the firm performs its reconciliation no less than once each reconciliation day because CASS 15.8.19R requires it of the firm, and this tool operates nothing, stores nothing, and retains nothing. A shortfall verdict is an arithmetic finding about the figures supplied, never a determination that the firm has breached CASS 15.
 
 - Page: https://ainumbers.co/chaingraph/art-499-check-safeguarding-reconciliation.html
 - Markdown twin: https://ainumbers.co/chaingraph/art-499-check-safeguarding-reconciliation.md
@@ -20,7 +20,7 @@ Compares a UK payment or e-money firm's safeguarding requirement (CASS 15.8.29G)
 
 ## Outputs
 
-- as_of_date (string, optional)
+- as_of_date (string,null, optional)
 - citations (object, optional)
 - component_count (integer, optional)
 - components (array, optional)

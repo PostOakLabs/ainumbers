@@ -1,6 +1,6 @@
 // art-574-certified-payroll-prevailing-wage-recompute.proptest.mjs -- FV property-test FLOOR
 // (FV-PROPFLOOR-SHARD-C29-1).
-// kernel_digest_at_authoring: sha256:4da565b656d200c214becb712b820a097894e9edeae66b4275e34854847911c7
+// kernel_digest_at_authoring: sha256:15356ce6d2138cd5ab65250450f70aff4eb56c1ec9f44e8f64ed67cfa7b62d9d
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md Sec3, class C). NOT a proof, NOT Dafny.
@@ -20,7 +20,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-574-certified-payroll-prevailing-wage-recompute.proptest.mjs
 
-import { compute } from '../art-574-certified-payroll-prevailing-wage-recompute.kernel.mjs';
+import { compute, buildArtifact } from '../art-574-certified-payroll-prevailing-wage-recompute.kernel.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -171,6 +171,72 @@ function checkP4_payroll_row_order_invariance() {
   return { name: 'P4_payroll_row_order_invariance', trials: checked, violations };
 }
 
+// ---------- P5: fail-closed -- every positive fixture vector with one required field deleted,
+// nulled, emptied or whitespace-only must never keep a positive verdict. ----------
+function checkP5_requiredFieldNeverPositive() {
+  const fixturesPath = path.join(__dirname, '..', 'fixtures', 'art-574-certified-payroll-prevailing-wage-recompute.fixtures.json');
+  const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
+  const required = ['currency', 'project_ref', 'pwa_mode', 'week_ending_label'];
+  let violations = 0, checked = 0, positives = 0;
+  for (const vec of fixtures.vectors) {
+    const base = vec.policy_parameters;
+    const baseVerdict = compute(base).output_payload.verdict;
+    if (baseVerdict !== 'MATCHES' && baseVerdict !== 'DIVERGES') continue;
+    positives++;
+    const baseOut = compute(base).output_payload;
+    if (baseOut.missing_required_fields !== undefined && (!Array.isArray(baseOut.missing_required_fields) || baseOut.missing_required_fields.length !== 0)) violations++;
+    for (const f of required) {
+      for (const mode of ['delete', 'null', 'empty', 'blank']) {
+        const pp = structuredClone(base);
+        if (mode === 'delete') delete pp[f];
+        else pp[f] = mode === 'null' ? null : mode === 'empty' ? '' : '   ';
+        checked++;
+        const r = compute(pp).output_payload;
+        if (r.verdict === 'MATCHES' || r.verdict === 'DIVERGES') violations++;
+        if (r.verdict !== 'INDETERMINATE') violations++;
+        if (!Array.isArray(r.missing_required_fields) || r.missing_required_fields.length !== 1 || r.missing_required_fields[0] !== f) violations++;
+        const expectReason = 'Required input field(s) missing or blank: ' + f + '. A certified-payroll recomputation cannot state agreement without them.';
+        if (r.indeterminate_reason !== expectReason) violations++;
+      }
+    }
+  }
+  if (positives === 0) violations++;
+  return { name: 'P5_required_field_never_positive_including_blank', trials: checked, violations };
+}
+
+// ---------- P6: buildArtifact_never_throws -- one fixture per unhashable class. ----------
+async function checkP6_buildArtifactNeverThrows() {
+  let deep = {}; let cur = deep;
+  for (let i = 0; i < 511; i++) { cur.n = {}; cur = cur.n; }
+  /** @type {Array<[string, any, string, string]>} */
+  const classes = [
+    ['junk_1e300', { currency: 1e300 }, 'REFUSED_INPUT_UNSAFE_NUMBER', 'pp.currency: unsafe_integer'],
+    ['nan', { currency: NaN }, 'REFUSED_INPUT_UNSAFE_NUMBER', 'pp.currency: non_finite'],
+    ['neg_infinity', { currency: -Infinity }, 'REFUSED_INPUT_UNSAFE_NUMBER', 'pp.currency: non_finite'],
+    ['unsafe_int', { currency: 9007199254740993 }, 'REFUSED_INPUT_UNSAFE_NUMBER', 'pp.currency: unsafe_integer'],
+    ['nested_nan_array', { currency: 'USD', project_ref: [1, 2, { x: NaN }] }, 'REFUSED_INPUT_UNSAFE_NUMBER', 'pp.project_ref[2].x: non_finite'],
+    ['depth_511', { currency: deep }, 'REFUSED_INPUT_HASH_LIMIT', ': too_deep'],
+    ['over_1e6_values', { currency: new Array(1000001).fill(0) }, 'REFUSED_INPUT_HASH_LIMIT', ': too_many_values'],
+  ];
+  let violations = 0; const rows = [];
+  for (const [label, pp, reason, detail] of classes) {
+    try {
+      const a = await buildArtifact(pp);
+      const ok = a.execution_hash === null && a.hash_refusal && a.hash_refusal.reason === reason
+        && typeof a.hash_refusal.detail === 'string' && a.hash_refusal.detail.includes(detail)
+        && a.output_payload && a.output_payload.verdict === 'REFUSED'
+        && a.compliance_flags.length === 1 && a.compliance_flags[0] === 'INPUT_REFUSED'
+        && a.policy_parameters === null && a.tool_version === '1.0.1';
+      if (!ok) violations++;
+      rows.push({ label, refused: !!ok, hash_refusal: a.hash_refusal });
+    } catch (e) { violations++; rows.push({ label, threw: String(e && e.message).slice(0, 80) }); }
+  }
+  const safe = await buildArtifact({ currency: 'USD', project_ref: { a: [1, 2, 3] }, pwa_mode: 'X', week_ending_label: 'Y' });
+  if (safe.hash_refusal != null || typeof safe.execution_hash !== 'string') violations++;
+  rows.push({ label: 'safe_nested_not_refused', refused: safe.hash_refusal != null });
+  return { name: 'buildArtifact_never_throws', trials: classes.length, violations, rows };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -182,6 +248,8 @@ results.properties.push(checkP1_termination_bounded());
 results.properties.push(checkP2_gross_differential());
 results.properties.push(checkP3_ulp_boundary_forcing());
 results.properties.push(checkP4_payroll_row_order_invariance());
+results.properties.push(checkP5_requiredFieldNeverPositive());
+results.properties.push(await checkP6_buildArtifactNeverThrows());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 

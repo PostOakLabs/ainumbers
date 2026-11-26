@@ -103,3 +103,26 @@ Verify SPEC.md §23 input_attestations entries - vc-2.0, c2pa-manifest, rfc3161-
 ## Verify
 
 Run the sample policy_parameters through MCP tool `verify_input_attestations` at https://mcp.ainumbers.co/mcp (or the page form) and check the returned receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+## Covered
+
+Obligations of the cited rule text that this tool implements, each with test vectors on both the passing and the refusing side:
+
+- O4: conformance does not require any attestations at all; because they sit outside the preimage, attaching, dropping, or reordering them cannot alter a single byte of an existing hash
+- O5: each attestation entry carries a type (one of vc-2.0, c2pa-manifest, rfc3161-snapshot, zktls), a pointer, a proof, and a source_ref
+- O10: vc-2.0 attestations are verified as Verifiable Credentials 2.0 proofs
+- O11: rfc3161-snapshot attestations are checked as RFC 3161 timestamp snapshots
+- O12: c2pa-manifest attestations are checked structurally as C2PA manifests
+- O13: zktls attestations must not be presented as confirmed by the evaluator; their verdict is external
+- O18: a user interface presenting attestations must keep the zero-attestation caveat visible
+- O19: entries may attach a freshness block describing how recent the attested value is, plus declarative statements of the consent and retention basis behind its collection
+- O20: observed_at is required when freshness is present, and after expires_at a verifier must report the entry stale
+- O25: the report grows a freshness_status field with three possible readings: undeclared for entries without a freshness block, stale once expires_at has passed, and fresh in every remaining case
+
+## Not covered
+
+Obligations of the cited rule text that this tool does not implement:
+
+- O22: no input carries a consent reference and no output reads one; consent is not modeled
+- O23: no input carries a retention class and no output reports one; retention is not modeled
+- O27: gate targeting is a chain-registry concern; the verifier emits no gate decisions

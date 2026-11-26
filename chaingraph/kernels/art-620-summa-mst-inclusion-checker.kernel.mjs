@@ -19,6 +19,14 @@
 // independently recomputes BOTH the hash chain AND the sum chain from the
 // leaf to the root — never trusting the pasted root as an oracle for itself
 // (same independent-derivation principle as STANDING-ORDERS.md #34).
+//
+// Fail-closed required inputs: the two fields the node contract marks required,
+// root and proof, are read literally. An absent, null, empty or whitespace-only
+// required field is a refusal (NOT_VERIFIED with required_input_missing), never a
+// positive verdict. An optional, default-backed verification bound keeps its
+// documented behaviour when omitted. buildArtifact never throws: input the shared
+// hasher would refuse mints an artifact with execution_hash null and a hash_refusal
+// record instead of letting canonicalisation throw.
 
 import { executionHash } from './_hash.mjs';
 
@@ -136,6 +144,40 @@ function _parseDecimalBigInt(v) {
   try { return BigInt(s); } catch (e) { return null; }
 }
 
+const REQUIRED_FIELDS = ['root', 'proof'];
+function isRequiredPresent(v) {
+  if (v === undefined || v === null) return false;
+  if (typeof v === 'string') return v.trim().length > 0;
+  return true;
+}
+
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > HASH_MAX_DEPTH) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > HASH_MAX_ELEMENTS) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (const k of ks) {
+      const r = findHashRefusal(v[k], path + '.' + k, depth + 1, budget);
+      if (r !== null) return r;
+    }
+  }
+  return null;
+}
+
 // ── MST node layout (spec §2) ────────────────────────────────────────────
 // Leaf: hash = H(id, balance), sum = balance.
 // Middle: hash = H(left.sum + right.sum, left.hash, right.hash), sum = left.sum + right.sum.
@@ -181,6 +223,15 @@ export function compute(pp) {
       verify_only_note: VERIFY_ONLY_NOTE,
     }, extra || {});
     return { output_payload, compliance_flags };
+  }
+
+  const required_present = {
+    root: isRequiredPresent(pp.root),
+    proof: isRequiredPresent(pp.proof),
+  };
+  const missing_required_fields = REQUIRED_FIELDS.filter((f) => !required_present[f]);
+  if (missing_required_fields.length > 0) {
+    return finalize('NOT_VERIFIED', `required_input_missing: ${missing_required_fields.join(', ')}`, { missing_required_fields });
   }
 
   // ── malformed-input checks (never trust shape) ──────────────────────
@@ -250,15 +301,15 @@ export function compute(pp) {
 
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { n: 0 });
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.4/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
     tool_id: TOOL_ID,
     tool_version: TOOL_VERSION,
     generated_at: now ?? null,
-    execution_hash: hash,
+    execution_hash: unhashable === null ? await executionHash(pp, output_payload) : null,
     chain: { parent_hashes, parent_tool_ids, chain_depth },
     policy_parameters: pp,
     output_payload,
@@ -266,4 +317,6 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
     compute_mode: 'server',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }

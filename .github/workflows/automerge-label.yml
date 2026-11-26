@@ -321,7 +321,10 @@ jobs:
             }' -f id="$NODE_ID" | jq -r '.data.node.timelineItems.nodes[0].reason // "none"')
           echo "last removal reason: $REASON (webhook reason: $WEBHOOK_REASON)"
           case "$REASON" in failed_checks|merge_conflict) ;; *) echo "reason $REASON is never re-queued"; exit 0 ;; esac
-          RUN=$(gh api "repos/$REPO/actions/runs?event=merge_group&status=failure&per_page=50" | jq -r --arg p "gh-readonly-queue/main/pr-$PR-" '[.workflow_runs[] | select(.head_branch | startswith($p))][0].id // empty')
+          # The ejecting run usually concludes
+          # `cancelled` (its failed job cancels the rest), so status=failure
+          # missed 39 of 45 ejections; the helper also reads failed jobs.
+          RUN=$(node scripts/mq-eject-hold.mjs find-run "$REPO" "$PR" || true)
           if [ -z "$RUN" ]; then echo "::notice title=No merge_group run::no failed merge_group run found for #$PR"; exit 0; fi
           VERDICT=$(gh run view "$RUN" -R "$REPO" --log-failed 2>/dev/null | node scripts/mq-eject-classify.mjs || echo '{"kind":"other","gates":[]}')
           KIND=$(echo "$VERDICT" | jq -r .kind)
@@ -334,7 +337,7 @@ jobs:
             HEAD_SHA=$(gh pr view "$PR" -R "$REPO" --json headRefOid -q .headRefOid)
             WF_NAME=$(gh run view "$RUN" -R "$REPO" --json workflowName -q .workflowName)
             FAIL_STEP=$(gh api "repos/$REPO/actions/runs/$RUN/jobs?per_page=100" | jq -r '[.jobs[] | select(.conclusion == "failure") | .name as $j | ((.steps // [])[] | select(.conclusion == "failure") | "\($j) / \(.name)")][0] // "unknown"')
-            BODY=$(node scripts/mq-eject-hold.mjs comment "$WF_NAME" "$FAIL_STEP" "$RUN" "$HEAD_SHA")
+            BODY=$(node scripts/mq-eject-hold.mjs comment "$WF_NAME" "$FAIL_STEP" "$RUN" "$HEAD_SHA" "$KIND")
             gh label create mq-ejected -R "$REPO" --color B60205 --description "Ejected from the merge queue for a failed check; held until a new head commit" 2>/dev/null || true
             gh pr edit "$PR" -R "$REPO" --add-label mq-ejected
             CID=$(gh api "repos/$REPO/issues/$PR/comments?per_page=100" --paginate | jq -r '[.[] | select(.body | startswith("merge-queue: ejected"))][-1].id // empty')
@@ -432,21 +435,45 @@ jobs:
   # Eject hold: a new head commit clears the hold. Removing the label by
   # hand (with a `[MQ-EJECT-OVERRIDE] #n <reason>` channel line) is the only
   # other way to re-arm at the same head.
+  # A new head clears the hold only when the PR's
+  # own diff changed, or the eject class says main moving on caused it. A
+  # refresh from main alone (main-watch, bot-sync, autofix) keeps a PR-owned
+  # eject held. The helper is read from the default branch, never the PR head.
   clear-mq-eject:
-    name: Clear mq-ejected hold on new head
+    name: Clear mq-ejected hold on own change
     if: github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'mq-ejected')
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: write
     steps:
-      - name: Remove mq-ejected label
+      - name: Checkout default branch
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Remove mq-ejected label when the PR's own change moved
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
         run: |
-          set -euo pipefail
-          gh pr edit "$PR" -R "$REPO" --remove-label mq-ejected
+          set -uo pipefail
+          # Exit 1 = keep. Exit 0, or any crash, clears (the old behaviour).
+          VERDICT=$(node scripts/mq-eject-hold.mjs should-clear "$REPO" "$PR" "$BASE" "$BEFORE" "$AFTER"); RC=$?
+          set -e
+          if [ "$RC" -eq 1 ]; then
+            echo "keep: $VERDICT"
+            echo "#$PR mq-ejected kept: $VERDICT" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "clear (rc $RC): $VERDICT"
+            gh pr edit "$PR" -R "$REPO" --remove-label mq-ejected
+          fi
 
   # Recovery re-arm. Scheduled/manual only.
   rearm-recovered:

@@ -141,3 +141,91 @@ test('the hygiene set covers the gates that went red in CI on 2026-11-06', () =>
     assert.ok(AFFECTED_HYGIENE_CMDS.includes(`node scripts/${c}`), c);
   }
 });
+
+// ── PREFLIGHT-AFFECTED-GATE-PARITY-1: a gate-machinery diff selects the parity gate ──
+// PRs 3107/3117/3052 pushed new gates with no workflow registration and first-failed
+// in CI on "Workflow gate parity (no CI↔preflight drift)" although --affected was
+// green: no AFFECTED_CLASSES path class matched gate machinery, so the parity gate
+// was only ever picked by the kernel class's broad /parity/i label regex.
+const PARITY_LABEL = 'Workflow gate parity (no CI↔preflight drift)';
+const PARITY_CONTROLS_LABEL = 'Workflow gate parity controls (status + reverse-presence axes, mutation)';
+const WITH_PARITY = [...GATES, [PARITY_LABEL, 'p'], [PARITY_CONTROLS_LABEL, 'q']];
+
+test('a diff touching only scripts/preflight.mjs selects the workflow gate parity gate', () => {
+  const r = affectedSelection(WITH_PARITY, ['scripts/preflight.mjs']);
+  assert.ok(r.classes.includes('gate-machinery'), JSON.stringify(r.classes));
+  assert.ok(labels(r).includes(PARITY_LABEL));
+});
+
+test('a lone new scripts/check-something-new.mjs selects the workflow gate parity gate', () => {
+  const r = affectedSelection(WITH_PARITY, ['scripts/check-something-new.mjs']);
+  assert.ok(r.classes.includes('gate-machinery'), JSON.stringify(r.classes));
+  assert.ok(labels(r).includes(PARITY_LABEL));
+});
+
+test('a lone .github/workflows/scripts-verify.yml selects the workflow gate parity gate', () => {
+  const r = affectedSelection(WITH_PARITY, ['.github/workflows/scripts-verify.yml']);
+  assert.ok(r.classes.includes('gate-machinery'), JSON.stringify(r.classes));
+  assert.ok(labels(r).includes(PARITY_LABEL));
+});
+
+test('a diff touching the parity checker itself selects the plain gate, never its controls', () => {
+  const r = affectedSelection(WITH_PARITY, ['scripts/check-workflow-gate-parity.mjs']);
+  assert.ok(labels(r).includes(PARITY_LABEL));
+  assert.ok(!labels(r).includes(PARITY_CONTROLS_LABEL), 'AFFECTED_SKIP must keep dropping the controls gate');
+});
+
+test('changed gate test and selftest files (any depth under scripts/) select the parity gate without a kernel file', () => {
+  const r = affectedSelection(WITH_PARITY, ['scripts/lib/affected-gates.test.mjs']);
+  assert.ok(r.classes.includes('gate-machinery'), JSON.stringify(r.classes));
+  assert.ok(labels(r).includes(PARITY_LABEL));
+  const s = affectedSelection(WITH_PARITY, ['scripts/check-copy-hallmarks.selftest.mjs']);
+  assert.ok(labels(s).includes(PARITY_LABEL));
+});
+
+test('an unrelated README-only touched set selects no gate-machinery gate (no change)', () => {
+  const r = affectedSelection(WITH_PARITY, ['README.md']);
+  assert.deepEqual(r.classes, []);
+  assert.ok(!labels(r).some((l) => /Workflow gate parity/.test(l)));
+});
+
+// ── KERNEL-SURFACE-STATIC-GATES-1 (2026-11-25, PR #2763 lesson) ──────────────
+// #2763 touched kernels + manifests + registry/kernel, ran its local legs green, and
+// first-failed CI on REGISTRY-RESOLVE-STATIC-1 (land-verify.yml, HARD) and
+// OUTPUTSCHEMA-GAP-1 (scripts-verify.yml's full preflight). The kernel class picked
+// only the former (label /kernel/) and the manifest class only the latter (\bMCP\b):
+// each static gate was reachable only from the one class its label happened to name.
+// Both classes now name both gates, so ANY of the three kernel-surface path classes
+// selects the PAIR. Real preflight labels below, mirroring the WebMCP pattern.
+const KS_LABELS = [
+  ['Registry kernel-resolve current (REGISTRY-RESOLVE-STATIC-1)', 'node scripts/gen-registry-kernel-resolve.mjs --check'],
+  ['MCP output-schema coverage (OUTPUTSCHEMA-GAP-1)', 'node scripts/check-output-schema-coverage.mjs'],
+];
+
+test('a kernel diff picks BOTH kernel-surface static gates (real preflight labels)', () => {
+  const r = affectedSelection(KS_LABELS, ['chaingraph/kernels/art-211-prediction-market-analyzer.kernel.mjs']);
+  assert.deepEqual(r.classes, ['kernel']);
+  assert.deepEqual(labels(r).sort(), KS_LABELS.map(([l]) => l).sort());
+});
+
+test('a registry/kernel record diff picks BOTH kernel-surface static gates', () => {
+  const r = affectedSelection(KS_LABELS, ['registry/kernel/31222c0fda696a9d02bc813abe3e55542deca4ec9e97a4059a342e35f037fa50.json']);
+  assert.deepEqual(r.classes, ['kernel']);
+  assert.deepEqual(labels(r).sort(), KS_LABELS.map(([l]) => l).sort());
+});
+
+test('a manifests-only diff picks BOTH kernel-surface static gates', () => {
+  const r = affectedSelection(KS_LABELS, ['manifests/art-211-prediction-market-analyzer.manifest.json']);
+  assert.deepEqual(r.classes, ['manifest']);
+  assert.deepEqual(labels(r).sort(), KS_LABELS.map(([l]) => l).sort());
+});
+
+test('a kernel fixtures diff picks BOTH kernel-surface static gates', () => {
+  const r = affectedSelection(KS_LABELS, ['chaingraph/kernels/fixtures/art-211-prediction-market-analyzer.fixtures.json']);
+  assert.deepEqual(labels(r).sort(), KS_LABELS.map(([l]) => l).sort());
+});
+
+test('an unrelated diff picks neither kernel-surface static gate', () => {
+  const r = affectedSelection(KS_LABELS, ['README.md', 'tools/1-example.html']);
+  assert.deepEqual(r.picked, []);
+});

@@ -6,7 +6,8 @@
 // any other generator today), (3) the node's conformance-vector fixture
 // `expected_output_payload` if one exists, else (4) the node's recorded
 // `compute_proof.journal.output`. Tier3 nodes (no proof yet) get every
-// machine-derivable field except output_schema.
+// machine-derivable field except output_schema — unless a fixtures file
+// carries one (see the output_schema note below).
 //
 // tags, ap2_export, execution.function_name have no source on most pages
 // (measured: tags ~1%, ap2_export ~11%, function_name ~2.4% of art-*.html
@@ -22,8 +23,16 @@
 // one of 94 named clusters (built for the hub page, per NODECAT-SCOPE-1).
 // A node in neither source gets the explicit TODO_CATEGORY_REVIEW marker,
 // never a fabricated value.
-// output_schema is best-effort single-sample JSON-Schema-from-example,
-// never hand-composed — see deriveSchema().
+// output_schema (MANIFEST-OUTPUTSCHEMA-ALL-FIXTURES-1): when the node has a
+// chaingraph/kernels/fixtures/<tool_id>.fixtures.json file, the schema derives
+// from EVERY fixture output_payload via check-output-schema-coverage.mjs's
+// exported deriver (imported, never copied) — types unioned across samples,
+// nulls included — so a refusal fixture that emits null can no longer be
+// missed by a single-sample draft (the defect that ejected #2964/art-828 from
+// the merge queue 3x on 11-11 and sank #2974/art-829 on 11-10 via
+// OUTPUTSCHEMA-GAP-1 on the assembled tree). With no fixtures file it falls
+// back to the single conformance-vector / proof-journal sample, best-effort —
+// see deriveSchema().
 //
 // mcp_tool_definition.annotations (REGEN-MANIFEST-ATTEST-1, 2026-09-27): emitted from
 // day one, using the SAME derivation the manifests tree writer applies —
@@ -51,6 +60,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ANNOTATIONS, annotationVerdict } from './gen-manifest-examples.mjs';
 import { loadHubCategories } from './_hub-categories.mjs';
+import { deriveSchema as deriveFixtureSchema } from './check-output-schema-coverage.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -58,6 +68,7 @@ const CHAINGRAPH_JSON = resolve(REPO, 'chaingraph', 'chaingraph.json');
 const VECTORS_DIR = resolve(REPO, 'chaingraph', 'conformance', 'vectors');
 const MANIFESTS_DIR = resolve(REPO, 'manifests');
 const SCHEMA_PATH = resolve(REPO, 'chaingraph', 'schemas', 'manifest.schema.json');
+const FIXTURES_DIR = resolve(REPO, 'chaingraph', 'kernels', 'fixtures');
 
 // ---- category derivation from hub-categories.json cluster assignment
 // (NODECAT-SCOPE-1: 494/526 nodes already carry a cluster there, built for
@@ -203,13 +214,23 @@ function loadFixtureOutput(toolId) {
   return fx.expected_output_payload ?? null;
 }
 
+// MANIFEST-OUTPUTSCHEMA-ALL-FIXTURES-1: the ALL-fixture schema deriver is the
+// coverage gate's own (imported, never copied — readCases + union typing incl.
+// null). Returns null when the node has no fixtures file, so the single-sample
+// fallback applies; a present file is the only switch.
+function loadFixtureDerivedSchema(toolId, fixturesDir = FIXTURES_DIR) {
+  const p = resolve(fixturesDir, `${toolId}.fixtures.json`);
+  if (!existsSync(p)) return null;
+  return deriveFixtureSchema(JSON.parse(readFileSync(p, 'utf8')));
+}
+
 function deriveTier(node, toolId) {
   if (existsSync(resolve(VECTORS_DIR, `${toolId}.fixture.json`))) return 1;
   if (node.compute_proof?.journal?.output) return 2;
   return 3;
 }
 
-function draftManifest(node) {
+export function draftManifest(node, { fixturesDir = FIXTURES_DIR, manifestsDir = MANIFESTS_DIR } = {}) {
   const toolId = node.tool_id;
   const pagePath = resolve(REPO, 'chaingraph', `${toolId}.html`);
   const html = existsSync(pagePath) ? readFileSync(pagePath, 'utf8') : '';
@@ -219,6 +240,11 @@ function draftManifest(node) {
   let outputSample = null;
   if (tier === 1) outputSample = loadFixtureOutput(toolId);
   else if (tier === 2) outputSample = node.compute_proof.journal.output;
+
+  // MANIFEST-OUTPUTSCHEMA-ALL-FIXTURES-1: a fixtures file present → output_schema
+  // derives from EVERY fixture output_payload (types unioned, nulls included).
+  // The single-sample path below is the no-fixtures-file fallback only.
+  const fixtureSchema = loadFixtureDerivedSchema(toolId, fixturesDir);
 
   const todo = [];
   const hubCategorySlug = TOOL_ID_TO_CATEGORY_SLUG.get(toolId);
@@ -284,7 +310,9 @@ function draftManifest(node) {
     ap2_export: ap2Export,
   };
 
-  if (outputSample !== null) {
+  if (fixtureSchema !== null) {
+    manifest.output_schema = fixtureSchema;
+  } else if (outputSample !== null) {
     manifest.output_schema = deriveSchema(outputSample);
   }
 
@@ -294,7 +322,7 @@ function draftManifest(node) {
   // Carry them from the existing on-disk manifest into the draft so a redraft
   // never silently drops them (MR-ART117-CONTENT-CHANGED-2, V337: the
   // top-level manifest array is THE home for order-bearing declarations).
-  const existingManifestPath = resolve(MANIFESTS_DIR, `${toolId}.manifest.json`);
+  const existingManifestPath = resolve(manifestsDir, `${toolId}.manifest.json`);
   if (existsSync(existingManifestPath)) {
     const existing = JSON.parse(readFileSync(existingManifestPath, 'utf8'));
     for (const [key, value] of Object.entries(existing)) {
@@ -304,14 +332,19 @@ function draftManifest(node) {
 
   const remainingTodo = todo.filter((t) => t !== 'category');
   const fieldNote = `${remainingTodo.length ? remainingTodo.join(', ') + ' are TODO markers, no source found; ' : ''}category sourced from ${categorySource || 'no source (TODO_CATEGORY_REVIEW)'}`;
-  manifest.source = outputSample !== null
-    ? `generated draft — scripts/generate-node-manifest.mjs (MFSTGEN-1/NODECAT-WIRE-1, derivation tier ${tier}); ${fieldNote}; output_schema is best-effort single-sample typing — review before treating as authoritative`
-    : `generated draft — scripts/generate-node-manifest.mjs (MFSTGEN-1/NODECAT-WIRE-1, derivation tier 3); output_schema OMITTED — no compute_proof yet (async proving pending); ${fieldNote}`;
+  manifest.source = fixtureSchema !== null
+    ? `generated draft — scripts/generate-node-manifest.mjs (MFSTGEN-1/NODECAT-WIRE-1, derivation tier ${tier}); ${fieldNote}; output_schema derived from every fixture output_payload (union typing incl. null, MANIFEST-OUTPUTSCHEMA-ALL-FIXTURES-1) — review before treating as authoritative`
+    : outputSample !== null
+      ? `generated draft — scripts/generate-node-manifest.mjs (MFSTGEN-1/NODECAT-WIRE-1, derivation tier ${tier}); ${fieldNote}; output_schema is best-effort single-sample typing (no fixtures file) — review before treating as authoritative`
+      : `generated draft — scripts/generate-node-manifest.mjs (MFSTGEN-1/NODECAT-WIRE-1, derivation tier 3); output_schema OMITTED — no compute_proof yet (async proving pending); ${fieldNote}`;
 
   return { manifest, tier, todo };
 }
 
-// ---- main ----
+// ---- main (direct invocation only — importing this module, e.g. from
+// generate-node-manifest.test.mjs, must stay side-effect free; same guard
+// pattern as check-output-schema-coverage.mjs) ----
+function main() {
 const schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));
 const chaingraph = JSON.parse(readFileSync(CHAINGRAPH_JSON, 'utf8'));
 const liveNodes = chaingraph.nodes.filter((n) => n.mcp_name);
@@ -386,3 +419,7 @@ if (flag('--sample')) {
 
 console.error('usage: generate-node-manifest.mjs --all --check | --tool-id <id> [--out DIR] | --sample N [--out DIR]');
 process.exit(1);
+}
+
+// run the CLI only when invoked directly — importing (the self-test does) must stay side-effect free
+if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1].replace(/\\/g, '/')}`).href) main();
