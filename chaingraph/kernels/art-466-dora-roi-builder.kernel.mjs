@@ -6,8 +6,8 @@
  * DORA (EU) 2022/2554 Art. 28 (general principles on management of ICT third-party risk) and
  * Art. 30 (key contractual provisions) require financial entities to maintain and keep updated
  * a Register of Information on all contractual arrangements with ICT third-party service
- * providers (Art. 28(3)). The ESAs' final RTS/ITS on RoI templates (JC 2023 85 / Commission
- * Implementing Regulation on standard templates for the register of information) define ~15
+ * providers (Art. 28(3)). Commission Implementing Regulation (EU) 2024/2956 (OJ L, 2.12.2024; ESAs
+ * final draft JC 2023 85), as corrected by OJ L 2025/90725 (19.9.2025), defines the ~15
  * structured templates (entity, provider, contractual arrangement, function, etc.) submitted
  * annually (first cycle Q1 2025, second cycle Q1 2026) as xBRL-CSV.
  *
@@ -248,8 +248,8 @@ export function compute(pp) {
     summary,
     findings,
     compliance_flags: flags,
-    table_version: 'DORA-ROI-TEMPLATES-STRUCTURAL-2026',
-    table_source: 'DORA (EU) 2022/2554 Art. 28/30 (Register of Information); ESAs final RTS/ITS on standard templates for the register of information (JC 2023 85); ISO 17442:2020 + ISO 7064:2003 Mod 97-10 for LEI check-digit validation.',
+    table_version: 'DORA-ROI-TEMPLATES-STRUCTURAL-2027',
+    table_source: 'DORA (EU) 2022/2554 Art. 28/30 (Register of Information); Commission Implementing Regulation (EU) 2024/2956 (OJ L, 2024/2956, 2.12.2024) on standard templates for the register of information, as corrected by OJ L, 2025/90725, 19.9.2025 (in force, no amending act on EUR-Lex as of 2026-11-25); ISO 17442 (2020) + ISO 7064 (2003) Mod 97-10 for LEI check-digit validation.',
   };
 
   const output_payload = {

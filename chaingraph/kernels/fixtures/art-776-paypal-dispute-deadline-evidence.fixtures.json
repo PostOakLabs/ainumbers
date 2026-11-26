@@ -1,6 +1,6 @@
 {
   "tool_id": "art-776-paypal-dispute-deadline-evidence",
-  "note": "Golden + edge vectors for the PayPal dispute deadline and evidence producer (PAYPAL-DISPUTE-DEADLINE-NODE-1). Coverage: all four disputes.js reasons (including missing-evidence shapes), past-due inquiry, seller_response_due_date passthrough, the three stage-scoping branches (chargeback+card CE3.0-shaped bundle; inquiry/claim/paypal-funded paypal_process_evidence; unknown funding withheld), NOT STATED deadline postures for chargeback and both appeal stages, and six named refusals. Every deadline number is PayPal-stated via research/clause-snapshots/paypal-disputes-2026-10/SNAPSHOT.md; NOT STATED windows are null with a reason. golden_hash pending - run `node golden-parity.test.mjs --update` to pin it.",
+  "note": "Golden + edge vectors for the dispute deadline and evidence producer across four payment service providers (psp-deadline-tables-2026). Finding: per-PSP deadline tables as data - Stripe, Adyen and Square each contribute their own stage vocabulary and stated deadline rules from their 2026-10 snapshots (stripe-disputes-2026-10, adyen-disputes-2026-10, square-disputes-2026-10, each fetch 2026-10-26T12Z); a window stated only as a range, a typical figure, or not at all is returned null with the reason quoted, never guessed; sources: Adyen A5 timeframe matrix (NoC 40 days Mastercard, RFI 14 days Amex, TWINT 10 days; visa 9-or-18 and Klarna 14/7/96h ambiguities refused as NOT STATED), Stripe S3 120-day inquiry auto-close, Square Q3 typical figure + Q4 due_at passthrough. Coverage: all four disputes.js reasons (including missing-evidence shapes), past-due inquiry, seller_response_due_date passthrough, the three PayPal stage-scoping branches, NOT STATED deadline postures for chargeback and both appeal stages, six PayPal refusals, and the new PSP paths: one table-driven vector per PSP rule family plus CE3.0-shaped bundle emission (stripe needs_response on a card rail; adyen NoC on card schemes only, withheld for TWINT; square EVIDENCE_REQUIRED), passthrough per PSP deadline field, and three new refusals (unknown psp, stage-vocabulary mismatch, funding_source on a non-PayPal path). Every deadline number is PSP-stated via its snapshot; NOT STATED windows are null with a reason. The first 18 PayPal vectors are the original golden set, byte-identical.",
   "vectors": [
     {
       "name": "inquiry_inr_full_evidence",
@@ -1232,6 +1232,998 @@
         "refusal_reason": "REFUSED_BAD_SELLER_RESPONSE_DUE_DATE"
       },
       "golden_hash": "3a73f554d7d9edabf8b05a9a9136df0698f9ea6fe0141fd5bd4c0da86e2db140"
+    },
+    {
+      "name": "stripe_chargeback_needs_response_ce30_bundle",
+      "description": "Stripe formal dispute at the response stage on a card rail: needs_response with card_network visa and complete fulfillment evidence. Response window NOT computable (card-network range 7-21 days, S4; due_by formula not stated, S2), so seller_response is null with the reason; the CE3.0-shaped bundle is emitted (needs_response is a formal dispute, S2; Stripe runs Visa Compelling Evidence 3.0 eligibility, S4) with the delivery_proof digest over the fulfillment evidence.",
+      "policy_parameters": {
+        "psp": "stripe",
+        "dispute_reason": "fraudulent",
+        "lifecycle_stage": "needs_response",
+        "card_network": "visa",
+        "dispute_create_time": "2026-10-01T12:00:00Z",
+        "as_of": "2026-10-05T12:00:00Z",
+        "transaction_ref": "SYN-STRIPE-TRX-1",
+        "evidence_on_hand": {
+          "carrier_name": "SyntheticCarrier",
+          "tracking_number": "SYN-STRIPE-0001"
+        }
+      },
+      "output_payload": {
+        "psp": "stripe",
+        "dispute_reason": "fraudulent",
+        "lifecycle_stage": "needs_response",
+        "funding_source": null,
+        "dispute_create_time": "2026-10-01T12:00:00.000Z",
+        "as_of": "2026-10-05T12:00:00.000Z",
+        "deadlines": {
+          "seller_response": {
+            "due": null,
+            "source": "not_stated",
+            "basis": "Stripe response window in days: NOT STATED as a single number. Stripe states \"you have a limited window to respond (usually 7 to 21 days, depending on the card network)\" (S4) — a card-network range — and the day-count formula behind evidence_details.due_by is not stated (S2 returns the timestamp only). Supply seller_response_due_date to pass Stripe's own due_by timestamp through.",
+            "days_remaining": null,
+            "past_due": null
+          },
+          "inquiry_stage": null,
+          "escalation_available_until": null
+        },
+        "required_evidence": {
+          "evidence_type": null,
+          "required": null,
+          "why": "Stripe's per-category evidence guidance is preserved in its snapshot only as raw captures, not as a re-typed table; no evidence requirement is guessed here."
+        },
+        "evidence_on_hand": {
+          "carrier_name": "SyntheticCarrier",
+          "tracking_number": "SYN-STRIPE-0001",
+          "refund_id": null,
+          "notes": null
+        },
+        "missing_evidence": null,
+        "bundle_decision": {
+          "ce30_applicable": true,
+          "bundle_kind": "ce30_shaped",
+          "reason": "Formal dispute at the response stage (\"A dispute that requires a response.\" (S2)) on the card rail \"visa\"; Stripe itself runs the card-network program here: \"Stripe automatically evaluates your transaction history to determine eligibility with Visa Compelling Evidence 3.0.\" (S4). CE3.0-shaped bundle emitted for consumption by art-297."
+        },
+        "ce30_shaped_bundle": {
+          "label": "CE3.0-shaped bundle for consumption by art-297 (mcp:lint_compelling_evidence_ce30_agentic); Visa CE3.0 is a card-network program, not a stripe one",
+          "dispute": {
+            "network": "visa",
+            "reason_code": null,
+            "transaction_ref": "SYN-STRIPE-TRX-1"
+          },
+          "evidence": {
+            "ap2_mandate": null,
+            "tap_signature": null,
+            "agentic_token": null,
+            "delivery_proof": {
+              "digest": "c40cd789bc4a23386fe0408d4aecd436d8bdcbcc166d0700387f9d159fc2a834",
+              "bound_transaction_ref": "SYN-STRIPE-TRX-1"
+            },
+            "prior_transactions": null
+          },
+          "null_fields_note": "ap2_mandate, tap_signature, agentic_token: no stripe counterpart in its fetched snapshot (no such fields in the dispute object's evidence object (S2)). reason_code: Stripe exposes the network reason code as payment_method_details.card.network_reason_code (S2); this calculator takes no such input. prior_transactions: no separate prior-transaction element is stated for stripe disputes in the fetched snapshot."
+        },
+        "paypal_process_evidence": null,
+        "cited_clauses": [
+          {
+            "id": "S4",
+            "quote": "you have a limited window to respond (usually 7 to 21 days, depending on the card network)",
+            "url": "https://docs.stripe.com/disputes/responding"
+          },
+          {
+            "id": "S2",
+            "quote": "Date by which evidence must be submitted in order to successfully challenge dispute.",
+            "url": "https://docs.stripe.com/api/disputes/object"
+          },
+          {
+            "id": "S2",
+            "quote": "A dispute that requires a response.",
+            "url": "https://docs.stripe.com/api/disputes/object"
+          },
+          {
+            "id": "S4",
+            "quote": "Stripe automatically evaluates your transaction history to determine eligibility with Visa Compelling Evidence 3.0.",
+            "url": "https://docs.stripe.com/disputes/responding"
+          }
+        ],
+        "domain_errors": [],
+        "refusal_reason": null
+      },
+      "golden_hash": "2824044f795b0e199f7af363fdaf0319a59cd362b3b01a02592f40ae872668d1"
+    },
+    {
+      "name": "stripe_inquiry_120_day_autoclose",
+      "description": "Stripe inquiry awaiting response (warning_needs_response): inquiry auto-close window = create + 120 days (S3 verbatim rule), 116 days remaining; seller response window null with the range reason; no network bundle (an inquiry is not a formal dispute, S2).",
+      "policy_parameters": {
+        "psp": "stripe",
+        "lifecycle_stage": "warning_needs_response",
+        "dispute_create_time": "2026-10-01T12:00:00Z",
+        "as_of": "2026-10-05T12:00:00Z"
+      },
+      "output_payload": {
+        "psp": "stripe",
+        "dispute_reason": null,
+        "lifecycle_stage": "warning_needs_response",
+        "funding_source": null,
+        "dispute_create_time": "2026-10-01T12:00:00.000Z",
+        "as_of": "2026-10-05T12:00:00.000Z",
+        "deadlines": {
+          "seller_response": {
+            "due": null,
+            "source": "not_stated",
+            "basis": "Stripe response window in days: NOT STATED as a single number. Stripe states \"you have a limited window to respond (usually 7 to 21 days, depending on the card network)\" (S4) — a card-network range — and the day-count formula behind evidence_details.due_by is not stated (S2 returns the timestamp only). Supply seller_response_due_date to pass Stripe's own due_by timestamp through.",
+            "days_remaining": null,
+            "past_due": null
+          },
+          "inquiry_stage": {
+            "due": "2027-01-29T12:00:00.000Z",
+            "source": "snapshot_rule_120_day",
+            "basis": "Snapshot rule: \"If an inquiry remains open for 120 days without escalating to a chargeback, Stripe marks it as closed in both the Dashboard and API.\" (S3); escalation consequence \"If an inquiry escalates to a chargeback, you must submit another response for the dispute.\" (S4)",
+            "days_remaining": 116,
+            "past_due": false
+          },
+          "escalation_available_until": "2027-01-29T12:00:00.000Z"
+        },
+        "required_evidence": {
+          "evidence_type": null,
+          "required": null,
+          "why": "Stripe's per-category evidence guidance is preserved in its snapshot only as raw captures, not as a re-typed table; no evidence requirement is guessed here."
+        },
+        "evidence_on_hand": {
+          "carrier_name": null,
+          "tracking_number": null,
+          "refund_id": null,
+          "notes": null
+        },
+        "missing_evidence": null,
+        "bundle_decision": {
+          "ce30_applicable": false,
+          "bundle_kind": null,
+          "reason": "Inquiry stage: \"An inquiry that requires a response.\" (S2) — not a formal dispute, so no network evidence bundle. If it escalates, \"If an inquiry escalates to a chargeback, you must submit another response for the dispute.\" (S4)"
+        },
+        "ce30_shaped_bundle": null,
+        "paypal_process_evidence": null,
+        "cited_clauses": [
+          {
+            "id": "S4",
+            "quote": "you have a limited window to respond (usually 7 to 21 days, depending on the card network)",
+            "url": "https://docs.stripe.com/disputes/responding"
+          },
+          {
+            "id": "S2",
+            "quote": "Date by which evidence must be submitted in order to successfully challenge dispute.",
+            "url": "https://docs.stripe.com/api/disputes/object"
+          },
+          {
+            "id": "S3",
+            "quote": "If an inquiry remains open for 120 days without escalating to a chargeback, Stripe marks it as closed in both the Dashboard and API.",
+            "url": "https://docs.stripe.com/disputes/how-disputes-work"
+          },
+          {
+            "id": "S4",
+            "quote": "If an inquiry escalates to a chargeback, you must submit another response for the dispute.",
+            "url": "https://docs.stripe.com/disputes/responding"
+          }
+        ],
+        "domain_errors": [],
+        "refusal_reason": null
+      },
+      "golden_hash": "1bfea03913f5e7cb777183cc15e99c4457e8f66961ba911eefb03d9563aaf4d0"
+    },
+    {
+      "name": "stripe_passthrough_due_by",
+      "description": "Stripe needs_response with the per-dispute evidence_details.due_by passed through as seller_response_due_date: due honored verbatim (S2 definition and zero-case clauses cited), 3 days remaining, not past due; bundle withheld (card rail not attested).",
+      "policy_parameters": {
+        "psp": "stripe",
+        "lifecycle_stage": "needs_response",
+        "dispute_create_time": "2026-10-01T12:00:00Z",
+        "as_of": "2026-10-05T12:00:00Z",
+        "seller_response_due_date": "2026-10-08T12:00:00Z"
+      },
+      "output_payload": {
+        "psp": "stripe",
+        "dispute_reason": null,
+        "lifecycle_stage": "needs_response",
+        "funding_source": null,
+        "dispute_create_time": "2026-10-01T12:00:00.000Z",
+        "as_of": "2026-10-05T12:00:00.000Z",
+        "deadlines": {
+          "seller_response": {
+            "due": "2026-10-08T12:00:00.000Z",
+            "source": "passthrough",
+            "basis": "seller_response_due_date passthrough: Stripe evidence_details.due_by is \"Date by which evidence must be submitted in order to successfully challenge dispute.\" (S2); \"Will be 0 if the customer's bank or credit card company doesn't allow a response for this particular dispute.\" (S2); consequence \"If you don't respond before the deadline, you automatically lose the dispute and can't retrieve the disputed funds.\" (S4)",
+            "days_remaining": 3,
+            "past_due": false
+          },
+          "inquiry_stage": null,
+          "escalation_available_until": null
+        },
+        "required_evidence": {
+          "evidence_type": null,
+          "required": null,
+          "why": "Stripe's per-category evidence guidance is preserved in its snapshot only as raw captures, not as a re-typed table; no evidence requirement is guessed here."
+        },
+        "evidence_on_hand": {
+          "carrier_name": null,
+          "tracking_number": null,
+          "refund_id": null,
+          "notes": null
+        },
+        "missing_evidence": null,
+        "bundle_decision": {
+          "ce30_applicable": false,
+          "bundle_kind": null,
+          "reason": "CE3.0-shaped bundle withheld: card_network not supplied. \"A dispute that requires a response.\" (S2) is a formal dispute, but the status alone does not state the funding rail (card vs local payment method; Stripe states LPM disputes exist), and CE3.0 is a card-network program. Supply card_network to attest the card rail."
+        },
+        "ce30_shaped_bundle": null,
+        "paypal_process_evidence": null,
+        "cited_clauses": [
+          {
+            "id": "S2",
+            "quote": "Date by which evidence must be submitted in order to successfully challenge dispute.",
+            "url": "https://docs.stripe.com/api/disputes/object"
+          },
+          {
+            "id": "S2",
+            "quote": "Will be 0 if the customer's bank or credit card company doesn't allow a response for this particular dispute.",
+            "url": "https://docs.stripe.com/api/disputes/object"
+          },
+          {
+            "id": "S4",
+            "quote": "If you don't respond before the deadline, you automatically lose the dispute and can't retrieve the disputed funds.",
+            "url": "https://docs.stripe.com/disputes/responding"
+          }
+        ],
+        "domain_errors": [],
+        "refusal_reason": null
+      },
+      "golden_hash": "476102b2c372428e7de7e5b15b4466ed98d94d34f8ce01c7fb1ecdeedcfea50c"
+    },
+    {
+      "name": "stripe_under_review_issuer_range",
+      "description": "Stripe dispute after evidence submission (under_review): seller_response null with the issuer decision-range reason (usually 60-75 days depending on the card network, S3 - a range, not a computable date); no network bundle (response already submitted).",
+      "policy_parameters": {
+        "psp": "stripe",
+        "lifecycle_stage": "under_review",
+        "dispute_create_time": "2026-10-01T12:00:00Z",
+        "as_of": "2026-10-05T12:00:00Z"
+      },
+      "output_payload": {
+        "psp": "stripe",
+        "dispute_reason": null,
+        "lifecycle_stage": "under_review",
+        "funding_source": null,
+        "dispute_create_time": "2026-10-01T12:00:00.000Z",
+        "as_of": "2026-10-05T12:00:00.000Z",
+        "deadlines": {
+          "seller_response": {
+            "due": null,
+            "source": "not_stated",
+            "basis": "Response already submitted; the response window is spent. Issuer decision window: \"the issuer has a limited time to evaluate it and decide the outcome: usually 60-75 days, depending on the card network\" (S3) — a range, not a computable date.",
+            "days_remaining": null,
+            "past_due": null
+          },
+          "inquiry_stage": null,
+          "escalation_available_until": null
+        },
+        "required_evidence": {
+          "evidence_type": null,
+          "required": null,
+          "why": "Stripe's per-category evidence guidance is preserved in its snapshot only as raw captures, not as a re-typed table; no evidence requirement is guessed here."
+        },
+        "evidence_on_hand": {
+          "carrier_name": null,
+          "tracking_number": null,
+          "refund_id": null,
+          "notes": null
+        },
+        "missing_evidence": null,
+        "bundle_decision": {
+          "ce30_applicable": false,
+          "bundle_kind": null,
+          "reason": "No network evidence bundle: \"A dispute under review after evidence submission.\" (S2) — no live network-chargeback response."
+        },
+        "ce30_shaped_bundle": null,
+        "paypal_process_evidence": null,
+        "cited_clauses": [
+          {
+            "id": "S2",
+            "quote": "A dispute under review after evidence submission.",
+            "url": "https://docs.stripe.com/api/disputes/object"
+          },
+          {
+            "id": "S3",
+            "quote": "the issuer has a limited time to evaluate it and decide the outcome: usually 60-75 days, depending on the card network",
+            "url": "https://docs.stripe.com/disputes/how-disputes-work"
+          }
+        ],
+        "domain_errors": [],
+        "refusal_reason": null
+      },
+      "golden_hash": "bcefab7fd6b6609213ff45f86938d9c7d8d48a19f9592ab061889ea5b33c0e8e"
+    },
+    {
+      "name": "adyen_noc_mastercard_40_day_ce30_bundle",
+      "description": "Adyen Notification of Chargeback on the mastercard scheme column: seller response due = NoC timestamp + 40 calendar days (A5 matrix row \"Your response to Chargeback (from NoC date)\"; NoC marks the start of the defense period, A1), 36 days remaining; CE3.0-shaped bundle emitted (card-network scheme) with the delivery_proof digest over the fulfillment evidence.",
+      "policy_parameters": {
+        "psp": "adyen",
+        "lifecycle_stage": "NOTIFICATION_OF_CHARGEBACK",
+        "card_network": "mastercard",
+        "dispute_create_time": "2026-10-01T12:00:00Z",
+        "as_of": "2026-10-05T12:00:00Z",
+        "transaction_ref": "SYN-ADYEN-TRX-1",
+        "evidence_on_hand": {
+          "carrier_name": "SyntheticCarrier",
+          "tracking_number": "SYN-ADYEN-0001"
+        }
+      },
+      "output_payload": {
+        "psp": "adyen",
+        "dispute_reason": null,
+        "lifecycle_stage": "NOTIFICATION_OF_CHARGEBACK",
+        "funding_source": null,
+        "dispute_create_time": "2026-10-01T12:00:00.000Z",
+        "as_of": "2026-10-05T12:00:00.000Z",
+        "deadlines": {
+          "seller_response": {
+            "due": "2026-11-10T12:00:00.000Z",
+            "source": "snapshot_rule_matrix_noc",
+            "basis": "Snapshot rule: Adyen timeframe-matrix row \"Your response to Chargeback (from NoC date)\", mastercard column, 40 calendar days (A5); anchor: dispute_create_time as the NoC timestamp, which \"marks the start of the defense period\" (A1); \"A chargeback has been initiated by the issuer, and can be defended.\" (A6).",
+            "days_remaining": 36,
+            "past_due": false
+          },
+          "inquiry_stage": null,
+          "escalation_available_until": null
+        },
+        "required_evidence": {
+          "evidence_type": null,
+          "required": null,
+          "why": "Adyen's per-reason defense requirements are pinned as raw captures in its snapshot (\"data too large to retype\"); no evidence requirement is guessed here."
+        },
+        "evidence_on_hand": {
+          "carrier_name": "SyntheticCarrier",
+          "tracking_number": "SYN-ADYEN-0001",
+          "refund_id": null,
+          "notes": null
+        },
+        "missing_evidence": null,
+        "bundle_decision": {
+          "ce30_applicable": true,
+          "bundle_kind": "ce30_shaped",
+          "reason": "\"A chargeback has been initiated by the issuer, and can be defended.\" (A6) at the stage that \"marks the start of the defense period\" (A1), on card-network scheme \"mastercard\". CE3.0 is a card-network program; CE3.0-shaped bundle emitted for consumption by art-297."
+        },
+        "ce30_shaped_bundle": {
+          "label": "CE3.0-shaped bundle for consumption by art-297 (mcp:lint_compelling_evidence_ce30_agentic); Visa CE3.0 is a card-network program, not a adyen one",
+          "dispute": {
+            "network": "mastercard",
+            "reason_code": null,
+            "transaction_ref": "SYN-ADYEN-TRX-1"
+          },
+          "evidence": {
+            "ap2_mandate": null,
+            "tap_signature": null,
+            "agentic_token": null,
+            "delivery_proof": {
+              "digest": "53360d357fa8ce84892e37c2c69dceae69820678ebc182eb0f1dc410a4a28b71",
+              "bound_transaction_ref": "SYN-ADYEN-TRX-1"
+            },
+            "prior_transactions": null
+          },
+          "null_fields_note": "ap2_mandate, tap_signature, agentic_token: no adyen counterpart in its fetched snapshot (no such fields in the defense document types (A2)). reason_code: no adyen-to-network reason-code mapping is stated in the fetched snapshot. prior_transactions: no separate prior-transaction element is stated for adyen disputes in the fetched snapshot."
+        },
+        "paypal_process_evidence": null,
+        "cited_clauses": [
+          {
+            "id": "A5",
+            "quote": "The following table shows the timeframe (in calendar days) to exercise and defend a chargeback for various schemes.",
+            "url": "https://docs.adyen.com/risk-management/understanding-disputes/dispute-timeframes"
+          },
+          {
+            "id": "A1",
+            "quote": "This is your starting point for the defense, and marks the start of the defense period.",
+            "url": "https://docs.adyen.com/risk-management/disputes-api"
+          },
+          {
+            "id": "A6",
+            "quote": "A chargeback has been initiated by the issuer, and can be defended.",
+            "url": "https://docs.adyen.com/risk-management/understanding-disputes/dispute-process-and-flow"
+          },
+          {
+            "id": "A6",
+            "quote": "A chargeback has been initiated by the issuer, and can be defended.",
+            "url": "https://docs.adyen.com/risk-management/understanding-disputes/dispute-process-and-flow"
+          },
+          {
+            "id": "A1",
+            "quote": "This is your starting point for the defense, and marks the start of the defense period.",
+            "url": "https://docs.adyen.com/risk-management/disputes-api"
+          }
+        ],
+        "domain_errors": [],
+        "refusal_reason": null
+      },
+      "golden_hash": "28a29db4cce3b0dcba86873abd66577a90492c3d78ddcb7ab0112083dadbd0fd"
+    },
+    {
+      "name": "adyen_noc_visa_9_or_18_not_stated",
+      "description": "Adyen Notification of Chargeback on the visa scheme column: seller response null with BOTH stated footnotes quoted (9 days for US/Canada-local payments from 21 July 2025, 18 days otherwise, A5) - the processing region is not an input, so no number is chosen; the CE3.0-shaped bundle is still emitted (visa is a card-network scheme).",
+      "policy_parameters": {
+        "psp": "adyen",
+        "lifecycle_stage": "NOTIFICATION_OF_CHARGEBACK",
+        "card_network": "visa",
+        "dispute_create_time": "2026-10-01T12:00:00Z",
+        "as_of": "2026-10-05T12:00:00Z"
+      },
+      "output_payload": {
+        "psp": "adyen",
+        "dispute_reason": null,
+        "lifecycle_stage": "NOTIFICATION_OF_CHARGEBACK",
+        "funding_source": null,
+        "dispute_create_time": "2026-10-01T12:00:00.000Z",
+        "as_of": "2026-10-05T12:00:00.000Z",
+        "deadlines": {
+          "seller_response": {
+            "due": null,
+            "source": "not_stated",
+            "basis": "Visa chargeback response window: NOT STATED as a single number. BOTH conditions are stated and this calculator cannot distinguish them. \"From 21 July 2025, the response timeframe for disputes opened on payments processed locally in the United States and Canada is 9 days.\" (A5); \"For disputes opened before this date in the United States or Canada, and for all other countries and regions, the response timeframe is 18 days.\" (A5). The payment's processing region is not an input, so no number is chosen. Supply seller_response_due_date.",
+            "days_remaining": null,
+            "past_due": null
+          },
+          "inquiry_stage": null,
+          "escalation_available_until": null
+        },
+        "required_evidence": {
+          "evidence_type": null,
+          "required": null,
+          "why": "Adyen's per-reason defense requirements are pinned as raw captures in its snapshot (\"data too large to retype\"); no evidence requirement is guessed here."
+        },
+        "evidence_on_hand": {
+          "carrier_name": null,
+          "tracking_number": null,
+          "refund_id": null,
+          "notes": null
+        },
+        "missing_evidence": null,
+        "bundle_decision": {
+          "ce30_applicable": true,
+          "bundle_kind": "ce30_shaped",
+          "reason": "\"A chargeback has been initiated by the issuer, and can be defended.\" (A6) at the stage that \"marks the start of the defense period\" (A1), on card-network scheme \"visa\". CE3.0 is a card-network program; CE3.0-shaped bundle emitted for consumption by art-297."
+        },
+        "ce30_shaped_bundle": {
+          "label": "CE3.0-shaped bundle for consumption by art-297 (mcp:lint_compelling_evidence_ce30_agentic); Visa CE3.0 is a card-network program, not a adyen one",
+          "dispute": {
+            "network": "visa",
+            "reason_code": null,
+            "transaction_ref": null
+          },
+          "evidence": {
+            "ap2_mandate": null,
+            "tap_signature": null,
+            "agentic_token": null,
+            "delivery_proof": null,
+            "prior_transactions": null
+          },
+          "null_fields_note": "ap2_mandate, tap_signature, agentic_token: no adyen counterpart in its fetched snapshot (no such fields in the defense document types (A2)). reason_code: no adyen-to-network reason-code mapping is stated in the fetched snapshot. prior_transactions: no separate prior-transaction element is stated for adyen disputes in the fetched snapshot."
+        },
+        "paypal_process_evidence": null,
+        "cited_clauses": [
+          {
+            "id": "A5",
+            "quote": "From 21 July 2025, the response timeframe for disputes opened on payments processed locally in the United States and Canada is 9 days.",
+            "url": "https://docs.adyen.com/risk-management/understanding-disputes/dispute-timeframes"
+          },
+          {
+            "id": "A5",
+            "quote": "For disputes opened before this date in the United States or Canada, and for all other countries and regions, the response timeframe is 18 days.",
+            "url": "https://docs.adyen.com/risk-management/understanding-disputes/dispute-timeframes"
+          },
+          {
+            "id": "A6",
+            "quote": "A chargeback has been initiated by the issuer, and can be defended.",
+            "url": "https://docs.adyen.com/risk-management/understanding-disputes/dispute-process-and-flow"
+          },
+          {
+            "id": "A1",
+            "quote": "This is your starting point for the defense, and marks the start of the defense period.",
+            "url": "https://docs.adyen.com/risk-management/disputes-api"
+          }
+        ],
+        "domain_errors": [],
+        "refusal_reason": null
+      },
+      "golden_hash": "65fce2d0fc2596a004347a417002de2c68fc36c4b86e08604fdea40d310abba5"
+    },
+    {
+      "name": "adyen_rfi_amex_14_day",
+      "description": "Adyen Request for Information on the amex scheme column: seller response due = RFI timestamp + 14 calendar days (A5 matrix row \"Your response (from RFI date)\"; RFI stage definition, A6), 10 days remaining; no network bundle (an RFI is not a chargeback).",
+      "policy_parameters": {
+        "psp": "adyen",
+        "lifecycle_stage": "REQUEST_FOR_INFORMATION",
+        "card_network": "amex",
+        "dispute_create_time": "2026-10-01T12:00:00Z",
+        "as_of": "2026-10-05T12:00:00Z"
+      },
+      "output_payload": {
+        "psp": "adyen",
+        "dispute_reason": null,
+        "lifecycle_stage": "REQUEST_FOR_INFORMATION",
+        "funding_source": null,
+        "dispute_create_time": "2026-10-01T12:00:00.000Z",
+        "as_of": "2026-10-05T12:00:00.000Z",
+        "deadlines": {
+          "seller_response": {
+            "due": "2026-10-15T12:00:00.000Z",
+            "source": "snapshot_rule_matrix_rfi",
+            "basis": "Snapshot rule: Adyen timeframe-matrix row \"Your response (from RFI date)\", amex column, 14 calendar days (A5); anchor: dispute_create_time as the RFI timestamp; \"The issuer requests more information about the transaction. At this stage, no money is withdrawn from your account.\" (A6).",
+            "days_remaining": 10,
+            "past_due": false
+          },
+          "inquiry_stage": null,
+          "escalation_available_until": null
+        },
+        "required_evidence": {
+          "evidence_type": null,
+          "required": null,
+          "why": "Adyen's per-reason defense requirements are pinned as raw captures in its snapshot (\"data too large to retype\"); no evidence requirement is guessed here."
+        },
+        "evidence_on_hand": {
+          "carrier_name": null,
+          "tracking_number": null,
+          "refund_id": null,
+          "notes": null
+        },
+        "missing_evidence": null,
+        "bundle_decision": {
+          "ce30_applicable": false,
+          "bundle_kind": null,
+          "reason": "\"The issuer requests more information about the transaction. At this stage, no money is withdrawn from your account.\" (A6): information request, not a chargeback; no network evidence bundle."
+        },
+        "ce30_shaped_bundle": null,
+        "paypal_process_evidence": null,
+        "cited_clauses": [
+          {
+            "id": "A5",
+            "quote": "The following table shows the timeframe (in calendar days) to exercise and defend a chargeback for various schemes.",
+            "url": "https://docs.adyen.com/risk-management/understanding-disputes/dispute-timeframes"
+          },
+          {
+            "id": "A6",
+            "quote": "The issuer requests more information about the transaction. At this stage, no money is withdrawn from your account.",
+            "url": "https://docs.adyen.com/risk-management/understanding-disputes/dispute-process-and-flow"
+          }
+        ],
+        "domain_errors": [],
+        "refusal_reason": null
+      },
+      "golden_hash": "ae2a7b546ac1bc03986711eb9fefe8d3e88ef1ab6b0c232251476ab13f4049f4"
+    },
+    {
+      "name": "adyen_rfi_klarna_three_values_not_stated",
+      "description": "Adyen RFI on the klarna scheme column: seller response null with all THREE stated reason-dependent values quoted (14 days for consumer reason codes, 7 days for unauthorized_purchase RFIs, 96 hours for high_risk_order RFIs, A5) - no reason code is an input, so no number is chosen; no network bundle (Klarna is not a card-network scheme).",
+      "policy_parameters": {
+        "psp": "adyen",
+        "lifecycle_stage": "REQUEST_FOR_INFORMATION",
+        "card_network": "klarna",
+        "dispute_create_time": "2026-10-01T12:00:00Z",
+        "as_of": "2026-10-05T12:00:00Z"
+      },
+      "output_payload": {
+        "psp": "adyen",
+        "dispute_reason": null,
+        "lifecycle_stage": "REQUEST_FOR_INFORMATION",
+        "funding_source": null,
+        "dispute_create_time": "2026-10-01T12:00:00.000Z",
+        "as_of": "2026-10-05T12:00:00.000Z",
+        "deadlines": {
+          "seller_response": {
+            "due": null,
+            "source": "not_stated",
+            "basis": "Klarna RFI response window: NOT STATED as a single number. THREE reason-dependent values are stated and no reason code is an input. \"14 days for consumer reason codes.\" (A5); \"7 days for RFIs with reason code `unauthorized_purchase`.\" (A5); \"96 hours for RFIs with reason code `high_risk_order`.\" (A5). No number is chosen. Supply seller_response_due_date.",
+            "days_remaining": null,
+            "past_due": null
+          },
+          "inquiry_stage": null,
+          "escalation_available_until": null
+        },
+        "required_evidence": {
+          "evidence_type": null,
+          "required": null,
+          "why": "Adyen's per-reason defense requirements are pinned as raw captures in its snapshot (\"data too large to retype\"); no evidence requirement is guessed here."
+        },
+        "evidence_on_hand": {
+          "carrier_name": null,
+          "tracking_number": null,
+          "refund_id": null,
+          "notes": null
+        },
+        "missing_evidence": null,
+        "bundle_decision": {
+          "ce30_applicable": false,
+          "bundle_kind": null,
+          "reason": "\"The issuer requests more information about the transaction. At this stage, no money is withdrawn from your account.\" (A6): information request, not a chargeback; no network evidence bundle."
+        },
+        "ce30_shaped_bundle": null,
+        "paypal_process_evidence": null,
+        "cited_clauses": [
+          {
+            "id": "A5",
+            "quote": "14 days for consumer reason codes.",
+            "url": "https://docs.adyen.com/risk-management/understanding-disputes/dispute-timeframes"
+          },
+          {
+            "id": "A5",
+            "quote": "7 days for RFIs with reason code `unauthorized_purchase`.",
+            "url": "https://docs.adyen.com/risk-management/understanding-disputes/dispute-timeframes"
+          },
+          {
+            "id": "A5",
+            "quote": "96 hours for RFIs with reason code `high_risk_order`.",
+            "url": "https://docs.adyen.com/risk-management/understanding-disputes/dispute-timeframes"
+          }
+        ],
+        "domain_errors": [],
+        "refusal_reason": null
+      },
+      "golden_hash": "75a17554903821c7038a719ba33daa0f5bacfca18245d1a16246b019c9cfcf9e"
+    },
+    {
+      "name": "adyen_noc_twint_10_day_non_card_scheme",
+      "description": "Adyen Notification of Chargeback on the twint scheme column: seller response due = NoC timestamp + 10 calendar days (A5 matrix), 6 days remaining; the CE3.0-shaped bundle is withheld because TWINT is not a card-network scheme (CE3.0 is a card-network program).",
+      "policy_parameters": {
+        "psp": "adyen",
+        "lifecycle_stage": "NOTIFICATION_OF_CHARGEBACK",
+        "card_network": "twint",
+        "dispute_create_time": "2026-10-01T12:00:00Z",
+        "as_of": "2026-10-05T12:00:00Z"
+      },
+      "output_payload": {
+        "psp": "adyen",
+        "dispute_reason": null,
+        "lifecycle_stage": "NOTIFICATION_OF_CHARGEBACK",
+        "funding_source": null,
+        "dispute_create_time": "2026-10-01T12:00:00.000Z",
+        "as_of": "2026-10-05T12:00:00.000Z",
+        "deadlines": {
+          "seller_response": {
+            "due": "2026-10-11T12:00:00.000Z",
+            "source": "snapshot_rule_matrix_noc",
+            "basis": "Snapshot rule: Adyen timeframe-matrix row \"Your response to Chargeback (from NoC date)\", twint column, 10 calendar days (A5); anchor: dispute_create_time as the NoC timestamp, which \"marks the start of the defense period\" (A1); \"A chargeback has been initiated by the issuer, and can be defended.\" (A6).",
+            "days_remaining": 6,
+            "past_due": false
+          },
+          "inquiry_stage": null,
+          "escalation_available_until": null
+        },
+        "required_evidence": {
+          "evidence_type": null,
+          "required": null,
+          "why": "Adyen's per-reason defense requirements are pinned as raw captures in its snapshot (\"data too large to retype\"); no evidence requirement is guessed here."
+        },
+        "evidence_on_hand": {
+          "carrier_name": null,
+          "tracking_number": null,
+          "refund_id": null,
+          "notes": null
+        },
+        "missing_evidence": null,
+        "bundle_decision": {
+          "ce30_applicable": false,
+          "bundle_kind": null,
+          "reason": "CE3.0-shaped bundle withheld: scheme \"twint\" is not a card-network scheme (card schemes: visa, mastercard, amex, diners, discover, cup, jcb); CE3.0 is a card-network program and Adyen's matrix rails include non-card schemes (A5)."
+        },
+        "ce30_shaped_bundle": null,
+        "paypal_process_evidence": null,
+        "cited_clauses": [
+          {
+            "id": "A5",
+            "quote": "The following table shows the timeframe (in calendar days) to exercise and defend a chargeback for various schemes.",
+            "url": "https://docs.adyen.com/risk-management/understanding-disputes/dispute-timeframes"
+          },
+          {
+            "id": "A1",
+            "quote": "This is your starting point for the defense, and marks the start of the defense period.",
+            "url": "https://docs.adyen.com/risk-management/disputes-api"
+          },
+          {
+            "id": "A6",
+            "quote": "A chargeback has been initiated by the issuer, and can be defended.",
+            "url": "https://docs.adyen.com/risk-management/understanding-disputes/dispute-process-and-flow"
+          }
+        ],
+        "domain_errors": [],
+        "refusal_reason": null
+      },
+      "golden_hash": "42257af4950c6684612b8ca521d92ed7a624b621b75412aa2d37b9cf6895f7f2"
+    },
+    {
+      "name": "square_evidence_required_ce30_bundle",
+      "description": "Square dispute at its response state (EVIDENCE_REQUIRED) with complete fulfillment evidence: seller response null with the typical-figure reason (\"typically 14 days or less\", Q3, is not a stated window; the per-dispute deadline is due_at, Q4); the CE3.0-shaped bundle is emitted (every Square dispute is a bank-initiated card chargeback, Q2) with the delivery_proof digest over the fulfillment evidence.",
+      "policy_parameters": {
+        "psp": "square",
+        "dispute_reason": "NOT_RECEIVED",
+        "lifecycle_stage": "EVIDENCE_REQUIRED",
+        "dispute_create_time": "2026-10-01T12:00:00Z",
+        "as_of": "2026-10-05T12:00:00Z",
+        "transaction_ref": "SYN-SQUARE-TRX-1",
+        "evidence_on_hand": {
+          "carrier_name": "SyntheticCarrier",
+          "tracking_number": "SYN-SQUARE-0001"
+        }
+      },
+      "output_payload": {
+        "psp": "square",
+        "dispute_reason": "NOT_RECEIVED",
+        "lifecycle_stage": "EVIDENCE_REQUIRED",
+        "funding_source": null,
+        "dispute_create_time": "2026-10-01T12:00:00.000Z",
+        "as_of": "2026-10-05T12:00:00.000Z",
+        "deadlines": {
+          "seller_response": {
+            "due": null,
+            "source": "not_stated",
+            "basis": "Square response window in days: NOT STATED as a rule number. \"A seller typically has 14 days or less to respond to a new dispute.\" (Q3) is a typical figure, not a stated window; the per-dispute deadline is due_at, \"The deadline by which the seller must respond to the dispute, in RFC 3339 format.\" (Q4). Supply seller_response_due_date to pass Square's own due_at through.",
+            "days_remaining": null,
+            "past_due": null
+          },
+          "inquiry_stage": null,
+          "escalation_available_until": null
+        },
+        "required_evidence": {
+          "evidence_type": null,
+          "required": null,
+          "why": "Square's per-reason evidence types are suggestions (\"These suggestions are based on card network rules to help the seller make their best case when challenging a dispute.\" (Q2)), not stated requirements; no required list is asserted here."
+        },
+        "evidence_on_hand": {
+          "carrier_name": "SyntheticCarrier",
+          "tracking_number": "SYN-SQUARE-0001",
+          "refund_id": null,
+          "notes": null
+        },
+        "missing_evidence": null,
+        "bundle_decision": {
+          "ce30_applicable": true,
+          "bundle_kind": "ce30_shaped",
+          "reason": "\"Dispute objects are created by Square when a bank sends a notification that a cardholder is initiating a chargeback.\" (Q2) — every Square dispute is a bank-initiated card chargeback — at state EVIDENCE_REQUIRED (\"The initial state of a dispute with evidence required\" (Q4)). CE3.0-shaped bundle emitted for consumption by art-297."
+        },
+        "ce30_shaped_bundle": {
+          "label": "CE3.0-shaped bundle for consumption by art-297 (mcp:lint_compelling_evidence_ce30_agentic); Visa CE3.0 is a card-network program, not a square one",
+          "dispute": {
+            "network": null,
+            "reason_code": null,
+            "transaction_ref": "SYN-SQUARE-TRX-1"
+          },
+          "evidence": {
+            "ap2_mandate": null,
+            "tap_signature": null,
+            "agentic_token": null,
+            "delivery_proof": {
+              "digest": "72637b45ca315daa65766102fb44b299b8ea72c6dd7c18eb0c3f4dbf3da3b6f2",
+              "bound_transaction_ref": "SYN-SQUARE-TRX-1"
+            },
+            "prior_transactions": null
+          },
+          "null_fields_note": "ap2_mandate, tap_signature, agentic_token: no square counterpart in its fetched snapshot (no such fields in the Disputes API evidence types (Q4)). reason_code: no square-to-network reason-code mapping is stated in the fetched snapshot. prior_transactions: no separate prior-transaction element is stated for square disputes in the fetched snapshot."
+        },
+        "paypal_process_evidence": null,
+        "cited_clauses": [
+          {
+            "id": "Q3",
+            "quote": "A seller typically has 14 days or less to respond to a new dispute.",
+            "url": "https://developer.squareup.com/docs/disputes-api/sandbox-testing"
+          },
+          {
+            "id": "Q4",
+            "quote": "The deadline by which the seller must respond to the dispute, in RFC 3339 format.",
+            "url": "https://github.com/square/connect-api-specification"
+          },
+          {
+            "id": "Q2",
+            "quote": "Dispute objects are created by Square when a bank sends a notification that a cardholder is initiating a chargeback.",
+            "url": "https://developer.squareup.com/docs/disputes-api/process-disputes"
+          },
+          {
+            "id": "Q4",
+            "quote": "The initial state of a dispute with evidence required",
+            "url": "https://github.com/square/connect-api-specification"
+          }
+        ],
+        "domain_errors": [],
+        "refusal_reason": null
+      },
+      "golden_hash": "1cb510fca643b7ebda684ee639ef20a1557a103a4cb8bf102153f999cdb1fbf4"
+    },
+    {
+      "name": "square_due_at_passthrough",
+      "description": "Square inquiry awaiting evidence (INQUIRY_EVIDENCE_REQUIRED) with due_at passed through as seller_response_due_date: due honored verbatim (Q4 definition, Q2 guide fragment, Q2 expiry consequence), 4 days remaining; no network bundle (an inquiry state precedes a formal dispute).",
+      "policy_parameters": {
+        "psp": "square",
+        "lifecycle_stage": "INQUIRY_EVIDENCE_REQUIRED",
+        "dispute_create_time": "2026-10-01T12:00:00Z",
+        "as_of": "2026-10-05T12:00:00Z",
+        "seller_response_due_date": "2026-10-09T12:00:00Z"
+      },
+      "output_payload": {
+        "psp": "square",
+        "dispute_reason": null,
+        "lifecycle_stage": "INQUIRY_EVIDENCE_REQUIRED",
+        "funding_source": null,
+        "dispute_create_time": "2026-10-01T12:00:00.000Z",
+        "as_of": "2026-10-05T12:00:00.000Z",
+        "deadlines": {
+          "seller_response": {
+            "due": "2026-10-09T12:00:00.000Z",
+            "source": "passthrough",
+            "basis": "seller_response_due_date passthrough: Square due_at is \"The deadline by which the seller must respond to the dispute, in RFC 3339 format.\" (Q4); \"the `due_at` deadline by which the seller must respond (by accepting or challenging the dispute)\" (Q2); consequence \"If the `due_at` deadline passes with no action from the seller, Square automatically challenges the dispute on the seller's behalf.\" (Q2)",
+            "days_remaining": 4,
+            "past_due": false
+          },
+          "inquiry_stage": null,
+          "escalation_available_until": null
+        },
+        "required_evidence": {
+          "evidence_type": null,
+          "required": null,
+          "why": "Square's per-reason evidence types are suggestions (\"These suggestions are based on card network rules to help the seller make their best case when challenging a dispute.\" (Q2)), not stated requirements; no required list is asserted here."
+        },
+        "evidence_on_hand": {
+          "carrier_name": null,
+          "tracking_number": null,
+          "refund_id": null,
+          "notes": null
+        },
+        "missing_evidence": null,
+        "bundle_decision": {
+          "ce30_applicable": false,
+          "bundle_kind": null,
+          "reason": "Inquiry state (INQUIRY_EVIDENCE_REQUIRED, Q4): not a formal dispute; no network evidence bundle."
+        },
+        "ce30_shaped_bundle": null,
+        "paypal_process_evidence": null,
+        "cited_clauses": [
+          {
+            "id": "Q4",
+            "quote": "The deadline by which the seller must respond to the dispute, in RFC 3339 format.",
+            "url": "https://github.com/square/connect-api-specification"
+          },
+          {
+            "id": "Q2",
+            "quote": "the `due_at` deadline by which the seller must respond (by accepting or challenging the dispute)",
+            "url": "https://developer.squareup.com/docs/disputes-api/process-disputes"
+          },
+          {
+            "id": "Q2",
+            "quote": "If the `due_at` deadline passes with no action from the seller, Square automatically challenges the dispute on the seller's behalf.",
+            "url": "https://developer.squareup.com/docs/disputes-api/process-disputes"
+          }
+        ],
+        "domain_errors": [],
+        "refusal_reason": null
+      },
+      "golden_hash": "dc9fafc284a240dd4d7414929cc66901a957618c2ce890babe8d7b05c07947d7"
+    },
+    {
+      "name": "square_processing_decision_not_stated",
+      "description": "Square dispute under bank processing (PROCESSING, evidence already submitted): seller_response null with the not-stated reason (bank decision window in days is not stated on the fetched pages); no network bundle (no live evidence submission).",
+      "policy_parameters": {
+        "psp": "square",
+        "lifecycle_stage": "PROCESSING",
+        "dispute_create_time": "2026-10-01T12:00:00Z",
+        "as_of": "2026-10-05T12:00:00Z"
+      },
+      "output_payload": {
+        "psp": "square",
+        "dispute_reason": null,
+        "lifecycle_stage": "PROCESSING",
+        "funding_source": null,
+        "dispute_create_time": "2026-10-01T12:00:00.000Z",
+        "as_of": "2026-10-05T12:00:00.000Z",
+        "deadlines": {
+          "seller_response": {
+            "due": null,
+            "source": "not_stated",
+            "basis": "\"Dispute evidence has been submitted and the bank is processing the dispute\" (Q4): evidence is in; the bank decision window in days is not stated on the fetched pages.",
+            "days_remaining": null,
+            "past_due": null
+          },
+          "inquiry_stage": null,
+          "escalation_available_until": null
+        },
+        "required_evidence": {
+          "evidence_type": null,
+          "required": null,
+          "why": "Square's per-reason evidence types are suggestions (\"These suggestions are based on card network rules to help the seller make their best case when challenging a dispute.\" (Q2)), not stated requirements; no required list is asserted here."
+        },
+        "evidence_on_hand": {
+          "carrier_name": null,
+          "tracking_number": null,
+          "refund_id": null,
+          "notes": null
+        },
+        "missing_evidence": null,
+        "bundle_decision": {
+          "ce30_applicable": false,
+          "bundle_kind": null,
+          "reason": "No network evidence bundle: PROCESSING (Q4) carries no live evidence submission."
+        },
+        "ce30_shaped_bundle": null,
+        "paypal_process_evidence": null,
+        "cited_clauses": [
+          {
+            "id": "Q4",
+            "quote": "Dispute evidence has been submitted and the bank is processing the dispute",
+            "url": "https://github.com/square/connect-api-specification"
+          }
+        ],
+        "domain_errors": [],
+        "refusal_reason": null
+      },
+      "golden_hash": "6677b1378c914f20b15e775ab41cfc9d16482d29c743144ef8a304c3aa940948"
+    },
+    {
+      "name": "refused_unknown_psp",
+      "description": "Named refusal: psp outside the four supported PSPs; the kernel refuses rather than guessing a table.",
+      "policy_parameters": {
+        "psp": "wepay",
+        "dispute_reason": "MERCHANDISE_OR_SERVICE_NOT_RECEIVED",
+        "lifecycle_stage": "INQUIRY",
+        "funding_source": "card",
+        "dispute_create_time": "2026-10-01T12:00:00Z",
+        "as_of": "2026-10-05T12:00:00Z"
+      },
+      "output_payload": {
+        "refused": "REFUSED_UNKNOWN_PSP",
+        "detail": "psp must be one of paypal, stripe, adyen, square; received \"wepay\"",
+        "domain_errors": [
+          {
+            "code": "REFUSED_UNKNOWN_PSP"
+          }
+        ],
+        "refusal_reason": "REFUSED_UNKNOWN_PSP"
+      },
+      "golden_hash": "2f9a40a9ed354a549aa4d40979e547fd9bfea04e7187788433d28caf4860f210"
+    },
+    {
+      "name": "refused_psp_stage_vocabulary_mismatch",
+      "description": "Named refusal: a PayPal lifecycle stage value on the Stripe path - each PSP enforces its own stage vocabulary from its snapshot.",
+      "policy_parameters": {
+        "psp": "stripe",
+        "lifecycle_stage": "INQUIRY",
+        "dispute_create_time": "2026-10-01T12:00:00Z",
+        "as_of": "2026-10-05T12:00:00Z"
+      },
+      "output_payload": {
+        "refused": "REFUSED_UNKNOWN_LIFECYCLE_STAGE",
+        "detail": "lifecycle_stage for psp stripe must be one of warning_needs_response, warning_under_review, warning_closed, needs_response, under_review, won, lost, prevented; received \"INQUIRY\"",
+        "domain_errors": [
+          {
+            "code": "REFUSED_UNKNOWN_LIFECYCLE_STAGE"
+          }
+        ],
+        "refusal_reason": "REFUSED_UNKNOWN_LIFECYCLE_STAGE"
+      },
+      "golden_hash": "62ecd437aa05e63f956722ff7f64167af012725629877ed95a6a0bc2beae3e16"
+    },
+    {
+      "name": "refused_funding_source_on_psp_path",
+      "description": "Named refusal: funding_source supplied on the Square path - funding_source is a PayPal-path input; the other PSP tables have no funding dimension (Stripe: card vs local payment method via card_network; Adyen: the scheme; Square: bank-initiated card chargeback by definition).",
+      "policy_parameters": {
+        "psp": "square",
+        "lifecycle_stage": "EVIDENCE_REQUIRED",
+        "funding_source": "card",
+        "dispute_create_time": "2026-10-01T12:00:00Z",
+        "as_of": "2026-10-05T12:00:00Z"
+      },
+      "output_payload": {
+        "refused": "REFUSED_FUNDING_SOURCE_NOT_APPLICABLE",
+        "detail": "funding_source is a PayPal-path input and is not part of the square deadline table; received \"card\". The payment rail for this PSP enters through its own vocabulary (Stripe: card_network card vs local payment method; Adyen: the scheme in card_network; Square: bank-initiated card chargeback).",
+        "domain_errors": [
+          {
+            "code": "REFUSED_FUNDING_SOURCE_NOT_APPLICABLE"
+          }
+        ],
+        "refusal_reason": "REFUSED_FUNDING_SOURCE_NOT_APPLICABLE"
+      },
+      "golden_hash": "f57f6f61fd574bf47487798be510f340661f21bfb05e906f6b683c8a48544b5f"
     }
   ]
 }

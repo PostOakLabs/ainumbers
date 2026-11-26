@@ -139,10 +139,11 @@ function firstScriptSrc(block) {
   return block.match(/<script>([\s\S]*?)<\/script>/)[1];
 }
 
-/** Evaluate an emitted registration <script> the way a browser would: feature-detect the
- *  WebMCP API (navigator.modelContext), capture the registerTool payload. Free page
- *  identifiers (the manifest fn, the render fn, the result global) arrive as function
- *  parameters — the same device the generator's --check uses for emitted-code parsing. */
+/** Evaluate an emitted registration <script> the way a browser would: read the WebMCP
+ *  API from document.modelContext (13 Nov 2026 draft), capture the registerTool payload.
+ *  Free page identifiers (the manifest fn, the render fn, the result global) arrive as
+ *  function parameters — the same device the generator's --check uses for emitted-code
+ *  parsing. */
 function evaluateRegistration(src, { pageFns = {}, resGlobal } = {}) {
   let captured = null;
   const mc = { registerTool: (t) => { captured = t; } };
@@ -151,7 +152,7 @@ function evaluateRegistration(src, { pageFns = {}, resGlobal } = {}) {
     src
   );
   const documentStub = {
-    modelContext: undefined,
+    modelContext: mc,
     getElementById: () => ({ textContent: '', value: '', checked: false }),
     createElement: () => ({ id: '', textContent: '' }),
     querySelector: () => null,
@@ -266,6 +267,7 @@ async function runPrefill(params) {
   const dom = makeDomStub();
   let captured = null;
   const mc = { registerTool: (t) => { captured = t; } };
+  dom.document.modelContext = mc;
   // The mapping lines must write into THIS dom stub, so the emitted script is evaluated
   // with it (the same new Function device as evaluateRegistration, per-call stub).
   const factory = new Function('document', 'navigator', 'runPrefillTool', 'RESULT_GLOBAL', firstScriptSrc(block) + '\n;return 0;');

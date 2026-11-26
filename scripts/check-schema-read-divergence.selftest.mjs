@@ -2,12 +2,14 @@
 /**
  * check-schema-read-divergence.selftest.mjs — SCHEMA-READ-DIVERGENCE-SWEEP-1 controls.
  *
- * ⛔ MANDATORY RED CONTROL (the row's own done-criterion #1): the live art-09 kernel must be
- * FLAGGED EXACTLY as the known finding (ART09-DORA-FIELDNAME-MISMATCH-1) — 7 declared-never-read
- * fields (the schema's 7 lies), 11 read-never-declared, 7 of them alias-paired to their declared
- * twins, the 4 remaining genuinely unreachable, and its own page↔manifest delta visible. A sweep
- * that cannot reproduce art-09 has not been observed to work at all (SO #34c: a gate that has
- * only ever been green has never been observed).
+ * ⛔ MANDATORY RED CONTROL (the row's own done-criterion #1): art-09 is the known finding
+ *   (ART09-DORA-FIELDNAME-MISMATCH-1), but the KERNEL was cured upstream (#1598, 2026-09-01)
+ *   and now reads its published names — the live record is CLEARED. The control keeps its RED
+ *   power by MUTATION (SO #34): a temp copy with one canonical read flipped to its pre-cure
+ *   legacy twin must surface as exactly that ART09-CLASS alias pair. A sweep that cannot
+ *   reproduce the art-09 mechanism has not been observed to work at all (SO #34c: a gate that
+ *   has only ever been green has never been observed). (WEBMCP-SCHEMA-FROM-MANIFEST-1 cured
+ *   this stale control: it asserted the pre-#1598 state and went red on main on 2026-09-01.)
  *
  * ⛔ AND THE CHECKER IS VERIFIED BY MUTATION, NOT BY READING IT (SO #34): in-memory fixtures are
  * re-run with one fact flipped and the verdict must MOVE.
@@ -15,16 +17,21 @@
  * GREEN control: art-560-oracle-price-aggregation — reads == declared, all 7 fields, CLEARED.
  * UNPARSEABLE control: art-508-recompute-bordereau — Object.keys(pp) inside its exported
  *   projectPolicyParameters must defeat static extraction and be reported, never skipped.
+ * Manifest-basis control (WEBMCP-SCHEMA-FROM-MANIFEST-1): art-769-medicare-oop-exposure —
+ *   an UNPARSEABLE kernel still names its manifest basis and carries the fixtures'
+ *   observable-behaviour comparison, advisory only (the verdict itself does not move).
  *
  * Read-only over the live repo artifacts; writes nothing. Run:
  *   node scripts/check-schema-read-divergence.selftest.mjs
  */
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   stripJS, findCompute, extractReads, parseDestructureKeys, findLocalHelper,
   sweepKernel, loadManifestIndex, likelyPair, fieldTokens, canon,
+  compareFixturesToSchema,
 } from './check-schema-read-divergence.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -37,30 +44,41 @@ const setEq = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].
 
 const manifestIndex = loadManifestIndex(REPO);
 
-// ── Control 1 (RED): art-09 flags EXACTLY the known finding ──────────────────
-console.log('── Control 1 (RED): art-09-dora-incident-classifier ──');
+// ── Control 1 (cured truth + MUTATION RED): art-09-dora-incident-classifier ──
+// The kernel was CURED upstream (#1598, 2026-09-01: "art-09 kernel reads its
+// published schema field names"), so the LIVE record is CLEARED — reads ==
+// declared — and the original exact-set expectations (7 declared-never-read
+// schema lies, 11 unmatched reads) have described no live state since. The
+// ART09-CLASS detection power is kept by MUTATION (SO #34): one canonical read
+// flipped back to its pre-cure legacy twin (`classification_dt`) in a TEMP copy
+// of the kernel must surface as exactly that alias pair — the mechanism the
+// original finding was made of. Zero kernel bytes edited on disk.
+console.log('── Control 1 (cured truth + mutation RED): art-09-dora-incident-classifier ──');
 {
   const rec = sweepKernel(REPO, 'chaingraph/kernels/art-09-dora-incident-classifier.kernel.mjs', manifestIndex);
-  check('verdict is DIVERGES (never silently clean)', rec.verdict === 'DIVERGES');
-  check('triage class is ART09-CLASS', rec.triage.class === 'ART09-CLASS');
-  const DNR7 = ['detection_datetime', 'transaction_value_eur_millions', 'outage_duration_minutes',
-    'eu_member_states_affected', 'data_loss_occurred', 'critical_function_affected', 'cross_border_payment'];
-  check('declared-never-read is EXACTLY the 7 schema lies of the known finding', setEq(rec.declared_not_read, DNR7), JSON.stringify(rec.declared_not_read));
-  check('that is 7 fields', rec.declared_not_read.length === 7);
-  const RND11 = ['classification_dt', 'critical_fn', 'cross_border', 'data_loss', 'detection_dt',
-    'entity_type', 'member_states', 'outage_duration_mins', 'resolution_dt', 'tp_ict', 'tx_value_eur'];
-  check('read-never-declared is EXACTLY the 11 unmatched reads', setEq(rec.read_not_declared, RND11), JSON.stringify(rec.read_not_declared));
-  check('7 alias pairs detected', rec.triage.alias_pairs.length === 7, JSON.stringify(rec.triage.alias_pairs));
-  const PAIRS = ['critical_fn', 'cross_border', 'data_loss', 'detection_dt', 'member_states', 'outage_duration_mins', 'tx_value_eur'];
-  check('the pairs are the right reads', setEq(rec.triage.alias_pairs.map((p) => p.read), PAIRS));
-  check('4 reads have no declared twin at all', setEq(rec.triage.unreachable_extra, ['classification_dt', 'entity_type', 'resolution_dt', 'tp_ict']));
-  check('shared reads survive (incident_type, clients_affected, total_clients)', setEq(
-    rec.reads.filter((f) => rec.declared.includes(f)), ['incident_type', 'clients_affected', 'total_clients']));
-  check('page↔manifest cross-check delta surfaces the 2 page-only fields',
-    rec.page_delta && setEq(rec.page_delta.only_in_page, ['classification_datetime', 'estimated_resolution_datetime']) && rec.page_delta.only_in_manifest.length === 0,
-    JSON.stringify(rec.page_delta));
-  // reads come from CODE, not the JSDoc block that lists the very same field names
-  check('JSDoc field list did not leak into reads (detection_dt read once, from code)', rec.reads.filter((f) => f === 'detection_dt').length === 1 || rec.reads.includes('detection_dt'));
+  check('cured truth: live verdict is CLEARED (kernel reads its published names since #1598)', rec.verdict === 'CLEARED', rec.verdict + ' ' + JSON.stringify(rec.read_not_declared) + JSON.stringify(rec.declared_not_read));
+  check('cured truth: reads == declared (14 fields)', rec.declared.length === 14 && setEq(rec.reads, rec.declared), JSON.stringify({ reads: rec.reads, declared: rec.declared }));
+  check('cured truth: declared source is the manifest file (primary)', rec.declared_source === 'manifests/art-09-dora-incident-classifier.manifest.json', String(rec.declared_source));
+
+  const tmpMut = fs.mkdtempSync(path.join(os.tmpdir(), 'srd-mut-'));
+  try {
+    const src = fs.readFileSync(path.join(REPO, 'chaingraph/kernels/art-09-dora-incident-classifier.kernel.mjs'), 'utf8');
+    const mutated = src.replaceAll('pp.classification_datetime', 'pp.classification_dt');
+    check('mutation applied (one canonical read flipped to the legacy twin)', mutated !== src);
+    fs.mkdirSync(path.join(tmpMut, 'kernels'), { recursive: true });
+    fs.writeFileSync(path.join(tmpMut, 'kernels', 'art-09-mut.kernel.mjs'), mutated);
+    const mrec = sweepKernel(tmpMut, 'kernels/art-09-mut.kernel.mjs', manifestIndex);
+    check('mutation RED: verdict is DIVERGES (never silently clean)', mrec.verdict === 'DIVERGES', mrec.verdict);
+    check('mutation RED: triage class is ART09-CLASS', mrec.triage?.class === 'ART09-CLASS', JSON.stringify(mrec.triage));
+    check('mutation RED: exactly the flipped alias pair is detected',
+      mrec.triage?.alias_pairs?.length === 1
+      && mrec.triage.alias_pairs[0].read === 'classification_dt'
+      && mrec.triage.alias_pairs[0].declared_counterpart === 'classification_datetime',
+      JSON.stringify(mrec.triage));
+    check('mutation RED: the canonical twin is surfaced declared-never-read', setEq(mrec.declared_not_read, ['classification_datetime']), JSON.stringify(mrec.declared_not_read));
+  } finally {
+    fs.rmSync(tmpMut, { recursive: true, force: true });
+  }
 }
 
 // ── Control 2 (GREEN): a known-clean kernel stays green ──────────────────────
@@ -203,12 +221,45 @@ console.log('── Control 5 (units): idioms, comments, regexes, templates ─�
   check('destructure default with ternary parses', setEq(pk2.keys, ['x', 'y']), JSON.stringify(pk2));
 }
 
+// ── Control 6 (WEBMCP-SCHEMA-FROM-MANIFEST-1): UNPARSEABLE kernels gain the
+// manifest basis + the observable-behaviour (fixtures) comparison, advisory only.
+// The verdict STAYS UNPARSEABLE — static extraction is still defeated — but the
+// record now names the manifest schema the generator's fallback will emit from
+// and whether the golden vectors' inputs disagree with it. ────────────────────
+console.log('── Control 6 (manifest basis): UNPARSEABLE + fixtures comparison, advisory ──');
+{
+  // pure units first (no live artifacts involved)
+  const schema = { properties: { principal: { type: 'number' }, label: { type: 'string' } }, required: ['principal'] };
+  const agree = compareFixturesToSchema([{ policy_parameters: { principal: 1, label: 'x' } }], schema);
+  check('pure: agreeing fixtures report agrees', agree.status === 'agrees' && agree.inputs === 1, JSON.stringify(agree));
+  const divergent = compareFixturesToSchema([{ policy_parameters: { principal: 1, undeclared_extra: 2 } }], schema);
+  check('pure: fixtures exercising an undeclared key DIVERGE (advisory)', divergent.status === 'diverges' && JSON.stringify(divergent.undeclared) === '["undeclared_extra"]', JSON.stringify(divergent));
+  const neverEx = compareFixturesToSchema([{ policy_parameters: { principal: 1 } }], schema);
+  check('pure: declared-never-exercised surfaces informationally', neverEx.status === 'agrees' && setEq(neverEx.declared_never_exercised, ['label']), JSON.stringify(neverEx));
+  const noSchema = compareFixturesToSchema([{ policy_parameters: { a: 1 } }], null);
+  check('pure: no declared schema is its own status', noSchema.status === 'no-declared-schema', JSON.stringify(noSchema));
+
+  // live integration: art-769-medicare-oop-exposure is UNPARSEABLE and manifest-paired
+  const mf = manifestIndex.byTool.get('art-769-medicare-oop-exposure');
+  check('live: art-769 manifest record pairs (the fallback basis exists)', !!mf);
+  const rec = sweepKernel(REPO, 'chaingraph/kernels/art-769-medicare-oop-exposure.kernel.mjs', manifestIndex);
+  check('live: art-769 verdict stays UNPARSEABLE', rec.verdict === 'UNPARSEABLE', rec.verdict);
+  check('live: art-769 record names the manifest as its declared source', rec.declared_source === (mf ? mf.file : null),
+    `${rec.declared_source} vs ${mf ? mf.file : null}`);
+  check('live: art-769 declared set is the manifest input_schema properties', Array.isArray(rec.declared) && rec.declared.length > 0, JSON.stringify(rec.declared));
+  check('live: art-769 carries the fixture comparison', !!rec.fixture_comparison, JSON.stringify(rec.fixture_comparison));
+  check('live: art-769 fixture comparison read the golden vectors', !!rec.fixture_comparison && rec.fixture_comparison.fixtures > 0,
+    JSON.stringify(rec.fixture_comparison));
+  check('live: art-769 fixture status is agrees or diverges', !!rec.fixture_comparison && ['agrees', 'diverges'].includes(rec.fixture_comparison.status),
+    JSON.stringify(rec.fixture_comparison));
+}
+
 // ── Verdict ──────────────────────────────────────────────────────────────────
 console.log('');
 if (failures) {
   console.error(`⛔ SELFTEST RED — ${failures} control(s) failed. The sweep's verdicts are NOT trustworthy.`);
   process.exit(1);
 } else {
-  console.log('✅ SELFTEST GREEN — RED control (art-09, exact), GREEN control (art-560), UNPARSEABLE control (art-508), mutations move, units hold.');
+  console.log('✅ SELFTEST GREEN — cured-truth + mutation-RED control (art-09), GREEN control (art-560), UNPARSEABLE control (art-508), mutations move, units hold, manifest-basis control (art-769).');
   process.exit(0);
 }

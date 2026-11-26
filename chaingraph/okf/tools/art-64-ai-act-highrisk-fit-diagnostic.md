@@ -1,7 +1,7 @@
 ---
 type: DecisionTool
 title: "EU AI Act High-Risk Fit & Classification Diagnostic"
-description: "12-question A-F diagnostic that screens in-force obligations first (Art 5 prohibited practices, Art 4 AI literacy, GPAI) then classifies financial AI system high-risk status (Annex III: credit scoring, insurance pricing, financial-standing) and grades Article 9-15 readiness plus the provider/deployer split. Routes to the right ai-governance chain with a do-now vs prepare-ahead checklist and applicable date (2 Dec 2027 per Digital Omnibus, verify)."
+description: "12-question A-F diagnostic that screens in-force obligations first (Art 5 prohibited practices, Art 4 AI literacy, GPAI) then classifies financial AI system high-risk status (Annex III: credit scoring, insurance pricing, financial-standing) and grades Article 9-15 readiness plus the provider/deployer split. Routes to the right ai-governance chain with a do-now vs prepare-ahead checklist and applicable date (Annex III 2 Dec 2027; Art 6(1) 2 Aug 2028 per Regulation (EU) 2026/1744, adopted 8 July 2026)."
 resource: https://ainumbers.co/chaingraph/art-64-ai-act-highrisk-fit-diagnostic.html
 tags: ["agent_guardrail_mandate", "wave-15", "mcp:run_ai_act_highrisk_fit"]
 timestamp: 2026-07-14

@@ -19,3 +19,13 @@ Domain: Audit & Assurance
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: Can we tell the examiner this matter requiring attention is closed, or is any committed milestone still open or overdue?
+Run the AINumbers MCP tool `run_chain` with {"chain":"mra-consent-order-closure-cycle"} and read `art-533-mra-remediation-closure-register.closed_count`.
+Re-run with `inputs` for `art-533-mra-remediation-closure-register`, reusing the values that result echoed, with `remediation_status` changed so remediation_status lists only milestone MS-1, so MS-2 has no closure record. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/mra-consent-order-closure-cycle.html
