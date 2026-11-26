@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- CSP: canonical CSP_STANDARD profile, verbatim from scripts/check-csp-consistency.mjs (the checker is the authority). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+
+<title>Threat Model: Site Pages | AINumbers.co</title>
+<meta name="description" content="Threat model for the static tool, guide and hub pages on ainumbers.co: assets, trust boundaries, adversaries, controls and residual risk.">
+<meta name="ain:category" content="learn">
+<meta name="robots" content="index, follow">
+<meta name="author" content="AINumbers.co">
+<link rel="canonical" href="https://ainumbers.co/trust/site-pages.html">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Threat Model: Site Pages | AINumbers.co">
+<meta property="og:description" content="What the static pages protect, who might attack them, and which gate enforces each control.">
+<meta property="og:url" content="https://ainumbers.co/trust/site-pages.html">
+<meta property="og:site_name" content="AINumbers.co">
+
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+
+<style>
+:root { color-scheme: dark; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #080E1A; color: #E6EDF7; font-family: 'Sora', system-ui, -apple-system, 'Segoe UI', sans-serif; line-height: 1.65; font-size: 16px; }
+main { max-width: 52rem; margin: 0 auto; padding: 3rem 1.25rem 4rem; }
+h1 { font-family: 'DM Serif Display', Georgia, serif; font-size: 2.1rem; color: #F4F8FF; margin-bottom: .35rem; }
+.effective { color: #8CA3C7; font-size: .92rem; margin-bottom: 2rem; }
+h2 { font-size: 1.15rem; color: #14B8A6; margin: 2.2rem 0 .6rem; }
+p, li, td, th { color: #C9D6EC; }
+ul { padding-left: 1.2rem; margin: .5rem 0; }
+li { margin: .35rem 0; }
+strong { color: #F4F8FF; }
+code { font-family: 'JetBrains Mono', 'Cascadia Mono', monospace; font-size: .9em; color: #7DD3C8; background: #0D1526; padding: .08em .35em; border-radius: 4px; overflow-wrap: anywhere; }
+a { color: #14B8A6; text-decoration-underline-offset: 3px; }
+a:hover { color: #5EEAD4; }
+.tw { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; margin: .6rem 0; font-size: .92rem; }
+th, td { border: 1px solid #1B2946; padding: .45rem .6rem; text-align: left; vertical-align: top; }
+th { background: #0D1526; color: #F4F8FF; }
+footer { border-top: 1px solid #1B2946; padding: 1.4rem 1.25rem 2.4rem; text-align: center; font-size: .9rem; }
+footer a { margin: 0 .8rem; }
+.skip { position: absolute; left: -999px; }
+.skip:focus { left: 1rem; top: 1rem; background: #14B8A6; color: #080E1A; padding: .4rem .8rem; border-radius: 6px; z-index: 1; }
+</style>
+<style>:root{--bg-2:#0D1627;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--teal:#14B8A6;--gold:#D4A847;--radius:6px}
+/* OCG-CHROME-CSS:v1 */
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="../chaingraph/chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">Threat Model: Site Pages</span>
+    </div>
+    <div class="nav-right">
+      <a href="../chaingraph/chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+<a class="skip" href="#content">Skip to content</a>
+<main id="content">
+
+<h1>Threat model: site pages</h1>
+<p class="effective">Scope: the static HTML tool, guide, hub and disclosure pages served from ainumbers.co. Written from the repository on <time datetime="2026-11-05">5 November 2026</time>. <a href="index.html">All threat models</a>.</p>
+
+<h2>Assets</h2>
+<ul>
+  <li>Visitor inputs. Numbers and text typed or pasted into a tool. They exist in the tab's memory only.</li>
+  <li>Page integrity. A visitor must get the code the repository published. A tampered page that reads inputs is the main way this surface could harm anyone.</li>
+  <li>Output correctness. A calculator that silently returns a wrong number is a harm of its own; it is covered by the kernel and parity gates, not by this page.</li>
+</ul>
+
+<h2>Trust boundaries</h2>
+<ul>
+  <li>Repository to static host: files are copied by the deploy workflow (<code>.github/workflows/deploy-to-dreamhost.yml</code>), which writes a per-file checksum list.</li>
+  <li>Static host to visitor, through the Cloudflare edge, which can rewrite HTML in transit.</li>
+  <li>The visitor's browser to the page: each page carries its own Content-Security-Policy as a meta tag.</li>
+  <li>Page to the outside: only the ledger and the MCP playground are allowed any network call at all (see the <a href="ledger.html">ledger</a> and <a href="mcp-endpoint.html">MCP endpoint</a> pages).</li>
+</ul>
+
+<h2>Adversaries</h2>
+<ul>
+  <li>S1. A contributor or dependency that adds a network call or a script to a page.</li>
+  <li>S2. An attacker or a misconfigured edge feature that injects markup between the host and the visitor.</li>
+  <li>S3. An attacker who changes files on the origin host after deploy.</li>
+  <li>S4. A hostile page or link that feeds crafted data into a tool through a URL fragment or import.</li>
+</ul>
+
+<h2>In scope and out of scope</h2>
+<p>In scope: unintended network egress from a page; injected third-party scripts; origin tampering; weakened page CSP; client-side storage of inputs.</p>
+<p>Out of scope: a compromised visitor browser or extension; the correctness of the regulation a calculator models; denial of service against the static host; the Helm daemon.</p>
+
+<h2>Controls</h2>
+<div class="tw"><table>
+<thead><tr><th>Threat</th><th>Control</th><th>Where it lives</th></tr></thead>
+<tbody>
+<tr><td>S1: new network call in tool, guide or chaingraph JS</td><td>Static scan for network-capable APIs, baseline-shielded so counts only go down</td><td><code>scripts/check-site-egress.mjs</code>, <code>scripts/site-egress-baseline.json</code></td></tr>
+<tr><td>S1: page CSP weakened or drifting from the canonical profile</td><td>Every page must carry the canonical CSP, with <code>connect-src 'none'</code> on standard pages</td><td><code>scripts/check-csp-consistency.mjs</code></td></tr>
+<tr><td>S1: scan scope drifts from what is published</td><td>Gate and sitemap generator read one shared directory manifest</td><td><code>scripts/published-dirs.json</code></td></tr>
+<tr><td>S2: edge-injected script such as an analytics beacon</td><td>Fetches live pages, diffs served external references against repo source, fails on any extra</td><td><code>scripts/check-served-egress.mjs</code>, <code>scripts/served-egress-allowlist.json</code> (empty by design)</td></tr>
+<tr><td>S3: origin file differs from the repository</td><td>Deploy writes <code>/.well-known/deploy-checksums.txt</code>; the same gate samples listed URLs and compares sha256</td><td><code>scripts/check-served-egress.mjs</code> (byte-integrity axis), <code>deploy-to-dreamhost.yml</code></td></tr>
+<tr><td>Personal data entered into a tool that exports</td><td>Tools that export carry a PII banner</td><td><code>scripts/check-pii-banner.mjs</code></td></tr>
+<tr><td>S4: crafted fragment or import</td><td>The CSP blocks remote loads and frames; no gate checks how each tool renders crafted input</td><td>UNTESTABLE as a general claim</td></tr>
+</tbody></table></div>
+
+<h2>UNTESTABLE claims</h2>
+<ul>
+  <li>"Inputs never leave your tab" for every tool. The egress scan and the CSP gate make it hard to violate, and a baseline lists known inert references. No test proves the absence of every exfiltration path, and the CSP allows <code>'unsafe-inline'</code> scripts, so the CSP is a backstop and not a proof.</li>
+  <li>"No client-side storage" for every tool. The build directive forbids it (<code>CONTRACT.md</code> section 1.1). We did not find a gate that scans for storage APIs by name, so this is enforced by review. The ledger page does use <code>localStorage</code> for interface state; see the <a href="ledger.html">ledger model</a>.</li>
+  <li>The static host's own logs. The host and the Cloudflare edge log requests under their own policies, which we cannot test from the repository. See <a href="data-handling.html">data handling</a>.</li>
+</ul>
+
+<h2>Residual risk</h2>
+<ul>
+  <li>The Google Fonts stylesheet and font origins are still allowed by the standard CSP on some pages, so a visitor's IP and user agent can reach Google when a page requests them. A separate change is moving fonts to self-hosting; until it lands, treat this as open.</li>
+  <li>A compromise of the deploy credentials would let an attacker publish valid pages with a matching checksum list. The gates detect divergence from the repository, not a malicious commit.</li>
+  <li>The edge can transform HTML. Only transforms listed in the allowlist are accepted, and the list is empty, so a legitimate new transform will first show up as a red build.</li>
+</ul>
+
+</main>
+<footer>
+  <a href="index.html">Threat models</a>
+  <a href="data-handling.html">Data handling</a>
+  <a href="../privacy.html">Privacy</a>
+  <a href="../security.html">Security</a>
+</footer>
+</body>
+</html>

@@ -23,6 +23,32 @@ import { executionHash } from './_hash.mjs';
 
 const DISCLOSURE = 'On-chain nonce uniqueness is enforced by the token contract at settlement time, not by this verifier. This tool confirms the authorization is well-formed, correctly signed, and not self-reported as already used -- it cannot confirm the nonce has never been spent on-chain.';
 
+// The secp256k1 group order. Used only for the optional low-s form check on a caller-supplied
+// EIP-3009 signature: no curve arithmetic, no vendored crypto, one BigInt comparison.
+const SECP256K1_ORDER = BigInt('0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141');
+const HIGH_S_REASON = 'the supplied signature carries an s value greater than half the secp256k1 group order (high-s, malleable form): such authorizations are rejected at settlement by low-s enforcing tokens, so this verifier refuses regardless of the recovered signer';
+const ZERO_S_REASON = 'the supplied signature carries s = 0: an ECDSA signing operation cannot produce a zero s component, so a zero s is an invalid signature form and this verifier refuses it regardless of the recovered signer';
+const ZERO_R_REASON = 'the supplied signature carries r = 0: an ECDSA signing operation cannot produce a zero r component, so a zero r is an invalid signature form and this verifier refuses it regardless of the recovered signer';
+
+// Parses the optional caller-supplied signature form. Returns { rBig, sBig } on a well-formed
+// 65-byte EIP-3009 signature (r||s||v) or { sBig } for a 32-byte s value; { error } (never a
+// throw) when supplied but unparseable; null when not supplied at all.
+function _parseSignatureForm(pp) {
+  const supplied = (pp.signature !== undefined && pp.signature !== null) || (pp.s !== undefined && pp.s !== null);
+  if (!supplied) return null;
+  const has65 = typeof pp.signature === 'string' && pp.signature.trim() !== '';
+  const hasS = typeof pp.s === 'string' && pp.s.trim() !== '';
+  if (!has65 && !hasS) return { error: 'signature, when supplied, must be a 65-byte hex EIP-3009 signature (r||s||v, 130 hex characters) and s, when supplied, must be a 32-byte hex value (64 hex characters)' };
+  if (has65) {
+    const body = _stripHexPrefix(pp.signature.trim());
+    if (!/^[0-9a-fA-F]{130}$/.test(body)) return { error: 'signature, when supplied, must be a 65-byte hex EIP-3009 signature (r||s||v, 130 hex characters)' };
+    return { rBig: BigInt('0x' + body.slice(0, 64)), sBig: BigInt('0x' + body.slice(64, 128)) };
+  }
+  const body = _stripHexPrefix(pp.s.trim());
+  if (!/^[0-9a-fA-F]{64}$/.test(body)) return { error: 's, when supplied, must be a 32-byte hex value (64 hex characters)' };
+  return { sBig: BigInt('0x' + body) };
+}
+
 function _stripHexPrefix(hex) {
   const s = String(hex ?? '');
   return s.startsWith('0x') || s.startsWith('0X') ? s.slice(2) : s;
@@ -90,6 +116,7 @@ export const meta = {
  *   validAfter?, validBefore?, now_unix?,                   -- uint256 window fields, caller-supplied
  *   nonce?,                                                 -- bytes32
  *   nonce_already_used?,                                    -- optional boolean, caller-computed, null if omitted
+ *   signature?, s?,                                         -- optional EIP-3009 signature form check: 65-byte hex (r||s||v) or 32-byte hex s; when supplied, signature_form is emitted, a high-s value is a hard REFUSE, and a zero r or s component is refused as an invalid signature form
  * }
  */
 export function compute(pp) {
@@ -122,6 +149,9 @@ export function compute(pp) {
   } else if (pp.nonce_already_used !== undefined && pp.nonce_already_used !== null) {
     reasons.push('nonce_already_used, when supplied, must be a boolean');
   }
+
+  const sigForm = _parseSignatureForm(pp);
+  if (sigForm !== null && sigForm.error) reasons.push(sigForm.error);
 
   const expected_echo = {
     expected_chain_id: expectedChainId !== null ? expectedChainId.toString() : null,
@@ -169,16 +199,30 @@ export function compute(pp) {
   const nonceWellFormed = !_isZeroBytes32(nonceNormalized);
   if (!nonceWellFormed) reasons.push('nonce failed format check: bytes32 value must be non-zero');
 
+  const sAboveHalfOrder = sigForm !== null && !sigForm.error ? sigForm.sBig > (SECP256K1_ORDER >> 1n) : null;
+  if (sAboveHalfOrder === true) reasons.push(HIGH_S_REASON);
+
+  const sigParsed = sigForm !== null && !sigForm.error;
+  const zeroS = sigParsed ? sigForm.sBig === 0n : false;
+  const zeroR = sigParsed && sigForm.rBig !== undefined ? sigForm.rBig === 0n : false;
+  const zeroComponent = zeroS || zeroR;
+  if (zeroS) reasons.push(ZERO_S_REASON);
+  if (zeroR) reasons.push(ZERO_R_REASON);
+
   const compliance_flags = [
     domainChainMatch ? 'DOMAIN_CHAIN_MATCH' : 'DOMAIN_CHAIN_MISMATCH',
     domainContractMatch ? 'DOMAIN_CONTRACT_MATCH' : 'DOMAIN_CONTRACT_MISMATCH',
     withinWindow ? 'AUTHORIZATION_WITHIN_WINDOW' : (expired ? 'AUTHORIZATION_EXPIRED' : 'AUTHORIZATION_NOT_YET_VALID'),
     nonceWellFormed ? 'NONCE_WELL_FORMED' : 'NONCE_MALFORMED',
   ];
+  if (sAboveHalfOrder === true) compliance_flags.push('X402_SIGNATURE_HIGH_S');
+  if (zeroComponent) compliance_flags.push('X402_SIGNATURE_ZERO_COMPONENT');
 
-  const hardRefuse = !domainChainMatch || !domainContractMatch || !withinWindow || !nonceWellFormed || nonceAlreadyUsed === true;
+  const hardRefuse = sAboveHalfOrder === true || zeroComponent || !domainChainMatch || !domainContractMatch || !withinWindow || !nonceWellFormed || nonceAlreadyUsed === true;
   const verdict = hardRefuse ? 'REFUSE' : 'PASS';
   compliance_flags.push(hardRefuse ? 'X402_DOMAIN_NONCE_REFUSE' : 'X402_DOMAIN_NONCE_PASS');
+
+  const signature_form = sigParsed ? { present: true, s_above_half_order: sAboveHalfOrder, zero_component: zeroComponent } : null;
 
   const output_payload = {
     verdict,
@@ -194,23 +238,62 @@ export function compute(pp) {
     nonce: nonceNormalized,
     nonce_well_formed: nonceWellFormed,
     nonce_already_used: nonceAlreadyUsed,
+    ...(signature_form !== null ? { signature_form } : {}),
     disclosure: DISCLOSURE,
   };
 
   return { output_payload, compliance_flags };
 }
 
+// ── hashability walk (D6) ────────────────────────────────────────────────────────
+// Mirrors the classes _hash.mjs refuses before canonicalizing: a non-finite number or an
+// integer outside the 2^53 safe range, a BigInt, nesting past its MAX_DEPTH, more values
+// than its MAX_ELEMENTS. Reports { reason, detail } with the path and kind only, never the
+// value; null when the subtree is safe to hash. The shared _hash.mjs stays untouched.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (typeof v === 'bigint') return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': bigint' };
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // The object walked below is the exact execution_hash preimage. When the shared
+  // canonicalizer would refuse it, mint the artifact with a null execution_hash and the
+  // reason beside it instead of letting the hash throw (D6). compute() already refuses the
+  // same input, so this is the backstop: buildArtifact never throws on any input.
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'pp', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  const artifact = {
     '@context':         'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type:       meta.mandate_type,
     tool_id:             TOOL_ID,
     tool_version:        TOOL_VERSION,
     generated_at:        now ?? null,
-    execution_hash:      hash,
+    execution_hash:      unhashable === null ? await executionHash(pp, output_payload) : null,
     chain:               { parent_hashes, parent_tool_ids, chain_depth },
     policy_parameters:   pp,
     output_payload,
@@ -219,4 +302,6 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
     compute_proof_ready: 'deferred',
     audit_signature:     { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (unhashable !== null) artifact.hash_refusal = { reason: unhashable.reason, detail: unhashable.detail };
+  return artifact;
 }

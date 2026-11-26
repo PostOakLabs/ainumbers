@@ -1,0 +1,70 @@
+name: Vintage Horizon (scheduled)
+
+# Weekly horizon report over data/vintages.json: lists every dated fact whose
+# end date is within 90 days, or whose successor date has passed, with no later
+# vintage entered. The next wage base, deduction or limit is flagged before it
+# goes stale, not after a person notices.
+#
+# REPORT-ONLY. No pull_request, merge_group or push trigger; never a required
+# check; permissions are contents: read here and issues: write only on the
+# shared tracker job. No network: the script reads the table and the clock.
+# The red goes to ONE tracking issue through the shared scheduled-red tracker,
+# which comments on further reds and closes the issue on the next green.
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'   # weekly, Monday, off the hour to avoid the scheduled stampede
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  horizon:
+    name: Horizon report
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      state: ${{ steps.report.outputs.state }}
+      failure_line: ${{ steps.report.outputs.failure_line }}
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: ⬢ Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '20'
+
+      - name: 🧪 Controls for the report itself
+        run: node --test --test-reporter=dot scripts/vintage-horizon.test.mjs
+
+      - name: 🗓 Horizon report
+        id: report
+        # The script writes state and failure_line to GITHUB_OUTPUT before it
+        # exits 1; the step then ends green so the tracker job decides what a
+        # red means. Exit 2 (table missing or malformed) is a hard step failure
+        # that leaves no state output, which the caller reads as red.
+        run: |
+          set -uo pipefail
+          RC=0
+          node scripts/vintage-horizon.mjs --now "$(date -u +%F)" --github-output "$GITHUB_OUTPUT" | tee -a "$GITHUB_STEP_SUMMARY" || RC="${PIPESTATUS[0]}"
+          if [ "$RC" -gt 1 ]; then exit "$RC"; fi
+
+  report-red:
+    name: Scheduled-red tracking issue
+    needs: horizon
+    if: ${{ always() && github.event_name == 'schedule' && needs.horizon.result != 'skipped' }}
+    uses: ./.github/workflows/scheduled-red-issue.yml
+    permissions:
+      contents: read
+      issues: write
+    with:
+      surface: vintage-horizon
+      # Fails CLOSED: anything that is not an explicit green is reported red.
+      state: ${{ needs.horizon.outputs.state == 'green' && 'green' || 'red' }}
+      failure-line: ${{ needs.horizon.outputs.failure_line || 'The horizon report did not record a verdict this cycle (table missing, malformed, or job killed).' }}

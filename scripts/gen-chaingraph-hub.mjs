@@ -23,14 +23,14 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isNonLive } from './_node-status.mjs';
+import { loadHubCategories } from './_hub-categories.mjs';
 import { buildFooter, ROOT_FOOTER_CSS } from '../chaingraph/_page-chrome.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
 
 const cg = JSON.parse(readFileSync(resolve(REPO, 'chaingraph', 'chaingraph.json'), 'utf8'));
-const categoriesPath = resolve(REPO, 'chaingraph', 'hub-categories.json');
-const categories = JSON.parse(readFileSync(categoriesPath, 'utf8'));
+const categories = loadHubCategories(REPO); // art_ids derived from chaingraph/hub-categories/<id>.json
 
 // ── STATUS FILTER (GENERATOR-STATUS-FILTER-1) ────────────────────────────────
 // This filter used to be URL SHAPE ONLY. A node that leaves service keeps its
