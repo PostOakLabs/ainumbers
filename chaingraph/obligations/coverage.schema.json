@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "ainumbers:obligation-coverage",
+  "title": "Obligation coverage (one per node)",
+  "description": "Records which obligations of a node's cited clause digest(s) its fixture vectors exercise. A sidecar: fixture bytes and golden hashes never move because of it. Enforced by scripts/check-obligation-coverage.mjs gate O2 (coverage is real) and gate O4 (digests still cited); this schema documents the contract and its required[] is drift-pinned by the gate selftest.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["node_id", "clause_digests", "covers", "out_of_scope", "uncovered"],
+  "properties": {
+    "node_id": { "type": "string", "minLength": 1, "description": "The node's tool_id; the fixtures file chaingraph/kernels/fixtures/<node_id>.fixtures.json supplies the vector evidence." },
+    "clause_digests": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+      "description": "A list, not a single digest: 65 percent of citing shards cite more than one digest (OBLIGATION-PREMISE-1, P5). Every entry must still be cited by the node's shard (O4)."
+    },
+    "covers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["accept", "refuse"],
+        "properties": {
+          "accept": { "type": "array", "items": { "type": "string" }, "description": "Vectors whose expected verdict is positive under this obligation." },
+          "refuse": { "type": "array", "items": { "type": "string" }, "description": "Vectors whose expected verdict is negative or a refusal because of this obligation." },
+          "signal": { "type": "string", "description": "Optional dot path into output_payload carrying the obligation-scoped verdict (for example a per-trigger boolean). Default when absent: non-empty compliance_flags is positive, empty is negative." }
+        }
+      },
+      "description": "Obligation id to evidence. An obligation is covered when it has at least one accept and one refuse vector; total coverage is gate O3's concern (a later row), not O2's."
+    },
+    "out_of_scope": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "reason"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^O[0-9]+$" },
+          "reason": { "type": "string", "minLength": 8, "description": "Plain statement of scope; prints as the node's honest-limits line in a later row." }
+        }
+      }
+    },
+    "uncovered": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "reason"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^O[0-9]+$" },
+          "reason": { "type": "string", "minLength": 8, "description": "Why no vector exercises this obligation yet. Uncovered is a defect, not a scope statement; each uncovered obligation becomes its own row (add a vector, implement the branch, or declare out of scope)." }
+        }
+      },
+      "description": "Obligations with neither vectors nor an out-of-scope declaration. Explicit here so missed branches are visible in the file itself; gate O3 (nothing uncovered, advisory for existing nodes) lands in a later row."
+    }
+  }
+}

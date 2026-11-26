@@ -100,6 +100,7 @@ import { readFileSync, existsSync, readdirSync, writeFileSync } from 'node:fs';
 import { resolve, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
+import { derivedResolve } from './_derived-resolve-lib.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -479,7 +480,9 @@ export function measuredPrecision(fixtures = ADJUDICATED_EDGES) {
 /* ────────────────────────── live-estate wiring ────────────────────────── */
 
 function loadEstate(root) {
-  const cgPath = resolve(root, 'chaingraph/chaingraph.json');
+  // DERIVED-READER-BURNDOWN-CHAIN-EDGE-CONTRACTS-1: read the monolith through derivedResolve so the
+  // merge_group queue judges the assembled tree (DERIVED_ROOT); unset, it is the committed file.
+  const cgPath = derivedResolve('chaingraph', 'chaingraph.json');
   const raw = readFileSync(cgPath, 'utf8');
   const cg = JSON.parse(raw);
 

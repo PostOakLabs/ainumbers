@@ -2,13 +2,14 @@
 // spec: RHC hooks build spec Addendum art-709 (research/rhc-hooks/RHC-HOOKS-BUILD-SPEC-2026-10-03.md),
 // Uniswap v4-core LPFeeLibrary.sol / ProtocolFeeLibrary.sol / Pool.sol at the pinned commit
 // a7cf038cd568801a79a9b4cf92cd5b52c95c8585
-// kernel_digest_at_authoring: sha256:68ca34965c2b4f1c5f10617b45c673cf3034c7fe65de08d9cf763d9e0bb04a27
+// kernel_digest_at_authoring: sha256:006276eea211adf270ea4964fa8024c40abe4849bd45ced5872f07da1733bcfc
 // human_sign_off: PENDING
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
 // Run: node chaingraph/kernels/__proptests__/art-709-v4-hook-fee-conformance.proptest.mjs
 
+import { readFileSync } from 'node:fs';
 import { compute, calculateSwapFee } from '../art-709-v4-hook-fee-conformance.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32 } from './_pbt-common.mjs';
 
@@ -197,6 +198,30 @@ function checkP6_outputShapeDeterminism() {
   return { name: 'P6_output_shape_determinism_evidence_only', checked, violations };
 }
 
+// ---------- PF1 (KERNEL-BIGINT-F1-SAFE-FORMAT-1): a BigInt on protocol_fee refuses, never throws ----------
+// RED on main: compute() threw "Do not know how to serialize a BigInt" while building the
+// protocol_fee_invalid refusal detail. GREEN on head: the same input returns the refusal
+// (measured across 4 BigInt values on this field, origin/main 0289be7577 vs this branch).
+function checkPF1_bigintInputRefusesWithoutThrowing() {
+  let violations = 0, checked = 0;
+  const fixtures = JSON.parse(readFileSync(new URL('../fixtures/art-709-v4-hook-fee-conformance.fixtures.json', import.meta.url), 'utf8'));
+  for (const big of [7n, 123456789012345678901234567890n, -1n, 0n]) {
+    const pp = structuredClone(fixtures.vectors[0].policy_parameters);
+    pp.protocol_fee = big;
+    checked++;
+    try {
+      const r = compute(pp);
+      const out = r && r.output_payload;
+      if (!out) { violations++; continue; }
+      const dcode = out.domain_errors && out.domain_errors[0] && out.domain_errors[0].code;
+      if (dcode !== 'PROTOCOL_FEE_INVALID') violations++;
+    } catch (e) {
+      violations++; // the serialization throw this cure removes
+    }
+  }
+  return { name: 'PF1_bigint_protocol_fee_refuses_without_throwing', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -211,6 +236,7 @@ const properties = [
   checkP4_recomputeAndStatuses(),
   checkP5_refusalContract(),
   checkP6_outputShapeDeterminism(),
+  checkPF1_bigintInputRefusesWithoutThrowing(),
 ];
 console.log('[' + KERNEL_ID + '] class-K floor property test — ' + properties.length + ' properties.');
 const ok = summarize(KERNEL_ID, oracle, properties);

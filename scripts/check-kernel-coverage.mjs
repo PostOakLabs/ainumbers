@@ -9,20 +9,22 @@
 // (Wave 26 / NIS2 hit this: 174 nodes, 168 kernels — art-141…146 unregistered.)
 
 import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { isMainContext } from './derived-artifacts.mjs';
+import { derivedResolve } from './_derived-resolve-lib.mjs';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const CG = resolve(HERE, '..', 'chaingraph');
+// DERIVED-READER-BURNDOWN-KERNEL-COVERAGE-1: read the monolith and the kernel index through
+// derivedResolve so the merge_group queue judges the assembled tree (DERIVED_ROOT); unset, both
+// resolve to the committed files — byte-identical reads to the previous resolve(CG, …) literals.
+const CG_JSON = derivedResolve('chaingraph', 'chaingraph.json');
+const KERNELS_INDEX = derivedResolve('chaingraph', 'kernels', 'index.mjs');
 
 // Registered kernel tool_ids = keys of the KERNELS map in index.mjs (text-parse — decoupled from
 // kernel execution, exactly like the worker gate; syntax-check.mjs separately validates the files).
-const idx = readFileSync(resolve(CG, 'kernels', 'index.mjs'), 'utf8');
+const idx = readFileSync(KERNELS_INDEX, 'utf8');
 const block = idx.slice(idx.indexOf('KERNELS = {'));
 const registered = new Set([...block.matchAll(/['"]([a-z0-9][a-z0-9._-]+)['"]\s*:/gi)].map((m) => m[1]));
 
-const cg = JSON.parse(readFileSync(resolve(CG, 'chaingraph.json'), 'utf8'));
+const cg = JSON.parse(readFileSync(CG_JSON, 'utf8'));
 const live = (cg.nodes ?? []).filter((n) => n.status === 'live');
 const gpuFalse = live.filter((n) => n.gpu === false);
 const unported = gpuFalse.filter((n) => !registered.has(n.tool_id)).map((n) => n.tool_id);
