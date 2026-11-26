@@ -1,4 +1,4 @@
-// kernel_digest_at_authoring: sha256:34a97e2f8bf698256758e5a961ca48865bc61479195b7fe14a950d2761f10bfc
+// kernel_digest_at_authoring: sha256:c92c94a035709f13ff651421cf52434e8f616a944278103c5dc8fc0bec6de453
 //
 // FV-PROPFLOOR-SHARD-B1-1 — property-test floor for art-09-dora-incident-classifier.
 // Class B (bounded-numeric), FLOAT-SENSITIVE (client %, tx-value/outage/member-state threshold
@@ -10,7 +10,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-09-dora-incident-classifier.proptest.mjs
 
-import { compute } from '../art-09-dora-incident-classifier.kernel.mjs';
+import { compute, buildArtifact } from '../art-09-dora-incident-classifier.kernel.mjs';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -53,6 +53,7 @@ function randPP(rng) {
   return {
     incident_type: pick(rng, INCIDENT_TYPES),
     entity_type: pick(rng, ENTITY_TYPES),
+    detection_datetime: '2026-01-15T10:00:00Z',
     clients_affected: randRange(rng, 0, total),
     total_clients: total,
     transaction_value_eur_millions: rng() < 0.7 ? randRange(rng, 0, 100) : 0,
@@ -87,7 +88,7 @@ function checkP2_monotoneClientsCriterion() {
     const totalClients = randRange(rand, 1000, 1_000_000);
     const c1 = randRange(rand, 0, totalClients / 2);
     const c2 = c1 + randRange(rand, 0, totalClients / 2); // c2 >= c1
-    const base = { incident_type: 'other', entity_type: 'other', total_clients: totalClients, transaction_value_eur_millions: 0, outage_duration_minutes: 0, eu_member_states_affected: 1, data_loss_occurred: false, critical_function_affected: false, cross_border_payment: false, tp_ict: false };
+    const base = { incident_type: 'other', entity_type: 'other', detection_datetime: '2026-01-15T10:00:00Z', total_clients: totalClients, transaction_value_eur_millions: 0, outage_duration_minutes: 0, eu_member_states_affected: 1, data_loss_occurred: false, critical_function_affected: false, cross_border_payment: false, tp_ict: false };
     const r1 = compute({ ...base, clients_affected: c1 }).output_payload;
     const r2 = compute({ ...base, clients_affected: c2 }).output_payload;
     checked++;
@@ -115,7 +116,7 @@ function checkP3_clientsThresholdAgreement() {
 }
 
 // ---------- P4 (mandatory): ULP-boundary forcing ----------
-const base = { incident_type: 'other', entity_type: 'other', total_clients: 1000, transaction_value_eur_millions: 0, outage_duration_minutes: 0, eu_member_states_affected: 1, data_loss_occurred: false, critical_function_affected: false, cross_border_payment: false, tp_ict: false };
+const base = { incident_type: 'other', entity_type: 'other', detection_datetime: '2026-01-15T10:00:00Z', clients_affected: 100, total_clients: 1000, transaction_value_eur_millions: 0, outage_duration_minutes: 0, eu_member_states_affected: 1, data_loss_occurred: false, critical_function_affected: false, cross_border_payment: false, tp_ict: false };
 const ULP_BOUNDARY_CASES = [
   ['clients pct exactly 10% — must be met (>= not >)', { ...base, clients_affected: 100, total_clients: 1000 }],
   ['clients pct 1 ULP under 10% — must NOT be met', { ...base, clients_affected: 100 - Number.EPSILON * 512, total_clients: 1000 }],
@@ -141,6 +142,43 @@ function checkP4_forced() {
   return rows;
 }
 
+// ---------- P5: required inputs never yield a definitive MAJOR/NON_MAJOR ----------
+function checkP5_required_fields_never_positive() {
+  let violations = 0, checked = 0;
+  const base = randPP(mulberry32(0x9009));
+  const modes = ['delete', 'null', 'empty', 'whitespace'];
+  for (const f of ['detection_datetime', 'clients_affected', 'total_clients', 'outage_duration_minutes']) {
+    for (const mode of modes) {
+      const pp = structuredClone(base);
+      if (mode === 'delete') delete pp[f];
+      else if (mode === 'null') pp[f] = null;
+      else if (mode === 'empty') pp[f] = '';
+      else pp[f] = '   ';
+      const o = compute(pp).output_payload;
+      checked++;
+      if (o.determination_code === 'MAJOR' || o.determination_code === 'NON_MAJOR' || o.determination_code !== 'INDETERMINATE') violations++;
+      if (o.major_incident !== false || o.decision?.gate_policy === 'auto_pass') violations++;
+      if (!Array.isArray(o.missing_required_fields) || !o.missing_required_fields.includes(f)) violations++;
+    }
+  }
+  return { name: 'P5_required_fields_never_positive', trials: checked, violations };
+}
+
+// ---------- P6: buildArtifact never throws ----------
+async function checkP6_buildArtifact_never_throws() {
+  let violations = 0, checked = 0;
+  for (const pp of [
+    randPP(mulberry32(0x9008)),
+    { clients_affected: 100, total_clients: 1000, outage_duration_minutes: 0 },
+    { detection_datetime: '   ', clients_affected: 1, total_clients: 10, outage_duration_minutes: 0 },
+    { detection_datetime: '2026-01-15T10:00:00Z', clients_affected: 1, total_clients: 10, outage_duration_minutes: Number.NaN },
+  ]) {
+    checked++;
+    try { await buildArtifact(pp); } catch { violations++; }
+  }
+  return { name: 'P6_buildArtifact_never_throws', trials: checked, violations };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -151,6 +189,8 @@ if (!oracleOk) {
 results.properties.push(checkP1_boundedness());
 results.properties.push(checkP2_monotoneClientsCriterion());
 results.properties.push(checkP3_clientsThresholdAgreement());
+results.properties.push(checkP5_required_fields_never_positive());
+results.properties.push(await checkP6_buildArtifact_never_throws());
 results.boundary_forced = checkP4_forced();
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);

@@ -6,6 +6,14 @@
 
 import { executionHash } from './_hash.mjs';
 
+// KERNEL-FAILOPEN-P3-BUILDER-09-1 (fail-closed): the four manifest-required inputs
+// (detection_datetime, clients_affected, total_clients, outage_duration_minutes)
+// are REQUIRED. A missing, null, empty or whitespace-only one withholds the
+// classification as INDETERMINATE instead of emitting a definitive NON_MAJOR.
+// buildArtifact() never throws: unhashable input yields a refusal artifact.
+const REQUIRED_FIELDS = ['detection_datetime', 'clients_affected', 'total_clients', 'outage_duration_minutes'];
+function isPresent(v) { return v !== undefined && v !== null && !(typeof v === 'string' && v.trim() === ''); }
+
 // Deterministic en-US number format â€” exact pure-JS replica of (n).toLocaleString('en-US') default options
 // (group-3 integer digits, 0..3 fraction digits, halfExpand rounding). Used instead of toLocaleString so the
 // OCG runner-guest (QuickJS-ng, no ICU) produces output byte-identical to V8. Verified vs V8 over 105k+ values.
@@ -76,6 +84,30 @@ const PAYMENT_ENTITY_TYPES = new Set(['payment_institution', 'credit_institution
  * }
  */
 export function compute(pp) {
+  pp = pp || {};
+  const missing_required_fields = REQUIRED_FIELDS.filter((f) => !isPresent(pp[f]));
+  if (missing_required_fields.length > 0) {
+    return {
+      output_payload: {
+        major_incident: false,
+        determination_code: 'INDETERMINATE',
+        verdict: 'INDETERMINATE',
+        decision: { gate_policy: 'review_required', execution_state: 'did_not_run', reason: 'required_inputs_incomplete' },
+        missing_required_fields,
+        qualifying_criteria: [],
+        warnings: [],
+        criteria_detail: [],
+        reporting_clock: {},
+        entity_type: pp.entity_type ?? 'other',
+        incident_type: pp.incident_type ?? 'other',
+        cross_border: pp.cross_border_payment === true,
+        third_party_ict: pp.tp_ict === true,
+        competent_authority_note: 'Report to your national competent authority (NCA) per DORA Art. 19. Cross-border incidents require coordination per Art. 19(6).',
+        regulatory_framework: 'DORA (EU) 2022/2554 Art. 23 · ESA Joint RTS EBA/RTS/2023/11 (published January 2025)',
+      },
+      compliance_flags: ['INPUT_MISSING_INDETERMINATE'],
+    };
+  }
   const entityType       = pp.entity_type ?? 'other';
   const incidentType     = pp.incident_type ?? 'other';
   const clientsAffected  = Number(pp.clients_affected ?? 0);
@@ -201,7 +233,48 @@ export function compute(pp) {
   return { output_payload, compliance_flags };
 }
 
+// Mirrors _hash.mjs limits so buildArtifact never throws.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > HASH_MAX_DEPTH) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > HASH_MAX_ELEMENTS) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const unhashable = findHashRefusal(pp, 'pp', 1, { n: 0 });
+  if (unhashable !== null) {
+    return {
+      '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+      chaingraph_version: '0.4.0', mandate_type: meta.mandate_type, tool_id: TOOL_ID, tool_version: TOOL_VERSION,
+      generated_at: now ?? null, execution_hash: null,
+      hash_refusal: { reason: unhashable.reason, detail: unhashable.detail },
+      chain: { parent_hashes, parent_tool_ids, chain_depth }, policy_parameters: null,
+      output_payload: { major_incident: false, determination_code: 'INDETERMINATE', verdict: 'INDETERMINATE', decision: { gate_policy: 'review_required', execution_state: 'did_not_run', reason: 'input_refused' }, missing_required_fields: [], criteria_detail: [], reporting_clock: {} },
+      compliance_flags: ['INPUT_REFUSED'], compute_mode: 'server',
+      audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+    };
+  }
   const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {
