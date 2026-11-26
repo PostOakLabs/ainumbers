@@ -69,7 +69,15 @@ const fresh = result && result.output_payload !== undefined ? result.output_payl
 const freshBytes = JSON.stringify(fresh, null, 2) + '\n';
 const freshCanonicalSha = canonSha(fresh);
 const freshFileSha = sha256Hex(new TextEncoder().encode(freshBytes));
-const freshExec = 'sha256:' + (await executionHash(input, fresh));
+const freshExecRaw = await executionHash(input, fresh);
+if (freshExecRaw === null) {
+  // HASH-REFUSAL-GUARDS-SCRIPTS-1: HASH-REFUSAL-SHARED-1 makes executionHash
+  // return null on unhashable input. The repair path must never pin
+  // sha256:null into vectors/manifest.json — refuse loudly instead.
+  console.error('derive-vector: executionHash returned null (unhashable input); refusing to pin sha256:null into vectors/manifest.json');
+  process.exit(1);
+}
+const freshExec = 'sha256:' + freshExecRaw;
 
 const inputCanonSha = canonSha(input);
 const inputFileSha = sha256Hex(new TextEncoder().encode(inputRaw));

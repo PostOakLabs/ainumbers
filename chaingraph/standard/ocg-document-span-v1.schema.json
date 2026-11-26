@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ainumbers.co/chaingraph/standard/ocg-document-span-v1.schema.json",
+  "title": "ocg-document-span@1",
+  "description": "Sidecar span record (SPEC.md section 23 sidecar profile): one input value bound to this document at this location. The record is adjacent evidence, never an input to any execution_hash preimage. Ships OUTSIDE the envelope by design: the section 23 type list stays closed at four.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["type", "pointer", "source_ref", "proof"],
+  "properties": {
+    "type": { "const": "document-span" },
+    "pointer": {
+      "type": "string",
+      "pattern": "^(/([^/~]|~[01])*)*$",
+      "description": "RFC 6901 pointer evaluated against policy_parameters (SPEC.md section 23 binding rule, unchanged). Empty string names the whole policy_parameters object."
+    },
+    "source_ref": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^/\\\\]+$",
+      "description": "File name only, never a path (no / or \\ separator), following the basename rule."
+    },
+    "proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile", "document", "locator", "extractor", "lexical", "normalization"],
+      "properties": {
+        "profile": { "const": "ocg-document-span@1" },
+        "document": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sha256", "media_type", "bytes"],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$",
+              "description": "SHA-256 over the raw document file bytes, lower-case hex, no prefix."
+            },
+            "media_type": { "enum": ["text/csv", "application/json"] },
+            "bytes": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "locator": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["scheme", "record", "column", "header"],
+              "properties": {
+                "scheme": { "const": "csv-rfc4180-cell" },
+                "record": { "type": "integer", "minimum": 0, "description": "Zero-based DATA record index after an RFC 4180 parse; the header row is not a data record." },
+                "column": { "type": "integer", "minimum": 0 },
+                "header": { "type": "string", "minLength": 1, "description": "The header name at this column index; an ordinary string even when it collides with an Object.prototype member name." },
+                "row_key": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["column", "value"],
+                  "properties": {
+                    "column": { "type": "string", "minLength": 1 },
+                    "value": { "type": "string" }
+                  }
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["scheme", "pointer"],
+              "properties": {
+                "scheme": { "const": "json-pointer" },
+                "pointer": {
+                  "type": "string",
+                  "pattern": "^(/([^/~]|~[01])*)*$",
+                  "description": "RFC 6901 pointer into the JSON document."
+                }
+              }
+            }
+          ]
+        },
+        "extractor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tool_id", "kernel_digest"],
+          "properties": {
+            "tool_id": {
+              "type": "string",
+              "pattern": "^art-[0-9]+-[a-z0-9-]+$",
+              "description": "The parser node id, so which parser read the value is as pinned as everything else."
+            },
+            "kernel_digest": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "description": "The extractor kernel's identity digest; must resolve to an entry in the site's published kernel digest list (registry/kernel/)."
+            }
+          }
+        },
+        "lexical": {
+          "type": "string",
+          "description": "The extracted string exactly as the document bytes decode, byte for byte. Omitted only in a future private-input variant; v1 refuses that combination."
+        },
+        "normalization": {
+          "enum": ["string-exact", "decimal-plain", "integer-plain", "date-iso"],
+          "description": "The declared rule that turns lexical into the input value. Closed list of four. Refusal first: anything outside the declared grammar is refused, never guessed."
+        }
+      }
+    }
+  },
+  "$defs": {}
+}
