@@ -3336,6 +3336,28 @@ function psParityGateChecks(files) {
   return [['Workflow gate parity (no CI↔preflight drift)', 'node scripts/check-workflow-gate-parity.mjs']];
 }
 
+// KERNEL-SURFACE-STATIC-GATES-1 (2026-11-25, PR #2763 lesson): a kernel-surface diff
+// (chaingraph/kernels/, manifests/, registry/kernel/) is judged in CI by two static
+// registry/schema checks this leg otherwise never runs. #2763 passed every local gate
+// but first-failed CI on both: REGISTRY-RESOLVE-STATIC-1 (land-verify.yml runs
+// `gen-registry-kernel-resolve.mjs --check` HARD on the kernels/** path filter; an
+// in-place kernel edit strands a stale registry/kernel/<hex>.json record) and
+// OUTPUTSCHEMA-GAP-1 (scripts-verify.yml's full preflight; a manifest's declared
+// output_schema must keep validating against the node fixture output_payloads the
+// kernel edit may have moved). The leg caught the parity-gate class the same way
+// (PREPUSH-SAFETY-LEG-1's psParityGateChecks); this is the same shape for the
+// kernel-surface pair. Both are ~1.5 s static scans of tracked files only, and both
+// are repairable in-branch (--write / --update-baseline per their own output), so
+// running them here blocks a push only when a one-command fix exists.
+const PS_KERNEL_SURFACE = /^(chaingraph\/kernels\/|manifests\/|registry\/kernel\/)/;
+function psKernelSurfaceChecks(files) {
+  if (!files.some((f) => PS_KERNEL_SURFACE.test(f))) return [];
+  return [
+    ['Registry kernel-resolve current (REGISTRY-RESOLVE-STATIC-1)', 'node scripts/gen-registry-kernel-resolve.mjs --check'],
+    ['MCP output-schema coverage (OUTPUTSCHEMA-GAP-1)', 'node scripts/check-output-schema-coverage.mjs'],
+  ];
+}
+
 async function runPushSafetySuite(selfTest) {
   const files = psChangedFiles();
   const kernelIds = psTouchedKernelIds(files);
@@ -3343,6 +3365,7 @@ async function runPushSafetySuite(selfTest) {
     ...QUICK_GATES,
     ['Changed-file secret scan (PREPUSH-SAFETY-LEG-1)', '__SECRET_SCAN__'],
     ...kernelIds.map((id) => [`Kernel gates (touched kernel ${id}, --fast --keep-going)`, `node scripts/kernel-preflight.mjs ${id} --fast --keep-going`]),
+    ...psKernelSurfaceChecks(files),
     ...psParityGateChecks(files),
     ...psChangedGateChecks(files),
   ];
@@ -3376,6 +3399,27 @@ async function runPushSafetySuite(selfTest) {
     }
     if (files.some((f) => PS_PARITY_TRIGGER.test(f)) && !labels.some((l) => l.includes('Workflow gate parity'))) {
       failures.push('push-safety is missing the workflow gate parity gate for a gate-machinery diff');
+    }
+    // KERNEL-SURFACE-STATIC-GATES-1: same probe shape as the parity block above —
+    // structural for each of the three kernel-surface path classes, plus the
+    // real-changed-set assertion that the leg actually carries both gates when the
+    // tree's own diff touches any of them.
+    const ksProbe = psKernelSurfaceChecks(['chaingraph/kernels/999-example.kernel.mjs']);
+    if (ksProbe.length !== 2
+        || !ksProbe.some(([l]) => l.includes('REGISTRY-RESOLVE-STATIC-1'))
+        || !ksProbe.some(([l]) => l.includes('OUTPUTSCHEMA-GAP-1'))) {
+      failures.push('push-safety kernel-surface probe broken for a kernel diff');
+    }
+    for (const f of ['manifests/999-example.manifest.json', 'registry/kernel/999f00d.json']) {
+      if (psKernelSurfaceChecks([f]).length !== 2) failures.push(`push-safety kernel-surface probe broken for ${f}`);
+    }
+    if (psKernelSurfaceChecks(['tools/1-example.html', 'README.md']).length !== 0) {
+      failures.push('push-safety kernel-surface gates must not ride an unrelated diff');
+    }
+    if (files.some((f) => PS_KERNEL_SURFACE.test(f))
+        && !labels.some((l) => l.includes('REGISTRY-RESOLVE-STATIC-1'))
+        && !labels.some((l) => l.includes('OUTPUTSCHEMA-GAP-1'))) {
+      failures.push('push-safety is missing the kernel-surface static gates for a kernel-surface diff');
     }
     if (failures.length) {
       for (const f of failures) console.error(`   ✗ ${f}`);
