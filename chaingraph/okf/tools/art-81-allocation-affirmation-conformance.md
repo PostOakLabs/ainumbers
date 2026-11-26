@@ -1,7 +1,7 @@
 ---
 type: DecisionTool
 title: "Allocation/Affirmation Conformance Checker"
-description: "Checks allocation and confirmation/affirmation events against the ESMA CSDR SDR RTS 23:00 CET trade-date rule and the machine-readable-format mandate (binding Dec 2026). Computes per-event pass/fail and batch on-time rate."
+description: "Checks allocation and confirmation/affirmation events against the 23:00 CET trade-date rule in Delegated Regulation (EU) 2026/1536 and the machine-readable-format mandate, refusing malformed timestamps and computing per-event pass/fail and batch on-time rate."
 resource: https://ainumbers.co/chaingraph/art-81-allocation-affirmation-conformance.html
 tags: ["compliance_mandate", "wave-17", "mcp:check_allocation_affirmation"]
 timestamp: 2026-07-14

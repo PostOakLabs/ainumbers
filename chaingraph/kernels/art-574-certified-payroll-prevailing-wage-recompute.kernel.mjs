@@ -97,12 +97,23 @@
  * Zero network, zero randomness, zero wall-clock reads inside compute().
  *
  * Spec: RECOMP-WAVE-BUILD-SPEC.md §9, §Common.
- * (comment-only retrigger: no functional change)
+ *
+ * MISSING-INPUT FAIL-CLOSED (2026-11-20): the four manifest-required fields that
+ * this kernel otherwise silently defaults -- currency, project_ref, pwa_mode and
+ * week_ending_label -- must actually be supplied. A missing, null, empty or
+ * whitespace-only one yields verdict INDETERMINATE with missing_required_fields,
+ * never MATCHES or DIVERGES. The other manifest-required fields are either already
+ * fail-closed (an absent wage determination, payroll_rows or submitted_payroll
+ * each yields INDETERMINATE) or optional by this kernel's own contract
+ * (apprentice_program, intentional_disregard,
+ * irc_6621_underpayment_rate_percent, underpayment_days), which are unchanged.
+ * buildArtifact never throws: an unhashable input returns a refusal artifact with
+ * execution_hash null and hash_refusal.
  */
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-574-certified-payroll-prevailing-wage-recompute';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.0.1';
 export const meta = {
   tool_id: TOOL_ID,
   tool_version: TOOL_VERSION,
@@ -176,10 +187,20 @@ function isNonEmptyString(v) { return typeof v === 'string' && v.trim().length >
 function str(v, fallback) { return isNonEmptyString(v) ? v.trim() : fallback; }
 function arr(v) { return Array.isArray(v) ? v : []; }
 function obj(v) { return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }
+function isFilled(v) { return v != null && !(typeof v === 'string' && v.trim() === ''); }
 
 export function compute(pp) {
   pp = pp || {};
   const rejected_inputs = [];
+
+  // Manifest-required fields this kernel otherwise defaults. Literal reads (no dynamic
+  // pp[f] lookup) so the static schema-read sweep sees each one. A missing, null, empty
+  // or whitespace-only value means the recompute cannot state agreement.
+  const missing_required_fields = [];
+  if (!isFilled(pp.currency)) missing_required_fields.push('currency');
+  if (!isFilled(pp.project_ref)) missing_required_fields.push('project_ref');
+  if (!isFilled(pp.pwa_mode)) missing_required_fields.push('pwa_mode');
+  if (!isFilled(pp.week_ending_label)) missing_required_fields.push('week_ending_label');
 
   const project_ref = str(pp.project_ref, 'UNSTATED');
   const week_ending_label = str(pp.week_ending_label, 'UNSTATED');
@@ -389,7 +410,10 @@ export function compute(pp) {
   //    required input is absent -- never guessed, never defaulted. ────────
   let verdict;
   let indeterminate_reason;
-  if (wage_determination.length === 0) {
+  if (missing_required_fields.length > 0) {
+    verdict = 'INDETERMINATE';
+    indeterminate_reason = `Required input field(s) missing or blank: ${missing_required_fields.join(', ')}. A certified-payroll recomputation cannot state agreement without them.`;
+  } else if (wage_determination.length === 0) {
     verdict = 'INDETERMINATE';
     indeterminate_reason = 'No wage determination was supplied, so no required rate could be established.';
   } else if (payroll_rows.length === 0) {
@@ -462,6 +486,7 @@ export function compute(pp) {
     comparison_basis: 'The recomputed side of every comparison is derived here from the wage determination and the caller-declared payroll hours. It is not read from a submitted certified payroll. A comparison is only meaningful because the two sides have independent provenance.',
     diff,
     verdict, indeterminate_reason,
+    ...(missing_required_fields.length > 0 ? { missing_required_fields } : {}),
     rejected_inputs,
     citations: CITATIONS,
     rationale,
@@ -473,7 +498,57 @@ export function compute(pp) {
   return { output_payload, compliance_flags };
 }
 
+// Mirrors _hash.mjs's I-JSON limits so buildArtifact never throws: non-finite number,
+// unsafe integer, nesting past MAX_DEPTH, more values than MAX_ELEMENTS. Reports path
+// and kind only, never the offending payload.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > HASH_MAX_DEPTH) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > HASH_MAX_ELEMENTS) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const unhashable = findHashRefusal(pp, 'pp', 1, { n: 0 });
+  if (unhashable !== null) {
+    return {
+      '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+      chaingraph_version: '0.4.0',
+      mandate_type: meta.mandate_type,
+      tool_id: TOOL_ID,
+      tool_version: TOOL_VERSION,
+      generated_at: now ?? null,
+      execution_hash: null,
+      hash_refusal: { reason: unhashable.reason, detail: unhashable.detail },
+      chain: { parent_hashes, parent_tool_ids, chain_depth },
+      policy_parameters: null,
+      output_payload: { verdict: 'REFUSED', refusal: unhashable.reason },
+      compliance_flags: ['INPUT_REFUSED'],
+      compute_mode: 'server',
+      audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+    };
+  }
   const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {

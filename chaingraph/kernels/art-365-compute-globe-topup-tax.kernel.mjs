@@ -2,7 +2,7 @@ import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-365-compute-globe-topup-tax';
 const TOOL_VERSION = '1.0.0';
-const CONSTANTS_VERSION = 'oecd-globe-sbie-2024-2027-transitional-v1';
+const CONSTANTS_VERSION = 'oecd-globe-sbie-2023-2032-art92-v2';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -15,9 +15,10 @@ export const meta = {
 // ETR/SBIE stage + tools/474-topup-tax-qdmtt-calculator.html topup/allocation stage
 // into one kernel, per TOOLIFY-1-BUILD-SPEC.md TF-2).
 //
-//   SBIE = payroll x sbie_payroll_rate + tangible_assets x 0.05 (assets rate held
-//          flat at the steady-state 5% by the source tools regardless of fy --
-//          ported as-is, not "corrected", to preserve tool<->kernel parity)
+//   SBIE = payroll x sbie_payroll_rate + tangible_assets x assets_rate, both rates
+//          from the OECD transitional schedule for the substance-based income
+//          exclusion for fiscal years beginning 2023 through 2032, and the 5%
+//          steady state from fiscal year 2033 onward
 //   ETR  = covered_taxes / globe_income  (0 if income <= 0)
 //   income_net_sbie = max(globe_income - SBIE, 0)
 //   top_up_rate = max(0.15 - ETR, 0)
@@ -45,18 +46,32 @@ export const meta = {
 // All three conditions (Central Record listing + election + effective fy) must hold; the absence of
 // any one leaves the jurisdiction on ordinary IIR routing.
 
-// SBIE_RATES and GLOBE_MIN_RATE are OECD-published transitional table values
-// (Art. 9.1 / Administrative Guidance) pinned behind constants_version below --
-// a rate change is a version bump, never a silent recompute.
+// SBIE_RATES is the OECD-published transitional schedule for the substance-based income
+// exclusion (payroll and tangible assets, fiscal years beginning 2023 through 2032, with
+// the base 5% steady state for both from fiscal year 2033). Pinned behind constants_version
+// below -- a rate change is a version bump, never a silent recompute.
 // Pure ECMA-262 arithmetic only -- no Math.pow, no Date.now/new Date(), no Math.random.
 
 const SBIE_RATES = {
+  2023: { payroll: 0.10, assets: 0.08 },
   2024: { payroll: 0.098, assets: 0.078 },
-  2025: { payroll: 0.096, assets: 0.064 },
-  2026: { payroll: 0.094, assets: 0.050 },
-  2027: { payroll: 0.050, assets: 0.050 },
+  2025: { payroll: 0.096, assets: 0.076 },
+  2026: { payroll: 0.094, assets: 0.074 },
+  2027: { payroll: 0.092, assets: 0.072 },
+  2028: { payroll: 0.09, assets: 0.07 },
+  2029: { payroll: 0.082, assets: 0.066 },
+  2030: { payroll: 0.074, assets: 0.062 },
+  2031: { payroll: 0.066, assets: 0.058 },
+  2032: { payroll: 0.058, assets: 0.054 },
 };
-const SBIE_ASSETS_RATE = 0.05;
+const SBIE_STEADY_STATE = { payroll: 0.05, assets: 0.05 };
+const SBIE_FIRST_FY = 2023;
+
+function sbieRates(fy) {
+  if (SBIE_RATES[fy]) return SBIE_RATES[fy];
+  if (fy >= 2033) return SBIE_STEADY_STATE;
+  return null;
+}
 const GLOBE_MIN_RATE = 0.15;
 // para 28: SbS Safe Harbour does not affect fiscal years commencing before 1 January 2026.
 const SBS_EFFECTIVE_FIRST_FY = 2026;
@@ -64,15 +79,21 @@ const SBS_EFFECTIVE_FIRST_FY = 2026;
 function safeNum(v, def) { const n = Number(v); return Number.isFinite(n) ? n : def; }
 function r6(v) { return Number.isFinite(v) ? Math.round(v * 1e6) / 1e6 : 0; }
 
-function defaultSbiePayrollRate(fy) {
-  const table = SBIE_RATES[fy] || SBIE_RATES[2027];
-  return table.payroll;
-}
-
 export function compute(pp) {
   pp = pp || {};
   const parentHq = String(pp.parent_hq || '').trim().toUpperCase();
   const fy = Number.isFinite(Number(pp.fy)) ? Math.trunc(Number(pp.fy)) : 2026;
+  const rates = sbieRates(fy);
+  if (!rates) {
+    return {
+      output_payload: {
+        error: 'year_not_in_table', fy, first_accepted_fy: SBIE_FIRST_FY,
+        constants_version: CONSTANTS_VERSION,
+        note: 'Fiscal years before ' + SBIE_FIRST_FY + ' are not covered by the pinned transitional schedule for the substance-based income exclusion.',
+      },
+      compliance_flags: ['LOOKUP_YEAR_UNAVAILABLE'],
+    };
+  }
   // Ch5 box item 6: Central Record listing of a Qualified SbS Regime for the parent's jurisdiction --
   // a caller-declared versioned input, never a hardcoded jurisdiction (the publication names none).
   const centralRecordSbs = Array.isArray(pp.central_record_sbs)
@@ -98,12 +119,12 @@ export function compute(pp) {
     const payroll = safeNum(j.payroll, 0);
     const assets = safeNum(j.assets, 0);
     const sbiePayrollRate = j.sbie_payroll_rate != null
-      ? safeNum(j.sbie_payroll_rate, defaultSbiePayrollRate(fy))
-      : defaultSbiePayrollRate(fy);
+      ? safeNum(j.sbie_payroll_rate, rates.payroll)
+      : rates.payroll;
     const qdmttEnacted = !!j.qdmtt_enacted;
     const qdmttRate = safeNum(j.qdmtt_rate, 0);
 
-    const sbie = r6(payroll * sbiePayrollRate + assets * SBIE_ASSETS_RATE);
+    const sbie = r6(payroll * sbiePayrollRate + assets * rates.assets);
     const incomeNetSbie = r6(Math.max(income - sbie, 0));
     const etr = income > 0 ? taxes / income : 0;
     const belowMin = etr < GLOBE_MIN_RATE;
@@ -149,7 +170,7 @@ export function compute(pp) {
     constants_version: CONSTANTS_VERSION,
     globe_min_rate: GLOBE_MIN_RATE,
     regulatory_basis: 'OECD Pillar Two GloBE Model Rules (Dec 2021) + GloBE Commentary (Mar 2022) + Administrative Guidance (2023-2024) + OECD/G20 Inclusive Framework Side-by-Side Package (approved/declassified 5 January 2026) Ch5 SbS Safe Harbour',
-    note: 'SBIE payroll rate defaults to the OECD transitional table for fy when not supplied; the tangible-assets SBIE rate is held at the published steady-state 5% regardless of fy, matching the source tools. Jurisdiction-level qdmtt_rate/qdmtt_enacted are caller-supplied, not vendored. The SbS Safe Harbour (us_exempt, keeping the legacy field name) requires all three of a declared Central Record listing (central_record_sbs), a declared Filing CE election (sbs_election), and a fiscal year on or after 2026 -- it is never inferred from parent_hq alone, and when it applies the Top-up Tax for that jurisdiction is deemed zero for both the IIR and the UTPR, not routed between them.',
+    note: 'SBIE payroll and tangible-assets rates come from the OECD transitional schedule for the substance-based income exclusion for fiscal years beginning 2023 through 2032 and sit at the 5% steady state from fiscal year 2033; the payroll rate is overridable per jurisdiction (sbie_payroll_rate) and there is no assets-rate override. Jurisdiction-level qdmtt_rate/qdmtt_enacted are caller-supplied, not vendored. The SbS Safe Harbour (us_exempt, keeping the legacy field name) requires all three of a declared Central Record listing (central_record_sbs), a declared Filing CE election (sbs_election), and a fiscal year on or after 2026 -- it is never inferred from parent_hq alone, and when it applies the Top-up Tax for that jurisdiction is deemed zero for both the IIR and the UTPR, not routed between them.',
   };
 
   return { output_payload, compliance_flags };

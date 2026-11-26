@@ -21,6 +21,13 @@
  *      (chaingraph/kernels/mutation-tier-split.mjs) instead of one blended
  *      score — the pilot's own report identified the blended number as
  *      confounded by structurally-uncoverable buildArtifact()/meta code.
+ *      MUTATION-ARTIFACT-CONST-TIER-1 (SO #41, declared metric change) adds
+ *      a THIRD tier on top of that split: mutants inside a top-level const
+ *      PROVEN never reachable from compute() (every reference sits in
+ *      artifact-building code — buildArtifact/meta only) report in the
+ *      `artifact` tier, counted and printed but never scored against any
+ *      floor (see artifactConstRanges/tierOfMutantWithArtifact below; the
+ *      money-math floor measures what compute() actually does).
  *   3. Break floors are read from chaingraph/kernels/mutation-tiers.config.json
  *      (SO #41 — thresholds live in config, not a hardcoded number here),
  *      with TWO distinct non-blocking categories, both config-declared, never
@@ -43,6 +50,12 @@
  *      detmath-dominated population that cannot finish inside the default
  *      bound. The config entry is re-verified against the kernel's markers on
  *      every run and fails loudly on drift; see resolveSurfaceSplit().
+ *
+ * Local run (MUTATION-TIER-LOCAL-STRYKER-1): set MUTATION_TIER_STRYKER_BIN to a
+ * provisioned out-of-repo Stryker entry file (WSL: /root/.ain-tools/stryker-8.7.1/
+ * node_modules/@stryker-mutator/core/bin/stryker.js) and the tier spawns
+ * `node <bin> run <config>` instead of npx. Unset = CI path, unchanged. A
+ * missing file warns and falls back to npx.
  *
  * Usage:
  *   node scripts/run-mutation-tier.mjs --kernel <id> [<id> ...]
@@ -83,6 +96,21 @@
  *                          flag (the full-estate scan already overruns the
  *                          6-hour hosted-runner ceiling; a doubled ceiling-blowout
  *                          is not a measurement, see the workflow's own header).
+ *     --survivors          MUTATION-SURVIVORS-JSON-1: with --json, each
+ *                          examined kernel's result gains an ADDITIVE
+ *                          `survivors` array — one
+ *                          { id, mutatorName, tier, location, status } entry
+ *                          per mutant Stryker marked `Survived` or
+ *                          `NoCoverage`, in the tier the harness already
+ *                          assigned (tierOfMutant), sorted by line then
+ *                          column — plus `killed_money_math_ids`. Opt-in:
+ *                          WITHOUT this flag the --json output is
+ *                          byte-identical to the pre-row shape (the nightly
+ *                          workflow and the ratchet are unchanged), and NO
+ *                          count, tier assignment, floor or percentage
+ *                          changes either way — survivor detail only, so
+ *                          review no longer needs Stryker's temp
+ *                          mutation-report.json.
  *     --shard <i> <n>      with --all only: process every kernel id whose
  *                          position (0-indexed) in the sorted full id list
  *                          satisfies `i % n === index`. Used by
@@ -128,19 +156,24 @@ import { existsSync, mkdirSync, rmSync, cpSync, readFileSync, writeFileSync, rea
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { classifyKernelSource, tierReport, tierOfMutant, scanBalanced } from '../chaingraph/kernels/mutation-tier-split.mjs';
+import { classifyKernelSource, tierReport, tierOfMutant, scanBalanced, scoreOf } from '../chaingraph/kernels/mutation-tier-split.mjs';
 import { checkSandboxComplete, deriveSandboxFiles } from './lib-sandbox-deps.mjs';
+import { mergeMutationSiblings } from './lib-per-kernel-config.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '..');
 
-function loadConfig(repoRoot = REPO) {
-  return JSON.parse(readFileSync(path.join(repoRoot, 'chaingraph', 'kernels', 'mutation-tiers.config.json'), 'utf8'));
+// PER-KERNEL-CONFIG-SHARD-1: the config keeps thresholds/defaults; per-kernel entries live in
+// chaingraph/kernels/<id>.mutation.json siblings, merged here so every consumer sees one object.
+export function loadConfig(repoRoot = REPO) {
+  const kernelsDir = path.join(repoRoot, 'chaingraph', 'kernels');
+  const base = JSON.parse(readFileSync(path.join(kernelsDir, 'mutation-tiers.config.json'), 'utf8'));
+  return mergeMutationSiblings(base, kernelsDir);
 }
 
 // ── CLI parsing ───────────────────────────────────────────────────────────
 function parseArgv(argv) {
-  const opts = { kernels: null, all: false, jsonOut: null, concurrency: 2, timeoutMs: 15000, shardIndex: null, shardCount: null, decomposed: false };
+  const opts = { kernels: null, all: false, jsonOut: null, concurrency: 2, timeoutMs: 15000, shardIndex: null, shardCount: null, decomposed: false, survivors: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--all') opts.all = true;
@@ -152,6 +185,7 @@ function parseArgv(argv) {
     else if (a === '--shard') { opts.shardIndex = Number(argv[++i]); opts.shardCount = Number(argv[++i]); }
     else if (a === '--timeout-ms') opts.timeoutMs = Number(argv[++i]);
     else if (a === '--decomposed') opts.decomposed = true;
+    else if (a === '--survivors') opts.survivors = true;
   }
   return opts;
 }
@@ -218,6 +252,30 @@ export function kernelTimeoutSecondsForKernel(id, env = process.env, config = nu
   return DEFAULT_KERNEL_TIMEOUT_S;
 }
 
+// MUTATION-TRIALS-BUDGET-458-1: the opt-in per-kernel trial budget. Unlike the
+// wall-clock bound there is deliberately NO global env override — the ONLY
+// source is `<id>.mutation.json`'s `mutationTrials` key (merged into the config
+// by PER-KERNEL-CONFIG-SHARD-1). A present value must be a positive safe integer
+// or the run fails LOUDLY naming the kernel and the bad value, in the same
+// shape as kernelTimeoutSecondsForKernel above. Absent = no budget at all.
+export function mutationTrialsForKernel(id, config = null) {
+  const trials = (config && config.mutationTrials) || {};
+  if (!Object.prototype.hasOwnProperty.call(trials, id)) return null;
+  const v = trials[id];
+  if (!Number.isSafeInteger(v) || v <= 0) {
+    throw new Error(`mutationTrials["${id}"] (per-kernel sibling) must be a positive safe integer, got ${JSON.stringify(v)}`);
+  }
+  return v;
+}
+
+// The child-only env fragment. The caller merges it into the Stryker child's
+// env; it is NEVER written to the global process.env, so a multi-kernel run
+// cannot leak one kernel's budget into another's mutants.
+export function mutationEnvForKernel(id, config = null) {
+  const n = mutationTrialsForKernel(id, config);
+  return n === null ? {} : { MUTATION_TIER_NUM_RUNS: String(n) };
+}
+
 export function timeoutMessage(id, elapsedS) {
   return `MUTATION-TIER TIMEOUT ${id} after ${elapsedS}s — treat as FAIL, see MUTATION-TIER-HANG-MMS03-PNR01-1`;
 }
@@ -255,14 +313,19 @@ const KILL_GRACE_MS = 15000;
  * @returns {Promise<{ crashed: boolean, error: string | null, timedOut: boolean,
  *                     killConfirmed: boolean, elapsedS: number }>}
  */
-export function runProcessBounded({ cmd, args, cwd, budgetS }) {
+export function runProcessBounded({ cmd, args, cwd, budgetS, env }) {
   return new Promise((resolve) => {
     const t0 = Date.now();
     let settled = false;
     let timedOut = false;
     let killConfirmed = true;
     let spawnError = null;
-    const child = spawn(cmd, args, { cwd, stdio: 'inherit', detached: process.platform !== 'win32' });
+    const spawnOpts = { cwd, stdio: 'inherit', detached: process.platform !== 'win32' };
+    // No env fragment = inherit process.env exactly as before (byte-identical
+    // behaviour for kernels with no trial budget). A fragment is a per-child
+    // override only — process.env itself is never mutated.
+    if (env) spawnOpts.env = env;
+    const child = spawn(cmd, args, spawnOpts);
     const killGrace = setTimeout(() => {
       // The tree kill did not close the child within grace — stop waiting (the
       // direct child may leak; the verdict is still the loud FAIL).
@@ -289,15 +352,47 @@ export function runProcessBounded({ cmd, args, cwd, budgetS }) {
   });
 }
 
-function runStryker(configPath, cwd, strykerVersion, budgetS) {
-  const { cmd, prefixArgs } = process.platform === 'win32'
+/**
+ * MUTATION-TIER-LOCAL-STRYKER-1: pick the Stryker invocation. When
+ * MUTATION_TIER_STRYKER_BIN names an EXISTING file, run that provisioned,
+ * out-of-repo Stryker via `node <file> run <config>`. Unset (CI) or pointing at
+ * a missing file: the npx argv, byte-for-byte as before (missing file also
+ * returns a warning string for the caller to print).
+ */
+export function resolveStrykerInvocation({ env = process.env, platform = process.platform, strykerVersion, configPath, fileExists = existsSync }) {
+  const bin = env.MUTATION_TIER_STRYKER_BIN;
+  let warning = null;
+  if (bin !== undefined && bin !== '') {
+    if (fileExists(bin)) {
+      return { cmd: process.execPath, args: [bin, 'run', configPath], mode: 'local-bin', warning };
+    }
+    warning = `MUTATION_TIER_STRYKER_BIN="${bin}" does not exist; falling back to npx`;
+  }
+  const { cmd, prefixArgs } = platform === 'win32'
     ? resolveWindowsNpxInvocation()
     : { cmd: 'npx', prefixArgs: [] };
-  return runProcessBounded({
+  return {
     cmd,
     args: [...prefixArgs, '--yes', `--package=@stryker-mutator/core@${strykerVersion}`, 'stryker', 'run', configPath],
+    mode: 'npx',
+    warning,
+  };
+}
+
+function runStryker(configPath, cwd, strykerVersion, budgetS, extraEnv = {}) {
+  const inv = resolveStrykerInvocation({ strykerVersion, configPath });
+  if (inv.warning) console.warn(`[mutation-tier] WARNING: ${inv.warning}`);
+  console.log(`[mutation-tier] stryker path: ${inv.mode === 'local-bin' ? `local provisioned bin (${process.env.MUTATION_TIER_STRYKER_BIN})` : 'npx ephemeral'}, version ${strykerVersion}`);
+  const { cmd, args } = inv;
+  return runProcessBounded({
+    cmd,
+    args,
     cwd,
     budgetS,
+    // Copy process.env into a NEW object so the override reaches this Stryker
+    // child (and every per-mutant command it spawns) without ever touching the
+    // run-wide global env. Undefined when empty = inherit as before.
+    env: Object.keys(extraEnv).length ? { ...process.env, ...extraEnv } : undefined,
   });
 }
 
@@ -401,6 +496,308 @@ export function neutralizationTargets(proptestSource) {
   return null;
 }
 
+// ── artifact-only const tier (MUTATION-ARTIFACT-CONST-TIER-1, SO #41) ─────
+//
+// A DECLARED metric-definition change (SO #41, memorial D8): a mutant inside a
+// top-level const whose every reference sits in artifact-building code — the
+// `buildArtifact` envelope or the `meta` export, never anything reachable from
+// `compute()` — is NOT money-math. The floors import ONLY `compute`
+// (run-proptests.mjs's soundness comment), so such a const is structurally
+// never executed by the measured surface; counting its unkillable mutants
+// (art-348's QUANT_META carried 9 of 46 "money-math" mutants) understates the
+// real killable score. Those mutants now report in a THIRD tier, `artifact`:
+// counted and printed, never scored against the money-math (or any) floor —
+// and deliberately NOT folded into `peripheral`, which names the
+// envelope-BUILDER code itself (meta/buildArtifact/TOOL_ID/TOOL_VERSION
+// ranges), not data only the envelope reads.
+//
+// SOUNDNESS DIRECTION — proof-only, never a guess: a const is claimed
+// `artifact` ONLY when the static text analysis PROVES it. Every analysis
+// shortcut below errs toward the PRE-change classification (money-math):
+//   * references are scanned as word matches over the RAW source, comments
+//     and string literals included — a spurious hit (the name in a comment, a
+//     like-named object property) can only BLOCK an artifact claim, never
+//     create one. Local shadowing is safe for the same reason: a real
+//     reference from compute() IS a textual hit inside compute()'s range.
+//   * a reference inside a top-level helper function, an import/export
+//     statement, or any statement line outside the artifact roots blocks the
+//     claim — reaching compute() through a helper is not excluded here, so
+//     any such const stays money-math (under-claiming is the safe direction:
+//     the artifact tier can only ever be granted on proof).
+//   * const-to-const chains resolve by fixpoint from below: C is artifact
+//     only when every reference sits in an artifact root OR inside another
+//     PROVEN-artifact const's declaration. A reference cycle never proves
+//     itself (least fixpoint), so cyclic data stays money-math.
+//   * a const with ZERO references outside its own declaration is artifact
+//     (vacuously "every reference sits in artifact code", and provably
+//     unreachable from compute()). The one boundary every static analyzer
+//     shares applies: reflective access (eval/Function with a computed name)
+//     is invisible to text — the kernels are pure compute modules (zero
+//     eval/Function hits across the estate, same measured basis as the
+//     no-shell-out note above).
+//   * a declaration whose extent cannot be located EXACTLY (scanBalanced
+//     fails, or the value is not a bracketed literal — scalars, identifier
+//     aliases, template literals) is skipped outright and keeps its current
+//     tier. Skipping only under-claims.
+//   * an `export const` is NEVER granted artifact: exports are module-public
+//     surface a proptest may import cross-file (art-376's `export const
+//     __test__`, measured while building this tier), and single-file analysis
+//     cannot decide cross-file reachability. Excluded categorically — the
+//     same no-guessing rule.
+//
+// This tier is a metric-definition change, not a silent baseline move: the
+// scores it changes re-pin at the next nightly proposal, and kills never move
+// (artifact code is never executed by the floors, so its mutants are
+// Survived/NoCoverage, never Killed — the step-1 table in the row's PR
+// verifies that per kernel, and a kernel whose score would DROP is a hard
+// STOP).
+
+const TOPLEVEL_CONST_DECL_RE = /^(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=/;
+const EXPORTED_TOPLEVEL_CONST_DECL_RE = /^export\s+const\s+/;
+const BRACKET_VALUE_START_RE = /^[([{]/;
+
+function lineNumberOfCharIndex(source, charIdx) {
+  // 1-indexed line containing charIdx (same helper mutation-tier-split.mjs keeps private).
+  let line = 1;
+  for (let i = 0; i < charIdx && i < source.length; i++) if (source[i] === '\n') line++;
+  return line;
+}
+
+/**
+ * findExportedFunctionRange — locate `export (async )?function <name>(...) { ... }`
+ * as a 1-indexed inclusive [startLine, endLine], or null when absent/malformed.
+ * Same bracket-stack algorithm as mutation-tier-split.mjs's private helper
+ * (which classifyKernelSource does not re-expose per-range, and this tier
+ * needs compute()'s and buildArtifact's ranges as DISTINCT regions).
+ * @param {string} source
+ * @param {string} name
+ * @returns {[number, number] | null}
+ */
+function findExportedFunctionRange(source, name) {
+  const re = new RegExp(`^export\\s+(async\\s+)?function\\s+${name}\\s*\\(`, 'm');
+  const m = re.exec(source);
+  if (!m) return null;
+  const parenEnd = scanBalanced(source, m.index + m[0].length - 1);
+  if (parenEnd === -1) return null;
+  const brace = source.indexOf('{', parenEnd + 1);
+  if (brace === -1) return null;
+  const bodyEnd = scanBalanced(source, brace);
+  if (bodyEnd === -1) return null;
+  return [lineNumberOfCharIndex(source, m.index), lineNumberOfCharIndex(source, bodyEnd)];
+}
+
+/**
+ * findExportedMetaRange — locate `export const meta = { ... };` as a
+ * 1-indexed inclusive [startLine, endLine], or null. meta is an artifact root
+ * (the envelope's own export), so consts feeding only meta are artifact-only
+ * even though meta's OWN mutants stay in the peripheral tier.
+ * @param {string} source
+ * @returns {[number, number] | null}
+ */
+function findExportedMetaRange(source) {
+  const re = /^export\s+const\s+meta\s*=/m;
+  const m = re.exec(source);
+  if (!m) return null;
+  const eqIdx = m.index + m[0].length;
+  const brace = source.indexOf('{', eqIdx);
+  if (brace === -1 || source.slice(eqIdx, brace).trim() !== '') return null;
+  const endIdx = scanBalanced(source, brace);
+  if (endIdx === -1) return null;
+  return [lineNumberOfCharIndex(source, m.index), lineNumberOfCharIndex(source, endIdx)];
+}
+
+/**
+ * topLevelConstDeclarationRange — one top-level `const NAME =` declaration's
+ * full 1-indexed inclusive line range, or null when the extent cannot be
+ * located EXACTLY (the caller skips the const — never guesses). Only
+ * bracketed literal values (`{`, `[`, `(` as the first non-space text after
+ * `=`) are analyzable; the matching close bracket is found with scanBalanced
+ * (string/comment safe), so multi-line object/array/group literals resolve
+ * exactly and anything else stays in its current tier.
+ * @param {string} source
+ * @param {string[]} lines
+ * @param {number} declLineIdx — 0-indexed line carrying `const NAME =`
+ * @returns {[number, number] | null}
+ */
+function topLevelConstDeclarationRange(source, lines, declLineIdx) {
+  const declLine = lines[declLineIdx];
+  const eqIdx = declLine.indexOf('=');
+  let probe = declLine.slice(eqIdx + 1);
+  let probeLineIdx = declLineIdx;
+  while (probe.trim() === '') { // value starts on a later line
+    probeLineIdx += 1;
+    if (probeLineIdx >= lines.length) return null;
+    probe = lines[probeLineIdx];
+  }
+  if (!BRACKET_VALUE_START_RE.test(probe.trimStart())) return null; // scalar/identifier/template value — not analyzable, skip
+  // Absolute char offset of the value's opening bracket: start of the probe
+  // line (sum of prior line lengths, +1 per elided newline), plus the probe
+  // line's total length minus the bracket's distance from its line END (this
+  // holds whether the value shares the declaration line or starts a later
+  // one — index math only, never content search).
+  let probeLineStart = 0;
+  for (let i = 0; i < probeLineIdx; i++) probeLineStart += lines[i].length + 1;
+  const bracketCharIdx = probeLineStart + lines[probeLineIdx].length - probe.trimStart().length;
+  if (!'([{'.includes(source[bracketCharIdx])) return null;
+  const endIdx = scanBalanced(source, bracketCharIdx);
+  if (endIdx === -1) return null;
+  return [declLineIdx + 1, lineNumberOfCharIndex(source, endIdx)];
+}
+
+const TOPLEVEL_FUNCTION_DECL_RE = /^(?:export\s+)?(?:async\s+)?function\s+[A-Za-z_$][\w$]*\s*\(/;
+
+/**
+ * topLevelFunctionRanges — ranges of every top-level (column-0) function
+ * declaration, compute()/buildArtifact()/helpers alike. A const declared
+ * INSIDE any of them is a local, not a top-level const, and can never be an
+ * artifact-only const candidate (a compute() local with no other reference
+ * would otherwise be vacuously "unreferenced" — hiding real money-math).
+ * @param {string} source
+ * @returns {Array<[number, number]>}
+ */
+function topLevelFunctionRanges(source) {
+  const lines = source.split(/\r?\n/);
+  const ranges = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (!TOPLEVEL_FUNCTION_DECL_RE.test(lines[i])) continue;
+    const parenIdx = lines[i].indexOf('(');
+    let lineStart = 0;
+    for (let k = 0; k < i; k++) lineStart += lines[k].length + 1;
+    const parenEnd = scanBalanced(source, lineStart + parenIdx);
+    if (parenEnd === -1) continue;
+    const brace = source.indexOf('{', parenEnd + 1);
+    if (brace === -1) continue;
+    const bodyEnd = scanBalanced(source, brace);
+    if (bodyEnd === -1) continue;
+    ranges.push([i + 1, lineNumberOfCharIndex(source, bodyEnd)]);
+  }
+  return ranges;
+}
+
+/**
+ * artifactConstRanges — the reachability decision (MUTATION-ARTIFACT-CONST-
+ * TIER-1). Finds every top-level const declaration whose references provably
+ * never leave artifact-building code, and returns their line ranges. PROOF
+ * ONLY, never a guess — see the section comment for the soundness direction
+ * (every shortcut keeps the pre-change money-math classification). An arrow
+ * const (`const f = (x) => ...`) resolves to its parameter span only; its
+ * body lines sit outside the range and any reference from them blocks other
+ * consts, so arrows can only ever under-claim.
+ *
+ * @param {string} source — the kernel's source text
+ * @param {Array<[number,number]>} peripheralRanges — from classifyKernelSource (consts overlapping these are already peripheral and are skipped)
+ * @returns {{ artifactRanges: Array<[number,number]>, artifactConsts: Array<{ name: string, range: [number, number] }> }}
+ */
+export function artifactConstRanges(source, peripheralRanges) {
+  const computeRange = findExportedFunctionRange(source, 'compute');
+  const buildRange = findExportedFunctionRange(source, 'buildArtifact');
+  if (!computeRange || !buildRange) return { artifactRanges: [], artifactConsts: [] };
+  const artifactRoots = [buildRange];
+  const metaRange = findExportedMetaRange(source);
+  if (metaRange) artifactRoots.push(metaRange);
+
+  const lines = source.split(/\r?\n/);
+  const funcRanges = topLevelFunctionRanges(source);
+  const consts = [];
+  for (let i = 0; i < lines.length; i++) {
+    const m = TOPLEVEL_CONST_DECL_RE.exec(lines[i]);
+    if (!m) continue;
+    if (EXPORTED_TOPLEVEL_CONST_DECL_RE.test(lines[i])) continue; // an `export const` is module-public surface a proptest may import cross-file — single-file analysis cannot decide its reachability, so it is NEVER granted artifact (art-376's `export const __test__` is the measured case: floor-importable, killable, not artifact)
+    if (funcRanges.some(([s, e]) => i + 1 >= s && i + 1 <= e)) continue; // declared inside a function body — a local, never an artifact-only const candidate
+    const range = topLevelConstDeclarationRange(source, lines, i);
+    if (!range) continue; // not exactly locatable — keeps its current tier
+    if (peripheralRanges.some(([s, e]) => range[0] <= e && s <= range[1])) continue; // already peripheral (meta/TOOL_ID/TOOL_VERSION overlap)
+    consts.push({ name: m[1], range });
+  }
+
+  // Word-boundary reference scan over the RAW source (comments/strings
+  // included — spurious hits only ever BLOCK an artifact claim). Occurrences
+  // inside the const's own declaration are not references.
+  for (const c of consts) {
+    const re = new RegExp(`(?<![\\w$])${c.name}(?![\\w$])`, 'g');
+    c.refLines = [];
+    let hit;
+    while ((hit = re.exec(source)) !== null) {
+      const line = lineNumberOfCharIndex(source, hit.index);
+      if (line >= c.range[0] && line <= c.range[1]) continue;
+      c.refLines.push(line);
+    }
+  }
+
+  // Fixpoint from below: artifact(c) holds only when EVERY reference line
+  // sits in an artifact root (buildArtifact/meta) or inside another
+  // PROVEN-artifact const's declaration. Monotone; a cycle never self-proves.
+  const artifact = new Set();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const c of consts) {
+      if (artifact.has(c)) continue;
+      const proven = c.refLines.every((line) =>
+        artifactRoots.some(([s, e]) => line >= s && line <= e)
+        || consts.some((c2) => artifact.has(c2) && line >= c2.range[0] && line <= c2.range[1]));
+      if (proven) { artifact.add(c); changed = true; }
+    }
+  }
+
+  const artifactConsts = consts.filter((c) => artifact.has(c)).map((c) => ({ name: c.name, range: c.range }));
+  return { artifactRanges: artifactConsts.map((c) => c.range), artifactConsts };
+}
+
+/**
+ * tierOfMutantWithArtifact — the three-way tier decision this harness scores
+ * with (mutation-tier-split.mjs's two-way tierOfMutant, plus the artifact
+ * tier). Delegates first: a mutant already classified peripheral/other keeps
+ * that tier (the artifact tier never steals from peripheral), and only a
+ * money-math mutant inside a PROVEN artifact-only const's range moves. Shared
+ * `_*.mjs` libs carry no artifact consts of their own and stay money-math.
+ *
+ * @param {{location?: {start?: {line?: number}}}} mutant
+ * @param {string} mutantFileRelPath
+ * @param {string} kernelFileRelPath
+ * @param {Array<[number,number]>} peripheralRanges
+ * @param {Array<[number,number]>} [artifactRanges] — from artifactConstRanges; default [] keeps the pre-change classification exactly
+ * @returns {'moneyMath'|'peripheral'|'artifact'|'other'}
+ */
+export function tierOfMutantWithArtifact(mutant, mutantFileRelPath, kernelFileRelPath, peripheralRanges, artifactRanges = []) {
+  const base = tierOfMutant(mutant, mutantFileRelPath, kernelFileRelPath, peripheralRanges);
+  if (base !== 'moneyMath') return base;
+  if (mutantFileRelPath.replace(/\\/g, '/') !== kernelFileRelPath.replace(/\\/g, '/')) return base;
+  const line = mutant?.location?.start?.line;
+  if (typeof line !== 'number') return base;
+  if (artifactRanges.some(([s, e]) => line >= s && line <= e)) return 'artifact';
+  return base;
+}
+
+/**
+ * tierReportWithArtifact — tierReport's three-way form: every mutant in the
+ * report bucketed into { moneyMath, peripheral, artifact, other }. The
+ * artifact bucket is scored for REPORTING only (counts, same scoreOf formula)
+ * — no floor ever reads it; the money-math and peripheral buckets carry
+ * exactly the pre-change classification for every mutant outside the proven
+ * artifact ranges.
+ *
+ * @param {object} report — parsed Stryker mutation-report.json
+ * @param {string} kernelFileRelPath
+ * @param {Array<[number,number]>} peripheralRanges
+ * @param {Array<[number,number]>} [artifactRanges]
+ */
+export function tierReportWithArtifact(report, kernelFileRelPath, peripheralRanges, artifactRanges = []) {
+  const buckets = { moneyMath: [], peripheral: [], artifact: [], other: [] };
+  for (const [filePath, data] of Object.entries(report?.files || {})) {
+    for (const m of data.mutants || []) {
+      buckets[tierOfMutantWithArtifact(m, filePath, kernelFileRelPath, peripheralRanges, artifactRanges)].push(m);
+    }
+  }
+  return {
+    moneyMath: scoreOf(buckets.moneyMath),
+    peripheral: scoreOf(buckets.peripheral),
+    artifact: scoreOf(buckets.artifact), // reported, never floored (MUTATION-ARTIFACT-CONST-TIER-1)
+    other: scoreOf(buckets.other), // expected empty; a non-empty bucket stays the caller's hard failure, exactly as tierReport's
+  };
+}
+
+
 /**
  * killedMoneyMathIds — the Set of mutant ids Stryker marked `Killed` that
  * belong to the money-math tier (tierOfMutant, same classification tierReport
@@ -411,18 +808,105 @@ export function neutralizationTargets(proptestSource) {
  * @param {object} report — parsed Stryker mutation-report.json
  * @param {string} kernelFileRelPath
  * @param {Array<[number,number]>} peripheralRanges
+ * @param {Array<[number,number]>} [artifactRanges] — MUTATION-ARTIFACT-CONST-TIER-1: artifact-tier mutants are not money-math kills
  * @returns {Set<string>}
  */
-function killedMoneyMathIds(report, kernelFileRelPath, peripheralRanges) {
+function killedMoneyMathIds(report, kernelFileRelPath, peripheralRanges, artifactRanges = []) {
   const ids = new Set();
   const files = report?.files || {};
   for (const [filePath, data] of Object.entries(files)) {
     for (const m of data.mutants || []) {
-      if (tierOfMutant(m, filePath, kernelFileRelPath, peripheralRanges) !== 'moneyMath') continue;
+      if (tierOfMutantWithArtifact(m, filePath, kernelFileRelPath, peripheralRanges, artifactRanges) !== 'moneyMath') continue;
       if (m.status === 'Killed' && typeof m.id === 'string') ids.add(m.id);
     }
   }
   return ids;
+}
+
+/**
+ * survivorLocations — MUTATION-SURVIVORS-JSON-1. Per-mutant survivor detail
+ * straight from the Stryker mutation report the harness ALREADY read, so
+ * review no longer needs the ephemeral `%TEMP%/ain-mutation-tier-<pid>`
+ * scratch to outlive the run. ADDITIVE ONLY: one entry per mutant whose
+ * status is `Survived` or `NoCoverage` (the two non-executed-verdict
+ * statuses), carrying the tier the harness already assigned (tierOfMutant —
+ * the SAME classification tierReport scores with, never a re-classification)
+ * and Stryker's own location. NO count, tier assignment, floor or percentage
+ * is derived from or changed by this function — it is a projection of the
+ * report, not a score. Sorted by line, then column.
+ *
+ * @param {object} report — parsed Stryker mutation-report.json
+ * @param {string} kernelFileRelPath
+ * @param {Array<[number,number]>} peripheralRanges
+ * @param {Array<[number,number]>} [artifactRanges] — MUTATION-ARTIFACT-CONST-TIER-1: artifact-tier survivors report tier 'artifact'
+ * @returns {Array<{ id: string, mutatorName: string, tier: string, location: object, status: string }>}
+ */
+export function survivorLocations(report, kernelFileRelPath, peripheralRanges, artifactRanges = []) {
+  const survivors = [];
+  for (const [filePath, data] of Object.entries(report?.files || {})) {
+    for (const m of data.mutants || []) {
+      if (m.status !== 'Survived' && m.status !== 'NoCoverage') continue;
+      survivors.push({
+        id: m.id,
+        mutatorName: m.mutatorName,
+        tier: tierOfMutantWithArtifact(m, filePath, kernelFileRelPath, peripheralRanges, artifactRanges),
+        location: {
+          start: { line: m.location?.start?.line, column: m.location?.start?.column },
+          end: { line: m.location?.end?.line, column: m.location?.end?.column },
+        },
+        status: m.status,
+      });
+    }
+  }
+  survivors.sort((a, b) =>
+    (a.location.start.line - b.location.start.line)
+    || (a.location.start.column - b.location.start.column));
+  return survivors;
+}
+
+/**
+ * assertSurvivorsComplete — the RED case made structural: every Survived /
+ * NoCoverage mutant in the report must appear in the serialized survivors
+ * array. A survivor silently dropped from the reviewable output is the exact
+ * defect this row exists to close (survivor detail that needs the temp
+ * report), so the run fails loudly naming the missing mutant id rather than
+ * writing a survivors array that under-reports.
+ *
+ * @param {object} report — parsed Stryker mutation-report.json
+ * @param {Array<{ id: string }>} survivors — the array survivorLocations produced
+ * @param {string} kernelFileRelPath
+ * @param {Array<[number,number]>} peripheralRanges
+ */
+export function assertSurvivorsComplete(report, survivors, kernelFileRelPath, peripheralRanges) {
+  const present = new Set(survivors.map((s) => s.id));
+  for (const [filePath, data] of Object.entries(report?.files || {})) {
+    for (const m of data.mutants || []) {
+      if (m.status !== 'Survived' && m.status !== 'NoCoverage') continue;
+      if (!present.has(m.id)) {
+        throw new Error(`survivors array is missing mutant ${m.id} (status ${m.status}, ${filePath.replace(/\\/g, '/')}:${m.location?.start?.line}) — a survivor silently dropped from the reviewable output (MUTATION-SURVIVORS-JSON-1)`);
+      }
+    }
+  }
+}
+
+/**
+ * buildJsonResult — MUTATION-SURVIVORS-JSON-1: assembles one kernel's result
+ * entry. WITHOUT --survivors the shape is EXACTLY the pre-row
+ * `{ id, runtimeMs, tiers, decomposed }` (byte-identical default --json
+ * output); with it, `survivors` and `killed_money_math_ids` are additive
+ * keys only.
+ *
+ * @param {string} id
+ * @param {number} runtimeMs
+ * @param {object} tiers
+ * @param {object | null} decomposed
+ * @param {{ survivors: boolean }} opts
+ * @param {{ survivors: Array, killed_money_math_ids: string[] } | null} bundle
+ */
+export function buildJsonResult(id, runtimeMs, tiers, decomposed, opts, bundle) {
+  const base = { id, runtimeMs, tiers, decomposed };
+  if (!opts?.survivors || !bundle) return base;
+  return { ...base, survivors: bundle.survivors, killed_money_math_ids: bundle.killed_money_math_ids };
 }
 
 /**
@@ -442,11 +926,12 @@ function killedMoneyMathIds(report, kernelFileRelPath, peripheralRanges) {
  * @param {object} reportNeutralized
  * @param {string} kernelFileRelPath
  * @param {Array<[number,number]>} peripheralRanges
+ * @param {Array<[number,number]>} [artifactRanges] — MUTATION-ARTIFACT-CONST-TIER-1: the decomposed legs decompose the SAME money-math tier tierReportWithArtifact scores (artifact mutants are neither leg's denominator)
  */
-export function decomposeMoneyMath(reportAsShipped, reportNeutralized, kernelFileRelPath, peripheralRanges) {
-  const asShipped = tierReport(reportAsShipped, kernelFileRelPath, peripheralRanges).moneyMath;
-  const killed1 = killedMoneyMathIds(reportAsShipped, kernelFileRelPath, peripheralRanges);
-  const killed2 = killedMoneyMathIds(reportNeutralized, kernelFileRelPath, peripheralRanges);
+export function decomposeMoneyMath(reportAsShipped, reportNeutralized, kernelFileRelPath, peripheralRanges, artifactRanges = []) {
+  const asShipped = tierReportWithArtifact(reportAsShipped, kernelFileRelPath, peripheralRanges, artifactRanges).moneyMath;
+  const killed1 = killedMoneyMathIds(reportAsShipped, kernelFileRelPath, peripheralRanges, artifactRanges);
+  const killed2 = killedMoneyMathIds(reportNeutralized, kernelFileRelPath, peripheralRanges, artifactRanges);
   let fixtureKills = 0;
   for (const id of killed1) if (!killed2.has(id)) fixtureKills++;
   let run2OnlyKills = 0;
@@ -654,7 +1139,26 @@ export function copySandboxDeps(kernelRelPath, proptestRelPath, fixturesRelPath,
         .filter((f) => f.startsWith(`${kernelId}.`) && f !== fixturesFile)
         .map((f) => `chaingraph/kernels/fixtures/${f}`)
     : [];
-  const files = deriveSandboxFiles({ roots: [kernelRelPath, proptestRelPath], extras: [fixturesRelPath, ...runtimeReadSiblings], repoRoot });
+  // MUTATION-TIER-SANDBOX-VENDOR-FIXTURES-1: a proptest that runtime-reads a VENDORED
+  // fixture under fixtures/vendor/ (art-831-receipt-export-envelopes.proptest.mjs:33 reads
+  // openlineage-1.55.0/OpenLineage.json to validate the exported RunEvent against the pinned
+  // upstream schema) is invisible to BOTH the import-graph derivation and the `<id>.*`
+  // sibling sweep above. The cure stays caller-side and scoped: when the proptest source
+  // names `vendor` at all, sweep every file under fixtures/vendor/ into the sandbox (the
+  // whole tree, not a guessed literal path — the same future-proofing stance as the sibling
+  // sweep; the tree is small, upstream release-pinned, and shared, so no per-kernel filter).
+  const vendorDir = path.join(fixturesDir, 'vendor');
+  const vendorFiles = [];
+  const walkVendor = (dir, relBase) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.isDirectory()) walkVendor(path.join(dir, e.name), `${relBase}/${e.name}`);
+      else vendorFiles.push(`chaingraph/kernels/fixtures/${relBase}/${e.name}`);
+    }
+  };
+  if (existsSync(vendorDir) && /vendor/.test(readFileSync(path.join(repoRoot, proptestRelPath), 'utf8'))) {
+    walkVendor(vendorDir, 'vendor');
+  }
+  const files = deriveSandboxFiles({ roots: [kernelRelPath, proptestRelPath], extras: [fixturesRelPath, ...runtimeReadSiblings, ...vendorFiles], repoRoot });
   for (const rel of files) {
     const dest = path.join(scratchRoot, rel);
     if (existsSync(dest)) continue; // already primed by an earlier kernel this process
@@ -692,6 +1196,15 @@ export async function runOneKernel(id, scratchRoot, opts, strykerVersion, repoRo
   const { hasCanonicalShape, peripheralRanges } = classifyKernelSource(source);
   if (!hasCanonicalShape) {
     return { id, hardFail: 'non-canonical kernel shape (no `export function buildArtifact` found) — add it to excludedKernels in mutation-tiers.config.json instead of running it unsplit' };
+  }
+
+  // MUTATION-ARTIFACT-CONST-TIER-1 (SO #41 declared metric change): consts
+  // proven never reachable from compute() report their mutants in the
+  // artifact tier (never scored). Loud by construction — the granted consts
+  // are named on every run, so a kernel's tier change is never silent.
+  const { artifactRanges, artifactConsts } = artifactConstRanges(source, peripheralRanges);
+  if (artifactConsts.length > 0) {
+    console.log(`  artifact-only consts: ${artifactConsts.map((c) => `${c.name} (lines ${c.range[0]}-${c.range[1]})`).join(', ')} — mutants report in the artifact tier, never scored (MUTATION-ARTIFACT-CONST-TIER-1)`);
   }
 
   // RCA01-MUTATION-TIER-COST-1: a config-named mutate-surface split (verified
@@ -749,8 +1262,17 @@ export async function runOneKernel(id, scratchRoot, opts, strykerVersion, repoRo
   const configPath = path.join(scratchRoot, `stryker.${id}.json`);
   writeFileSync(configPath, JSON.stringify(config, null, 2));
 
+  // MUTATION-TRIALS-BUDGET-458-1: the opt-in budget travels ONLY into this
+  // kernel's Stryker child env. The per-mutant command is
+  // `node chaingraph/kernels/__proptests__/<proptest>`, so the override reaches
+  // every mutant (and the dry run) without touching global process.env.
+  const mutationEnv = mutationEnvForKernel(id, tierConfig);
+  if (mutationEnv.MUTATION_TIER_NUM_RUNS !== undefined) {
+    console.log(`  mutation trials budget: ${mutationEnv.MUTATION_TIER_NUM_RUNS} (per-kernel sibling)`);
+  }
+
   const t0 = Date.now();
-  const { crashed, error, timedOut, elapsedS } = await runStryker(configPath, scratchRoot, strykerVersion, budgetS());
+  const { crashed, error, timedOut, elapsedS } = await runStryker(configPath, scratchRoot, strykerVersion, budgetS(), mutationEnv);
   if (timedOut) {
     const msg = timeoutMessage(id, elapsedS);
     console.error(`  ${msg}`);
@@ -796,7 +1318,7 @@ export async function runOneKernel(id, scratchRoot, opts, strykerVersion, repoRo
     console.log(`  mutation-surface: ${ignored.length} mutant(s) inside the named excluded range(s) are Ignored — excluded from the measured denominator (named in mutation-tiers.config.json mutateSurfaceSplits, never silent)`);
   }
 
-  const tiers = tierReport(report, kernelRelPath, peripheralRanges);
+  const tiers = tierReportWithArtifact(report, kernelRelPath, peripheralRanges, artifactRanges);
 
   // ── decomposed (fixture-leg-neutralized) second run — MUTATION-DECOMPOSED-SCORE-1 ──
   // The patch lands ONLY on scratch copies (the proptest, or the shared
@@ -816,7 +1338,7 @@ export async function runOneKernel(id, scratchRoot, opts, strykerVersion, repoRo
       // the first. Report the trivial decomposition honestly (fixtureKills = 0 BY
       // CONSTRUCTION, propertyRatio = the as-shipped score) instead of a named hard fail
       // or a wasted duplicate Stryker run.
-      decomposed = { fixtureLegAbsent: true, ...decomposeMoneyMath(report, report, kernelRelPath, peripheralRanges), runtimeMs: 0 };
+      decomposed = { fixtureLegAbsent: true, ...decomposeMoneyMath(report, report, kernelRelPath, peripheralRanges, artifactRanges), runtimeMs: 0 };
     } else {
       const patched = [];
     try {
@@ -873,7 +1395,7 @@ export async function runOneKernel(id, scratchRoot, opts, strykerVersion, repoRo
           decomposed = { error: `fixture-neutralized report.json unparseable: ${e.message}`, runtimeMs: runtime2Ms };
         }
         if (!decomposed) {
-          decomposed = { ...decomposeMoneyMath(report, report2, kernelRelPath, peripheralRanges), runtimeMs: runtime2Ms };
+          decomposed = { ...decomposeMoneyMath(report, report2, kernelRelPath, peripheralRanges, artifactRanges), runtimeMs: runtime2Ms };
         }
       }
     } finally {
@@ -882,7 +1404,20 @@ export async function runOneKernel(id, scratchRoot, opts, strykerVersion, repoRo
     }
   }
 
-  return { id, runtimeMs, tiers, decomposed };
+  // MUTATION-SURVIVORS-JSON-1: additive survivor detail, opt-in via --survivors.
+  // Both reads are free projections of the report already parsed above; no
+  // count, tier assignment or floor is touched. The completeness self-check
+  // runs only on the flagged path (the default output is byte-identical).
+  let survivorBundle = null;
+  if (opts.survivors) {
+    const survivors = survivorLocations(report, kernelRelPath, peripheralRanges, artifactRanges);
+    assertSurvivorsComplete(report, survivors, kernelRelPath, peripheralRanges);
+    survivorBundle = {
+      survivors,
+      killed_money_math_ids: [...killedMoneyMathIds(report, kernelRelPath, peripheralRanges, artifactRanges)].sort(),
+    };
+  }
+  return buildJsonResult(id, runtimeMs, tiers, decomposed, opts, survivorBundle);
 }
 
 // ── main ──────────────────────────────────────────────────────────────────
@@ -952,6 +1487,16 @@ export async function runTier(argv, repoRoot = REPO) {
     process.exit(1);
   }
 
+  // MUTATION-TRIALS-BUDGET-458-1: validate every examined kernel's opt-in trial
+  // budget up-front too — a bad sibling value fails LOUDLY here, before any
+  // Stryker work, naming the kernel and the bad value.
+  try {
+    for (const id of toRun) mutationTrialsForKernel(id, config);
+  } catch (e) {
+    console.error(`run-mutation-tier: ${e.message}`);
+    process.exit(1);
+  }
+
   // SO #55: session-private scratch — a fixed shared root rmSync EPERM'd against an
   // orphaned peer-session run (ASSEMBLE-LAND-WITHHELD-0829-1 BLOCKED diagnosis).
   const scratchRoot = path.join(os.tmpdir(), `ain-mutation-tier-${process.pid}`);
@@ -993,6 +1538,12 @@ export async function runTier(argv, repoRoot = REPO) {
       console.log(`  peripheral:  NULL — the checker could not produce a score (SO #34c) — non-pass${peEnforced ? '' : ' (advisory — not gating)'}`);
     } else {
       console.log(`  peripheral:  ${pe.score}% (killed ${pe.killed}/${pe.total})  floor=${config.peripheralBreakFloor}%  ${pePass ? 'PASS' : `FAIL${peEnforced ? '' : ' (advisory — not gating)'}`}`);
+    }
+    // MUTATION-ARTIFACT-CONST-TIER-1: the artifact tier is REPORTED on every
+    // run it touches, never scored — no floor reads it, and the money-math
+    // line above is the only money-math verdict.
+    if (r.tiers.artifact && r.tiers.artifact.total > 0) {
+      console.log(`  artifact:    ${r.tiers.artifact.total} mutant(s) inside artifact-only consts (killed ${r.tiers.artifact.killed}) — reported, never scored against any floor (MUTATION-ARTIFACT-CONST-TIER-1)`);
     }
     if (r.tiers.other.total > 0) console.log(`  ⚠ ${r.tiers.other.total} mutant(s) in an unrecognised location — treated as a hard fail`);
     console.log(`  runtime: ${(r.runtimeMs / 1000).toFixed(1)}s`);

@@ -18,6 +18,10 @@ DORA Article 19/20 reporting determination and reporting-clock start. Clients af
 - data_loss_occurred (boolean, optional)
 - critical_function_affected (boolean, optional)
 - cross_border_payment (boolean, optional)
+- entity_type (string, optional)
+- tp_ict (boolean, optional): Third-party ICT provider involved
+- classification_datetime (string, optional): ISO 8601 datetime - 4h initial notification clock starts here
+- estimated_resolution_datetime (string, optional): ISO 8601 datetime - final report 30d from here
 
 ## Outputs
 

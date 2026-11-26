@@ -30,6 +30,16 @@
 //   node scripts/run-proptests.mjs             → run all *.proptest.mjs, exit 1 on any failure
 //   node scripts/run-proptests.mjs --check      → same (alias, matches other repo gates' --check convention)
 //   node scripts/run-proptests.mjs --out FILE   → also write a JSON results manifest to FILE
+//   node scripts/run-proptests.mjs --shard i/N [--print-slice]
+//     PROPTEST-FLOOR-SHARD-1: deterministic slice of the estate for CI-PREFLIGHT-SHARD-1.
+//     Applied AFTER --base scoping, so the two compose, and the union of the N slices
+//     equals the list an unsharded run would execute — exactly, each file once (asserted
+//     as a gate by preflight's --shard-plan; same round-robin pattern as the
+//     PREFLIGHT_TIER_SHARD tier shard). Per-file durations are not recorded anywhere in
+//     the repo, so the partition is planShards' round-robin over the label-sorted list —
+//     stable, a function of the inputs only. --print-slice lists the selected files
+//     without running them. With --shard set, the --out manifest and the --json summary
+//     cover this shard's slice only (union the shards' outputs to reassemble the estate).
 //   node scripts/run-proptests.mjs --base <ref> [--head <sha>]
 //     FV-PREPUSH-FLOOR-SCOPE-1: scope the run to only the kernels this diff touches.
 //     --base <ref> alone (local/pre-push): union of working-tree + staged + committed-vs-
@@ -63,6 +73,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync, execSync } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
 import { assertDenominatorOrExit, committedFileCountOrExit } from './denominator-sentinel.mjs';
+import { parseShardSpec, planShards } from './lib/preflight-shard.mjs';
 import { readCases } from '../chaingraph/kernels/_shape.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -84,6 +95,27 @@ const HEAD_REF = headIdx !== -1 ? argv[headIdx + 1] : null;
 // PROPTEST-KILL-ATTRIBUTION-1: --json prints a machine-readable per-kernel summary
 // ({kernel, property_file, property_failures, oracle_failures}) to stdout.
 const JSON_OUT = argv.includes('--json');
+// PROPTEST-FLOOR-SHARD-1: deterministic slice of the estate for CI-PREFLIGHT-SHARD-1.
+// --shard i/N keeps only this shard's slice of the (optionally --base-scoped) file
+// list; --print-slice prints the selected files, one repo-relative path per line, and
+// exits without running them — the listing preflight's --shard-plan diff consumes to
+// prove that the union of the N slices equals the unsharded list exactly.
+const shardArgIdx = argv.indexOf('--shard');
+const SHARD_SPEC = shardArgIdx !== -1 ? argv[shardArgIdx + 1] : null;
+const PRINT_SLICE = argv.includes('--print-slice');
+const SHARD = SHARD_SPEC ? parseShardSpec(SHARD_SPEC) : null;
+if (SHARD_SPEC && !SHARD) {
+  console.error(`run-proptests: --shard "${SHARD_SPEC}" is not i/N with 0 <= i < N — refusing to guess (PROPTEST-FLOOR-SHARD-1).`);
+  process.exit(2);
+}
+if (SHARD && DISCOVERY_LEG) {
+  console.error('run-proptests: --shard cannot combine with --discovery-leg (the discovery leg probes the whole estate and is never a CI gate) — refusing to guess.');
+  process.exit(2);
+}
+if (PRINT_SLICE && DISCOVERY_LEG) {
+  console.error('run-proptests: --print-slice cannot combine with --discovery-leg — refusing to guess.');
+  process.exit(2);
+}
 
 // Kill attribution (PROPTEST-KILL-ATTRIBUTION-1) — labeling only, never a pass/fail
 // change. A floor file that fails is classified by its own first error line: the
@@ -347,6 +379,30 @@ async function main() {
     scope: `${files === allFiles ? 'full estate' : '--base scoped subset'} of ${allFiles.length} discovered file(s)`,
     remedy: 'this is an internal selection bug in run-proptests.mjs, not a missing floor — the discovery sentinel above already passed',
   });
+
+  // ── PROPTEST-FLOOR-SHARD-1: deterministic slice (CI-PREFLIGHT-SHARD-1) ──────
+  // Applied AFTER --base scoping, so the two compose: every shard derives the same
+  // (scoped) list from the same tree, then keeps its own slice, so the union of the
+  // N slices equals exactly what an unsharded run would execute, each file once —
+  // asserted as a gate by preflight's --shard-plan. The empty-slice no-op PASS below
+  // is not the vacuous green the sentinels guard against: both sentinels already ran
+  // on the PRE-slice list, so the estate's presence is proven before any slicing.
+  const preSliceCount = files.length;
+  if (SHARD) {
+    const owner = planShards(files.map((f) => basename(f)), SHARD.count);
+    files = files.filter((_, k) => owner[k] === SHARD.index);
+  }
+  if (PRINT_SLICE) {
+    for (const f of files) console.log(relative(REPO, f));
+    process.exit(0);
+  }
+  if (SHARD) {
+    if (files.length === 0) {
+      console.log(`run-proptests: shard ${SHARD.index}/${SHARD.count} selected 0 of ${preSliceCount} property file(s) — no-op PASS (the denominator sentinel above already proved the committed estate is present; the sibling shards carry the files).`);
+      process.exit(0);
+    }
+    console.log(`run-proptests: shard ${SHARD.index}/${SHARD.count} — running ${files.length} of ${preSliceCount} property file(s) (union of the ${SHARD.count} slices == this list, each file exactly once; asserted by preflight --shard-plan).`);
+  }
 
   console.log(`run-proptests: running ${files.length} property file(s)...`);
 

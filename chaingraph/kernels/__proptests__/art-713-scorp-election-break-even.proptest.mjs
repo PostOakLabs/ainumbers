@@ -6,7 +6,7 @@
 // treatment) and Tim's three ADD/MODIFY items (2026 wage-base cap logic, QBI
 // section 199A trade-off at the adjudicated 19.8% effective rate with
 // threshold/SSTB caveats, admin-cost ~$1,500–3,000/yr guidance band).
-// kernel_digest_at_authoring: sha256:7e1af77a80f8ba34c85d5ad070e0625aea5118c66bb72f50380f9413001b07f8
+// kernel_digest_at_authoring: sha256:1bb9d5ca33af735aa4f78452b9d65830fbda1cbfa378ea90dcc3ccea6a270b8f
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.
 // float_sensitive: PARTIAL — the kernel is float arithmetic rounded to cents
@@ -33,7 +33,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-713-scorp-election-break-even.proptest.mjs
 
-import { compute } from '../art-713-scorp-election-break-even.kernel.mjs';
+import { compute, buildArtifact } from '../art-713-scorp-election-break-even.kernel.mjs';
 import { runFixtureOracle, summarize, findShapeViolations, mulberry32, pick } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-713-scorp-election-break-even';
@@ -208,6 +208,35 @@ function checkDeterminismShapeMonotonic() {
   return { name: 'P5 determinism, output shape, admin-cost monotonicity and guidance-band flag', checked, violations };
 }
 
+// P6: BigInt in the execution_hash preimage is refused, never thrown. JSON.stringify throws on
+// BigInt, so an unguarded executionHash rejects; buildArtifact must mint a null execution_hash
+// with a hash_refusal naming path and kind, and a plain input must still hash.
+async function checkBigintNeverThrows() {
+  const rng = mulberry32(713006);
+  let checked = 0;
+  let violations = 0;
+  const pp = baseInputs(rng);
+  const cases = [
+    { ...pp, net_se_income: 120000n },
+    { ...pp, annual_admin_cost: 2000n },
+    { ...pp, extra: { nested: [1n] } },
+  ];
+  for (const bad of cases) {
+    checked++;
+    try {
+      const a = await buildArtifact(bad);
+      if (a.execution_hash !== null) violations++;
+      if (!a.hash_refusal || a.hash_refusal.reason !== 'REFUSED_INPUT_UNSAFE_NUMBER' || !/: bigint$/.test(a.hash_refusal.detail)) violations++;
+    } catch (e) {
+      violations++;
+    }
+  }
+  checked++;
+  const ok = await buildArtifact(pp);
+  if (typeof ok.execution_hash !== 'string' || 'hash_refusal' in ok) violations++;
+  return { name: 'P6 BigInt in the hash preimage is refused, not thrown', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -221,7 +250,8 @@ const properties = [
   checkVerdictComparator(),
   checkBreakEvenBoundary(),
   checkDeterminismShapeMonotonic(),
+  await checkBigintNeverThrows(),
 ];
-console.log(`[${KERNEL_ID}] class-K floor property test — v1..v16 fixture oracle + P1..P5.`);
+console.log(`[${KERNEL_ID}] class-K floor property test — v1..v16 fixture oracle + P1..P6.`);
 const ok = summarize(KERNEL_ID, oracle, properties);
 process.exit(ok ? 0 : 1);

@@ -1,0 +1,2255 @@
+{
+  "tool_id": "art-850-shariah-equity-purification",
+  "note": "Conformance vectors: values-only screening verdicts, exact threshold edges (equality passes on every pinned row, one minor unit over fails), per-profile purification with named residuals, and the carve-out/denominator-switch behaviour. Expectations are hand-derived in each independent_oracle and were asserted against compute() at authoring time. Refusal-path vectors live in the sibling .reachability.json. golden_hash values are pinned by golden-parity.test.mjs --update.",
+  "vectors": [
+    {
+      "name": "msci-retention-pass-nifty-fail",
+      "note": "Same company values under two authorities, never merged: the long-form retention screen passes at 28% debt while the 25%-of-total-assets screen fails. Purification splits per profile.",
+      "golden_hash": "f2e32f7ea1e3713747da94e55a5ae134b22e87672073ff1edab09c5604e0188d",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:2b0ae749ac7d0c8fa725016f6e5c72eb53d9c815c2b1492b2574275bebcccb84",
+        "derivation": "Hand math: debt 28000000/100000000 = 28% <= 33.33% (fail iff > threshold, equality passes) so all three long-form ratios pass; purification floor(10000000*3000000/100000000) = 300000 exactly. The 25% screen: 28000000*10000 = 280000000000 > 2500*100000000 = 250000000000 so the debt row fails; interest income 2000000*10000 + 750*0 = 20000000000 <= 300*100000000 = 30000000000 passes; receivables+cash 10000000 <= 9000*100000000/10000 = 90000000 passes; overall false.",
+        "expect": {
+          "verdicts.msci_islamic.compliant": true,
+          "verdicts.msci_islamic.profile": "retention",
+          "verdicts.msci_islamic.ratios.0.threshold_bp": 3333,
+          "verdicts.msci_islamic.purification.purified_portion_minor": 300000,
+          "verdicts.msci_islamic.purification.purification_remainder_minor": 0,
+          "verdicts.nifty_tasis.compliant": false,
+          "verdicts.nifty_tasis.ratios.0.compliant": false,
+          "verdicts.nifty_tasis.purification.purified_portion_minor": 200000,
+          "warnings": []
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "msci_islamic",
+          "nifty_tasis"
+        ],
+        "is_current_constituent": true,
+        "country_code": "US",
+        "total_assets_minor": 100000000,
+        "total_debt_minor": 28000000,
+        "cash_and_interest_bearing_securities_minor": 5000000,
+        "receivables_minor": 5000000,
+        "non_permissible_revenue_minor": 1000000,
+        "interest_income_minor": 2000000,
+        "total_income_minor": 100000000,
+        "interest_based_investments_minor": 0,
+        "dividend_minor": 10000000
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "msci_islamic",
+          "nifty_tasis"
+        ],
+        "verdicts": {
+          "msci_islamic": {
+            "methodology_as_of": "2024-10",
+            "profile": "retention",
+            "is_current_constituent": true,
+            "ratios": [
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 28000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 5000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "receivables_and_cash",
+                "numerator_minor": 10000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              }
+            ],
+            "compliant": true,
+            "purification": {
+              "rule": "dividend_adjustment_factor",
+              "dividend_minor": 10000000,
+              "factor_numerator_minor": 97000000,
+              "factor_denominator_minor": 100000000,
+              "purified_portion_minor": 300000,
+              "purification_remainder_minor": 0,
+              "rounding": "floor_minor_unit"
+            }
+          },
+          "nifty_tasis": {
+            "methodology_as_of": "2022-02",
+            "profile": "standard",
+            "is_current_constituent": null,
+            "ratios": [
+              {
+                "ratio": "interest_based_debt",
+                "numerator_minor": 28000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 2500,
+                "comparison": "lte",
+                "compliant": false
+              },
+              {
+                "ratio": "interest_income_plus_imputed",
+                "numerator_minor": 2000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_income",
+                "threshold_bp": 300,
+                "comparison": "lte",
+                "compliant": true,
+                "numerator_rounding": "floor_minor_unit"
+              },
+              {
+                "ratio": "receivables_and_cash_bank",
+                "numerator_minor": 10000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 9000,
+                "comparison": "lte",
+                "compliant": true
+              }
+            ],
+            "compliant": false,
+            "purification": {
+              "rule": "income_purification_ratio",
+              "dividend_minor": 10000000,
+              "factor_numerator_minor": 2000000,
+              "factor_denominator_minor": 100000000,
+              "purified_portion_minor": 200000,
+              "purification_remainder_minor": 0,
+              "rounding": "floor_minor_unit"
+            }
+          }
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "msci-entry-buffer-fails-at-31pct",
+      "note": "31% debt clears the 33.33% retention threshold but not the lower 30% entry set, so a non-constituent fails and the entry flag fires.",
+      "golden_hash": "ba3d22ba85770bb8d812bb06be051da1d77ac300c6f89f08d3d5b560f2f6f351",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:2b0ae749ac7d0c8fa725016f6e5c72eb53d9c815c2b1492b2574275bebcccb84",
+        "derivation": "Hand math: 31000000*10000 = 310000000000 > 3000*100000000 = 300000000000 so the debt row fails under the entry set; cash and receivables rows pass (5% and 10% against 30%); overall false.",
+        "expect": {
+          "verdicts.msci_islamic.compliant": false,
+          "verdicts.msci_islamic.profile": "entry",
+          "verdicts.msci_islamic.ratios.0.threshold_bp": 3000,
+          "verdicts.msci_islamic.ratios.0.compliant": false,
+          "verdicts.msci_islamic.ratios.1.compliant": true,
+          "warnings": [
+            "MSCI_ENTRY_THRESHOLDS_APPLIED"
+          ]
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "msci_islamic"
+        ],
+        "is_current_constituent": false,
+        "country_code": "US",
+        "total_assets_minor": 100000000,
+        "total_debt_minor": 31000000,
+        "cash_and_interest_bearing_securities_minor": 5000000,
+        "receivables_minor": 5000000,
+        "non_permissible_revenue_minor": 1000000,
+        "interest_income_minor": 2000000,
+        "total_income_minor": 100000000,
+        "interest_based_investments_minor": 0
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "msci_islamic"
+        ],
+        "verdicts": {
+          "msci_islamic": {
+            "methodology_as_of": "2024-10",
+            "profile": "entry",
+            "is_current_constituent": false,
+            "ratios": [
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 31000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3000,
+                "comparison": "lte",
+                "compliant": false
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 5000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3000,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "receivables_and_cash",
+                "numerator_minor": 10000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3000,
+                "comparison": "lte",
+                "compliant": true
+              }
+            ],
+            "compliant": false,
+            "purification": null
+          }
+        },
+        "warnings": [
+          "MSCI_ENTRY_THRESHOLDS_APPLIED"
+        ]
+      }
+    },
+    {
+      "name": "msci-retention-passes-at-31pct",
+      "note": "The identical 31% debt clears the 33.33% retention set for a current constituent; no entry flag.",
+      "golden_hash": "a18bc4c290565ad537594c14145b66de260490976287888560c9b53c9c973b79",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:2b0ae749ac7d0c8fa725016f6e5c72eb53d9c815c2b1492b2574275bebcccb84",
+        "derivation": "Hand math: 31000000*10000 = 310000000000 <= 3333*100000000 = 333300000000 so the debt row passes; overall true with no flags.",
+        "expect": {
+          "verdicts.msci_islamic.compliant": true,
+          "verdicts.msci_islamic.profile": "retention",
+          "verdicts.msci_islamic.ratios.0.threshold_bp": 3333,
+          "warnings": []
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "msci_islamic"
+        ],
+        "is_current_constituent": true,
+        "country_code": "US",
+        "total_assets_minor": 100000000,
+        "total_debt_minor": 31000000,
+        "cash_and_interest_bearing_securities_minor": 5000000,
+        "receivables_minor": 5000000,
+        "non_permissible_revenue_minor": 1000000,
+        "interest_income_minor": 2000000,
+        "total_income_minor": 100000000,
+        "interest_based_investments_minor": 0
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "msci_islamic"
+        ],
+        "verdicts": {
+          "msci_islamic": {
+            "methodology_as_of": "2024-10",
+            "profile": "retention",
+            "is_current_constituent": true,
+            "ratios": [
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 31000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 5000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "receivables_and_cash",
+                "numerator_minor": 10000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              }
+            ],
+            "compliant": true,
+            "purification": null
+          }
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "ftse-denominator-switches-to-total-assets",
+      "note": "Average daily cap 50000000 falls below total assets 200000000, so the asset value replaces the average as the debt and cash denominator: 10% debt passes here although it would fail (40%) against the average.",
+      "golden_hash": "e2fb30af6f1376735ed6c0fc82790e59514f8db4f759bdfa92c7133bdf7756a1",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:a8ef4da9369bade640a236cd601b7a5449a37bab870643dc6c5ccb6c5362f0ed",
+        "derivation": "Hand math: mean(50000000,50000000) = 50000000 < 200000000 so total_assets is used. Debt 20000000*10000 = 200000000000 <= 3300*200000000 = 660000000000 passes (against the average it would fail: 200000000000 > 3300*50000000 = 165000000000). Business activity 5000000 <= 500*300000000/10000 = 15000000 passes. Non-permissible income (4000000+5000000) = 9000000*10000 = 90000000000 > 500*100000000 = 50000000000 fails, so overall false. Dividend purification is not pinned under this profile: purification null plus flag.",
+        "expect": {
+          "verdicts.ftse_idealratings.compliant": false,
+          "verdicts.ftse_idealratings.ratios.0.compliant": true,
+          "verdicts.ftse_idealratings.ratios.1.compliant": true,
+          "verdicts.ftse_idealratings.ratios.1.denominator_used": "total_assets",
+          "verdicts.ftse_idealratings.ratios.1.denominator_minor": 200000000,
+          "verdicts.ftse_idealratings.ratios.3.compliant": false,
+          "verdicts.ftse_idealratings.purification": null,
+          "warnings": [
+            "FTSE_DENOMINATOR_SWITCHED_TO_TOTAL_ASSETS",
+            "PURIFICATION_NOT_PINNED_FTSE"
+          ]
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "ftse_idealratings"
+        ],
+        "total_assets_minor": 200000000,
+        "total_debt_minor": 20000000,
+        "cash_and_interest_bearing_securities_minor": 10000000,
+        "total_revenue_minor": 300000000,
+        "non_permissible_revenue_minor": 5000000,
+        "interest_income_minor": 4000000,
+        "total_income_minor": 100000000,
+        "market_cap_series_minor": [
+          50000000,
+          50000000
+        ],
+        "market_cap_series_period": "day",
+        "dividend_minor": 10000000
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "ftse_idealratings"
+        ],
+        "verdicts": {
+          "ftse_idealratings": {
+            "methodology_as_of": "2026-03",
+            "profile": "standard",
+            "is_current_constituent": null,
+            "ratios": [
+              {
+                "ratio": "business_activity",
+                "numerator_minor": 5000000,
+                "denominator_minor": 300000000,
+                "denominator_used": "total_revenue",
+                "threshold_bp": 500,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 20000000,
+                "denominator_minor": 200000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3300,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 10000000,
+                "denominator_minor": 200000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3300,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "non_permissible_income",
+                "numerator_minor": 9000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_income",
+                "threshold_bp": 500,
+                "comparison": "lte",
+                "compliant": false
+              }
+            ],
+            "compliant": false,
+            "purification": null
+          }
+        },
+        "warnings": [
+          "FTSE_DENOMINATOR_SWITCHED_TO_TOTAL_ASSETS",
+          "PURIFICATION_NOT_PINNED_FTSE"
+        ]
+      }
+    },
+    {
+      "name": "purification-split-all-four",
+      "note": "All four pinned authorities in one call over identical company values: four independent verdict groups with per-profile thresholds, denominators and purification rules; the daily-average profile pins no purification rule and says so.",
+      "golden_hash": "c765eb8c069574e33579d4b97d17a1e28a12cba94a9fd51d935621f8c759c8dc",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:d2996b771dc58f636e4496de02e868702a615e0dd41f40db9cf813cd00a61465",
+        "derivation": "Hand math: debt 3000000 is 3% of total assets 100000000 and 30% of the average-cap mean 10000000, passing every family (3333 bp, 3333 bp, 3300 bp, 2500 bp); average-cap cash 1000000 = 10% <= 33.33% and receivables+cash 4000000 = 40% <= 49%; the daily-average mean 10000000 < total assets so total assets is the debt/cash denominator; activity 1000000 <= 15000000 passes; non-permissible income 3000000 <= 50000000 passes; the 25% screen: 30000000 <= 250000000 passes; imputed 2000000*10000 <= 300*100000000 passes; receivables+cash 4000000 <= 90000000 passes. Purification: long-form and average-cap floor(10000000*3000000/100000000) = 300000 each; income-ratio floor(10000000*2000000/100000000) = 200000; daily-average null plus flag.",
+        "expect": {
+          "methodologies": [
+            "msci_islamic",
+            "msci_islamic_m",
+            "ftse_idealratings",
+            "nifty_tasis"
+          ],
+          "verdicts.msci_islamic.compliant": true,
+          "verdicts.msci_islamic_m.compliant": true,
+          "verdicts.msci_islamic_m.ratios.2.threshold_bp": 4900,
+          "verdicts.ftse_idealratings.compliant": true,
+          "verdicts.ftse_idealratings.ratios.1.denominator_used": "total_assets",
+          "verdicts.nifty_tasis.compliant": true,
+          "verdicts.msci_islamic.purification.purified_portion_minor": 300000,
+          "verdicts.msci_islamic_m.purification.purified_portion_minor": 300000,
+          "verdicts.nifty_tasis.purification.purified_portion_minor": 200000,
+          "verdicts.ftse_idealratings.purification": null,
+          "warnings": [
+            "FTSE_ADMC_FROM_MONTHLY_AVERAGES",
+            "FTSE_DENOMINATOR_SWITCHED_TO_TOTAL_ASSETS",
+            "PURIFICATION_NOT_PINNED_FTSE"
+          ]
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "msci_islamic",
+          "msci_islamic_m",
+          "ftse_idealratings",
+          "nifty_tasis"
+        ],
+        "is_current_constituent": true,
+        "country_code": "US",
+        "total_assets_minor": 100000000,
+        "total_debt_minor": 3000000,
+        "cash_and_interest_bearing_securities_minor": 1000000,
+        "receivables_minor": 3000000,
+        "total_revenue_minor": 300000000,
+        "non_permissible_revenue_minor": 1000000,
+        "interest_income_minor": 2000000,
+        "total_income_minor": 100000000,
+        "interest_based_investments_minor": 0,
+        "market_cap_series_minor": [
+          10000000,
+          10000000,
+          10000000,
+          10000000
+        ],
+        "market_cap_series_period": "month_end",
+        "dividend_minor": 10000000
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "msci_islamic",
+          "msci_islamic_m",
+          "ftse_idealratings",
+          "nifty_tasis"
+        ],
+        "verdicts": {
+          "msci_islamic": {
+            "methodology_as_of": "2024-10",
+            "profile": "retention",
+            "is_current_constituent": true,
+            "ratios": [
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 3000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 1000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "receivables_and_cash",
+                "numerator_minor": 4000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              }
+            ],
+            "compliant": true,
+            "purification": {
+              "rule": "dividend_adjustment_factor",
+              "dividend_minor": 10000000,
+              "factor_numerator_minor": 97000000,
+              "factor_denominator_minor": 100000000,
+              "purified_portion_minor": 300000,
+              "purification_remainder_minor": 0,
+              "rounding": "floor_minor_unit"
+            }
+          },
+          "msci_islamic_m": {
+            "methodology_as_of": "2024-10",
+            "profile": "retention",
+            "is_current_constituent": true,
+            "ratios": [
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 3000000,
+                "denominator_minor": 10000000,
+                "denominator_used": "avg_market_cap_36m_month_end",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true,
+                "denominator_rounding": "floor_minor_unit"
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 1000000,
+                "denominator_minor": 10000000,
+                "denominator_used": "avg_market_cap_36m_month_end",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true,
+                "denominator_rounding": "floor_minor_unit"
+              },
+              {
+                "ratio": "receivables_and_cash",
+                "numerator_minor": 4000000,
+                "denominator_minor": 10000000,
+                "denominator_used": "avg_market_cap_36m_month_end",
+                "threshold_bp": 4900,
+                "comparison": "lte",
+                "compliant": true,
+                "denominator_rounding": "floor_minor_unit"
+              }
+            ],
+            "compliant": true,
+            "purification": {
+              "rule": "dividend_adjustment_factor",
+              "dividend_minor": 10000000,
+              "factor_numerator_minor": 97000000,
+              "factor_denominator_minor": 100000000,
+              "purified_portion_minor": 300000,
+              "purification_remainder_minor": 0,
+              "rounding": "floor_minor_unit"
+            }
+          },
+          "ftse_idealratings": {
+            "methodology_as_of": "2026-03",
+            "profile": "standard",
+            "is_current_constituent": null,
+            "ratios": [
+              {
+                "ratio": "business_activity",
+                "numerator_minor": 1000000,
+                "denominator_minor": 300000000,
+                "denominator_used": "total_revenue",
+                "threshold_bp": 500,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 3000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3300,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 1000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3300,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "non_permissible_income",
+                "numerator_minor": 3000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_income",
+                "threshold_bp": 500,
+                "comparison": "lte",
+                "compliant": true
+              }
+            ],
+            "compliant": true,
+            "purification": null
+          },
+          "nifty_tasis": {
+            "methodology_as_of": "2022-02",
+            "profile": "standard",
+            "is_current_constituent": null,
+            "ratios": [
+              {
+                "ratio": "interest_based_debt",
+                "numerator_minor": 3000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 2500,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "interest_income_plus_imputed",
+                "numerator_minor": 2000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_income",
+                "threshold_bp": 300,
+                "comparison": "lte",
+                "compliant": true,
+                "numerator_rounding": "floor_minor_unit"
+              },
+              {
+                "ratio": "receivables_and_cash_bank",
+                "numerator_minor": 4000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 9000,
+                "comparison": "lte",
+                "compliant": true
+              }
+            ],
+            "compliant": true,
+            "purification": {
+              "rule": "income_purification_ratio",
+              "dividend_minor": 10000000,
+              "factor_numerator_minor": 2000000,
+              "factor_denominator_minor": 100000000,
+              "purified_portion_minor": 200000,
+              "purification_remainder_minor": 0,
+              "rounding": "floor_minor_unit"
+            }
+          }
+        },
+        "warnings": [
+          "FTSE_ADMC_FROM_MONTHLY_AVERAGES",
+          "FTSE_DENOMINATOR_SWITCHED_TO_TOTAL_ASSETS",
+          "PURIFICATION_NOT_PINNED_FTSE"
+        ]
+      }
+    },
+    {
+      "name": "msci-retention-eq-threshold-passes",
+      "note": "Debt exactly at 33.33% of total assets passes: every pinned exclusion is expressed as exceeding the threshold, so equality is compliant.",
+      "golden_hash": "2fdb15545361a8b45d4357443a72c0b048be00a1a52b1fbd68fa569aa1928448",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:2b0ae749ac7d0c8fa725016f6e5c72eb53d9c815c2b1492b2574275bebcccb84",
+        "derivation": "Hand math: 33330000*10000 = 333300000000 <= 3333*100000000 = 333300000000 exactly, so the debt row passes.",
+        "expect": {
+          "verdicts.msci_islamic.compliant": true,
+          "verdicts.msci_islamic.ratios.0.compliant": true
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "msci_islamic"
+        ],
+        "is_current_constituent": true,
+        "country_code": "US",
+        "total_assets_minor": 100000000,
+        "total_debt_minor": 33330000,
+        "cash_and_interest_bearing_securities_minor": 5000000,
+        "receivables_minor": 5000000,
+        "non_permissible_revenue_minor": 1000000,
+        "interest_income_minor": 2000000,
+        "total_income_minor": 100000000,
+        "interest_based_investments_minor": 0
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "msci_islamic"
+        ],
+        "verdicts": {
+          "msci_islamic": {
+            "methodology_as_of": "2024-10",
+            "profile": "retention",
+            "is_current_constituent": true,
+            "ratios": [
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 33330000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 5000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "receivables_and_cash",
+                "numerator_minor": 10000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              }
+            ],
+            "compliant": true,
+            "purification": null
+          }
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "msci-retention-over-threshold-fails",
+      "note": "One minor unit above the threshold flips the debt row and the overall verdict.",
+      "golden_hash": "2bacff6c2f3c9a420fb314e5be06035d1ae33fa9a833f8b33bff7951d9533e7e",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:2b0ae749ac7d0c8fa725016f6e5c72eb53d9c815c2b1492b2574275bebcccb84",
+        "derivation": "Hand math: 33340000*10000 = 333400000000 > 3333*100000000 = 333300000000, debt row fails; cash and receivables rows still pass; overall false.",
+        "expect": {
+          "verdicts.msci_islamic.compliant": false,
+          "verdicts.msci_islamic.ratios.0.compliant": false,
+          "verdicts.msci_islamic.ratios.1.compliant": true
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "msci_islamic"
+        ],
+        "is_current_constituent": true,
+        "country_code": "US",
+        "total_assets_minor": 100000000,
+        "total_debt_minor": 33340000,
+        "cash_and_interest_bearing_securities_minor": 5000000,
+        "receivables_minor": 5000000,
+        "non_permissible_revenue_minor": 1000000,
+        "interest_income_minor": 2000000,
+        "total_income_minor": 100000000,
+        "interest_based_investments_minor": 0
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "msci_islamic"
+        ],
+        "verdicts": {
+          "msci_islamic": {
+            "methodology_as_of": "2024-10",
+            "profile": "retention",
+            "is_current_constituent": true,
+            "ratios": [
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 33340000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": false
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 5000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "receivables_and_cash",
+                "numerator_minor": 10000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              }
+            ],
+            "compliant": false,
+            "purification": null
+          }
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "msci-entry-eq-threshold-passes",
+      "note": "A new entrant at exactly 30% passes the entry set.",
+      "golden_hash": "0aadcc8f1993a5a4da03c7e75dbca866f92b71b25966212759bf82bdba40c823",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:2b0ae749ac7d0c8fa725016f6e5c72eb53d9c815c2b1492b2574275bebcccb84",
+        "derivation": "Hand math: 30000000*10000 = 300000000000 <= 3000*100000000 = 300000000000 exactly.",
+        "expect": {
+          "verdicts.msci_islamic.compliant": true,
+          "verdicts.msci_islamic.profile": "entry"
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "msci_islamic"
+        ],
+        "is_current_constituent": false,
+        "country_code": "US",
+        "total_assets_minor": 100000000,
+        "total_debt_minor": 30000000,
+        "cash_and_interest_bearing_securities_minor": 5000000,
+        "receivables_minor": 5000000,
+        "non_permissible_revenue_minor": 1000000,
+        "interest_income_minor": 2000000,
+        "total_income_minor": 100000000,
+        "interest_based_investments_minor": 0
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "msci_islamic"
+        ],
+        "verdicts": {
+          "msci_islamic": {
+            "methodology_as_of": "2024-10",
+            "profile": "entry",
+            "is_current_constituent": false,
+            "ratios": [
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 30000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3000,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 5000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3000,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "receivables_and_cash",
+                "numerator_minor": 10000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3000,
+                "comparison": "lte",
+                "compliant": true
+              }
+            ],
+            "compliant": true,
+            "purification": null
+          }
+        },
+        "warnings": [
+          "MSCI_ENTRY_THRESHOLDS_APPLIED"
+        ]
+      }
+    },
+    {
+      "name": "msci-entry-over-threshold-fails",
+      "note": "One minor unit above the 30% entry threshold fails the new entrant.",
+      "golden_hash": "ae0a2cb1a892fbd5d3bc2dcbfc77744256261615b6bc487e233b449d38479615",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:2b0ae749ac7d0c8fa725016f6e5c72eb53d9c815c2b1492b2574275bebcccb84",
+        "derivation": "Hand math: 30010000*10000 = 300100000000 > 3000*100000000 = 300000000000.",
+        "expect": {
+          "verdicts.msci_islamic.compliant": false
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "msci_islamic"
+        ],
+        "is_current_constituent": false,
+        "country_code": "US",
+        "total_assets_minor": 100000000,
+        "total_debt_minor": 30010000,
+        "cash_and_interest_bearing_securities_minor": 5000000,
+        "receivables_minor": 5000000,
+        "non_permissible_revenue_minor": 1000000,
+        "interest_income_minor": 2000000,
+        "total_income_minor": 100000000,
+        "interest_based_investments_minor": 0
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "msci_islamic"
+        ],
+        "verdicts": {
+          "msci_islamic": {
+            "methodology_as_of": "2024-10",
+            "profile": "entry",
+            "is_current_constituent": false,
+            "ratios": [
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 30010000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3000,
+                "comparison": "lte",
+                "compliant": false
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 5000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3000,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "receivables_and_cash",
+                "numerator_minor": 10000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3000,
+                "comparison": "lte",
+                "compliant": true
+              }
+            ],
+            "compliant": false,
+            "purification": null
+          }
+        },
+        "warnings": [
+          "MSCI_ENTRY_THRESHOLDS_APPLIED"
+        ]
+      }
+    },
+    {
+      "name": "msci-m-series-4900-eq-passes",
+      "note": "Receivables plus cash at exactly 49% of the 36-month average month-end cap passes the widened threshold; equality semantics again.",
+      "golden_hash": "4ecfd56a45593e8a7dc299cd1ad96719d5e96bebd14db1d8483f97c93d3755eb",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:2b0ae749ac7d0c8fa725016f6e5c72eb53d9c815c2b1492b2574275bebcccb84",
+        "derivation": "Hand math: mean(36 x 10000000) = 10000000; receivables+cash = 4899999+1 = 4900000; 4900000*10000 = 49000000000 <= 4900*10000000 = 49000000000 exactly.",
+        "expect": {
+          "verdicts.msci_islamic_m.compliant": true,
+          "verdicts.msci_islamic_m.ratios.2.threshold_bp": 4900,
+          "verdicts.msci_islamic_m.ratios.2.compliant": true,
+          "verdicts.msci_islamic_m.ratios.2.denominator_rounding": "floor_minor_unit",
+          "verdicts.msci_islamic_m.ratios.2.denominator_minor": 10000000
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "msci_islamic_m"
+        ],
+        "is_current_constituent": true,
+        "country_code": "US",
+        "total_debt_minor": 1,
+        "cash_and_interest_bearing_securities_minor": 1,
+        "receivables_minor": 4899999,
+        "market_cap_series_minor": [
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000
+        ],
+        "market_cap_series_period": "month_end"
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "msci_islamic_m"
+        ],
+        "verdicts": {
+          "msci_islamic_m": {
+            "methodology_as_of": "2024-10",
+            "profile": "retention",
+            "is_current_constituent": true,
+            "ratios": [
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 1,
+                "denominator_minor": 10000000,
+                "denominator_used": "avg_market_cap_36m_month_end",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true,
+                "denominator_rounding": "floor_minor_unit"
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 1,
+                "denominator_minor": 10000000,
+                "denominator_used": "avg_market_cap_36m_month_end",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true,
+                "denominator_rounding": "floor_minor_unit"
+              },
+              {
+                "ratio": "receivables_and_cash",
+                "numerator_minor": 4900000,
+                "denominator_minor": 10000000,
+                "denominator_used": "avg_market_cap_36m_month_end",
+                "threshold_bp": 4900,
+                "comparison": "lte",
+                "compliant": true,
+                "denominator_rounding": "floor_minor_unit"
+              }
+            ],
+            "compliant": true,
+            "purification": null
+          }
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "msci-m-series-4900-over-fails",
+      "note": "One minor unit above 49% of the average cap fails the average-cap profile.",
+      "golden_hash": "32f1bd27fab874dd0261ff6c7220130671e445742d00b3b00a698f6348569ae9",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:2b0ae749ac7d0c8fa725016f6e5c72eb53d9c815c2b1492b2574275bebcccb84",
+        "derivation": "Hand math: 4900001*10000 = 49000010000 > 4900*10000000 = 49000000000.",
+        "expect": {
+          "verdicts.msci_islamic_m.compliant": false,
+          "verdicts.msci_islamic_m.ratios.2.compliant": false
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "msci_islamic_m"
+        ],
+        "is_current_constituent": true,
+        "country_code": "US",
+        "total_debt_minor": 1,
+        "cash_and_interest_bearing_securities_minor": 1,
+        "receivables_minor": 4900000,
+        "market_cap_series_minor": [
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000
+        ],
+        "market_cap_series_period": "month_end"
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "msci_islamic_m"
+        ],
+        "verdicts": {
+          "msci_islamic_m": {
+            "methodology_as_of": "2024-10",
+            "profile": "retention",
+            "is_current_constituent": true,
+            "ratios": [
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 1,
+                "denominator_minor": 10000000,
+                "denominator_used": "avg_market_cap_36m_month_end",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true,
+                "denominator_rounding": "floor_minor_unit"
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 1,
+                "denominator_minor": 10000000,
+                "denominator_used": "avg_market_cap_36m_month_end",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true,
+                "denominator_rounding": "floor_minor_unit"
+              },
+              {
+                "ratio": "receivables_and_cash",
+                "numerator_minor": 4900001,
+                "denominator_minor": 10000000,
+                "denominator_used": "avg_market_cap_36m_month_end",
+                "threshold_bp": 4900,
+                "comparison": "lte",
+                "compliant": false,
+                "denominator_rounding": "floor_minor_unit"
+              }
+            ],
+            "compliant": false,
+            "purification": null
+          }
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "ftse-33pct-and-activity-equality-pass",
+      "note": "Conventional debt at exactly 33% of the 24-month average daily cap and business activity at exactly 5% of revenue both pass; the average equals but does not fall below total assets so no denominator switch.",
+      "golden_hash": "cb7e715876274d73ff71f50b6909a91a778863838cc85773e83dd33c811a17ff",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:a8ef4da9369bade640a236cd601b7a5449a37bab870643dc6c5ccb6c5362f0ed",
+        "derivation": "Hand math: mean(24 x 10000000) = 10000000; meanBelow check: 240000000 < 10000000*24 = 240000000 is false, so no switch. Debt 3300000*10000 = 33000000000 <= 3300*10000000 = 33000000000 exactly. Activity 15000000*10000 = 150000000000 <= 500*300000000 = 150000000000 exactly. Cash 1000000*10000 = 10000000000 <= 3300*10000000 passes. Non-permissible income 16000000*10000 = 160000000000 <= 500*400000000 = 200000000000 passes.",
+        "expect": {
+          "verdicts.ftse_idealratings.compliant": true,
+          "verdicts.ftse_idealratings.ratios.0.compliant": true,
+          "verdicts.ftse_idealratings.ratios.1.compliant": true,
+          "verdicts.ftse_idealratings.ratios.1.denominator_used": "admc_24m",
+          "verdicts.ftse_idealratings.ratios.1.denominator_minor": 10000000,
+          "warnings": []
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "ftse_idealratings"
+        ],
+        "total_assets_minor": 10000000,
+        "total_debt_minor": 3300000,
+        "cash_and_interest_bearing_securities_minor": 1000000,
+        "total_revenue_minor": 300000000,
+        "non_permissible_revenue_minor": 15000000,
+        "interest_income_minor": 1000000,
+        "total_income_minor": 400000000,
+        "market_cap_series_minor": [
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000
+        ],
+        "market_cap_series_period": "day"
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "ftse_idealratings"
+        ],
+        "verdicts": {
+          "ftse_idealratings": {
+            "methodology_as_of": "2026-03",
+            "profile": "standard",
+            "is_current_constituent": null,
+            "ratios": [
+              {
+                "ratio": "business_activity",
+                "numerator_minor": 15000000,
+                "denominator_minor": 300000000,
+                "denominator_used": "total_revenue",
+                "threshold_bp": 500,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 3300000,
+                "denominator_minor": 10000000,
+                "denominator_used": "admc_24m",
+                "threshold_bp": 3300,
+                "comparison": "lte",
+                "compliant": true,
+                "denominator_rounding": "floor_minor_unit"
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 1000000,
+                "denominator_minor": 10000000,
+                "denominator_used": "admc_24m",
+                "threshold_bp": 3300,
+                "comparison": "lte",
+                "compliant": true,
+                "denominator_rounding": "floor_minor_unit"
+              },
+              {
+                "ratio": "non_permissible_income",
+                "numerator_minor": 16000000,
+                "denominator_minor": 400000000,
+                "denominator_used": "total_income",
+                "threshold_bp": 500,
+                "comparison": "lte",
+                "compliant": true
+              }
+            ],
+            "compliant": true,
+            "purification": null
+          }
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "ftse-33pct-over-fails",
+      "note": "One minor unit above 33% of the average daily cap fails the debt row.",
+      "golden_hash": "2b2e80d39470138115101e7b41569eb6bfd7916ca4a0624ac11fb1c3dd5cf83f",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:a8ef4da9369bade640a236cd601b7a5449a37bab870643dc6c5ccb6c5362f0ed",
+        "derivation": "Hand math: 3300100*10000 = 33001000000 > 3300*10000000 = 33000000000.",
+        "expect": {
+          "verdicts.ftse_idealratings.compliant": false,
+          "verdicts.ftse_idealratings.ratios.1.compliant": false
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "ftse_idealratings"
+        ],
+        "total_assets_minor": 10000000,
+        "total_debt_minor": 3300100,
+        "cash_and_interest_bearing_securities_minor": 1000000,
+        "total_revenue_minor": 300000000,
+        "non_permissible_revenue_minor": 15000000,
+        "interest_income_minor": 1000000,
+        "total_income_minor": 400000000,
+        "market_cap_series_minor": [
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000,
+          10000000
+        ],
+        "market_cap_series_period": "day"
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "ftse_idealratings"
+        ],
+        "verdicts": {
+          "ftse_idealratings": {
+            "methodology_as_of": "2026-03",
+            "profile": "standard",
+            "is_current_constituent": null,
+            "ratios": [
+              {
+                "ratio": "business_activity",
+                "numerator_minor": 15000000,
+                "denominator_minor": 300000000,
+                "denominator_used": "total_revenue",
+                "threshold_bp": 500,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 3300100,
+                "denominator_minor": 10000000,
+                "denominator_used": "admc_24m",
+                "threshold_bp": 3300,
+                "comparison": "lte",
+                "compliant": false,
+                "denominator_rounding": "floor_minor_unit"
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 1000000,
+                "denominator_minor": 10000000,
+                "denominator_used": "admc_24m",
+                "threshold_bp": 3300,
+                "comparison": "lte",
+                "compliant": true,
+                "denominator_rounding": "floor_minor_unit"
+              },
+              {
+                "ratio": "non_permissible_income",
+                "numerator_minor": 16000000,
+                "denominator_minor": 400000000,
+                "denominator_used": "total_income",
+                "threshold_bp": 500,
+                "comparison": "lte",
+                "compliant": true
+              }
+            ],
+            "compliant": false,
+            "purification": null
+          }
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "nifty-all-rows-equality-pass",
+      "note": "All three conservative-screen rows at exactly their thresholds (25% debt, 3% imputed interest income, 90% receivables plus cash and bank) pass together.",
+      "golden_hash": "5538e15fa31399135d483c85444dcd3a294b6bdad886a5ebcb85520434509568",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:b43640d91aedddf462aafa513d1d7b379520a83ce187d9dabe446cb7a2d56a86",
+        "derivation": "Hand math: 25000000*10000 = 250000000000 <= 2500*100000000 exactly; 3000000*10000 + 750*0 = 30000000000 <= 300*100000000 exactly; 90000000*10000 = 900000000000 <= 9000*100000000 exactly.",
+        "expect": {
+          "verdicts.nifty_tasis.compliant": true,
+          "verdicts.nifty_tasis.ratios.0.compliant": true,
+          "verdicts.nifty_tasis.ratios.1.compliant": true,
+          "verdicts.nifty_tasis.ratios.1.numerator_rounding": "floor_minor_unit",
+          "verdicts.nifty_tasis.ratios.2.compliant": true
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "nifty_tasis"
+        ],
+        "total_assets_minor": 100000000,
+        "total_debt_minor": 25000000,
+        "cash_and_interest_bearing_securities_minor": 5000000,
+        "receivables_minor": 85000000,
+        "interest_income_minor": 3000000,
+        "total_income_minor": 100000000,
+        "interest_based_investments_minor": 0
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "nifty_tasis"
+        ],
+        "verdicts": {
+          "nifty_tasis": {
+            "methodology_as_of": "2022-02",
+            "profile": "standard",
+            "is_current_constituent": null,
+            "ratios": [
+              {
+                "ratio": "interest_based_debt",
+                "numerator_minor": 25000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 2500,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "interest_income_plus_imputed",
+                "numerator_minor": 3000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_income",
+                "threshold_bp": 300,
+                "comparison": "lte",
+                "compliant": true,
+                "numerator_rounding": "floor_minor_unit"
+              },
+              {
+                "ratio": "receivables_and_cash_bank",
+                "numerator_minor": 90000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 9000,
+                "comparison": "lte",
+                "compliant": true
+              }
+            ],
+            "compliant": true,
+            "purification": null
+          }
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "nifty-all-rows-over-fail",
+      "note": "One minor unit over on each of the three rows flips each row and the overall verdict.",
+      "golden_hash": "02883fd5caf2ba3176ea5f58b0b0a505585f22ff5bb6c6b36e10a9743828e514",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:b43640d91aedddf462aafa513d1d7b379520a83ce187d9dabe446cb7a2d56a86",
+        "derivation": "Hand math: 25000001*10000 > 2500*100000000; 3000001*10000 > 300*100000000; 90000001*10000 > 9000*100000000.",
+        "expect": {
+          "verdicts.nifty_tasis.compliant": false,
+          "verdicts.nifty_tasis.ratios.0.compliant": false,
+          "verdicts.nifty_tasis.ratios.1.compliant": false,
+          "verdicts.nifty_tasis.ratios.2.compliant": false
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "nifty_tasis"
+        ],
+        "total_assets_minor": 100000000,
+        "total_debt_minor": 25000001,
+        "cash_and_interest_bearing_securities_minor": 5000000,
+        "receivables_minor": 85000001,
+        "interest_income_minor": 3000001,
+        "total_income_minor": 100000000,
+        "interest_based_investments_minor": 0
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "nifty_tasis"
+        ],
+        "verdicts": {
+          "nifty_tasis": {
+            "methodology_as_of": "2022-02",
+            "profile": "standard",
+            "is_current_constituent": null,
+            "ratios": [
+              {
+                "ratio": "interest_based_debt",
+                "numerator_minor": 25000001,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 2500,
+                "comparison": "lte",
+                "compliant": false
+              },
+              {
+                "ratio": "interest_income_plus_imputed",
+                "numerator_minor": 3000001,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_income",
+                "threshold_bp": 300,
+                "comparison": "lte",
+                "compliant": false,
+                "numerator_rounding": "floor_minor_unit"
+              },
+              {
+                "ratio": "receivables_and_cash_bank",
+                "numerator_minor": 90000001,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 9000,
+                "comparison": "lte",
+                "compliant": false
+              }
+            ],
+            "compliant": false,
+            "purification": null
+          }
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "purification-remainder-nonzero",
+      "note": "A dividend of 9999999 with a 3% prohibited share purifies floor(9999999*3000000/100000000) = 299999 and names the residual 97000000 such that purified + residual/factor_denominator reconstructs the exact share (0.97 of the dividend unpurified).",
+      "golden_hash": "e740336ab2f40f4bd52e86bde1555abfb77c733f14fd15e883a5b915615c59e2",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:d2996b771dc58f636e4496de02e868702a615e0dd41f40db9cf813cd00a61465",
+        "derivation": "Hand math: 9999999*3000000 = 29999997000000; floor(/100000000) = 299999; residual = 29999997000000 - 299999*100000000 = 97000000; 299999 + 97000000/100000000 = 299999.97 = the exact share.",
+        "expect": {
+          "verdicts.msci_islamic.purification.purified_portion_minor": 299999,
+          "verdicts.msci_islamic.purification.purification_remainder_minor": 97000000,
+          "verdicts.msci_islamic.purification.factor_numerator_minor": 97000000,
+          "verdicts.msci_islamic.purification.factor_denominator_minor": 100000000,
+          "verdicts.msci_islamic.purification.rounding": "floor_minor_unit"
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "msci_islamic"
+        ],
+        "is_current_constituent": true,
+        "country_code": "US",
+        "total_assets_minor": 100000000,
+        "total_debt_minor": 28000000,
+        "cash_and_interest_bearing_securities_minor": 5000000,
+        "receivables_minor": 5000000,
+        "non_permissible_revenue_minor": 1000000,
+        "interest_income_minor": 2000000,
+        "total_income_minor": 100000000,
+        "interest_based_investments_minor": 0,
+        "dividend_minor": 9999999
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "msci_islamic"
+        ],
+        "verdicts": {
+          "msci_islamic": {
+            "methodology_as_of": "2024-10",
+            "profile": "retention",
+            "is_current_constituent": true,
+            "ratios": [
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 28000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 5000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "receivables_and_cash",
+                "numerator_minor": 10000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              }
+            ],
+            "compliant": true,
+            "purification": {
+              "rule": "dividend_adjustment_factor",
+              "dividend_minor": 9999999,
+              "factor_numerator_minor": 97000000,
+              "factor_denominator_minor": 100000000,
+              "purified_portion_minor": 299999,
+              "purification_remainder_minor": 97000000,
+              "rounding": "floor_minor_unit"
+            }
+          }
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "purification-zero-dividend-valid",
+      "note": "An explicit zero dividend purifies to zero with zero residual; the screening verdicts are unaffected.",
+      "golden_hash": "51f881bed375832618495bf44e6ca4709a22fde5bed3b5a25566e5ac9f1ab9b1",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:d2996b771dc58f636e4496de02e868702a615e0dd41f40db9cf813cd00a61465",
+        "derivation": "Hand math: floor(0*3000000/100000000) = 0, residual 0.",
+        "expect": {
+          "verdicts.msci_islamic.purification.purified_portion_minor": 0,
+          "verdicts.msci_islamic.purification.purification_remainder_minor": 0,
+          "verdicts.msci_islamic.compliant": true
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "msci_islamic"
+        ],
+        "is_current_constituent": true,
+        "country_code": "US",
+        "total_assets_minor": 100000000,
+        "total_debt_minor": 28000000,
+        "cash_and_interest_bearing_securities_minor": 5000000,
+        "receivables_minor": 5000000,
+        "non_permissible_revenue_minor": 1000000,
+        "interest_income_minor": 2000000,
+        "total_income_minor": 100000000,
+        "interest_based_investments_minor": 0,
+        "dividend_minor": 0
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "msci_islamic"
+        ],
+        "verdicts": {
+          "msci_islamic": {
+            "methodology_as_of": "2024-10",
+            "profile": "retention",
+            "is_current_constituent": true,
+            "ratios": [
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 28000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 5000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "receivables_and_cash",
+                "numerator_minor": 10000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              }
+            ],
+            "compliant": true,
+            "purification": {
+              "rule": "dividend_adjustment_factor",
+              "dividend_minor": 0,
+              "factor_numerator_minor": 97000000,
+              "factor_denominator_minor": 100000000,
+              "purified_portion_minor": 0,
+              "purification_remainder_minor": 0,
+              "rounding": "floor_minor_unit"
+            }
+          }
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "purification-absent-null",
+      "note": "With no dividend supplied the purification legs are null and no purification flag fires; screening still runs.",
+      "golden_hash": "c0f87e1c4939915b93ee1bf15524aa5e91d758cc0c17778c398d1c55fc4cebc7",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:d2996b771dc58f636e4496de02e868702a615e0dd41f40db9cf813cd00a61465",
+        "derivation": "Hand math: dividend absent (undefined) so purification null on every profile; warnings empty.",
+        "expect": {
+          "verdicts.msci_islamic.purification": null,
+          "verdicts.msci_islamic.compliant": true,
+          "warnings": []
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "msci_islamic"
+        ],
+        "is_current_constituent": true,
+        "country_code": "US",
+        "total_assets_minor": 100000000,
+        "total_debt_minor": 28000000,
+        "cash_and_interest_bearing_securities_minor": 5000000,
+        "receivables_minor": 5000000,
+        "non_permissible_revenue_minor": 1000000,
+        "interest_income_minor": 2000000,
+        "total_income_minor": 100000000,
+        "interest_based_investments_minor": 0
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "msci_islamic"
+        ],
+        "verdicts": {
+          "msci_islamic": {
+            "methodology_as_of": "2024-10",
+            "profile": "retention",
+            "is_current_constituent": true,
+            "ratios": [
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 28000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 5000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "receivables_and_cash",
+                "numerator_minor": 10000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              }
+            ],
+            "compliant": true,
+            "purification": null
+          }
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "purification-inconsistent-income-leg-refuses",
+      "note": "Prohibited plus interest income (51000000) exceeds total income (50000000), so the purification leg refuses (purification null, named flag, a null dividend-adjustment row) while the screening verdicts stand.",
+      "golden_hash": "78feeebfca9ff837b8cb5b87693f20f1c0766430058eea6302091be9d3edd81d",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:d2996b771dc58f636e4496de02e868702a615e0dd41f40db9cf813cd00a61465",
+        "derivation": "Hand math: 49000000 + 2000000 = 51000000 > 50000000 so no factor exists; the debt/cash/receivables ratios are unaffected and compliant true stands.",
+        "expect": {
+          "verdicts.msci_islamic.purification": null,
+          "verdicts.msci_islamic.compliant": true,
+          "verdicts.msci_islamic.ratios.3.ratio": "dividend_adjustment_factor",
+          "verdicts.msci_islamic.ratios.3.compliant": null,
+          "warnings": [
+            "PURIFICATION_INPUT_INCONSISTENT_MSCI"
+          ]
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "msci_islamic"
+        ],
+        "is_current_constituent": true,
+        "country_code": "US",
+        "total_assets_minor": 100000000,
+        "total_debt_minor": 28000000,
+        "cash_and_interest_bearing_securities_minor": 5000000,
+        "receivables_minor": 5000000,
+        "non_permissible_revenue_minor": 49000000,
+        "interest_income_minor": 2000000,
+        "total_income_minor": 50000000,
+        "interest_based_investments_minor": 0,
+        "dividend_minor": 10000000
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "msci_islamic"
+        ],
+        "verdicts": {
+          "msci_islamic": {
+            "methodology_as_of": "2024-10",
+            "profile": "retention",
+            "is_current_constituent": true,
+            "ratios": [
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 28000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 5000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "receivables_and_cash",
+                "numerator_minor": 10000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "dividend_adjustment_factor",
+                "numerator_minor": null,
+                "denominator_minor": null,
+                "denominator_used": null,
+                "threshold_bp": null,
+                "comparison": null,
+                "compliant": null
+              }
+            ],
+            "compliant": true,
+            "purification": null
+          }
+        },
+        "warnings": [
+          "PURIFICATION_INPUT_INCONSISTENT_MSCI"
+        ]
+      }
+    },
+    {
+      "name": "msci-m-series-window-last-36-of-40",
+      "note": "A 40-element month-end series is averaged over its last 36 elements: mean of 1000004..1000039 = 1000021.",
+      "golden_hash": "453a39633102eca2f6be41473837b5fda2396960ad9638fb946972fb78ca2eda",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:2b0ae749ac7d0c8fa725016f6e5c72eb53d9c815c2b1492b2574275bebcccb84",
+        "derivation": "Hand math: last 36 elements are 1000004..1000039; sum = 36*(1000004+1000039)/2 = 36000774; mean = 1000021 exactly; debt 1 passes trivially.",
+        "expect": {
+          "verdicts.msci_islamic_m.ratios.0.denominator_minor": 1000021,
+          "verdicts.msci_islamic_m.compliant": true
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "msci_islamic_m"
+        ],
+        "is_current_constituent": true,
+        "country_code": "US",
+        "total_debt_minor": 1,
+        "cash_and_interest_bearing_securities_minor": 1,
+        "receivables_minor": 1,
+        "market_cap_series_minor": [
+          1000000,
+          1000001,
+          1000002,
+          1000003,
+          1000004,
+          1000005,
+          1000006,
+          1000007,
+          1000008,
+          1000009,
+          1000010,
+          1000011,
+          1000012,
+          1000013,
+          1000014,
+          1000015,
+          1000016,
+          1000017,
+          1000018,
+          1000019,
+          1000020,
+          1000021,
+          1000022,
+          1000023,
+          1000024,
+          1000025,
+          1000026,
+          1000027,
+          1000028,
+          1000029,
+          1000030,
+          1000031,
+          1000032,
+          1000033,
+          1000034,
+          1000035,
+          1000036,
+          1000037,
+          1000038,
+          1000039
+        ],
+        "market_cap_series_period": "month_end"
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "msci_islamic_m"
+        ],
+        "verdicts": {
+          "msci_islamic_m": {
+            "methodology_as_of": "2024-10",
+            "profile": "retention",
+            "is_current_constituent": true,
+            "ratios": [
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 1,
+                "denominator_minor": 1000021,
+                "denominator_used": "avg_market_cap_36m_month_end",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true,
+                "denominator_rounding": "floor_minor_unit"
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 1,
+                "denominator_minor": 1000021,
+                "denominator_used": "avg_market_cap_36m_month_end",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true,
+                "denominator_rounding": "floor_minor_unit"
+              },
+              {
+                "ratio": "receivables_and_cash",
+                "numerator_minor": 2,
+                "denominator_minor": 1000021,
+                "denominator_used": "avg_market_cap_36m_month_end",
+                "threshold_bp": 4900,
+                "comparison": "lte",
+                "compliant": true,
+                "denominator_rounding": "floor_minor_unit"
+              }
+            ],
+            "compliant": true,
+            "purification": null
+          }
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "ftse-admc-from-monthly-averages",
+      "note": "The daily-average profile receiving month-end observations announces it: the mean is still computed over what was supplied, and no denominator switch fires (mean 50000000 >= total assets 40000000).",
+      "golden_hash": "818f653cdf1d1e0e658dc79eac3bd72d3812162c36d609dd7597cff128b5a611",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:a8ef4da9369bade640a236cd601b7a5449a37bab870643dc6c5ccb6c5362f0ed",
+        "derivation": "Hand math: mean(50000000,50000000) = 50000000; 100000000 < 40000000*2 = 80000000 is false so no switch; debt 10000000*10000 = 100000000000 <= 3300*50000000 = 165000000000 passes.",
+        "expect": {
+          "warnings": [
+            "FTSE_ADMC_FROM_MONTHLY_AVERAGES"
+          ],
+          "verdicts.ftse_idealratings.ratios.1.denominator_used": "admc_24m",
+          "verdicts.ftse_idealratings.compliant": true
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "ftse_idealratings"
+        ],
+        "total_assets_minor": 40000000,
+        "total_debt_minor": 10000000,
+        "cash_and_interest_bearing_securities_minor": 1000000,
+        "total_revenue_minor": 300000000,
+        "non_permissible_revenue_minor": 1000000,
+        "interest_income_minor": 1000000,
+        "total_income_minor": 400000000,
+        "market_cap_series_minor": [
+          50000000,
+          50000000
+        ],
+        "market_cap_series_period": "month_end"
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "ftse_idealratings"
+        ],
+        "verdicts": {
+          "ftse_idealratings": {
+            "methodology_as_of": "2026-03",
+            "profile": "standard",
+            "is_current_constituent": null,
+            "ratios": [
+              {
+                "ratio": "business_activity",
+                "numerator_minor": 1000000,
+                "denominator_minor": 300000000,
+                "denominator_used": "total_revenue",
+                "threshold_bp": 500,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 10000000,
+                "denominator_minor": 50000000,
+                "denominator_used": "admc_24m",
+                "threshold_bp": 3300,
+                "comparison": "lte",
+                "compliant": true,
+                "denominator_rounding": "floor_minor_unit"
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 1000000,
+                "denominator_minor": 50000000,
+                "denominator_used": "admc_24m",
+                "threshold_bp": 3300,
+                "comparison": "lte",
+                "compliant": true,
+                "denominator_rounding": "floor_minor_unit"
+              },
+              {
+                "ratio": "non_permissible_income",
+                "numerator_minor": 2000000,
+                "denominator_minor": 400000000,
+                "denominator_used": "total_income",
+                "threshold_bp": 500,
+                "comparison": "lte",
+                "compliant": true
+              }
+            ],
+            "compliant": true,
+            "purification": null
+          }
+        },
+        "warnings": [
+          "FTSE_ADMC_FROM_MONTHLY_AVERAGES"
+        ]
+      }
+    },
+    {
+      "name": "msci-m-carveout-applies",
+      "note": "The country-set carve-out subtracts compliant debt from the total-debt numerator on the average-cap profile as well: numerator 25000000 after subtracting 15000000, flag fired, verdict fails at 250% of the average cap.",
+      "golden_hash": "18dd1fb5f512fcf9e832bff2dd58c24b4016373a0f657d5d2679c5dec0ee2ad9",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:62abeed0db9227775a3295a70a6991a2b5b0f350f66025a909d79ea8c27ad550",
+        "derivation": "Hand math: 40000000 - 15000000 = 25000000; 25000000*10000 = 250000000000 > 3333*10000000 = 33330000000 so the debt row fails; cash and receivables rows pass; overall false.",
+        "expect": {
+          "warnings": [
+            "MSCI_CARVEOUT_APPLIED"
+          ],
+          "verdicts.msci_islamic_m.ratios.0.numerator_minor": 25000000,
+          "verdicts.msci_islamic_m.compliant": false
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "msci_islamic_m"
+        ],
+        "is_current_constituent": true,
+        "country_code": "MY",
+        "total_debt_minor": 40000000,
+        "shariah_compliant_debt_minor": 15000000,
+        "cash_and_interest_bearing_securities_minor": 1000000,
+        "receivables_minor": 1000000,
+        "market_cap_series_minor": [
+          10000000,
+          10000000
+        ],
+        "market_cap_series_period": "month_end"
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "msci_islamic_m"
+        ],
+        "verdicts": {
+          "msci_islamic_m": {
+            "methodology_as_of": "2024-10",
+            "profile": "retention",
+            "is_current_constituent": true,
+            "ratios": [
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 25000000,
+                "denominator_minor": 10000000,
+                "denominator_used": "avg_market_cap_36m_month_end",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": false,
+                "denominator_rounding": "floor_minor_unit"
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 1000000,
+                "denominator_minor": 10000000,
+                "denominator_used": "avg_market_cap_36m_month_end",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true,
+                "denominator_rounding": "floor_minor_unit"
+              },
+              {
+                "ratio": "receivables_and_cash",
+                "numerator_minor": 2000000,
+                "denominator_minor": 10000000,
+                "denominator_used": "avg_market_cap_36m_month_end",
+                "threshold_bp": 4900,
+                "comparison": "lte",
+                "compliant": true,
+                "denominator_rounding": "floor_minor_unit"
+              }
+            ],
+            "compliant": false,
+            "purification": null
+          }
+        },
+        "warnings": [
+          "MSCI_CARVEOUT_APPLIED"
+        ]
+      }
+    },
+    {
+      "name": "proto-key-inert-accepts",
+      "note": "A policy_parameters object carrying a prototype-named own key (as JSON.parse produces for \"__proto__\") is read through a null-prototype own-property view: the key is never consulted and the input screens normally.",
+      "golden_hash": "07de7a92dfb8c7194d9dae075b62d5bde70ee8153f1aadecc92d35818cd81f94",
+      "independent_oracle": {
+        "source": null,
+        "source_digest": "sha256:2b0ae749ac7d0c8fa725016f6e5c72eb53d9c815c2b1492b2574275bebcccb84",
+        "derivation": "Hand math: identical to the retention pass case; the injected key names no declared field and is ignored.",
+        "expect": {
+          "valid_input": true,
+          "verdicts.msci_islamic.compliant": true,
+          "verdicts.msci_islamic.ratios.0.numerator_minor": 28000000
+        }
+      },
+      "policy_parameters": {
+        "methodologies": [
+          "msci_islamic"
+        ],
+        "is_current_constituent": true,
+        "country_code": "US",
+        "total_assets_minor": 100000000,
+        "total_debt_minor": 28000000,
+        "cash_and_interest_bearing_securities_minor": 5000000,
+        "receivables_minor": 5000000,
+        "non_permissible_revenue_minor": 1000000,
+        "interest_income_minor": 2000000,
+        "total_income_minor": 100000000,
+        "interest_based_investments_minor": 0,
+        "__proto__": {
+          "total_debt_minor": 1
+        }
+      },
+      "output_payload": {
+        "valid_input": true,
+        "not_a_shariah_ruling": true,
+        "methodologies": [
+          "msci_islamic"
+        ],
+        "verdicts": {
+          "msci_islamic": {
+            "methodology_as_of": "2024-10",
+            "profile": "retention",
+            "is_current_constituent": true,
+            "ratios": [
+              {
+                "ratio": "total_debt",
+                "numerator_minor": 28000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "cash_and_interest_bearing_securities",
+                "numerator_minor": 5000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              },
+              {
+                "ratio": "receivables_and_cash",
+                "numerator_minor": 10000000,
+                "denominator_minor": 100000000,
+                "denominator_used": "total_assets",
+                "threshold_bp": 3333,
+                "comparison": "lte",
+                "compliant": true
+              }
+            ],
+            "compliant": true,
+            "purification": null
+          }
+        },
+        "warnings": []
+      }
+    }
+  ]
+}

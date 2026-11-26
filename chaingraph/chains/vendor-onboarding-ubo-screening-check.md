@@ -9,7 +9,7 @@ Screen a vendor's ultimate beneficial owners in four independent stages: first c
 
 Screen a vendor's ultimate beneficial owners in four independent stages: first compute 25% UBO ownership from caller-supplied ownership structure under the FinCEN Customer Due Diligence rule (ART-268, bank KYB, not CTA/BOI beneficial ownership reporting and not the OFAC 50% rule); then screen caller-supplied persons against a caller-supplied private test list, never live sanctions data (ART-413, the screened list stays private); then assemble the screening evidence pack from caller-supplied run facts (ART-585); then a session receipt aggregating the run's execution hashes (CRY-05). All ownership, screening, and evidence facts are caller-supplied; findings are arithmetic findings, never compliance determinations. Federal only, not legal advice.
 
-Domain: Vendor Risk & Compliance
+Domain: Financial Crime & KYC
 
 ### Steps
 

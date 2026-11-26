@@ -19,3 +19,13 @@ Domain: Audit & Assurance
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: A new affiliate loan lands this week. Do our affiliate exposure limits still hold, or does the transaction need escalation?
+Run the AINumbers MCP tool `run_chain` with {"chain":"reg-w-23a-23b-testing-cycle"} and read `art-536-reg-w-affiliate-transaction-tester.decision`.
+Re-run with `inputs` for `art-536-reg-w-affiliate-transaction-tester`, reusing the values that result echoed, with `single_affiliate_limit_pct` changed so the single affiliate limit is 4 percent. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/reg-w-23a-23b-testing-cycle.html

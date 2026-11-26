@@ -37,7 +37,7 @@
 import { execFileSync } from 'node:child_process'
 import { isolatedChildEnv } from './_git-env-lib.mjs'
 import { assertSandboxCompleteOrExit, deriveSandboxFiles, namedModuleNotFound, REPO_ROOT } from './lib-sandbox-deps.mjs'
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -706,6 +706,118 @@ test('NO-REGRESSION — a tree with no chaingraph/ candidate pages never shells 
   assert(status === 0, `expected exit 0 for the clean baseline fixture, got ${status}\n${out}`)
   assert(/nav-reachability: OK/.test(out), `expected the OK line, got:\n${out}`)
   assert(!/excused as PENDING-ASSEMBLE/.test(out), `nothing to excuse in a clean tree:\n${out}`)
+})
+
+// ══════════════════════════════════════════════════════════════════════════════
+// NAV-ISLAND-SCOPE-1 (2026-11-16) — THE CALLER-SIDE REPLAY. merge_group run
+// 43389851037 (2026-11-13): main's derived regen for
+// chaingraph/art-832-card-data-flow-scope.html failed its copy-hallmarks cap,
+// so that merged page sat unlinked on main while scripts/kernel-preflight.mjs's
+// node-page check ran for the UNRELATED art-816 PR. Two facts stacked into the
+// false red: (1) on merge_group the per-kernel preflight is not a
+// DERIVED_ROOT-aware command, so its nested nav gate judges the COMMITTED tree,
+// where the PR's own new page is always a candidate — and is always EXCUSED as
+// PENDING-ASSEMBLE (registration is main-side single-writer, SO #35), which
+// prints the page path into the gate's output; (2) the old caller rule
+// substring-matched the PR's own page path ANYWHERE in the combined output, so
+// our own excusal plus one unrelated island on main failed OUR step.
+//   RED   = the old one-line rule, evaluated on this REAL gate output, fails
+//           the art-816 page (the measured false attribution, reproduced).
+//   GREEN = the machine-readable FAILING-ISLANDS verdict line names exactly the
+//           real island(s); our excused page is not in that set; the step passes.
+// The parse below mirrors scripts/kernel-preflight.mjs's node-page check (kept
+// byte-equal; these cases pin the line format on both exits, so drift here or
+// there fails this suite loudly).
+// ══════════════════════════════════════════════════════════════════════════════
+
+function failingIslandsOf(out) {
+  // Same three steps as kernel-preflight.mjs check 10: find the verdict line,
+  // split it, require the count token to agree with the path list.
+  const line = out.split('\n').find((l) => l.startsWith('nav-reachability: FAILING-ISLANDS'))
+  const toks = line ? line.trim().split(/\s+/) : null
+  const count = toks ? Number(toks[2]) : NaN
+  const wellFormed = !!toks && toks.length >= 3 && Number.isInteger(count) && count === toks.length - 3
+  return wellFormed ? new Set(toks.slice(3)) : null
+}
+
+// The incident's main-equivalent base: one merged-but-unregistered page (the
+// failed regen's residue) published to origin/main, never added to
+// chaingraph.json — exactly the 2026-11-13 main state for art-832.
+function incidentMain(work) {
+  git(work, ['checkout', '-q', 'main'])
+  nodeShard(work, 'art-832-card-data-flow-scope')
+  nodePage(work, 'art-832-card-data-flow-scope')
+  commit(work, 'card data flow scope node page + shard; the derived regen failed its copy-hallmarks cap')
+  git(work, ['push', '-q', 'origin', 'main'])
+}
+
+// The unrelated PR branch: art-816's page + shard, unregistered (the normal
+// new-node state until the main-side assemble lands).
+function incidentBranch(work) {
+  git(work, ['checkout', '-q', '-b', 'eip3009-spend-gate'])
+  nodeShard(work, 'art-816-eip3009-agent-spend-gate')
+  nodePage(work, 'art-816-eip3009-agent-spend-gate')
+  commit(work, 'EIP3009 agent spend gate node page + shard (the unrelated PR)')
+}
+
+test('SCOPE replay (run 43389851037) — unrelated island on main, own page excused: verdict line names only the island; OLD rule false-fails, NEW rule passes', () => {
+  const { work } = makeFixture()
+  incidentMain(work)
+  incidentBranch(work)
+
+  const { status, out } = runGate(work)
+  const own = 'chaingraph/art-816-eip3009-agent-spend-gate.html'
+  const island = 'chaingraph/art-832-card-data-flow-scope.html'
+
+  assert(status === 1, `expected exit 1 (the island on main is real), got ${status}\n${out}`)
+  assert(/excused as PENDING-ASSEMBLE/.test(out) && out.includes(own), `the replay needs our own page named in the excusal section (the incident's fuel):\n${out}`)
+  assert(/NEW island\(s\)/.test(out), `the plain gate must still report the real island:\n${out}`)
+
+  // RED — the old caller rule (kernel-preflight.mjs before NAV-ISLAND-SCOPE-1):
+  // substring over the whole combined output. On this REAL output it flags our
+  // page, which is precisely how run 43389851037 failed the unrelated PR.
+  const oldRuleIsIsland = out.includes(own)
+  assert(oldRuleIsIsland, 'RED precondition broke: the old substring rule no longer reproduces the false attribution on this output')
+
+  // GREEN — the scoped caller rule: judge the failing set, never the prose.
+  const failing = failingIslandsOf(out)
+  assert(failing !== null, `expected a parsable FAILING-ISLANDS verdict line, got:\n${out}`)
+  assert(failing.has(island), `the verdict line must name the real island, got:\n${out}`)
+  assert(!failing.has(own), `our excused page must never be in the failing set, got:\n${out}`)
+  assert(!failingIslandsOf(out).has(own) && failing.size === 1, `expected exactly the one island, got:\n${out}`)
+
+  // Baseline hygiene: check mode must never create or rewrite the baseline.
+  assert(!existsSync(join(work, 'scripts/nav-island-baseline.json')), 'check mode must never write the baseline')
+})
+
+test('SCOPE replay — a tree whose only candidate is PENDING-ASSEMBLE pins the OK-path verdict line (FAILING-ISLANDS 0)', () => {
+  const { work } = makeFixture()
+  git(work, ['checkout', '-q', '-b', 'scope-pending-only'])
+  nodeShard(work, 'art-scope-pending')
+  nodePage(work, 'art-scope-pending')
+  commit(work, 'only a PENDING-ASSEMBLE page, no island anywhere')
+
+  const { status, out } = runGate(work)
+  assert(status === 0, `expected exit 0, got ${status}\n${out}`)
+  assert(/^nav-reachability: FAILING-ISLANDS 0$/m.test(out), `expected the explicit empty verdict line, got:\n${out}`)
+  const failing = failingIslandsOf(out)
+  assert(failing !== null && failing.size === 0, 'the OK path must parse to an EMPTY failing set, never to null')
+})
+
+test('SCOPE replay — after the PR lands on main the plain gate still flags the art-832 island (and the landed page once it is genuinely unregistered+unlinked)', () => {
+  const { work } = makeFixture()
+  incidentMain(work)
+  incidentBranch(work)
+  git(work, ['checkout', '-q', 'main'])
+  git(work, ['merge', '-q', '--ff-only', 'eip3009-spend-gate'])
+  git(work, ['push', '-q', 'origin', 'main'])
+
+  const { status, out } = runGate(work)
+  const failing = failingIslandsOf(out)
+  assert(status === 1, `main context must stay RED, got ${status}\n${out}`)
+  assert(failing !== null && failing.has('chaingraph/art-832-card-data-flow-scope.html'), `main-side check must still flag the art-832 island, got:\n${out}`)
+  assert(failing.has('chaingraph/art-816-eip3009-agent-spend-gate.html'), 'once landed and unregistered, the PR page is a real island too (no scoping leak into the plain gate)')
+  assert(/excused as PENDING-ASSEMBLE/.test(out) === false, 'nothing is mid-flight on main, so nothing may be excused:\n' + out)
 })
 
 for (const dir of cleanup) {

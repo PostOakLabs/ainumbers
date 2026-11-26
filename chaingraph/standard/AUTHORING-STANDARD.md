@@ -572,3 +572,33 @@ declares are real, and it surfaced four defects that every existing gate is gree
 yet shown is durability under authors who did not write it. ⇒ ✅ **Keep it a convention. Re-measure
 after the next cohort of nodes runs it unassisted; ⛔ do not buy a permanent schema field on one
 session's fill rate.**
+
+## 7. Reading a dated fact by as-of date (informative, new nodes only)
+
+A new node that computes with a number that expires (a wage base, a contribution limit) can read the
+number by as-of date and state the vintage it used, using `chaingraph/kernels/_vintage.bundle.mjs`.
+This is a convention for new nodes. It changes no schema field and no existing node.
+
+- The vintage records (`fact`, `vintage`, `value`, `effective_from`, `effective_to`, optional
+  `corrects`) and the as-of date arrive through `policy_parameters`, so both sit inside the
+  `execution_hash` preimage. The helper reads no clock, no file and no network.
+- The helper is inlined between sentinel comments like the other shared bundles; a kernel never
+  imports it at runtime.
+- `output_payload` carries the stamp, for example under `vintage_used`:
+  `{ fact, vintage, as_of, effective_from, effective_to, status }`. A date no vintage covers is a
+  structured refusal (`REFUSED_NO_VINTAGE_FOR_DATE`), never a silent fall back to the latest value.
+- Both interval bounds are inclusive. An entry that names another in `corrects` replaces it. Two
+  overlapping entries with no correction refuse as ambiguous.
+
+Worked example, from `chaingraph/kernels/_vintage.selftest.mjs`:
+
+```js
+const policy_parameters = { vintage_entries: table, as_of: '2026-06-30', fact: 'test.example.limit' };
+const got = resolve(policy_parameters.vintage_entries, policy_parameters.fact, policy_parameters.as_of);
+const output_payload = got.status === 'OK'
+  ? { capped_amount: Math.min(amount, got.value), vintage_used: stamp(got, policy_parameters.as_of) }
+  : { refused: got.status, vintage_used: stamp(got, policy_parameters.as_of) };
+```
+
+With a one-vintage-per-year table, `as_of: '2026-06-30'` caps at the 2026 value and the receipt says
+`vintage: '2026'`; `as_of: '2027-06-30'` caps at the 2027 value and the execution hash differs.

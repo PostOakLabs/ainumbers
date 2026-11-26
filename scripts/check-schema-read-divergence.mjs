@@ -496,10 +496,14 @@ export function loadManifestIndex(repoRoot) {
   return { byTool, byMcp, parseErrors, count };
 }
 
-/** tool_id → mcp_name from the assembled chaingraph.json. READ-ONLY indexing read. */
-export function loadMcpNameIndex(repoRoot) {
+/**
+ * tool_id → mcp_name from the assembled chaingraph.json. READ-ONLY indexing read.
+ * `monolithPath` (optional) points at an overlay monolith (DERIVED_ROOT or the
+ * PR-assembled tree); default is the committed file.
+ */
+export function loadMcpNameIndex(repoRoot, monolithPath) {
   try {
-    const g = JSON.parse(fs.readFileSync(path.join(repoRoot, 'chaingraph', 'chaingraph.json'), 'utf8'));
+    const g = JSON.parse(fs.readFileSync(monolithPath || path.join(repoRoot, 'chaingraph', 'chaingraph.json'), 'utf8'));
     const map = new Map();
     for (const n of g?.nodes || []) if (n?.tool_id && n?.mcp_name) map.set(n.tool_id, n.mcp_name);
     return map;
@@ -546,6 +550,94 @@ export function loadPageSchema(repoRoot, toolId) {
   return null;
 }
 
+// ── WEBMCP-SCHEMA-FROM-MANIFEST-1: observable-behaviour basis ────────────────
+// When static extraction is DEFEATED (verdict UNPARSEABLE — pp enumeration,
+// walking, unknown-key checks), there is no static read set to compare against
+// the declared side. The comparison basis moves to what the kernel OBSERVABLY
+// accepts: the golden fixtures' inputs. ADVISORY ONLY — the verdict does not
+// move and no exit code changes; the generator's manifest-schema fallback (same
+// row) reads these fields to disclose the advisory flag beside the emittable
+// verdict. The manifest file's input_schema is the SSOT for the declared side
+// here (the page ld+json block stays the CLEARED/DIVERGES cross-check surface;
+// the fallback emits only from manifest records).
+
+/** Load a tool's golden vectors: chaingraph/kernels/fixtures/<tool_id>.fixtures.json. */
+function loadFixturesVectors(repoRoot, toolId) {
+  let raw;
+  try { raw = fs.readFileSync(path.join(repoRoot, 'chaingraph', 'kernels', 'fixtures', `${toolId}.fixtures.json`), 'utf8'); } catch { return null; }
+  try {
+    const j = JSON.parse(raw);
+    return Array.isArray(j?.vectors) ? j.vectors : { error: 'fixtures file has no vectors array' };
+  } catch { return { error: 'fixtures file unparseable' }; }
+}
+
+/**
+ * Compare golden fixtures' inputs (observable behaviour) with a manifest
+ * input_schema. Pure. Divergence = a fixture input carries a TOP-LEVEL key the
+ * declared schema never declares: the kernel observably accepts input outside
+ * its contract (with an unknown-key-refusing kernel that input would be
+ * refused, so the golden hashes could not hold). `declared_never_exercised`
+ * and `required_never_exercised` are informational — fixtures may simply not
+ * cover every declared field. Non-object policy_parameters contribute nothing.
+ */
+export function compareFixturesToSchema(vectors, inputSchema) {
+  const props = inputSchema && inputSchema.properties && typeof inputSchema.properties === 'object'
+    ? Object.keys(inputSchema.properties) : null;
+  const base = { fixtures: 0, inputs: 0, keys_exercised: [], undeclared: [], declared_never_exercised: [], required_never_exercised: [] };
+  if (!props) return { status: 'no-declared-schema', ...base };
+  const declaredSet = new Set(props);
+  const requiredSet = new Set(Array.isArray(inputSchema.required) ? inputSchema.required : []);
+  const exercised = new Set();
+  let fixtures = 0;
+  let inputs = 0;
+  for (const v of Array.isArray(vectors) ? vectors : []) {
+    fixtures++;
+    const pp = v && typeof v === 'object' ? v.policy_parameters : null;
+    if (!pp || typeof pp !== 'object' || Array.isArray(pp)) continue;
+    inputs++;
+    for (const k of Object.keys(pp)) exercised.add(k);
+  }
+  const undeclared = [...exercised].filter((k) => !declaredSet.has(k)).sort();
+  const neverExercised = props.filter((k) => !exercised.has(k));
+  return {
+    status: undeclared.length ? 'diverges' : 'agrees',
+    fixtures,
+    inputs,
+    keys_exercised: [...exercised].sort(),
+    undeclared,
+    declared_never_exercised: neverExercised,
+    required_never_exercised: neverExercised.filter((k) => requiredSet.has(k)),
+  };
+}
+
+/**
+ * Attach the manifest basis to an UNPARSEABLE record: which manifest file pairs
+ * with the kernel (the fallback's schema source) and whether its golden vectors
+ * disagree with that schema. Read-only; NEVER moves the verdict. Called on
+ * every UNPARSEABLE return path of sweepKernel.
+ */
+function attachManifestBasis(rec, repoRoot, manifestIndex, mcpNameByTool) {
+  const mf = manifestIndex.byTool.get(rec.tool_id)
+    || (mcpNameByTool.get(rec.tool_id) ? manifestIndex.byMcp.get(mcpNameByTool.get(rec.tool_id)) : null)
+    || null;
+  rec.manifest_paired = !!mf;
+  if (!mf) return rec;
+  rec.declared_source = mf.file;
+  let m = null;
+  try { m = JSON.parse(fs.readFileSync(path.join(repoRoot, mf.file), 'utf8')); } catch { m = null; }
+  const schema = m && m.input_schema && m.input_schema.properties && typeof m.input_schema.properties === 'object' ? m.input_schema : null;
+  rec.declared = schema ? Object.keys(schema.properties) : [];
+  if (schema) {
+    const vectors = loadFixturesVectors(repoRoot, rec.tool_id);
+    rec.fixture_comparison = vectors === null
+      ? { status: 'no-fixtures-file', ...compareFixturesToSchema([], schema) }
+      : Array.isArray(vectors)
+        ? compareFixturesToSchema(vectors, schema)
+        : { status: 'fixtures-unparseable', ...compareFixturesToSchema([], schema) };
+  }
+  return rec;
+}
+
 // ── Per-kernel sweep ─────────────────────────────────────────────────────────
 
 export function sweepKernel(repoRoot, kernelFile, manifestIndex, mcpNameByTool = new Map()) {
@@ -564,14 +656,14 @@ export function sweepKernel(repoRoot, kernelFile, manifestIndex, mcpNameByTool =
   if (!comp) {
     rec.verdict = 'UNPARSEABLE';
     rec.unparseable_reason = 'no extractable compute() function';
-    return rec;
+    return attachManifestBasis(rec, repoRoot, manifestIndex, mcpNameByTool);
   }
   const body = stripped.slice(comp.start, comp.end);
   const r = extractReads(body, comp.param);
   if (r.shadowed) {
     rec.verdict = 'UNPARSEABLE';
     rec.unparseable_reason = `compute() param '${comp.param}' is redeclared inside its body — positional shadowing defeats static extraction`;
-    return rec;
+    return attachManifestBasis(rec, repoRoot, manifestIndex, mcpNameByTool);
   }
 
   // Scope: compute() PLUS any other same-file EXPORTED function whose first parameter is an
@@ -633,7 +725,7 @@ export function sweepKernel(repoRoot, kernelFile, manifestIndex, mcpNameByTool =
   if (hardDynamic.length) {
     rec.verdict = 'UNPARSEABLE';
     rec.unparseable_reason = `read pattern defeats static extraction — ${hardDynamic[0]}${hardDynamic.length > 1 ? ` (+${hardDynamic.length - 1} more)` : ''}`;
-    return rec;
+    return attachManifestBasis(rec, repoRoot, manifestIndex, mcpNameByTool);
   }
 
   // Declared side: manifest file primary (by tool_id, else by node mcp_name); page cross-check.
@@ -741,6 +833,7 @@ export function summarize(records, kernelCount, manifestIndex) {
   const byVerdict = { CLEARED: 0, DIVERGES: 0, UNPARSEABLE: 0 };
   const byClass = {};
   let fieldsDnr = 0, fieldsRnd = 0, noSchema = 0, pageDeltaCount = 0;
+  let unparseableManifestPaired = 0, unparseableFixtureAgrees = 0, unparseableFixtureDiverges = 0;
   for (const r of records) {
     byVerdict[r.verdict] = (byVerdict[r.verdict] || 0) + 1;
     if (r.triage?.class) byClass[r.triage.class] = (byClass[r.triage.class] || 0) + 1;
@@ -748,6 +841,12 @@ export function summarize(records, kernelCount, manifestIndex) {
     fieldsRnd += r.read_not_declared.length;
     if (r.triage?.class === 'NO-DECLARED-SCHEMA') noSchema++;
     if (r.page_delta) pageDeltaCount++;
+    // WEBMCP-SCHEMA-FROM-MANIFEST-1: the manifest-basis cohort, advisory only.
+    if (r.verdict === 'UNPARSEABLE') {
+      if (r.manifest_paired) unparseableManifestPaired++;
+      if (r.fixture_comparison?.status === 'agrees') unparseableFixtureAgrees++;
+      if (r.fixture_comparison?.status === 'diverges') unparseableFixtureDiverges++;
+    }
   }
   return {
     kernels: kernelCount,
@@ -759,6 +858,9 @@ export function summarize(records, kernelCount, manifestIndex) {
     manifest_parse_errors: manifestIndex?.parseErrors || 0,
     manifests_seen: manifestIndex?.count || 0,
     page_manifest_delta_kernels: pageDeltaCount,
+    unparseable_manifest_paired: unparseableManifestPaired,
+    unparseable_fixture_agrees: unparseableFixtureAgrees,
+    unparseable_fixture_diverges: unparseableFixtureDiverges,
     hit_rate: kernelCount ? (byVerdict.DIVERGES + byVerdict.UNPARSEABLE) / kernelCount : 0,
   };
 }
@@ -771,7 +873,19 @@ function fmtList(a) {
 
 /** The ONE LINE per kernel. */
 export function verdictLine(r) {
-  if (r.verdict === 'UNPARSEABLE') return `UNPARSEABLE ${r.unparseable_reason}`;
+  if (r.verdict === 'UNPARSEABLE') {
+    // WEBMCP-SCHEMA-FROM-MANIFEST-1: the basis (manifest paired or not) and the
+    // fixtures comparison ride the line, advisory only — the verdict is
+    // unchanged and the exit code never moves on it.
+    const fc = r.fixture_comparison;
+    let fx = '';
+    if (fc) {
+      if (fc.status === 'diverges') fx = ` | fixtures DIVERGE: undeclared keys exercised by fixtures [${fmtList(fc.undeclared)}] (advisory)`;
+      else if (fc.status === 'agrees') fx = ` | fixtures agree (${fc.inputs} input(s) exercised)`;
+      else fx = ` | fixtures: ${fc.status}`;
+    }
+    return `UNPARSEABLE ${r.unparseable_reason} | basis: ${r.manifest_paired ? 'manifest-paired' : 'no manifest'}${fx}`;
+  }
   if (r.verdict === 'CLEARED') return 'CLEARED';
   const t = r.triage || {};
   const parts = [];
