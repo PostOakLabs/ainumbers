@@ -748,6 +748,7 @@ status: stable
 - [Cash-Leg Window Exposure](./art-847-cashleg-window-exposure.md)
 - [Deferred Comp 457(b) Comparison](./art-849-deferred-comp-457b.md)
 - [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md)
+- [Shariah Equity Purification](./art-850-shariah-equity-purification.md)
 - [Islamic MMF Placement Limits](./art-851-islamic-mmf-placement-limits.md)
 - [Murabahah Ibra' Settlement](./art-852-murabahah-ibra-settlement.md)
 - [Sukuk Tradability Composition](./art-854-sukuk-tradability-composition.md)

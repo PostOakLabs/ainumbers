@@ -41,6 +41,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildNav, buildFooter, CHROME_CSS } from '../chaingraph/_page-chrome.mjs';
+import { loadRegistryUnion } from '../chaingraph/standard/clause-snapshot-store.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
@@ -311,7 +312,8 @@ export function vintageCounts(entries) {
 
 function main() {
   const table = JSON.parse(readFileSync(resolve(ROOT, TABLE_REL), 'utf8'));
-  const registryEntries = JSON.parse(readFileSync(resolve(ROOT, REGISTRY_REL), 'utf8'));
+  // Legacy file + per-digest shards: new pins land only as shards (pin-clause-snapshot.mjs).
+  const registryEntries = loadRegistryUnion(resolve(ROOT, REGISTRY_REL));
   const html = renderPage(table, registryEntries);
   const outPath = resolve(ROOT, OUT_REL);
   if (CHECK) {
@@ -389,7 +391,7 @@ function selfTest() {
   // GREEN: the real page renders byte-stable twice (pure function), carries the
   // canonical chrome, and its sentinel keys are exactly the registered set.
   const table = JSON.parse(readFileSync(resolve(ROOT, TABLE_REL), 'utf8'));
-  const registry = JSON.parse(readFileSync(resolve(ROOT, REGISTRY_REL), 'utf8'));
+  const registry = loadRegistryUnion(resolve(ROOT, REGISTRY_REL));
   const html1 = renderPage(table, registry);
   const html2 = renderPage(table, registry);
   check('GREEN: render is pure (two passes byte-equal)', html1 === html2);

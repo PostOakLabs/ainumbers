@@ -746,6 +746,7 @@ status: stable
 - [Cash-Leg Window Exposure](./art-847-cashleg-window-exposure.md) — `cashleg_window_exposure`
 - [Deferred Comp 457(b) Comparison](./art-849-deferred-comp-457b.md) — `compute_deferred_comp_457b`
 - [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md) — `run_pqc_timeline_fit`
+- [Shariah Equity Purification](./art-850-shariah-equity-purification.md) — `screen_shariah_equity`
 - [Islamic MMF Placement Limits](./art-851-islamic-mmf-placement-limits.md) — `check_islamic_mmf_placement_limits`
 - [Murabahah Ibra' Settlement](./art-852-murabahah-ibra-settlement.md) — `compute_murabahah_ibra_settle`
 - [Sukuk Tradability Composition](./art-854-sukuk-tradability-composition.md) — `check_sukuk_tradability_composition`

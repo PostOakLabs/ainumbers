@@ -117,7 +117,7 @@ footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
 </style>
 <style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
 <!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/art-584-proof-of-reserves-verifier.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
-<meta name="kernel-digest" content="sha256:852795237d7839b503e955db5db49f8d87ff6dc9edeb5a31687fca2e6f660b66">
+<meta name="kernel-digest" content="sha256:baa378330b8b67426fbb7c1bedb41d2dc689735f0740925ad22d70fa891fbcbf">
 </head>
 <body>
 <nav>
@@ -401,7 +401,16 @@ const NOT_PROVEN = [
   { item: 'PCAOB audit opinion', detail: 'This tool performs no audit and carries no PCAOB or other audit-firm opinion; it is a cryptographic consistency check only.' },
 ];
 
+const REQUIRED_FIELDS = ['reserve_proof', 'liability_branch', 'published_reserve_figures'];
+function isFilled(v) { return v != null && !(typeof v === 'string' && v.trim() === ''); }
+function requiredFieldPresent(f, v) {
+  if (!isFilled(v)) return false;
+  if (f === 'published_reserve_figures' && !isFilled(v.total_reserves_usd)) return false;
+  return true;
+}
+
 function compute(pp) {
+  pp = pp || {};
   const reserveProofRaw = pp.reserve_proof ?? null;
   const liabilityBranchRaw = pp.liability_branch ?? null;
   const publishedFigures = pp.published_reserve_figures ?? null;
@@ -513,7 +522,26 @@ function compute(pp) {
   else if (verdicts.includes('INDETERMINATE')) overall_determination = 'INDETERMINATE';
   else overall_determination = 'CONSISTENT';
 
+  const requiredValues = {
+    reserve_proof: pp.reserve_proof,
+    liability_branch: pp.liability_branch,
+    published_reserve_figures: pp.published_reserve_figures,
+  };
+  const missing_required_fields = REQUIRED_FIELDS.filter((f) => !requiredFieldPresent(f, requiredValues[f]));
+  const wrongTypeRequired = REQUIRED_FIELDS.some((f) => { const v = requiredValues[f]; return v != null && (typeof v !== 'object' || Array.isArray(v)); });
+  const failClosed = wrongTypeRequired || (missing_required_fields.length > 0 && overall_determination !== 'INCONSISTENT');
+  if (failClosed) {
+    overall_determination = 'INDETERMINATE';
+    for (const f of findings) {
+      if (f.verdict === 'CONSISTENT' || f.verdict === 'INCONSISTENT') {
+        f.verdict = 'INDETERMINATE';
+        f.detail += ' Determination withheld: required input(s) missing or blank (' + missing_required_fields.join(', ') + ').';
+      }
+    }
+  }
+
   const compliance_flags = [];
+  if (failClosed) compliance_flags.push('INPUT_MISSING_INDETERMINATE');
   if (overall_determination === 'INCONSISTENT') compliance_flags.push('POR_INCONSISTENT');
   if (overall_determination === 'INDETERMINATE') compliance_flags.push('POR_INDETERMINATE');
   if (inclusionVerdict === 'INCONSISTENT') compliance_flags.push('RESERVE_INCLUSION_MISMATCH');
@@ -534,7 +562,7 @@ function compute(pp) {
     determination_note: 'Verdict language describes internal consistency of the published PoR data only, never a solvency claim or an audit opinion. The truth of the underlying published figures is the attestor\'s responsibility.',
     regulatory_framework: 'Voluntary Merkle-sum PoR attestation (Summa report structure); not a GENIUS Act §4 filing (see art-582/art-275/art-06) and not a PCAOB audit.',
   };
-
+  if (failClosed) output_payload.missing_required_fields = missing_required_fields;
   return { output_payload, compliance_flags };
 }
 
@@ -719,6 +747,30 @@ async function verifySignature() {
 </script>
 </div>
 
+
+
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/art-584-proof-of-reserves-verifier.kernel.mjs">art-584-proof-of-reserves-verifier.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:baa378330b8b67426fbb7c1bedb41d2dc689735f0740925ad22d70fa891fbcbf</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/art-584-proof-of-reserves-verifier.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/art-584-proof-of-reserves-verifier.proptest.mjs">proptest</a></li>
+  <li>zk receipt: <a href="kernels/fixtures/compute-proof/art-584-proof-of-reserves-verifier.receipt.json">sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</a></li>
+  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
+  <li>Proof status: verified</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/baa378330b8b67426fbb7c1bedb41d2dc689735f0740925ad22d70fa891fbcbf.json">baa378330b8b67426fbb7c1bedb41d2dc689735f0740925ad22d70fa891fbcbf</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=ab36046af8cc1f966d85636b49577619d2aa42840f66a5225d5b44f640f55ffa">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
+
 <!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=manifests/art-584-proof-of-reserves-verifier.manifest.json -->
 <section id="ask-agent" style="max-width:900px;margin:32px auto 0;border:1px solid var(--border);border-radius:10px;padding:14px 18px;background:var(--bg-2)">
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -736,27 +788,6 @@ Open the tool with the sample prefilled: https://ainumbers.co/chaingraph/art-584
 </section>
 <!-- ASK-AGENT:END -->
 
-<!--PROOF-LINKS-->
-<details class="proof-links">
-  <summary>Verification artifacts</summary>
-  <ul>
-  <li>Kernel source: <a href="kernels/art-584-proof-of-reserves-verifier.kernel.mjs">art-584-proof-of-reserves-verifier.kernel.mjs</a></li>
-  <li>Kernel digest: sha256:852795237d7839b503e955db5db49f8d87ff6dc9edeb5a31687fca2e6f660b66</li>
-  <li>Golden fixtures: <a href="kernels/fixtures/art-584-proof-of-reserves-verifier.fixtures.json">fixtures</a></li>
-  <li>Property tests: <a href="kernels/__proptests__/art-584-proof-of-reserves-verifier.proptest.mjs">proptest</a></li>
-  <li>zk receipt: <a href="graph/nodes/art-584-proof-of-reserves-verifier.json">art-584-proof-of-reserves-verifier.json</a></li>
-  <li>Receipt image id: sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6</li>
-  <li>Proof status: verified</li>
-  <li>Formal verification tier: not published</li>
-  <li>Formal verification status: <a href="../fv-status/c42548ca927e4589decf66a5377910359e5a0a83495fc2044faf651a04cb7705.json">0.8.13</a></li>
-  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
-  <li>Formal verification source: formal proof not published</li>
-  <li>On-chain registry record: <a href="../registry/kernel/852795237d7839b503e955db5db49f8d87ff6dc9edeb5a31687fca2e6f660b66.json">852795237d7839b503e955db5db49f8d87ff6dc9edeb5a31687fca2e6f660b66</a></li>
-  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=a996acbcdcfadb69d6ac47609e5343bf5050f83b118f24e3cb0599a548854e92">record this example execution hash</a></li>
-  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
-  </ul>
-</details>
-<!--/PROOF-LINKS-->
 <footer>
   <div class="footer-inner">
     <div class="footer-brand">

@@ -1,7 +1,7 @@
 ---
 type: DecisionTool
 title: "Cross-Border Payment Prevalidation Readiness Scorer"
-description: "Aggregate CBPR+ pre-validation readiness check for a single pacs.008 payment instruction. Combines IBAN mod-97 check (ISO 13616), BIC format (ISO 9362), LEI format (ISO 17442, presence and format only), UUIDv4 UETR, and PostalAddress24 structure (CBPR+ Nov-2026 hybrid/fully-structured rules) into a single /ready boolean for STP gate use. Gate node for the cross-border-payment-prevalidation chain: ready=true means the instruction passes pre-validation; ready=false means remediation is required."
+description: "Aggregate CBPR+ pre-validation readiness check for a single pacs.008 payment instruction. Combines IBAN mod-97 check (ISO 13616), BIC format (ISO 9362), LEI format (ISO 17442, presence and format only), UUIDv4 UETR, and PostalAddress24 structure (CBPR+ Nov-2026 hybrid/fully-structured rules) into a single /ready boolean for STP gate use. Gate node for the cross-border-payment-prevalidation chain: ready=true means the instruction passes pre-validation; ready=false means remediation is required. A missing or null required structured-address component (address_building_number, address_post_code, address_street_name and address_town_name for a fully-structured address, or address_town_name for a hybrid address) yields ready=false with verdict INDETERMINATE and a missing_required_fields list, never ready=true. IBAN, BIC and LEI remain optional checks that are only evaluated when provided."
 resource: https://ainumbers.co/chaingraph/art-247-prevalidation-readiness-scorer.html
 tags: ["compliance_mandate", "wave-41", "mcp:prevalidation_readiness_scorer"]
 timestamp: 2026-07-14

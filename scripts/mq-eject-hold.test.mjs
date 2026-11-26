@@ -1,7 +1,11 @@
 // Unit test for scripts/mq-eject-hold.mjs. No network, no gh.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { holdComment, isHoldComment, recordedSha, isHeld, LABEL, pickEjectRun, findEjectRun } from './mq-eject-hold.mjs';
+import {
+  holdComment, isHoldComment, recordedSha, isHeld, LABEL, pickEjectRun, findEjectRun,
+  recordedClass, ownDiffMoved, clearVerdict, prDiff, newestHoldComment,
+  mainMovedCause, recordedStep, holdMainMovedCause, MAIN_OWNED_FRESHNESS_STEPS,
+} from './mq-eject-hold.mjs';
 
 const info = { workflow: 'scripts-verify', step: 'Run gates', runId: '123', sha: 'abc1234def' };
 
@@ -84,4 +88,106 @@ test('findEjectRun asks for every merge_group run, not status=failure only', () 
   };
   assert.equal(findEjectRun('PostOakLabs/ainumbers', '3222', gh), 45184774612);
   assert.ok(!calls[0].includes('status=failure'), calls[0]);
+});
+
+// MQ-EJECT-HOLD-OWN-CHANGE-1. Replay of #3278 (2026-11-25): ejected 09:33 for a
+// dead link in its own page, then a merge-from-main at 09:55:58 cleared the hold
+// and the same change was re-armed at 10:34. The PR's own diff did not move.
+const own = [
+  { filename: 'tools/700-x.html', status: 'modified', sha: 'b1' },
+  { filename: 'manifests/700-x.manifest.json', status: 'added', sha: 'b2' },
+];
+const diff = (files) => ({ files, complete: true });
+const otherHold = holdComment({ ...info, kind: 'other' });
+const derivedHold = holdComment({ ...info, kind: 'derived-gate' });
+
+test('hold comment records the eject class; old comments have none', () => {
+  assert.equal(recordedClass(otherHold), 'other');
+  assert.equal(recordedClass(derivedHold), 'derived-gate');
+  assert.equal(recordedClass(holdComment(info)), null);
+  assert.equal(recordedSha(derivedHold), 'abc1234def');
+  assert.ok(derivedHold.includes('merge main in'));
+  assert.ok(otherHold.includes('a merge from main alone does not'));
+});
+
+test('#3278 replay: refresh from main only keeps a PR-owned eject held', () => {
+  const v = clearVerdict({ holdBody: otherHold, before: diff(own), after: diff(own.map((f) => ({ ...f }))) });
+  assert.deepEqual(v, { clear: false, reason: 'main-refresh-only:other' });
+});
+
+test('old hold comment with no class is kept on a main refresh', () => {
+  const v = clearVerdict({ holdBody: holdComment(info), before: diff(own), after: diff(own) });
+  assert.deepEqual(v, { clear: false, reason: 'main-refresh-only:unclassified' });
+});
+
+test('own file content changed: clear', () => {
+  const after = [{ ...own[0], sha: 'b9' }, own[1]];
+  assert.equal(clearVerdict({ holdBody: otherHold, before: diff(own), after: diff(after) }).reason, 'own-files-changed');
+});
+
+test('own file added, removed or renamed: clear', () => {
+  assert.ok(ownDiffMoved(own, [...own, { filename: 'scripts/a.mjs', status: 'added', sha: 'c1' }]));
+  assert.ok(ownDiffMoved(own, own.slice(0, 1)));
+  assert.ok(ownDiffMoved(own, [own[0], { filename: 'manifests/701.json', status: 'renamed', sha: 'b2', previous_filename: 'manifests/700-x.manifest.json' }]));
+  assert.ok(!ownDiffMoved(own, [...own].reverse()));
+});
+
+test('eject caused by main moving on (derived-gate): a main refresh clears', () => {
+  const v = clearVerdict({ holdBody: derivedHold, before: diff(own), after: diff(own) });
+  assert.deepEqual(v, { clear: true, reason: 'eject-from-main-move:derived-gate' });
+});
+
+// A dead-link eject is classed `other` (not a DERIVED_ROOT_GATES command) but
+// main owns the step, so a merge of main lifts the hold. bot-sync forces that
+// merge on the same rule (scripts/ci/pr-sync-main.mjs).
+const DEAD_LINK_STEP = 'CSP + copy-hallmarks + dead-link + chrome gates / Dead-link gate';
+const deadLinkHold = holdComment({ ...info, workflow: 'HTML Verify', step: DEAD_LINK_STEP, kind: 'other' });
+// #3278's real comment, written before the class field existed.
+const HOLD_3278 = 'merge-queue: ejected for a failed check (workflow HTML Verify, step CSP + copy-hallmarks + dead-link + chrome gates / Dead-link gate, run 45585938105), head cf945547ba9de296aa36c600052a42b8249edbc0. Not re-armed at this head: push a new commit to clear the `mq-ejected` label.';
+
+test('mainMovedCause: a main-moved class or a main-owned step, matched on the step name only', () => {
+  assert.equal(mainMovedCause({ kind: 'derived-gate', step: 'x / Run gates' }), 'derived-gate');
+  assert.equal(mainMovedCause({ kind: 'other', step: DEAD_LINK_STEP }), 'step:Dead-link gate');
+  assert.equal(mainMovedCause({ kind: null, step: 'Dead-link gate' }), 'step:Dead-link gate');
+  for (const s of MAIN_OWNED_FRESHNESS_STEPS) {
+    assert.equal(mainMovedCause({ kind: 'other', step: `scripts-verify / ${s}` }), `step:${s}`);
+  }
+  assert.equal(mainMovedCause({ kind: 'other', step: 'scripts-verify / MCP output-schema coverage' }), null);
+  assert.equal(mainMovedCause({ kind: 'other', step: 'Dead-link gate extra / Run gates' }), null);
+  assert.equal(mainMovedCause({ kind: 'checkout-fatal', step: 'unknown' }), null);
+  assert.equal(mainMovedCause({}), null);
+});
+
+test('dead-link eject (class other): recorded step is read, a main refresh clears', () => {
+  assert.equal(recordedStep(deadLinkHold), DEAD_LINK_STEP);
+  assert.equal(holdMainMovedCause(deadLinkHold), 'step:Dead-link gate');
+  assert.ok(deadLinkHold.includes('merge main in'));
+  const v = clearVerdict({ holdBody: deadLinkHold, before: diff(own), after: diff(own) });
+  assert.deepEqual(v, { clear: true, reason: 'eject-from-main-move:step:Dead-link gate' });
+});
+
+test('#3278 real dead-link hold (no class): a main refresh clears', () => {
+  assert.equal(recordedStep(HOLD_3278), DEAD_LINK_STEP);
+  const v = clearVerdict({ holdBody: HOLD_3278, before: diff(own), after: diff(own) });
+  assert.deepEqual(v, { clear: true, reason: 'eject-from-main-move:step:Dead-link gate' });
+});
+
+test('unknown inputs clear, as before', () => {
+  assert.equal(clearVerdict({ holdBody: null, before: diff(own), after: diff(own) }).reason, 'no-hold-record');
+  assert.equal(clearVerdict({ holdBody: otherHold, before: null, after: diff(own) }).reason, 'own-diff-unknown');
+  assert.equal(clearVerdict({ holdBody: otherHold, before: diff(own), after: { files: own, complete: false } }).reason, 'own-diff-unknown');
+});
+
+test('prDiff and newestHoldComment: fake gh, failures read as unknown', () => {
+  const calls = [];
+  const gh = (args) => { calls.push(args.join(' ')); return own; };
+  assert.deepEqual(prDiff('o/r', 'main', 'abc', gh), { files: own, complete: true });
+  assert.ok(calls[0].includes('repos/o/r/compare/main...abc'), calls[0]);
+  const many = Array.from({ length: 300 }, (_, i) => ({ filename: `f${i}`, status: 'added', sha: `${i}` }));
+  assert.equal(prDiff('o/r', 'main', 'abc', () => many).complete, false);
+  assert.equal(prDiff('o/r', 'main', 'abc', () => { throw new Error('404'); }), null);
+  const bodies = ['hello', holdComment(info), 'lgtm', derivedHold];
+  assert.equal(newestHoldComment('o/r', 1, () => bodies), derivedHold);
+  assert.equal(newestHoldComment('o/r', 1, () => ['hi']), null);
+  assert.equal(newestHoldComment('o/r', 1, () => { throw new Error('x'); }), null);
 });

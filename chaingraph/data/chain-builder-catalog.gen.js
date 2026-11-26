@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (777 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (778 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -2366,7 +2366,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Conforming Loan Limit Check",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-223-conforming-loan-limit.html",
-    "description": "FHFA annual conforming loan limit classifier. 2026 baseline: $832,750 (1-unit), $1,066,250 (2-unit), $1,288,800 (3-unit), $1,601,750 (4-unit",
+    "description": "FHFA annual conforming loan limit classifier. 2027 baseline: $855,400 (1-unit), $1,095,250 (2-unit), $1,323,900 (3-unit), $1,645,350 (4-unit",
     "consumes": [],
     "feeds": [
       "art-222-agency-eligibility-matrix"
@@ -8567,6 +8567,16 @@ window.CHAINBUILDER_CATALOG = [
       "499-crypto-asset-inventory-classifier",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-850-shariah-equity-purification",
+    "display_name": "Shariah Equity Purification",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-850-shariah-equity-purification.html",
+    "description": "Screens one company's caller-supplied financials under four pinned Shariah screening methodologies, each as its own independent verdict grou",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {

@@ -25,7 +25,7 @@ proof, when attached to an artifact this kernel produced, carries these receipt 
 
 ## Attester
 
-Kernel identity: `sha256:852795237d7839b503e955db5db49f8d87ff6dc9edeb5a31687fca2e6f660b66` (SPEC.md §17.1 `compute_images`) — a
+Kernel identity: `sha256:baa378330b8b67426fbb7c1bedb41d2dc689735f0740925ad22d70fa891fbcbf` (SPEC.md §17.1 `compute_images`) — a
 content-addressed digest of this node's deployed kernel source, already published in the
 Graph Index. Static and dereferenceable; nothing in OpenChainGraph verification depends on
 this OKF bundle, and this concept asserts no execution event or `verified:` status.

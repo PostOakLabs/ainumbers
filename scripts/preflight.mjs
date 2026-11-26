@@ -1258,10 +1258,18 @@ const GATES = [
   // helpers (automerge-label.yml dequeued path). Was authored with #2918 but never run.
   ['Merge-queue eject hold fixture proof (cancelled ejecting run, MQ-EJECT-CANCELLED-RUN-1)',
     'node --test scripts/mq-eject-hold.test.mjs'],
+  // The regen deadman retries a failed main regen only for a transient step,
+  // never for a deterministic gate red.
+  ['Regen deadman retry decision fixture proof (gate red skips the retry)',
+    'node --test scripts/ci/regen-retry-decide.test.mjs'],
   // PREPUSH-NARROW-1: red/green controls for the hook's full-suite trigger
   // (which diff paths owe the FULL leg; docs-only scripts/ edits no longer do).
   ['Pre-push full-suite trigger controls (RED/GREEN path classes, PREPUSH-NARROW-1)',
     'node scripts/prepush-full-trigger.mjs --self-test'],
+  // The push:main queue drain heartbeat (dispatch-heartbeat.yml): red when no
+  // schedule or dispatch run of the drain workflows came within the hour.
+  ['Queue drain heartbeat fixture proof (quiet over an hour is red)',
+    'node --test scripts/ci/dispatch-heartbeat.test.mjs'],
   // PREPUSH-PRID-ENV-1: red/green controls for the hook's PR_ID_COLLISION_PR export
   // (open PR on the pushed branch only; every error path exports nothing).
   ['Pre-push PR-id env export controls (RED/GREEN, PREPUSH-PRID-ENV-1)',
@@ -2122,6 +2130,15 @@ const GATES = [
   // (a DERIVED_ROOT_GATES member in derived-artifacts.mjs).
   ['Obligation page agreement (O6, OBLIGATION-PAGE-1)', 'node scripts/check-obligation-page.mjs'],
   ['Obligation page gate controls (RED/GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-obligation-page.selftest.mjs'],
+  // OBLIGATION-BACKFILL-1 (PR #3142): obligation map gates O1 (well-formed
+  // lists), O2 (coverage vectors are real), O3 (nothing outside the shrinking
+  // gap baseline) and O4 (cited digests are listed or baselined). Reads only
+  // tracked repo sidecars and fixtures; no network, no CI-only input. Its
+  // inputs chaingraph/obligations/** are in the scripts-verify relevance list
+  // (scripts/ci-paths.json), so a coverage-only PR still runs the full
+  // preflight that carries this gate.
+  ['Obligation coverage O1/O2/O3/O4 (OBLIGATION-BACKFILL-1)', 'node scripts/check-obligation-coverage.mjs'],
+  ['Obligation coverage gate controls (RED/GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-obligation-coverage.selftest.mjs'],
   // AI-CATALOG-1 (AGENT-REACH-BUILD-SPEC §3.2): both well-known catalogs from one
   // generator. Freshness is advisory on a PR via the generic ADVISORY_ON_PR
   // categorisation (derived-artifacts.mjs COVERED ids ai-catalog + api-catalog):
@@ -2659,6 +2676,10 @@ const GATES = [
   // local and owner/repo shapes RED, job-level and normal actions GREEN) plus the
   // ratchet states (missing baseline RED, ceiling never raised).
   ['Workflow step-uses controls (RED/GREEN + ratchet states)', 'node scripts/check-workflow-step-uses.test.mjs'],
+  // DEADMAN-RERUN-STALE-SHA-1: the deadman's retry-once re-runs a failed regen only while its
+  // commit is still main's head. A late re-run of an old commit takes the regen concurrency
+  // group's single pending slot and cancels the newest commit's regen (2026-11-25, 018b75f8).
+  ['Deadman retry skips a superseded commit (GREEN re-run / SKIP when main moved)', 'node scripts/derived-regen-deadman-retry.test.mjs'],
   // JSON-parse + no-read-only-fields check for .github/rulesets/*.json (RULESET-AS-CODE-1).
   // Purely local — the "does it match live" half needs an App token and stays CI-only
   // (ruleset-apply.yml / ruleset-drift-gate.yml).

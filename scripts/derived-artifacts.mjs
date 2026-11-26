@@ -426,32 +426,6 @@ export const COVERED = [
     share: 'n/a (new 2026-09-27, FOOTER-INFRA-COLUMN-1)',
   },
   {
-    // PROOFLINKS-GEN-1 (2026-11-13, Anchor Wave C merged in): the reader-facing
-    // "Verification artifacts" <details> block of every node page (the node
-    // shards intersected with the top-level pages), rendered by scripts/
-    // gen-proof-links.mjs from committed artifacts and a kernel digest
-    // recomputed from kernel bytes via _buildid.mjs sourceDigest() (SO #34),
-    // never read from the page. The block sits above the footer, outside the
-    // footer regex, so node-page-footers and this entry cooperate on the same
-    // page bytes in different regions (the declare-parity cross-entry WARN
-    // class by design, as with counts/openapi). PRs never commit the block:
-    // main's single writer does (SO #35), so the gate is advisory on a PR and
-    // blocking on main / merge_group like node-page-footers. Writes happen on
-    // a runtime path (one region per derived page), so `writes` is declared
-    // explicitly; the page list is computed from the shard/page directories,
-    // so a node page added later joins the set. Ordered after node-page-footers
-    // AND after chaingraph-assemble (it reads compute_proof_ready from the
-    // assembled graph). Idempotent: a second pass is byte-identical
-    // (gen-proof-links --selftest).
-    id: 'node-page-proof-links',
-    regen: 'node scripts/gen-proof-links.mjs',
-    gate: 'node scripts/gen-proof-links.mjs --check',
-    writes: proofLinkPages(),
-    artifacts: proofLinkPages(),
-    after: 'node-page-footers',
-    share: 'n/a (new 2026-11-13, PROOFLINKS-GEN-1)',
-  },
-  {
     // S18-FRESHNESS-DURABLE-FIX-1 (mechanism b, 2026-09-17): the §18 digest-freshness
     // self-test's denominator calibration {total, fresh, stale} as a REGEN-OWNED derived
     // artifact. Every prove landing splices a newly proven node into chaingraph.json in a
@@ -1305,6 +1279,40 @@ export const COVERED = [
     writesReport: FV_STATUS_WRITES_REPORT_PATH,
     writesReportRequired: true,
     share: '100% (3/3 node registrations on 2026-08-21)',
+  },
+  {
+    // PROOFLINKS-GEN-1 (2026-11-13, Anchor Wave C merged in): the reader-facing
+    // "Verification artifacts" <details> block of every node page (the node
+    // shards intersected with the top-level pages), rendered by scripts/
+    // gen-proof-links.mjs from committed artifacts and a kernel digest
+    // recomputed from kernel bytes via _buildid.mjs sourceDigest() (SO #34),
+    // never read from the page. The block sits above the footer, outside the
+    // footer regex, so node-page-footers and this entry cooperate on the same
+    // page bytes in different regions (the declare-parity cross-entry WARN
+    // class by design, as with counts/openapi). PRs never commit the block:
+    // main's single writer does (SO #35), so the gate is advisory on a PR and
+    // blocking on main / merge_group like node-page-footers. Writes happen on
+    // a runtime path (one region per derived page), so `writes` is declared
+    // explicitly; the page list is computed from the shard/page directories,
+    // so a node page added later joins the set. Ordered after node-page-footers
+    // AND after chaingraph-assemble (it reads compute_proof_ready from the
+    // assembled graph). Idempotent: a second pass is byte-identical
+    // (gen-proof-links --selftest).
+    // REGEN-FIXPOINT-PROOFLINKS-ORDER-1 (2026-11-25): it also links each node's
+    // registry/kernel/<digest>.json (registry-kernel-resolve) and its
+    // fv-status/<spec_digest>.json (fv-status), and a NEW node's records are
+    // first written by those two entries. Placed before them, pass 1 rendered a
+    // new node's rows as "not published" and pass 2 healed them: the non-fixpoint
+    // that held main's regen red from the art-850 landing (#3222, ae3073df) on.
+    // So it sits here, after fv-status, which already runs after
+    // registry-kernel-resolve, and node-page-footers / chaingraph-assemble.
+    id: 'node-page-proof-links',
+    regen: 'node scripts/gen-proof-links.mjs',
+    gate: 'node scripts/gen-proof-links.mjs --check',
+    writes: proofLinkPages(),
+    artifacts: proofLinkPages(),
+    after: 'fv-status',
+    share: 'n/a (new 2026-11-13, PROOFLINKS-GEN-1)',
   },
   {
     id: 'integrator-profile',
