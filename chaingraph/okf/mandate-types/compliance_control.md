@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-163"]
+tags: ["compliance_control", "count-164"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-163 tool(s) in this mandate-type group:
+164 tool(s) in this mandate-type group:
 
 - [EMV MPM QR Payload Validator](../tools/783-emv-mpm-qr-validator.md)
 - [QR Go-Live Readiness Assessor](../tools/785-qr-golive-readiness.md)
@@ -175,3 +175,4 @@ status: stable
 - [Sukuk Tradability Composition](../tools/art-854-sukuk-tradability-composition.md)
 - [Murabahah Tawarruq Sequence Check](../tools/art-855-murabahah-tawarruq-sequence.md)
 - [Ijarah IMBT Rental Schedule](../tools/art-856-ijarah-imbt-schedule.md)
+- [Average Price Allocation](../tools/art-857-average-price-allocation.md)
