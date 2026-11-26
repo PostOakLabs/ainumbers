@@ -189,9 +189,23 @@ jobs:
       - name: Registry absence-tree gates (advisory on a lineage-clean pull_request)
         if: github.event_name == 'pull_request'
         run: |
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          if git diff --name-only "$BASE_SHA" HEAD | grep -qE '^(registry/lineage/|registry/absence/|chaingraph/kernels/registry-lineage-records\.json)'; then
+          # "This PR's diff" is the merge commit's FIRST-PARENT delta
+          # (HEAD^1..HEAD), never github.event.pull_request.base.sha.
+          # base.sha is an event-time snapshot: a PR that sits for days carries
+          # the base from when it opened or last synchronized, while
+          # refs/pull/N/merge is rebuilt against CURRENT main on every run — so
+          # the old base..HEAD diff swept in every main-side chore(derived)
+          # regen commit since that base, and each of those touches ALL THREE
+          # watched patterns (registry/lineage/**, registry/absence/**,
+          # chaingraph/kernels/registry-lineage-records.json). A lineage-clean
+          # PR therefore classified as lineage-touching, skipped the sanctioned
+          # run-gate.mjs advisory wrapper, and main's own single-writer drift
+          # (which a PR is forbidden to repair) went BLOCKING — the red #3279
+          # and #3329 showed. HEAD^1 is the main tip this exact merge commit
+          # was built against: purely local (this checkout drops credentials,
+          # so a fetch-based merge-base probe is also out), exact for the tree
+          # under judgement, and immune to base staleness.
+          if git diff --name-only 'HEAD^1' HEAD | grep -qE '^(registry/lineage/|registry/absence/|chaingraph/kernels/registry-lineage-records\.json)'; then
             echo "lineage file(s) in this PR's diff - the absence-tree gate stays BLOCKING"
             node scripts/gen-registry-absence-tree.mjs --check
           else
