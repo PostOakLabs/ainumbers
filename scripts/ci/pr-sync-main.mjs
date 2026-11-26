@@ -14,7 +14,10 @@
  *   `no-bot-sync` label, PRs in the merge queue, and heads pushed in the last
  *   few minutes, where a builder may still be pushing):
  *     - current (head already contains main)      -> nothing to do
- *     - BEHIND, merges clean                       -> merge origin/main in, push
+ *     - BEHIND, merges clean, head green, main     -> nothing (queue tests on main)
+ *       changed none of the PR's files
+ *     - BEHIND, merges clean, head red or no CI    -> merge origin/main in, push
+ *       (red only when main can repair it; see decide())
  *     - DIRTY only in main-owned derived paths     -> merge, take main's side of
  *                                                     those paths, commit, push
  *     - DIRTY in the legacy id registry (alone or  -> keep main's frozen
@@ -66,6 +69,7 @@ import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { COVERED, REPO } from '../derived-artifacts.mjs';
 import { gitEnv } from '../_git-env-lib.mjs';
+import { MAIN_OWNED_FRESHNESS_STEPS, holdMainMovedCause, isHoldComment, recordedSha } from '../mq-eject-hold.mjs';
 
 export const BOT_LOGIN = 'ainumbers-spec-sync[bot]';
 export const BOT_EMAIL = 'ainumbers-spec-sync[bot]@users.noreply.github.com';
@@ -93,6 +97,26 @@ export const CHECKS_PENDING_MAX_MIN = 45;
 // required run is a main-owned freshness step, or the head's run started
 // before main's latest recovery from a red episode completed (a stale red).
 export const SYNC_ANYWAY_LABEL = 'sync-anyway';
+// The merge-queue eject hold (automerge-label.yml, scripts/mq-eject-hold.mjs).
+export const EJECTED_LABEL = 'mq-ejected';
+// A merge of current main is forced into an ejected PR only when the hold says
+// main moving on caused the eject: holdMainMovedCause() in mq-eject-hold.mjs,
+// a main-moved eject class or a main-owned failing step (the dead-link gate
+// included). It is the same rule automerge-label.yml's should-clear uses to
+// lift the hold, so a forced sync always clears it and lets the hourly re-arm
+// pick the PR up. Any other hold stays until the PR's own files change, so
+// syncing it would only re-run CI on a PR that cannot re-arm.
+export function ejectFromMainMove(holdBody) {
+  return typeof holdBody === 'string' && holdMainMovedCause(holdBody) !== null;
+}
+// The newest eject-hold comment, when it was recorded at this head, or null.
+export function ejectHoldFor(bodies, headSha) {
+  const hold = [...(bodies || [])].reverse().find(isHoldComment);
+  if (!hold) return null;
+  const sha = recordedSha(hold);
+  if (!sha || !headSha || !headSha.startsWith(sha)) return null;
+  return String(hold);
+}
 export const RED_STATES = new Set(['FAILURE', 'ERROR']);
 // The red-head skip below yields to two main-repairable red classes:
 //   (a) every failing step on the head's latest Scripts Verify / Land Verify
@@ -117,13 +141,8 @@ export const RED_STATES = new Set(['FAILURE', 'ERROR']);
 //   'Count-drift gate (...)' = the COVERED counts gate's own step.
 //   'Manifest examples drift (...)' = the COVERED manifest-examples gate's
 //     own Scripts Verify step.
-export const MAIN_OWNED_FRESHNESS_STEPS = Object.freeze(new Set([
-  'Derived-freshness, index-sync, sitemap (HARD on merge_group)',
-  'chaingraph.json shard freshness (CGSHARD-1 CS-1)',
-  'Count-drift gate (advisory on PR, HARD on merge_group via DERIVED_ROOT, blocking on main)',
-  'Manifest examples drift (HARD on pull_request — per-PR derivables promotion)',
-  'Ask-agent block freshness (HARD on pull_request — per-PR derivables promotion)',
-]));
+// The set lives in mq-eject-hold.mjs, which shares it with the eject hold.
+export { MAIN_OWNED_FRESHNESS_STEPS };
 // (a) every failing step on the head's latest required run is a main-owned
 // freshness step. An empty or unreadable failingSteps keeps this false.
 const redHeadFreshnessOnly = (input) => Array.isArray(input.failingSteps) && input.failingSteps.length > 0
@@ -250,6 +269,7 @@ export function parseMergeTree(stdout) {
  * @param {Set<string>} [input.sentinelOk]  sentinel-owned pages whose PR diff is sentinel-only
  * @param {number} [input.attempts]   failed bot-sync attempts already on this head
  * @param {string[]|null} [input.sharedFiles]  files changed by both main and the PR since their merge base (null/undefined = unknown, allows a sync)
+ * @param {string|null} [input.ejectHold]  the eject-hold comment recorded at this head (ejectHoldFor)
  * @param {string[]|null} [input.failingSteps]  failing step names on the head's latest required Scripts Verify / Land Verify runs (null/undefined = unreadable, keeps the red-head skip)
  * @param {number|null} [input.headRunStartedAt]  epoch ms: start of the head's latest required run
  * @param {number|null} [input.mainRecoveredAt]  epoch ms: completion of main's latest Scripts Verify recovery from a red episode
@@ -315,6 +335,16 @@ export function planReservations({ base, ours, theirs, existingShard }) {
   return refuse.length ? { ok: false, why: refuse.join('; ') } : { ok: true, shards };
 }
 
+// True when the predicted merge conflicts, and only in main-owned derived
+// paths or sentinel-only pages: the conflicts decide() resolves as
+// `merge-derived`. Unknown (null) or empty conflict lists are false.
+export function derivedOnlyConflict(input) {
+  const { conflicts, mainOwned } = input;
+  if (!Array.isArray(conflicts) || conflicts.length === 0 || !mainOwned) return false;
+  const sentinelOk = input.sentinelOk || new Set();
+  return conflicts.every((p) => mainOwned.has(p) || sentinelOk.has(p));
+}
+
 export function decide(input) {
   const { pr, behind, conflicts, mainOwned } = input;
   const attempts = input.attempts || 0;
@@ -326,7 +356,14 @@ export function decide(input) {
   if (pr.baseRefName !== 'main') return skip('base-not-main');
   if (pr.headRefName === 'main') return skip('head-is-main');
   if (pr.isDraft) return skip('draft');
-  if ((pr.labels || []).includes(SKIP_LABEL)) return skip(`label:${SKIP_LABEL}`);
+  // `no-bot-sync` opts a PR out of syncs, with one exception
+  // (BOT-SYNC-OPTOUT-DERIVED-CONFLICT-1): a merge whose every conflict is in a
+  // main-owned derived path (or a sentinel-only page) still resolves, taking
+  // main's side. Main is the single writer of those paths, the merge queue
+  // cannot take a conflicting PR, and nobody else resolves them, so the
+  // opt-out would otherwise park the PR (armed ones included) until a builder
+  // pushes. A clean merge, a real conflict or an unknown merge still skips.
+  if ((pr.labels || []).includes(SKIP_LABEL) && !derivedOnlyConflict(input)) return skip(`label:${SKIP_LABEL}`);
   if (pr.inMergeQueue) return skip('in-merge-queue');
   if (!behind && (!conflicts || conflicts.length === 0)) return skip('current');
   if (conflicts === null) return skip('merge-unknown');
@@ -334,7 +371,13 @@ export function decide(input) {
   const committed = pr.headCommittedAt ? Date.parse(pr.headCommittedAt) : NaN;
   if (Number.isFinite(committed) && now - committed < minAge) return skip('fresh-head');
   if (pr.checksState === 'PENDING' && Number.isFinite(committed) && now - committed < CHECKS_PENDING_MAX_MIN * 60_000) return skip('checks-running');
-  if (conflicts.length === 0 && (pr.labels || []).includes(ARMED_LABEL)) return skip('armed-queue-rebuilds');
+  // Eject hold, main-moved cause: the hold says main moving on caused the
+  // eject (ejectFromMainMove). An ejected PR keeps its
+  // automerge label, so this check runs before the armed skip, or it could
+  // never fire. A PR-owned eject cause never forces a sync, so a red PR cannot
+  // loop through sync, clear-mq-eject and the hourly re-arm (the #3222 shape).
+  const ejectForce = (pr.labels || []).includes(EJECTED_LABEL) && ejectFromMainMove(input.ejectHold);
+  if (conflicts.length === 0 && (pr.labels || []).includes(ARMED_LABEL) && !ejectForce) return skip('armed-queue-rebuilds');
   // Red head: a clean merge cannot fix it. Conflicting PRs, unknown overlap
   // and the opt-in label keep syncing. The skip yields to the two
   // main-repairable red classes documented on MAIN_OWNED_FRESHNESS_STEPS:
@@ -352,6 +395,23 @@ export function decide(input) {
       && !(redHeadFreshnessOnly(input) || redHeadStale(input));
   if (redUnrepairable && Array.isArray(input.failingSteps) && input.failingSteps.length > 0) return skip('required-failed-on-head');
   if (redUnrepairable && Array.isArray(input.sharedFiles) && input.sharedFiles.length === 0) return skip('red-head-no-shared-files');
+  // Green head, clean BEHIND: a merge of main only restarts CI on a PR that
+  // is already armable. main-ci-anchor sets strict_required_status_checks_policy
+  // false, so BEHIND never blocks arming (GitHub reports such a PR CLEAN), and
+  // the merge queue tests the PR on current main anyway. Measured Nov 4-25:
+  // 2,176 syncs of unarmed green heads, about 44% of PR CI wall time, each
+  // leaving the PR un-armable for a median 24 min (114 turned it red); arms on
+  // a just-synced head were ejected no less often. Conflicts, main-repairable
+  // reds, unknown CI and the opt-in label still sync. So does a green head
+  // whose files main has also changed since their merge base (its green may
+  // not hold on current main; unknown overlap syncs, never skips blind), and a
+  // PR the queue ejected for a main-moved cause (ejectForce above).
+  const labels = pr.labels || [];
+  if (conflicts.length === 0 && pr.checksState === 'SUCCESS'
+      && !labels.includes(SYNC_ANYWAY_LABEL) && !ejectForce
+      && Array.isArray(input.sharedFiles) && input.sharedFiles.length === 0) {
+    return skip('green-queue-rebuilds');
+  }
 
   if (conflicts.length === 0) return { action: 'merge-clean', reason: 'behind', paths: [] };
   const sentinelOk = input.sentinelOk || new Set();
@@ -487,11 +547,13 @@ function sharedFilesWithMain(headSha, mainSha) {
   const mine = new Set(lines(h.out));
   return lines(m.out).filter((f) => mine.has(f));
 }
-/** predict() plus the red-head overlap probe and the CI facts the red-head
- * skip exceptions read, run only for a red, clean-BEHIND PR. */
+/** predict() plus the overlap probe (red or green clean-BEHIND PR; local git
+ * only) and the CI facts the red-head skip exceptions read (red only). */
 function predictFor(pr, mainSha, repo = REPO) {
   const pred = pr.isCrossRepository ? { behind: false, conflicts: [] } : predict(pr.headRefOid, mainSha);
-  if (pred.behind && pred.conflicts && pred.conflicts.length === 0 && RED_STATES.has(pr.checksState)) {
+  const cleanBehind = pred.behind && pred.conflicts && pred.conflicts.length === 0;
+  if (cleanBehind && pr.checksState === 'SUCCESS') pred.sharedFiles = sharedFilesWithMain(pr.headRefOid, mainSha);
+  if (cleanBehind && RED_STATES.has(pr.checksState)) {
     pred.sharedFiles = sharedFilesWithMain(pr.headRefOid, mainSha);
     Object.assign(pred, headRunFacts(repo, pr.headRefOid));
     pred.mainRecoveredAt = mainRecoveredAt(repo);
@@ -729,12 +791,43 @@ function headRunFacts(repo, headSha) {
 }
 
 /**
- * Main's latest recovery from a Scripts Verify red episode: the completion
- * time (updated_at) of the newest successful main run that has a failed run
- * older than it in the recent window. Null when there is no such recovery —
- * no failure in the window, or main's newest run is red, so main has not
- * recovered. Null keeps the red-head skip (fail-closed). One read per
- * process; the value cannot change under a run.
+ * Main's latest recovery from a Scripts Verify red episode, from a newest-first
+ * run list: the completion time (updated_at) of the FIRST success after the
+ * newest failure, i.e. the success immediately newer than that failure. Null
+ * when there is no such recovery: no failure in the window, or main's newest
+ * completed run is red, so main has not recovered. Pure.
+ *
+ * BOT-SYNC-RECOVERY-CLOCK-1 (2026-11-25): this used to return the NEWEST
+ * success whenever any failure sat anywhere in the 20-run window. Every new
+ * green main run then moved "recovery" forward, so every red PR whose run
+ * started before main's latest green run read as a stale red and was re-synced
+ * on each main merge, its red CI re-run for nothing. #2745 and #2763 were
+ * bot-synced 12 times each between 2026-11-23 21:32Z and 2026-11-25 01:29Z on
+ * the same Registry kernel-resolve red; main's real recovery in that window was
+ * 2026-11-24 16:33Z, so after one sync both should have stayed skipped.
+ * @param {Array<{conclusion:string|null, started:string, updated:string}>} runs newest first
+ * @returns {number|null} epoch ms
+ */
+export function recoveryFromRuns(runs) {
+  const completed = Array.isArray(runs)
+    ? runs.filter((r) => r && typeof r.conclusion === 'string'
+      && Number.isFinite(Date.parse(r.started || null)) && Number.isFinite(Date.parse(r.updated || null)))
+    : [];
+  if (!completed.length || completed[0].conclusion !== 'success') return null;
+  const lastFail = completed.findIndex((r) => r.conclusion === 'failure');
+  if (lastFail <= 0) return null;
+  // completed[lastFail - 1] is the newest run newer than that failure that is
+  // a success; cancelled or skipped runs between them are not recoveries.
+  for (let i = lastFail - 1; i >= 0; i--) {
+    if (completed[i].conclusion === 'success') return Date.parse(completed[i].updated);
+  }
+  return null;
+}
+
+/**
+ * Main's latest recovery from a Scripts Verify red episode (recoveryFromRuns
+ * over main's newest 20 runs). Null keeps the red-head skip (fail-closed).
+ * One read per process; the value cannot change under a run.
  */
 let _mainRecoveryCache;
 function mainRecoveredAt(repo) {
@@ -744,14 +837,7 @@ function mainRecoveredAt(repo) {
       const runs = JSON.parse(gh(['api', `repos/${repo}/actions/workflows/scripts-verify.yml/runs?branch=main&per_page=20`,
         '--jq', '[.workflow_runs[] | {conclusion, started: .run_started_at, updated: .updated_at}]'],
         undefined, process.env.ACTIONS_READ_TOKEN));
-      const completed = Array.isArray(runs)
-        ? runs.filter((r) => typeof r.conclusion === 'string'
-          && Number.isFinite(Date.parse(r.started || null)) && Number.isFinite(Date.parse(r.updated || null)))
-        : [];
-      if (completed.length && completed[0].conclusion === 'success'
-          && completed.slice(1).some((r) => r.conclusion === 'failure')) {
-        _mainRecoveryCache = Date.parse(completed[0].updated);
-      }
+      _mainRecoveryCache = recoveryFromRuns(runs);
     } catch { /* keep null: unreadable -> keep the skip */ }
   }
   return _mainRecoveryCache;
@@ -849,11 +935,17 @@ async function main() {
   const rows = [];
   for (const pr of prs) {
     const pred = predictFor(pr, mainSha, o.repo);
-    let attempts = 0, notified = false;
+    let attempts = 0, notified = false, bodies = null;
+    // An eject-held PR's hold comment says why it was ejected (one API call,
+    // held PRs only); decide() forces a sync only for a main-moved cause.
+    if ((pr.labels || []).includes(EJECTED_LABEL)) {
+      bodies = botComments(o.repo, pr.number);
+      pred.ejectHold = ejectHoldFor(bodies, pr.headRefOid);
+    }
     // Comment markers are read only for PRs that would act (one API call each).
     const first = decide({ pr, ...pred, mainOwned: owned, minHeadAgeMs: o.minHeadAgeMin * 60_000 });
     if (o.apply && first.action !== 'skip') {
-      const bodies = botComments(o.repo, pr.number);
+      bodies ??= botComments(o.repo, pr.number);
       attempts = markerCount(bodies, MARK_ATTEMPT, pr.headRefOid);
       notified = markerCount(bodies, MARK_CONFLICT, pr.headRefOid) > 0;
     }

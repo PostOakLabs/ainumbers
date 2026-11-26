@@ -225,12 +225,30 @@ export const CHROME_TOKENS = {
 /** Unique marker injected into <style> — used by both normalizer and gate to detect presence */
 export const CSS_MARKER = '/* OCG-CHROME-CSS:v1 */';
 
-/** CSS classes required by canonical nav + footer (appended to page's <style>) */
+/**
+ * CHROME-SELF-SUFFICIENT-1: zero-specificity defaults for every token the chrome
+ * reads. :where(:root) has specificity 0, so ANY page :root (or body) palette
+ * still wins; a page that lacks a token (hand-authored pages copied from an older
+ * template often lack --gold and --border-2, which left the Start button
+ * invisible) falls back to the canonical value instead of an undefined var.
+ */
+export const CHROME_TOKEN_DEFAULTS =
+  `:where(:root){${Object.entries(CHROME_TOKENS).map(([t, v]) => `${t}:${v}`).join(';')}}`;
+
+/**
+ * CSS classes required by canonical nav + footer (appended to page's <style>).
+ * CHROME-SELF-SUFFICIENT-1: the block sits AFTER the page's own CSS, so it also
+ * resets the properties page stylesheets commonly set on nav/.nav-inner/footer
+ * (nav padding + 52px height, space-between, footer margin + mono font). Without
+ * the resets those page rules leak into the canonical chrome and the header and
+ * footer render visibly off-template even though the markup is canonical.
+ */
 export const CHROME_CSS = `
 ${CSS_MARKER}
+${CHROME_TOKEN_DEFAULTS}
 /* Canonical nav — derived from chaingraph-hub.html */
-nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
-.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:0 24px;height:58px}
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0;height:auto}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;justify-content:flex-start;flex-wrap:nowrap;gap:16px;padding:0 24px;height:58px}
 .logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
 .logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
 .logo-ai{color:var(--teal)}
@@ -245,7 +263,7 @@ nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filt
 .nav-cta:hover{opacity:.85}
 @media(max-width:768px){.nav-pill{display:none}}
 /* Canonical footer — derived from chaingraph-hub.html */
-footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0}
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0;margin:0;font-family:'Sora',sans-serif;color:var(--text)}
 .footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
 .footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
 .footer-brand-mark{display:flex;align-items:center;gap:8px}

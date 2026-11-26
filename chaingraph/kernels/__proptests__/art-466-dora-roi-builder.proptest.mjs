@@ -1,5 +1,5 @@
 // art-466-dora-roi-builder.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C21-1).
-// kernel_digest_at_authoring: sha256:4f605ce91ebec16f4f7e409b383f1f5f273b5f3e0551894aed9765e2b7681d80
+// kernel_digest_at_authoring: sha256:32bccaf880b7193ab5430857244909678e38fbe92c16fbd0af6490c1565f0ef6
 // human_sign_off: PENDING
 //
 // ⚠ CORRECTION TO THE WU ROW'S TABLE (per FIX-2, "confirm against each kernel's own source

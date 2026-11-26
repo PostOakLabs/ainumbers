@@ -29,6 +29,21 @@
  *                             artifacts (scripts/derived-artifacts.mjs coveredPaths()).
  *                    The writer sweeps every root page it knows; rewrites outside the
  *                    allowlist are reverted and named, never kept.
+ *   proof-links      trigger: chaingraph/kernels/<id>.kernel.mjs OR chaingraph/graph/nodes/<id>.json
+ *                    runs:    node scripts/gen-proof-links.mjs --only <id>
+ *                    allow:   chaingraph/<id>.html  (the PR's own node page), and inside it ONLY
+ *                             the <!--PROOF-LINKS--> region.
+ *                    PR-AUTOFIX-PROOFLINKS-ON-KERNEL-1. The block names the kernel digest, the
+ *                    receipt, the shard's proof and the registry record, so a kernel edit or a
+ *                    re-prove moves it even when the PR never touched the page. pr-autofix.yml's
+ *                    page step already rewrote it (#3295), but only for pages in the touched set,
+ *                    so re-prove PRs hand-healed it (#3239, #3285). Only ids gen-proof-links owns
+ *                    run (a node shard AND a top-level chaingraph/<id>.html). The page IS in
+ *                    coveredPaths() (node-page-proof-links and node-page-footers own regions of
+ *                    it), so this is the one writer allowed onto a covered path, and it is fenced
+ *                    to its own region: any byte changed outside the block is reverted and fails
+ *                    the run. A writer crash is a warning (the gate is advisory on a PR), so it
+ *                    never eats the identity stamp or schema in the same push.
  *
  * NOT AUTOFIXED, ON PURPOSE: the page kernel-digest meta. No writer exists for it, and writing
  * one would defeat the gate: the sentinel attests that the page's inline compute copy was
@@ -43,7 +58,7 @@
  *   node scripts/ci/pr-autofix-kernel.mjs --touched <nul-delimited-file>   run the writers
  *   node scripts/ci/pr-autofix-kernel.mjs --extras  <nul-delimited-file>   print extra allowed paths
  */
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -65,6 +80,24 @@ export function kernelIds(touched, exists = (p) => existsSync(resolve(REPO, p)))
   return ids;
 }
 
+const SHARD_RE = /^chaingraph\/graph\/nodes\/([^/]+)\.json$/;
+
+/**
+ * Node ids whose proof-links block this PR can move: a kernel or node shard in the touched set
+ * (deletions excluded), limited to the pages gen-proof-links owns (proofLinkPages(): a node
+ * shard AND a top-level chaingraph/<id>.html on the PR tree).
+ */
+export function proofLinkIds(touched, exists = (p) => existsSync(resolve(REPO, p))) {
+  const ids = [];
+  for (const f of touched) {
+    const m = KERNEL_RE.exec(f) || SHARD_RE.exec(f);
+    if (!m || !ID_RE.test(m[1]) || !exists(f) || ids.includes(m[1])) continue;
+    const id = m[1];
+    if (exists(`chaingraph/graph/nodes/${id}.json`) && exists(`chaingraph/${id}.html`)) ids.push(id);
+  }
+  return ids;
+}
+
 /** Root-level *.html pages in the touched set (no directory component). */
 export function rootPages(touched) {
   return touched.filter((f) => /^[^/]+\.html$/.test(f) && !f.includes('\\'));
@@ -78,6 +111,9 @@ export function allowlists(touched, covered, exists) {
     'kernel-identity': ids.map((id) => `chaingraph/graph/nodes/${id}.json`),
     'input-schema': ids.map((id) => `manifests/${id}.manifest.json`),
     'root-chrome': rootPages(touched).filter((p) => !coveredSet.has(p)),
+    // A covered path on purpose: see the proof-links entry in the header. The region fence in
+    // proofLinksStep keeps the write inside the block.
+    'proof-links': proofLinkIds(touched, exists).map((id) => `chaingraph/${id}.html`),
   };
 }
 
@@ -177,6 +213,54 @@ export function inputSchemaStep(id, run, hasManifest) {
   return 'ok';
 }
 
+// Sentinels written by scripts/gen-proof-links.mjs (START / END there).
+const PL_START = '<!--PROOF-LINKS-->';
+const PL_END = '<!--/PROOF-LINKS-->';
+
+/**
+ * True when `after` differs from `before` only inside the PROOF-LINKS block: the block was
+ * replaced in place, or (no block before) inserted the way gen-proof-links' withBlock() inserts
+ * it, as `[\n]<block>\n` directly above the footer. Anything else changed is an escape.
+ */
+export function onlyProofLinksChanged(before, after) {
+  if (before === after) return true;
+  const a = after.indexOf(PL_START);
+  const b = a === -1 ? -1 : after.indexOf(PL_END, a);
+  if (b === -1) return false;
+  const prefix = after.slice(0, a);
+  const suffix = after.slice(b + PL_END.length);
+  const s = before.indexOf(PL_START);
+  const e = s === -1 ? -1 : before.indexOf(PL_END, s);
+  if (e !== -1) return prefix === before.slice(0, s) && suffix === before.slice(e + PL_END.length);
+  if (s !== -1) return false; // a half block before: refuse rather than guess
+  if (!suffix.startsWith('\n')) return false;
+  const rest = suffix.slice(1);
+  return prefix + rest === before || (prefix.endsWith('\n') && prefix.slice(0, -1) + rest === before);
+}
+
+/**
+ * Run the proof-links writer for one id. Returns 'ok' (block rewritten), 'unchanged',
+ * 'error' (writer exited non-zero: a warning, the caller reverts the page) or 'escaped'
+ * (bytes outside the block moved: the caller reverts and fails). `run` and `readPage` are
+ * injectable; `readPage` returns '' for a missing page.
+ */
+export function proofLinksStep(id, run, readPage) {
+  const page = `chaingraph/${id}.html`;
+  const before = readPage(page);
+  const res = run(['scripts/gen-proof-links.mjs', '--only', id]);
+  const after = readPage(page);
+  if (res.status !== 0) {
+    console.log(`::warning title=gen-proof-links --only ${id} exited non-zero::the page is left as the PR had it; main's regen re-derives the block after merge.`);
+    return 'error';
+  }
+  if (before === after) return 'unchanged';
+  if (!onlyProofLinksChanged(before, after)) {
+    console.error(`::error title=proof-links wrote outside its block::${page} changed outside <!--PROOF-LINKS-->; the write is reverted`);
+    return 'escaped';
+  }
+  return 'ok';
+}
+
 async function main() {
   const argv = process.argv.slice(2);
   const ti = argv.indexOf('--touched');
@@ -221,6 +305,22 @@ async function main() {
   if (lists['root-chrome'].length) {
     runNode(['scripts/gen-root-chrome.mjs']);
     fence('root-chrome', false);
+  }
+
+  // Proof-links block on the node page, from the PR's own kernel and shard (a kernel edit or a
+  // re-prove moves it even when the page is not in the touched set).
+  const readPage = (p) => { const abs = resolve(REPO, p); return existsSync(abs) ? readFileSync(abs, 'utf8') : ''; };
+  for (const id of proofLinkIds(touched)) {
+    const page = `chaingraph/${id}.html`;
+    const prior = readPage(page);
+    const res = proofLinksStep(id, runNode, readPage);
+    if (res === 'error' || res === 'escaped') {
+      // Restore the page to what it was before this writer ran, not to HEAD: the page step in
+      // pr-autofix.yml may already have rewritten a touched page earlier in the job.
+      writeFileSync(resolve(REPO, page), prior);
+      if (res === 'escaped') failed = true;
+    }
+    fence('proof-links', true);
   }
 
   if (failed) process.exit(1);

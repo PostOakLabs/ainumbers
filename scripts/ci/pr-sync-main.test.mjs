@@ -59,8 +59,9 @@ import { join } from 'node:path';
 import {
   decide, mainOwnedPaths, sentinelOwnedPaths, isSentinelOnlyDiff, parseMergeTree, syncOne,
   waitForRegen, regenGate, planReservations, shardBytes, RESERVATIONS_LEGACY, SKIP_LABEL, MAX_ATTEMPTS_PER_HEAD, SYNC_ANYWAY_LABEL,
-  MAIN_OWNED_FRESHNESS_STEPS,
+  MAIN_OWNED_FRESHNESS_STEPS, recoveryFromRuns, EJECTED_LABEL, ejectFromMainMove, ejectHoldFor,
 } from './pr-sync-main.mjs';
+import { holdComment, clearVerdict } from '../mq-eject-hold.mjs';
 import { canonicalRecordBytes, NEVER_LIVE_DEPENDENCY_NOTE } from '../gen-registry-kernel-resolve.mjs';
 import { sourceDigest } from '../../chaingraph/kernels/_buildid.mjs';
 import { gitEnv } from '../_git-env-lib.mjs';
@@ -123,6 +124,35 @@ t('draft → skip draft', () => {
 t(`labelled ${SKIP_LABEL} → skip label`, () => {
   assert.equal(run({ pr: { labels: ['automerge', SKIP_LABEL] } }).reason, `label:${SKIP_LABEL}`);
 });
+// BOT-SYNC-OPTOUT-DERIVED-CONFLICT-1: the opt-out yields only to a conflict
+// that sits entirely in main-owned derived paths (or sentinel-only pages).
+t(`${SKIP_LABEL} + conflict only in main-owned derived paths → merge-derived (armed too)`, () => {
+  for (const labels of [[SKIP_LABEL], ['automerge', SKIP_LABEL]]) {
+    const d = run({ pr: { labels }, conflicts: ['mcp/catalog.json', 'sitemap.xml'] });
+    assert.equal(d.action, 'merge-derived');
+    assert.deepEqual(d.paths, ['mcp/catalog.json', 'sitemap.xml']);
+  }
+});
+t(`${SKIP_LABEL} + conflict only in a sentinel-only page → merge-derived`, () => {
+  const d = run({ pr: { labels: [SKIP_LABEL] }, conflicts: ['tools/x.html'], sentinelOk: new Set(['tools/x.html']) });
+  assert.equal(d.action, 'merge-derived');
+});
+t(`${SKIP_LABEL} + a real conflict beside derived ones → still skip label (no comment)`, () => {
+  assert.equal(run({ pr: { labels: [SKIP_LABEL] }, conflicts: ['mcp/catalog.json', 'chaingraph/kernels/a.kernel.mjs'] }).reason, `label:${SKIP_LABEL}`);
+});
+t(`${SKIP_LABEL} + the legacy id registry conflict → still skip label`, () => {
+  assert.equal(run({ pr: { labels: [SKIP_LABEL] }, conflicts: [RESERVATIONS_LEGACY] }).reason, `label:${SKIP_LABEL}`);
+});
+t(`${SKIP_LABEL} + clean BEHIND or unknown merge → still skip label`, () => {
+  assert.equal(run({ pr: { labels: [SKIP_LABEL] }, conflicts: [] }).reason, `label:${SKIP_LABEL}`);
+  assert.equal(run({ pr: { labels: [SKIP_LABEL] }, conflicts: null }).reason, `label:${SKIP_LABEL}`);
+});
+t(`${SKIP_LABEL} + derived-only conflict still honours queue, fresh-head and attempt guards`, () => {
+  const c = ['mcp/catalog.json'];
+  assert.equal(run({ pr: { labels: [SKIP_LABEL], inMergeQueue: true }, conflicts: c }).reason, 'in-merge-queue');
+  assert.equal(run({ pr: { labels: [SKIP_LABEL] }, conflicts: c, attempts: MAX_ATTEMPTS_PER_HEAD }).reason, `attempts:${MAX_ATTEMPTS_PER_HEAD}`);
+  assert.equal(run({ pr: { labels: [SKIP_LABEL], headCommittedAt: new Date(NOW - 60_000).toISOString() }, conflicts: c }).reason, 'fresh-head');
+});
 t('in the merge queue → skip (a push would eject it)', () => {
   assert.equal(run({ pr: { inMergeQueue: true } }).reason, 'in-merge-queue');
 });
@@ -143,10 +173,9 @@ t('fresh head (builder may still be pushing) → skip; same head past the window
   assert.equal(run({ pr: { headCommittedAt: '2026-11-03T11:55:00Z' } }).reason, 'fresh-head');
   assert.equal(run({ pr: { headCommittedAt: '2026-11-03T11:55:00Z' }, minHeadAgeMs: 60_000 }).action, 'merge-clean');
 });
-t('CI pending on a recent head → skip checks-running; pending past the window or SUCCESS → acts', () => {
+t('CI pending on a recent head → skip checks-running; pending past the window → acts', () => {
   assert.equal(run({ pr: { checksState: 'PENDING', headCommittedAt: '2026-11-03T11:30:00Z' } }).reason, 'checks-running');
   assert.equal(run({ pr: { checksState: 'PENDING', headCommittedAt: OLD } }).action, 'merge-clean');
-  assert.equal(run({ pr: { checksState: 'SUCCESS', headCommittedAt: '2026-11-03T11:30:00Z' } }).action, 'merge-clean');
 });
 t('armed + BEHIND clean → skip (queue rebuilds); armed + derived-DIRTY still acts (queue cannot take a conflict)', () => {
   assert.equal(run({ pr: { labels: ['automerge'] } }).reason, 'armed-queue-rebuilds');
@@ -171,10 +200,80 @@ t('red + overlap unknown (null/undefined) → syncs, never skips blind', () => {
   assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: null }).action, 'merge-clean');
   assert.equal(run({ pr: { checksState: 'FAILURE' } }).action, 'merge-clean');
 });
-t('green / pending-past-window / no rollup → unchanged behaviour even with no shared files', () => {
-  for (const checksState of ['SUCCESS', 'PENDING', null]) {
+t('pending-past-window / no rollup → unchanged behaviour even with no shared files', () => {
+  for (const checksState of ['PENDING', null]) {
     assert.equal(run({ pr: { checksState }, sharedFiles: [] }).action, 'merge-clean');
   }
+});
+// BOT-SYNC-GREEN-SKIP-1: a clean merge of main into an unarmed GREEN head
+// only restarts CI (strict up-to-date is off; the queue tests on main).
+t('green + clean BEHIND, main touched none of the PR files → skip green-queue-rebuilds', () => {
+  assert.deepEqual(run({ pr: { checksState: 'SUCCESS' }, sharedFiles: [] }), { action: 'skip', reason: 'green-queue-rebuilds', paths: [] });
+  assert.equal(run({ pr: { checksState: 'SUCCESS', headCommittedAt: OLD }, sharedFiles: [] }).reason, 'green-queue-rebuilds');
+});
+t('green + main changed a file the PR also changes → syncs (its green may not hold on main)', () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS' }, sharedFiles: ['scripts/x.mjs'] }).action, 'merge-clean');
+});
+t('green + overlap unknown (null/undefined) → syncs, never skips blind', () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS' }, sharedFiles: null }).action, 'merge-clean');
+  assert.equal(run({ pr: { checksState: 'SUCCESS' } }).action, 'merge-clean');
+});
+// Eject hold: force a sync only when the hold says main moving on caused the
+// eject (the shared rule that also lifts the hold), and before the armed skip,
+// since a real ejected PR keeps `automerge`. Fixtures come from
+// mq-eject-hold.mjs's own writer.
+const EJ_HEAD = 'cf945547ba9de296aa36c600052a42b8249edbc0';
+const hold = (kind, step = 'scripts-verify / Full preflight') => holdComment({ workflow: 'Scripts Verify', step, runId: '45585938105', sha: EJ_HEAD, kind });
+const DERIVED = hold('derived-gate');
+const OWN = hold('other', 'scripts-verify / MCP output-schema coverage');
+// A dead-link eject is classed `other`, but main owns the step.
+const DEAD_LINK = hold('other', 'CSP + copy-hallmarks + dead-link + chrome gates / Dead-link gate');
+// #3278's real comment, written before the class field existed.
+const HOLD_3278 = 'merge-queue: ejected for a failed check (workflow HTML Verify, step CSP + copy-hallmarks + dead-link + chrome gates / Dead-link gate, run 45585938105), head cf945547ba9de296aa36c600052a42b8249edbc0. Not re-armed at this head: push a new commit to clear the `mq-ejected` label.';
+t('ejectHoldFor returns the newest hold comment at this head only', () => {
+  assert.equal(ejectHoldFor([DERIVED], EJ_HEAD), DERIVED);
+  assert.equal(ejectHoldFor(['other', OWN, DEAD_LINK], EJ_HEAD), DEAD_LINK);
+  assert.equal(ejectHoldFor([DERIVED], 'aaaaaaa'), null);
+  assert.equal(ejectHoldFor(['bot-sync: real conflict'], EJ_HEAD), null);
+  assert.equal(ejectHoldFor(null, EJ_HEAD), null);
+});
+t('ejectFromMainMove: derived-gate class or a main-owned step (dead-link included) yes, PR-owned no', () => {
+  assert.equal(ejectFromMainMove(DERIVED), true);
+  assert.equal(ejectFromMainMove(DEAD_LINK), true);
+  assert.equal(ejectFromMainMove(HOLD_3278), true);
+  assert.equal(ejectFromMainMove(hold('other', `scripts-verify / ${FRESH_STEP}`)), true);
+  assert.equal(ejectFromMainMove(OWN), false);
+  assert.equal(ejectFromMainMove(hold(undefined)), false);
+  assert.equal(ejectFromMainMove(null), false);
+});
+t(`armed + ${EJECTED_LABEL} + main-moved cause → syncs (eject check runs before the armed skip)`, () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: ['automerge', EJECTED_LABEL] }, sharedFiles: [], ejectHold: DERIVED }).action, 'merge-clean');
+});
+t(`armed + ${EJECTED_LABEL} + dead-link eject (class other) → syncs, and the hold lifts on that sync`, () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: ['automerge', EJECTED_LABEL] }, sharedFiles: [], ejectHold: DEAD_LINK }).action, 'merge-clean');
+  const same = { files: [{ filename: 'tools/700-x.html', status: 'modified', sha: 'b1' }], complete: true };
+  assert.equal(clearVerdict({ holdBody: DEAD_LINK, before: same, after: same }).clear, true);
+});
+t(`armed + ${EJECTED_LABEL} + PR-owned cause or no hold → still skip armed (the hold would stay)`, () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: ['automerge', EJECTED_LABEL] }, sharedFiles: [], ejectHold: OWN }).reason, 'armed-queue-rebuilds');
+  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: ['automerge', EJECTED_LABEL] }, sharedFiles: [] }).reason, 'armed-queue-rebuilds');
+});
+t(`green unarmed + ${EJECTED_LABEL}: main-moved cause syncs, PR-owned cause takes the green skip`, () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: [EJECTED_LABEL] }, sharedFiles: [], ejectHold: DEAD_LINK }).action, 'merge-clean');
+  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: [EJECTED_LABEL] }, sharedFiles: [], ejectHold: OWN }).reason, 'green-queue-rebuilds');
+});
+t('an eject hold without the label forces nothing', () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: ['automerge'] }, sharedFiles: [], ejectHold: DERIVED }).reason, 'armed-queue-rebuilds');
+});
+t('green + CONFLICTING → still resolves / reports (the queue cannot take a conflict)', () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS' }, conflicts: ['mcp/catalog.json'], sharedFiles: [] }).action, 'merge-derived');
+  assert.equal(run({ pr: { checksState: 'SUCCESS' }, conflicts: ['scripts/x.mjs'], sharedFiles: [] }).action, 'conflict-real');
+});
+t(`green + ${SYNC_ANYWAY_LABEL} label → syncs (opt-in still forces a merge of main)`, () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS', labels: [SYNC_ANYWAY_LABEL] }, sharedFiles: [] }).action, 'merge-clean');
+});
+t('red head that main can repair still syncs alongside the green skip', () => {
+  assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [FRESH_STEP] }).action, 'merge-clean');
 });
 t('red + only a main-owned freshness step failing → syncs (a merge of main repairs it)', () => {
   for (const step of MAIN_OWNED_FRESHNESS_STEPS) {
@@ -198,8 +297,8 @@ t(`red + PR-owned failing step + ${SYNC_ANYWAY_LABEL} label → syncs`, () => {
 t('red + PR-owned failing step + CONFLICTING → still syncs / reports (D1 does not touch conflicted PRs)', () => {
   assert.equal(run({ pr: { checksState: 'FAILURE' }, conflicts: ['mcp/catalog.json'], sharedFiles: [], failingSteps: [PR_STEP] }).action, 'merge-derived');
 });
-t('green + failing steps array left over (stale facts) → unchanged, still syncs', () => {
-  assert.equal(run({ pr: { checksState: 'SUCCESS' }, sharedFiles: [], failingSteps: [PR_STEP] }).action, 'merge-clean');
+t('green + failing steps array left over (stale facts) → green rule decides, skip', () => {
+  assert.equal(run({ pr: { checksState: 'SUCCESS' }, sharedFiles: [], failingSteps: [PR_STEP] }).reason, 'green-queue-rebuilds');
 });
 t('red + mixed failing steps (one unlisted) → still skip (exact names only, no prefix match)', () => {
   assert.equal(run({ pr: { checksState: 'FAILURE' }, sharedFiles: [], failingSteps: [FRESH_STEP, PR_STEP] }).reason, 'required-failed-on-head');
@@ -659,6 +758,57 @@ console.log('8. regenGate() / waitForRegen(): push:main never strands itself');
   t('a run that registers late is still waited for', () => {
     const c = clock([NONE, NONE, RUNNING, DONE]);
     assert.equal(waitForRegen(c.probe, { ...T, sleep: c.sleep, now: c.now }).outcome, 'finished');
+  });
+}
+
+// BOT-SYNC-RECOVERY-CLOCK-1: main's recovery time is the first green run after
+// the newest red, not the newest green run. Fixture: main's newest 20 Scripts
+// Verify runs as the 2026-11-25T01:21Z sync-main run saw them (one failure,
+// 2026-11-24 16:07Z, recovered by the 16:33Z run).
+{
+  const R = (created, updated, conclusion) => ({ conclusion, started: created, updated });
+  const main0121 = [
+    R('2026-11-25T00:18:55Z', '2026-11-25T00:39:39Z', 'success'), R('2026-11-25T00:12:07Z', '2026-11-25T00:15:04Z', 'success'),
+    R('2026-11-25T00:04:18Z', '2026-11-25T00:11:49Z', 'success'), R('2026-11-24T23:57:56Z', '2026-11-25T00:03:43Z', 'success'),
+    R('2026-11-24T23:57:21Z', '2026-11-24T23:57:57Z', 'cancelled'), R('2026-11-24T23:19:43Z', '2026-11-25T00:00:19Z', 'cancelled'),
+    R('2026-11-24T23:13:53Z', '2026-11-24T23:22:14Z', 'cancelled'), R('2026-11-24T20:27:56Z', '2026-11-24T21:07:36Z', 'success'),
+    R('2026-11-24T20:21:11Z', '2026-11-24T20:22:03Z', 'success'), R('2026-11-24T19:04:31Z', '2026-11-24T19:05:33Z', 'success'),
+    R('2026-11-24T18:47:01Z', '2026-11-24T18:47:51Z', 'success'), R('2026-11-24T18:40:07Z', '2026-11-24T18:42:44Z', 'success'),
+    R('2026-11-24T18:23:10Z', '2026-11-24T18:24:02Z', 'success'), R('2026-11-24T18:16:03Z', '2026-11-24T18:16:47Z', 'success'),
+    R('2026-11-24T17:58:48Z', '2026-11-24T17:59:44Z', 'success'), R('2026-11-24T16:50:02Z', '2026-11-24T16:50:56Z', 'success'),
+    R('2026-11-24T16:33:01Z', '2026-11-24T16:33:45Z', 'success'), R('2026-11-24T16:07:48Z', '2026-11-24T16:16:09Z', 'failure'),
+    R('2026-11-24T16:01:30Z', '2026-11-24T16:02:25Z', 'success'), R('2026-11-24T13:14:44Z', '2026-11-24T13:22:28Z', 'success'),
+  ];
+  t('recovery = first green after the newest red (16:33Z), not the newest green (00:39Z)', () => {
+    assert.equal(recoveryFromRuns(main0121), Date.parse('2026-11-24T16:33:45Z'));
+  });
+  t('#2763 replay: red head run from 00:20Z is not stale, so the skip holds', () => {
+    // Its Land Verify red (Registry kernel-resolve coverage) began 2026-11-25T00:20Z;
+    // the 01:21Z run bot-synced it anyway (pushed 0626c2a) under the old clock.
+    const r = decide({
+      pr: { number: 2763, isDraft: false, isCrossRepository: false, baseRefName: 'main', headRefName: 'predmkt-fee-inplace-fix-1',
+        labels: [], inMergeQueue: false, headCommittedAt: '2026-11-25T00:19:57Z', checksState: 'FAILURE' },
+      behind: true, conflicts: [], mainOwned: new Set(), now: Date.parse('2026-11-25T01:28:00Z'),
+      sharedFiles: ['chaingraph.json'], failingSteps: ['Registry kernel-resolve coverage', 'Report'],
+      headRunStartedAt: Date.parse('2026-11-25T00:20:00Z'), mainRecoveredAt: recoveryFromRuns(main0121),
+    });
+    assert.equal(r.action, 'skip');
+    assert.equal(r.reason, 'required-failed-on-head');
+  });
+  t('no failure in the window, or main red now → null (keeps the skip)', () => {
+    assert.equal(recoveryFromRuns(main0121.slice(0, 17)), null);
+    assert.equal(recoveryFromRuns([R('2026-11-24T16:07:48Z', '2026-11-24T16:16:09Z', 'failure'), ...main0121]), null);
+    assert.equal(recoveryFromRuns([]), null);
+    assert.equal(recoveryFromRuns(null), null);
+  });
+  t('cancelled runs between the red and the next green are not the recovery', () => {
+    const runs = [R('2026-11-24T03:15:57Z', '2026-11-24T03:29:39Z', 'success'), R('2026-11-24T03:09:30Z', '2026-11-24T03:16:07Z', 'cancelled'),
+      R('2026-11-24T03:03:20Z', '2026-11-24T03:12:21Z', 'failure')];
+    assert.equal(recoveryFromRuns(runs), Date.parse('2026-11-24T03:29:39Z'));
+  });
+  t('in-progress runs (no conclusion) are ignored', () => {
+    const runs = [{ conclusion: null, started: '2026-11-25T02:00:00Z', updated: '2026-11-25T02:01:00Z' }, ...main0121];
+    assert.equal(recoveryFromRuns(runs), Date.parse('2026-11-24T16:33:45Z'));
   });
 }
 

@@ -1,5 +1,5 @@
 // 792-curator-vault-cap-auditor — class-K property-test FLOOR.
-// kernel_digest_at_authoring: sha256:5c179330342a136524f4808a6f201ab22ba0f39015250bc42ef835c7cd944a1e
+// kernel_digest_at_authoring: sha256:4acc868648ee3b4a2e474aa09cced8aa966e36dbc2500a40698f3218d4498a72
 // spec: CURATOR-VAULT-CAP-AUDIT-1 row; primary text pinned in research/CURATOR-VAULT-CAP-PIN-2026-10-30.md
 // human_sign_off: PENDING
 //
@@ -7,7 +7,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/792-curator-vault-cap-auditor.proptest.mjs
 
-import { compute } from '../792-curator-vault-cap-auditor.kernel.mjs';
+import { compute, buildArtifact } from '../792-curator-vault-cap-auditor.kernel.mjs';
 import { runFixtureOracle, summarize } from './_pbt-common.mjs';
 
 const KERNEL_ID = '792-curator-vault-cap-auditor';
@@ -155,6 +155,54 @@ function checkVerdictVocabulary() {
   return { name: 'verdict-vocabulary-and-output-shape', checked, violations };
 }
 
+// P7 a present null or wrong-type max_per_asset_class_bp must refuse (never skip the class-cap dimension).
+function checkClassCapMapRefusal() {
+  let checked = 0, violations = 0;
+  for (const bad of /** @type {any[]} */ ([null, [], ['rwa_treasury'], 'rwa_treasury', 0, false])) {
+    const pp = baseCase();
+    pp.mandate.max_per_asset_class_bp = bad;
+    const { output_payload: out, compliance_flags } = compute(pp);
+    checked++;
+    if (out.verdict !== 'INDETERMINATE' || !compliance_flags.includes('CURATOR_VAULT_CAPS_MALFORMED_INPUT')) violations++;
+  }
+  checked++;
+  if (compute(baseCase()).output_payload.verdict !== 'WITHIN_MANDATE') violations++;
+  return { name: 'class-cap-map-present-null-or-wrong-type-refused', checked, violations };
+}
+
+async function checkBuildArtifactNeverThrows() {
+  let checked = 0, violations = 0;
+  /** @type {any} */ let deep = 1; for (let i = 0; i < 600; i++) deep = [deep];
+  const wide = new Array(1000001).fill(0);
+  const hostile = [
+    { zzz: 1e300 }, { zzz: Infinity }, { zzz: NaN }, { zzz: Number.MAX_SAFE_INTEGER + 2 },
+    { zzz: deep }, { zzz: wide },
+    { mandate: { ...baseCase().mandate, max_per_asset_class_bp: 1e300 } },
+  ];
+  for (const delta of hostile) {
+    checked++;
+    try {
+      const art = await buildArtifact({ ...baseCase(), ...delta });
+      if (art.execution_hash !== null || !art.hash_refusal || !/^REFUSED_INPUT_(UNSAFE_NUMBER|HASH_LIMIT)$/.test(art.hash_refusal.reason)) {
+        violations++; console.log('never-throw violation: hostile input did not mint hash_refusal: ' + Object.keys(delta)[0]);
+      }
+      if (art.output_payload.verdict !== 'INDETERMINATE') {
+        violations++; console.log('never-throw violation: compute accepted hostile input: ' + Object.keys(delta)[0]);
+      }
+    } catch (e) { violations++; console.log('never-throw violation: buildArtifact threw: ' + String(e.message).slice(0, 80)); }
+  }
+  for (const pp of [baseCase(), { ...baseCase(), mandate: { ...baseCase().mandate, max_per_asset_class_bp: null } }, null, 5, []]) {
+    checked++;
+    try {
+      const art = await buildArtifact(pp);
+      if (!/^[0-9a-f]{64}$/.test(art.execution_hash) || art.hash_refusal !== undefined) {
+        violations++; console.log('never-throw violation: clean input lost its hash');
+      }
+    } catch (e) { violations++; console.log('never-throw violation: buildArtifact threw on clean input: ' + String(e.message).slice(0, 80)); }
+  }
+  return { name: 'buildArtifact_never_throws (null hash + hash_refusal on unhashable, hash on clean)', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -169,6 +217,8 @@ const properties = [
   checkInvalidDomainRefusal(),
   checkMonotoneSeverity(),
   checkVerdictVocabulary(),
+  checkClassCapMapRefusal(),
+  await checkBuildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test.`);
 const ok = summarize(KERNEL_ID, oracle, properties);

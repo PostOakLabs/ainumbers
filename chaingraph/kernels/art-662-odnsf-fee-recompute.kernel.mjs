@@ -98,6 +98,17 @@
  */
 import { executionHash } from './_hash.mjs';
 
+// MISSING-INPUT / NEVER-THROW CURE. The two fields the node's own contract marks required
+// (inputSchema.required: ledger, fee_schedule) already resolve to INDETERMINATE when they are
+// absent, null, empty or whitespace-only: an empty ledger leaves no fee events to recompute, and an
+// absent fee schedule cannot establish nsf_fee_minor_units/od_fee_minor_units. account_token,
+// period_label, opening_balance_minor_units and posting_order_policy are optional by that same
+// contract (each has a documented default and is not in inputSchema.required); they are left
+// untouched, and their absence still behaves exactly as before. buildArtifact never throws: a
+// preimage the shared canonicalizer would refuse (non-finite or unsafe-integer number, depth past
+// MAX_DEPTH, more than MAX_ELEMENTS values) yields an artifact with execution_hash null and a
+// hash_refusal reason instead of an exception. The normal hash path is still executionHash().
+
 const TOOL_ID = 'art-662-odnsf-fee-recompute';
 const TOOL_VERSION = '1.0.0';
 export const meta = {
@@ -162,6 +173,36 @@ function str(v, fallback) { return isNonEmptyString(v) ? v.trim() : fallback; }
 function arr(v) { return Array.isArray(v) ? v : []; }
 function obj(v) { return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }
 function isDateStr(v) { return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v); }
+
+// Mirrors the I-JSON limits _hash.mjs enforces before canonicalizing. A hit is reported as
+// { reason, detail } with path and kind only, never the offending value; _hash.mjs stays untouched
+// and remains the only canonicalizer for the artifact hash.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > HASH_MAX_DEPTH) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > HASH_MAX_ELEMENTS) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+  }
+  return null;
+}
 
 export function compute(pp) {
   pp = pp || {};
@@ -488,6 +529,27 @@ export function compute(pp) {
 
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
+  // Walk the exact execution_hash preimage. Where the shared canonicalizer would refuse it, mint a
+  // refusal artifact with a null hash instead of throwing (D6-ANYKERNEL-1115).
+  const unhashable = findHashRefusal({ policy_parameters: pp, output_payload }, 'preimage', 1, { n: 0 });
+  if (unhashable !== null) {
+    return {
+      '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+      chaingraph_version: '0.4.0',
+      mandate_type: meta.mandate_type,
+      tool_id: TOOL_ID,
+      tool_version: TOOL_VERSION,
+      generated_at: now ?? null,
+      execution_hash: null,
+      hash_refusal: { reason: unhashable.reason, detail: unhashable.detail },
+      chain: { parent_hashes, parent_tool_ids, chain_depth },
+      policy_parameters: null,
+      output_payload: { verdict: 'REFUSED', refusal: unhashable.reason },
+      compliance_flags: ['INPUT_REFUSED'],
+      compute_mode: 'server',
+      audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+    };
+  }
   const hash = await executionHash(pp, output_payload);
   return {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
