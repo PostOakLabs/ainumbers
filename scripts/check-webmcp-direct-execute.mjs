@@ -442,6 +442,53 @@ const RUN_PATH_ADAPTERS = {
       setVal(sandbox, 'childIn', pp.child_license ?? '');
     },
   },
+  // PR-3348-DIRECT-REG-CURE-1: the three manifest-repointed FIX-MANIFEST pages
+  // (WEBMCP-FN-SHAPE-LEG-3). Adapters map fixture policy_parameters onto the
+  // pages' own controls; where fixture 0's pp is {} or omits a key the form
+  // path always emits (collectPP/getPP defaults), the run-path pp cannot
+  // reproduce the kernel golden's raw-pp preimage and the leg-2 mismatch is
+  // baselined with a reason.
+  'art-206-rights-record-builder': {
+    run: 'runBuilder',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // collectPP() always returns the full row shape (territory/renewal
+      // defaults, rights_vector from rvState), so fixture 0's {} preimage is
+      // not form-reproducible; empty controls exercise the page's own
+      // empty-input path.
+      setVal(sandbox, 'assetRef', pp.asset_ref ?? '');
+      setVal(sandbox, 'licensor', pp.licensor ?? '');
+      setVal(sandbox, 'licensee', pp.licensee ?? '');
+      setVal(sandbox, 'licenseId', pp.license_id ?? '');
+      setVal(sandbox, 'territory', pp.territory ?? '');
+      setVal(sandbox, 'termYears', pp.term_years === undefined ? '' : String(pp.term_years));
+      setVal(sandbox, 'renewal', pp.renewal ?? '');
+    },
+  },
+  'art-280-reserve-proof-verifier': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() always returns {exchange, merkle_proof, storage_proof_composition}
+      // (por_round only when its controls are filled), so fixture 0's {}
+      // preimage is not form-reproducible; empty controls run the page's
+      // empty-form path.
+      setVal(sandbox, 'exchange', pp.exchange ?? '');
+      setVal(sandbox, 'merkle_proof', pp.merkle_proof === undefined ? '' : JSON.stringify(pp.merkle_proof, null, 2));
+    },
+  },
+  'art-284-did-webvh-log-verifier': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() always adds max_entries (control default 100), which fixture
+      // 0's pp omits, so the golden preimage is not form-reproducible; the
+      // fixture's did/did_log are served through the page's real controls.
+      setVal(sandbox, 'did', pp.did ?? '');
+      setVal(sandbox, 'logInput', JSON.stringify(pp.did_log ?? [], null, 2));
+      setVal(sandbox, 'max_entries', pp.max_entries === undefined ? '' : String(pp.max_entries));
+    },
+  },
 };
 
 function setVal(sandbox, id, v) {
