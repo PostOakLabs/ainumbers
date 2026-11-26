@@ -19,3 +19,13 @@ Domain: Settlement Discipline
 ### Chain verify
 
 Run the workflow through the MCP server (run_chain at https://mcp.ainumbers.co/mcp) and check each step receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+### Ask your agent
+
+Question: Our counterparty claimed a fails charge on two Treasury fails. Does the claim match an independent recompute from par, days and reference rate?
+Run the AINumbers MCP tool `run_chain` with {"chain":"tmpg-fails-charge-claim-pack"} and read `art-575-tmpg-fails-charge-recompute.verdict`.
+Re-run with `inputs` for `art-575-tmpg-fails-charge-recompute`, reusing the values that result echoed, with `fails` changed so fail-A claims a charge of 1500 minor units, not 1389. Compare the same field.
+Verify: call `verify_execution_hash` (https://mcp.ainumbers.co/mcp) with `claimed_hash` set to `composite_execution_hash` and the full `composite_artifact`.
+Ledger, for a human re-check: https://ledger.ainumbers.co/
+PII rule: send synthetic or anonymised inputs only. The MCP server runs these kernels and logs no payloads.
+Chain page: https://ainumbers.co/chaingraph/chains/tmpg-fails-charge-claim-pack.html

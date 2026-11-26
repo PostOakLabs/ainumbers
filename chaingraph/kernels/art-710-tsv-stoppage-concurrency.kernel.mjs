@@ -1,4 +1,7 @@
 import { executionHash } from './_hash.mjs';
+// Refusal-detail formatter: JSON.stringify throws on a BigInt, so render one as `<digits>n`.
+// Output for every non-BigInt value is identical to JSON.stringify.
+const fmt = (v) => JSON.stringify(v, (_k, x) => (typeof x === 'bigint' ? `${x}n` : x));
 
 // art-710-tsv-stoppage-concurrency — checks a tokenized-stock venue (TSV) against
 // SEC TSV Exemption condition H (FR 2026-19388, 91 Fed. Reg. 60176, Sept. 22, 2026):
@@ -145,7 +148,7 @@ export function compute(pp) {
     if (!isInt(pp.concurrency_tolerance_ms) || pp.concurrency_tolerance_ms < 0) {
       return refusal('TOLERANCE_INVALID',
         'concurrency_tolerance_ms must be a non-negative integer number of milliseconds; got '
-        + JSON.stringify(pp.concurrency_tolerance_ms ?? null) + '.');
+        + fmt(pp.concurrency_tolerance_ms ?? null) + '.');
     }
     tol = pp.concurrency_tolerance_ms;
   }
@@ -154,13 +157,13 @@ export function compute(pp) {
   if (!Array.isArray(pp.stoppages) || pp.stoppages.length === 0) {
     return refusal('STOPPAGES_INVALID',
       'stoppages must be a non-empty array of { symbol, start_ts, end_ts|null, kind } where kind is one of halt | suspension | mwcb; got '
-      + JSON.stringify(pp.stoppages ?? null) + '.');
+      + fmt(pp.stoppages ?? null) + '.');
   }
   for (const s of pp.stoppages) {
     if (!isValidStoppage(s)) {
       return refusal('STOPPAGE_ENTRY_INVALID',
         'each stoppage must carry a non-empty symbol string, an integer start_ts >= 0, an end_ts that is null (open-ended) or an integer >= start_ts, and a kind of halt | suspension | mwcb; got '
-        + JSON.stringify(s ?? null) + '.');
+        + fmt(s ?? null) + '.');
     }
   }
 
@@ -168,19 +171,19 @@ export function compute(pp) {
   if (!Array.isArray(pp.tsv_trades)) {
     return refusal('TRADES_INVALID',
       'tsv_trades must be an array of { symbol, ts, trade_id }; got '
-      + JSON.stringify(pp.tsv_trades ?? null) + '.');
+      + fmt(pp.tsv_trades ?? null) + '.');
   }
   for (const t of pp.tsv_trades) {
     if (!isValidTrade(t)) {
       return refusal('TRADE_ENTRY_INVALID',
         'each trade must carry a non-empty symbol string, an integer ts >= 0, and a non-empty trade_id string; got '
-        + JSON.stringify(t ?? null) + '.');
+        + fmt(t ?? null) + '.');
     }
   }
   const seenTradeIds = new Set();
   for (const t of pp.tsv_trades) {
     if (seenTradeIds.has(t.trade_id)) {
-      return refusal('TRADE_ID_DUPLICATE', 'trade_id ' + JSON.stringify(t.trade_id) + ' appears more than once.');
+      return refusal('TRADE_ID_DUPLICATE', 'trade_id ' + fmt(t.trade_id) + ' appears more than once.');
     }
     seenTradeIds.add(t.trade_id);
   }
@@ -189,13 +192,13 @@ export function compute(pp) {
   if (!Array.isArray(pp.tsv_halt_records)) {
     return refusal('HALT_RECORDS_INVALID',
       'tsv_halt_records must be an array of { symbol, start_ts, end_ts|null }; got '
-      + JSON.stringify(pp.tsv_halt_records ?? null) + '.');
+      + fmt(pp.tsv_halt_records ?? null) + '.');
   }
   for (const h of pp.tsv_halt_records) {
     if (!isValidHaltRecord(h)) {
       return refusal('HALT_RECORD_ENTRY_INVALID',
         'each halt record must carry a non-empty symbol string, an integer start_ts >= 0, and an end_ts that is null (open-ended) or an integer >= start_ts; got '
-        + JSON.stringify(h ?? null) + '.');
+        + fmt(h ?? null) + '.');
     }
   }
 
@@ -203,13 +206,13 @@ export function compute(pp) {
   if (!Array.isArray(pp.participant_notices)) {
     return refusal('NOTICES_INVALID',
       'participant_notices must be an array of { symbol, ts }; got '
-      + JSON.stringify(pp.participant_notices ?? null) + '.');
+      + fmt(pp.participant_notices ?? null) + '.');
   }
   for (const n of pp.participant_notices) {
     if (!isValidNotice(n)) {
       return refusal('NOTICE_ENTRY_INVALID',
         'each participant notice must carry a non-empty symbol string and an integer ts >= 0; got '
-        + JSON.stringify(n ?? null) + '.');
+        + fmt(n ?? null) + '.');
     }
   }
 

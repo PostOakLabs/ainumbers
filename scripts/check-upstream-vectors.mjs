@@ -116,7 +116,53 @@ async function runCosignature() {
   await run('ed25519-0x04-sigsum-go-valid', mk(blob), true, 'independent sigsum-go cosignature/v1 over a checkpoint');
   const bad = Buffer.from(blob); bad[11] ^= 1; // flip a timestamp bit; upstream rejects this too
   await run('ed25519-0x04-sigsum-go-tampered-timestamp', mk(bad), false, 'timestamp-tampered cosignature must be rejected');
-  rec('SKIP', set, 'mldsa44-0x06', 'no independent ML-DSA-44 (0x06) cosignature vector found as of 2026-10-22 (see PROVENANCE.json)');
+
+  // ML-DSA-44 (0x06) checkpoint cosignature: generated vector (openssl-mldsa44/vector.json)
+  // signed with OpenSSL 3.5.5 ML-DSA-44 via Node WebCrypto — an implementation independent
+  // of the @noble/post-quantum vendored in art-424. The harness re-encodes CosignedSubtree
+  // from the checkpoint fields per tlog-cosignature v1.1.0 and requires byte-equality with
+  // the recorded cosigned_subtree_hex before anything is run through the kernel.
+  const v = JSON.parse(vfile(`${set}/openssl-mldsa44/vector.json`));
+  const enc = new TextEncoder();
+  const nameMB = enc.encode(v.cosigner_name), originMB = enc.encode(v.checkpoint.origin);
+  const rootM = b64(v.checkpoint.root_hash_b64);
+  const cst = new Uint8Array(12 + 1 + nameMB.length + 8 + 1 + originMB.length + 8 + 8 + 32);
+  const dv = new DataView(cst.buffer);
+  let off = 0;
+  cst.set(enc.encode('subtree/v1\n\0'), off); off += 12;
+  cst[off++] = nameMB.length; cst.set(nameMB, off); off += nameMB.length;
+  dv.setBigUint64(off, BigInt(v.checkpoint.timestamp), false); off += 8;
+  cst[off++] = originMB.length; cst.set(originMB, off); off += originMB.length;
+  dv.setBigUint64(off, 0n, false); off += 8;                    // checkpoint cosignature: start = 0
+  dv.setBigUint64(off, BigInt(v.checkpoint.tree_size), false); off += 8; // end = tree size
+  cst.set(rootM, off);
+  if (hex(cst) !== v.cosigned_subtree_hex) fault('mldsa44 vector: re-encoded CosignedSubtree differs from the vendored cosigned_subtree_hex');
+  let pubKeyObj = null;
+  try {
+    // Node's WebCrypto imports ML-DSA public keys only as SPKI (raw import: NotSupportedError).
+    // Wrap the vendored raw 1312-byte key in the standard ML-DSA-44 SPKI (OID 2.16.840.1.101.3.4.3.17);
+    // a wrong wrap makes the reference-control verify below fault, so the DER is self-checked.
+    const rawPubM = Buffer.from(v.public_key_b64, 'base64');
+    if (rawPubM.length !== 1312) fault('mldsa44 vector: public key is not 1312 bytes');
+    const spki = Buffer.concat([Buffer.from('30820532300b06096086480165030403110382052100', 'hex'), rawPubM]);
+    pubKeyObj = await globalThis.crypto.subtle.importKey('spki', spki, { name: 'ML-DSA-44' }, false, ['verify']);
+  } catch {
+    rec('SKIP', set, 'mldsa44-0x06-generated-valid', `node ${process.version} / OpenSSL ${process.versions.openssl} exposes no WebCrypto ML-DSA-44; the vector needs node >= 24 (OpenSSL 3.5) for the OpenSSL reference control (signer side: OpenSSL 3.5.5)`);
+    rec('SKIP', set, 'mldsa44-0x06-generated-tampered-root', 'same toolchain gap as mldsa44-0x06-generated-valid');
+  }
+  if (pubKeyObj) {
+    const sigM = Buffer.from(v.cosignature_b64, 'base64').subarray(12);
+    const okRef = await globalThis.crypto.subtle.verify({ name: 'ML-DSA-44' }, pubKeyObj, sigM, cst).catch(() => false);
+    if (!okRef) fault('reference control failed: vendored ML-DSA-44 cosignature does not verify under OpenSSL WebCrypto');
+    const mkM = (rootBytes) => ({
+      anchored_hash: hex(rootBytes), log_origin: v.checkpoint.origin, threshold: 1,
+      checkpoint_note: `${v.checkpoint.origin}\n${v.checkpoint.tree_size}\n${Buffer.from(rootBytes).toString('base64')}\n\n— ${v.cosigner_name} ${v.cosignature_b64}\n`,
+      witness_keys: [{ name: v.cosigner_name, algorithm: 'ml-dsa-44', public_key_b64: v.public_key_b64 }],
+    });
+    await run('mldsa44-0x06-generated-valid', mkM(rootM), true, 'independent OpenSSL 3.5.5 ML-DSA-44 checkpoint cosignature over the binary CosignedSubtree message');
+    const badRoot = Buffer.from(rootM); badRoot[3] ^= 1;
+    await run('mldsa44-0x06-generated-tampered-root', mkM(badRoot), false, 'root-tampered checkpoint must be rejected: the signature covers the signed root, not the note line');
+  }
 }
 
 // ── (c) W3C Bitstring Status List v1.0: art-287 ───────────────────────────────────────────
@@ -349,9 +395,9 @@ async function runSanctionsBinding() {
 // map what the chain said onto Kanon's reason-code registry (schema/reason-codes.md v2.0.0)
 // in its NORMATIVE check order -- first failing check wins. SIG_MALLEABLE is sourced from
 // the nodes themselves: an art-591 'SIG_MALLEABLE' verdict, or any compliance flag ending
-// in SIGNATURE_HIGH_S on the art-590/591/592 output (the art-699 naming). Today no node in
-// the chain reports it, so x402-evm-eip3009-sig-malleable-high-s-001 FAILs (baselined);
-// whichever node gains the check flips that vector to PASS with no harness edit.
+// in SIGNATURE_HIGH_S on the art-590/591/592 output (the art-699 naming). Since
+// ART591-LOW-S-FIX-1, art-592 takes the vector's signature and refuses hard on a high-s
+// value (X402_SIGNATURE_HIGH_S), so x402-evm-eip3009-sig-malleable-high-s-001 PASSes.
 async function runKanonX402() {
   const set = 'kanon-x402';
   checkProvenance(set);
@@ -378,6 +424,7 @@ async function runKanonX402() {
         expected_chain_id: v.network.split(':')[1], expected_verifying_contract: accepted.asset,
         ...au, now_unix: ctx.verification_time,
         nonce_already_used: (ctx.seen_nonces ?? []).map((s) => String(s).toLowerCase()).includes(String(au.nonce).toLowerCase()),
+        signature: payload.signature,
       });
       // The high-s signal, from whichever node in the chain reports it first.
       const flags = [r.compliance_flags ?? [], w.compliance_flags ?? []].flat();

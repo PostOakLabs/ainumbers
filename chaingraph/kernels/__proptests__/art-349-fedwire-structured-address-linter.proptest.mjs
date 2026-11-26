@@ -1,5 +1,5 @@
 // art-349-fedwire-structured-address-linter.proptest.mjs — FV property-test FLOOR (FV-PROPFLOOR-SHARD-C14-1).
-// kernel_digest_at_authoring: sha256:5d00ddaa78f298a5fa938bf6f520102ef38a75b1de34b7fdb631905ef13cadc8
+// kernel_digest_at_authoring: sha256:501fd66cf4de8f8e836ded3fdfd780c5311c5351a188307e66d68f79da44456a
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md §3, class C). NOT a proof, NOT Dafny.
@@ -7,9 +7,13 @@
 // no arithmetic comparison of caller-supplied numbers anywhere in the kernel).
 // Checks: fixture-oracle gate, termination (violations[] is bounded by address_lines.length plus
 // a fixed set of structural checks; readiness_pct always stays in [0,100]), a differential
-// re-derivation of error_count/compliant from violations[], and forced categorical boundary
+// re-derivation of error_count/compliant from violations[], forced categorical boundary
 // cases at the four structural thresholds (MAX_ADR_LINE_LEN=70 chars, MAX_ADR_LINES=2,
-// ISO-3166-1 alpha-2 country-code length=2, the silent-fail-duplication length>=3 threshold).
+// ISO-3166-1 alpha-2 country-code length=2, the silent-fail-duplication length>=3 threshold),
+// and a date-honesty floor (CBPR-KERNEL-DATE-CONSUMER-MAP-1 §4): fedwire_chips_deadline is
+// null, the status string always travels, UNSTRUCTURED_ADDRESS is WARN while no enforcement
+// day is published (caller as_of_date cannot arm the inert ERROR branch), hybrid carries the
+// not-yet-supported note, and the renamed UNSTRUCTURED_ADDRESS_FLAGGED flag mirrors the rule.
 // Zero external dependencies — pure Node built-ins only (mulberry32 PRNG, hand-rolled).
 //
 // Run: node chaingraph/kernels/__proptests__/art-349-fedwire-structured-address-linter.proptest.mjs
@@ -66,6 +70,11 @@ function randomPP(rng) {
 
 const TRIALS = 4000;
 
+// Fail-closed required-field set (manifest inputSchema.required) recomputed from pp here, never
+// read from the artifact under test (SO #34 independent derivation).
+const REQUIRED = ['address_lines', 'as_of_date', 'building_number', 'country', 'country_subdivision', 'network', 'post_code', 'street_name', 'town_name'];
+const filled = (v) => v != null && !(typeof v === 'string' && v.trim() === '');
+
 // ---------- P1: termination — violations bounded, readiness_pct in [0,100] ----------
 function checkP1_termination() {
   let violations = 0, checked = 0;
@@ -90,9 +99,19 @@ function checkP2_error_count_differential() {
     checked++;
     const expectedErrors = output_payload.violations.filter((v) => v.severity === 'ERROR').length;
     if (output_payload.error_count !== expectedErrors) violations++;
-    const expectedCompliant = expectedErrors === 0 && (output_payload.structure_type === 'FULLY_STRUCTURED' || output_payload.structure_type === 'HYBRID');
+    // Map §4 formula: fully-structured is the only default-compliant state; hybrid joins only
+    // under a caller-asserted as_of_date on/after a PUBLISHED enforcement date — that branch is
+    // inert while the kernel's enforcement constant is null, and randomPP never asserts one.
+    const missing = REQUIRED.filter((f) => !filled(pp[f]));
+    const expectedIndeterminate = missing.length > 0 && expectedErrors === 0;
+    const expectedCompliant = expectedIndeterminate ? null : (expectedErrors === 0 && output_payload.structure_type === 'FULLY_STRUCTURED');
     if (output_payload.compliant !== expectedCompliant) violations++;
-    if (!expectedCompliant !== compliance_flags.includes('FEDWIRE_ADDRESS_NON_COMPLIANT')) violations++;
+    if (expectedIndeterminate !== (output_payload.verdict === 'INDETERMINATE')) violations++;
+    if (expectedIndeterminate) {
+      if (JSON.stringify(output_payload.missing_required_fields || []) !== JSON.stringify(missing)) violations++;
+      if (!compliance_flags.includes('INPUT_MISSING_INDETERMINATE')) violations++;
+      if (compliance_flags.includes('FEDWIRE_ADDRESS_NON_COMPLIANT')) violations++;
+    } else if (!expectedCompliant !== compliance_flags.includes('FEDWIRE_ADDRESS_NON_COMPLIANT')) violations++;
     const expectedReadiness = expectedCompliant ? 100 : Math.max(0, 100 - expectedErrors * 20);
     if (output_payload.readiness_pct !== expectedReadiness) violations++;
   }
@@ -150,6 +169,74 @@ function checkP3_categorical_boundary_forcing() {
   return { name: 'P3_categorical_boundary_forcing_four_thresholds', trials: checked, violations };
 }
 
+// ---------- P4: date-honesty floor (map CBPR-KERNEL-DATE-CONSUMER-MAP-1 §4) ----------
+// Boundary cases are keyed on the CALLER's as_of_date, never on calendar constants: with no
+// published enforcement day the WARN default holds for every asserted as_of_date value.
+function checkP4_status_not_date() {
+  let violations = 0, checked = 0;
+  for (let i = 0; i < TRIALS; i++) {
+    const pp = randomPP(rand);
+    pp.as_of_date = pick(rand, ['', '2026-11-16', '2027-11-30', 'not-a-date']);
+    const { output_payload, compliance_flags } = compute(pp);
+    checked++;
+    if (output_payload.fedwire_chips_deadline !== null) violations++;
+    if (typeof output_payload.fedwire_chips_deadline_status !== 'string' || output_payload.fedwire_chips_deadline_status.length === 0) violations++;
+    const unr = output_payload.violations.find((v) => v.code === 'UNSTRUCTURED_ADDRESS');
+    if (unr && unr.severity !== 'WARN') violations++;
+    if (output_payload.violations.some((v) => v.code === 'UNSTRUCTURED_ADDRESS') !== compliance_flags.includes('UNSTRUCTURED_ADDRESS_FLAGGED')) violations++;
+    if (output_payload.structure_type === 'HYBRID' && !output_payload.violations.some((v) => v.code === 'HYBRID_NOT_YET_SUPPORTED')) violations++;
+    if (output_payload.structure_type === 'HYBRID' && output_payload.compliant) violations++;
+  }
+  return { name: 'P4_deadline_null_status_string_as_of_inert', trials: checked, violations };
+}
+
+// ---------- P6: fail-closed — every positive fixture vector with one required field deleted, nulled, "" or "   " never stays compliant ----------
+function checkP6_blankFieldsNeverCompliant() {
+  const fixturesPath = path.join(__dirname, '..', 'fixtures', 'art-349-fedwire-structured-address-linter.fixtures.json');
+  const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
+  let violations = 0, checked = 0, positives = 0;
+  for (const vec of fixtures.vectors) {
+    if (compute(vec.policy_parameters).output_payload.compliant !== true) continue;
+    positives++;
+    for (const f of REQUIRED) {
+      for (const mode of ['delete', 'null', 'empty', 'blank']) {
+        const pp = JSON.parse(JSON.stringify(vec.policy_parameters));
+        if (mode === 'delete') delete pp[f];
+        else pp[f] = mode === 'null' ? null : mode === 'empty' ? '' : '   ';
+        checked++;
+        const verdict = compute(pp).output_payload;
+        if (verdict.compliant === true) violations++;
+      }
+    }
+  }
+  if (positives === 0) violations++;
+  return { name: 'P6_blank_required_field_never_positive', trials: checked, positives, violations };
+}
+
+// ---------- P5: buildArtifact_never_throws — one fixture per unhashable class ----------
+async function checkP5_buildArtifactNeverThrows() {
+  const { buildArtifact } = await import('../art-349-fedwire-structured-address-linter.kernel.mjs');
+  let deep = {}; let cur = deep;
+  for (let i = 0; i < 511; i++) { cur.n = {}; cur = cur.n; }
+  const classes = [
+    ['junk_1e300', { network: 1e300 }],
+    ['nan', { network: NaN }],
+    ['neg_infinity', { network: -Infinity }],
+    ['depth_511', { network: deep }],
+    ['over_1e6_values', { network: new Array(1000001).fill(0) }],
+  ];
+  let violations = 0; const rows = [];
+  for (const [label, pp] of classes) {
+    try {
+      const a = await buildArtifact(pp);
+      const ok = a.execution_hash === null && a.hash_refusal && typeof a.hash_refusal.reason === 'string';
+      if (!ok) violations++;
+      rows.push({ label, refused: !!ok });
+    } catch (e) { violations++; rows.push({ label, threw: String(e && e.message).slice(0, 80) }); }
+  }
+  return { name: 'buildArtifact_never_throws', trials: classes.length, violations, rows };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -160,6 +247,9 @@ if (!oracleOk) {
 results.properties.push(checkP1_termination());
 results.properties.push(checkP2_error_count_differential());
 results.properties.push(checkP3_categorical_boundary_forcing());
+results.properties.push(checkP4_status_not_date());
+results.properties.push(checkP6_blankFieldsNeverCompliant());
+results.properties.push(await checkP5_buildArtifactNeverThrows());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 

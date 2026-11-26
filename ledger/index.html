@@ -1191,7 +1191,7 @@ async function _runVerify(artifact) {
   const cp = artifact.audit_signature?.compute_proof;
   if (cp) {
     const vendor = detectVendor(artifact);
-    out.computeProof = _checkComputeProof(cp, vendor);
+    out.computeProof = await _checkComputeProof(cp, vendor, artifact);
     out.details.computeProof = out.computeProof;
   }
 
@@ -1269,7 +1269,32 @@ async function _verifyDataIntegrityProof(docWithoutProof, proof) {
   }
 }
 
-function _checkComputeProof(cp, vendor) {
+/* VERIFYBINDING-DIGEST-DEFAULT-1: the PUBLISHED kernel-digest list (chaingraph/kernel-digests.json,
+   derived on main from the node shards' sha256-source compute_images entries; single writer on main,
+   never edited in a PR). Fetched once per session and cached; the kernel_digest leg of the compute-
+   integrity check engages BY DEFAULT against it, scoped to the artifact's own tool_id, so a receipt
+   proven by one tool's kernel cannot pass as another tool's. SO #34 holds by construction: digests
+   come from this published file, never from the artifact under test. Fetch failure keeps the leg
+   OFF and says so in the check note (an explicit, disclosed degradation). The anchor endpoint below
+   is the page's other network surface; this static file fetch follows the same pattern. */
+let __pubKernelDigests = null;
+let __pubKernelDigestsTried = false;
+async function _publishedKernelDigests() {
+  if (__pubKernelDigestsTried) return __pubKernelDigests;
+  __pubKernelDigestsTried = true;
+  try {
+    const r = await fetch('../chaingraph/kernel-digests.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    if (!j || typeof j !== 'object' || !j.digests || typeof j.digests !== 'object') throw new Error('malformed digest list');
+    __pubKernelDigests = j.digests;
+  } catch (e) {
+    __pubKernelDigests = null;
+  }
+  return __pubKernelDigests;
+}
+
+async function _checkComputeProof(cp, vendor, artifact) {
   const issues = [];
   if (!cp.type || cp.type !== 'ZkVmReceipt') issues.push('type must be "ZkVmReceipt"');
   if (!cp.imageId) issues.push('imageId absent');
@@ -1279,6 +1304,39 @@ function _checkComputeProof(cp, vendor) {
 
   if (vendor && vendor.image_ids.length > 0 && !vendor.image_ids.includes(cp.imageId))
     return { status: 'structural_fail', issues: [`imageId ${cp.imageId} not in ${vendor.name} registry`] };
+
+  // Kernel_digest leg (VERIFYBINDING-DIGEST-DEFAULT-1): engage BY DEFAULT against the published
+  // digest list for this artifact's tool_id. Known tool + missing journal.kernel_digest = fail
+  // (absence is not a pass); known tool + mismatched digest = fail (the transplant class); tool
+  // not in the list = leg not applicable (the node publishes no kernel identity to check against).
+  const toolId = artifact && artifact.tool_id;
+  const pubDigests = await _publishedKernelDigests();
+  let digestLeg = 'off';
+  let digestPass = true;
+  let digestNote = '';
+  if (!pubDigests) {
+    digestNote = ' Kernel-digest leg not engaged: the published digest list was unavailable.';
+  } else {
+    const published = toolId ? pubDigests[toolId] : null;
+    if (!published) {
+      digestLeg = 'not-applicable';
+      digestNote = ' Kernel-digest leg not applicable: tool not in the published digest list.';
+    } else {
+      digestLeg = 'published-default';
+      const bare = (h) => String(h).replace(/^sha256:/, '').toLowerCase();
+      const jd = typeof cp.journal.kernel_digest === 'string' && cp.journal.kernel_digest ? bare(cp.journal.kernel_digest) : '';
+      const pd = bare(published);
+      if (!jd) {
+        digestPass = false;
+        digestNote = ' The kernel-digest leg is engaged and the journal carries no kernel_digest; absence is not a pass.';
+      } else if (jd !== pd) {
+        digestPass = false;
+        digestNote = ' The kernel-digest leg engaged by default failed: the journal\'s kernel digest is not the published kernel identity of ' + toolId + ', so this receipt was proven by a different kernel.';
+      } else {
+        digestNote = ' Kernel-digest leg engaged by default: the journal\'s kernel digest matched the published list.';
+      }
+    }
+  }
 
   // §18.1 (LEDGER-GROTH16-VERIFY-1): cryptographic seal verification, in-page, via the
   // vendored BN254 Groth16 reference verifier (same code path as kernels/_computeproof.mjs;
@@ -1290,19 +1348,23 @@ function _checkComputeProof(cp, vendor) {
     imageId: cp.imageId,
     system: cp.system || null,
     receiptFormat: cp.receiptFormat || null,
+    digestLeg,
     vendorMatch: !vendor || vendor.image_ids.length === 0 || vendor.image_ids.includes(cp.imageId)
   };
   if (cp.receiptFormat === 'groth16-bn254') {
     const ok = ledgerVerifySeal(cp);
-    return ok
-      ? Object.assign(base, { status: 'verified', note: 'receipt verified (Groth16 BN254).' })
-      : Object.assign(base, { status: 'verify_failed', note: 'receipt present, verification failed.' });
+    if (!ok) return Object.assign(base, { status: 'verify_failed', note: 'receipt present, verification failed.' });
+    return Object.assign(base, digestPass
+      ? { status: 'verified', note: 'receipt verified (Groth16 BN254).' + digestNote }
+      : { status: 'verify_failed', note: 'receipt verified (Groth16 BN254).' + digestNote });
   }
+  if (!digestPass)
+    return Object.assign(base, { status: 'verify_failed', note: 'Structural check passed.' + digestNote });
   return Object.assign(base, {
     status: 'structural_pass',
-    note: cp.receiptFormat === 'stark'
+    note: (cp.receiptFormat === 'stark'
       ? 'Structural check only. Seal verification for stark receipts is delegated to the vendor verifier.'
-      : 'Structural check only. Cryptographic proof verification runs offline (Q4).'
+      : 'Structural check only. Cryptographic proof verification runs offline (Q4).') + digestNote
   });
 }
 
@@ -2872,9 +2934,9 @@ async function showRecord(artifact) {
   const cpRow = `<div class="verify-row">
     <span class="verify-icon">${(cpState === 'structural_pass' || cpState === 'verified') ? '&#10003;' : (cpState === 'structural_fail' || cpState === 'verify_failed') ? '&#10007;' : '&ndash;'}</span>
     <div class="verify-label">Compute integrity (§18)
-      <small>${cpState === 'verified' ? 'receipt verified (Groth16 BN254) &mdash; cryptographic seal check ran locally.' :
-              cpState === 'verify_failed' ? 'receipt present, verification failed.' :
-              cpState === 'structural_pass' ? 'Structural check only; cryptographic proof verification runs offline.' : cpNote || 'No compute proof in this artifact.'}</small>
+      <small>${cpState === 'verified' ? (cpNote ? escapeHtml(cpNote) : 'receipt verified (Groth16 BN254) &mdash; cryptographic seal check ran locally.') :
+              cpState === 'verify_failed' ? (cpNote ? escapeHtml(cpNote) : 'receipt present, verification failed.') :
+              cpState === 'structural_pass' ? (cpNote ? escapeHtml(cpNote) : 'Structural check only; cryptographic proof verification runs offline.') : (cpNote ? escapeHtml(cpNote) : 'No compute proof in this artifact.')}</small>
     </div>
     <div class="verify-chip">${
       cpState === 'verified' ? chipHtml('pass','Verified (Groth16 BN254)') :

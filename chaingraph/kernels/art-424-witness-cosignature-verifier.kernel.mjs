@@ -2916,19 +2916,22 @@ export const meta = {
 // supplied pinned witness key set. VERIFY-SIDE ONLY: this tool never operates, mirrors,
 // or serves a log — it consumes a checkpoint note text the caller already has (e.g. from
 // a c2sp.org/tlog-proof bundle) and performs zero network fetches. Two witness signature
-// suites: Ed25519 cosignature/v1 (the C2SP-shipped suite) and ML-DSA-44 (the suite our own
-// §20.2 text names alongside it, per the §PQC-1 reserved-extension discipline — no
-// C2SP-assigned type byte exists yet for ML-DSA in the note-signature registry, so the
-// 0xf0 type byte used below is a PROVISIONAL, locally-declared id for this verifier's own
-// key-id derivation only, not an external standard).
+// suites: Ed25519 and ML-DSA-44, both as timestamped checkpoint cosignatures per
+// c2sp.org/tlog-cosignature v1.1.0. Key ids and signature messages use the published
+// forms: the c2sp.org/signed-note registry assigns 0x04 (timestamped Ed25519) and 0x06
+// (timestamped ML-DSA-44) checkpoint-cosignature type bytes, Ed25519 signs the
+// \n-terminated text lines (cosignature/v1, "time <ts>", origin, size, base64 root,
+// extension lines), and ML-DSA-44 signs the binary CosignedSubtree structure. An earlier
+// revision of this kernel used a provisional 0xf0 local type byte and the Ed25519 text
+// form for both suites; that pre-standard encoding is retired here.
 //
 // COPY FENCE (row requirement): a verdict here states ONLY that ≥k pinned witnesses signed
 // THIS root. It says nothing about whether the log itself is honest or complete, or whether
 // the pinned witness keys truly belong to the parties they claim to be — both are trust
 // decisions made before this tool runs, not by it.
 
-const ED25519_NOTE_ALG = 0x01;      // Go sumdb note package's assigned Ed25519 algorithm byte
-const MLDSA44_NOTE_ALG = 0xf0;      // provisional local id — see header note above
+const ED25519_NOTE_ALG = 0x04;      // published c2sp.org/signed-note registry: timestamped Ed25519 checkpoint cosignature
+const MLDSA44_NOTE_ALG = 0x06;      // published c2sp.org/signed-note registry: timestamped ML-DSA-44 checkpoint cosignature
 
 function _str(v) { return typeof v === 'string' ? v : ''; }
 function _int(v) { return Number.isInteger(v) ? v : null; }
@@ -2979,13 +2982,43 @@ function parseNote(text) {
       return { name: body.slice(0, spaceAt), blob_b64: body.slice(spaceAt + 1).trim() };
     })
     .filter(Boolean);
-  return { origin, size, rootHex: toHex(rootBytes), extensionLines, noteText, sigLines };
+  return { origin, size, rootHex: toHex(rootBytes), rootBytes, extensionLines, noteText, sigLines };
 }
 
 async function witnessKeyId(name, algNoteByte, rawPubKey) {
   const msg = new Uint8Array([...new TextEncoder().encode(name + '\n'), algNoteByte, ...rawPubKey]);
   const digest = await sha256(msg);
   return digest.slice(0, 4);
+}
+
+// Big-endian uint64 writer — the mirror of readUint64BE above, for the CosignedSubtree
+// fixed-width fields (timestamp, start, end).
+function writeUint64BE(bytes, offset, valueBigint) {
+  for (let i = 0; i < 8; i++) bytes[offset + i] = Number((valueBigint >> BigInt(8 * (7 - i))) & 0xffn);
+}
+
+// tlog-cosignature v1.1.0 CosignedSubtree — the ML-DSA-44 signature message. Fixed
+// 12-byte "subtree/v1\n\0" label, 1-byte-length-prefixed cosigner_name and log_origin,
+// big-endian uint64 timestamp / start / end, 32-byte subtree hash. A checkpoint
+// cosignature is the whole-tree subtree: start 0, end = tree size, hash = root hash,
+// timestamp = the input timestamp.
+// Label bytes are all ASCII + \n + \0, so they are written literally: a module-top-level
+// TextEncoder call would evaluate during kernel-body load and trip the guest-builtin gate.
+const SUBTREE_LABEL = Uint8Array.of(0x73, 0x75, 0x62, 0x74, 0x72, 0x65, 0x65, 0x2f, 0x76, 0x31, 0x0a, 0x00);
+function encodeCosignedSubtree(cosignerName, timestampBigint, logOrigin, size, rootBytes) {
+  const enc = new TextEncoder();
+  const nameB = enc.encode(cosignerName);
+  const originB = enc.encode(logOrigin);
+  const out = new Uint8Array(12 + 1 + nameB.length + 8 + 1 + originB.length + 8 + 8 + 32);
+  let o = 0;
+  out.set(SUBTREE_LABEL, o); o += 12;
+  out[o++] = nameB.length; out.set(nameB, o); o += nameB.length;
+  writeUint64BE(out, o, timestampBigint); o += 8;
+  out[o++] = originB.length; out.set(originB, o); o += originB.length;
+  writeUint64BE(out, o, 0n); o += 8;                    // checkpoint cosignature: start = 0
+  writeUint64BE(out, o, BigInt(size)); o += 8;          // end = tree size
+  out.set(rootBytes, o);
+  return out;
 }
 
 function bytesEqual(a, b) {
@@ -3279,13 +3312,18 @@ async function computeAsync(pp) {
       continue;
     }
     let sig_valid = false;
+    let message_form = null;
     if (r.keyid_match) {
-      const msg = new TextEncoder().encode('cosignature/v1\n' + r.timestamp + '\n' + parsed.noteText);
+      const msg = r.algorithm === 'ml-dsa-44'
+        ? encodeCosignedSubtree(r.name, BigInt(r.timestamp), parsed.origin, parsed.size, parsed.rootBytes)
+        : new TextEncoder().encode('cosignature/v1\ntime ' + r.timestamp + '\n' + parsed.noteText);
+      message_form = r.algorithm === 'ml-dsa-44' ? 'cosigned-subtree/v1' : 'cosignature/v1-text';
       sig_valid = r.algorithm === 'ml-dsa-44' ? verifyMldsa44(r.sig, msg, r.rawPubKey) : await verifyEd25519(r.sig, msg, r.rawPubKey);
     }
     if (sig_valid && !seenValidNames.has(r.name)) { valid_witness_count++; seenValidNames.add(r.name); }
     cosignatures.push({ name: r.name, algorithm: r.algorithm, present: true, keyid_match: r.keyid_match,
-      timestamp: r.timestamp, valid: sig_valid });
+      timestamp: r.timestamp, valid: sig_valid,
+      signature_type: '0x' + r.algNoteByte.toString(16).padStart(2, '0'), message_form });
   }
 
   const pass = anchored_hash_match && origin_match && valid_witness_count >= threshold;

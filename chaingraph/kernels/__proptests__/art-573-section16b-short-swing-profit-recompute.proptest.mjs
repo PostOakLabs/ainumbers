@@ -1,6 +1,6 @@
 // art-573-section16b-short-swing-profit-recompute.proptest.mjs -- FV property-test FLOOR
 // (FV-PROPFLOOR-SHARD-C29-1).
-// kernel_digest_at_authoring: sha256:2bf576ae353041e722a9e64447d9484503c9d7208b320a9338562368f15e41d2
+// kernel_digest_at_authoring: sha256:ea37874e6b84c67d4d36a81673d0124380615956df289786362627e98fb08f8a
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only (FV-PBT-FLOOR-BUILD-SPEC.md Sec3, class C). NOT a proof, NOT Dafny.
@@ -158,6 +158,64 @@ function checkP4_transaction_order_invariance() {
   return { name: 'P4_transaction_array_order_invariance', trials: checked, violations };
 }
 
+// ---------- P6: fail-closed -- every completed-verdict fixture vector with one
+// manifest-required field deleted, nulled, emptied or whitespace-only must never
+// keep MATCHES or DIVERGES; it resolves to INDETERMINATE. ----------
+function checkP6_requiredFieldNeverPositive() {
+  const fixtures = JSON.parse(readFileSync(path.join(__dirname, '..', 'fixtures', 'art-573-section16b-short-swing-profit-recompute.fixtures.json'), 'utf8'));
+  const required = [
+    'currency', 'demand_letter_claimed_profit_minor_units', 'insider_ref',
+    'insider_status', 'issuer_ref', 'transactions',
+  ];
+  let violations = 0, checked = 0, bases = 0;
+  for (const vec of fixtures.vectors) {
+    const v = compute(vec.policy_parameters).output_payload.verdict;
+    if (v !== 'MATCHES' && v !== 'DIVERGES') continue;
+    bases++;
+    for (const f of required) {
+      for (const mode of ['delete', 'null', 'empty', 'blank']) {
+        const pp = JSON.parse(JSON.stringify(vec.policy_parameters));
+        if (!Object.prototype.hasOwnProperty.call(pp, f) && mode === 'delete') continue;
+        if (mode === 'delete') delete pp[f];
+        else pp[f] = mode === 'null' ? null : mode === 'empty' ? '' : '   ';
+        checked++;
+        const out = compute(pp).output_payload;
+        if (out.verdict !== 'INDETERMINATE') {
+          violations++;
+          console.error(`P6 FAILOPEN ${vec.name}/${f}/${mode}: ${out.verdict}`);
+        }
+      }
+    }
+  }
+  if (bases === 0) violations++;
+  return { name: 'P6_required_field_never_positive_including_blank', trials: checked, violations };
+}
+
+// ---------- P5b: buildArtifact_never_throws -- one fixture per unhashable class ----------
+async function checkP5b_buildArtifactNeverThrows() {
+  const { buildArtifact } = await import('../art-573-section16b-short-swing-profit-recompute.kernel.mjs');
+  let deep = {}; let cur = deep;
+  for (let i = 0; i < 600; i++) { cur.currency = {}; cur = cur.currency; }
+  const classes = [
+    ['junk_1e300', { currency: 1e300 }],
+    ['nan', { currency: NaN }],
+    ['neg_infinity', { currency: -Infinity }],
+    ['unsafe_integer', { currency: Number.MAX_SAFE_INTEGER + 2 }],
+    ['depth_600', { currency: deep }],
+    ['over_1e6_values', { currency: new Array(1000001).fill(0) }],
+  ];
+  let violations = 0; const rows = [];
+  for (const [label, pp] of classes) {
+    try {
+      const a = await buildArtifact(pp);
+      const ok = a.execution_hash === null && a.hash_refusal && typeof a.hash_refusal.reason === 'string';
+      if (!ok) violations++;
+      rows.push({ label, refused: !!ok });
+    } catch (e) { violations++; rows.push({ label, threw: String(e && e.message).slice(0, 80) }); }
+  }
+  return { name: 'buildArtifact_never_throws', trials: classes.length, violations, rows };
+}
+
 // ---------- run ----------
 const oracleOk = runFixtureOracle();
 if (!oracleOk) {
@@ -169,6 +227,8 @@ results.properties.push(checkP1_termination_bounded());
 results.properties.push(checkP2_matching_differential());
 results.properties.push(checkP3_ulp_display_boundary());
 results.properties.push(checkP4_transaction_order_invariance());
+results.properties.push(checkP6_requiredFieldNeverPositive());
+results.properties.push(await checkP5b_buildArtifactNeverThrows());
 
 const anyPropertyViolation = results.properties.some((p) => p.violations > 0);
 

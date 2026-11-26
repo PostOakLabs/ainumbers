@@ -109,8 +109,9 @@
 //   not run for a reason unrelated to type-checking.
 
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { resolveDiffScopeRef, changedLineSet } from './diff-scope.mjs';
 
@@ -298,17 +299,35 @@ export function runTsc(files, tsconfigJson) {
   const { cmd, prefixArgs } = process.platform === 'win32'
     ? resolveWindowsNpxInvocation()
     : { cmd: 'npx', prefixArgs: [] };
-  return spawnSync(
-    cmd,
-    [
-      ...prefixArgs,
-      '--yes', '--package=typescript@5.7.2', 'tsc',
-      ...loadCompilerOptionFlags(tsconfigJson),
-      ...files,
-      GLOBALS_DTS,
-    ],
-    { encoding: 'utf8' },
-  );
+  const args = [
+    ...prefixArgs,
+    '--yes', '--package=typescript@5.7.2', 'tsc',
+    ...loadCompilerOptionFlags(tsconfigJson),
+    ...files,
+    GLOBALS_DTS,
+  ];
+  const first = spawnSync(cmd, args, { encoding: 'utf8' });
+  // JSDOC-TSC-127-RETRY-1 (2026-11-23, KERNEL-BIGINT-F1-SAFE-FORMAT-1 ci-red): a bare
+  // `sh: 1: tsc: not found` exit 127 with no npm diagnostics is the concurrent-`npx
+  // --package` cache-race class (two preflight shards installing the same ephemeral
+  // package into a shared npx cache raced and left the bin link broken; the same run's
+  // mutation-tier jobs fetched stryker via npx from a different cache entry and worked).
+  // The gate fail-closes on it today ("tsc exited 127 ... treating as failure"), which
+  // turns an install race into a red CI gate. Retry ONCE with a dedicated per-invocation
+  // npm cache so the package install cannot collide; a real 127 (no network, no npx)
+  // fails the retry too and still exits as a failure — nothing is silently passed.
+  if (first.status === 127) {
+    const retryCache = resolve(tmpdir(), `jsdoc-tsc-cache-${process.pid}-${Date.now()}`);
+    const retry = spawnSync(cmd, ['--cache', retryCache, ...args], { encoding: 'utf8' });
+    const note = `[jsdoc-gate] attempt 1 exited 127 (${((first.stderr || '') + (first.stdout || '')).trim().split('\n')[0] || 'no output'}); retried once with a dedicated npm cache ${retryCache} (JSDOC-TSC-127-RETRY-1)\n`;
+    try { rmSync(retryCache, { recursive: true, force: true }); } catch { /* best effort */ }
+    return {
+      ...retry,
+      stderr: note + (first.stderr || '') + (retry.stderr || ''),
+      stdout: (retry.stdout || ''),
+    };
+  }
+  return first;
 }
 
 // ── CLI entry point ──────────────────────────────────────────────────────

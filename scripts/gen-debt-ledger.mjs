@@ -61,6 +61,7 @@ import { resolve, dirname, join, relative, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import { gitEnv } from './_git-env-lib.mjs';
+import { loadOriginalAuthorshipAllowlist } from './lib-per-kernel-config.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -158,7 +159,7 @@ const EXTRACTORS = {
   'scripts/binary-byte-allowlist.json': (j) => ({ n: nonMeta(j).length, what: 'files shielding a deliberate control byte' }),
   'scripts/c2patool-oracle-allowlist.json': (j) => ({ n: (j.entries ?? []).length, what: 'fixtures where the structural check and the external oracle diverge, by design' }),
   'scripts/kernel-determinism-allowlist.json': (j) => ({ n: (j.transcendentals?.files ?? []).length + (j.hard_ban_baseline?.entries ?? []).length, what: 'files calling an approximated transcendental, plus pre-existing hard-ban hits, combined' }),
-  'scripts/original-authorship-bundle-allowlist.json': (j) => ({ n: nonMeta(j).length, what: 'bundle files carrying a recorded original-authorship reason' }),
+  'scripts/original-authorship-bundle-allowlist.json': () => ({ n: nonMeta(loadOriginalAuthorshipAllowlist(REPO)).length, what: 'bundle files carrying a recorded original-authorship reason' }),
   'scripts/recompute-equality-quarantine.json': (j) => ({ n: (j.nodes ?? []).length, what: 'nodes with a named, observed recompute-equality mismatch' }),
   'chaingraph/standard/spec-page-parity-baseline.json': (j) => ({ n: (j.missing ?? []).length, what: 'spec sections with no matching page coverage' }),
 };

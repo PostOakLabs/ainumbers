@@ -60,10 +60,13 @@
 //   node register-sigsum.mjs register --hash sha256:<hex> --key <priv.jwk.json>
 //       [--token-key <token-priv.jwk.json> --domain <domain>]
 //       [--out record.json] [--poll-attempts 30] [--poll-interval-ms 2000]
+//       (a <out>.pending.json sidecar left by a timed-out run makes the rerun
+//       RESUME the inclusion poll instead of re-submitting the leaf — rerun
+//       the same command; --key is not needed while a matching sidecar exists)
 //   node register-sigsum.mjs verify <record.json>   # OFFLINE — never calls seasalp
 //   node register-sigsum.mjs selftest                # local-only, no network
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { webcrypto } from 'node:crypto';
 import {
   hashLeafNode as sharedHashLeafNode,
@@ -309,42 +312,116 @@ async function main() {
     const outPath = flag(rest, 'out', 'sigsum-record.json');
     const pollAttempts = Number(flag(rest, 'poll-attempts', '30'));
     const pollIntervalMs = Number(flag(rest, 'poll-interval-ms', '2000'));
-    if (!anchoredHash || !keyPath) throw new Error('usage: register --hash sha256:<hex> --key <priv.jwk.json> [--token-key <k> --domain <d>] [--out record.json]');
+    if (!anchoredHash) throw new Error('usage: register --hash sha256:<hex> --key <priv.jwk.json> [--token-key <k> --domain <d>] [--out record.json]');
     if (!/^sha256:[a-f0-9]{64}$/.test(anchoredHash)) throw new Error(`--hash must be "sha256:<64-hex>", got: ${anchoredHash}`);
     const messageBytes = Buffer.from(anchoredHash.slice('sha256:'.length), 'hex'); // 32 raw bytes
 
-    const jwk = JSON.parse(readFileSync(keyPath, 'utf8'));
-    const privateKey = await importPrivateJwk(jwk);
-    const pubJwk = { ...jwk, d: undefined, key_ops: ['verify'] };
-    const publicKey = await subtle.importKey('jwk', pubJwk, { name: 'Ed25519' }, true, ['verify']);
-    const publicKeyBytes = Buffer.from(await subtle.exportKey('raw', publicKey));
-
-    const checksum = await sha256(messageBytes); // this is what actually lands as Leaf.Checksum
-    const leafSigData = attachNamespace(TREE_LEAF_NAMESPACE, checksum);
-    const leafSignature = Buffer.from(await subtle.sign({ name: 'Ed25519' }, privateKey, leafSigData));
-
-    const body = `message=${messageBytes.toString('hex')}\nsignature=${leafSignature.toString('hex')}\npublic_key=${publicKeyBytes.toString('hex')}\n`;
-
-    const headers = {};
-    if (tokenKeyPath && domain) {
-      const tokenJwk = JSON.parse(readFileSync(tokenKeyPath, 'utf8'));
-      const tokenPrivateKey = await importPrivateJwk(tokenJwk);
-      const logPubBytes = Buffer.from(LOG_PUBLIC_KEY_HEX, 'hex');
-      const token = await makeSubmitToken(tokenPrivateKey, logPubBytes);
-      headers['Sigsum-Token'] = `${domain} ${token.toString('hex')}`;
+    // -----------------------------------------------------------------------
+    // Pending-record resume (SIGSUM-REGISTER-PENDING-RECORD-1 — the
+    // never-re-stamp rule): seasalp allows 288 add-leaf entries per 24 h per
+    // domain suffix, and a leaf that answered 200/202 IS in the log even when
+    // this run then times out waiting for its inclusion proof. Before this
+    // change such a timeout threw and wrote nothing, so a plain rerun
+    // re-submitted the same leaf: one wasted budget entry plus a duplicate.
+    // Now, right after a 200/202 add-leaf we persist a PUBLIC sidecar at
+    // <out>.pending.json (schema ain-sigsum-pending-v1: anchored_hash, log_url,
+    // checksum, leaf_signature, public_key, leaf_hash, submitted_at — NEVER a
+    // private key, a token or a key path), and a rerun for the SAME
+    // anchored_hash skips add-leaf entirely and resumes the poll loop from the
+    // stored values (the --key/--token-key flags are not used while resuming).
+    // A sidecar whose anchored_hash DIFFERS is reported and ignored — the
+    // ignore path never overwrites or deletes it; only a fresh submission's
+    // OWN successful add-leaf (which writes its sidecar to the same
+    // <out>-derived path) supersedes the stale file. A sidecar that matches
+    // --hash but is unusable (foreign schema, corrupt hex, different log_url)
+    // is a hard error — never a silent re-submit.
+    // -----------------------------------------------------------------------
+    const pendingPath = `${outPath}.pending.json`;
+    const PENDING_SCHEMA = 'ain-sigsum-pending-v1';
+    const isHex = (s, n) => new RegExp(`^[0-9a-f]{${n}}$`).test(s);
+    let resumed = null;
+    if (existsSync(pendingPath)) {
+      let candidate = null;
+      try { candidate = JSON.parse(readFileSync(pendingPath, 'utf8')); }
+      catch (err) { throw new Error(`pending record ${pendingPath} is unreadable (${err.message}) — delete it only if you are certain the leaf it holds was never submitted`); }
+      if (candidate && candidate.anchored_hash === anchoredHash) {
+        // Same anchored_hash: this leaf was already submitted — never POST it again.
+        const reasons = [];
+        if (candidate.schema !== PENDING_SCHEMA) reasons.push(`schema ${JSON.stringify(candidate.schema)} !== ${JSON.stringify(PENDING_SCHEMA)}`);
+        if (candidate.log_url !== LOG_URL) reasons.push(`log_url ${JSON.stringify(candidate.log_url)} !== ${LOG_URL} (the leaf was submitted to another log)`);
+        if (!isHex(candidate.checksum, 64)) reasons.push('checksum is not 64-hex');
+        if (!isHex(candidate.leaf_signature, 128)) reasons.push('leaf_signature is not 128-hex');
+        if (!isHex(candidate.public_key, 64)) reasons.push('public_key is not 64-hex');
+        if (!isHex(candidate.leaf_hash, 64)) reasons.push('leaf_hash is not 64-hex');
+        if (reasons.length) throw new Error(`pending record ${pendingPath} matches --hash but is unusable (${reasons.join('; ')}) — delete it only if you are certain that leaf was never submitted`);
+        resumed = candidate;
+      } else {
+        const other = candidate && candidate.anchored_hash ? candidate.anchored_hash : '(no readable anchored_hash)';
+        console.log(`Found ${pendingPath} for a different anchored_hash (${other}) — ignoring it (this run never overwrites or deletes it); submitting fresh.`);
+      }
     }
 
-    console.log(`POST ${LOG_URL}/add-leaf ${headers['Sigsum-Token'] ? '(with Sigsum-Token)' : '(NO Sigsum-Token header)'}`);
-    const submit = await httpPost('add-leaf', body, headers);
-    console.log(`add-leaf -> HTTP ${submit.status}: ${submit.text.slice(0, 500)}`);
-    if (submit.status !== 200 && submit.status !== 202) {
-      throw new Error(`add-leaf rejected: HTTP ${submit.status}: ${submit.text}`);
+    let checksum;
+    let leafSignature;
+    let publicKeyBytes;
+    let leafHash;
+    if (resumed) {
+      console.log(`Resuming from ${pendingPath}: leaf for ${anchoredHash} was already submitted (${resumed.submitted_at}) — NOT re-submitting; polling get-inclusion-proof until sequenced.`);
+      checksum = Buffer.from(resumed.checksum, 'hex');
+      leafSignature = Buffer.from(resumed.leaf_signature, 'hex');
+      publicKeyBytes = Buffer.from(resumed.public_key, 'hex');
+      leafHash = Buffer.from(resumed.leaf_hash, 'hex');
+    } else {
+      if (!keyPath) throw new Error('usage: register --hash sha256:<hex> --key <priv.jwk.json> [--token-key <k> --domain <d>] [--out record.json]   (a matching <out>.pending.json makes --key optional: rerun the same command to resume)');
+      const jwk = JSON.parse(readFileSync(keyPath, 'utf8'));
+      const privateKey = await importPrivateJwk(jwk);
+      const pubJwk = { ...jwk, d: undefined, key_ops: ['verify'] };
+      const publicKey = await subtle.importKey('jwk', pubJwk, { name: 'Ed25519' }, true, ['verify']);
+      publicKeyBytes = Buffer.from(await subtle.exportKey('raw', publicKey));
+
+      checksum = await sha256(messageBytes); // this is what actually lands as Leaf.Checksum
+      const leafSigData = attachNamespace(TREE_LEAF_NAMESPACE, checksum);
+      leafSignature = Buffer.from(await subtle.sign({ name: 'Ed25519' }, privateKey, leafSigData));
+
+      // Computed BEFORE the POST (moved up from the poll section) so the
+      // pending sidecar written right after the add-leaf can carry leaf_hash.
+      const keyHash = await sha256(publicKeyBytes);
+      leafHash = await hashLeafNode(await leafToBinary({ checksum, signature: leafSignature, keyHash }));
+
+      const body = `message=${messageBytes.toString('hex')}\nsignature=${leafSignature.toString('hex')}\npublic_key=${publicKeyBytes.toString('hex')}\n`;
+
+      const headers = {};
+      if (tokenKeyPath && domain) {
+        const tokenJwk = JSON.parse(readFileSync(tokenKeyPath, 'utf8'));
+        const tokenPrivateKey = await importPrivateJwk(tokenJwk);
+        const logPubBytes = Buffer.from(LOG_PUBLIC_KEY_HEX, 'hex');
+        const token = await makeSubmitToken(tokenPrivateKey, logPubBytes);
+        headers['Sigsum-Token'] = `${domain} ${token.toString('hex')}`;
+      }
+
+      console.log(`POST ${LOG_URL}/add-leaf ${headers['Sigsum-Token'] ? '(with Sigsum-Token)' : '(NO Sigsum-Token header)'}`);
+      const submit = await httpPost('add-leaf', body, headers);
+      console.log(`add-leaf -> HTTP ${submit.status}: ${submit.text.slice(0, 500)}`);
+      if (submit.status !== 200 && submit.status !== 202) {
+        throw new Error(`add-leaf rejected: HTTP ${submit.status}: ${submit.text}`);
+      }
+
+      // 200/202: the leaf IS in the log from this moment — persist the resume
+      // state BEFORE polling, so any timeout leaves a rerunnable sidecar.
+      writeFileSync(pendingPath, JSON.stringify({
+        schema: PENDING_SCHEMA,
+        anchored_hash: anchoredHash,
+        log_url: LOG_URL,
+        checksum: checksum.toString('hex'),
+        leaf_signature: leafSignature.toString('hex'),
+        public_key: publicKeyBytes.toString('hex'),
+        leaf_hash: leafHash.toString('hex'),
+        submitted_at: new Date().toISOString(),
+      }, null, 2));
+      console.log(`Wrote pending record ${pendingPath} — if this run times out, rerun the same command to resume (it will not re-submit).`);
     }
 
     // Poll get-tree-head + get-inclusion-proof until our leaf is sequenced.
-    const keyHash = await sha256(publicKeyBytes);
-    const leafHash = await hashLeafNode(await leafToBinary({ checksum, signature: leafSignature, keyHash }));
-
     let cosignedHead = null;
     let inclusion = null;
     for (let attempt = 0; attempt < pollAttempts && !inclusion; attempt++) {
@@ -365,7 +442,7 @@ async function main() {
         path: (proofFields.node_hash || []).map((h) => Buffer.from(h, 'hex')),
       };
     }
-    if (!inclusion) throw new Error(`leaf not sequenced after ${pollAttempts} attempts (root hash: ${anchoredHash}) — seasalp merges periodically, try again with --poll-attempts higher or later`);
+    if (!inclusion) throw new Error(`leaf not sequenced after ${pollAttempts} attempts (anchored hash: ${anchoredHash}) — pending record kept; rerun the same command to resume (it will not re-submit); seasalp merges periodically, or try again later with --poll-attempts higher`);
 
     const rootHash = Buffer.from(cosignedHead.root_hash[0], 'hex');
     const cosignatures = [];
@@ -401,6 +478,10 @@ async function main() {
       witness_cosignatures: cosignatures,
     };
     writeFileSync(outPath, JSON.stringify(record, null, 2));
+    // Sequenced and recorded: the pending sidecar's job is done — remove it so
+    // a future run for a new hash starts clean (rmSync force: a sidecar this
+    // run never owned, e.g. one it merely ignored, must not crash the finish).
+    rmSync(pendingPath, { force: true });
     console.log(`Registered ${anchoredHash} -> Sigsum leaf_index ${inclusion.leafIndex} at tree size ${inclusion.size}, wrote ${outPath}`);
     return;
   }
