@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (779 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (780 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -474,6 +474,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/845-je-period-lock-gate.html",
     "description": "Evaluates caller-declared journal entries against a caller-declared, time-varying period-lock policy and reports, per entry, whether the dec",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "858-fill-quality-summary",
+    "display_name": "Fill Quality Summary",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/858-fill-quality-summary.html",
+    "description": "Summarises the fill quality of one order from the fills the caller declares, in exact integer arithmetic. Given the order side and target qu",
     "consumes": [],
     "feeds": [],
     "status": "live"
