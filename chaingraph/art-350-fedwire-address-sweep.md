@@ -8,9 +8,9 @@ Batch-sweeps a Fedwire or CHIPS payment file (CSV, one record per row) through t
 
 ## Inputs
 
-- file_content (any, required): type not evidenced by kernel source
-- records (array, required)
-- as_of_date (any, required): type not evidenced by kernel source
+- file_content (string, optional): CSV text, one address record per row, header optional. Used only when records is absent. Pipe-separate address_lines in one cell.
+- records (array, optional): Pre-parsed address records; takes precedence over file_content. Every record field is optional.
+- as_of_date (string, optional): As-of date (YYYY-MM-DD) applied to records lacking their own.
 
 ## Outputs
 
