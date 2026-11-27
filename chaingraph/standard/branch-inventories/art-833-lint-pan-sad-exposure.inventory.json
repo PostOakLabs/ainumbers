@@ -1,0 +1,173 @@
+{
+  "tool_id": "art-833-lint-pan-sad-exposure",
+  "inventory_version": "1.0.0",
+  "authored_at": "2026-11-04",
+  "error_direction": "conservative_toward_finding",
+  "error_direction_rationale": "Given correct caller inputs the kernel never misses a declared violation: every persistent after-authorization SAD element flags regardless of encryption or record type, every fragment digest flags, every ceiling-exceeding mask or display expression flags, and unverifiable carve-outs resolve to manual review rather than a clean pass. The residual under-report risk sits entirely in caller-supplied retention labels, which the out_of_scope_by_input rows below assign to the caller explicitly.",
+  "derived_from": [
+    { "digest": "sha256:6dc0483ffd00ea341bd5a688d44f25a16bb41d6d233372a572e26a3d4babee01", "clause_path": "Table 2 Account Data: Sensitive Authentication Data includes full track data, card verification code, PINs/PIN blocks" },
+    { "digest": "sha256:fe9dd777936bc60e67908a9a120fafd5c75fd491f557ff485c180a338f960794", "clause_path": "Requirement 3.3.1: SAD is not stored after authorization, even if encrypted; 3.3.1.1 full track contents" },
+    { "digest": "sha256:267c4752c15d67c5e5d484db126fa2726d49b883ba92f99d2c096350e6ffa706", "clause_path": "Requirement 3.3.1.2 card verification code not stored; 3.3.1.3 PIN and PIN block not stored" },
+    { "digest": "sha256:a45cd2bf9ebad90d43ad11fba7f9ab9777c71596cd125f7b15685777f7dafcdb", "clause_path": "Requirement 3.4.1: PAN masked when displayed, the BIN and last four digits are the maximum" },
+    { "digest": "sha256:24d9b959a668bb3271086905ca47eaa3ece8b6e8650d8c1ff9534f3b7520ea45", "clause_path": "Requirement 3.5.1 and 3.5.1.1: one-way hashes of the entire PAN, keyed cryptographic hashes, correlation controls" }
+  ],
+  "branches": [
+    {
+      "id": "req341-display-within-ceiling",
+      "clause": "Requirement 3.4.1",
+      "branch": "A PAN display revealing at most the BIN (first six) and last four digits satisfies the masking maximum.",
+      "disposition": "represented",
+      "evidence": "field_exposure"
+    },
+    {
+      "id": "req341-business-need-roles",
+      "clause": "Requirement 3.4.1.a / 3.4.1.b",
+      "branch": "Personnel with a documented legitimate business need may see more than the BIN and last four digits; a role list with a business need per role is examined under 3.4.1.a and system configurations under 3.4.1.b.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "the documented role list and each role's legitimate business need for unmasked display",
+        "source": "the caller's own access-control documentation; no role list exists in policy_parameters",
+        "owner": "the caller operating the record schema; a verdict from this node is not evidence that any role grant is justified"
+      }
+    },
+    {
+      "id": "req341-other-display-surfaces",
+      "clause": "Requirement 3.4.1.c",
+      "branch": "3.4.1.c examines displays of PAN such as screen displays and paper receipts, surfaces beyond the declared schema fields, alias template, and search index expressions.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "the complete set of PAN display surfaces (screen, paper receipts, reports)",
+        "source": "the caller declares schema fields, an alias template, and search index expressions; physical or undocumented display surfaces cannot be declared",
+        "owner": "the caller; displays not declared in the input are not examined by this node"
+      }
+    },
+    {
+      "id": "req331-sad-stored-after-authorization",
+      "clause": "Requirement 3.3.1",
+      "branch": "Sensitive authentication data stored after completion of authorization is prohibited.",
+      "disposition": "represented",
+      "evidence": "retention_verdicts"
+    },
+    {
+      "id": "req331-even-if-encrypted",
+      "clause": "Requirement 3.3.1",
+      "branch": "The storage prohibition holds even if the sensitive authentication data is encrypted.",
+      "disposition": "represented",
+      "evidence": "retention_verdicts"
+    },
+    {
+      "id": "req331-issuer-carve-out",
+      "clause": "Requirement 3.3.1 applicability note",
+      "branch": "Issuers and companies supporting issuing services with a legitimate and documented business need to store SAD are not required to meet 3.3.1; Requirement 3.3.3 carries additional requirements for those entities.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "whether the environment is issuer-side with a legitimate and documented business need to store SAD",
+        "source": "the caller's environment role and issuer documentation; not modeled as an input",
+        "owner": "the caller; an issuer-side environment must not read a clean verdict from this node as a determination under its own carve-out, and Requirement 3.3.3 obligations are not checked here"
+      }
+    },
+    {
+      "id": "req331-nonpersistent-memory-carve-out",
+      "clause": "Requirement 3.3.1 guidance",
+      "branch": "Storing SAD in non-persistent memory for a short time after authorization may be acceptable only with a legitimate business need, non-persistent state maintained by controls, and removal as soon as the business purpose is complete; persistent storage of SAD is not permissible.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "SAD_NONPERSISTENT_MANUAL_REVIEW",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "record": { "record_type": "card_token", "fields": [{ "name": "pan", "value_class": "primary_account_number", "mask_expression": "prefix:6,suffix:4" }] }, "stored_elements": [{ "name": "cvc_in_ram", "sad_class": "card_verification_code", "retention": "after_authorization", "storage_location_class": "non_persistent_memory", "encrypted": false }] },
+        "fixture": "art-833-lint-pan-sad-exposure.fixtures.json#sad_nonpersistent_manual_review"
+      }
+    },
+    {
+      "id": "req331-rendered-unrecoverable",
+      "clause": "Requirement 3.3.1.b",
+      "branch": "If SAD is received, secure deletion processes must render it unrecoverable upon completion of authorization.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "evidence that deletion processes render received SAD unrecoverable at authorization completion",
+        "source": "the caller's deletion process documentation and observation; absent from policy_parameters",
+        "owner": "the caller"
+      }
+    },
+    {
+      "id": "req3311-full-track-contents",
+      "clause": "Requirement 3.3.1.1",
+      "branch": "The full contents of any track are not stored upon completion of the authorization process.",
+      "disposition": "represented",
+      "evidence": "retention_verdicts"
+    },
+    {
+      "id": "req3312-card-verification-code",
+      "clause": "Requirement 3.3.1.2",
+      "branch": "The card verification code (three- or four-digit number printed on the front or back of a payment card) is not stored upon completion of the authorization process.",
+      "disposition": "represented",
+      "evidence": "retention_verdicts"
+    },
+    {
+      "id": "req3313-pin-block-reencrypted",
+      "clause": "Requirement 3.3.1.3 applicability note",
+      "branch": "PIN blocks are encrypted during the natural course of transaction processes, but even if an entity encrypts the PIN block again it is still not allowed to be stored after authorization completes.",
+      "disposition": "represented",
+      "evidence": "retention_verdicts"
+    },
+    {
+      "id": "req351-hash-of-entire-pan",
+      "clause": "Requirement 3.5.1 first bullet",
+      "branch": "One-way hashes used to render PAN unreadable must be based on strong cryptography of the entire PAN.",
+      "disposition": "represented",
+      "evidence": "digest_verdicts"
+    },
+    {
+      "id": "req351-truncation-bullet",
+      "clause": "Requirement 3.5.1 truncation bullet",
+      "branch": "Under the truncation approach, hashing cannot be used to replace the truncated segment of PAN.",
+      "disposition": "represented",
+      "evidence": "digest_verdicts"
+    },
+    {
+      "id": "req351c-correlation-controls",
+      "clause": "Requirement 3.5.1.c",
+      "branch": "If hashed and truncated versions of the same PAN are present in the environment, additional controls must be in place such that the different versions cannot be correlated to reconstruct the original PAN.",
+      "disposition": "refused",
+      "refusal": {
+        "flag": "DIGEST_TRUNCATION_CORRELATION_REVIEW",
+        "payload_marker": "manual_review_required",
+        "reachability_vector": { "record": { "record_type": "card_token", "fields": [{ "name": "pan", "value_class": "primary_account_number", "mask_expression": "prefix:6,suffix:4" }, { "name": "pan_digest", "value_class": "deterministic_digest", "digest_target": "entire_pan", "digest_keyed": true }] }, "stored_elements": [{ "name": "pan_index_store", "sad_class": "none", "retention": "after_authorization", "storage_location_class": "persistent", "encrypted": true }] },
+        "fixture": "art-833-lint-pan-sad-exposure.fixtures.json#digest_and_truncation_correlation_review"
+      }
+    },
+    {
+      "id": "req351-alternative-methods",
+      "clause": "Requirement 3.5.1 index tokens and strong cryptography bullets",
+      "branch": "Index tokens and strong cryptography with associated key-management processes are admitted approaches to rendering PAN unreadable; this node only evaluates declared deterministic digest fields, so a record using index tokens or full-record strong cryptography produces no digest verdict either way.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "the PAN-unreadability method actually in use (index token, strong cryptography) where no deterministic_digest field is declared",
+        "source": "the caller's storage architecture; only digest fields are declarable in this input schema",
+        "owner": "the caller; the absence of digest findings is not evidence that an undeclared method conforms"
+      }
+    },
+    {
+      "id": "req3511-keyed-hash-and-key-management",
+      "clause": "Requirement 3.5.1.1 and its applicability notes",
+      "branch": "Hashes per the first bullet must be keyed cryptographic hashes of the entire PAN with key management per Requirements 3.6 and 3.7; systems with access to only one hash value at a time that store no other account data are not required to meet 3.6/3.7.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "the caller's key-management processes under Requirements 3.6/3.7, or the single-hash single-system condition",
+        "source": "the caller's key-management documentation and system topology; absent from policy_parameters",
+        "owner": "the caller"
+      }
+    },
+    {
+      "id": "req351-temporary-cleartext-files",
+      "clause": "Requirement 3.5.1 applicability note",
+      "branch": "The requirement does not preclude the use of temporary files containing cleartext PAN while encrypting and decrypting PAN.",
+      "disposition": "out_of_scope_by_input",
+      "assumption_of_use": {
+        "value": "the existence and lifecycle of temporary cleartext PAN files during cryptographic operations",
+        "source": "the caller's runtime behavior; not declarable in the schema input",
+        "owner": "the caller"
+      }
+    }
+  ]
+}

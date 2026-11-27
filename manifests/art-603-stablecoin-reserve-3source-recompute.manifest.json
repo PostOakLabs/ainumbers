@@ -2,7 +2,7 @@
   "tool_id": "art-603-stablecoin-reserve-3source-recompute",
   "version": "1.0.0",
   "title": "Stablecoin Reserve 3-Source Recompute",
-  "description": "Recomputes reserve ratio, weighted-average maturity, and per-holding GENIUS eligible-asset match from three independently-sourced legs (issuer disclosure with a per-asset-class breakdown, EDGAR N-MFP Part 1 series summary, declared on-chain supply), then reconciles them against each other, skew-gated on how far apart their as-of dates are. Each leg is optional; a missing leg drives every check that depends on it to INDETERMINATE, never a fabricated pass. Reserve-ratio and WAM-ceiling checks use MET/NOT_MET/INDETERMINATE vocabulary; per-holding GENIUS eligible-asset flags use MATCHES_CRITERION/DOES_NOT_MATCH/INDETERMINATE (the statutory catch-all item always INDETERMINATE, never auto-matched, no overall_eligibility field of any kind); the three cross-source reconcile checks use RECONCILED/DISCREPANT/INDETERMINATE. A RECOMPUTE only: never a solvency claim, never an audit, never a third-party sign-off, never 'satisfies GENIUS'.",
+  "description": "Recomputes reserve ratio, weighted-average maturity, and per-holding GENIUS eligible-asset match from three independently-sourced legs (issuer disclosure with a per-asset-class breakdown, EDGAR N-MFP Part 1 series summary, declared on-chain supply), then reconciles them against each other, skew-gated on how far apart their as-of dates are. Each leg is optional; a missing leg drives every check that depends on it to INDETERMINATE, never a fabricated pass. The reserve-ratio check uses MET/NOT_MET/INDETERMINATE vocabulary; counterparty concentration is reported per counterparty against the 40 percent limit in 12 CFR 15.11(c)(2)(ii)(A) (OCC final rule 2026-10-21, effective 2027-01-18), with US Government exposures exempt and directly held coin and currency exempt; per-holding GENIUS eligible-asset flags use MATCHES_CRITERION/DOES_NOT_MATCH/INDETERMINATE (the statutory catch-all item always INDETERMINATE, never auto-matched, no overall_eligibility field of any kind); the three cross-source reconcile checks use RECONCILED/DISCREPANT/INDETERMINATE. A RECOMPUTE only: never a solvency claim, never an audit, never a third-party sign-off, never 'satisfies GENIUS'.",
   "category": "stablecoin-reserves",
   "tags": [
     "compliance_mandate",
@@ -80,7 +80,7 @@
                 },
                 "institution": {
                   "type": "string",
-                  "description": "Optional. Used only for the OCC NPRM per-institution concentration detail."
+                  "description": "Optional. Names the counterparty for the concentration detail; when absent the asset_class names the counterparty group."
                 }
               },
               "required": [
@@ -231,11 +231,14 @@
           "type": "object"
         }
       },
-      "provisional_nprm_detail": {
+      "counterparty_concentration": {
         "type": "array",
         "items": {
           "type": "object"
         }
+      },
+      "concentration_limit_note": {
+        "type": "string"
       },
       "reconciles": {
         "type": "array",
@@ -359,13 +362,6 @@
       "wam_cross_check": {
         "verdict": "RECONCILED",
         "detail": "Disclosure-recomputed WAM (20.00d) and EDGAR-reported WAM (21.00d) are within the 2-day tolerance. This comparison is directional, not exact, when the named fund holds only part of the issuer's reserves."
-      },
-      "wam_ceiling_check": {
-        "verdict": "MET",
-        "wam_source": "disclosure_recomputed",
-        "detail": "Best-available WAM (20.00d, source: disclosure_recomputed) is at or below the 20-day ceiling.",
-        "ceiling_days": 20,
-        "ceiling_ref": "OCC NPRM detail (research/GENIUS-FINALRULE-CHECK-2026-08-07.md) — NPRM, not final rule, re-verify at build time."
       }
     },
     "genius_eligible_holdings": [
@@ -377,7 +373,7 @@
         "statutory_item": 1,
         "statutory_item_label": "U.S. coins and currency",
         "detail": "Matches statutory eligible-asset item 1: U.S. coins and currency.",
-        "ref": "GENIUS Act statutory eligible-asset enumeration (8 items) — sourced from statute text, pre-final-rule disclosure per GENIUS-FINALRULE-CHECK-1; catch-all item 7 always INDETERMINATE, never auto-matched."
+        "ref": "GENIUS Act statutory eligible-asset enumeration (8 items), implemented for permitted payment stablecoin issuers by 12 CFR 15.11(b) (OCC final rule 2026-10-21, effective 2027-01-18); catch-all item 7 always INDETERMINATE, never auto-matched."
       },
       {
         "line_index": 1,
@@ -387,7 +383,7 @@
         "statutory_item": 4,
         "statutory_item_label": "Treasury bills with 93 days or less remaining maturity",
         "detail": "Matches statutory eligible-asset item 4: Treasury bills with 93 days or less remaining maturity.",
-        "ref": "GENIUS Act statutory eligible-asset enumeration (8 items) — sourced from statute text, pre-final-rule disclosure per GENIUS-FINALRULE-CHECK-1; catch-all item 7 always INDETERMINATE, never auto-matched."
+        "ref": "GENIUS Act statutory eligible-asset enumeration (8 items), implemented for permitted payment stablecoin issuers by 12 CFR 15.11(b) (OCC final rule 2026-10-21, effective 2027-01-18); catch-all item 7 always INDETERMINATE, never auto-matched."
       },
       {
         "line_index": 2,
@@ -397,38 +393,39 @@
         "statutory_item": 6,
         "statutory_item_label": "Government money market funds invested solely in the foregoing",
         "detail": "Matches statutory eligible-asset item 6: Government money market funds invested solely in the foregoing.",
-        "ref": "GENIUS Act statutory eligible-asset enumeration (8 items) — sourced from statute text, pre-final-rule disclosure per GENIUS-FINALRULE-CHECK-1; catch-all item 7 always INDETERMINATE, never auto-matched."
+        "ref": "GENIUS Act statutory eligible-asset enumeration (8 items), implemented for permitted payment stablecoin issuers by 12 CFR 15.11(b) (OCC final rule 2026-10-21, effective 2027-01-18); catch-all item 7 always INDETERMINATE, never auto-matched."
       }
     ],
-    "provisional_nprm_detail": [
+    "counterparty_concentration": [
       {
-        "institution": "us_coin_and_currency",
+        "counterparty": "us_coin_and_currency",
         "amount_usd": 50000000,
         "pct_of_recomputed_reserves": 4.7619,
-        "exceeds_concentration_ceiling": false,
-        "provisional_nprm_detail": true,
-        "ceiling_pct": 40,
-        "ref": "OCC NPRM concentration detail (≤40% at any one eligible institution) — proposed-rule detail, not statute, kept visibly separate from the statutory eligible-asset list."
+        "exempt_basis": "Exempt per the OCC preamble to 12 CFR 15.11: directly held coin and currency, the issuer cannot be its own counterparty.",
+        "exceeds_concentration_limit": null,
+        "limit_pct": 40,
+        "ref": "Counterparty concentration limit of 40 percent of reserve assets per counterparty, 12 CFR 15.11(c)(2)(ii)(A) (OCC final rule 2026-10-21, 12 CFR Part 15, effective 2027-01-18); US Government exposures and directly held coin and currency are exempt under (c)(2)(ii)(B)(1) and the preamble direct-holding clarification."
       },
       {
-        "institution": "US Treasury",
+        "counterparty": "US Treasury",
         "amount_usd": 800000000,
         "pct_of_recomputed_reserves": 76.1905,
-        "exceeds_concentration_ceiling": true,
-        "provisional_nprm_detail": true,
-        "ceiling_pct": 40,
-        "ref": "OCC NPRM concentration detail (≤40% at any one eligible institution) — proposed-rule detail, not statute, kept visibly separate from the statutory eligible-asset list."
+        "exempt_basis": "Exempt under 12 CFR 15.11(c)(2)(ii)(B)(1): exposure to the United States Government.",
+        "exceeds_concentration_limit": null,
+        "limit_pct": 40,
+        "ref": "Counterparty concentration limit of 40 percent of reserve assets per counterparty, 12 CFR 15.11(c)(2)(ii)(A) (OCC final rule 2026-10-21, 12 CFR Part 15, effective 2027-01-18); US Government exposures and directly held coin and currency are exempt under (c)(2)(ii)(B)(1) and the preamble direct-holding clarification."
       },
       {
-        "institution": "Fund X",
+        "counterparty": "Fund X",
         "amount_usd": 200000000,
         "pct_of_recomputed_reserves": 19.0476,
-        "exceeds_concentration_ceiling": false,
-        "provisional_nprm_detail": true,
-        "ceiling_pct": 40,
-        "ref": "OCC NPRM concentration detail (≤40% at any one eligible institution) — proposed-rule detail, not statute, kept visibly separate from the statutory eligible-asset list."
+        "exempt_basis": null,
+        "exceeds_concentration_limit": false,
+        "limit_pct": 40,
+        "ref": "Counterparty concentration limit of 40 percent of reserve assets per counterparty, 12 CFR 15.11(c)(2)(ii)(A) (OCC final rule 2026-10-21, 12 CFR Part 15, effective 2027-01-18); US Government exposures and directly held coin and currency are exempt under (c)(2)(ii)(B)(1) and the preamble direct-holding clarification."
       }
     ],
+    "concentration_limit_note": "Counterparty concentration limit: 40 percent of reserve assets per counterparty, 12 CFR 15.11(c)(2)(ii)(A) (OCC final rule 2026-10-21, effective 2027-01-18). Exposures to the United States Government and directly held U.S. coin and currency are marked exempt and excluded from the test per (c)(2)(ii)(B)(1) and the preamble direct-holding clarification. The custody exemption (15.11(c)(2)(ii)(B)(2) with 15.11(d)) and the centrally cleared repo exemption ((B)(3)) cannot be determined from the declared inputs and are not modelled: an exceeding result is a prompt to check those exemptions, not a finding. Federal Reserve account balances are evaluated against the limit, not exempt, because the final rule and its preamble do not exempt them.",
     "reconciles": [
       {
         "check": "reserves_vs_mmf_assets",
@@ -472,7 +469,7 @@
       }
     ],
     "determination_note": "overall_determination is a worst-of rollup of independent recompute-and-reconcile checks on disclosed figures. It is never a solvency claim, never an audit opinion, and never \"satisfies GENIUS\" — it states whether recomputed arithmetic, WAM, and three independently-sourced figures are internally consistent with each other, and nothing about whether the declared figures are themselves true.",
-    "regulatory_framework": "GENIUS Act reserve-composition recompute (statute-derived eligible-asset enumeration + OCC NPRM concentration/WAM detail, see art-582/art-06/art-275 for the pre-issuance/statutory-restatement/report-timeliness siblings); SEC EDGAR N-MFP Part 1 series summary (U.S. government work, freely usable); not a PCAOB audit, not a third-party sign-off, not an examination."
+    "regulatory_framework": "GENIUS Act reserve-composition recompute (statutory eligible-asset enumeration as implemented by 12 CFR 15.11, OCC final rule 2026-10-21, effective 2027-01-18, with counterparty concentration per 12 CFR 15.11(c)(2)(ii); see art-582/art-06/art-275 for the pre-issuance/statutory-restatement/report-timeliness siblings); SEC EDGAR N-MFP Part 1 series summary (U.S. government work, freely usable); not a PCAOB audit, not a third-party sign-off, not an examination."
   },
-  "example_execution_hash": "d50763f34b64dc5ed03286858a42341e68e091a92efdfe6a905321bffff4c338"
+  "example_execution_hash": "edecf22c30294948b59162b9b9ec85b73a57f11d0c1b8a5d2c4dfd63f28640b6"
 }

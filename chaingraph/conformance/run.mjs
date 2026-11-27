@@ -127,6 +127,10 @@ for (const file of files) {
 
   if (isPlaceholder) {
     if (UPDATE) {
+      if (computedHashHex === null) {
+        console.error('  hash    ✗ REFUSED — executionHash returned null (unhashable input); refusing to pin sha256:null into the fixture');
+        process.exit(1);
+      }
       fixture.expected_execution_hash = computedHash;
       writeFileSync(fixturePath, JSON.stringify(fixture, null, 2) + '\n', 'utf8');
       console.log(`  hash    ✓ UPDATED — pinned ${computedHash}`);

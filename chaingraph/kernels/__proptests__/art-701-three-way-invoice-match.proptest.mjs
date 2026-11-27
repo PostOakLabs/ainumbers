@@ -1,7 +1,7 @@
 // art-701-three-way-invoice-match.proptest.mjs — class-K property-test FLOOR
 // (FV-PBT-FLOOR-BUILD-SPEC.md). Authored against the build spec at
 // research/hackathon-builds/ART701-THREE-WAY-MATCH-BUILD-SPEC-2026-10-01.md.
-// kernel_digest_at_authoring: sha256:b57f647a37e62cd55bd20c9fb5aec358e2ccf0127aa4f2261772e718808a1625
+// kernel_digest_at_authoring: sha256:750cab31c114f06d0cb64d91acc3b3caca115e9adf10c69953ebfa3d1cac7a59
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof, NOT Dafny. Internal engineering QC only.

@@ -1,7 +1,7 @@
 import { executionHash } from './_hash.mjs';
 
 const TOOL_ID = 'art-227-validate-adverse-action-notice';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.0.1';
 
 export const meta = {
   tool_id: TOOL_ID, tool_version: TOOL_VERSION,
@@ -22,6 +22,13 @@ export const meta = {
 // Disambiguation: validate_adverse_action_notice checks an EXISTING notice for
 //   regulatory completeness. To COMPOSE a new compliant notice, use
 //   build_adverse_action_notice. Inputs are structural/synthetic only -- zero PII.
+// Missing input (fail-closed): all eleven manifest-required fields must be present. A missing,
+// null, empty or whitespace-only required field yields verdict 'INDETERMINATE', compliant null
+// and missing_required_fields, never compliant true. This kernel had no refusal or indeterminate
+// vocabulary before this edit, so verdict is introduced here in output_payload only when a
+// required field is missing; all other outputs stay the same. buildArtifact never throws: an
+// unhashable input (non-finite number, unsafe integer, depth or size past the hash limits)
+// returns a refusal artifact with execution_hash null and hash_refusal.
 //
 // FICO reason code set (public, from myFICO and CFPB disclosures):
 //   https://www.myfico.com/credit-education/credit-score-key-factors
@@ -42,6 +49,8 @@ function safeBool(v, def) { return typeof v === 'boolean' ? v : def; }
 function safeArr(v) { return Array.isArray(v) ? v : []; }
 function safeNum(v, def) { const n = Number(v); return Number.isFinite(n) ? n : def; }
 function r4(v) { return Number.isFinite(v) ? Math.round(v * 1e4) / 1e4 : 0; }
+function isFilled(v) { return v != null && !(typeof v === 'string' && v.trim() === ''); }
+
 
 export function compute(pp) {
   pp = pp || {};
@@ -111,7 +120,22 @@ export function compute(pp) {
     }
   }
 
-  const compliant = violations.length === 0;
+  // Required inputs per the manifest inputSchema.required, read literally (no dynamic
+  // pp[f] lookup). A missing, null or blank one yields INDETERMINATE, never compliant true.
+  const missing_required_fields = [];
+  if (!isFilled(pp.action_taken)) missing_required_fields.push('action_taken');
+  if (!isFilled(pp.credit_score_used)) missing_required_fields.push('credit_score_used');
+  if (!isFilled(pp.notice_includes_action_taken)) missing_required_fields.push('notice_includes_action_taken');
+  if (!isFilled(pp.notice_includes_credit_bureau_info)) missing_required_fields.push('notice_includes_credit_bureau_info');
+  if (!isFilled(pp.notice_includes_creditor_name)) missing_required_fields.push('notice_includes_creditor_name');
+  if (!isFilled(pp.notice_includes_date)) missing_required_fields.push('notice_includes_date');
+  if (!isFilled(pp.notice_includes_dispute_right)) missing_required_fields.push('notice_includes_dispute_right');
+  if (!isFilled(pp.notice_includes_fcra_rights)) missing_required_fields.push('notice_includes_fcra_rights');
+  if (!isFilled(pp.notice_includes_right_to_copy)) missing_required_fields.push('notice_includes_right_to_copy');
+  if (!isFilled(pp.reason_code_source)) missing_required_fields.push('reason_code_source');
+  if (!isFilled(pp.reasons)) missing_required_fields.push('reasons');
+  const indeterminate = missing_required_fields.length > 0 && violations.length === 0;
+  const compliant = indeterminate ? null : violations.length === 0;
   const compliance_score = reason_count > 0
     ? r4(1 - violations.length / Math.max(1, violations.length + 3))
     : 0;
@@ -135,10 +159,64 @@ export function compute(pp) {
     pii_note: 'All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data.',
   };
 
+  if (indeterminate) {
+    output_payload.verdict = 'INDETERMINATE';
+    output_payload.missing_required_fields = missing_required_fields;
+  }
+
   return { output_payload, compliance_flags: violations };
 }
 
+// Mirrors _hash.mjs limits so buildArtifact never throws: non-finite number, unsafe integer,
+// nesting past MAX_DEPTH, more values than MAX_ELEMENTS. Reports path and kind only.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > HASH_MAX_DEPTH) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > HASH_MAX_ELEMENTS) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
+  const unhashable = findHashRefusal(pp, 'pp', 1, { n: 0 });
+  if (unhashable !== null) {
+    return {
+      '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+      chaingraph_version: '0.4.0',
+      mandate_type: meta.mandate_type,
+      tool_id: TOOL_ID,
+      tool_version: TOOL_VERSION,
+      generated_at: now ?? null,
+      execution_hash: null,
+      hash_refusal: { reason: unhashable.reason, detail: unhashable.detail },
+      chain: { parent_hashes, parent_tool_ids, chain_depth },
+      policy_parameters: null,
+      output_payload: { compliant: null, verdict: 'REFUSED', refusal: unhashable.reason },
+      compliance_flags: ['INPUT_REFUSED'],
+      compute_mode: 'server',
+      audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
+    };
+  }
   const { output_payload, compliance_flags } = compute(pp);
   const hash = await executionHash(pp, output_payload);
   return {

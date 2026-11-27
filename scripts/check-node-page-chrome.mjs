@@ -40,7 +40,10 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { NAV_REQUIRED_TOKENS, FOOTER_REQUIRED_TOKENS, CSS_MARKER, SPEC_VERSION, CHROME_EXEMPT } from '../chaingraph/_page-chrome.mjs';
+import { NAV_REQUIRED_TOKENS, FOOTER_REQUIRED_TOKENS, CSS_MARKER, CHROME_CSS, SPEC_VERSION, CHROME_EXEMPT } from '../chaingraph/_page-chrome.mjs';
+
+/** The chrome block as normalize-node-chrome.mjs writes it, from the marker on. */
+const FRESH_CHROME_CSS = CHROME_CSS.slice(CHROME_CSS.indexOf(CSS_MARKER));
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const REPO  = resolve(__dir, '..');
@@ -65,6 +68,10 @@ const KNOWN_SKIPS = new Set([...CHROME_EXEMPT.keys()]);
 const FOOTER_BASELINE_PATH = resolve(__dir, 'node-page-chrome-baseline.json');
 const BASELINE_DOC = JSON.parse(readFileSync(FOOTER_BASELINE_PATH, 'utf8'));
 const FOOTER_BASELINE = BASELINE_DOC.pages;
+// CHROME-SELF-SUFFICIENT-1: pages whose chrome CSS block predates the current
+// CHROME_CSS. Shrink-only: refresh a page with normalize-node-chrome.mjs and its
+// entry must be removed; a page not listed must carry the current block.
+const STALE_CSS_BASELINE = new Set(BASELINE_DOC.staleChromeCss || []);
 
 // Footer LINK content is not checked here: the derived artifact
 // 'node-page-footers' (scripts/gen-node-footers.mjs --check) compares every
@@ -174,6 +181,18 @@ for (const filename of files) {
   // ── CSS marker ──
   if (!html.includes(CSS_MARKER)) {
     failures.push(`${filename}: missing CSS marker "${CSS_MARKER}"`);
+  } else {
+    // CHROME-SELF-SUFFICIENT-1: the marker alone let hand-authored pages carry a
+    // stale chrome block copied from an older page (no token defaults, no resets
+    // of page nav/footer rules), so art-850..856 shipped with an invisible Start
+    // button and an off-template header. The block must be byte-current; the
+    // pages that predate this rule are pinned shrink-only in staleChromeCss.
+    const fresh = html.slice(html.indexOf(CSS_MARKER)).startsWith(FRESH_CHROME_CSS);
+    if (!fresh && !STALE_CSS_BASELINE.has(filename)) {
+      failures.push(`${filename}: chrome CSS block is stale or hand-edited — run node scripts/normalize-node-chrome.mjs --only ${filename} --apply (a new page is never added to staleChromeCss)`);
+    } else if (fresh && STALE_CSS_BASELINE.has(filename)) {
+      failures.push(`${filename}: chrome CSS block is now current — REMOVE it from staleChromeCss in scripts/node-page-chrome-baseline.json (shrink-only)`);
+    }
   }
 }
 

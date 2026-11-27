@@ -1,0 +1,197 @@
+{
+  "tool_id": "art-760-espp-break-even-optimal-sell",
+  "version": "1.0.0",
+  "title": "ESPP Break-Even & Optimal Sell",
+  "description": "Port of ApexLogics Apex #110 (AL-117) ESPP Break-Even & Optimal Sell Analyzer into the AINumbers chaingraph shape. From an ESPP purchase (price paid after the 15% statutory discount, offering-price FMV at grant, current price, shares, grant and purchase dates) and a tax profile (ordinary income, single/MFJ filing, optional as-of date) the node computes the disqualifying and qualifying disposition outcomes side by side: ordinary income (the discount, or its section 423(c)-capped qualifying analog), LTCG tax at the 2026 section 1(h) thresholds layered on ordinary income, the marginal ordinary rate from the 2026 section 1 tables, the break-even qualifying-disposition date (later of grant + 2y + 1d and purchase + 1y + 1d), and after-tax proceeds under each path. Tax constants are Rev. Proc. 2025-32 and IRC 423 fetched-and-quoted in the payload CITES.md. Port provenance: Apex page https://apexlogics.org/tools/110-espp-break-even-optimal-sell/ fetched 2026-10-08 (sha256 ddccf05f8b1dc1d0a986a6839f7109710a59ea4593fd70c573b5eb00b60fe0e7), tasking APEXPORT-110B (GRADES PASS-PENDING-XV 2026-10-13, Builder-verifies-at-land 22/22 vectors / 462 field checks), landed by APEX-PORT-110B-LAND-1 on 2026-10-19.",
+  "category": "chaingraph",
+  "tags": [
+    "espp",
+    "employee-stock-purchase-plan",
+    "irc-423",
+    "qualifying-disposition",
+    "ltcg",
+    "taxes",
+    "2026",
+    "mcp:analyze_espp_disposition"
+  ],
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "purchase_price",
+      "offering_price",
+      "current_price",
+      "shares",
+      "grant_date",
+      "purchase_date",
+      "ordinary_income",
+      "filing_status"
+    ],
+    "properties": {
+      "purchase_price": {
+        "type": "number",
+        "description": "Price actually paid per share after the 15% ESPP discount. Apex control id 'purchasePrice', default 29.75, min 0.01. Read unconditionally by compute()."
+      },
+      "offering_price": {
+        "type": "number",
+        "description": "FMV at grant / offering start per share. Caps the qualifying-disposition ordinary income (IRC §423(c)). Apex control id 'offeringPrice', default 35.00, min 0.01. Read unconditionally."
+      },
+      "current_price": {
+        "type": "number",
+        "description": "Current or expected sale price per share. Apex control id 'currentPrice', default 48.00, min 0.01. Read unconditionally."
+      },
+      "shares": {
+        "type": "number",
+        "description": "Shares purchased under the ESPP. Apex control id 'shares', default 500, min 1, step 1. Read unconditionally (Apex parses it with +value, so a fractional value is accepted)."
+      },
+      "grant_date": {
+        "type": "string",
+        "description": "Grant date / offering start date, YYYY-MM-DD. Apex control id 'grantDate', default 2024-01-01. Read unconditionally (drives the qualifying holding period, IRC §423(a)(1))."
+      },
+      "purchase_date": {
+        "type": "string",
+        "description": "Date shares were purchased under the ESPP, YYYY-MM-DD. Apex control id 'purchaseDate', default 2024-07-01. Read unconditionally."
+      },
+      "ordinary_income": {
+        "type": "number",
+        "description": "W-2 and other ordinary income for the year, USD. Apex control id 'ordIncome', default 180000, min 0. Read unconditionally; drives the marginal rate and the LTCG bracket layering."
+      },
+      "filing_status": {
+        "type": "string",
+        "enum": [
+          "single",
+          "mfj"
+        ],
+        "description": "Filing status. Apex control id 'filingStatus', default 'single' (labelled 'Single / MFS') or 'mfj' ('Married Filing Jointly'). Selects the LTCG thresholds and ordinary-income brackets. Read unconditionally."
+      },
+      "as_of_date": {
+        "type": "string",
+        "description": "OPTIONAL YYYY-MM-DD. If supplied, replaces the wall clock for the already_qualified field only, making the payload deterministic. Not read by the Apex page; added by the port so a zkVM-promotable run is reproducible. Not in 'required'."
+      }
+    }
+  },
+  "mcp_tool_definition": {
+    "name": "analyze_espp_disposition",
+    "description": "Compare qualifying vs. disqualifying ESPP disposition tax outcomes. Computes ordinary income (the 15% purchase discount), LTCG tax at the 2026 §1(h) rates layered on ordinary income, the marginal ordinary rate, the break-even qualifying-disposition date, and after-tax proceeds under each path. Deterministic, client-side, zero PII.",
+    "inputSchema": {
+      "type": "object",
+      "required": [
+        "purchase_price",
+        "offering_price",
+        "current_price",
+        "shares",
+        "grant_date",
+        "purchase_date",
+        "ordinary_income",
+        "filing_status"
+      ],
+      "properties": {
+        "purchase_price": {
+          "type": "number",
+          "description": "Price actually paid per share after the 15% ESPP discount; min 0.01."
+        },
+        "offering_price": {
+          "type": "number",
+          "description": "FMV per share at grant / offering start; min 0.01."
+        },
+        "current_price": {
+          "type": "number",
+          "description": "Current or sale price per share; min 0.01."
+        },
+        "shares": {
+          "type": "number",
+          "description": "Shares purchased under the ESPP; min 1."
+        },
+        "grant_date": {
+          "type": "string",
+          "description": "Grant date / offering start, YYYY-MM-DD."
+        },
+        "purchase_date": {
+          "type": "string",
+          "description": "Date shares were purchased, YYYY-MM-DD."
+        },
+        "ordinary_income": {
+          "type": "number",
+          "description": "W-2 and other ordinary income for the year in USD; min 0."
+        },
+        "filing_status": {
+          "type": "string",
+          "enum": [
+            "single",
+            "mfj"
+          ],
+          "description": "Filing status: 'single' (Single / MFS) or 'mfj' (Married Filing Jointly)."
+        },
+        "as_of_date": {
+          "type": "string",
+          "description": "Optional YYYY-MM-DD; fixes already_qualified for a reproducible run."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "execution": {
+    "type": "browser-javascript",
+    "entry": "chaingraph/art-733-espp-break-even-optimal-sell.html",
+    "function_name": "compute",
+    "timeout_ms": 5000
+  },
+  "ap2_export": true,
+  "output_schema": {
+    "type": "object",
+    "description": "output_payload: purchase_price, offering_price, current_price, shares_exercised, grant_date, purchase_date, ordinary_income, filing_status, marginal_rate, fmv_at_purchase, disq_ord_income, disq_ltcg_gain, disq_gross, disq_ord_tax, disq_ltcg_tax, disq_total_tax, disq_proceeds, disq_effective_rate, qual_ord_income, qual_ltcg_gain, qual_gross, qual_ord_tax, qual_ltcg_tax, qual_total_tax, qual_proceeds, qual_effective_rate, benefit, qualify_date, already_qualified."
+  },
+  "source": "chaingraph/kernels/art-760-espp-break-even-optimal-sell.kernel.mjs",
+  "input_schema_provenance": "Each property is exactly the policy_parameters member the kernel reads; there is no other input surface. as_of_date is the only optional property: it replaces the wall clock for the already_qualified field only, making the payload deterministic; the eight remaining properties are required and mirror the Apex #110 page controls.",
+  "author": "PostOakLabs",
+  "license": "CC-BY-4.0",
+  "input_example": {
+    "purchase_price": 29.75,
+    "offering_price": 35,
+    "current_price": 48,
+    "shares": 500,
+    "grant_date": "2024-01-01",
+    "purchase_date": "2024-07-01",
+    "ordinary_income": 180000,
+    "filing_status": "single",
+    "as_of_date": "2026-10-08"
+  },
+  "output_example": {
+    "purchase_price": 29.75,
+    "offering_price": 35,
+    "current_price": 48,
+    "shares_exercised": 500,
+    "grant_date": "2024-01-01",
+    "purchase_date": "2024-07-01",
+    "ordinary_income": 180000,
+    "filing_status": "single",
+    "marginal_rate": 0.24,
+    "fmv_at_purchase": 35,
+    "disq_ord_income": 2625,
+    "disq_ltcg_gain": 6500,
+    "disq_gross": 24000,
+    "disq_ord_tax": 630,
+    "disq_ltcg_tax": 975,
+    "disq_total_tax": 1605,
+    "disq_proceeds": 22395,
+    "disq_effective_rate": 0.066875,
+    "qual_ord_income": 2625,
+    "qual_ltcg_gain": 6500,
+    "qual_gross": 24000,
+    "qual_ord_tax": 630,
+    "qual_ltcg_tax": 975,
+    "qual_total_tax": 1605,
+    "qual_proceeds": 22395,
+    "qual_effective_rate": 0.066875,
+    "benefit": 0,
+    "qualify_date": "2026-01-02",
+    "already_qualified": true,
+    "domain_errors": [],
+    "refusal_reason": null
+  },
+  "example_execution_hash": "ac4b843e779fdffbe7f8eebf7218f4368e474d58e63839e2c39b33c60978d475"
+}

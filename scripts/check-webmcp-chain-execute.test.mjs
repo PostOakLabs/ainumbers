@@ -16,20 +16,27 @@
  *   4. RED: a plan whose execution_hash does not recompute through _hash.mjs
  *      fails part 2.
  *   5. RED: a plan_chain that reaches for the network fails part 2.
+ *   5b. HASH-REFUSAL-GUARDS-SCRIPTS-1: a hash impl that refuses (returns null,
+ *       HASH-REFUSAL-SHARED-1) fails part 2; a stubbed impl that reproduces passes.
  *   6. RED and GREEN: a step tool_id outside the registered set fails part 3;
  *      wrapper, direct and kernel-only-worker steps pass.
  *   7. Ratchet: a baselined key WARNs, a new key is fresh, a baseline key that
  *      no longer fails is STALE, an un-run chain's key is never STALE.
+ *   9. Chain source: a PR-assembled monolith and a DERIVED_ROOT overlay both
+ *      judge a new chain absent from the committed monolith (RED unregistered
+ *      step, GREEN registered step); an assembler refusal fails closed.
  *   8. LIVE: the real composer page chaingraph/chains/2052a-classify-daily.html
  *      passes part 2 (plan_chain settles, recomputes, stable).
  */
 
-import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
+import { gitEnv } from './_git-env-lib.mjs';
 import { executionHash } from '../chaingraph/kernels/_hash.mjs';
-import { runPlanChain, judgePart2, judgePart3, ratchet } from './check-webmcp-chain-execute.mjs';
+import { runPlanChain, judgePart2, judgePart3, ratchet, verdictBlocks, resolveMonolith, registeredNodeSet, failureKeys } from './check-webmcp-chain-execute.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -70,6 +77,17 @@ async function main() {
 
     const net = await part2For(dir, 'network');
     check('RED: plan_chain reaching for the network fails part 2', !net.ok && /network access attempted/.test(net.problem), net.problem);
+
+    // HASH-REFUSAL-GUARDS-SCRIPTS-1: HASH-REFUSAL-SHARED-1 turns executionHash's
+    // throw on unhashable input into a null return. judgePart2 must refuse the
+    // plan (a null recomputed hash never silently matches) while a stubbed impl
+    // that reproduces still passes. The stub rides the hashImpl seam.
+    const planOk = (hex) => ({ ok: true, network: [], plan: { chaingraph_version: '0.4.0', execution_hash: `sha256:${hex}`, policy_parameters: { x: 1 }, output_payload: { y: 2 } } });
+    const refusedNull = await judgePart2(planOk('c'.repeat(64)), planOk('c'.repeat(64)), async () => null);
+    check('RED: a hash impl that refuses (returns null) fails part 2',
+      !refusedNull.ok && refusedNull.problem === 'execution_hash recomputation refused (unhashable plan preimage)', refusedNull.problem);
+    const stubbedGreen = await judgePart2(planOk('d'.repeat(64)), planOk('d'.repeat(64)), async () => 'd'.repeat(64));
+    check('GREEN: a stubbed hash that reproduces passes part 2', stubbedGreen.ok && stubbedGreen.hash === 'd'.repeat(64), JSON.stringify(stubbedGreen));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -86,6 +104,84 @@ async function main() {
   check('Ratchet: new key is fresh', r.fresh.length === 1 && r.fresh[0].startsWith('c3#part2'), JSON.stringify(r));
   check('Ratchet: healed baseline key is STALE, un-run chain key is not', r.stale.join() === 'c2#part3:art-x', JSON.stringify(r.stale));
 
+  // Verdict: STALE-only warns on PR + merge_group, blocks on main/local; NEW blocks everywhere.
+  check('Verdict: STALE-only does not block a merge_group', verdictBlocks({ fresh: 0, stale: 1, event: 'merge_group' }) === false);
+  check('Verdict: STALE-only does not block a pull_request', verdictBlocks({ fresh: 0, stale: 1, event: 'pull_request' }) === false);
+  check('Verdict: STALE-only blocks on main push', verdictBlocks({ fresh: 0, stale: 1, event: 'push' }) === true);
+  check('Verdict: STALE-only blocks locally (no event)', verdictBlocks({ fresh: 0, stale: 1, event: undefined }) === true);
+  check('Verdict: NEW blocks a merge_group', verdictBlocks({ fresh: 1, stale: 0, event: 'merge_group' }) === true);
+  check('Verdict: NEW blocks a pull_request (MAIN-ONLY-PATHS-GATE-1)', verdictBlocks({ fresh: 1, stale: 0, event: 'pull_request' }) === true);
+
+  // CHAIN-ADD-PR-SIDE-EXECUTE-1: the chain list must come from the PR-assembled
+  // monolith or the DERIVED_ROOT overlay, never only the committed monolith.
+  const fxMono = (stepId) => JSON.stringify({ chains: [{ name: 'fx-new-chain', steps: [{ tool_id: stepId }] }] });
+  const fxAssemble = (stepId) => (outPath) => { writeFileSync(outPath, fxMono(stepId)); return { status: 0, stderr: '' }; };
+  const shard = ['chaingraph/graph/chains/fx-new-chain.json'];
+  const stepsOf = (m) => JSON.parse(readFileSync(m.path, 'utf8')).chains.find((c) => c.name === 'fx-new-chain');
+  const committed = JSON.parse(readFileSync(join(REPO, 'chaingraph', 'chaingraph.json'), 'utf8'));
+  check('Control precondition: fixture chain is absent from the committed monolith', !(committed.chains ?? []).some((c) => c.name === 'fx-new-chain'));
+
+  const savedRoot = process.env.DERIVED_ROOT;
+  delete process.env.DERIVED_ROOT;
+  try {
+    const prBad = resolveMonolith({ repo: REPO, changed: shard, assemble: fxAssemble('art-x') });
+    const prChain = prBad.path && stepsOf(prBad);
+    check('RED: PR path judges the new chain, unregistered step absent from the committed monolith',
+      prBad.source === 'pr-assembled' && prChain && !judgePart3(prChain.steps.map((s) => s.tool_id), registry).ok, JSON.stringify(prBad));
+    const prGood = resolveMonolith({ repo: REPO, changed: shard, assemble: fxAssemble('art-w') });
+    check('GREEN: PR path, new chain with a registered step passes part 3',
+      prGood.source === 'pr-assembled' && judgePart3(stepsOf(prGood).steps.map((s) => s.tool_id), registry).ok, JSON.stringify(prGood));
+    const failClosed = resolveMonolith({ repo: REPO, changed: shard, assemble: () => ({ status: 1, stderr: 'refused: fixture' }) });
+    check('RED: assembler refusal on the PR path fails closed, no committed-monolith fallback', !!failClosed.error && !failClosed.path && /refused: fixture/.test(failClosed.error), JSON.stringify(failClosed));
+    const noChain = resolveMonolith({ repo: REPO, changed: ['scripts/x.mjs'], assemble: () => { throw new Error('must not assemble'); } });
+    check('Control: a diff with no chain shard reads the committed monolith', noChain.source === 'committed', JSON.stringify(noChain));
+
+    const rootDir = mkdtempSync(join(tmpdir(), 'chain-exec-root-'));
+    try {
+      mkdirSync(join(rootDir, 'chaingraph'), { recursive: true });
+      writeFileSync(join(rootDir, 'chaingraph', 'chaingraph.json'), fxMono('art-x'));
+      process.env.DERIVED_ROOT = rootDir;
+      const ov = resolveMonolith({ repo: REPO, changed: shard, assemble: () => { throw new Error('overlay must win over PR assembly'); } });
+      const ovChain = ov.path && stepsOf(ov);
+      check('RED: DERIVED_ROOT overlay judges the assembled tree, unregistered step fails part 3',
+        ov.source === 'derived-root' && ovChain && !judgePart3(ovChain.steps.map((s) => s.tool_id), registry).ok, JSON.stringify(ov));
+    } finally {
+      rmSync(rootDir, { recursive: true, force: true });
+    }
+  } finally {
+    if (savedRoot === undefined) delete process.env.DERIVED_ROOT; else process.env.DERIVED_ROOT = savedRoot;
+  }
+
+  // MUSE52 presence matrix: the registry reads the overlay monolith, so a step is
+  // present iff the overlay carries its mcp_name (a bare kernel file is not
+  // presence). Verdict is identical on pull_request and merge_group.
+  const pRepo = mkdtempSync(join(tmpdir(), 'chain-exec-presence-'));
+  try {
+    mkdirSync(join(pRepo, 'chaingraph', 'kernels'), { recursive: true });
+    writeFileSync(join(pRepo, 'chaingraph', 'kernels', 'art-fxp.kernel.mjs'), '// fixture kernel, no page\n');
+    // listKernels enumerates through git ls-files, so the fixture is a real repo.
+    spawnSync('git', ['-C', pRepo, 'init', '-q'], { encoding: 'utf8', env: gitEnv() });
+    spawnSync('git', ['-C', pRepo, 'add', '.'], { encoding: 'utf8', env: gitEnv() });
+    const mkOverlay = (name, nodes) => { const p = join(pRepo, name); writeFileSync(p, JSON.stringify({ nodes, chains: [] })); return p; };
+    const present = mkOverlay('present.json', [{ tool_id: 'art-fxp', mcp_name: 'fx_presence' }]);
+    const absent = mkOverlay('absent.json', []);
+    const verdictFor = async (overlay, event) => {
+      const reg = await registeredNodeSet(pRepo, overlay);
+      const p3 = judgePart3(['art-fxp'], reg);
+      const keys = failureKeys({ chain: 'fx', part2: { ok: true }, part3: p3 });
+      const { fresh, stale } = ratchet(keys, new Map(), new Set(['fx']));
+      return verdictBlocks({ fresh: fresh.length, stale: stale.length, event });
+    };
+    for (const ev of ['pull_request', 'merge_group']) {
+      check(`Presence: step present in overlay does not block on ${ev}`, (await verdictFor(present, ev)) === false);
+      check(`Presence: step absent from overlay BLOCKS on ${ev}`, (await verdictFor(absent, ev)) === true);
+    }
+    const p2 = failureKeys({ chain: 'fx', part2: { ok: false, problem: 'x' }, part3: { unregistered: [] } });
+    check('Presence: a fresh part2 key still BLOCKS on pull_request', verdictBlocks({ fresh: ratchet(p2, new Map(), new Set(['fx'])).fresh.length, stale: 0, event: 'pull_request' }) === true);
+  } finally {
+    rmSync(pRepo, { recursive: true, force: true });
+  }
+
   const liveRel = 'chaingraph/chains/2052a-classify-daily.html';
   const liveAbs = join(REPO, liveRel);
   if (!existsSync(liveAbs)) check('LIVE: specimen composer page present', false, liveRel);
@@ -97,7 +193,7 @@ async function main() {
   }
 
   console.log(failures === 0
-    ? '✓ check-webmcp-chain-execute controls: PASS (part 2 RED on no plan_chain, unstable, non-reproducing and network cases; part 3 RED on an unregistered step; ratchet down-only; live specimen GREEN)'
+    ? '✓ check-webmcp-chain-execute controls: PASS (part 2 RED on no plan_chain, unstable, non-reproducing, network and null-refusal cases; part 3 RED on an unregistered step; ratchet down-only; live specimen GREEN)'
     : `✗ check-webmcp-chain-execute controls: FAIL (${failures} control(s))`);
   process.exit(failures === 0 ? 0 : 1);
 }

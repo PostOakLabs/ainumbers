@@ -1,7 +1,7 @@
 ---
 type: DecisionTool
 title: "EMIR Reconciliation Break Ageing"
-description: "Diffs a current EMIR reconciliation break set (e.g. from art-482-emir-recon-adjudicator) against the prior cycle's sealed break set by stable break_key, emitting a newly-opened / persisting / newly-closed split, an ageing bucket, a recurrence count, and an escalation-clock status against policy-supplied ageing limits -- reusing the art-428-cyber-incident-clock deadline-vs-evaluated_at pattern rather than re-deriving deadline math. Ageing limits and the escalation deadline are per-cycle policy inputs, never hardcoded."
+description: "Diffs a current EMIR reconciliation break set (e.g. from the art-482 recon node) against the prior cycle's sealed break set by stable break_key, emitting a newly-opened / persisting / newly-closed split, an ageing bucket, a recurrence count, and an escalation-clock status against policy-supplied ageing limits -- reusing the art-428-cyber-incident-clock deadline-vs-evaluated_at pattern rather than re-deriving deadline math. Ageing limits and the escalation deadline are per-cycle policy inputs, never hardcoded."
 resource: https://ainumbers.co/chaingraph/art-483-emir-break-ageing.html
 tags: ["attestation_mandate", "wave-71", "mcp:age_emir_reconciliation_breaks"]
 timestamp: 2026-07-14

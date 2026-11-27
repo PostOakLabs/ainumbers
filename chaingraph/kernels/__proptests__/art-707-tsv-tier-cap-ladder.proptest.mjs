@@ -1,12 +1,13 @@
 // art-707-tsv-tier-cap-ladder — class-K property test floor, authored by ART707-TSV-TIER-CAP-LADDER-1.
 // spec: RHC hooks build spec WU-6 (research/rhc-hooks/RHC-HOOKS-BUILD-SPEC-2026-10-03.md), FR 2026-19388 condition F
-// kernel_digest_at_authoring: sha256:ec31622899cd563e7242a8382b47262710dadead214839f5029e2dee08ab9e6d
+// kernel_digest_at_authoring: sha256:53f197a5171f579e8477f319aedb57f7b886a4fe31b8808a6cc6fd95001cbc3a
 // human_sign_off: PENDING
 //
 // ZERO external dependencies — Node built-ins plus the in-repo _pbt-common.mjs helpers only.
 //
 // Run: node chaingraph/kernels/__proptests__/art-707-tsv-tier-cap-ladder.proptest.mjs
 
+import { readFileSync } from 'node:fs';
 import { compute, addCalendarMonths } from '../art-707-tsv-tier-cap-ladder.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32 } from './_pbt-common.mjs';
 
@@ -259,6 +260,31 @@ function checkP6_outputShape() {
   return { name: 'P6_output_shape_and_evidence_only_contract', checked, violations };
 }
 
+// ---------- PF1 (KERNEL-BIGINT-F1-SAFE-FORMAT-1): a BigInt on stocks[0].prior_month_adv_shares refuses, never throws ----------
+// RED on main: compute() threw "Do not know how to serialize a BigInt" while building the
+// stock_adv_invalid refusal detail. GREEN on head: the same input returns the refusal
+// (measured across 4 BigInt values on this field, origin/main 0289be7577 vs this branch).
+function checkPF1_bigintInputRefusesWithoutThrowing() {
+  let violations = 0, checked = 0;
+  const fixtures = JSON.parse(readFileSync(new URL('../fixtures/art-707-tsv-tier-cap-ladder.fixtures.json', import.meta.url), 'utf8'));
+  for (const big of [7n, 123456789012345678901234567890n, -1n, 0n]) {
+    const pp = structuredClone(fixtures.vectors[0].policy_parameters);
+    if (!pp.stocks || !Array.isArray(pp.stocks) || pp.stocks.length === 0) pp.stocks = [{ symbol: 'AAA', tier: 'tier_1', prior_month_adv_shares: 1000 }];
+    pp.stocks[0].prior_month_adv_shares = big;
+    checked++;
+    try {
+      const r = compute(pp);
+      const out = r && r.output_payload;
+      if (!out) { violations++; continue; }
+      const dcode = out.domain_errors && out.domain_errors[0] && out.domain_errors[0].code;
+      if (dcode !== 'STOCK_ADV_INVALID') violations++;
+    } catch (e) {
+      violations++; // the serialization throw this cure removes
+    }
+  }
+  return { name: 'PF1_bigint_prior_month_adv_shares_refuses_without_throwing', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -273,6 +299,7 @@ const properties = [
   checkP4_refusalContract(),
   checkP5_boundaries(),
   checkP6_outputShape(),
+  checkPF1_bigintInputRefusesWithoutThrowing(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — ${properties.length} properties.`);
 const ok = summarize(KERNEL_ID, oracle, properties);

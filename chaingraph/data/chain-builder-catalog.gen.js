@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (690 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (779 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -179,6 +179,301 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "consumer_finance",
     "url": "https://ainumbers.co/chaingraph/733-servicing-compliance-clock.html",
     "description": "Computes servicer-compliance due dates and clock states from event dates and loan values: error-resolution and information-request clocks, l",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "783-emv-mpm-qr-validator",
+    "display_name": "EMV MPM QR Payload Validator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/783-emv-mpm-qr-validator.html",
+    "description": "Decodes and validates an EMV merchant-presented-mode (MPM) QR payload against a pluggable national scheme profile - generic EMV MPM, Fiji FJ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "784-cbr-data-return-validator",
+    "display_name": "CBR Data Return Validator",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/784-cbr-data-return-validator.html",
+    "description": "Validates a bank's or money transfer operator's periodic AGGREGATE correspondent-banking data return against an illustrative, profile-driven",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "785-qr-golive-readiness",
+    "display_name": "QR Go-Live Readiness Assessor",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/785-qr-golive-readiness.html",
+    "description": "Assesses a QR payment scheme's pilot, production, or cross-border go-live readiness through weighted blocking and advisory gates: participan",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "787-corridor-cost-averages",
+    "display_name": "Corridor Cost Averages",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/787-corridor-cost-averages.html",
+    "description": "Computes one remittance corridor's cost THREE ways from caller-declared provider quotes and reports each against the SDG 10.c 3% target and ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "790-event-position-limit-check",
+    "display_name": "Event Contract Position Limit Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/790-event-position-limit-check.html",
+    "description": "Checks a book of event-contract positions, stated as quantities and prices only, against caller-declared position accountability levels and ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "792-curator-vault-cap-auditor",
+    "display_name": "Curator Vault Cap Auditor",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/792-curator-vault-cap-auditor.html",
+    "description": "Audits a vault curator's point-in-time allocation snapshot against per-market caps and a declared mandate, from caller-declared minor-unit v",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "794-event-fee-recompute",
+    "display_name": "Event Fee Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/794-event-fee-recompute.html",
+    "description": "Recomputes event-contract trading fees per fill and per order from an effective-dated venue fee profile, and diffs the recompute against a c",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "795-stablecoin-refund-dispute",
+    "display_name": "Stablecoin Refund Dispute Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/795-stablecoin-refund-dispute.html",
+    "description": "Recomputes the expected refund and dispute outcome of stablecoin payments held under an escrowed refund protocol (lock period, refund reques",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "796-payment-system-mi-pack",
+    "display_name": "Payment System MI Pack",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/796-payment-system-mi-pack.html",
+    "description": "Computes a payment system's management-information pack from declared AGGREGATE counts only (no transaction-level records, no personal data)",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "797-stablecoin-cash-equivalent-test",
+    "display_name": "Stablecoin Cash Equivalent Test (FASB Proposed 2026-08)",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/797-stablecoin-cash-equivalent-test.html",
+    "description": "Applies the FASB proposed Update of 2026-08-18 (Statement of Cash Flows (Topic 230): Cash Equivalents-Disclosure Enhancement and Evaluation ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "798-assess-sandbox-application-readiness",
+    "display_name": "Assess Sandbox Application Readiness",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/798-assess-sandbox-application-readiness.html",
+    "description": "Assesses a regulatory sandbox application against a declared regulator profile's eligibility criteria and test-parameter limits: the applica",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "806-event-contract-terms-lint",
+    "display_name": "Event Contract Terms Lint",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/806-event-contract-terms-lint.html",
+    "description": "Lints a prediction-market event contract's DECLARED settlement terms (source agency kind, unresolvable-outcome fallback, revision rule, expi",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "808-lst-share-rate-reconciler",
+    "display_name": "Liquid-Staking Share Rate Reconciler",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/808-lst-share-rate-reconciler.html",
+    "description": "Recomputes the share rate of a rebasing liquid-staking token from caller-declared protocol state: internal ether (the rate numerator), inter",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "810-contract-bytecode-identity-verifier",
+    "display_name": "Contract Bytecode Identity Verifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/810-contract-bytecode-identity-verifier.html",
+    "description": "Recomputes the identity of a deployed smart contract from caller-declared bytes: the Keccak-256 hash of the runtime code and of the creation",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "812-eth-staking-queue",
+    "display_name": "Ethereum Validator Queue and Sweep Wait",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/812-eth-staking-queue.html",
+    "description": "Computes when one validator's exit, consolidation, activation and withdrawal sweep land, from the Electra consensus specification's balance-",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "813-eth-staking-accounting",
+    "display_name": "Ethereum Epoch Accounting Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/813-eth-staking-accounting.html",
+    "description": "Recomputes one validator's reward, penalty and slashing accounting for one epoch, in Gwei, from the Electra consensus specification and the ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "815-eth-fee-market",
+    "display_name": "Ethereum Base Fee and Blob Base Fee Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/815-eth-fee-market.html",
+    "description": "Recomputes the next Ethereum block's base fee per gas (EIP-1559) and its base fee per blob gas (EIP-4844, with the EIP-7918 reserve-price ru",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "817-eth-l2-stage-classifier",
+    "display_name": "Ethereum L2 Stage Criteria Classifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/817-eth-l2-stage-classifier.html",
+    "description": "Classifies the properties a caller declares for one Ethereum layer-2 against the L2BEAT stages framework text, and reports for each criterio",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "822-zcash-supply-check",
+    "display_name": "Zcash Supply Check",
+    "mandate_type": "cryptographic_mandate",
+    "url": "https://ainumbers.co/chaingraph/822-zcash-supply-check.html",
+    "description": "Checks the arithmetic of user-pasted Zcash chain value pool balances (transparent, Sprout, Sapling, Orchard, in integer zatoshi) against a c",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "824-zip317-transfer-fee",
+    "display_name": "ZIP-317 Transfer Fee",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/824-zip317-transfer-fee.html",
+    "description": "Recomputes the conventional transfer fee for a Zcash transaction from a DECLARED shape the caller pastes -- counts and byte totals only, nev",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "825-reconcile-ucp-checkout-totals",
+    "display_name": "Reconcile UCP Checkout Totals",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/825-reconcile-ucp-checkout-totals.html",
+    "description": "Reconciles a pasted Universal Commerce Protocol (UCP 2026-08-25) cart, checkout or order totals block in integer minor units. Recomputes pri",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "827-agent-cred-class-matrix",
+    "display_name": "Agent Cred Class Matrix",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/827-agent-cred-class-matrix.html",
+    "description": "Maps five agent payment credential classes (shared payment token, network agentic token, API-key card proxy, x402 EIP-3009 permit, wallet de",
+    "consumes": [
+      "art-133-agent-payment-rail-trust-crosswalk",
+      "art-385-agent-token-scope-checker",
+      "art-699-x402-permit2-evidence-recomputer",
+      "art-703-mandate-authorization-gate"
+    ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "829-safe-tx-hash-recompute",
+    "display_name": "Safe Transaction Hash Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/829-safe-tx-hash-recompute.html",
+    "description": "Recomputes the hash and decodes known calls. It does not simulate execution and cannot tell you the destination contract is safe. From paste",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "836-payment-services-activity-classifier",
+    "display_name": "Payment Services Activity Classifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/836-payment-services-activity-classifier.html",
+    "description": "Reads a caller-declared business model as a closed set of boolean payment-activity facts and classifies it into the licence classes of one o",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "837-issuer-yield-share",
+    "display_name": "Issuer Reserve Yield Share Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/837-issuer-yield-share.html",
+    "description": "Recomputes a white-label stablecoin deal's reserve-income split (issuer, platform, distributor, custodian) from aggregate declared values, a",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "838-control-frequency-sample",
+    "display_name": "Control Frequency Sample",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/838-control-frequency-sample.html",
+    "description": "Applies a table you declare. It ships no table, and is not guidance from any audit firm or standard-setter. The sample size is only as defen",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "841-planning-materiality",
+    "display_name": "Planning Materiality",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/841-planning-materiality.html",
+    "description": "Arithmetic on declared policy. It does not choose the benchmark, does not judge whether the percentage is appropriate, and is not a material",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "844-workload-identity-claims",
+    "display_name": "Workload Identity Claims Lint",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/844-workload-identity-claims.html",
+    "description": "Lints the DECODED claims of a workload-identity token and, optionally, of a token produced by an exchange, against a policy you declare: a m",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "845-je-period-lock-gate",
+    "display_name": "Je Period Lock Gate",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/845-je-period-lock-gate.html",
+    "description": "Evaluates caller-declared journal entries against a caller-declared, time-varying period-lock policy and reports, per entry, whether the dec",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -694,7 +989,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Content Credential Signature Verifier",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-124-content-credential-signature-verifier.html",
-    "description": "Deterministic policy core over a caller-attested signature result. The caller performs the COSE_Sign1 signature check over the manifest byte",
+    "description": "Deterministic policy core over a caller-attested signature result. Fail-closed on required inputs and allowlisted: alg and revocation_status",
     "consumes": [
       "art-123-c2pa-manifest-validator"
     ],
@@ -1495,7 +1790,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Solvency II SCR Ratio Calculator",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-180-solvency2-scr-ratio-calculator.html",
-    "description": "Calculate Solvency II SCR and MCR coverage ratios from eligible own funds and capital requirements. Checks the three own-funds tiering limit",
+    "description": "Calculate Solvency II SCR and MCR coverage ratios from eligible own funds and capital requirements. Checks the own-funds SCR tiering limits ",
     "consumes": [],
     "feeds": [
       "art-181-sii-ifrs17-reconciliation-bridger"
@@ -2071,7 +2366,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Conforming Loan Limit Check",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-223-conforming-loan-limit.html",
-    "description": "FHFA annual conforming loan limit classifier. 2026 baseline: $832,750 (1-unit), $1,066,250 (2-unit), $1,288,800 (3-unit), $1,601,750 (4-unit",
+    "description": "FHFA annual conforming loan limit classifier. 2027 baseline: $855,400 (1-unit), $1,095,250 (2-unit), $1,323,900 (3-unit), $1,645,350 (4-unit",
     "consumes": [],
     "feeds": [
       "art-222-agency-eligibility-matrix"
@@ -2365,7 +2660,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "MT103 to MX Translation Fidelity Scorer",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-245-mt-mx-translation-fidelity-scorer.html",
-    "description": "Scores ISO 15022 MT103 to ISO 20022 pacs.008 translation fidelity for CBPR+ November 2026 migration. Checks field presence mapping (:20: to ",
+    "description": "Scores ISO 15022 MT103 to ISO 20022 pacs.008 translation fidelity for the CBPR+ migration (structured-address date deferred by Swift on 27 A",
     "consumes": [
       "art-244-gpi-tracker-lifecycle-simulator"
     ],
@@ -2912,7 +3207,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Revocation-Status Verifier",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-287-revocation-status-verifier.html",
-    "description": "Checks a receipt's optional W3C BitstringStatusList credentialStatus reference and reads the revocation bit at statusListIndex from a suppli",
+    "description": "Reads a revocation bit from an uncompressed status bitstring up to 8 KB, shaped after W3C BitstringStatusList, for a receipt's optional cred",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -3957,7 +4252,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Tempo On-Chain AML & Travel Rule Screener",
     "mandate_type": "aml_rule",
     "url": "https://ainumbers.co/chaingraph/art-38-tempo-onchain-aml.html",
-    "description": "Parses a batch of synthetic TIP-20 transfers (with memos), runs OFAC/SDN hit screening, checks FATF Travel Rule field completeness (originat",
+    "description": "Parses a batch of synthetic TIP-20 transfers (with memos), screens parties by substring match against a fixed three-name synthetic test list",
     "consumes": [
       "art-37-tempo-stablecoin-issuance"
     ],
@@ -4320,7 +4615,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Private-Input Sanctions Screen",
     "mandate_type": "analytics_mandate",
     "url": "https://ainumbers.co/chaingraph/art-413-screen-sanctions-private.html",
-    "description": "Screens a privately held party/transfer list against a pinned OFAC-SDN-style list version and emits a public verdict (screened, hit count, c",
+    "description": "Demonstrates the private-input screening shape: screens a privately held party/transfer list against a fixed three-name synthetic test list ",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -5028,7 +5323,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "EMIR Reconciliation Break Ageing",
     "mandate_type": "attestation_mandate",
     "url": "https://ainumbers.co/chaingraph/art-483-emir-break-ageing.html",
-    "description": "Diffs a current EMIR reconciliation break set (e.g. from art-482-emir-recon-adjudicator) against the prior cycle's sealed break set by stabl",
+    "description": "Diffs a current EMIR reconciliation break set (e.g. from the art-482 recon node) against the prior cycle's sealed break set by stable break_",
     "consumes": [
       "art-482-emir-recon-adjudicator"
     ],
@@ -7505,6 +7800,18 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-735-solana-dvp-prefund-verifier",
+    "display_name": "Solana DvP Pre-Funding Terms Verifier",
+    "mandate_type": "settlement_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-735-solana-dvp-prefund-verifier.html",
+    "description": "Verifies, values-only, that a pasted Solana Foundation DvP SwapDvp record is safe to fund: owner must be the pinned DvP program id, account ",
+    "consumes": [
+      "art-715-token2022-transfer-fee-reconciler"
+    ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-74-taxonomy-kpi-gar-aggregator",
     "display_name": "Taxonomy KPI & Green Asset Ratio Aggregator",
     "mandate_type": "model_governance",
@@ -7516,6 +7823,16 @@ window.CHAINBUILDER_CATALOG = [
     "feeds": [
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-749-solana-paychan-voucher-verifier",
+    "display_name": "Solana Paychan Voucher Verifier",
+    "mandate_type": "payment_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-749-solana-paychan-voucher-verifier.html",
+    "description": "Values-only check of a Solana payment-channels voucher message against trusted channel terms. The voucher is the 50-byte Ed25519-signed mess",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
@@ -7534,11 +7851,61 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-750-diff-evidence-bundles",
+    "display_name": "Diff Evidence Bundles",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-750-diff-evidence-bundles.html",
+    "description": "Evidence-bundle diff: takes two parsed JSON bundles (bundle_a = baseline, bundle_b = comparison) plus an optional as_of timestamp and report",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-751-sha256-hmac-digest-demonstrator",
+    "display_name": "SHA-256 and HMAC-SHA256 Digest Demonstrator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/mcp.html",
+    "description": "Digests a caller-supplied UTF-8 string or hex byte string with SHA-256, or computes HMAC-SHA256 over it under a caller-supplied hex key, and",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-752-freelance-quarterly-estimated-tax",
+    "display_name": "Freelance Quarterly Estimated Tax Calculator",
+    "mandate_type": "consumer_finance",
+    "url": "https://ainumbers.co/chaingraph/art-752-freelance-quarterly-estimated-tax.html",
+    "description": "Quarterly IRS estimated-tax calculator for self-employed income, ported from ApexLogics Apex #116 (AL-123). From gross freelance income, bus",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-753-home-office-augusta",
+    "display_name": "Home Office and Augusta Rule",
+    "mandate_type": "home_office_augusta_record",
+    "url": "https://ainumbers.co/chaingraph/art-753-home-office-augusta.html",
+    "description": "Home-office deduction and IRC 280A(g) Augusta-rule rental exclusion calculator ported from ApexLogics Apex #139 (AL-146). From a square-foot",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-754-equity-exit-waterfall",
     "display_name": "Equity Exit Waterfall Modeler",
     "mandate_type": "consumer_finance",
     "url": "https://ainumbers.co/chaingraph/art-754-equity-exit-waterfall.html",
     "description": "Equity exit proceeds after a liquidation-preference waterfall, ported from ApexLogics Apex #141 (AL-148). From the exit valuation, the aggre",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-756-sales-ote-commission-analyzer",
+    "display_name": "Sales OTE & Commission Analyzer",
+    "mandate_type": "sales_comp_record",
+    "url": "https://ainumbers.co/chaingraph/art-756-sales-ote-commission-analyzer.html",
+    "description": "Gross W-2 model for a sales OTE offer ported from ApexLogics Apex #89 (AL-96): base salary plus variable pay as a function of quota attainme",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -7579,11 +7946,81 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-760-espp-break-even-optimal-sell",
+    "display_name": "ESPP Break-Even & Optimal Sell",
+    "mandate_type": "compensation_benefits",
+    "url": "https://ainumbers.co/chaingraph/art-760-espp-break-even-optimal-sell.html",
+    "description": "ESPP disposition comparator ported from ApexLogics Apex #110 (AL-117). For an ESPP purchase (price paid after the 15% statutory discount, of",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-761-caregiver-income-impact",
+    "display_name": "Caregiver Income Impact & Lost Earnings Estimator",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-761-caregiver-income-impact.html",
+    "description": "Financial cost of unpaid caregiving: direct income loss during the care period, the retirement savings gap from missed 401(k) contributions ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-763-ai-displacement-risk-screener",
     "display_name": "AI Displacement Risk Screener",
     "mandate_type": "analytics_mandate",
     "url": "https://ainumbers.co/chaingraph/art-763-ai-displacement-risk-screener.html",
     "description": "AI-driven job-displacement risk screener ported from ApexLogics Apex #104 (AL-111). For a task-composition profile (routine cognitive/manual",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-764-solo-401k-vs-sep-ira",
+    "display_name": "Solo 401(k) vs. SEP-IRA Optimizer",
+    "mandate_type": "compensation_assessment",
+    "url": "https://ainumbers.co/chaingraph/art-764-solo-401k-vs-sep-ira.html",
+    "description": "Self-employed retirement-contribution comparator ported from ApexLogics Apex #112 (AL-119). For a tax year, net self-employment profit, age ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-765-dependent-care-fsa-cdctc-optimizer",
+    "display_name": "Dependent Care FSA vs. CDCTC Optimizer",
+    "mandate_type": "dependent_care_fsa_cdctc_record",
+    "url": "https://ainumbers.co/chaingraph/art-765-dependent-care-fsa-cdctc-optimizer.html",
+    "description": "Compare a Dependent Care FSA (IRC section 129 exclusion) against the Child and Dependent Care Tax Credit (IRC section 21) plus the optimal c",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-766-parental-leave-income-gap",
+    "display_name": "Parental Leave Income Gap",
+    "mandate_type": "career_workforce",
+    "url": "https://ainumbers.co/chaingraph/art-766-parental-leave-income-gap.html",
+    "description": "Parental-leave income gap planner ported from ApexLogics Apex #131 (AL-138). From an annual base salary, an effective tax rate, monthly hous",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-768-medicare-plan-comparison",
+    "display_name": "Medicare Plan Comparison",
+    "mandate_type": "medicare_plan_comparison_record",
+    "url": "https://ainumbers.co/chaingraph/art-768-medicare-plan-comparison.html",
+    "description": "Medicare plan comparison ported from ApexLogics Apex #151 (AL-165). Prices two caller-declared Medicare enrollment paths for a full year, Pa",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-769-medicare-oop-exposure",
+    "display_name": "Medicare Out-of-Pocket Exposure",
+    "mandate_type": "retirement_projection",
+    "url": "https://ainumbers.co/chaingraph/art-769-medicare-oop-exposure.html",
+    "description": "Medicare out-of-pocket exposure modeler ported from ApexLogics Apex #152 (AL-166). For a declared plan year it walks a modelled year of util",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -7607,11 +8044,91 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-770-total-cost-of-homeownership",
+    "display_name": "Total Cost of Homeownership",
+    "mandate_type": "consumer_finance",
+    "url": "https://ainumbers.co/chaingraph/art-770-total-cost-of-homeownership.html",
+    "description": "Total cost of homeownership comparator ported from ApexLogics Apex #153 (AL-167). Given purchase price, loan terms, recurring costs, growth ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-771-automation-payback",
+    "display_name": "Automation Payback",
+    "mandate_type": "analytics_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-771-automation-payback.html",
+    "description": "Automation Payback ranker ported from ApexLogics Apex #180 (AL-194). For a list of automation candidates (hours saved per week, loaded hourl",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-772-money-primitives-demonstrator",
+    "display_name": "Money Primitives Demonstrator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/mcp.html",
+    "description": "Demonstrator node for the shared _money.bundle.mjs kernel: exact decimal parse (closed grammar -?digits(.digits)? at the caller-declared sca",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-773-daycount-year-fraction",
+    "display_name": "Daycount Year Fraction",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/mcp.html",
+    "description": "Demonstrator node for the shared _daycount.bundle.mjs kernel: prices ONE caller-supplied date pair under ONE declared day-count mode and rol",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-774-beacon-seeded-fair-sampling-v2",
     "display_name": "Beacon-Seeded Fair-Sampling Deriver V2",
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-774-beacon-seeded-fair-sampling-v2.html",
     "description": "Derives a deterministic, offline-replayable audit sample, version 2 of the beacon-seeded fair-sampling family, from a caller-pasted public r",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-776-paypal-dispute-deadline-evidence",
+    "display_name": "PayPal Dispute Deadline & Evidence",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-776-paypal-dispute-deadline-evidence.html",
+    "description": "Dispute deadline calculator and evidence-bundle producer across four payment service providers (PayPal default, plus Stripe, Adyen and Squar",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-777-psp-dispute-reason-crosswalk",
+    "display_name": "PSP Dispute Reason Crosswalk",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-777-psp-dispute-reason-crosswalk.html",
+    "description": "Dispute reason-code crosswalk across PayPal, Stripe, Adyen and Square (static and credential-free: the mapping tables ship with the kernel, ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-778-token2022-withheld-fee-reconciler",
+    "display_name": "Token-2022 Withheld-Fee Reconciler",
+    "mandate_type": "settlement_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-778-token2022-withheld-fee-reconciler.html",
+    "description": "Token-2022 withheld-fee reconciliation across token accounts (the first node added after art-715; its primary text is the Solana Token-2022 ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-779-bnpl-plan-comparator",
+    "display_name": "BNPL Plan Comparator",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-779-bnpl-plan-comparator.html",
+    "description": "Side-by-side BNPL plan cost comparison on the estate's Reg Z APR maths: the APR for every plan is computed by the estate's art-215 solver co",
     "consumes": [],
     "feeds": [],
     "status": "live"
@@ -7633,6 +8150,58 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-780-solana-pda-ata-audit",
+    "display_name": "Solana PDA Bump and ATA Audit",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-780-solana-pda-ata-audit.html",
+    "description": "Audit of a claimed program-derived-address tuple (program id, seeds with declared encodings, bump, claimed address), pasted values only, plu",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-781-x402-svm-payment-outcome",
+    "display_name": "x402 Exact Solana Payment Outcome Recompute",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-781-x402-svm-payment-outcome.html",
+    "description": "Clause-by-clause verdict recompute of an x402 exact-scheme Solana payment from pasted values: the decoded instruction list, the PaymentRequi",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-782-modified-premium",
+    "display_name": "Modified Premium Calculator",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-782-modified-premium.html",
+    "description": "Workers'-compensation modified premium: subject premium (total manual premium plus premium items subject to experience rating) times the exp",
+    "consumes": [
+      "art-346-compute-experience-mod"
+    ],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-788-csv-rfc4180-parser",
+    "display_name": "RFC 4180 CSV Parser",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/mcp.html",
+    "description": "Parses a CSV table supplied as a plain string and returns the decoded records plus a per-column summary, over the shared _csv.bundle.mjs (a ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-789-stablecoin-admin-role-lint",
+    "display_name": "Stablecoin Admin Role Lint",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-789-stablecoin-admin-role-lint.html",
+    "description": "Lints a stablecoin token's declared admin-role configuration for separation of duties, key concentration and issuance-policy fit, over ROLE ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-79-settlement-fail-predictor",
     "display_name": "Settlement-Fail Predictor",
     "mandate_type": "model_governance",
@@ -7646,6 +8215,26 @@ window.CHAINBUILDER_CATALOG = [
       "art-84-settlement-efficiency-kpi",
       "cry-04-merkle-batch-verifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-791-check-je-multicurrency-balance",
+    "display_name": "Multicurrency JE Balance Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-791-check-je-multicurrency-balance.html",
+    "description": "Checks that structured journal entries balance, on a basis the caller declares: either every currency sums to zero separately (per_currency)",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-793-government-stablecoin-acceptance",
+    "display_name": "Government Stablecoin Acceptance Audit",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-793-government-stablecoin-acceptance.html",
+    "description": "Assesses a government acceptor's aggregate stablecoin receipt ledger against its written acceptance policy, which tokens are eligible, how f",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
@@ -7664,11 +8253,41 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-805-agt-audit-chain-verifier",
+    "display_name": "Open-Source Agent-Governance Audit-Chain Verifier",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-805-agt-audit-chain-verifier.html",
+    "description": "Recomputes the hash chain of an exported agent-governance audit log offline, from the exported entries alone, and reports exactly where it b",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-807-erc3643-transfer-decision",
+    "display_name": "ERC-3643 Transfer Decision Recompute",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-807-erc3643-transfer-decision.html",
+    "description": "Recomputes whether one proposed ERC-3643 (T-REX) transfer or mint would go through, from caller-declared state only: identity registry entri",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-809-check-reserves-cover-outstanding-private",
+    "display_name": "Private-Input Reserves Cover Outstanding Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-809-check-reserves-cover-outstanding-private.html",
+    "description": "Pilot private-input predicate: 16 committed reserve slots, tagged by the eight GENIUS Act 4(a)(1)(A) categories, must cover the committed pa",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-81-allocation-affirmation-conformance",
     "display_name": "Allocation/Affirmation Conformance Checker",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-81-allocation-affirmation-conformance.html",
-    "description": "Checks allocation and confirmation/affirmation events against the ESMA CSDR SDR RTS 23:00 CET trade-date rule and the machine-readable-forma",
+    "description": "Checks allocation and confirmation/affirmation events against the 23:00 CET trade-date rule in Delegated Regulation (EU) 2026/1536 and the m",
     "consumes": [
       "art-77-t1-settlement-readiness-diagnostic"
     ],
@@ -7676,6 +8295,56 @@ window.CHAINBUILDER_CATALOG = [
       "art-82-securities-settlement-message-linter",
       "cry-04-merkle-batch-verifier"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-811-check-dti-within-policy-private",
+    "display_name": "Private-Input Debt-to-Income Within Policy Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-811-check-dti-within-policy-private.html",
+    "description": "Pilot private-input predicate. Checks that privately held monthly debt obligations, 16 fixed slots, are at most a chosen share of a privatel",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-814-qf-pairwise-recompute",
+    "display_name": "Quadratic Funding Round Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-814-qf-pairwise-recompute.html",
+    "description": "Recomputes how a quadratic funding round splits a matching pool from contribution amounts you supply, in two modes. Plain mode gives each pr",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-816-eip3009-agent-spend-gate",
+    "display_name": "EIP-3009 Agent Spend Gate",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-816-eip3009-agent-spend-gate.html",
+    "description": "Pre-sign gate for one EIP-3009 (ERC-3009, Draft) transferWithAuthorization or receiveWithAuthorization intent, decided against a caller-decl",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-818-zcash-reg-classifier",
+    "display_name": "Privacy Coin Regulatory Classifier (MiCA and AMLR)",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-818-zcash-reg-classifier.html",
+    "description": "Places caller-declared properties of a privacy-feature coin and of the declaring entity against two pinned provisions of the Official Journa",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-819-ucp-request-constraints",
+    "display_name": "Ucp Request Constraints",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/mcp.html",
+    "description": "Deterministic, verify-only preflight of a caller-pasted Universal Commerce Protocol (UCP) request against a caller-pasted set of ucp.request",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
@@ -7694,6 +8363,36 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-820-negotiate-ucp-capabilities",
+    "display_name": "UCP Capability Negotiation",
+    "mandate_type": "compliance_mandate",
+    "url": "https://ainumbers.co/chaingraph/art-820-negotiate-ucp-capabilities.html",
+    "description": "Intersects the UCP capability sets two pasted profiles advertise: keeps the capabilities named by both sides at their highest mutually suppo",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-826-authenticator-assurance-level",
+    "display_name": "Authenticator Assurance Level Evaluator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-826-authenticator-assurance-level.html",
+    "description": "Rates whether a DECLARED authenticator set and session policy reach a DECLARED target level of a caller-supplied, versioned authentication a",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-828-reconcile-omnibus-token-position",
+    "display_name": "Omnibus Token Position Reconciliation",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-828-reconcile-omnibus-token-position.html",
+    "description": "Reconciles a tokenized-securities omnibus token position against caller-declared state: it sums the balances of every declared wallet, compu",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-83-buy-in-exposure-modeler",
     "display_name": "Buy-In Exposure Modeler",
     "mandate_type": "compliance_mandate",
@@ -7705,6 +8404,76 @@ window.CHAINBUILDER_CATALOG = [
     "feeds": [
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-830-eip3009-spend-exposure-reconciler",
+    "display_name": "EIP-3009 Spend Exposure Reconciler",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-830-eip3009-spend-exposure-reconciler.html",
+    "description": "Reconciles a caller-pasted EIP-3009 (ERC-3009, Draft) authorization ledger against caller-pasted AuthorizationUsed and AuthorizationCanceled",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-831-receipt-export-envelopes",
+    "display_name": "Receipt Export Envelopes",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-831-receipt-export-envelopes.html",
+    "description": "Deterministically re-expresses one caller-supplied execution receipt as two wire envelopes: a lineage RunEvent (eventType COMPLETE, eventTim",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-832-card-data-flow-scope",
+    "display_name": "Card Data Flow Worksheet",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-832-card-data-flow-scope.html",
+    "description": "A worksheet over declared inputs rather than a scope determination. You list system nodes (front end, back end, logs, analytics, a browser-a",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-833-lint-pan-sad-exposure",
+    "display_name": "PAN and SAD Exposure Linter",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/tools/833-lint-pan-sad-exposure.html",
+    "description": "Lints a caller-declared token-record schema against the published PCI DSS v4.0.1 account-data rules and reports which declared surfaces expo",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-834-asc606-transaction-price-allocator",
+    "display_name": "ASC 606 Transaction Price Allocator",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-834-asc606-transaction-price-allocator.html",
+    "description": "Allocates a declared transaction price across declared performance obligations by relative standalone selling price, in integer minor units,",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-835-bank-reconciliation-recompute",
+    "display_name": "Bank Reconciliation Recompute",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-835-bank-reconciliation-recompute.html",
+    "description": "Recomputes a bank-to-book reconciliation and an optional proof of cash from declared values, in integer minor units. The caller declares the",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-839-statement-footing-crossfoot",
+    "display_name": "Statement Footing and Cross-Footing Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-839-statement-footing-crossfoot.html",
+    "description": "Foots and cross-foots declared financial statement lines and ties declared note amounts to declared statement lines, in integer minor units,",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
@@ -7724,6 +8493,66 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-840-gl-flux-explainer",
+    "display_name": "GL Flux Explainer with Gate",
+    "mandate_type": "assurance",
+    "url": "https://ainumbers.co/chaingraph/art-840-gl-flux-explainer.html",
+    "description": "Computes period-over-period movement per declared general-ledger account from integer minor-unit balances, compares each movement to a decla",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-842-soc-report-coverage-gap",
+    "display_name": "SOC Report Coverage and Bridge Gap",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-842-soc-report-coverage-gap.html",
+    "description": "Recomputes coverage and gap arithmetic from declared values. It does not read the SOC report, does not assess whether any control is effecti",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-843-tap-message-validator",
+    "display_name": "TAP Message Structure Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-843-tap-message-validator.html",
+    "description": "Checks that a pasted Transaction Authorization Protocol message, or a short thread of them, has the structure the published TAIPs JSON Schem",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-846-assess-pfmi-proportional",
+    "display_name": "PFMI proportional self-assessment scorer",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-846-assess-pfmi-proportional.html",
+    "description": "Scores a payment system operator’s or overseer’s self-assessment against the 24 CPMI-IOSCO Principles (Apr 2012) or the 5 responsibilities o",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-847-cashleg-window-exposure",
+    "display_name": "Cash-Leg Window Exposure",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-847-cashleg-window-exposure.html",
+    "description": "Computes how long a token leg that settles at any hour waits for a cash leg that only moves while a payment rail is open. From a token leg i",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-849-deferred-comp-457b",
+    "display_name": "Deferred Comp 457(b) Comparison",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-849-deferred-comp-457b.html",
+    "description": "Deferred Comp 457(b) comparison ported from ApexLogics Apex #44 (AL-49). For a single annual deferral (annual income echo, deferral amount, ",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-85-pqc-timeline-fit-diagnostic",
     "display_name": "PQC Timeline & Migration Fit Diagnostic",
     "mandate_type": "agent_guardrail_mandate",
@@ -7738,6 +8567,76 @@ window.CHAINBUILDER_CATALOG = [
       "499-crypto-asset-inventory-classifier",
       "cry-05-agent-action-audit-trail-aggregator"
     ],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-850-shariah-equity-purification",
+    "display_name": "Shariah Equity Purification",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-850-shariah-equity-purification.html",
+    "description": "Screens one company's caller-supplied financials under four pinned Shariah screening methodologies, each as its own independent verdict grou",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-851-islamic-mmf-placement-limits",
+    "display_name": "Islamic MMF Placement Limits",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-851-islamic-mmf-placement-limits.html",
+    "description": "Checks a money market fund's placements against one pinned authority profile: the Saudi Capital Market Authority Investment Funds Regulation",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-852-murabahah-ibra-settlement",
+    "display_name": "Murabahah Ibra' Settlement",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-852-murabahah-ibra-settlement.html",
+    "description": "Computes the disclosed instalment schedule of a deferred-price sale (cost plus a mark-up fixed at contract) in integer minor units: each per",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-854-sukuk-tradability-composition",
+    "display_name": "Sukuk Tradability Composition",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-854-sukuk-tradability-composition.html",
+    "description": "Checks whether sukuk with a mixed asset portfolio are tradable at a negotiated price, per authority and per period, from the portfolio compo",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-855-murabahah-tawarruq-sequence",
+    "display_name": "Murabahah Tawarruq Sequence Check",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-855-murabahah-tawarruq-sequence.html",
+    "description": "Checks the order of steps and the content of a murabahah or tawarruq structure against the Bank Negara Malaysia policy documents for each, f",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-856-ijarah-imbt-schedule",
+    "display_name": "Ijarah IMBT Rental Schedule",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-856-ijarah-imbt-schedule.html",
+    "description": "Computes a month-by-month rental schedule for an ijarah lease that ends with the lessee owning the asset, against one pinned authority profi",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-857-average-price-allocation",
+    "display_name": "Average Price Allocation",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-857-average-price-allocation.html",
+    "description": "Average-price allocation for one block order executed in several fills. Given an ISO 4217 currency, a side (buy labels amounts as cost, sell",
+    "consumes": [],
+    "feeds": [],
     "status": "live"
   },
   {
