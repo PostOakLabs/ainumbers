@@ -9,7 +9,12 @@
  *       awaited inside a try;
  *   (C) the registered name is <= 128 chars and matches ^[A-Za-z0-9_.-]+$;
  *   (D) annotation keys, when present, are limited to the four spec booleans
- *       readOnlyHint, untrustedContentHint, consequentialHint, debugging.
+ *       readOnlyHint, untrustedContentHint, consequentialHint, debugging;
+ *   (E) WEBMCP-OUTPUT-SCHEMA-1: outputSchema, when present, must be a valid
+ *       JSON Schema object (an object literal, never a scalar; `type`, when
+ *       present, from the seven legal JSON Schema names or an array of them;
+ *       properties a plain object of schemas; required an array of strings;
+ *       enum a non-empty array; items an object or array — depth-limited).
  *
  * Violations inside a generator-owned region (the marker-delimited block emitted
  * by gen-webmcp-registrations.mjs) are always FATAL: that block is generated and
@@ -54,6 +59,43 @@ export const NAME_RE = /^[A-Za-z0-9_.-]+$/;
 export const SPEC_ANNOTATION_KEYS = Object.freeze([
   'readOnlyHint', 'untrustedContentHint', 'consequentialHint', 'debugging',
 ]);
+const SCHEMA_TYPE_NAMES = Object.freeze([
+  'string', 'number', 'integer', 'boolean', 'array', 'object', 'null',
+]);
+const SCHEMA_DEPTH_CAP = 8;
+
+/** (E) structural JSON Schema validity, the repo's draft-2020-12-subset
+ *  dialect — the same keyword set the fixture gate validates outputs with
+ *  (check-output-schema-coverage.mjs validateSubset), so a schema this gate
+ *  accepts is a schema that gate can apply. Depth-capped: pathological
+ *  nesting is not this gate's war. */
+export function isValidOutputSchema(schema, depth = 0) {
+  if (depth > SCHEMA_DEPTH_CAP) return true;
+  if (schema === null || typeof schema !== 'object' || Array.isArray(schema)) return false;
+  if (schema.type !== undefined) {
+    const t = schema.type;
+    const ok = Array.isArray(t)
+      ? t.length > 0 && t.every((x) => SCHEMA_TYPE_NAMES.includes(x))
+      : SCHEMA_TYPE_NAMES.includes(t);
+    if (!ok) return false;
+  }
+  if (schema.enum !== undefined && (!Array.isArray(schema.enum) || schema.enum.length === 0)) return false;
+  if (schema.required !== undefined) {
+    if (!Array.isArray(schema.required) || schema.required.some((k) => typeof k !== 'string')) return false;
+  }
+  if (schema.properties !== undefined) {
+    if (schema.properties === null || typeof schema.properties !== 'object' || Array.isArray(schema.properties)) return false;
+    for (const v of Object.values(schema.properties)) {
+      if (!isValidOutputSchema(v, depth + 1)) return false;
+    }
+  }
+  if (schema.items !== undefined && schema.items !== null) {
+    if (Array.isArray(schema.items)) {
+      if (!schema.items.every((v) => isValidOutputSchema(v, depth + 1))) return false;
+    } else if (!isValidOutputSchema(schema.items, depth + 1)) return false;
+  }
+  return true;
+}
 
 /** Brace matcher that ignores braces inside quoted strings and comments. */
 function matchingBrace(src, openIdx) {
@@ -166,6 +208,30 @@ export function checkPageSpec(src) {
           }
         }
       }
+
+      // (E) WEBMCP-OUTPUT-SCHEMA-1: an emitted outputSchema must be a valid
+      // JSON Schema object. The generator emits it as a JSON literal
+      // (JSON.stringify), so the object text must JSON.parse before the
+      // structural validation; a hand-authored non-JSON literal is the same
+      // violation class (the promised output shape is unvalidatable).
+      const os = /\boutputSchema\s*:\s*/.exec(objText);
+      if (os) {
+        const valAt = os.index + os[0].length;
+        if (objText[valAt] !== '{') {
+          add('E', 'outputSchema present but not a JSON object literal', callAbs);
+        } else {
+          const osClose = matchingBrace(src, openBrace + valAt);
+          if (osClose === -1) add('E', 'outputSchema object could not be parsed', callAbs);
+          else {
+            let parsed = null;
+            let parseErr = null;
+            try { parsed = JSON.parse(src.slice(openBrace + valAt, osClose + 1)); } catch (e) { parseErr = e; }
+            if (parseErr || !isValidOutputSchema(parsed)) {
+              add('E', `outputSchema is not a valid JSON Schema object${parseErr ? ` (${parseErr.message.split('\n')[0]})` : ''}`, callAbs);
+            }
+          }
+        }
+      }
     }
   }
   return violations;
@@ -177,7 +243,7 @@ export function checkPageSpec(src) {
  */
 export function evaluate(pages, baselinePages, unownedGenerated = new Set()) {
   const fatal = [], baselined = [], shrink = [];
-  const byRule = { A: 0, B: 0, C: 0, D: 0 };
+  const byRule = { A: 0, B: 0, C: 0, D: 0, E: 0 };
   for (const [page, src] of pages) {
     const violations = checkPageSpec(src);
     if (!violations.length) {
@@ -286,7 +352,7 @@ function selftest() {
     '<script>',
     'const mc = document.modelContext;',
     'if (mc) {',
-    "  Promise.resolve(mc.registerTool({ name: 'fixture_tool', description: 'a description', inputSchema: { type: 'object' }, annotations: { readOnlyHint: true }, execute: async function(){ try { return {}; } catch(e){ return {}; } } })).catch(() => {});",
+    "  Promise.resolve(mc.registerTool({ name: 'fixture_tool', description: 'a description', title: 'Fixture Tool', inputSchema: { type: 'object' }, outputSchema: { \"type\": \"object\", \"properties\": { \"ok\": { \"type\": \"boolean\" } } }, annotations: { readOnlyHint: true }, execute: async function(){ try { return {}; } catch(e){ return {}; } } })).catch(() => {});",
     '}',
     '</script>',
     GEN_END,
@@ -295,6 +361,15 @@ function selftest() {
 
   const green = checkPageSpec(genPage);
   check('GREEN control: spec-aligned generated block has zero violations', green.length === 0);
+  check('GREEN control (E): a valid emitted outputSchema passes', green.every((v) => v.rule !== 'E'));
+
+  const redE1 = checkPageSpec(genPage.replace('outputSchema: { "type": "object", "properties": { "ok": { "type": "boolean" } } }', 'outputSchema: { "type": "strin" }'));
+  check('RED E control: off-dialect outputSchema type detected', redE1.some((v) => v.rule === 'E'));
+  check('RED E control: violation classified inside the generated region', redE1.some((v) => v.rule === 'E' && v.generated));
+  const redE2 = checkPageSpec(genPage.replace('outputSchema: { "type": "object", "properties": { "ok": { "type": "boolean" } } }', "outputSchema: 'not-a-schema'"));
+  check('RED E control: scalar outputSchema detected', redE2.some((v) => v.rule === 'E'));
+  const redE3 = checkPageSpec(genPage.replace('"ok": { "type": "boolean" }', '"ok": { "type": ["boolean", 7] }'));
+  check('RED E control: non-string member in a type array detected', redE3.some((v) => v.rule === 'E'));
 
   const redA = checkPageSpec(genPage.replace('const mc = document.modelContext;', 'const mc = document.modelContext ?? navigator.modelContext;'));
   check('RED A control: navigator.modelContext detected', redA.some((v) => v.rule === 'A'));

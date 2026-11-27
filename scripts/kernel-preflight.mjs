@@ -618,6 +618,24 @@ if (!shouldStop()) {
   const kernelSrc = readFileSync(KERNEL_PATH, 'utf8');
   const looksStandardsImplementing = /\bregulatory_basis\s*:/.test(kernelSrc) || shard?.standards_basis === 'implements_standard';
 
+  // SCOPE (SPEC.md §30.4 — branch-aware; DIAG-SO38-SCOPE-1). §30 gates a node only
+  // when it is NEW or CHANGED relative to origin/main: "A pre-existing node with no
+  // standards_basis declaration is reported as a gap ... and is never itself a CI
+  // failure." The §15 SSOT gate (check-clause-digest.mjs) implements exactly that and
+  // reports the pre-existing class green (384 such nodes counted on main, NOT gating).
+  // This check's old unconditional shape hard-failed 68 pre-existing kernels on a
+  // clean main checkout (art-364 measured 2026-11-25) off the kernel-source
+  // `regulatory_basis:` string — an emitted artifact field, not a §30.3 declaration.
+  // Same touched-scoping primitive checks 6 and 7c already use. Never applied to
+  // touched bytes — nothing about NEW or CHANGED bytes is weakened (no-waiver ruling).
+  const nodeTouched =
+    differsFromOriginMain(`chaingraph/kernels/${ID}.kernel.mjs`, KERNEL_PATH) ||
+    (!existsSync(SHARD_PATH) || differsFromOriginMain(`chaingraph/graph/nodes/${ID}.json`, SHARD_PATH));
+  const recordScoped = (r, owe) => {
+    if (r.status !== 'FAIL' || nodeTouched) return record(r);
+    return record({ ...r, status: 'N-A', out: `${r.out.trimEnd()}\nSCOPE (SPEC.md §30.4, DIAG-SO38-SCOPE-1): ${ID} is byte-identical to origin/main (kernel + shard) — a pre-existing node is a visible gap, NOT gating, never backfilled; check-clause-digest.mjs reports this same class green. It gates only once a branch touches this node${owe ? ` — a touched node then owes ${owe}` : ''}.` });
+  };
+
   if (shard?.standards_basis === 'not_applicable') {
     record({ label: 'cited_clause_digest present-or-N/A (SO #38/§30)', status: 'N-A', ms: Date.now() - t0, out: `${ID} declares standards_basis:"not_applicable".` });
   } else if (shard?.standards_basis === 'implements_standard' || shard?.standards_basis === 'cites_informative') {
@@ -634,13 +652,13 @@ if (!shouldStop()) {
     if (digests.length > 0) {
       record({ label: 'cited_clause_digest present-or-N/A (SO #38/§30)', status: 'PASS', ms: Date.now() - t0, out: `standards_basis:"${basis}" with ${digests.length} cited_clause_digest entr(ies) present.` });
     } else {
-      record({ label: 'cited_clause_digest present-or-N/A (SO #38/§30)', status: 'FAIL', ms: Date.now() - t0, out: `standards_basis:"${basis}" but cited_clause_digest[] is empty — SO #38 violation (§30.5: both implements_standard and cites_informative require >=1 entry).` });
+      recordScoped({ label: 'cited_clause_digest present-or-N/A (SO #38/§30)', status: 'FAIL', ms: Date.now() - t0, out: `standards_basis:"${basis}" but cited_clause_digest[] is empty — SO #38 violation (§30.5: both implements_standard and cites_informative require >=1 entry).` }, 'a non-empty cited_clause_digest[] whose entries resolve to clause-snapshot-registry.json (§30.5)');
     }
   } else if (looksStandardsImplementing) {
     const declared = shard?.standards_basis;
-    record({ label: 'cited_clause_digest present-or-N/A (SO #38/§30)', status: 'FAIL', ms: Date.now() - t0, out: declared
+    recordScoped({ label: 'cited_clause_digest present-or-N/A (SO #38/§30)', status: 'FAIL', ms: Date.now() - t0, out: declared
       ? `kernel source declares a regulatory_basis (standards-implementing) and the shard declares standards_basis:"${declared}", which is not one of the three SPEC.md §30.3 values (implements_standard | cites_informative | not_applicable).`
-      : `kernel source declares a regulatory_basis (standards-implementing) but the shard carries no standards_basis field at all — SO #38 requires "implements_standard" or "cites_informative" + cited_clause_digest[], or an explicit "not_applicable".` });
+      : `kernel source declares a regulatory_basis (standards-implementing) but the shard carries no standards_basis field at all — SO #38 requires "implements_standard" or "cites_informative" + cited_clause_digest[], or an explicit "not_applicable".` }, 'a standards_basis declaration per §30.3 (implements_standard | cites_informative | not_applicable) plus, for the first two, resolvable cited_clause_digest[] entries (§30.5)');
     } else {
     record({ label: 'cited_clause_digest present-or-N/A (SO #38/§30)', status: 'N-A', ms: Date.now() - t0, out: `no standards_basis field and no regulatory_basis in kernel source — not a standards-implementing node by this discriminator (the same one FAST-PROVE-BATCH-1 used). Reported N-A, never silently passed: RIDER-KERNEL/CLAUSE-DIGEST-LAND-0816-1 own backfilling this class, not this row.` });
   }

@@ -18,11 +18,34 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync, chmodSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve, dirname } from 'node:path';
+import { join, resolve, dirname, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const WF = readFileSync(join(ROOT, '.github/workflows/derived-regen-deadman.yml'), 'utf8');
+
+// DEADMAN-TEST-WIN-BASH-1: a bare `bash` resolves to WSL's
+// C:\WINDOWS\system32\bash.exe on a Windows host whose PATH puts System32 first.
+// WSL bash neither understands the backslash-separated Windows path of the
+// extracted step script nor sees the stub `gh` the test puts on PATH, so both
+// scenarios exit 127 before the decision script runs. Pin Git for Windows'
+// bash, exactly as .githooks/pre-push.test.mjs already does; this changes only
+// the harness, never the workflow step under test or its assertions.
+function resolveBash() {
+  if (process.platform === 'win32') {
+    for (const root of [process.env.ProgramFiles, process.env['ProgramFiles(x86)'], 'C:\\Program Files']) {
+      if (!root) continue;
+      const p = join(root, 'Git', 'usr', 'bin', 'bash.exe');
+      if (existsSync(p)) return p;
+    }
+  }
+  return 'bash';
+}
+const BASH = resolveBash();
+// A bare Git Bash spawned from PowerShell inherits a Windows PATH with no
+// /usr/bin on it, so the step's own POSIX tools and the `#!/usr/bin/env bash`
+// stub both fail to resolve. Give the child the tools a Git Bash launch has.
+const BASH_BIN_DIR = process.platform === 'win32' && BASH.includes('\\') ? dirname(BASH).replace(/\\/g, '/') : '';
 
 /** The `run: |` body of the retry step, dedented, with the back-off removed. */
 function retryScript() {
@@ -47,6 +70,10 @@ function retryScript() {
 
 function runWith({ headSha, mainSha }) {
   const dir = mkdtempSync(join(tmpdir(), 'deadman-retry-'));
+  // MSYS bash needs POSIX-style paths, both in PATH and in the strings the
+  // extracted step writes verbatim into its stub script.
+  const bashDir = process.platform === 'win32' ? dir.replace(/\\/g, '/') : dir;
+  const bashPath = (p) => (process.platform === 'win32' ? p.replace(/\\/g, '/') : p);
   try {
     const log = join(dir, 'gh.log');
     const gh = join(dir, 'gh');
@@ -56,9 +83,9 @@ function runWith({ headSha, mainSha }) {
     writeFileSync(join(dir, 'jobs.json'), jobs);
     writeFileSync(gh, [
       '#!/usr/bin/env bash',
-      `echo "$*" >> "${log}"`,
+      `echo "$*" >> "${bashPath(log)}"`,
       'if [ "$1" = "api" ]; then',
-      `  case "$2" in *"/jobs"*) cat "${join(dir, 'jobs.json')}" ;; *"/commits/main"*) echo "$MAIN_SHA_STUB" ;; esac`,
+      `  case "$2" in *"/jobs"*) cat "${bashPath(join(dir, 'jobs.json'))}" ;; *"/commits/main"*) echo "$MAIN_SHA_STUB" ;; esac`,
       'fi',
       'exit 0',
       '',
@@ -66,12 +93,15 @@ function runWith({ headSha, mainSha }) {
     chmodSync(gh, 0o755);
     const script = join(dir, 'step.sh');
     writeFileSync(script, retryScript());
-    const r = spawnSync('bash', [script], {
+    // MSYS bash treats backslashes in an argument as escapes, so hand it a
+    // POSIX-style path (C:/... ) without changing which file is executed.
+    const bashScript = bashPath(script);
+    const r = spawnSync(BASH, [bashScript], {
       encoding: 'utf8',
       cwd: ROOT, // the step runs scripts/ci/regen-retry-decide.mjs by relative path
       env: {
         ...process.env,
-        PATH: `${dir}:${process.env.PATH}`,
+        PATH: `${bashDir}${delimiter}${BASH_BIN_DIR ? `${BASH_BIN_DIR}${delimiter}` : ''}${process.env.PATH || ''}`,
         GH_TOKEN: 'stub', RUN_ID: '123', HEAD_SHA: headSha,
         GITHUB_REPOSITORY: 'owner/repo', MAIN_SHA_STUB: mainSha,
       },
