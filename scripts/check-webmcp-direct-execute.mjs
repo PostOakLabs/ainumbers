@@ -557,6 +557,162 @@ const RUN_PATH_ADAPTERS = {
       setVal(sandbox, 'transport', pp.transport ?? '');
     },
   },
+  // ── leg 5 (WEBMCP-FN-SHAPE-LEG-5-1) pages: fixture-0 prefills for the 13
+  // repointed manifests. run-wrapper names and control ids read straight from
+  // each page's own pp-collection code; JSON textareas stay JSON, numbers
+  // arrive as strings, checkboxes flip .checked.
+  'art-317-rhc-multiplier-reconciler': {
+    run: 'runReconciler',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'eventLog', JSON.stringify(pp.event_log, null, 2));
+      setVal(sandbox, 'actionType', pp.declared_action?.type ?? '');
+      setVal(sandbox, 'declaredRatio', String(pp.declared_action?.ratio ?? ''));
+      setVal(sandbox, 'exDate', pp.declared_action?.ex_date ?? '');
+      setVal(sandbox, 'priorMult', String(pp.prior_multiplier));
+      setVal(sandbox, 'currentMult', String(pp.current_multiplier));
+      setVal(sandbox, 'rawBefore', String(pp.raw_balance_before));
+      setVal(sandbox, 'rawAfter', String(pp.raw_balance_after));
+    },
+  },
+  'art-320-rhc-collateral-haircut': {
+    run: 'runHaircut',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'positionValue', String(pp.position_value));
+      setVal(sandbox, 'baseHaircut', String(pp.base_haircut));
+      setVal(sandbox, 'feedTimestamp', String(pp.feed_round?.timestamp ?? ''));
+      setVal(sandbox, 'heartbeatSeconds', String(pp.feed_round?.heartbeat_seconds ?? ''));
+      setVal(sandbox, 'currentTime', String(pp.current_time));
+      sandbox.document.getElementById('sequencerUp').checked = pp.sequencer_uptime?.is_up ?? false;
+      setVal(sandbox, 'sequencerSince', String(pp.sequencer_uptime?.since_timestamp ?? ''));
+      setVal(sandbox, 'graceSeconds', String(pp.sequencer_uptime?.grace_period_seconds ?? ''));
+      sandbox.document.getElementById('underlyingHalted').checked = pp.underlying_market_state?.is_halted ?? false;
+    },
+  },
+  'art-321-rhc-bold-finality-classifier': {
+    run: 'runClassifier',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'l2Inclusion', String(pp.l2_inclusion_timestamp));
+      sandbox.document.getElementById('batchPosted').checked = pp.batch_posted_to_l1 ?? false;
+      sandbox.document.getElementById('assertionCreated').checked = pp.assertion_created ?? false;
+      setVal(sandbox, 'assertionTimestamp', String(pp.assertion_created_timestamp));
+      setVal(sandbox, 'challengeWindow', String(pp.challenge_window_seconds ?? ''));
+      setVal(sandbox, 'currentTime', String(pp.current_time));
+      setVal(sandbox, 'finalityClaim', pp.finality_claim ?? '');
+    },
+  },
+  'art-322-rhc-ap-redemption-stress': {
+    // runStress hardcodes issuer_credit.rating_available to false — the page's
+    // own shape; fixture 0 also carries rating_available false, so the form pp
+    // round-trips everything the form can express.
+    run: 'runStress',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'apList', JSON.stringify(pp.authorised_participants, null, 2));
+      setVal(sandbox, 'dailyVolume', String(pp.secondary_market_depth?.daily_volume_usd ?? ''));
+      setVal(sandbox, 'spreadBps', String(pp.secondary_market_depth?.bid_ask_spread_bps ?? ''));
+      setVal(sandbox, 'obligor', pp.issuer_credit?.obligor ?? '');
+    },
+  },
+  'art-324-tvm-npv': {
+    run: 'runCompute',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'mode', pp.mode ?? 'periods');
+      setVal(sandbox, 'discountRate', String(pp.discount_rate_pct ?? ''));
+      setVal(sandbox, 'dayCount', pp.day_count_convention ?? '');
+      setVal(sandbox, 'valuationDate', pp.valuation_date ?? '');
+      setVal(sandbox, 'cashFlows', (pp.cash_flows ?? []).map((cf) => cf.t === undefined ? String(cf.amount) : String(cf.amount) + ', ' + String(cf.t)).join('\n'));
+    },
+  },
+  'art-325-tvm-irr': {
+    // readInputs always emits bracket_lo/bracket_hi/tolerance/max_iterations
+    // (page defaults); the controls stay at their HTML defaults so the leg
+    // runs the page's own solver controls end-to-end.
+    run: 'runCompute',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'cashFlows', (pp.cash_flows ?? []).map((cf) => String(cf.amount)).join('\n'));
+    },
+  },
+  'art-326-tvm-xirr': {
+    // Dates-mode rows ("amount, date"); the solver controls stay at their HTML
+    // defaults for the same reason as art-325.
+    run: 'runCompute',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'cashFlows', (pp.cash_flows ?? []).map((cf) => String(cf.amount) + ', ' + String(cf.date ?? '')).join('\n'));
+    },
+  },
+  'art-328-tvm-breakeven': {
+    run: 'runCompute',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'fixedCosts', String(pp.fixed_costs ?? ''));
+      setVal(sandbox, 'pricePerUnit', String(pp.price_per_unit ?? ''));
+      setVal(sandbox, 'varCostPerUnit', String(pp.variable_cost_per_unit ?? ''));
+      setVal(sandbox, 'currentUnits', pp.current_units === undefined ? '' : String(pp.current_units));
+    },
+  },
+  'art-329-tvm-bond-duration': {
+    run: 'runCompute',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'faceValue', String(pp.face_value ?? ''));
+      setVal(sandbox, 'couponRatePct', String(pp.coupon_rate_pct ?? ''));
+      setVal(sandbox, 'ytmPct', String(pp.ytm_pct ?? ''));
+      setVal(sandbox, 'yearsToMaturity', String(pp.years_to_maturity ?? ''));
+      setVal(sandbox, 'periodsPerYear', String(pp.periods_per_year ?? ''));
+      setVal(sandbox, 'dayCount', pp.day_count_convention ?? '');
+    },
+  },
+  'art-348-score-credit-model-quantized': {
+    // The quantized scorer's input surface is the 10-element int8-normalized
+    // vector; the page reads one #feat<i> control per element.
+    run: 'runCompute',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      (pp.normalized_fixp16 ?? []).forEach((v, i) => {
+        setVal(sandbox, 'feat' + i, String(v));
+      });
+    },
+  },
+  'art-361-camera-provenance-check': {
+    // readPp rebuilds assertions in ITS own order (hash.data first, actions
+    // second) from the two boolean selects plus digital_source_type; fixture 0
+    // stores actions-first, which the form order cannot express.
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'manifest_digest', pp.manifest_digest ?? '');
+      setVal(sandbox, 'claim_generator', pp.claim_generator ?? '');
+      setVal(sandbox, 'claim_format', pp.claim?.format ?? '');
+      setVal(sandbox, 'claim_instance_id', pp.claim?.instanceID ?? '');
+      const labels = (pp.assertions ?? []).map((a) => a.label);
+      setVal(sandbox, 'has_hard_binding', labels.includes('c2pa.hash.data') ? 'true' : 'false');
+      setVal(sandbox, 'has_actions', labels.includes('c2pa.actions') ? 'true' : 'false');
+      const action = (pp.assertions ?? []).find((a) => a.label === 'c2pa.actions');
+      setVal(sandbox, 'digital_source_type', ((action?.actions ?? [])[0] ?? {}).digitalSourceType ?? '');
+      setVal(sandbox, 'sig_present', String(pp.signature?.present ?? false));
+      setVal(sandbox, 'sig_alg', pp.signature?.alg ?? '');
+    },
+  },
+  'art-374-test-nav-error-materiality': {
+    // getPP builds materiality_policy/affected_period only from non-blank
+    // controls (fixture 0 carries neither) and reads the two NAV-per-share
+    // controls as raw strings; the threshold/policy/period/shares controls
+    // stay blank so those optional members stay absent.
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'fund_id', pp.fund_id ?? '');
+      setVal(sandbox, 'valuation_date', pp.valuation_date ?? '');
+      setVal(sandbox, 'erroneous_nav_per_share', pp.erroneous_nav_per_share === undefined || pp.erroneous_nav_per_share === null ? '' : String(pp.erroneous_nav_per_share));
+      setVal(sandbox, 'corrected_nav_per_share', pp.corrected_nav_per_share === undefined || pp.corrected_nav_per_share === null ? '' : String(pp.corrected_nav_per_share));
+    },
+  },
 };
 
 function setVal(sandbox, id, v) {
