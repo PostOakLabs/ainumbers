@@ -103,6 +103,8 @@ export const FLAGS = Object.freeze({
   CHAINED_CELL_FOR_LOCAL_CLASS: 'CHAINED_CELL_FOR_LOCAL_CLASS',
   UNKNOWN_LOCAL_FACT: 'UNKNOWN_LOCAL_FACT',
   LOCAL_FACT_UNPINNED: 'LOCAL_FACT_UNPINNED',
+  MALFORMED_CLASS_ENTRY: 'MALFORMED_CLASS_ENTRY',
+  MISSING_LOCAL_FACTS: 'MISSING_LOCAL_FACTS',
   REVOCATION_UNDECLARED: 'REVOCATION_UNDECLARED',
   UNKNOWN_REVOCATION_MECHANISM: 'UNKNOWN_REVOCATION_MECHANISM',
   INCOMPLETE_LEARN_FACTS: 'INCOMPLETE_LEARN_FACTS',
@@ -177,7 +179,12 @@ function localCells(cls, entry, addFlag) {
   }
   const lf = entry.local_facts;
   if (!isPlainObject(lf)) {
-    for (const col of COLUMNS) cells[col] = { kind: 'not_declared' };
+    if (lf !== undefined) {
+      addFlag(FLAGS.MISSING_LOCAL_FACTS, `${cls}: local_facts present but not a plain object`);
+      for (const col of COLUMNS) cells[col] = refusedCell(FLAGS.MISSING_LOCAL_FACTS);
+    } else {
+      for (const col of COLUMNS) cells[col] = { kind: 'not_declared' };
+    }
     return cells;
   }
   for (const col of COLUMNS) {
@@ -266,9 +273,16 @@ export function compute(pp) {
     const entry = declared[cls];
     const cells = {};
     if (!isPlainObject(entry)) {
-      for (const col of COLUMNS) cells[col] = { kind: 'not_declared' };
-      cells.revocability = { kind: 'not_declared' };
-      cells.learn = { kind: 'not_declared' };
+      if (entry !== undefined) {
+        addFlag(FLAGS.MALFORMED_CLASS_ENTRY, `${cls}: class entry present but not a plain object`);
+        for (const col of COLUMNS) cells[col] = refusedCell(FLAGS.MALFORMED_CLASS_ENTRY);
+        cells.revocability = refusedCell(FLAGS.MALFORMED_CLASS_ENTRY);
+        cells.learn = refusedCell(FLAGS.MALFORMED_CLASS_ENTRY);
+      } else {
+        for (const col of COLUMNS) cells[col] = { kind: 'not_declared' };
+        cells.revocability = { kind: 'not_declared' };
+        cells.learn = { kind: 'not_declared' };
+      }
     } else if (CHAINED_CLASSES.includes(cls)) {
       for (const [col, cell] of Object.entries(chainedCells(cls, entry, addFlag))) cells[col] = cell;
       cells.revocability = revocationCell(cls, pp.revocation, addFlag);

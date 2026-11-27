@@ -42,6 +42,24 @@
 // non-200, an unparseable manifest, or a manifest with fewer than 10 entries
 // is RED, not "skipped".
 //
+// RATE-LIMIT DISCIPLINE (DEPLOY-DRIFT-429-1, 2026-11-25). Two runs (2026-11-22
+// and 2026-11-25) failed on plain HTTP 429s from the edge — on
+// /.well-known/deploy-checksums.txt here, with every sampled page
+// byte-matched clean before the refusal. A 429 is the edge saying "slow
+// down", not "bytes drifted", so REDing it as drift lied about the estate,
+// and it fired exactly when nothing was wrong. Since this fix: every fetch
+// retries 429 ONLY, at most RATE_LIMIT_MAX_ATTEMPTS attempts total, waiting
+// the server's Retry-After (seconds or HTTP-date form) capped at
+// RATE_LIMIT_CAP_MS, falling back to 5s/10s doubling when no header is sent —
+// nothing else is retried (a 404 or 500 is evidence, not throttling). A 429
+// that persists past the retries is a THIRD verdict: the run prints
+// INCONCLUSIVE and exits EXIT_INCONCLUSIVE (3) — never drift (a red would
+// name drift that was not measured), never a pass (an unverifiable fetch is
+// not green, SO #34c). Red findings still win over inconclusive: real drift
+// observed before a later refusal is reported as drift, exit 1. The distinct
+// exit code keeps the workflow lane visibly non-green without letting it
+// read as "checked and clean".
+//
 // WHERE IT RUNS: the post-deploy smoke lane of deploy-to-dreamhost.yml (it
 // needs the live site; preflight/branch runs see no deployment of themselves).
 // CI_ONLY-declared in check-workflow-gate-parity.mjs for exactly that reason.
@@ -313,29 +331,115 @@ export function checkChecksumEntry({ entry, servedBytes, cacheStatus, refetchedB
 
 const UA = "ainumbers-served-egress-check/1.0 (+SERVED-EGRESS-CHECK-1 post-deploy smoke)";
 
-async function fetchLive(url, { bustQuery = false } = {}) {
+// ── 429-only bounded retry (DEPLOY-DRIFT-429-1) — pure decision core, proved
+// by check-served-egress.test.mjs; fetchLive is its only caller ──────────────
+
+// 3 attempts total = 1 initial fetch + at most 2 retries. Bounded so a
+// hard-throttling edge cannot stretch the lane indefinitely.
+export const RATE_LIMIT_MAX_ATTEMPTS = 3;
+// Retry-After is honoured up to this per-wait ceiling; a server demanding a
+// longer wait gets a retry at the cap instead, and if it is STILL 429 the run
+// ends INCONCLUSIVE — the cap bounds lane time, the inconclusive exit stays
+// the honest terminal state.
+export const RATE_LIMIT_CAP_MS = 45_000;
+// Exit codes are part of the verdict: GREEN 0, drift RED 1 (fail()),
+// rate-limited INCONCLUSIVE 3 — 3 is deliberately distinct from both so a
+// consumer can never read a refusal as "checked and clean" or as drift.
+export const EXIT_GREEN = 0;
+export const EXIT_DRIFT = 1;
+export const EXIT_INCONCLUSIVE = 3;
+
+/**
+ * How long to wait before retrying after a 429 (ms). Honours Retry-After in
+ * both RFC forms (delay-seconds and HTTP-date), capped at RATE_LIMIT_CAP_MS;
+ * missing/garbage header falls back to a 5 s x 2^(attempt-1) doubling (5 s,
+ * 10 s). Never negative; always finite.
+ */
+export function rateLimitRetryDelayMs({ retryAfterHeader, attempt }) {
+  let ms = null;
+  if (retryAfterHeader != null && String(retryAfterHeader).trim() !== "") {
+    const secs = Number(retryAfterHeader);
+    if (Number.isFinite(secs)) {
+      ms = secs * 1000;
+    } else {
+      const date = Date.parse(String(retryAfterHeader));
+      if (!Number.isNaN(date)) ms = date - Date.now();
+    }
+  }
+  if (ms == null || !Number.isFinite(ms) || ms < 0) ms = 5000 * 2 ** (attempt - 1);
+  return Math.min(Math.round(ms), RATE_LIMIT_CAP_MS);
+}
+
+/**
+ * The bounded-retry decision for one completed fetch attempt: 'retry' sends
+ * the caller back to fetch after rateLimitRetryDelayMs(); 'final' returns the
+ * response as-is. 429 ONLY — every other status is final on the first attempt
+ * (evidence, not throttling), and a 429 on the last attempt is final too.
+ */
+export function rateLimitDecision(status, attempt) {
+  if (status === 429 && attempt < RATE_LIMIT_MAX_ATTEMPTS) return "retry";
+  return "final";
+}
+
+/**
+ * The run's terminal verdict from its two finding buckets. Drift wins over
+ * inconclusive (real findings observed before a later refusal must not be
+ * softened); inconclusive beats green (an unverifiable fetch is never a pass,
+ * SO #34c). Returns { code, kind } with kind in "drift" | "inconclusive" |
+ * "green".
+ */
+export function finalVerdict({ redCount, inconclusiveCount }) {
+  if (redCount > 0) return { code: EXIT_DRIFT, kind: "drift" };
+  if (inconclusiveCount > 0) return { code: EXIT_INCONCLUSIVE, kind: "inconclusive" };
+  return { code: EXIT_GREEN, kind: "green" };
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function fetchLive(url, { bustQuery = false, onRateLimitWait = null } = {}) {
   const target = bustQuery
     ? url + (url.includes("?") ? "&" : "?") + "_egresscb=" + Date.now() + "-" + Math.random().toString(36).slice(2, 8)
     : url;
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 20_000);
-  try {
-    const res = await fetch(target, {
-      redirect: "follow",
-      signal: ctrl.signal,
-      headers: {
-        // Cache-bust headers on EVERY fetch (the row's requirement) — the
-        // edge may still answer from cache (measured: it does), which is why
-        // cf-cache-status is read and the unique-query refetch exists.
-        "Cache-Control": "no-cache",
-        Pragma: "no-cache",
-        "User-Agent": UA,
-      },
-    });
+  let attempt = 0;
+  const rateLimitWaits = [];
+  while (true) {
+    attempt += 1;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 20_000);
+    let res;
+    try {
+      res = await fetch(target, {
+        redirect: "follow",
+        signal: ctrl.signal,
+        headers: {
+          // Cache-bust headers on EVERY fetch (the row's requirement) — the
+          // edge may still answer from cache (measured: it does), which is why
+          // cf-cache-status is read and the unique-query refetch exists.
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+          "User-Agent": UA,
+        },
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (rateLimitDecision(res.status, attempt) === "retry") {
+      const delayMs = rateLimitRetryDelayMs({ retryAfterHeader: res.headers.get("retry-after"), attempt });
+      rateLimitWaits.push(delayMs);
+      if (onRateLimitWait) onRateLimitWait({ url: target, attempt, delayMs });
+      await sleep(delayMs);
+      continue; // 429 only — every other status falls through to the return
+    }
     const body = Buffer.from(await res.arrayBuffer());
-    return { ok: res.ok, status: res.status, body, cacheStatus: res.headers.get("cf-cache-status") || "(none)" };
-  } finally {
-    clearTimeout(timer);
+    return {
+      ok: res.ok,
+      status: res.status,
+      body,
+      cacheStatus: res.headers.get("cf-cache-status") || "(none)",
+      rateLimited: res.status === 429,
+      rateLimitAttempts: attempt,
+      rateLimitWaits,
+    };
   }
 }
 
@@ -386,6 +490,10 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
   const reds = [];
   const warns = [];
   const notes = [...allowlistNotes];
+  // DEPLOY-DRIFT-429-1: fetches the edge refused with a 429 that outlived the
+  // bounded retry. A separate bucket — not a red (no drift was measured), not
+  // a silent skip (SO #34c) — printed as the run's own INCONCLUSIVE verdict.
+  const inconclusive = [];
 
   // ── axis 1: fixed live sample ────────────────────────────────────────────
   for (const page of FIXED_PAGES) {
@@ -404,6 +512,13 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
     } catch (e) {
       reds.push(`${url}: fetch failed (${e.name}: ${e.message}) — a page the gate cannot read is a RED, not a skip (SO #34c)`);
       continue;
+    }
+    if (res.rateLimited) {
+      inconclusive.push(`${url}: HTTP 429 persisted past ${res.rateLimitAttempts} attempt(s) (waits: ${res.rateLimitWaits.join(", ") || "none"} ms) — page bytes UNVERIFIED this run, neither drift nor pass (SO #34c)`);
+      continue;
+    }
+    if (res.rateLimitAttempts > 1) {
+      notes.push(`${url}: HTTP 429 cleared after the bounded retry (attempt ${res.rateLimitAttempts}) — bytes verified normally`);
     }
     if (!res.ok) {
       reds.push(`${url}: HTTP ${res.status} (cf-cache-status=${res.cacheStatus})`);
@@ -439,7 +554,12 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
     reds.push(`${manifestUrl}: fetch failed (${e.name}: ${e.message}) — no manifest means byte integrity is UNVERIFIED, not passed (SO #34c)`);
   }
   if (manifestRes) {
-    if (!manifestRes.ok) {
+    if (manifestRes.rateLimited) {
+      // The manifest IS the byte-integrity sample frame — refused manifest
+      // means the whole axis is unverifiable this run. INCONCLUSIVE, never
+      // drift (nothing mismatched), never a pass (nothing verified, SO #34c).
+      inconclusive.push(`${manifestUrl}: HTTP 429 persisted past ${manifestRes.rateLimitAttempts} attempt(s) (waits: ${manifestRes.rateLimitWaits.join(", ") || "none"} ms) — deploy-checksums.txt unreadable, byte-integrity axis UNVERIFIED this run`);
+    } else if (!manifestRes.ok) {
       reds.push(`${manifestUrl}: HTTP ${manifestRes.status} (cf-cache-status=${manifestRes.cacheStatus})`);
     } else {
       let entries;
@@ -456,6 +576,7 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
             ? selectSampleSeeded(entries, sampleCount, seedNum)
             : selectSample(entries, sampleCount);
           let matches = 0;
+          let sampleInconclusive = 0;
           for (const entry of sample) {
             const url = base + "/" + entry.path;
             let res;
@@ -464,6 +585,14 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
             } catch (e) {
               reds.push(`${url}: fetch failed (${e.name}: ${e.message}) — sampled file unreadable is a RED, not a skip (SO #34c)`);
               continue;
+            }
+            if (res.rateLimited) {
+              sampleInconclusive++;
+              inconclusive.push(`${url}: HTTP 429 persisted past ${res.rateLimitAttempts} attempt(s) (waits: ${res.rateLimitWaits.join(", ") || "none"} ms) — sampled bytes UNVERIFIED this run, neither drift nor pass (SO #34c)`);
+              continue;
+            }
+            if (res.rateLimitAttempts > 1) {
+              notes.push(`${entry.path}: HTTP 429 cleared after the bounded retry (attempt ${res.rateLimitAttempts}) — bytes verified normally`);
             }
             if (!res.ok) {
               // MAIN-REGEN-SERVED-EGRESS-FIXPOINT-1 (2026-09-14): a listed file the server
@@ -500,7 +629,12 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
               reds.push(verdict.detail);
             }
           }
-          console.log(`✓ byte integrity: ${matches}/${sample.length} sampled deploy-checksums.txt URLs match sha256 (manifest lists ${entries.length} files)`);
+          // The all-matched line prints only when the WHOLE sample verified —
+          // with refused URLs in the sample the INCONCLUSIVE verdict below
+          // speaks for the run instead (a partial "✓" would read as a pass).
+          if (sampleInconclusive === 0) {
+            console.log(`✓ byte integrity: ${matches}/${sample.length} sampled deploy-checksums.txt URLs match sha256 (manifest lists ${entries.length} files)`);
+          }
         }
       }
     }
@@ -509,7 +643,19 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
   for (const w of warns) console.log("⚠ " + w);
   for (const n of notes) console.log("ℹ " + n);
 
-  if (reds.length > 0) return fail(reds);
+  // Terminal verdict (DEPLOY-DRIFT-429-1): drift wins over inconclusive (real
+  // findings must not be softened by a later refusal); inconclusive beats
+  // green (unverified is never verified, SO #34c). The INCONCLUSIVE exit code
+  // is 3 — distinct from GREEN 0 and drift RED 1, so no consumer can misread
+  // a rate-limited run as either.
+  const verdict = finalVerdict({ redCount: reds.length, inconclusiveCount: inconclusive.length });
+  if (verdict.kind === "drift") return fail(reds);
+  if (verdict.kind === "inconclusive") {
+    console.error(`◐ SERVED-EGRESS-CHECK-1: INCONCLUSIVE — rate-limited. ${inconclusive.length} fetch(es) returned HTTP 429 past the bounded retry (max ${RATE_LIMIT_MAX_ATTEMPTS} attempts, Retry-After honoured up to ${RATE_LIMIT_CAP_MS} ms):`);
+    for (const l of inconclusive) console.error("  - " + l);
+    console.error("This is NEITHER a pass NOR drift: the edge refused the fetches, so the listed bytes were not measured this run. Re-run when the rate limit clears. (The named check's own exit code 3 is distinct from GREEN 0 and drift RED 1 on purpose.)");
+    process.exit(EXIT_INCONCLUSIVE);
+  }
   console.log(`✅ served-egress check GREEN — ${FIXED_PAGES.length} fixed sample pages carry no injector-class markup and no served-but-not-source external refs; ≥${sampleCount}-URL byte sample matches the deployed manifest${seedNum != null ? ` (seeded draw, seed ${seedNum})` : ""}; allowlist holds ${allowlist.length} entries (0 is the goal).`);
 }
 

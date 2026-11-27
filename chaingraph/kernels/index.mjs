@@ -744,11 +744,13 @@ import * as art846    from './art-846-assess-pfmi-proportional.kernel.mjs';
 import * as art847    from './art-847-cashleg-window-exposure.kernel.mjs';
 import * as art849    from './art-849-deferred-comp-457b.kernel.mjs';
 import * as art85     from './art-85-pqc-timeline-fit-diagnostic.kernel.mjs';
+import * as art850    from './art-850-shariah-equity-purification.kernel.mjs';
 import * as art851    from './art-851-islamic-mmf-placement-limits.kernel.mjs';
 import * as art852    from './art-852-murabahah-ibra-settlement.kernel.mjs';
 import * as art854    from './art-854-sukuk-tradability-composition.kernel.mjs';
 import * as art855    from './art-855-murabahah-tawarruq-sequence.kernel.mjs';
 import * as art856    from './art-856-ijarah-imbt-schedule.kernel.mjs';
+import * as art857    from './art-857-average-price-allocation.kernel.mjs';
 import * as art86     from './art-86-tls-pki-migration-planner.kernel.mjs';
 import * as art87     from './art-87-iso20022-pqc-readiness-checker.kernel.mjs';
 import * as art88     from './art-88-fido-pqc-conformance-checker.kernel.mjs';
@@ -1523,11 +1525,13 @@ export const KERNELS = {
   'art-847-cashleg-window-exposure':                            art847,
   'art-849-deferred-comp-457b':                                 art849,
   'art-85-pqc-timeline-fit-diagnostic':                         art85,
+  'art-850-shariah-equity-purification':                        art850,
   'art-851-islamic-mmf-placement-limits':                       art851,
   'art-852-murabahah-ibra-settlement':                          art852,
   'art-854-sukuk-tradability-composition':                      art854,
   'art-855-murabahah-tawarruq-sequence':                        art855,
   'art-856-ijarah-imbt-schedule':                               art856,
+  'art-857-average-price-allocation':                           art857,
   'art-86-tls-pki-migration-planner':                           art86,
   'art-87-iso20022-pqc-readiness-checker':                      art87,
   'art-88-fido-pqc-conformance-checker':                        art88,

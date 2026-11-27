@@ -34,3 +34,22 @@ Pilot private-input predicate: 16 committed reserve slots, tagged by the eight G
 ## Verify
 
 Run the sample policy_parameters through MCP tool `check_reserves_cover_private` at https://mcp.ainumbers.co/mcp (or the page form) and check the returned receipt's execution hash against the ledger at https://ledger.ainumbers.co/. Use synthetic inputs only; never send real personal data.
+
+## Covered
+
+Obligations of the cited rule text that this tool implements, each with test vectors on both the passing and the refusing side:
+
+- O1: a permitted payment stablecoin issuer must maintain identifiable reserves backing its outstanding payment stablecoins on an at least 1 to 1 basis
+
+## Not covered
+
+Obligations of the cited rule text that this tool does not implement:
+
+- O2: which assets may occupy a slot is a declared input: the predicate sums slot totals and never inspects asset type, so the coins-and-currency category has no kernel-side test
+- O3: the predicate sums slot totals and never inspects asset type, so the demand-deposit category has no kernel-side test
+- O4: the predicate sums slot totals and never inspects asset type or maturity, so the 93-day Treasury category has no kernel-side test
+- O5: repo transactions are not modeled: the predicate sums slot totals and never inspects the backing arrangement
+- O6: reverse-repo structures (tri-party, centrally cleared, bilateral creditworthiness) are not modeled: the predicate sums slot totals only
+- O7: government money market fund holdings are not modeled: the predicate sums slot totals and never inspects fund registration or underlying assets
+- O8: regulator-approved additional assets are not modeled: the predicate has no approval channel, slots are tagged by the fixed eight categories
+- O9: tokenized-form legality is not modeled: tokenized slots are summed like any other and no compliance check exists

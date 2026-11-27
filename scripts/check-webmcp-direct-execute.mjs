@@ -78,8 +78,10 @@ function stripHash(h) {
 function augmentForDirectPaint(sandbox) {
   sandbox.document.body.insertBefore = function insertBefore(child) { return child; };
   sandbox.document.body.firstChild = null;
+  sandbox.document.body.removeChild = function removeChild(child) { return child; };
   sandbox.document.head.insertBefore = function insertBefore(child) { return child; };
   sandbox.document.head.firstChild = null;
+  sandbox.document.head.removeChild = function removeChild(child) { return child; };
 }
 
 /* ── leg 1: the registered tool's execute() on fixture 0 ─────────────────── */
@@ -442,6 +444,275 @@ const RUN_PATH_ADAPTERS = {
       setVal(sandbox, 'childIn', pp.child_license ?? '');
     },
   },
+  // PR-3348-DIRECT-REG-CURE-1: the three manifest-repointed FIX-MANIFEST pages
+  // (WEBMCP-FN-SHAPE-LEG-3). Adapters map fixture policy_parameters onto the
+  // pages' own controls; where fixture 0's pp is {} or omits a key the form
+  // path always emits (collectPP/getPP defaults), the run-path pp cannot
+  // reproduce the kernel golden's raw-pp preimage and the leg-2 mismatch is
+  // baselined with a reason.
+  'art-206-rights-record-builder': {
+    run: 'runBuilder',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // collectPP() always returns the full row shape (territory/renewal
+      // defaults, rights_vector from rvState), so fixture 0's {} preimage is
+      // not form-reproducible; empty controls exercise the page's own
+      // empty-input path.
+      setVal(sandbox, 'assetRef', pp.asset_ref ?? '');
+      setVal(sandbox, 'licensor', pp.licensor ?? '');
+      setVal(sandbox, 'licensee', pp.licensee ?? '');
+      setVal(sandbox, 'licenseId', pp.license_id ?? '');
+      setVal(sandbox, 'territory', pp.territory ?? '');
+      setVal(sandbox, 'termYears', pp.term_years === undefined ? '' : String(pp.term_years));
+      setVal(sandbox, 'renewal', pp.renewal ?? '');
+    },
+  },
+  'art-280-reserve-proof-verifier': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() always returns {exchange, merkle_proof, storage_proof_composition}
+      // (por_round only when its controls are filled), so fixture 0's {}
+      // preimage is not form-reproducible; empty controls run the page's
+      // empty-form path.
+      setVal(sandbox, 'exchange', pp.exchange ?? '');
+      setVal(sandbox, 'merkle_proof', pp.merkle_proof === undefined ? '' : JSON.stringify(pp.merkle_proof, null, 2));
+    },
+  },
+  'art-284-did-webvh-log-verifier': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() always adds max_entries (control default 100), which fixture
+      // 0's pp omits, so the golden preimage is not form-reproducible; the
+      // fixture's did/did_log are served through the page's real controls.
+      setVal(sandbox, 'did', pp.did ?? '');
+      setVal(sandbox, 'logInput', JSON.stringify(pp.did_log ?? [], null, 2));
+      setVal(sandbox, 'max_entries', pp.max_entries === undefined ? '' : String(pp.max_entries));
+    },
+  },
+  // PR-3349-DIRECT-REG-CURE-1: the four manifest-repointed FIX-MANIFEST pages
+  // (WEBMCP-FN-SHAPE-LEG-4). Adapters map fixture policy_parameters onto the
+  // pages' own controls; where fixture 0's pp is {} and the form path always
+  // emits a full row shape (getPP defaults), the run-path pp cannot reproduce
+  // the kernel golden's raw-pp preimage and the leg-2 mismatch is baselined
+  // with a reason.
+  'art-286-anchored-extract-verifier': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() always returns the full row shape (extract with parsed
+      // merkle_path, claimed_root, source_class, anchor_evidence), so fixture
+      // 0's {} preimage is not form-reproducible; empty controls run the
+      // page's own empty-input path (the fixture's REFUSED_UNANCHORED
+      // no-anchor default).
+      setVal(sandbox, 'leaf_content_hash', pp.extract?.leaf_content_hash ?? '');
+      setVal(sandbox, 'merkle_path', pp.extract?.merkle_path === undefined ? '' : JSON.stringify(pp.extract.merkle_path));
+      setVal(sandbox, 'claimed_root', pp.claimed_root ?? '');
+      setVal(sandbox, 'source_class', pp.source_class ?? '');
+    },
+  },
+  'art-287-revocation-status-verifier': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() returns {} verbatim when has_status is 'no', so fixture 0's
+      // absent-credential_status no-signal preimage IS form-reproducible;
+      // with a credential_status present the four controls carry the fixture
+      // values through the page's real form path.
+      if (!pp.credential_status) { setVal(sandbox, 'has_status', 'no'); return; }
+      setVal(sandbox, 'has_status', 'yes');
+      setVal(sandbox, 'status_list_credential_url', pp.credential_status.statusListCredential ?? '');
+      setVal(sandbox, 'status_list_index', pp.credential_status.statusListIndex === undefined || pp.credential_status.statusListIndex === null ? '' : String(pp.credential_status.statusListIndex));
+      setVal(sandbox, 'status_type', pp.credential_status.type ?? '');
+      setVal(sandbox, 'encoded_list', pp.status_list_credential?.encodedList ?? '');
+    },
+  },
+  'art-291-screen-onledger-transfer-batch': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() parses the transfers JSON textarea, splits flagged_names on
+      // commas and reads the profile control; fixture 0's three members
+      // round-trip through those controls, so the golden preimage is
+      // form-reproducible.
+      setVal(sandbox, 'transfers', JSON.stringify(pp.transfers ?? []));
+      setVal(sandbox, 'flagged_names', ((pp.screening_lists_meta ?? {}).flagged_names ?? []).join(', '));
+      setVal(sandbox, 'profile', pp.profile ?? '');
+    },
+  },
+  'art-292-attest-settlement-orchestrator': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() reads the orchestrator_manifest trio, the decision_policy_ref,
+      // the kernel_bindings JSON textarea and the transport control; fixture
+      // 0's pp round-trips through all of them, so the golden preimage is
+      // form-reproducible.
+      setVal(sandbox, 'orch_name', (pp.orchestrator_manifest ?? {}).name ?? '');
+      setVal(sandbox, 'orch_version', (pp.orchestrator_manifest ?? {}).version ?? '');
+      setVal(sandbox, 'orch_description', (pp.orchestrator_manifest ?? {}).description ?? '');
+      setVal(sandbox, 'decision_policy_ref', pp.decision_policy_ref ?? '');
+      setVal(sandbox, 'kernel_bindings', JSON.stringify(pp.kernel_bindings ?? [], null, 2));
+      setVal(sandbox, 'transport', pp.transport ?? '');
+    },
+  },
+  // ── leg 5 (WEBMCP-FN-SHAPE-LEG-5-1) pages: fixture-0 prefills for the 13
+  // repointed manifests. run-wrapper names and control ids read straight from
+  // each page's own pp-collection code; JSON textareas stay JSON, numbers
+  // arrive as strings, checkboxes flip .checked.
+  'art-317-rhc-multiplier-reconciler': {
+    run: 'runReconciler',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'eventLog', JSON.stringify(pp.event_log, null, 2));
+      setVal(sandbox, 'actionType', pp.declared_action?.type ?? '');
+      setVal(sandbox, 'declaredRatio', String(pp.declared_action?.ratio ?? ''));
+      setVal(sandbox, 'exDate', pp.declared_action?.ex_date ?? '');
+      setVal(sandbox, 'priorMult', String(pp.prior_multiplier));
+      setVal(sandbox, 'currentMult', String(pp.current_multiplier));
+      setVal(sandbox, 'rawBefore', String(pp.raw_balance_before));
+      setVal(sandbox, 'rawAfter', String(pp.raw_balance_after));
+    },
+  },
+  'art-320-rhc-collateral-haircut': {
+    run: 'runHaircut',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'positionValue', String(pp.position_value));
+      setVal(sandbox, 'baseHaircut', String(pp.base_haircut));
+      setVal(sandbox, 'feedTimestamp', String(pp.feed_round?.timestamp ?? ''));
+      setVal(sandbox, 'heartbeatSeconds', String(pp.feed_round?.heartbeat_seconds ?? ''));
+      setVal(sandbox, 'currentTime', String(pp.current_time));
+      sandbox.document.getElementById('sequencerUp').checked = pp.sequencer_uptime?.is_up ?? false;
+      setVal(sandbox, 'sequencerSince', String(pp.sequencer_uptime?.since_timestamp ?? ''));
+      setVal(sandbox, 'graceSeconds', String(pp.sequencer_uptime?.grace_period_seconds ?? ''));
+      sandbox.document.getElementById('underlyingHalted').checked = pp.underlying_market_state?.is_halted ?? false;
+    },
+  },
+  'art-321-rhc-bold-finality-classifier': {
+    run: 'runClassifier',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'l2Inclusion', String(pp.l2_inclusion_timestamp));
+      sandbox.document.getElementById('batchPosted').checked = pp.batch_posted_to_l1 ?? false;
+      sandbox.document.getElementById('assertionCreated').checked = pp.assertion_created ?? false;
+      setVal(sandbox, 'assertionTimestamp', String(pp.assertion_created_timestamp));
+      setVal(sandbox, 'challengeWindow', String(pp.challenge_window_seconds ?? ''));
+      setVal(sandbox, 'currentTime', String(pp.current_time));
+      setVal(sandbox, 'finalityClaim', pp.finality_claim ?? '');
+    },
+  },
+  'art-322-rhc-ap-redemption-stress': {
+    // runStress hardcodes issuer_credit.rating_available to false — the page's
+    // own shape; fixture 0 also carries rating_available false, so the form pp
+    // round-trips everything the form can express.
+    run: 'runStress',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'apList', JSON.stringify(pp.authorised_participants, null, 2));
+      setVal(sandbox, 'dailyVolume', String(pp.secondary_market_depth?.daily_volume_usd ?? ''));
+      setVal(sandbox, 'spreadBps', String(pp.secondary_market_depth?.bid_ask_spread_bps ?? ''));
+      setVal(sandbox, 'obligor', pp.issuer_credit?.obligor ?? '');
+    },
+  },
+  'art-324-tvm-npv': {
+    run: 'runCompute',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'mode', pp.mode ?? 'periods');
+      setVal(sandbox, 'discountRate', String(pp.discount_rate_pct ?? ''));
+      setVal(sandbox, 'dayCount', pp.day_count_convention ?? '');
+      setVal(sandbox, 'valuationDate', pp.valuation_date ?? '');
+      setVal(sandbox, 'cashFlows', (pp.cash_flows ?? []).map((cf) => cf.t === undefined ? String(cf.amount) : String(cf.amount) + ', ' + String(cf.t)).join('\n'));
+    },
+  },
+  'art-325-tvm-irr': {
+    // readInputs always emits bracket_lo/bracket_hi/tolerance/max_iterations
+    // (page defaults); the controls stay at their HTML defaults so the leg
+    // runs the page's own solver controls end-to-end.
+    run: 'runCompute',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'cashFlows', (pp.cash_flows ?? []).map((cf) => String(cf.amount)).join('\n'));
+    },
+  },
+  'art-326-tvm-xirr': {
+    // Dates-mode rows ("amount, date"); the solver controls stay at their HTML
+    // defaults for the same reason as art-325.
+    run: 'runCompute',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'cashFlows', (pp.cash_flows ?? []).map((cf) => String(cf.amount) + ', ' + String(cf.date ?? '')).join('\n'));
+    },
+  },
+  'art-328-tvm-breakeven': {
+    run: 'runCompute',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'fixedCosts', String(pp.fixed_costs ?? ''));
+      setVal(sandbox, 'pricePerUnit', String(pp.price_per_unit ?? ''));
+      setVal(sandbox, 'varCostPerUnit', String(pp.variable_cost_per_unit ?? ''));
+      setVal(sandbox, 'currentUnits', pp.current_units === undefined ? '' : String(pp.current_units));
+    },
+  },
+  'art-329-tvm-bond-duration': {
+    run: 'runCompute',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'faceValue', String(pp.face_value ?? ''));
+      setVal(sandbox, 'couponRatePct', String(pp.coupon_rate_pct ?? ''));
+      setVal(sandbox, 'ytmPct', String(pp.ytm_pct ?? ''));
+      setVal(sandbox, 'yearsToMaturity', String(pp.years_to_maturity ?? ''));
+      setVal(sandbox, 'periodsPerYear', String(pp.periods_per_year ?? ''));
+      setVal(sandbox, 'dayCount', pp.day_count_convention ?? '');
+    },
+  },
+  'art-348-score-credit-model-quantized': {
+    // The quantized scorer's input surface is the 10-element int8-normalized
+    // vector; the page reads one #feat<i> control per element.
+    run: 'runCompute',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      (pp.normalized_fixp16 ?? []).forEach((v, i) => {
+        setVal(sandbox, 'feat' + i, String(v));
+      });
+    },
+  },
+  'art-361-camera-provenance-check': {
+    // readPp rebuilds assertions in ITS own order (hash.data first, actions
+    // second) from the two boolean selects plus digital_source_type; fixture 0
+    // stores actions-first, which the form order cannot express.
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'manifest_digest', pp.manifest_digest ?? '');
+      setVal(sandbox, 'claim_generator', pp.claim_generator ?? '');
+      setVal(sandbox, 'claim_format', pp.claim?.format ?? '');
+      setVal(sandbox, 'claim_instance_id', pp.claim?.instanceID ?? '');
+      const labels = (pp.assertions ?? []).map((a) => a.label);
+      setVal(sandbox, 'has_hard_binding', labels.includes('c2pa.hash.data') ? 'true' : 'false');
+      setVal(sandbox, 'has_actions', labels.includes('c2pa.actions') ? 'true' : 'false');
+      const action = (pp.assertions ?? []).find((a) => a.label === 'c2pa.actions');
+      setVal(sandbox, 'digital_source_type', ((action?.actions ?? [])[0] ?? {}).digitalSourceType ?? '');
+      setVal(sandbox, 'sig_present', String(pp.signature?.present ?? false));
+      setVal(sandbox, 'sig_alg', pp.signature?.alg ?? '');
+    },
+  },
+  'art-374-test-nav-error-materiality': {
+    // getPP builds materiality_policy/affected_period only from non-blank
+    // controls (fixture 0 carries neither) and reads the two NAV-per-share
+    // controls as raw strings; the threshold/policy/period/shares controls
+    // stay blank so those optional members stay absent.
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'fund_id', pp.fund_id ?? '');
+      setVal(sandbox, 'valuation_date', pp.valuation_date ?? '');
+      setVal(sandbox, 'erroneous_nav_per_share', pp.erroneous_nav_per_share === undefined || pp.erroneous_nav_per_share === null ? '' : String(pp.erroneous_nav_per_share));
+      setVal(sandbox, 'corrected_nav_per_share', pp.corrected_nav_per_share === undefined || pp.corrected_nav_per_share === null ? '' : String(pp.corrected_nav_per_share));
+    },
+  },
 };
 
 function setVal(sandbox, id, v) {
@@ -741,6 +1012,13 @@ async function selfTest() {
     if (execGreen !== null) fails.push(`fn-exec GREEN control expected null, got: ${execGreen}`);
     const execRed = await probeFunctionExecutes('<script>function exportIt(p) { document.body.appendChild({}); }</script>', 'exportIt', pp0, 2000);
     if (execRed === null || !execRed.includes('returned undefined')) fails.push(`fn-exec RED control (returns nothing) expected a returned-undefined reason, got: ${execRed}`);
+
+    // removeChild stub, leg 1: an execute path that removes a created node (the
+    // export-helper pattern) must settle GREEN with the golden hash, not throw.
+    writeFileSync(pageAbs, reg("var a = document.createElement('span'); document.body.removeChild(a); return { output_payload: { echo: p.x } };", greenRun));
+    const l1rc = await runDirectExecute(pageAbs, 'selftest.html', pp0);
+    const v1rc = await judgeDirectExecute(l1rc, realGolden, pp0);
+    if (!v1rc.ok) fails.push(`self-test leg 1 removeChild control expected clean, got: ${v1rc.problem}`);
   } finally {
     delete RUN_PATH_ADAPTERS.selftest_tool;
     rmSync(dir, { recursive: true, force: true });

@@ -1,6 +1,6 @@
 // art-820-negotiate-ucp-capabilities — class-K property-test FLOOR. Authored for row
 // UCP-NEGOTIATE-1 per FV-PBT-FLOOR-BUILD-SPEC.md.
-// kernel_digest_at_authoring: sha256:f09fdc7369978626a800a5464785c62999cad6868894f8be97db94225f52dc7a
+// kernel_digest_at_authoring: sha256:c8d42a8493be23d708e33231041f3d21ab1ee37f76aa996b5f6fbbdcbbb1ab3a
 // spec: UCP Overview (serves release 2026-08-25), Intersection Algorithm + requires
 // bounds + namespace authority binding — pinned digests in the node shard's
 // cited_clause_digest[]; build row board/claimed/UCP-NEGOTIATE-1.md.
@@ -26,7 +26,7 @@
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { compute } from '../art-820-negotiate-ucp-capabilities.kernel.mjs';
+import { compute, buildArtifact } from '../art-820-negotiate-ucp-capabilities.kernel.mjs';
 import { runFixtureOracle, summarize, findShapeViolations, deepEqual, FIXTURES_DIR } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-820-negotiate-ucp-capabilities';
@@ -38,7 +38,7 @@ try {
 } catch { /* shape property covers fixtures + compute({}) when the file is absent */ }
 
 function reverseKeys(o) {
-  const out = {};
+  const out = Object.create(null); // a caller-named __proto__ key must survive the permutation
   for (const k of Object.keys(o).reverse()) out[k] = o[k];
   return out;
 }
@@ -150,6 +150,61 @@ function checkReachabilityPinned() {
   return { name: 'reachability_vectors_recompute_exactly', checked, violations: violations.length };
 }
 
+// 6. prototype-name capabilities are carried as data (standing regression for the
+// __proto__ drop: a plain-object accumulator silently loses that key)
+function checkPrototypeNamesCarried() {
+  let checked = 0;
+  const violations = [];
+  for (const name of ['__proto__', 'constructor', 'toString', 'hasOwnProperty', 'valueOf']) {
+    const mk = () => JSON.parse(`{"ucp":{"version":"2026-08-25","services":{},"payment_handlers":{},"capabilities":{"${name}":[{"version":"2026-08-25"}]}}}`);
+    const out = compute({ business_profile: mk(), platform_profile: mk() }).output_payload;
+    checked++;
+    const ac = out.agreed_capabilities;
+    if (out.verdict !== 'AGREED') violations.push(`${name}: verdict ${out.verdict}`);
+    if (Object.keys(ac).length !== 1 || !Object.hasOwn(ac, name) || ac[name].version !== '2026-08-25') {
+      violations.push(`${name}: not carried as an own agreed_capabilities key`);
+    }
+  }
+  return { name: 'prototype_name_capabilities_carried_as_data', checked, violations: violations.length };
+}
+
+// 7. buildArtifact_never_throws (D6): unhashable input yields a null execution_hash
+// plus hash_refusal, never a throw; hashable input carries no hash_refusal.
+async function checkBuildArtifactNeverThrows() {
+  let checked = 0;
+  const violations = [];
+  /** @type {any} */
+  let deep = { x: 1 };
+  for (let i = 0; i < 600; i++) deep = { n: deep };
+  const hostile = [
+    { name: 'depth600', pp: { business_profile: deep, platform_profile: {} }, reason: 'REFUSED_INPUT_HASH_LIMIT' },
+    { name: 'nan', pp: { business_profile: { n: NaN }, platform_profile: {} }, reason: 'REFUSED_INPUT_UNSAFE_NUMBER' },
+    { name: 'infinity', pp: { business_profile: { n: Infinity }, platform_profile: {} }, reason: 'REFUSED_INPUT_UNSAFE_NUMBER' },
+    { name: 'unsafe_int', pp: { business_profile: { n: 2 ** 60 }, platform_profile: {} }, reason: 'REFUSED_INPUT_UNSAFE_NUMBER' },
+    { name: 'bigint', pp: { business_profile: { n: 10n }, platform_profile: {} }, reason: 'REFUSED_INPUT_UNSAFE_NUMBER' },
+  ];
+  for (const h of hostile) {
+    checked++;
+    try {
+      const a = await buildArtifact(h.pp);
+      if (a.execution_hash !== null) violations.push(`${h.name}: execution_hash not null`);
+      if (!a.hash_refusal || a.hash_refusal.reason !== h.reason) violations.push(`${h.name}: hash_refusal missing or wrong reason`);
+    } catch (e) {
+      violations.push(`${h.name}: buildArtifact threw ${String((e && e.message) || e)}`);
+    }
+  }
+  for (const vec of fixtures.vectors) {
+    checked++;
+    try {
+      const a = await buildArtifact(vec.policy_parameters);
+      if (typeof a.execution_hash !== 'string' || a.hash_refusal !== undefined) violations.push(`${vec.name}: hashable input lost its hash`);
+    } catch (e) {
+      violations.push(`${vec.name}: buildArtifact threw ${String((e && e.message) || e)}`);
+    }
+  }
+  return { name: 'buildArtifact_never_throws', checked, violations: violations.length };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -163,6 +218,8 @@ const properties = [
   checkOutputShape(),
   checkDeterminism(),
   checkReachabilityPinned(),
+  checkPrototypeNamesCarried(),
+  await checkBuildArtifactNeverThrows(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — UCP capability negotiation.`);
 const ok = summarize(KERNEL_ID, oracle, properties);

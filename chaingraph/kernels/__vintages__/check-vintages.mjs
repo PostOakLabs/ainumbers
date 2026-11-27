@@ -10,7 +10,7 @@
  *       Advisory through v3-baseline.json (a list that only shrinks); hard red for a
  *       kernel the baseline does not list, and for a baseline entry that no longer
  *       qualifies. (VINTAGE-COVERAGE-1-RESUME-1)
- *   V4  every vintage's source digest resolves in clause-snapshot-registry.json.
+ *   V4  every vintage's source digest resolves in the clause-snapshot registry (legacy file + shards).
  *   V6  a `mentions` declaration whose anchored value differs from the table is listed
  *       on stdout. Advisory: never affects the exit code. (VINTAGE-COVERAGE-1-RESUME-1)
  *
@@ -24,6 +24,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { loadRegistryUnion } from '../../standard/clause-snapshot-store.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const KERNELS = resolve(HERE, '..');
@@ -231,7 +232,9 @@ async function selfTest() {
 async function main() {
   if (process.argv.includes('--self-test')) return selfTest();
   const table = JSON.parse(readFileSync(resolve(REPO, 'data/vintages.json'), 'utf8'));
-  const registry = JSON.parse(readFileSync(resolve(REPO, 'chaingraph/standard/clause-snapshot-registry.json'), 'utf8'));
+  // The legacy registry file is read-only; new pins land as per-digest shards (pin-clause-snapshot.mjs).
+  // Read the union, the same view check-clause-digest.mjs uses.
+  const registry = loadRegistryUnion(resolve(REPO, 'chaingraph/standard/clause-snapshot-registry.json'));
   const uses = loadUses();
   const reds = await check({ table, uses, registry, io: realIo() });
 

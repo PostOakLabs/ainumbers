@@ -26,7 +26,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { writeFileSync, readFileSync, rmSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gitEnv } from './_git-env-lib.mjs';
@@ -136,4 +136,157 @@ test('BOUND small: a sample under the 600 s default prints no would-set bound, a
     assert.equal(code, 1, 'the advisory-silent run must exit with the SAME code the firing run exits with');
     touchFailureProfile(out);
   });
+});
+
+// ── §30.4 branch-aware scope of check 11 (SO #38 / DIAG-SO38-SCOPE-1) ─────
+//
+// SPEC.md §30.4: "A pre-existing node with no standards_basis declaration is
+// reported as a gap ... and is never itself a CI failure" — §30 gates a node
+// only when it is NEW or CHANGED relative to origin/main. Check 11's old
+// unconditional shape hard-failed 68 pre-existing kernels on a clean main
+// checkout (diag census 2026-11-25, 779 kernels scanned); the §15 SSOT gate
+// (check-clause-digest.mjs) already scoped the same rule to touched nodes and
+// reported the pre-existing class green. Three controls, one per behaviour:
+//
+//   (a) a node BYTE-IDENTICAL to origin/main that declares regulatory_basis
+//       (the FAST-PROVE-BATCH-1 discriminator) but carries no standards_basis
+//       is reported N-A — the visible §30.4 gap — and the run stays READY.
+//   (b) the SAME gap on a CHANGED node still FAILs — nothing about touched
+//       bytes is weakened (no-waiver ruling).
+//   (c) a changed node that DECLARES standards_basis passes as before — the
+//       scoping wrapper rewrites only FAILs on untouched nodes, never PASS.
+//
+// Subjects are SELECTED, not hardcoded: (a)/(b) pick the first sorted
+// census-class kernel (regulatory_basis in source, shard present with no
+// standards_basis, kernel+shard byte-identical to origin/main — the exact
+// class research/_diag-census-so38.mjs counted at 68-of-779), so the test
+// survives any single node of the class being backfilled by its owning row
+// (RIDER-KERNEL/CLAUSE-DIGEST-LAND-0816-1). (c) picks the first sorted shard
+// that declares implements_standard/cites_informative with >=1 digest. When
+// the census class is fully cured on the tree, (a) skips honestly (its
+// subject no longer exists) and (b) falls back to a scratch NEW kernel —
+// differsFromOriginMain treats absent-from-main as touched, the same
+// primitive — so "touched bytes gate" stays proven either way.
+
+const CHECK11 = 'cited_clause_digest present-or-N/A (SO #38/§30)';
+const check11Line = (out) =>
+  out.split('\n').find((l) => l.trimEnd().endsWith(CHECK11) && /^[✓✗·]/.test(l));
+const originText = (relPath) => {
+  const r = spawnSync('git', ['show', `origin/main:${relPath}`], { cwd: REPO, encoding: 'utf8', env: gitEnv() });
+  return r.status === 0 ? r.stdout : null;
+};
+const matchesCensusClass = (id) => {
+  const kernelPath = resolve(REPO, 'chaingraph', 'kernels', `${id}.kernel.mjs`);
+  const kernelSrc = readFileSync(kernelPath, 'utf8');
+  if (!/\bregulatory_basis\s*:/.test(kernelSrc)) return false;
+  const shardRel = `chaingraph/graph/nodes/${id}.json`;
+  let shardText;
+  try { shardText = readFileSync(resolve(REPO, shardRel), 'utf8'); } catch { return false; }
+  let shard;
+  try { shard = JSON.parse(shardText); } catch { return false; }
+  if (shard.standards_basis !== undefined) return false;
+  // byte-identical on BOTH files — the §30.4 pre-existing state itself (raw
+  // bytes compared, never a re-stringified parse: stringify is not identity).
+  return originText(`chaingraph/kernels/${id}.kernel.mjs`) === kernelSrc
+    && originText(shardRel) === shardText;
+};
+function pickCensusId() {
+  const kdir = resolve(REPO, 'chaingraph', 'kernels');
+  return readdirSync(kdir)
+    .filter((f) => f.endsWith('.kernel.mjs'))
+    .map((f) => f.replace(/\.kernel\.mjs$/, ''))
+    .sort()
+    .find(matchesCensusClass) ?? null;
+}
+function pickDeclaredId() {
+  const ndir = resolve(REPO, 'chaingraph', 'graph', 'nodes');
+  const declared = readdirSync(ndir)
+    .filter((f) => f.endsWith('.json'))
+    .map((f) => f.replace(/\.json$/, ''))
+    .sort()
+    .filter((id) => {
+      const shard = JSON.parse(readFileSync(resolve(ndir, `${id}.json`), 'utf8'));
+      const basis = shard.standards_basis;
+      return (basis === 'implements_standard' || basis === 'cites_informative')
+        && Array.isArray(shard.cited_clause_digest) && shard.cited_clause_digest.length > 0
+        && originText(`chaingraph/kernels/${id}.kernel.mjs`)
+          === readFileSync(resolve(REPO, 'chaingraph', 'kernels', `${id}.kernel.mjs`), 'utf8');
+    });
+  return declared[0] ?? null;
+}
+// Full run (exit code included) — `preflight()` above drops the code, and the
+// (a) control must prove READY, not just its own row.
+function preflightRun(id) {
+  const r = spawnSync(process.execPath, [PREFLIGHT, id, '--fast', '--keep-going'], { cwd: REPO, encoding: 'utf8' });
+  return { out: (r.stdout || '') + (r.stderr || ''), code: r.status };
+}
+// Append one probe comment to a tracked kernel's bytes (its working-tree copy
+// differs from origin/main = CHANGED under differsFromOriginMain), run a step,
+// always restore. Same shape the BOUND tests use on 733.
+function withTouchedKernelBytes(id, fn) {
+  const file = resolve(REPO, 'chaingraph', 'kernels', `${id}.kernel.mjs`);
+  const original = readFileSync(file, 'utf8');
+  writeFileSync(file, `${original}\n// so38-scope probe touch (selftest; restored in finally)\n`);
+  try { return fn(); } finally { writeFileSync(file, original); }
+}
+
+test('SCOPE §30.4 (a): a main-identical regulatory_basis node without standards_basis reports the gap N-A, never FAIL, and the run stays READY', (t) => {
+  const id = pickCensusId();
+  if (!id) t.skip('census class fully backfilled on this tree — no pre-existing node left to scope');
+  const { out, code } = preflightRun(id);
+  const line = check11Line(out);
+  assert.ok(line, `check 11 must appear in the report:\n${out.slice(-4000)}`);
+  assert.match(line, /^·\s+N-A\s+\d+ms\s{2}cited_clause_digest present-or-N\/A \(SO #38\/§30\)$/,
+    `a pre-existing gap must be reported N-A, got: ${line}`);
+  assert.match(out, /SCOPE \(SPEC\.md §30\.4/, 'the N-A row must cite the §30.4 scoping decision');
+  assert.match(out, new RegExp(`${id} is byte-identical to origin/main`), 'the N-A row must name the subject and its main-identical state');
+  assert.doesNotMatch(out, /✗\s+FAIL\s+\d+ms\s{2}cited_clause_digest present-or-N\/A/, 'check 11 must never report FAIL for this node');
+  assert.equal(code, 0, `the run must stay READY on a clean main-identical node, got exit ${code}:\n${out.slice(-4000)}`);
+});
+
+test('SCOPE §30.4 (b): the same gap on a CHANGED node still FAILs', (t) => {
+  const id = pickCensusId();
+  if (id) {
+    const { out } = withTouchedKernelBytes(id, () => preflightRun(id));
+    const line = check11Line(out);
+    assert.ok(line, `check 11 must appear in the report:\n${out.slice(-4000)}`);
+    assert.match(line, /^✗\s+FAIL\s+\d+ms\s{2}cited_clause_digest present-or-N\/A \(SO #38\/§30\)$/,
+      `a touched node with the gap must FAIL check 11, got: ${line}`);
+    assert.match(out, /carries no standards_basis field at all/, 'the failure must name the missing §30.3 declaration');
+  } else {
+    // Census class cured: prove the touched-bytes rule with a NEW kernel instead —
+    // differsFromOriginMain classes absent-from-main as touched, the same primitive.
+    const probeId = 'art-9998-so38-scope-probe';
+    const file = resolve(REPO, 'chaingraph', 'kernels', `${probeId}.kernel.mjs`);
+    writeFileSync(file, [
+      `export const meta = { tool_id: '${probeId}' };`,
+      'export function compute(pp) {',
+      '  return { output_payload: { ok: true, regulatory_basis: ["selftest fixture"] } };',
+      '}',
+      '',
+    ].join('\n'));
+    const rel = `chaingraph/kernels/${probeId}.kernel.mjs`;
+    try {
+      spawnSync('git', ['add', '-N', '--', rel], { cwd: REPO, env: gitEnv() });
+      const { out } = preflightRun(probeId);
+      const line = check11Line(out);
+      assert.ok(line, `check 11 must appear in the report:\n${out.slice(-4000)}`);
+      assert.match(line, /^✗\s+FAIL\s+\d+ms\s{2}cited_clause_digest present-or-N\/A \(SO #38\/§30\)$/,
+        `a touched node with the gap must FAIL check 11, got: ${line}`);
+    } finally {
+      spawnSync('git', ['rm', '--cached', '-q', '-f', '--', rel], { cwd: REPO, env: gitEnv() });
+      rmSync(file, { force: true });
+    }
+  }
+});
+
+test('SCOPE §30.4 (c): a changed node that declares standards_basis passes as before', (t) => {
+  const id = pickDeclaredId();
+  if (!id) t.skip('no standards_basis-declaring node on this tree');
+  const { out } = withTouchedKernelBytes(id, () => preflightRun(id));
+  const line = check11Line(out);
+  assert.ok(line, `check 11 must appear in the report:\n${out.slice(-4000)}`);
+  assert.match(line, /^✓\s+PASS\s+\d+ms\s{2}cited_clause_digest present-or-N\/A \(SO #38\/§30\)$/,
+    `a declared node must PASS check 11 even when changed, got: ${line}`);
+  assert.doesNotMatch(out, /SCOPE \(SPEC\.md §30\.4/, 'the scoping wrapper must never annotate a PASS row');
 });

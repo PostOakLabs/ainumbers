@@ -77,6 +77,19 @@ function resolveBash() {
 }
 const BASH = resolveBash();
 
+// PREPUSH-TEST-GITBASH-PATH-1: an ABSOLUTE Git-for-Windows bash.exe does not
+// put its own usr/bin on PATH when the parent is a non-Git-Bash session
+// (PowerShell, a CI harness). Every POSIX tool the hook shells out to (sed,
+// tr, date, tee, mktemp, head, wc, sort, mkdir, rm, cat) then resolves to
+// "command not found": --expect-red ids are never appended, the disclosure
+// JSON carries empty gate/row, the declaration file survives, and the
+// merge-result/PREFLIGHT_FULL legs silently fail open. That is a HARNESS
+// defect, not a hook regression — the same script is green when launched
+// from Git Bash. Give the child the PATH a Git Bash launch would have had by
+// prepending the resolved bash.exe directory. The scenario-level PATH (the
+// unsupported-git shim) is applied AFTER this and still wins.
+const BASH_BIN_DIR = process.platform === 'win32' && BASH.includes('\\') ? dirname(BASH) : '';
+
 // Best-effort: a refused removal must never fail the test.
 function cleanup(dir) {
   try { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); } catch { /* best-effort */ }
@@ -174,6 +187,7 @@ function runHook(dir, envOverrides, input = '') {
       AINUM_EXPECT_RED_ROW: '',
       PREFLIGHT_FULL: '', // PREFLIGHT-QUICK-1: a leaked outer value must not force the full leg
       AINUM_PREPUSH_MERGE_WT_ROOT: '', // PREPUSH-MERGE-RESULT-1: only a scenario that OWNS the merge-worktree root sets it
+      ...(BASH_BIN_DIR ? { PATH: `${BASH_BIN_DIR}${delimiter}${process.env.PATH || ''}` } : {}),
       ...envOverrides,
     },
     encoding: 'utf8',

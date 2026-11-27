@@ -2,7 +2,7 @@
 // Spec: stablecoin refund/dispute recompute over the pinned Circle Refund Protocol rules
 // (commit a7ae494b67ceae4693b416efd52f835d7b53c690, Apache-2.0); pin note
 // research/STABLECOIN-REFUND-DISPUTE-PIN-2026-10-30.md. Synthetic data only.
-// kernel_digest_at_authoring: sha256:6732f77e7fd36d16eb53e230d2cef36876c58d2adc6c0e88e6f040fae0229c0a
+// kernel_digest_at_authoring: sha256:4d7a86b07be753ede278b2f9eee405d5519e6d9c90fad8cd96f7985abea3d775
 // human_sign_off: PENDING
 //
 // Run: node chaingraph/kernels/__proptests__/795-stablecoin-refund-dispute.proptest.mjs
@@ -44,7 +44,6 @@ function checkConservation() {
       payment_ref: 'c' + i, amount_minor: amount, paid_at: 0,
       arbiter_decisions: rng() < 0.5 ? [{ at: 10, refund_minor: partial ? Math.floor(amount / 2) : amount }] : [],
       early_withdrawal_at: rng() < 0.3 ? 50 : undefined,
-      reported_state: null, reported_refunded_minor: null, reported_released_minor: null,
     })];
     const { output_payload } = compute({ profile: 'generic', params: P({ partial_refunds_allowed: partial }), payments });
     checked++;
@@ -124,6 +123,78 @@ function checkShape() {
   return { name: 'P6-output-shape-no-nonfinite', checked, violations };
 }
 
+// P7 typed-input refusal (795-B1..B6): a present but malformed value refuses with a named
+// reason and never reads as absent. Each vector is a standing regression for one finding.
+function checkTypedInputRefusal() {
+  let checked = 0, violations = 0;
+  const ok = (over, pOver) => ({ profile: 'refund_protocol_a7ae494', params: P(Object.assign({ as_of_seconds: 100 }, pOver)), payments: [pay(Object.assign({ payment_ref: 't', amount_minor: 500000, paid_at: 0 }, over))] });
+  const must = [
+    ok({ arbiter_decisions: 'x' }),                                  // B1 non-array decisions
+    ok({ arbiter_decisions: [null] }),                               // B6 null decision
+    ok({ arbiter_decisions: [{ refund_minor: NaN }] }),              // B6 NaN refund
+    ok({ arbiter_decisions: [{ refund_minor: '500000' }] }),         // B6 numeric string
+    ok({}, { lock_period_seconds: NaN }),                            // B4 NaN lock
+    ok({}, { lock_period_seconds: '86400' }),                        // B4 string lock
+    ok({}, { as_of_seconds: '100' }),                                // B2 string as_of
+    ok({}, { as_of_seconds: null }),                                 // B2 null as_of
+    ok({ early_withdrawal_at: '5' }),                                // B3 string early withdrawal
+    ok({ early_withdrawal_at: null }),                               // B3 null early withdrawal
+    ok({ reported_state: 7 }),                                       // B5 wrong type
+    ok({ reported_state: 'released' }),                              // B5 off-allowlist
+    ok({ reported_state: null }),                                    // B5 present null
+    ok({ reported_released_minor: null }),                           // B5 present null amount
+    ok({ reported_refunded_minor: -1 }),                             // B5 negative
+    ok({ amount_minor: 2 ** 60 }),                                   // unsafe integer
+    ok({ payment_ref: 5 }),                                          // wrong type ref
+    ok({}, { arbiter_role: { a: 1 } }),                              // wrong type role
+    { profile: 'generic', params: P(), payments: 'x' },              // payments wrong type
+    null,                                                            // pp not an object
+  ];
+  for (const pp of must) {
+    let r;
+    try { r = compute(pp).output_payload; } catch (e) { r = null; }
+    checked++;
+    if (r === null || r.refused !== true || !r.reason) violations++;
+  }
+  // prototype-name refs are ordinary strings: computed, not refused, not crashed
+  const proto = compute(ok({ payment_ref: 'constructor' })).output_payload;
+  checked++;
+  if (proto.refused !== false || proto.expected[0].payment_ref !== 'constructor') violations++;
+  // fee arithmetic stays exact for large safe amounts (BigInt): floor(amount * bp / 10000)
+  const big = 9007199254740991;
+  const feeOut = compute({ profile: 'generic', params: P({ early_withdrawal_fee_bp: 9999 }), payments: [pay({ payment_ref: 'big', amount_minor: big, paid_at: 0, early_withdrawal_at: 5 })] }).output_payload;
+  checked++;
+  const wantFee = Number((BigInt(big) * 9999n) / 10000n);
+  if (feeOut.refused !== false || feeOut.expected[0].fee_minor !== wantFee) violations++;
+  return { name: 'P7-typed-input-refusal', checked, violations };
+}
+
+// P8 buildArtifact_never_throws (D6): every input class mints an artifact; an unhashable
+// preimage carries execution_hash null plus hash_refusal.
+async function checkBuildArtifactNeverThrows() {
+  const { buildArtifact } = await import('../795-stablecoin-refund-dispute.kernel.mjs');
+  let checked = 0, violations = 0;
+  const good = { profile: 'generic', params: P(), payments: [pay({ payment_ref: 'g', amount_minor: 100, paid_at: 0 })] };
+  const deep = { a: null }; let cur = deep; for (let i = 0; i < 600; i++) { cur.a = { a: null }; cur = cur.a; }
+  const inputs = [
+    [good, true],
+    [{ ...good, params: P({ lock_period_seconds: NaN }) }, false],
+    [{ ...good, params: P({ lock_period_seconds: 1e300 }) }, false],
+    [{ ...good, extra: deep }, false],
+    [null, true],
+    [undefined, true],
+    [{ profile: 'generic', params: P(), payments: [pay({ payment_ref: 'u', amount_minor: 2 ** 60, paid_at: 0 })] }, false],
+  ];
+  for (const [pp, hashable] of inputs) {
+    checked++;
+    try {
+      const a = await buildArtifact(pp);
+      if (hashable ? typeof a.execution_hash !== 'string' : (a.execution_hash !== null || !a.hash_refusal)) violations++;
+    } catch (e) { violations++; }
+  }
+  return { name: 'P8-buildArtifact-never-throws', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -138,6 +209,8 @@ const properties = [
   checkRefusalPaths(),
   checkStateMachine(),
   checkShape(),
+  checkTypedInputRefusal(),
+  await checkBuildArtifactNeverThrows(),
 ];
 console.log('[' + KERNEL_ID + '] class-K floor property test — stablecoin refund/dispute recompute (synthetic data only).');
 const ok = summarize(KERNEL_ID, oracle, properties);
