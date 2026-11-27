@@ -78,8 +78,10 @@ function stripHash(h) {
 function augmentForDirectPaint(sandbox) {
   sandbox.document.body.insertBefore = function insertBefore(child) { return child; };
   sandbox.document.body.firstChild = null;
+  sandbox.document.body.removeChild = function removeChild(child) { return child; };
   sandbox.document.head.insertBefore = function insertBefore(child) { return child; };
   sandbox.document.head.firstChild = null;
+  sandbox.document.head.removeChild = function removeChild(child) { return child; };
 }
 
 /* ── leg 1: the registered tool's execute() on fixture 0 ─────────────────── */
@@ -442,6 +444,119 @@ const RUN_PATH_ADAPTERS = {
       setVal(sandbox, 'childIn', pp.child_license ?? '');
     },
   },
+  // PR-3348-DIRECT-REG-CURE-1: the three manifest-repointed FIX-MANIFEST pages
+  // (WEBMCP-FN-SHAPE-LEG-3). Adapters map fixture policy_parameters onto the
+  // pages' own controls; where fixture 0's pp is {} or omits a key the form
+  // path always emits (collectPP/getPP defaults), the run-path pp cannot
+  // reproduce the kernel golden's raw-pp preimage and the leg-2 mismatch is
+  // baselined with a reason.
+  'art-206-rights-record-builder': {
+    run: 'runBuilder',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // collectPP() always returns the full row shape (territory/renewal
+      // defaults, rights_vector from rvState), so fixture 0's {} preimage is
+      // not form-reproducible; empty controls exercise the page's own
+      // empty-input path.
+      setVal(sandbox, 'assetRef', pp.asset_ref ?? '');
+      setVal(sandbox, 'licensor', pp.licensor ?? '');
+      setVal(sandbox, 'licensee', pp.licensee ?? '');
+      setVal(sandbox, 'licenseId', pp.license_id ?? '');
+      setVal(sandbox, 'territory', pp.territory ?? '');
+      setVal(sandbox, 'termYears', pp.term_years === undefined ? '' : String(pp.term_years));
+      setVal(sandbox, 'renewal', pp.renewal ?? '');
+    },
+  },
+  'art-280-reserve-proof-verifier': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() always returns {exchange, merkle_proof, storage_proof_composition}
+      // (por_round only when its controls are filled), so fixture 0's {}
+      // preimage is not form-reproducible; empty controls run the page's
+      // empty-form path.
+      setVal(sandbox, 'exchange', pp.exchange ?? '');
+      setVal(sandbox, 'merkle_proof', pp.merkle_proof === undefined ? '' : JSON.stringify(pp.merkle_proof, null, 2));
+    },
+  },
+  'art-284-did-webvh-log-verifier': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() always adds max_entries (control default 100), which fixture
+      // 0's pp omits, so the golden preimage is not form-reproducible; the
+      // fixture's did/did_log are served through the page's real controls.
+      setVal(sandbox, 'did', pp.did ?? '');
+      setVal(sandbox, 'logInput', JSON.stringify(pp.did_log ?? [], null, 2));
+      setVal(sandbox, 'max_entries', pp.max_entries === undefined ? '' : String(pp.max_entries));
+    },
+  },
+  // PR-3349-DIRECT-REG-CURE-1: the four manifest-repointed FIX-MANIFEST pages
+  // (WEBMCP-FN-SHAPE-LEG-4). Adapters map fixture policy_parameters onto the
+  // pages' own controls; where fixture 0's pp is {} and the form path always
+  // emits a full row shape (getPP defaults), the run-path pp cannot reproduce
+  // the kernel golden's raw-pp preimage and the leg-2 mismatch is baselined
+  // with a reason.
+  'art-286-anchored-extract-verifier': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() always returns the full row shape (extract with parsed
+      // merkle_path, claimed_root, source_class, anchor_evidence), so fixture
+      // 0's {} preimage is not form-reproducible; empty controls run the
+      // page's own empty-input path (the fixture's REFUSED_UNANCHORED
+      // no-anchor default).
+      setVal(sandbox, 'leaf_content_hash', pp.extract?.leaf_content_hash ?? '');
+      setVal(sandbox, 'merkle_path', pp.extract?.merkle_path === undefined ? '' : JSON.stringify(pp.extract.merkle_path));
+      setVal(sandbox, 'claimed_root', pp.claimed_root ?? '');
+      setVal(sandbox, 'source_class', pp.source_class ?? '');
+    },
+  },
+  'art-287-revocation-status-verifier': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() returns {} verbatim when has_status is 'no', so fixture 0's
+      // absent-credential_status no-signal preimage IS form-reproducible;
+      // with a credential_status present the four controls carry the fixture
+      // values through the page's real form path.
+      if (!pp.credential_status) { setVal(sandbox, 'has_status', 'no'); return; }
+      setVal(sandbox, 'has_status', 'yes');
+      setVal(sandbox, 'status_list_credential_url', pp.credential_status.statusListCredential ?? '');
+      setVal(sandbox, 'status_list_index', pp.credential_status.statusListIndex === undefined || pp.credential_status.statusListIndex === null ? '' : String(pp.credential_status.statusListIndex));
+      setVal(sandbox, 'status_type', pp.credential_status.type ?? '');
+      setVal(sandbox, 'encoded_list', pp.status_list_credential?.encodedList ?? '');
+    },
+  },
+  'art-291-screen-onledger-transfer-batch': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() parses the transfers JSON textarea, splits flagged_names on
+      // commas and reads the profile control; fixture 0's three members
+      // round-trip through those controls, so the golden preimage is
+      // form-reproducible.
+      setVal(sandbox, 'transfers', JSON.stringify(pp.transfers ?? []));
+      setVal(sandbox, 'flagged_names', ((pp.screening_lists_meta ?? {}).flagged_names ?? []).join(', '));
+      setVal(sandbox, 'profile', pp.profile ?? '');
+    },
+  },
+  'art-292-attest-settlement-orchestrator': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() reads the orchestrator_manifest trio, the decision_policy_ref,
+      // the kernel_bindings JSON textarea and the transport control; fixture
+      // 0's pp round-trips through all of them, so the golden preimage is
+      // form-reproducible.
+      setVal(sandbox, 'orch_name', (pp.orchestrator_manifest ?? {}).name ?? '');
+      setVal(sandbox, 'orch_version', (pp.orchestrator_manifest ?? {}).version ?? '');
+      setVal(sandbox, 'orch_description', (pp.orchestrator_manifest ?? {}).description ?? '');
+      setVal(sandbox, 'decision_policy_ref', pp.decision_policy_ref ?? '');
+      setVal(sandbox, 'kernel_bindings', JSON.stringify(pp.kernel_bindings ?? [], null, 2));
+      setVal(sandbox, 'transport', pp.transport ?? '');
+    },
+  },
 };
 
 function setVal(sandbox, id, v) {
@@ -741,6 +856,13 @@ async function selfTest() {
     if (execGreen !== null) fails.push(`fn-exec GREEN control expected null, got: ${execGreen}`);
     const execRed = await probeFunctionExecutes('<script>function exportIt(p) { document.body.appendChild({}); }</script>', 'exportIt', pp0, 2000);
     if (execRed === null || !execRed.includes('returned undefined')) fails.push(`fn-exec RED control (returns nothing) expected a returned-undefined reason, got: ${execRed}`);
+
+    // removeChild stub, leg 1: an execute path that removes a created node (the
+    // export-helper pattern) must settle GREEN with the golden hash, not throw.
+    writeFileSync(pageAbs, reg("var a = document.createElement('span'); document.body.removeChild(a); return { output_payload: { echo: p.x } };", greenRun));
+    const l1rc = await runDirectExecute(pageAbs, 'selftest.html', pp0);
+    const v1rc = await judgeDirectExecute(l1rc, realGolden, pp0);
+    if (!v1rc.ok) fails.push(`self-test leg 1 removeChild control expected clean, got: ${v1rc.problem}`);
   } finally {
     delete RUN_PATH_ADAPTERS.selftest_tool;
     rmSync(dir, { recursive: true, force: true });
