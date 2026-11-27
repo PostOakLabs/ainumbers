@@ -18,9 +18,14 @@
 //
 // FRESH RECEIPT for the new bytes = the HEAD shard's `compute_proof` with
 //   (a) journal.kernel_digest === sourceDigest(new bytes), AND
-//   (b) verifySeal(compute_proof) === true (the BN254 Groth16 reference verifier in _computeproof.mjs).
+//   (b) verifySealReport(compute_proof) === 'current' (the BN254 Groth16 reference verifier in
+//       _computeproof.mjs, risc0 3.1.0 parameter set; RISC0-310-R4-DUAL-VERIFIER-1).
 // (b) is what makes this a proof check and not a string check: the seal commits to the journal bytes,
 // so a receipt whose kernel_digest was rewritten by hand (old seal, new digest) fails verification.
+// A 'legacy' verdict (risc0 3.0.x set) is NOT fresh: under those parameters a seal can be made for any
+// journal, so a changed kernel must be re-proved under the current set. evaluate() takes the accepted
+// verdicts as `accept` (default ['current']); only the paired test widens it, to keep its estate picks
+// working until two current receipts sit in node shards.
 // A stark receipt is vendor-delegated (§18.1) and cannot be verified here, so it does not count as fresh.
 //
 // Base/head: base = merge-base(origin/main, HEAD) (the PR integration point, same rule as preflight's
@@ -48,7 +53,7 @@ const receiptOf = (node) => (node ? node.audit_signature?.compute_proof ?? node.
 // ── evaluate ──────────────────────────────────────────────────────────────────────────────────────
 // Pure over pre-loaded inputs so the paired test drives it with real kernels and real receipts.
 // changes: [{ path, tool_id, oldSrc, newSrc (null = deleted), baseNode, headNode }]
-export async function evaluate(changes, { sourceDigest, verifySeal }) {
+export async function evaluate(changes, { sourceDigest, verifySealReport, accept = ['current'] }) {
   const findings = [];
   for (const c of changes) {
     const baseCp = receiptOf(c.baseNode);
@@ -73,10 +78,15 @@ export async function evaluate(changes, { sourceDigest, verifySeal }) {
     else if (headCp.journal?.kernel_digest !== newDigest) {
       why = `head receipt binds ${sha8(headCp.journal?.kernel_digest)}, not the new bytes`;
     } else {
-      let ok = false;
-      try { ok = verifySeal(headCp) === true; } catch (e) { why = `seal not locally verifiable (${e.message.split(';')[0]})`; }
-      if (!ok && !why) why = 'head receipt names the new digest but its seal does NOT verify (journal edited without a re-prove)';
-      if (ok) { findings.push({ ...c, verdict: 'fresh', oldDigest, newDigest }); continue; }
+      let seal = 'invalid';
+      try { seal = verifySealReport(headCp); } catch (e) { why = `seal not locally verifiable (${e.message.split(';')[0]})`; }
+      const ok = !why && accept.includes(seal);
+      if (!ok && !why) {
+        why = seal === 'legacy'
+          ? 'head receipt verifies only under the legacy risc0 3.0.x parameter set, which is not evidence; re-prove under the current (3.1.0) guest'
+          : 'head receipt names the new digest but its seal does NOT verify (journal edited without a re-prove)';
+      }
+      if (ok) { findings.push({ ...c, verdict: 'fresh', oldDigest, newDigest, seal }); continue; }
     }
     findings.push({ ...c, verdict: 'red', oldDigest, newDigest, why });
   }
@@ -140,8 +150,8 @@ if (IS_MAIN) {
     process.exit(0);
   }
   const { sourceDigest } = await import(pathToFileURL(resolve(REPO, 'chaingraph/kernels/_buildid.mjs')).href);
-  const { verifySeal } = await import(pathToFileURL(resolve(REPO, 'chaingraph/kernels/_computeproof.mjs')).href);
-  const findings = await evaluate(changes, { sourceDigest, verifySeal });
+  const { verifySealReport } = await import(pathToFileURL(resolve(REPO, 'chaingraph/kernels/_computeproof.mjs')).href);
+  const findings = await evaluate(changes, { sourceDigest, verifySealReport });
   const red = findings.filter((f) => f.verdict === 'red');
   for (const f of findings) {
     if (f.verdict === 'red') continue;
