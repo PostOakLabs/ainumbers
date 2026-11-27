@@ -1235,7 +1235,7 @@ chain, the sequencer), never a signed or authoritative time. `tx_hash` and `bloc
 locators of the stamping transaction; they are informative, because the contract state read is the
 evidence. `independence_class` MUST be `single-chain-ledger` (see the counting rule below).
 
-**Per-chain contract allowlist (data, not standard text).** Which EAS contract address is acceptable on
+**Per-chain contract allowlist (data, not standard text).** Which EAS contract address is allowed on
 which chain is a trust decision held as DATA outside this standard, never as an address typed into this
 section: a verifier takes it from a published per-chain allowlist (for the reference verifier, the
 anchor-suite claims registry, `anchor-suite/docs/anchor-claims-registry.json`, once published). The
@@ -1252,7 +1252,7 @@ no other tag; (4) rejects when the returned value is zero (zero means NOT timest
 `timestamp`; (5) under `merkle_inclusion`, applies §20.1 (leaf match, RFC 6962 root reconstruction, root
 == `anchored_hash`); and (6), where it checks `tx_hash` or `block_number`, rejects on any mismatch. A
 stamp visible only at `safe`, `latest` or any pre-confirmation level MUST NOT be reported as verified; a
-verifier MAY report it as pending finality. A verifier MAY query several RPCs it chose and require
+verifier MAY report it as pending. A verifier MAY query several RPCs it chose and require
 identical results; this section requires none.
 
 **Trust caveat (NORMATIVE honesty; MUST be carried, in spirit, by any product copy for this type):**

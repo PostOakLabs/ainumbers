@@ -20,7 +20,7 @@ narrates what each bump changed. Normative definitions live in `SPEC.md` + `open
   byte-identical (additive oneOf variant; the §20 intro and `anchorBinding` description now name two
   offline exceptions instead of one).
 - **The per-chain contract allowlist is data, not standard text.** No contract address is written into
-  SPEC.md or the schema; a verifier takes acceptable (`chain_id`, `contract`) pairs from a published
+  SPEC.md or the schema; a verifier takes allowed (`chain_id`, `contract`) pairs from a published
   allowlist (for the reference verifier, `anchor-suite/docs/anchor-claims-registry.json`, once
   published) and MUST NOT verify a pair it does not hold.
 - **The trust caveat is normative (§20.5):** no signer; first writer wins (anyone who knows the hash can
