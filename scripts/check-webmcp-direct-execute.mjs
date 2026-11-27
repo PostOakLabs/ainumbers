@@ -489,6 +489,72 @@ const RUN_PATH_ADAPTERS = {
       setVal(sandbox, 'max_entries', pp.max_entries === undefined ? '' : String(pp.max_entries));
     },
   },
+  // PR-3349-DIRECT-REG-CURE-1: the four manifest-repointed FIX-MANIFEST pages
+  // (WEBMCP-FN-SHAPE-LEG-4). Adapters map fixture policy_parameters onto the
+  // pages' own controls; where fixture 0's pp is {} and the form path always
+  // emits a full row shape (getPP defaults), the run-path pp cannot reproduce
+  // the kernel golden's raw-pp preimage and the leg-2 mismatch is baselined
+  // with a reason.
+  'art-286-anchored-extract-verifier': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() always returns the full row shape (extract with parsed
+      // merkle_path, claimed_root, source_class, anchor_evidence), so fixture
+      // 0's {} preimage is not form-reproducible; empty controls run the
+      // page's own empty-input path (the fixture's REFUSED_UNANCHORED
+      // no-anchor default).
+      setVal(sandbox, 'leaf_content_hash', pp.extract?.leaf_content_hash ?? '');
+      setVal(sandbox, 'merkle_path', pp.extract?.merkle_path === undefined ? '' : JSON.stringify(pp.extract.merkle_path));
+      setVal(sandbox, 'claimed_root', pp.claimed_root ?? '');
+      setVal(sandbox, 'source_class', pp.source_class ?? '');
+    },
+  },
+  'art-287-revocation-status-verifier': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() returns {} verbatim when has_status is 'no', so fixture 0's
+      // absent-credential_status no-signal preimage IS form-reproducible;
+      // with a credential_status present the four controls carry the fixture
+      // values through the page's real form path.
+      if (!pp.credential_status) { setVal(sandbox, 'has_status', 'no'); return; }
+      setVal(sandbox, 'has_status', 'yes');
+      setVal(sandbox, 'status_list_credential_url', pp.credential_status.statusListCredential ?? '');
+      setVal(sandbox, 'status_list_index', pp.credential_status.statusListIndex === undefined || pp.credential_status.statusListIndex === null ? '' : String(pp.credential_status.statusListIndex));
+      setVal(sandbox, 'status_type', pp.credential_status.type ?? '');
+      setVal(sandbox, 'encoded_list', pp.status_list_credential?.encodedList ?? '');
+    },
+  },
+  'art-291-screen-onledger-transfer-batch': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() parses the transfers JSON textarea, splits flagged_names on
+      // commas and reads the profile control; fixture 0's three members
+      // round-trip through those controls, so the golden preimage is
+      // form-reproducible.
+      setVal(sandbox, 'transfers', JSON.stringify(pp.transfers ?? []));
+      setVal(sandbox, 'flagged_names', ((pp.screening_lists_meta ?? {}).flagged_names ?? []).join(', '));
+      setVal(sandbox, 'profile', pp.profile ?? '');
+    },
+  },
+  'art-292-attest-settlement-orchestrator': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() reads the orchestrator_manifest trio, the decision_policy_ref,
+      // the kernel_bindings JSON textarea and the transport control; fixture
+      // 0's pp round-trips through all of them, so the golden preimage is
+      // form-reproducible.
+      setVal(sandbox, 'orch_name', (pp.orchestrator_manifest ?? {}).name ?? '');
+      setVal(sandbox, 'orch_version', (pp.orchestrator_manifest ?? {}).version ?? '');
+      setVal(sandbox, 'orch_description', (pp.orchestrator_manifest ?? {}).description ?? '');
+      setVal(sandbox, 'decision_policy_ref', pp.decision_policy_ref ?? '');
+      setVal(sandbox, 'kernel_bindings', JSON.stringify(pp.kernel_bindings ?? [], null, 2));
+      setVal(sandbox, 'transport', pp.transport ?? '');
+    },
+  },
 };
 
 function setVal(sandbox, id, v) {
