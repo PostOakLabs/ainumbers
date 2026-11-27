@@ -78,8 +78,10 @@ function stripHash(h) {
 function augmentForDirectPaint(sandbox) {
   sandbox.document.body.insertBefore = function insertBefore(child) { return child; };
   sandbox.document.body.firstChild = null;
+  sandbox.document.body.removeChild = function removeChild(child) { return child; };
   sandbox.document.head.insertBefore = function insertBefore(child) { return child; };
   sandbox.document.head.firstChild = null;
+  sandbox.document.head.removeChild = function removeChild(child) { return child; };
 }
 
 /* ── leg 1: the registered tool's execute() on fixture 0 ─────────────────── */
@@ -854,6 +856,13 @@ async function selfTest() {
     if (execGreen !== null) fails.push(`fn-exec GREEN control expected null, got: ${execGreen}`);
     const execRed = await probeFunctionExecutes('<script>function exportIt(p) { document.body.appendChild({}); }</script>', 'exportIt', pp0, 2000);
     if (execRed === null || !execRed.includes('returned undefined')) fails.push(`fn-exec RED control (returns nothing) expected a returned-undefined reason, got: ${execRed}`);
+
+    // removeChild stub, leg 1: an execute path that removes a created node (the
+    // export-helper pattern) must settle GREEN with the golden hash, not throw.
+    writeFileSync(pageAbs, reg("var a = document.createElement('span'); document.body.removeChild(a); return { output_payload: { echo: p.x } };", greenRun));
+    const l1rc = await runDirectExecute(pageAbs, 'selftest.html', pp0);
+    const v1rc = await judgeDirectExecute(l1rc, realGolden, pp0);
+    if (!v1rc.ok) fails.push(`self-test leg 1 removeChild control expected clean, got: ${v1rc.problem}`);
   } finally {
     delete RUN_PATH_ADAPTERS.selftest_tool;
     rmSync(dir, { recursive: true, force: true });
