@@ -2,7 +2,7 @@
 type: MandateTypeGroup
 title: "compliance_control"
 description: "OpenChainGraph tools whose decisions carry mandate_type \"compliance_control\"."
-tags: ["compliance_control", "count-164"]
+tags: ["compliance_control", "count-165"]
 timestamp: 2026-07-14
 generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
 status: stable
@@ -10,7 +10,7 @@ status: stable
 
 # compliance_control
 
-164 tool(s) in this mandate-type group:
+165 tool(s) in this mandate-type group:
 
 - [EMV MPM QR Payload Validator](../tools/783-emv-mpm-qr-validator.md)
 - [QR Go-Live Readiness Assessor](../tools/785-qr-golive-readiness.md)
@@ -111,6 +111,7 @@ status: stable
 - [NAIC CLO/CBO/CDO Tranche RBC Factor Calculator](../tools/art-618-naic-clo-rbc-factor-calculator.md)
 - [Authzen Conformance Fixture](../tools/art-651-authzen-conformance-fixture.md)
 - [Verify Receipt](../tools/art-652-verify-receipt.md)
+- [Pta Verifier](../tools/art-653-pta-verifier.md)
 - [Interest Accrual Recompute](../tools/art-661-interest-accrual-recompute.md)
 - [Overdraft / NSF Fee Recomputation](../tools/art-662-odnsf-fee-recompute.md)
 - [APY-Earned Recompute](../tools/art-663-apy-earned-recompute.md)

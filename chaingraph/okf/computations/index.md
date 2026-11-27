@@ -617,6 +617,7 @@ status: stable
 - [AI Act Conformity Pack Builder](./art-65-ai-conformity-pack-builder.md)
 - [Authzen Conformance Fixture](./art-651-authzen-conformance-fixture.md)
 - [Verify Receipt](./art-652-verify-receipt.md)
+- [Pta Verifier](./art-653-pta-verifier.md)
 - [Perp Funding Implied Yield](./art-654-perp-funding-implied-yield.md)
 - [Publish Market Mark Head](./art-655-publish-market-mark-head.md)
 - [Derivatives Margin Workbench](./art-656-derivatives-margin-workbench.md)
