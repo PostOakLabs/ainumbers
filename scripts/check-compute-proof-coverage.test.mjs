@@ -33,6 +33,9 @@ import {
   ratchetBreach,
   disposition,
   pinnedBaseline,
+  legacyReceipts,
+  legacyBreach,
+  LEGACY_CEILING,
 } from './check-compute-proof-coverage.mjs';
 import { isMainContext } from './derived-artifacts.mjs';
 
@@ -426,6 +429,22 @@ test('SINGLE-WRITER regen pin — pinnedBaseline() lowers the count and appends 
   assert(next.known_gpu_false_nodes.includes('node_new'), 'the new node becomes known, so a later un-prove of it is a regression');
   // after the pin, the next PR un-proving node_new is a regression, not "new"
   assert(findRegressions(asDeferred(['node_c', 'node_new']), { ...next, deferred_nodes: ['node_c'] }).regressions[0] === 'node_new', 'pinned new node is protected');
+});
+
+test('LEGACY COUNT (RISC0-310-R4-DUAL-VERIFIER-1) — counted by imageId, never missing, down-only ceiling', () => {
+  const LEGACY_ID = 'sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6';
+  const CURRENT_ID = 'sha256:bc07da19c899768781e91e439961b7c4da40bb103fcedba161f93fb5ccaa6d68';
+  const proof = (imageId) => ({ type: 'ZkVmReceipt', receiptFormat: 'groth16-bn254', imageId, seal: 'c2VhbA==', journal: { output: { ok: true } } });
+  const node = (name, imageId, extra = {}) => ({ mcp_name: name, status: 'live', gpu: false, compute_images: [{ system: 'risc0', image_id: imageId }], compute_proof: proof(imageId), ...extra });
+  const cg = { nodes: [node('old_a', LEGACY_ID), node('new_b', CURRENT_ID), node('old_retired', LEGACY_ID, { status: 'retired' })] };
+  assert(JSON.stringify(legacyReceipts(cg)) === JSON.stringify(['old_a']), `live legacy only; got ${JSON.stringify(legacyReceipts(cg))}`);
+  assert(classifyNode(cg.nodes[0]).state === 'proven', 'a legacy receipt is counted, not downgraded to missing (same-bytes revert stays green)');
+  assert(evaluateCoverage(cg, () => null).legacy.length === 1, 'evaluateCoverage reports the legacy list');
+  assert(LEGACY_CEILING === 730, `ceiling pinned at 730, got ${LEGACY_CEILING}`);
+  assert(legacyBreach(['a', 'b'], 2).over === false, 'at the ceiling is clean');
+  assert(legacyBreach(['a', 'b', 'c'], 2).over === true, 'above the ceiling must fail');
+  let threw = false; try { legacyBreach([], undefined); legacyBreach([], NaN); } catch { threw = true; }
+  assert(threw, 'a non-finite ceiling refuses to compare');
 });
 
 console.log(`\n§18 coverage gate self-test — ${passed} passed, ${failed} failed`);
