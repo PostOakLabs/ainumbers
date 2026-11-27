@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { buildArtifact } from './art-04-agent-identity-attestation-checker.kernel.mjs';
-import { attachComputeProof, verifyBinding, verifySeal, SEAL_VERIFICATION, RECOMMENDED_RECEIPT_FORMAT } from './_computeproof.mjs';
+import { attachComputeProof, verifyBinding, verifyBindingReport, setDefaultPublishedKernelDigests, verifySeal, SEAL_VERIFICATION, RECOMMENDED_RECEIPT_FORMAT } from './_computeproof.mjs';
 import { executionHash } from './_hash.mjs';
 import { sourceDigest } from './_buildid.mjs';
 import { classifyNode } from '../../scripts/check-compute-proof-coverage.mjs';
@@ -79,6 +79,27 @@ ok(!verifyBinding(digestProven, { publishedKernelDigests: [OTHER_KERNEL_DIGEST] 
 const noDigest = attachComputeProof(base, receipt); // journal without kernel_digest
 ok(!verifyBinding(noDigest, { publishedKernelDigests: [KERNEL_DIGEST] }), '(digest) engaged leg + missing journal.kernel_digest fails (absence is not a pass)');
 ok(!verifyBinding(digestProven, { publishedKernelDigests: ['sha256:' + 'f'.repeat(64)] }), '(digest) unpublished kernel_digest fails');
+
+// (default) VERIFYBINDING-DIGEST-DEFAULT-1 — the digest leg now engages BY DEFAULT once a published
+// list is armed (browser verifiers load the served digest file and arm it; Node callers use the
+// setter). The transplant (node A's receipt presented against node B's page) now fails WITHOUT the
+// caller remembering to pass a list; publishedKernelDigests: null stays the explicit offline
+// opt-out; an explicit array still wins over the armed default; with nothing armed a bare call
+// keeps the legacy shape, which is why the assertion above still holds in the unarmed state.
+setDefaultPublishedKernelDigests([OTHER_KERNEL_DIGEST]); // the "page" publishes a DIFFERENT node's kernel
+ok(!verifyBinding(digestProven), '(default) TRANSPLANT rejected by default: node A receipt vs armed node B list (VERIFYBINDING-DIGEST-DEFAULT-1)');
+ok(!verifyBinding(noDigest), '(default) engaged-by-default + missing journal.kernel_digest fails (absence is not a pass)');
+{
+  const rep = verifyBindingReport(digestProven, {});
+  ok(rep.digestLeg === 'published-default' && rep.ok === false, '(default) report says which mode ran (published-default, fail)');
+}
+ok(verifyBinding(digestProven, { publishedKernelDigests: null }), '(default) explicit null opt-out keeps the offline path open (leg not engaged)');
+ok(verifyBindingReport(digestProven, { publishedKernelDigests: null }).digestLeg === 'off', '(default) report marks the null opt-out as off');
+setDefaultPublishedKernelDigests([KERNEL_DIGEST]); // re-arm as THIS node's published identity
+ok(verifyBinding(digestProven), '(default) armed with the matching published digest, default engagement passes');
+ok(verifyBindingReport(digestProven, { publishedKernelDigests: [KERNEL_DIGEST] }).digestLeg === 'explicit', '(default) explicit array reports mode explicit and wins over the default');
+setDefaultPublishedKernelDigests(null); // disarm: legacy behavior for bare calls
+ok(verifyBinding(digestProven), '(default) unarmed default falls back to the legacy bare-call shape (leg not engaged)');
 
 // (struct) malformed receipts fail the binding.
 const mk = (mut) => { const a = structuredClone(proven); mut(a.audit_signature.compute_proof); return a; };

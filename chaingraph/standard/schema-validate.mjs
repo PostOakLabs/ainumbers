@@ -3,7 +3,9 @@
 // Validates chaingraph.json (catalog: nodes[]/chains[]) and any v0.4 artifact fixtures
 // against standard/openchain-graph-v0.4.schema.json. Zero-dependency: implements the
 // draft-2020-12 SUBSET our schema uses (type, required, properties, additionalProperties,
-// enum, const, pattern, items, minItems, minLength, minimum, oneOf, $ref to local $defs).
+// enum, const, pattern, items, minItems, minLength, minimum, oneOf, if/then[/else],
+// $ref to local $defs). if/then landed with HASH-REFUSAL-SPEC-SCHEMA-1 so the §4 hash-refusal
+// contract (null execution_hash requires hash_refusal) is enforced, not merely declared.
 // Non-zero exit blocks CI. Makes "strict v0.4" mean "validates against the published schema."
 //
 // Usage (paths default to the sibling repo layout; override with env):
@@ -59,6 +61,16 @@ function validate(schema, data, root, path, errs) {
       closest.slice(0, 4).forEach((e) => errs.push(`  ↳ ${e}`));
     }
     return;
+  }
+  // if/then/else (HASH-REFUSAL-SPEC-SCHEMA-1): draft-2020-12 conditional application. The `if`
+  // subschema is evaluated in isolation; when it passes, `then` applies to the same data; when it
+  // fails, `else` applies if present (the v0.4 schema uses no `else` today). Errors from `if`
+  // itself are never surfaced: they select the branch, they do not report.
+  if (schema.if) {
+    const ifErrs = [];
+    validate(schema.if, data, root, path, ifErrs);
+    if (ifErrs.length === 0) { if (schema.then) validate(schema.then, data, root, path, errs); }
+    else if (schema.else) validate(schema.else, data, root, path, errs);
   }
   if (schema.const !== undefined && JSON.stringify(data) !== JSON.stringify(schema.const))
     errs.push(`${path}: expected const ${JSON.stringify(schema.const)}`);
@@ -116,15 +128,25 @@ const trunc = (s) => (s.length > 50 ? s.slice(0, 47) + '…' : s);
 const schema = JSON.parse(readFileSync(SCHEMA, 'utf8'));
 let failed = 0, checked = 0;
 
+// Route by KEY PRESENCE, not truthiness (HASH-REFUSAL-SPEC-SCHEMA-1): a null execution_hash is a
+// valid §4 hash refusal, and `data.execution_hash` is falsy for exactly those artifacts, which
+// misrouted them to the root catalog schema and produced generic oneOf errors instead of
+// artifact-level ones. The typeof guard keeps non-objects (strings, numbers) on the old
+// fall-through path, where property access was already safe. Named so --self-test can assert the
+// selection by identity instead of re-deriving it.
+function routeSub(data) {
+  return data && typeof data === 'object' && 'execution_hash' in data ? schema.$defs.artifact
+    : data && Array.isArray(data.nodes) ? schema.oneOf[1]
+    : schema;
+}
+
 function check(label, data, subOverride) {
   checked++;
   const errs = [];
   // pick the right sub-schema by document shape for clear errors (top-level oneOf hides which branch failed)
   // subOverride lets a caller name the exact $defs fragment directly (see --shard mode below)
   // instead of relying on shape-sniffing, without changing this heuristic for anyone who doesn't pass one.
-  const sub = subOverride || (data && data.execution_hash ? schema.$defs.artifact
-    : data && Array.isArray(data.nodes) ? schema.oneOf[1]
-    : schema);
+  const sub = subOverride || routeSub(data);
   validate(sub, data, schema, label, errs);
   if (errs.length) { failed++; console.error(`✗ ${label}`); errs.slice(0, 40).forEach((e) => console.error(`    ${e}`)); if (errs.length > 40) console.error(`    … +${errs.length - 40} more`); }
   else console.log(`✓ ${label}`);
@@ -156,6 +178,64 @@ if (shardFlagIdx !== -1) {
   process.exit(failed ? 1 : 0);
 }
 
+// ---- self-test mode (HASH-REFUSAL-SPEC-SCHEMA-1) ----
+// Red/green-proves the §4 hash-refusal contract end-to-end, in-process, with no fixture file
+// (kernels/fixtures/*.json is enumerated by node-id-keyed gates; a non-node file there would trip
+// them). Exits 1 on any violated expectation:
+//   1. null execution_hash + hash_refusal {reason, detail} validates against $defs/artifact;
+//   2. null execution_hash WITHOUT hash_refusal fails (the artifact's if/then pair), and the
+//      failure names hash_refusal;
+//   3. ROUTING PROOF (by identity on the real routeSub() that check() uses): a null execution_hash
+//      selects $defs/artifact — under the old truthy-test routing it selected the root catalog
+//      schema — while the catalog / empty-object / non-object fall-throughs stay unchanged;
+//   4. a string-hash artifact without hash_refusal still validates (the union type is
+//      regression-free for every already-shipped artifact);
+//   5. a hash_refusal missing its detail member fails (strict {reason, detail} shape).
+// Run after any edit to the routing heuristic, the if/then support, or $defs/artifact:
+//   node chaingraph/standard/schema-validate.mjs --self-test
+const selfTestFlagIdx = process.argv.indexOf('--self-test');
+if (selfTestFlagIdx !== -1) {
+  const base = {
+    '@context': 'https://openchaingraph.org/context/v0.3/',
+    chaingraph_version: '0.4.0',
+    tool_id: 'hash-refusal-selftest',
+    tool_version: '1.0.0',
+    generated_at: '2026-11-22T00:00:00.000Z',
+    execution_hash: null,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: { input_parameters: {} },
+    output_payload: {},
+    audit_signature: {},
+  };
+  const refusal = { reason: 'unhashable-preimage', detail: 'policy_parameters contained a non-finite number, which I-JSON forbids' };
+  const errsFor = (obj) => { const e = []; validate(schema.$defs.artifact, obj, schema, 'self-test', e); return e; };
+  let stFailed = 0;
+  const expect = (name, errs, mustBeEmpty) => {
+    const ok = mustBeEmpty ? errs.length === 0 : errs.length > 0;
+    if (ok) console.log(`✓ self-test: ${name}`);
+    else { stFailed++; console.error(`✗ self-test: ${name}`); errs.slice(0, 6).forEach((x) => console.error(`    ${x}`)); }
+  };
+  expect('null hash + hash_refusal validates', errsFor({ ...base, hash_refusal: refusal }), true);
+  const nakedNull = errsFor(base);
+  expect('null hash without hash_refusal fails (if/then)', nakedNull, false);
+  if (nakedNull.some((x) => x.includes('hash_refusal'))) console.log('✓ self-test: the null-hash failure names hash_refusal');
+  else { stFailed++; console.error('✗ self-test: the null-hash failure does not name hash_refusal'); nakedNull.slice(0, 6).forEach((x) => console.error(`    ${x}`)); }
+  // ROUTING (asserted by identity on the real selection function check() uses — never a re-derived
+  // copy): a null execution_hash must select $defs/artifact, where the pre-change truthy test sent
+  // it to the root catalog schema. The neighbor cases pin the rest of the heuristic.
+  const routedOk = routeSub(base) === schema.$defs.artifact
+    && routeSub({ ...base, execution_hash: `sha256:${'a'.repeat(64)}` }) === schema.$defs.artifact
+    && routeSub({ nodes: [] }) === schema.oneOf[1]
+    && routeSub({}) === schema
+    && routeSub('a string') === schema;
+  if (routedOk) console.log('✓ self-test: key-presence routing (null execution_hash selects $defs/artifact; catalog, empty-object and non-object fall-throughs unchanged)');
+  else { stFailed++; console.error('✗ self-test: routing regression — null-hash artifact is not selected as $defs/artifact (or a fall-through changed)'); }
+  expect('string hash still validates without hash_refusal', errsFor({ ...base, execution_hash: `sha256:${'a'.repeat(64)}` }), true);
+  expect('hash_refusal missing detail fails', errsFor({ ...base, hash_refusal: { reason: 'unhashable-preimage' } }), false);
+  console.log(`\nself-test: ${stFailed ? `${stFailed} assertion(s) failed` : 'all green'}.`);
+  process.exit(stFailed ? 1 : 0);
+}
+
 // ---- default mode: whole chaingraph.json + fixtures (unchanged) ----
 console.log(`schema-validate · schema=${rel(SCHEMA)}\n`);
 
@@ -178,8 +258,13 @@ check(`chaingraph.json (${rel(CHAINGRAPH)})`, JSON.parse(readFileSync(CHAINGRAPH
 if (FIXTURES_DIR && existsSync(FIXTURES_DIR)) {
   for (const f of readdirSync(FIXTURES_DIR).filter((n) => n.endsWith('.json'))) {
     let doc; try { doc = JSON.parse(readFileSync(join(FIXTURES_DIR, f), 'utf8')); } catch { continue; }
-    // fixtures may hold {artifact} or an array of expected artifacts; validate any object with execution_hash
-    const candidates = doc.artifact ? [doc.artifact] : Array.isArray(doc) ? doc : doc.execution_hash ? [doc] : [];
+    // fixtures may hold {artifact} or an array of expected artifacts; validate any object with an
+    // execution_hash KEY (present, even when null — the same exists-not-truthy rule as check()
+    // routing above, so a null-hash artifact fixture is validated, never silently skipped).
+    const candidates = doc.artifact ? [doc.artifact]
+      : Array.isArray(doc) ? doc
+      : doc && typeof doc === 'object' && 'execution_hash' in doc ? [doc]
+      : [];
     candidates.forEach((a) => check(`fixture ${f}`, a));
   }
 }

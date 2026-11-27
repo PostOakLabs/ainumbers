@@ -13,13 +13,14 @@
  *     Arts 6 + Annex III (high-risk classification, credit scoring / insurance pricing /
  *       financial-standing — confirmed Dec 2027 per Digital Omnibus);
  *     Arts 9-15 (provider obligations: risk management, data governance, transparency,
- *       human oversight, accuracy/robustness — Dec 2027 or original 2 Aug 2026);
+ *       human oversight, accuracy/robustness — Annex III from 2 Dec 2027,
+ *       Art 6(1) from 2 Aug 2028);
  *     Art 27 (FRIA, deployers — Dec 2027);
  *     Art 72 (post-market monitoring — Dec 2027);
  *     Arts 50-55 (GPAI + transparency, in force 2 Aug 2025; systemic risk 10^25 FLOP).
- *   Digital Omnibus on AI (provisional agreement 7 May 2026): Annex III high-risk
- *     financial AI deferred to 2 Dec 2027; legal effect on formal adoption before
- *     2 Aug 2026 — verify current status against Official Journal before quoting.
+ *   Digital Omnibus on AI (Regulation (EU) 2026/1744, adopted 8 July 2026): Annex III
+ *     high-risk obligations apply from 2 Dec 2027 (amended Art 113 point (c)(i));
+ *     Art 6(1) high-risk from 2 Aug 2028 (Art 113 point (c)(ii)).
  *   DORA (Reg. 2022/2554) — fully enforced since 17 Jan 2025.
  *   EDUCATIONAL: outputs are decision-support drafts, not legal conformity certificates.
  */
@@ -98,38 +99,37 @@ const DO_NOW_ITEMS = {
 };
 
 const PREPARE_AHEAD_ITEMS = {
-  classification: 'Annex III high-risk classification (Arts 6+Annex III) — confirm target date (Digital Omnibus: 2 Dec 2027; else 2 Aug 2026). Verify formal-adoption status. Run aig-fit for classification routing.',
+  classification: 'Annex III high-risk classification (Arts 6+Annex III) — Regulation (EU) 2026/1744 (adopted 8 July 2026): Annex III high-risk obligations apply from 2 Dec 2027; Art 6(1) high-risk from 2 Aug 2028. Run aig-fit for classification routing.',
   articles_9_15:  'Arts 9-15 provider obligations — risk-management system (Art 9), data governance (Art 10), Annex IV technical documentation (Art 11), logging (Art 12), transparency (Art 13), human oversight (Art 14), accuracy/robustness/cybersecurity (Art 15). Run aig-conformity chain.',
   fria:           'Art 27 FRIA — Fundamental Rights Impact Assessment for deployers. Run aig-fria-monitoring chain. Decision-support draft, not a legal certificate.',
   post_market:    'Art 72 post-market monitoring — define monitoring metrics, drift triggers, review cadence. Run aig-fria-monitoring chain.',
 };
 
 export function compute(pp) {
-  const {
-    // In-force screens
-    prohibited_practice_exposure = 'none',
-    ai_literacy_programme        = 'none',
-    // GPAI
-    foundation_model_dependency  = 'none',
-    // Classification
-    use_case        = 'other',
-    annex_iii_match = 'out-of-scope',
-    // Role
-    actor_role = 'deployer',
-    // Articles 9-15
-    risk_mgmt_system        = 'none',
-    data_governance         = 'none',
-    technical_documentation = 'none',
-    logging_oversight       = 'none',
-    // Deployer duties
-    fria_status          = 'not-started',
-    post_market_monitoring = 'none',
-    // Governance maturity
-    model_risk_framework = 'none',
-    // Informational
-    system_name  = '',
-    eu_nexus     = true,
-  } = pp;
+  pp = pp || {};
+  // In-force screens
+  const prohibited_practice_exposure = pp.prohibited_practice_exposure ?? 'none';
+  const ai_literacy_programme        = pp.ai_literacy_programme        ?? 'none';
+  // GPAI
+  const foundation_model_dependency  = pp.foundation_model_dependency  ?? 'none';
+  // Classification
+  const use_case        = pp.use_case        ?? 'other';
+  const annex_iii_match = pp.annex_iii_match ?? 'out-of-scope';
+  // Role
+  const actor_role = pp.actor_role ?? 'deployer';
+  // Articles 9-15
+  const risk_mgmt_system        = pp.risk_mgmt_system        ?? 'none';
+  const data_governance         = pp.data_governance         ?? 'none';
+  const technical_documentation = pp.technical_documentation ?? 'none';
+  const logging_oversight       = pp.logging_oversight       ?? 'none';
+  // Deployer duties
+  const fria_status           = pp.fria_status           ?? 'not-started';
+  const post_market_monitoring = pp.post_market_monitoring ?? 'none';
+  // Governance maturity
+  const model_risk_framework = pp.model_risk_framework ?? 'none';
+  // Null equals absent: `??` falls through on a null-valued key exactly as on
+  // a missing key (MR-R4-NULL-REGRESSION-GATE-1). One explicit read per input
+  // keeps the derived input schema statically extractable.
 
   // ── Dimension scores ──
   const sub = {
@@ -194,8 +194,8 @@ export function compute(pp) {
 
   // ── Applicable date ──
   const applicable_date = {
-    note: 'Verify current status: Digital Omnibus (provisional agreement 7 May 2026) proposes Annex III high-risk obligations → 2 Dec 2027. Legal effect only on formal adoption and publication in Official Journal before 2 Aug 2026. If not adopted in time, original 2 Aug 2026 date applies. Always check the current AI Act timeline before relying on this date.',
-    digital_omnibus_date: '2026-12-02',
+    note: 'Regulation (EU) 2026/1744 (adopted 8 July 2026): Annex III high-risk obligations apply from 2 Dec 2027 (amended Art 113 point (c)(i)); Art 6(1) high-risk from 2 Aug 2028 (point (c)(ii)).',
+    digital_omnibus_date: '2027-12-02',
     original_date: '2026-08-02',
   };
 
@@ -265,9 +265,10 @@ export function compute(pp) {
     prepare_ahead_checklist,
     primary_recommendation,
     secondary_recommendations,
+    warnings: compliance_flags.slice(),   // flag-mirror per AUTHORING-STANDARD: truthy exactly when compliance_flags is non-empty
     note: 'Educational decision-support diagnostic. Outputs are not legal conformity certificates. '
-      + 'EU AI Act timeline is in flux (Digital Omnibus pending formal adoption as of 2026-06-20) — '
-      + 'carry both dates (2 Aug 2026 / 2 Dec 2027) and verify against the current AI Act / Official Journal. '
+      + 'Regulation (EU) 2026/1744 (adopted 8 July 2026): Annex III high-risk obligations apply from '
+      + '2 Dec 2027; Art 6(1) high-risk from 2 Aug 2028. '
       + 'Verify all Article/Annex references against EU AI Act (Reg. 2024/1689) consolidated text '
       + 'at https://eur-lex.europa.eu/eli/reg/2024/1689/oj and Digital Omnibus updates.',
   };

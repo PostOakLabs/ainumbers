@@ -29,7 +29,7 @@ import { existsSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { recomputeJournalOutput, recomputeInSandbox, jcsEqual } from './recompute-lib.mjs';
-import { evaluateResults, isPrivateInputKernel } from './check-recompute-equality.mjs';
+import { evaluateResults, classifyCured, isPrivateInputKernel } from './check-recompute-equality.mjs';
 
 let passed = 0, failed = 0;
 async function test(name, fn) {
@@ -173,6 +173,25 @@ await test('EVALUATOR — a quarantine entry naming an unexamined node FAILS', a
 await test('EVALUATOR — quarantined and still failing is accepted, named, and counted', async () => {
   const v = evaluateResults([{ tool_id: 'x', state: 'mismatch' }], { nodes: [{ tool_id: 'x', cause: 'historic' }] });
   assert(v.ok && v.excused.length === 1 && v.excused[0].cause === 'historic', 'expected an excused entry carrying its cause');
+});
+
+// ── QUARANTINE-SELF-PRUNE-1: RED/GREEN for the stale-entry context split ───────────────────────────
+const CURED = [{ tool_id: 'art-349-x', state: 'match' }];
+await test('SELF-PRUNE RED — PR whose diff touches the cured node BLOCKS (must delete its own entry)', async () => {
+  const c = classifyCured(CURED, { mainContext: false, changedFiles: ['chaingraph/kernels/art-349-x.kernel.mjs'] });
+  assert(c.blocking.length === 1 && c.advisory.length === 0, 'cure PR must be blocked');
+});
+await test('SELF-PRUNE GREEN — unrelated PR gets an advisory, not a block', async () => {
+  const c = classifyCured(CURED, { mainContext: false, changedFiles: ['tools/other.html', 'scripts/recompute-equality-quarantine.json'] });
+  assert(c.blocking.length === 0 && c.advisory.length === 1, 'unrelated PR must not be blocked');
+});
+await test('SELF-PRUNE — main/merge_group blocks every cured entry regardless of diff', async () => {
+  const c = classifyCured(CURED, { mainContext: true, changedFiles: ['tools/other.html'] });
+  assert(c.blocking.length === 1 && c.advisory.length === 0, 'main must stay blocking');
+});
+await test('SELF-PRUNE — undeterminable diff fails closed', async () => {
+  const c = classifyCured(CURED, { mainContext: false, changedFiles: null });
+  assert(c.blocking.length === 1, 'null diff must block');
 });
 
 // ── §25 exclusion is a source scan, never an import ─────────────────────────────────────────────────

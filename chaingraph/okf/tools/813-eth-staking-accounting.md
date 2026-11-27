@@ -1,0 +1,37 @@
+---
+type: DecisionTool
+title: "Ethereum Epoch Accounting Recompute"
+description: "Recomputes one validator's reward, penalty and slashing accounting for one epoch, in Gwei, from the Electra consensus specification and the state the caller declares: effective balance, withdrawal credential prefix, total active balance, the three participation flags with the participating balance behind each, whether the chain is in an inactivity leak, the validator's inactivity score, its sync committee slots, the attestations it included as a proposer, and any slashing. It returns the base reward, the three flag rewards and penalties, the proposer inclusion reward, the sync committee delta, the updated inactivity score, the initial slashing penalty and whistleblower split, the epoch at which the correlated slashing penalty lands, and the net epoch delta. All arithmetic is integer, and amounts above 2^53 are exchanged as decimal strings. Two figures depend on constants from the Bellatrix specification that are not yet pinned in the clause snapshot: the inactivity penalty and the correlated slashing penalty. The node returns null for them and lists them under pending_pin, except where the result does not depend on the missing constant (a zero score, or a slashed total at or above the whole stake). It is a recompute of the published rules on declared inputs. It is not an earnings forecast, reads no chain, and says nothing about any live network."
+resource: https://ainumbers.co/chaingraph/813-eth-staking-accounting.html
+tags: ["compliance_control", "wave-142", "mcp:recompute_eth_epoch_accounting"]
+timestamp: 2026-07-14
+generated: { by: "ainumbers/generate-okf", at: "2026-07-14" }
+status: stable
+sources:
+  - resource: https://ainumbers.co/chaingraph/graph/nodes/813-eth-staking-accounting.json
+    title: "chaingraph.json shard entry"
+  - resource: https://ainumbers.co/chaingraph/813-eth-staking-accounting.html
+    title: "public tool page"
+---
+
+# Ethereum Epoch Accounting Recompute
+
+> Exports a decision via MCP `recompute_eth_epoch_accounting` — mandate type `compliance_control`.
+
+## Inputs
+
+Typed `inputSchema` — see [tool page](https://ainumbers.co/chaingraph/813-eth-staking-accounting.html).
+
+## Outputs
+
+A hash-anchored OpenChainGraph artifact (decision, not context).
+
+## Chains
+
+**Consumes:** _none (root node)_
+
+**Feeds:** _terminal node_
+
+## Attested computation
+
+[executor + attester binding](../computations/813-eth-staking-accounting.md) — §10.2.

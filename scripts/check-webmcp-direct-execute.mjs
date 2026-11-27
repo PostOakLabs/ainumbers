@@ -51,7 +51,7 @@ import { fileURLToPath } from 'node:url';
 import * as vm from 'node:vm';
 import { executionHash } from '../chaingraph/kernels/_hash.mjs';
 import { readOutcome } from '../chaingraph/kernels/_shape.mjs';
-import { deriveTargets, adjudicateTool, directAdjudication } from './gen-webmcp-registrations.mjs';
+import { deriveTargets, adjudicateTool, directAdjudication, probeFunctionExecutes } from './gen-webmcp-registrations.mjs';
 import { makeExecuteSandbox, extractInlineScripts, judgeExecute } from './check-webmcp-wrapper-execute.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -78,8 +78,10 @@ function stripHash(h) {
 function augmentForDirectPaint(sandbox) {
   sandbox.document.body.insertBefore = function insertBefore(child) { return child; };
   sandbox.document.body.firstChild = null;
+  sandbox.document.body.removeChild = function removeChild(child) { return child; };
   sandbox.document.head.insertBefore = function insertBefore(child) { return child; };
   sandbox.document.head.firstChild = null;
+  sandbox.document.head.removeChild = function removeChild(child) { return child; };
 }
 
 /* ── leg 1: the registered tool's execute() on fixture 0 ─────────────────── */
@@ -352,6 +354,365 @@ const RUN_PATH_ADAPTERS = {
       for (const t of ART616_CHARGE_TYPES) setVal(sandbox, `c_${t}`, '0');
     },
   },
+  // PR-2734-WEBMCP-CURE-1: the agent-payment-compliance-trail chain's six
+  // direct-mode pages (art-01 is wrapper/prefill-bound, so it never appears
+  // here). Adapters name each page's no-arg run wrapper and prefill fixture 0
+  // into the page's own controls; where fixture 0's policy_parameters is {}
+  // (art-10/art-62/art-104) the run path cannot reproduce the kernel golden's
+  // empty-pp preimage and the leg-2 mismatch is baselined with a reason.
+  'art-565-kya-x402-scope-verifier': {
+    run: 'runCheck',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'credInput', JSON.stringify(pp.kya_credential ?? {}, null, 2));
+      setVal(sandbox, 'payInput', JSON.stringify(pp.x402_payload ?? {}, null, 2));
+    },
+  },
+  'art-585-sanctions-screening-evidence-pack': {
+    run: 'runBindingCheck',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'ppQuery', pp.screening?.query ?? '');
+      setVal(sandbox, 'ppDecision', pp.screening?.decision ?? '');
+      setVal(sandbox, 'ppMatchCount', pp.screening?.match_count == null ? '' : String(pp.screening.match_count));
+      setVal(sandbox, 'ppDatasetId', pp.dataset_ref?.dataset_id ?? '');
+      setVal(sandbox, 'ppDatasetVersion', pp.dataset_ref?.version ?? '');
+      setVal(sandbox, 'ppDigestAlgo', pp.dataset_ref?.digest_algo ?? '');
+      setVal(sandbox, 'ppPublishedDigest', pp.dataset_ref?.published_digest ?? '');
+      setVal(sandbox, 'ppCallerDigest', pp.caller_computed_digest ?? '');
+    },
+  },
+  'art-699-x402-permit2-evidence-recomputer': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      setVal(sandbox, 'ppInput', JSON.stringify(fx.policy_parameters, null, 2));
+    },
+  },
+  'art-10-amla-transaction-typology-risk-scorer': {
+    run: 'runScoring',
+    prefill(sandbox, fx) {
+      // fixture 0 carries {} (the kernel's default-scenario path); load the
+      // page's own structuring scenario so the form path still runs end-to-end.
+      if (typeof sandbox.loadScenario === 'function') sandbox.loadScenario('structuring');
+      // the six weight sliders carry their defaults only as HTML value
+      // attributes, which the element stubs do not reproduce — set them so
+      // runScoring's bare parseFloat() calls never see NaN.
+      setVal(sandbox, 'wStructuring', '1.0');
+      setVal(sandbox, 'wLayering', '1.0');
+      setVal(sandbox, 'wFunnel', '1.0');
+      setVal(sandbox, 'wRoundtrip', '1.0');
+      setVal(sandbox, 'wVelocity', '1.0');
+      setVal(sandbox, 'wTravelRule', '1.2');
+    },
+  },
+  'art-104-tfr-travel-rule-batch-validator': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      setVal(sandbox, 'transfer_batch', '[]');
+      setVal(sandbox, 'tfr_threshold', '1000');
+    },
+  },
+  'art-62-ap2-payment-receipt-verifier': {
+    run: 'run',
+    prefill(sandbox) {
+      // fixture 0 carries {} (the kernel's rejected-inputs path); the form's
+      // empty fields exercise that same path through the page's own controls.
+    },
+  },
+  // PR-3262-DIRECT-REG-CURE-1: the two manifest-repointed FIX-MANIFEST pages
+  // (WEBMCP-FN-SHAPE-LEG-2). Their adapters map fixture policy_parameters onto
+  // the pages' own controls; with fixture 0's empty pp both run the pages'
+  // default tier / rejected-inputs paths through the real controls.
+  'art-203-embedded-license-selector': {
+    run: 'runSelector',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // the selects drive booleans via value === 'yes'; 'no' is the page's
+      // explicit all-false tier (fixture 0's empty-input default).
+      setVal(sandbox, 'commercialSel', pp.commercial_use ? 'yes' : 'no');
+      setVal(sandbox, 'displaySel', pp.public_display ? 'yes' : 'no');
+      setVal(sandbox, 'sharingSel', pp.allow_sharing ? 'yes' : 'no');
+    },
+  },
+  'art-204-license-compatibility-checker': {
+    run: 'runChecker',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // '' (not undefined) so runChecker's .trim() sees the page's empty-form
+      // rejected-inputs path, matching fixture 0's {} default.
+      setVal(sandbox, 'parentIn', pp.parent_license ?? '');
+      setVal(sandbox, 'childIn', pp.child_license ?? '');
+    },
+  },
+  // PR-3348-DIRECT-REG-CURE-1: the three manifest-repointed FIX-MANIFEST pages
+  // (WEBMCP-FN-SHAPE-LEG-3). Adapters map fixture policy_parameters onto the
+  // pages' own controls; where fixture 0's pp is {} or omits a key the form
+  // path always emits (collectPP/getPP defaults), the run-path pp cannot
+  // reproduce the kernel golden's raw-pp preimage and the leg-2 mismatch is
+  // baselined with a reason.
+  'art-206-rights-record-builder': {
+    run: 'runBuilder',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // collectPP() always returns the full row shape (territory/renewal
+      // defaults, rights_vector from rvState), so fixture 0's {} preimage is
+      // not form-reproducible; empty controls exercise the page's own
+      // empty-input path.
+      setVal(sandbox, 'assetRef', pp.asset_ref ?? '');
+      setVal(sandbox, 'licensor', pp.licensor ?? '');
+      setVal(sandbox, 'licensee', pp.licensee ?? '');
+      setVal(sandbox, 'licenseId', pp.license_id ?? '');
+      setVal(sandbox, 'territory', pp.territory ?? '');
+      setVal(sandbox, 'termYears', pp.term_years === undefined ? '' : String(pp.term_years));
+      setVal(sandbox, 'renewal', pp.renewal ?? '');
+    },
+  },
+  'art-280-reserve-proof-verifier': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() always returns {exchange, merkle_proof, storage_proof_composition}
+      // (por_round only when its controls are filled), so fixture 0's {}
+      // preimage is not form-reproducible; empty controls run the page's
+      // empty-form path.
+      setVal(sandbox, 'exchange', pp.exchange ?? '');
+      setVal(sandbox, 'merkle_proof', pp.merkle_proof === undefined ? '' : JSON.stringify(pp.merkle_proof, null, 2));
+    },
+  },
+  'art-284-did-webvh-log-verifier': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() always adds max_entries (control default 100), which fixture
+      // 0's pp omits, so the golden preimage is not form-reproducible; the
+      // fixture's did/did_log are served through the page's real controls.
+      setVal(sandbox, 'did', pp.did ?? '');
+      setVal(sandbox, 'logInput', JSON.stringify(pp.did_log ?? [], null, 2));
+      setVal(sandbox, 'max_entries', pp.max_entries === undefined ? '' : String(pp.max_entries));
+    },
+  },
+  // PR-3349-DIRECT-REG-CURE-1: the four manifest-repointed FIX-MANIFEST pages
+  // (WEBMCP-FN-SHAPE-LEG-4). Adapters map fixture policy_parameters onto the
+  // pages' own controls; where fixture 0's pp is {} and the form path always
+  // emits a full row shape (getPP defaults), the run-path pp cannot reproduce
+  // the kernel golden's raw-pp preimage and the leg-2 mismatch is baselined
+  // with a reason.
+  'art-286-anchored-extract-verifier': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() always returns the full row shape (extract with parsed
+      // merkle_path, claimed_root, source_class, anchor_evidence), so fixture
+      // 0's {} preimage is not form-reproducible; empty controls run the
+      // page's own empty-input path (the fixture's REFUSED_UNANCHORED
+      // no-anchor default).
+      setVal(sandbox, 'leaf_content_hash', pp.extract?.leaf_content_hash ?? '');
+      setVal(sandbox, 'merkle_path', pp.extract?.merkle_path === undefined ? '' : JSON.stringify(pp.extract.merkle_path));
+      setVal(sandbox, 'claimed_root', pp.claimed_root ?? '');
+      setVal(sandbox, 'source_class', pp.source_class ?? '');
+    },
+  },
+  'art-287-revocation-status-verifier': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() returns {} verbatim when has_status is 'no', so fixture 0's
+      // absent-credential_status no-signal preimage IS form-reproducible;
+      // with a credential_status present the four controls carry the fixture
+      // values through the page's real form path.
+      if (!pp.credential_status) { setVal(sandbox, 'has_status', 'no'); return; }
+      setVal(sandbox, 'has_status', 'yes');
+      setVal(sandbox, 'status_list_credential_url', pp.credential_status.statusListCredential ?? '');
+      setVal(sandbox, 'status_list_index', pp.credential_status.statusListIndex === undefined || pp.credential_status.statusListIndex === null ? '' : String(pp.credential_status.statusListIndex));
+      setVal(sandbox, 'status_type', pp.credential_status.type ?? '');
+      setVal(sandbox, 'encoded_list', pp.status_list_credential?.encodedList ?? '');
+    },
+  },
+  'art-291-screen-onledger-transfer-batch': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() parses the transfers JSON textarea, splits flagged_names on
+      // commas and reads the profile control; fixture 0's three members
+      // round-trip through those controls, so the golden preimage is
+      // form-reproducible.
+      setVal(sandbox, 'transfers', JSON.stringify(pp.transfers ?? []));
+      setVal(sandbox, 'flagged_names', ((pp.screening_lists_meta ?? {}).flagged_names ?? []).join(', '));
+      setVal(sandbox, 'profile', pp.profile ?? '');
+    },
+  },
+  'art-292-attest-settlement-orchestrator': {
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      // getPP() reads the orchestrator_manifest trio, the decision_policy_ref,
+      // the kernel_bindings JSON textarea and the transport control; fixture
+      // 0's pp round-trips through all of them, so the golden preimage is
+      // form-reproducible.
+      setVal(sandbox, 'orch_name', (pp.orchestrator_manifest ?? {}).name ?? '');
+      setVal(sandbox, 'orch_version', (pp.orchestrator_manifest ?? {}).version ?? '');
+      setVal(sandbox, 'orch_description', (pp.orchestrator_manifest ?? {}).description ?? '');
+      setVal(sandbox, 'decision_policy_ref', pp.decision_policy_ref ?? '');
+      setVal(sandbox, 'kernel_bindings', JSON.stringify(pp.kernel_bindings ?? [], null, 2));
+      setVal(sandbox, 'transport', pp.transport ?? '');
+    },
+  },
+  // ── leg 5 (WEBMCP-FN-SHAPE-LEG-5-1) pages: fixture-0 prefills for the 13
+  // repointed manifests. run-wrapper names and control ids read straight from
+  // each page's own pp-collection code; JSON textareas stay JSON, numbers
+  // arrive as strings, checkboxes flip .checked.
+  'art-317-rhc-multiplier-reconciler': {
+    run: 'runReconciler',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'eventLog', JSON.stringify(pp.event_log, null, 2));
+      setVal(sandbox, 'actionType', pp.declared_action?.type ?? '');
+      setVal(sandbox, 'declaredRatio', String(pp.declared_action?.ratio ?? ''));
+      setVal(sandbox, 'exDate', pp.declared_action?.ex_date ?? '');
+      setVal(sandbox, 'priorMult', String(pp.prior_multiplier));
+      setVal(sandbox, 'currentMult', String(pp.current_multiplier));
+      setVal(sandbox, 'rawBefore', String(pp.raw_balance_before));
+      setVal(sandbox, 'rawAfter', String(pp.raw_balance_after));
+    },
+  },
+  'art-320-rhc-collateral-haircut': {
+    run: 'runHaircut',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'positionValue', String(pp.position_value));
+      setVal(sandbox, 'baseHaircut', String(pp.base_haircut));
+      setVal(sandbox, 'feedTimestamp', String(pp.feed_round?.timestamp ?? ''));
+      setVal(sandbox, 'heartbeatSeconds', String(pp.feed_round?.heartbeat_seconds ?? ''));
+      setVal(sandbox, 'currentTime', String(pp.current_time));
+      sandbox.document.getElementById('sequencerUp').checked = pp.sequencer_uptime?.is_up ?? false;
+      setVal(sandbox, 'sequencerSince', String(pp.sequencer_uptime?.since_timestamp ?? ''));
+      setVal(sandbox, 'graceSeconds', String(pp.sequencer_uptime?.grace_period_seconds ?? ''));
+      sandbox.document.getElementById('underlyingHalted').checked = pp.underlying_market_state?.is_halted ?? false;
+    },
+  },
+  'art-321-rhc-bold-finality-classifier': {
+    run: 'runClassifier',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'l2Inclusion', String(pp.l2_inclusion_timestamp));
+      sandbox.document.getElementById('batchPosted').checked = pp.batch_posted_to_l1 ?? false;
+      sandbox.document.getElementById('assertionCreated').checked = pp.assertion_created ?? false;
+      setVal(sandbox, 'assertionTimestamp', String(pp.assertion_created_timestamp));
+      setVal(sandbox, 'challengeWindow', String(pp.challenge_window_seconds ?? ''));
+      setVal(sandbox, 'currentTime', String(pp.current_time));
+      setVal(sandbox, 'finalityClaim', pp.finality_claim ?? '');
+    },
+  },
+  'art-322-rhc-ap-redemption-stress': {
+    // runStress hardcodes issuer_credit.rating_available to false — the page's
+    // own shape; fixture 0 also carries rating_available false, so the form pp
+    // round-trips everything the form can express.
+    run: 'runStress',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'apList', JSON.stringify(pp.authorised_participants, null, 2));
+      setVal(sandbox, 'dailyVolume', String(pp.secondary_market_depth?.daily_volume_usd ?? ''));
+      setVal(sandbox, 'spreadBps', String(pp.secondary_market_depth?.bid_ask_spread_bps ?? ''));
+      setVal(sandbox, 'obligor', pp.issuer_credit?.obligor ?? '');
+    },
+  },
+  'art-324-tvm-npv': {
+    run: 'runCompute',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'mode', pp.mode ?? 'periods');
+      setVal(sandbox, 'discountRate', String(pp.discount_rate_pct ?? ''));
+      setVal(sandbox, 'dayCount', pp.day_count_convention ?? '');
+      setVal(sandbox, 'valuationDate', pp.valuation_date ?? '');
+      setVal(sandbox, 'cashFlows', (pp.cash_flows ?? []).map((cf) => cf.t === undefined ? String(cf.amount) : String(cf.amount) + ', ' + String(cf.t)).join('\n'));
+    },
+  },
+  'art-325-tvm-irr': {
+    // readInputs always emits bracket_lo/bracket_hi/tolerance/max_iterations
+    // (page defaults); the controls stay at their HTML defaults so the leg
+    // runs the page's own solver controls end-to-end.
+    run: 'runCompute',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'cashFlows', (pp.cash_flows ?? []).map((cf) => String(cf.amount)).join('\n'));
+    },
+  },
+  'art-326-tvm-xirr': {
+    // Dates-mode rows ("amount, date"); the solver controls stay at their HTML
+    // defaults for the same reason as art-325.
+    run: 'runCompute',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'cashFlows', (pp.cash_flows ?? []).map((cf) => String(cf.amount) + ', ' + String(cf.date ?? '')).join('\n'));
+    },
+  },
+  'art-328-tvm-breakeven': {
+    run: 'runCompute',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'fixedCosts', String(pp.fixed_costs ?? ''));
+      setVal(sandbox, 'pricePerUnit', String(pp.price_per_unit ?? ''));
+      setVal(sandbox, 'varCostPerUnit', String(pp.variable_cost_per_unit ?? ''));
+      setVal(sandbox, 'currentUnits', pp.current_units === undefined ? '' : String(pp.current_units));
+    },
+  },
+  'art-329-tvm-bond-duration': {
+    run: 'runCompute',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'faceValue', String(pp.face_value ?? ''));
+      setVal(sandbox, 'couponRatePct', String(pp.coupon_rate_pct ?? ''));
+      setVal(sandbox, 'ytmPct', String(pp.ytm_pct ?? ''));
+      setVal(sandbox, 'yearsToMaturity', String(pp.years_to_maturity ?? ''));
+      setVal(sandbox, 'periodsPerYear', String(pp.periods_per_year ?? ''));
+      setVal(sandbox, 'dayCount', pp.day_count_convention ?? '');
+    },
+  },
+  'art-348-score-credit-model-quantized': {
+    // The quantized scorer's input surface is the 10-element int8-normalized
+    // vector; the page reads one #feat<i> control per element.
+    run: 'runCompute',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      (pp.normalized_fixp16 ?? []).forEach((v, i) => {
+        setVal(sandbox, 'feat' + i, String(v));
+      });
+    },
+  },
+  'art-361-camera-provenance-check': {
+    // readPp rebuilds assertions in ITS own order (hash.data first, actions
+    // second) from the two boolean selects plus digital_source_type; fixture 0
+    // stores actions-first, which the form order cannot express.
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'manifest_digest', pp.manifest_digest ?? '');
+      setVal(sandbox, 'claim_generator', pp.claim_generator ?? '');
+      setVal(sandbox, 'claim_format', pp.claim?.format ?? '');
+      setVal(sandbox, 'claim_instance_id', pp.claim?.instanceID ?? '');
+      const labels = (pp.assertions ?? []).map((a) => a.label);
+      setVal(sandbox, 'has_hard_binding', labels.includes('c2pa.hash.data') ? 'true' : 'false');
+      setVal(sandbox, 'has_actions', labels.includes('c2pa.actions') ? 'true' : 'false');
+      const action = (pp.assertions ?? []).find((a) => a.label === 'c2pa.actions');
+      setVal(sandbox, 'digital_source_type', ((action?.actions ?? [])[0] ?? {}).digitalSourceType ?? '');
+      setVal(sandbox, 'sig_present', String(pp.signature?.present ?? false));
+      setVal(sandbox, 'sig_alg', pp.signature?.alg ?? '');
+    },
+  },
+  'art-374-test-nav-error-materiality': {
+    // getPP builds materiality_policy/affected_period only from non-blank
+    // controls (fixture 0 carries neither) and reads the two NAV-per-share
+    // controls as raw strings; the threshold/policy/period/shares controls
+    // stay blank so those optional members stay absent.
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'fund_id', pp.fund_id ?? '');
+      setVal(sandbox, 'valuation_date', pp.valuation_date ?? '');
+      setVal(sandbox, 'erroneous_nav_per_share', pp.erroneous_nav_per_share === undefined || pp.erroneous_nav_per_share === null ? '' : String(pp.erroneous_nav_per_share));
+      setVal(sandbox, 'corrected_nav_per_share', pp.corrected_nav_per_share === undefined || pp.corrected_nav_per_share === null ? '' : String(pp.corrected_nav_per_share));
+    },
+  },
 };
 
 function setVal(sandbox, id, v) {
@@ -432,6 +793,28 @@ export async function runDirectRunPath(toolId, pageAbs, pageRel, fixture, resGlo
   return { ok: true, executionHash: String(hash), resultGlobal: rg };
 }
 
+/* ── same-change rule: the pieces a direct-eligible page must ship together ── */
+
+/**
+ * The pieces a direct-eligible page lacks. `leg1` is runDirectExecute's result:
+ * an empty modelContext capture means the page carries no direct block; a missing
+ * RUN_PATH_ADAPTERS entry is read straight from the table.
+ */
+export function missingDirectPieces(toolId, leg1, adapters = RUN_PATH_ADAPTERS) {
+  const missing = [];
+  if (!leg1.ok && /^page registered no WebMCP tool/.test(leg1.error || '')) {
+    missing.push('the direct registration block on the page (generator: node scripts/gen-webmcp-registrations.mjs --direct)');
+  }
+  if (!adapters[toolId]) {
+    missing.push(`a RUN_PATH_ADAPTERS entry for '${toolId}' in scripts/check-webmcp-direct-execute.mjs naming the page's no-arg run wrapper`);
+  }
+  return missing;
+}
+
+export function sameChangeFinding(manifestFile, missing) {
+  return `manifest ${manifestFile} makes this page direct-eligible, but the same change must also ship: ${missing.join('; and ')}`;
+}
+
 /* ── main ─────────────────────────────────────────────────────────────────── */
 
 async function collectFailures() {
@@ -460,6 +843,15 @@ async function collectFailures() {
     // Leg 1 — the registered tool's execute() settles with the golden hash.
     const leg1 = await runDirectExecute(pageAbs, page, fx.policy_parameters);
     const v1 = await judgeDirectExecute(leg1, fx.golden_hash, fx.policy_parameters);
+
+    // Same-change rule: a page that is direct-eligible must carry its direct
+    // block AND its RUN_PATH_ADAPTERS entry. One finding names the manifest and
+    // every missing piece, instead of two leg messages a repointer must decode.
+    const missing = missingDirectPieces(id, leg1);
+    if (missing.length) {
+      problems.push(`${page}: leg 1 (execute): ${sameChangeFinding(v.detail.manifest, missing)}`);
+      continue;
+    }
     if (!v1.ok) {
       problems.push(`${page}: leg 1 (execute): ${v1.problem}`);
     } else if (JSONMODE) {
@@ -604,6 +996,29 @@ async function selfTest() {
     // RED, fail-closed: a derived page with no adapter can never skip leg 2.
     const l2u = await runDirectRunPath('unwired_tool', pageAbs, 'selftest.html', { policy_parameters: pp0 }, '_lastResult');
     if (l2u.ok || !l2u.error.includes('no run-path adapter wired')) fails.push('self-test fail-closed control expected the unwired-adapter RED');
+
+    // Same-change rule. RED: no direct block and no adapter => ONE finding naming
+    // the manifest and both pieces. GREEN: block + adapter present => nothing.
+    const noBlock = { ok: false, error: 'page registered no WebMCP tool (modelContext capture empty)' };
+    const redMissing = missingDirectPieces('unwired_tool', noBlock);
+    const redText = sameChangeFinding('manifests/unwired_tool.manifest.json', redMissing);
+    if (redMissing.length !== 2 || !redText.includes('manifests/unwired_tool.manifest.json') || !redText.includes('direct registration block') || !redText.includes('RUN_PATH_ADAPTERS')) {
+      fails.push(`same-change RED control expected one finding naming the manifest and both missing pieces, got: ${redText}`);
+    }
+    if (missingDirectPieces('selftest_tool', { ok: true })[0]) fails.push('same-change GREEN control (block + adapter present) expected no missing piece');
+
+    // fn-exec probe. GREEN: returns a hashable object. RED: sync helper that returns nothing.
+    const execGreen = await probeFunctionExecutes('<script>function compute(p) { return { output_payload: { echo: p.x } }; }</script>', 'compute', pp0, 2000);
+    if (execGreen !== null) fails.push(`fn-exec GREEN control expected null, got: ${execGreen}`);
+    const execRed = await probeFunctionExecutes('<script>function exportIt(p) { document.body.appendChild({}); }</script>', 'exportIt', pp0, 2000);
+    if (execRed === null || !execRed.includes('returned undefined')) fails.push(`fn-exec RED control (returns nothing) expected a returned-undefined reason, got: ${execRed}`);
+
+    // removeChild stub, leg 1: an execute path that removes a created node (the
+    // export-helper pattern) must settle GREEN with the golden hash, not throw.
+    writeFileSync(pageAbs, reg("var a = document.createElement('span'); document.body.removeChild(a); return { output_payload: { echo: p.x } };", greenRun));
+    const l1rc = await runDirectExecute(pageAbs, 'selftest.html', pp0);
+    const v1rc = await judgeDirectExecute(l1rc, realGolden, pp0);
+    if (!v1rc.ok) fails.push(`self-test leg 1 removeChild control expected clean, got: ${v1rc.problem}`);
   } finally {
     delete RUN_PATH_ADAPTERS.selftest_tool;
     rmSync(dir, { recursive: true, force: true });
@@ -615,7 +1030,7 @@ async function selfTest() {
     process.exitCode = 1;
     return;
   }
-  console.log('✓ check-webmcp-direct-execute --self-test clean — leg-1 GREEN + hash-mismatch RED + never-settles RED; leg-2 GREEN + run-throw RED + wrong-hash RED + unwired-adapter fail-closed RED.');
+  console.log('✓ check-webmcp-direct-execute --self-test clean — leg-1 GREEN + hash-mismatch RED + never-settles RED; leg-2 GREEN + run-throw RED + wrong-hash RED + unwired-adapter fail-closed RED; same-change RED + GREEN; fn-exec RED + GREEN.');
 }
 
 const invokedAsMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);

@@ -14,10 +14,17 @@
  *   `no-bot-sync` label, PRs in the merge queue, and heads pushed in the last
  *   few minutes, where a builder may still be pushing):
  *     - current (head already contains main)      -> nothing to do
- *     - BEHIND, merges clean                       -> merge origin/main in, push
+ *     - BEHIND, merges clean, head green, main     -> nothing (queue tests on main)
+ *       changed none of the PR's files
+ *     - BEHIND, merges clean, head red or no CI    -> merge origin/main in, push
+ *       (red only when main can repair it; see decide())
  *     - DIRTY only in main-owned derived paths     -> merge, take main's side of
  *                                                     those paths, commit, push
- *     - DIRTY anywhere else                        -> do NOT resolve; one PR
+ *     - DIRTY in the legacy id registry (alone or  -> keep main's frozen
+ *       with main-owned paths), PR only ADDED ids     RESERVATIONS.json, write each
+ *                                                     added id as its own shard,
+ *                                                     seed-check, commit, push
+ *     - DIRTY anywhere else, or a same-id clash    -> do NOT resolve; one PR
  *                                                     comment per head sha
  *
  * Merge, never rebase, never force-push: builders' history and their
@@ -36,14 +43,17 @@
  * Main-owned paths come from the SSOT scripts/derived-artifacts.mjs (COVERED),
  * the same single-writer set MAIN-ONLY-PATHS-GATE-1 refuses on a PR, minus the
  * entries that only patch a block inside a page a PR authors (see
- * mainOwnedPaths below). chaingraph/graph/RESERVATIONS.json, kernels and chain
- * shards are not in that set, so a conflict there is always "real".
+ * mainOwnedPaths below). Kernels and chain shards are not in that set, so a
+ * conflict there is always "real". chaingraph/graph/RESERVATIONS.json is not
+ * either; it gets the one mechanical resolution in planReservations().
  *
  * Usage:
  *   node scripts/ci/pr-sync-main.mjs [--dry-run] [--markdown] [--json]
  *   node scripts/ci/pr-sync-main.mjs --apply [--max-prs 10] [--event-sha <sha>]
  *   options: --repo owner/name (default $GITHUB_REPOSITORY or PostOakLabs/ainumbers)
  *            --pr <n> (one PR only)  --min-head-age-min <m> (default 10)
+ *            --regen-wait-min <m> (with --event-sha: longest wait for main's
+ *            derived-artifacts-regen on that sha, default 15; see regenGate)
  *
  * --dry-run (the default) is read-only on GitHub: one GraphQL listing, then a
  * local `git fetch` of the PR head objects (no refs written, no FETCH_HEAD) and
@@ -52,12 +62,14 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 import { COVERED, REPO } from '../derived-artifacts.mjs';
 import { gitEnv } from '../_git-env-lib.mjs';
+import { MAIN_OWNED_FRESHNESS_STEPS, holdMainMovedCause, isHoldComment, recordedSha } from '../mq-eject-hold.mjs';
 
 export const BOT_LOGIN = 'ainumbers-spec-sync[bot]';
 export const BOT_EMAIL = 'ainumbers-spec-sync[bot]@users.noreply.github.com';
@@ -65,7 +77,85 @@ export const SKIP_LABEL = 'no-bot-sync';
 export const SYNC_SUBJECT_PREFIX = 'chore(bot-sync):';
 export const MAX_ATTEMPTS_PER_HEAD = 2;
 export const DEFAULT_MAX_PRS = 10;
-export const DEFAULT_MIN_HEAD_AGE_MIN = 10;
+export const DEFAULT_MIN_HEAD_AGE_MIN = 15;
+// Head-merge ownership: a merge into a PR head restarts its full CI, so the
+// bot stands down when CI is already running on that head (rollup PENDING, only
+// believed for CHECKS_PENDING_MAX_MIN after the head commit so a stuck rollup
+// cannot park a PR forever) and, for a clean BEHIND PR, when it is armed (the
+// merge queue rebuilds on the current main anyway).
+export const ARMED_LABEL = 'automerge';
+export const CHECKS_PENDING_MAX_MIN = 45;
+// A merge of main into a PR whose head is already red only spends CI (the same
+// gates fail on the new head). Such a PR is left alone unless it is
+// conflicting, or it carries the opt-in label below. When the head's required
+// run facts are unreadable, main touching a file the PR also touches since
+// their merge base still lets it sync (fail-open on missing facts only); when
+// a required run on the head has a PR-owned failing step, the PR is skipped
+// until its head changes whatever main touched.
+// Two red classes ARE repaired by a merge of current main, so they sync too
+// (MAIN_OWNED_FRESHNESS_STEPS below): every failing step on the head's latest
+// required run is a main-owned freshness step, or the head's run started
+// before main's latest recovery from a red episode completed (a stale red).
+export const SYNC_ANYWAY_LABEL = 'sync-anyway';
+// The merge-queue eject hold (automerge-label.yml, scripts/mq-eject-hold.mjs).
+export const EJECTED_LABEL = 'mq-ejected';
+// A merge of current main is forced into an ejected PR only when the hold says
+// main moving on caused the eject: holdMainMovedCause() in mq-eject-hold.mjs,
+// a main-moved eject class or a main-owned failing step (the dead-link gate
+// included). It is the same rule automerge-label.yml's should-clear uses to
+// lift the hold, so a forced sync always clears it and lets the hourly re-arm
+// pick the PR up. Any other hold stays until the PR's own files change, so
+// syncing it would only re-run CI on a PR that cannot re-arm.
+export function ejectFromMainMove(holdBody) {
+  return typeof holdBody === 'string' && holdMainMovedCause(holdBody) !== null;
+}
+// The newest eject-hold comment, when it was recorded at this head, or null.
+export function ejectHoldFor(bodies, headSha) {
+  const hold = [...(bodies || [])].reverse().find(isHoldComment);
+  if (!hold) return null;
+  const sha = recordedSha(hold);
+  if (!sha || !headSha || !headSha.startsWith(sha)) return null;
+  return String(hold);
+}
+export const RED_STATES = new Set(['FAILURE', 'ERROR']);
+// The red-head skip below yields to two main-repairable red classes:
+//   (a) every failing step on the head's latest Scripts Verify / Land Verify
+//       run is one of the exact workflow step names here — the steps under
+//       which the freshness gates of scripts/derived-artifacts.mjs COVERED
+//       run on a PR head, plus the ask-agent block freshness step. A merge of
+//       current main re-derives those artifacts and greens the steps. Exact
+//       strings only: one unlisted failing step keeps the skip.
+//   (b) the head's latest required run started BEFORE main's latest recovery
+//       from a Scripts Verify red episode completed (mainRecoveryAt below),
+//       so the red judged a main that has since been repaired — a stale red.
+// Both need CI facts fetched in the I/O half; missing data keeps the skip
+// (fail-closed to the old behaviour). The COVERED-check-to-step mapping:
+//   'Derived-freshness, index-sync, sitemap (HARD on merge_group)'
+//     = derived-artifacts.mjs --verify, i.e. every COVERED freshness gate on
+//     the committed tree: trust-signals (gen-trust-signals --check),
+//     webmcp.json freshness (gen-webmcp-registrations --manifest --check),
+//     receipt-bundles freshness (gen-receipt-bundles --check), gen-index
+//     (gen-chain-index --check), sitemap, catalog index-sync and the rest.
+//   'chaingraph.json shard freshness (CGSHARD-1 CS-1)' = the COVERED
+//     chaingraph-assemble gate's own step.
+//   'Count-drift gate (...)' = the COVERED counts gate's own step.
+//   'Manifest examples drift (...)' = the COVERED manifest-examples gate's
+//     own Scripts Verify step.
+// The set lives in mq-eject-hold.mjs, which shares it with the eject hold.
+export { MAIN_OWNED_FRESHNESS_STEPS };
+// (a) every failing step on the head's latest required run is a main-owned
+// freshness step. An empty or unreadable failingSteps keeps this false.
+const redHeadFreshnessOnly = (input) => Array.isArray(input.failingSteps) && input.failingSteps.length > 0
+  && input.failingSteps.every((s) => MAIN_OWNED_FRESHNESS_STEPS.has(s));
+// (b) the head's red is stale: its required run started before main's latest
+// recovery from a red episode completed. Either field null keeps this false.
+const redHeadStale = (input) => input.mainRecoveredAt != null && input.headRunStartedAt != null
+  && input.headRunStartedAt < input.mainRecoveredAt;
+// push:main runs wait for derived-artifacts-regen on their own sha (a run
+// takes 3-4 min); see regenGate().
+export const REGEN_WAIT_MIN = 15;
+export const REGEN_APPEAR_SEC = 90;
+export const REGEN_POLL_SEC = 20;
 const MARK_CONFLICT = 'bot-sync:conflict';
 const MARK_ATTEMPT = 'bot-sync:attempt';
 
@@ -74,7 +164,8 @@ const MARK_ATTEMPT = 'bot-sync:attempt';
 // PR owns the rest of the page, so taking main's side of the whole file would
 // drop the PR's own content. Their pages stay out of the main-owned set unless
 // another, whole-file entry also declares them.
-export const PER_PR_PAGE_PATCHERS = new Set(['node-page-footers', 'hub-scenes', 'chain-ask-agent']);
+// PROOFLINKS-GEN-1 (PR 3208): the node-page "Verification artifacts" block joins
+export const PER_PR_PAGE_PATCHERS = new Set(['node-page-footers', 'hub-scenes', 'chain-ask-agent', 'node-page-proof-links']);
 // writesReport entries whose bare-tree prefix is a tree PRs author into
 // (`tools`, `chaingraph`, `manifests/`). The other writesReport prefixes
 // (`chaingraph/receipt-bundles`, `chaingraph/okf`, `chaingraph/register`,
@@ -171,17 +262,89 @@ export function parseMergeTree(stdout) {
  * The decision for one PR. Pure: everything it needs is in `input`.
  * @param {object} input
  * @param {object} input.pr  {number, isDraft, isCrossRepository, baseRefName,
- *                            headRefName, labels:string[], inMergeQueue, headCommittedAt}
+ *                            headRefName, labels:string[], inMergeQueue, headCommittedAt, checksState}
  * @param {boolean} input.behind      head does not contain main
  * @param {string[]|null} input.conflicts  predicted conflicted paths ([] = clean)
  * @param {Set<string>} input.mainOwned
  * @param {Set<string>} [input.sentinelOk]  sentinel-owned pages whose PR diff is sentinel-only
  * @param {number} [input.attempts]   failed bot-sync attempts already on this head
+ * @param {string[]|null} [input.sharedFiles]  files changed by both main and the PR since their merge base (null/undefined = unknown, allows a sync)
+ * @param {string|null} [input.ejectHold]  the eject-hold comment recorded at this head (ejectHoldFor)
+ * @param {string[]|null} [input.failingSteps]  failing step names on the head's latest required Scripts Verify / Land Verify runs (null/undefined = unreadable, keeps the red-head skip)
+ * @param {number|null} [input.headRunStartedAt]  epoch ms: start of the head's latest required run
+ * @param {number|null} [input.mainRecoveredAt]  epoch ms: completion of main's latest Scripts Verify recovery from a red episode
  * @param {boolean} [input.notified]  a real-conflict comment already exists for this head
  * @param {number} [input.now]        epoch ms
  * @param {number} [input.minHeadAgeMs]
  * @returns {{action:'skip'|'merge-clean'|'merge-derived'|'conflict-real', reason:string, paths:string[], notify?:boolean}}
  */
+/*
+ * Reservation registry (scripts/check-id-collision.mjs). Since the shard split
+ * on main, a reservation is one file per id under RESERVATION_SHARD_DIR, and
+ * the legacy single-object registry is frozen (still read: shards ∪ legacy).
+ * A PR opened before the split added its id to the legacy file, which now
+ * conflicts with main. That conflict is mechanical when the PR only ADDED ids:
+ * keep main's frozen legacy file and move each added entry to its own shard.
+ */
+export const RESERVATIONS_LEGACY = 'chaingraph/graph/RESERVATIONS.json';
+export const RESERVATION_SHARD_DIR = 'chaingraph/graph/reservations';
+export const shardPath = (id) => `${RESERVATION_SHARD_DIR}/${id}.json`;
+export const shardBytes = (entry) => `${JSON.stringify(entry, null, 2)}\n`;
+// The claim registry's kernel-record subdir (scripts/gen-registry-kernel-resolve.mjs
+// OUT_DIR, a bare-tree COVERED prefix): main-owned, and the one main-owned prefix
+// whose take-main resolution can strand a PR (REGISTRY-KEEP-1 below).
+export const REGISTRY_KERNEL_DIR = 'registry/kernel';
+const isRegistryKernelPath = (p) => p === REGISTRY_KERNEL_DIR || p.startsWith(`${REGISTRY_KERNEL_DIR}/`);
+// Decisions that merge and push.
+export const SYNC_ACTIONS = new Set(['merge-clean', 'merge-derived', 'merge-reservations']);
+
+const sameJson = (a, b) => isDeepStrictEqual(a, b);
+
+/**
+ * Plan the legacy-registry resolution. base/ours/theirs: the legacy object at
+ * the merge base, on the PR head, and on main (null = file absent).
+ * existingShard(id): the shard entry already in the target tree, or null.
+ * Returns { ok: true, shards: { path: entry } } or { ok: false, why }.
+ * Refuses (a real conflict, never resolved) when the PR removed or edited an
+ * existing id differently from main, or when an id it added already exists on
+ * main (legacy or shard) with different content: a same-id collision.
+ */
+export function planReservations({ base, ours, theirs, existingShard }) {
+  if (!ours || !theirs) return { ok: false, why: `${RESERVATIONS_LEGACY} missing on one side` };
+  const b = base || {};
+  const shards = {};
+  const refuse = [];
+  for (const id of Object.keys(b)) {
+    if (!(id in ours)) refuse.push(`${id} removed by the PR`);
+  }
+  for (const [id, entry] of Object.entries(ours)) {
+    if (id in b) {
+      if (!sameJson(b[id], entry) && !sameJson(theirs[id], entry)) refuse.push(`${id} edited by the PR and by main`);
+      continue;
+    }
+    if (id in theirs && !sameJson(theirs[id], entry)) { refuse.push(`${id} already reserved on main for a different row (legacy)`); continue; }
+    const have = existingShard(id);
+    if (have === undefined) { refuse.push(`${shardPath(id)} unreadable`); continue; }
+    if (have !== null) {
+      if (!sameJson(have, entry)) refuse.push(`${id} already reserved on main for a different row (${shardPath(id)})`);
+      continue;
+    }
+    if (id in theirs) continue; // main's frozen legacy already carries the identical entry
+    shards[shardPath(id)] = entry;
+  }
+  return refuse.length ? { ok: false, why: refuse.join('; ') } : { ok: true, shards };
+}
+
+// True when the predicted merge conflicts, and only in main-owned derived
+// paths or sentinel-only pages: the conflicts decide() resolves as
+// `merge-derived`. Unknown (null) or empty conflict lists are false.
+export function derivedOnlyConflict(input) {
+  const { conflicts, mainOwned } = input;
+  if (!Array.isArray(conflicts) || conflicts.length === 0 || !mainOwned) return false;
+  const sentinelOk = input.sentinelOk || new Set();
+  return conflicts.every((p) => mainOwned.has(p) || sentinelOk.has(p));
+}
+
 export function decide(input) {
   const { pr, behind, conflicts, mainOwned } = input;
   const attempts = input.attempts || 0;
@@ -193,18 +356,74 @@ export function decide(input) {
   if (pr.baseRefName !== 'main') return skip('base-not-main');
   if (pr.headRefName === 'main') return skip('head-is-main');
   if (pr.isDraft) return skip('draft');
-  if ((pr.labels || []).includes(SKIP_LABEL)) return skip(`label:${SKIP_LABEL}`);
+  // `no-bot-sync` opts a PR out of syncs, with one exception
+  // (BOT-SYNC-OPTOUT-DERIVED-CONFLICT-1): a merge whose every conflict is in a
+  // main-owned derived path (or a sentinel-only page) still resolves, taking
+  // main's side. Main is the single writer of those paths, the merge queue
+  // cannot take a conflicting PR, and nobody else resolves them, so the
+  // opt-out would otherwise park the PR (armed ones included) until a builder
+  // pushes. A clean merge, a real conflict or an unknown merge still skips.
+  if ((pr.labels || []).includes(SKIP_LABEL) && !derivedOnlyConflict(input)) return skip(`label:${SKIP_LABEL}`);
   if (pr.inMergeQueue) return skip('in-merge-queue');
   if (!behind && (!conflicts || conflicts.length === 0)) return skip('current');
   if (conflicts === null) return skip('merge-unknown');
   if (attempts >= MAX_ATTEMPTS_PER_HEAD) return skip(`attempts:${attempts}`);
   const committed = pr.headCommittedAt ? Date.parse(pr.headCommittedAt) : NaN;
   if (Number.isFinite(committed) && now - committed < minAge) return skip('fresh-head');
+  if (pr.checksState === 'PENDING' && Number.isFinite(committed) && now - committed < CHECKS_PENDING_MAX_MIN * 60_000) return skip('checks-running');
+  // Eject hold, main-moved cause: the hold says main moving on caused the
+  // eject (ejectFromMainMove). An ejected PR keeps its
+  // automerge label, so this check runs before the armed skip, or it could
+  // never fire. A PR-owned eject cause never forces a sync, so a red PR cannot
+  // loop through sync, clear-mq-eject and the hourly re-arm (the #3222 shape).
+  const ejectForce = (pr.labels || []).includes(EJECTED_LABEL) && ejectFromMainMove(input.ejectHold);
+  if (conflicts.length === 0 && (pr.labels || []).includes(ARMED_LABEL) && !ejectForce) return skip('armed-queue-rebuilds');
+  // Red head: a clean merge cannot fix it. Conflicting PRs, unknown overlap
+  // and the opt-in label keep syncing. The skip yields to the two
+  // main-repairable red classes documented on MAIN_OWNED_FRESHNESS_STEPS:
+  // every failing step is a main-owned freshness step (redHeadFreshnessOnly),
+  // or the head's run predates main's latest recovery from a red episode
+  // (redHeadStale). A merge of current main is the cure for both. Missing CI
+  // facts keep the skip, never act blind.
+  // Required-failed head: when the head's latest required run (Scripts Verify
+  // or Land Verify) has a PR-owned failing step, a merge of main only restarts
+  // CI on a head that stays red, so the skip holds even when main touched a
+  // file the PR also touches. It lasts until the head changes (a new head
+  // re-reads fresh facts).
+  const redUnrepairable = conflicts.length === 0 && RED_STATES.has(pr.checksState)
+      && !(pr.labels || []).includes(SYNC_ANYWAY_LABEL)
+      && !(redHeadFreshnessOnly(input) || redHeadStale(input));
+  if (redUnrepairable && Array.isArray(input.failingSteps) && input.failingSteps.length > 0) return skip('required-failed-on-head');
+  if (redUnrepairable && Array.isArray(input.sharedFiles) && input.sharedFiles.length === 0) return skip('red-head-no-shared-files');
+  // Green head, clean BEHIND: a merge of main only restarts CI on a PR that
+  // is already armable. main-ci-anchor sets strict_required_status_checks_policy
+  // false, so BEHIND never blocks arming (GitHub reports such a PR CLEAN), and
+  // the merge queue tests the PR on current main anyway. Measured Nov 4-25:
+  // 2,176 syncs of unarmed green heads, about 44% of PR CI wall time, each
+  // leaving the PR un-armable for a median 24 min (114 turned it red); arms on
+  // a just-synced head were ejected no less often. Conflicts, main-repairable
+  // reds, unknown CI and the opt-in label still sync. So does a green head
+  // whose files main has also changed since their merge base (its green may
+  // not hold on current main; unknown overlap syncs, never skips blind), and a
+  // PR the queue ejected for a main-moved cause (ejectForce above).
+  const labels = pr.labels || [];
+  if (conflicts.length === 0 && pr.checksState === 'SUCCESS'
+      && !labels.includes(SYNC_ANYWAY_LABEL) && !ejectForce
+      && Array.isArray(input.sharedFiles) && input.sharedFiles.length === 0) {
+    return skip('green-queue-rebuilds');
+  }
 
   if (conflicts.length === 0) return { action: 'merge-clean', reason: 'behind', paths: [] };
   const sentinelOk = input.sentinelOk || new Set();
   const real = conflicts.filter((p) => !mainOwned.has(p) && !sentinelOk.has(p));
   if (real.length === 0) return { action: 'merge-derived', reason: 'dirty-derived-only', paths: conflicts };
+  // The legacy registry alone (plus main-owned paths) resolves when the plan
+  // is clean; a collision in it stays real, named in the reason.
+  if (real.length === 1 && real[0] === RESERVATIONS_LEGACY) {
+    const plan = input.reservations;
+    if (plan && plan.ok) return { action: 'merge-reservations', reason: 'legacy-registry-adds', paths: conflicts, shards: plan.shards };
+    return { action: 'conflict-real', reason: plan ? `reservation-collision: ${plan.why}` : 'dirty-real', paths: real, notify: !input.notified };
+  }
   return { action: 'conflict-real', reason: 'dirty-real', paths: real, notify: !input.notified };
 }
 
@@ -214,6 +433,7 @@ function parseArgs(argv) {
   const o = {
     apply: false, markdown: false, json: false, repo: process.env.GITHUB_REPOSITORY || 'PostOakLabs/ainumbers',
     maxPrs: DEFAULT_MAX_PRS, pr: null, eventSha: null, minHeadAgeMin: DEFAULT_MIN_HEAD_AGE_MIN,
+    regenWaitMin: REGEN_WAIT_MIN,
   };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
@@ -227,10 +447,12 @@ function parseArgs(argv) {
     else if (a === '--pr') o.pr = Number(next());
     else if (a === '--event-sha') o.eventSha = next();
     else if (a === '--min-head-age-min') o.minHeadAgeMin = Number(next());
+    else if (a === '--regen-wait-min') o.regenWaitMin = Number(next());
     else throw new Error(`unknown argument: ${a}`);
   }
   if (!/^[\w.-]+\/[\w.-]+$/.test(o.repo)) throw new Error(`bad --repo ${o.repo}`);
   if (!Number.isInteger(o.maxPrs) || o.maxPrs < 0) throw new Error('--max-prs must be a non-negative integer');
+  if (!(o.regenWaitMin >= 0)) throw new Error('--regen-wait-min must be a non-negative number');
   return o;
 }
 
@@ -257,7 +479,7 @@ const PR_QUERY = `query($owner:String!,$name:String!,$cursor:String){repository(
     nodes{number title isDraft isCrossRepository baseRefName headRefName headRefOid
       mergeable mergeStateStatus mergeQueueEntry{state}
       labels(first:50){nodes{name}}
-      commits(last:1){nodes{commit{committedDate}}}}}}}`;
+      commits(last:1){nodes{commit{committedDate statusCheckRollup{state}}}}}}}}`;
 
 function listOpenPrs(repo) {
   const [owner, name] = repo.split('/');
@@ -274,6 +496,7 @@ function listOpenPrs(repo) {
         mergeable: n.mergeable, mergeStateStatus: n.mergeStateStatus, inMergeQueue: !!n.mergeQueueEntry,
         labels: n.labels.nodes.map((l) => l.name),
         headCommittedAt: n.commits.nodes[0]?.commit?.committedDate || null,
+        checksState: n.commits.nodes[0]?.commit?.statusCheckRollup?.state || null,
       });
     }
     if (!page.pageInfo.hasNextPage) break;
@@ -307,7 +530,50 @@ function predict(headSha, mainSha) {
       if (isSentinelOnlyDiff(git(['diff', '-U0', '--no-color', '--no-ext-diff', base, headSha, '--', p]))) sentinelOk.add(p);
     }
   }
-  return { behind, conflicts, sentinelOk };
+  const reservations = conflicts.includes(RESERVATIONS_LEGACY)
+    ? reservationPlanAt(headSha, mainSha, (id) => readJsonAt(mainSha, shardPath(id))) : undefined;
+  return { behind, conflicts, sentinelOk, reservations };
+}
+
+/** Files changed by both main and the PR since their merge base; null when git cannot say. */
+function sharedFilesWithMain(headSha, mainSha) {
+  const base = gitOk(['merge-base', headSha, mainSha]);
+  if (!base.ok) return null;
+  const b = base.out.trim();
+  const names = (to) => gitOk(['diff', '--name-only', '--no-renames', '--no-ext-diff', b, to]);
+  const m = names(mainSha), h = names(headSha);
+  if (!m.ok || !h.ok) return null;
+  const lines = (out) => out.split(String.fromCharCode(10)).map((l) => l.trim()).filter(Boolean);
+  const mine = new Set(lines(h.out));
+  return lines(m.out).filter((f) => mine.has(f));
+}
+/** predict() plus the overlap probe (red or green clean-BEHIND PR; local git
+ * only) and the CI facts the red-head skip exceptions read (red only). */
+function predictFor(pr, mainSha, repo = REPO) {
+  const pred = pr.isCrossRepository ? { behind: false, conflicts: [] } : predict(pr.headRefOid, mainSha);
+  const cleanBehind = pred.behind && pred.conflicts && pred.conflicts.length === 0;
+  if (cleanBehind && pr.checksState === 'SUCCESS') pred.sharedFiles = sharedFilesWithMain(pr.headRefOid, mainSha);
+  if (cleanBehind && RED_STATES.has(pr.checksState)) {
+    pred.sharedFiles = sharedFilesWithMain(pr.headRefOid, mainSha);
+    Object.assign(pred, headRunFacts(repo, pr.headRefOid));
+    pred.mainRecoveredAt = mainRecoveredAt(repo);
+  }
+  return pred;
+}
+
+// A JSON blob at <rev>:<path>: the parsed value, null when the path is
+// absent, undefined when present but unparseable (the caller refuses).
+function readJsonAt(rev, path, cwd) {
+  if (!gitOk(['cat-file', '-e', `${rev}:${path}`], { cwd }).ok) return null;
+  try { return JSON.parse(git(['show', `${rev}:${path}`], { cwd })); } catch { return undefined; }
+}
+
+function reservationPlanAt(headSha, mainSha, existingShard, cwd) {
+  const base = git(['merge-base', headSha, mainSha], { cwd }).trim();
+  const sides = [base, headSha, mainSha].map((rev) => readJsonAt(rev, RESERVATIONS_LEGACY, cwd));
+  if (sides.includes(undefined)) return { ok: false, why: `${RESERVATIONS_LEGACY} is not valid JSON on one side` };
+  const [b, ours, theirs] = sides;
+  return planReservations({ base: b, ours, theirs, existingShard });
 }
 let _sentinelOwned = null;
 const SENTINEL_OWNED = () => (_sentinelOwned ??= sentinelOwnedPaths());
@@ -330,6 +596,74 @@ function comment(repo, number, body) {
  * Returns {ok, sha?, why?, race?}. `repoDir` exists for the test's throwaway
  * repo; CI uses the trusted main checkout.
  */
+function readJsonFile(p) {
+  if (!existsSync(p)) return null;
+  try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return undefined; }
+}
+
+// Run check-id-collision.mjs --seed-check on the merged tree with MAIN's copy
+// of the gate, never the PR's: this job holds the push token, so no PR-branch
+// code may run here. The gate resolves the repo from its own location, so
+// main's two files are laid over the tree's copies for the run and the merged
+// versions restored from the index afterwards. Tokens are dropped from its env.
+const SEED_GATE_FILES = ['scripts/check-id-collision.mjs', 'scripts/_git-env-lib.mjs'];
+function seedCheck(wt) {
+  mkdirSync(join(wt, 'scripts'), { recursive: true });
+  for (const f of SEED_GATE_FILES) copyFileSync(join(REPO, f), join(wt, f));
+  const env = { ...gitEnv() };
+  for (const k of ['GH_TOKEN', 'GITHUB_TOKEN', 'APP_TOKEN', 'ACTIONS_READ_TOKEN']) delete env[k];
+  try {
+    execFileSync(process.execPath, [join(wt, 'scripts', 'check-id-collision.mjs'), '--seed-check'],
+      { cwd: wt, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, err: String(e.stderr || e.message).trim().split('\n').slice(-3).join(' | ') };
+  } finally {
+    for (const f of SEED_GATE_FILES) {
+      if (!gitOk(['checkout', '--', f], { cwd: wt }).ok) rmSync(join(wt, f), { force: true });
+    }
+  }
+}
+
+// REGISTRY-KEEP-1: repair registry/kernel on the merged tree by running MAIN's
+// copy of the generator over it — the seedCheck pattern: this job holds the
+// push token, so no PR-branch code may run here, and the generator resolves its
+// repo root from its own file location, so laying main's copies over the tree
+// makes every read (kernels, SPEC.md, chaingraph.json) and every write
+// (registry/kernel/) land in the merge worktree. --write rewrites stale
+// records and prunes its own orphans (deletion cap 10, REFUSED above it);
+// `git add` stages the whole subdir (rewrites and prunes alike); --check must
+// then exit 0 or the caller refuses the sync. The copies are restored from the
+// index (removed when the merged tree never had them) before the commit, so
+// the merge commit carries neither main's gate bytes nor a stray copy.
+const RESOLVE_GATE_FILES = [
+  'scripts/gen-registry-kernel-resolve.mjs',
+  'scripts/_gen-writes-reports.mjs',
+  'chaingraph/kernels/_buildid.mjs',
+  'chaingraph/kernels/_hash.mjs',
+];
+function registryResolve(wt) {
+  mkdirSync(join(wt, 'scripts'), { recursive: true });
+  mkdirSync(join(wt, 'chaingraph', 'kernels'), { recursive: true });
+  for (const f of RESOLVE_GATE_FILES) copyFileSync(join(REPO, f), join(wt, f));
+  const env = { ...gitEnv() };
+  for (const k of ['GH_TOKEN', 'GITHUB_TOKEN', 'APP_TOKEN', 'ACTIONS_READ_TOKEN']) delete env[k];
+  try {
+    execFileSync(process.execPath, [join(wt, 'scripts', 'gen-registry-kernel-resolve.mjs'), '--write'],
+      { cwd: wt, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env, maxBuffer: 64 << 20 });
+    git(['add', '--', REGISTRY_KERNEL_DIR], { cwd: wt });
+    execFileSync(process.execPath, [join(wt, 'scripts', 'gen-registry-kernel-resolve.mjs'), '--check'],
+      { cwd: wt, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env, maxBuffer: 64 << 20 });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, err: String(e.stderr || e.message).trim().split('\n').slice(-3).join(' | ') };
+  } finally {
+    for (const f of RESOLVE_GATE_FILES) {
+      if (!gitOk(['checkout', '--', f], { cwd: wt }).ok) rmSync(join(wt, f), { force: true });
+    }
+  }
+}
+
 export function syncOne(pr, mainSha, allowed, repoDir = REPO) {
   const wt = mkdtempSync(join(tmpdir(), `bot-sync-${pr.number}-`));
   const ident = ['-c', `user.name=${BOT_LOGIN}`, '-c', `user.email=${BOT_EMAIL}`];
@@ -343,14 +677,56 @@ export function syncOne(pr, mainSha, allowed, repoDir = REPO) {
       if (unmerged.length === 0 || real.length) {
         return { ok: false, why: `merge result differs from prediction (unmerged: ${unmerged.join(', ') || 'none'})` };
       }
+      // Re-plan against the merged tree itself: its shard dir is main's plus
+      // whatever the PR added, so a same-id shard on either side is seen.
+      let plan = null;
+      if (unmerged.includes(RESERVATIONS_LEGACY)) {
+        plan = reservationPlanAt(pr.headRefOid, mainSha, (id) => readJsonFile(join(wt, shardPath(id))), wt);
+        if (!plan.ok) return { ok: false, why: `reservation collision: ${plan.why}` };
+      }
       for (const p of unmerged) {
         if (gitOk(['cat-file', '-e', `${mainSha}:${p}`], { cwd: wt }).ok) git(['checkout', mainSha, '--', p], { cwd: wt });
         else git(['rm', '--quiet', '--', p], { cwd: wt });
       }
+      const moved = plan ? Object.keys(plan.shards).sort() : [];
+      for (const p of moved) {
+        mkdirSync(join(wt, RESERVATION_SHARD_DIR), { recursive: true });
+        writeFileSync(join(wt, p), shardBytes(plan.shards[p]));
+        git(['add', '--', p], { cwd: wt });
+      }
       const left = git(['diff', '--name-only', '--diff-filter=U'], { cwd: wt }).trim();
       if (left) return { ok: false, why: `still unmerged after taking main's side: ${left}` };
+      if (plan) {
+        const seed = seedCheck(wt);
+        if (!seed.ok) return { ok: false, why: `check-id-collision --seed-check failed on the merged tree: ${seed.err}` };
+      }
+      const derived = unmerged.filter((p) => p !== RESERVATIONS_LEGACY);
+      // REGISTRY-KEEP-1: taking main's side of the registry/kernel prefix can
+      // strand the PR — on a rename-pair conflict main lacks the PR's own new
+      // kernel record, so the loop above `git rm`s it, and main's restamped
+      // records can be stale or orphan for the merged kernel and SPEC bytes.
+      // land-verify's required "Registry kernel-resolve coverage" step then
+      // reds the bot's own merge commit (four PRs hit it on 2026-11-22:
+      // #3251, #3241, #3236, #3234). The record is fully byte-determined from
+      // kernel and SPEC bytes (muse #105 Q3: the regen output was byte-equal
+      // to the hand cure), so the merge repairs the subdir in place and
+      // refuses the sync unless --check is clean afterwards. No push escapes
+      // an unclean resolve.
+      let registryResolved = false;
+      if (derived.some(isRegistryKernelPath)) {
+        const rec = registryResolve(wt);
+        if (!rec.ok) return { ok: false, why: 'registry resolve not clean after sync' };
+        registryResolved = true;
+      }
+      // Muse #111 C1: registry/kernel paths were re-derived IN this commit, so they are listed under
+      // their own line, never under "main's regen re-derives them after merge".
+      const regenLater = registryResolved ? derived.filter((p) => !isRegistryKernelPath(p)) : derived;
+      const registryNow = registryResolved ? derived.filter(isRegistryKernelPath) : [];
       const msgFile = join(wt, '..', `bot-sync-msg-${pr.number}.txt`);
-      writeFileSync(msgFile, `${subject}\n\nConflicts only in main-owned derived paths (scripts/derived-artifacts.mjs);\ntook main's version, main's regen re-derives them after merge:\n${unmerged.map((p) => `  ${p}`).join('\n')}\n`);
+      writeFileSync(msgFile, `${subject}\n\n` +
+        (regenLater.length ? `Conflicts in main-owned derived paths (scripts/derived-artifacts.mjs);\ntook main's version, main's regen re-derives them after merge:\n${regenLater.map((p) => `  ${p}`).join('\n')}\n` : '') +
+        (plan ? `${regenLater.length ? '\n' : ''}Kept main's frozen ${RESERVATIONS_LEGACY}; moved the ${moved.length} id(s) this PR added to\nper-id shards (scripts/check-id-collision.mjs --seed-check passed on the merged tree):\n${moved.map((p) => `  ${p}`).join('\n') || '  (none: main already carries them)'}\n` : '') +
+        (registryResolved ? `${regenLater.length || plan ? '\n' : ''}Re-derived registry/kernel on the merged tree in this commit\n(scripts/gen-registry-kernel-resolve.mjs --write; --check clean):\n${registryNow.map((p) => `  ${p}`).join('\n')}\n  records now match the merged kernels and SPEC bytes\n` : ''));
       git([...ident, 'commit', '--quiet', '-F', msgFile], { cwd: wt });
       rmSync(msgFile, { force: true });
     }
@@ -367,10 +743,150 @@ export function syncOne(pr, mainSha, allowed, repoDir = REPO) {
 
 // The App token carries only contents + pull-requests; reading Actions runs
 // uses the job's GITHUB_TOKEN (actions: read), passed as ACTIONS_READ_TOKEN.
-function regenPending(repo, sha) {
+function regenRuns(repo, sha) {
   const raw = gh(['api', `repos/${repo}/actions/workflows/derived-artifacts-regen.yml/runs?head_sha=${sha}&per_page=10`,
-    '--jq', '[.workflow_runs[] | select(.status != "completed")] | length'], undefined, process.env.ACTIONS_READ_TOKEN);
-  return Number(raw.trim()) > 0;
+    '--jq', '[(.workflow_runs | length), ([.workflow_runs[] | select(.status != "completed")] | length)] | @tsv'], undefined, process.env.ACTIONS_READ_TOKEN);
+  const [total, pending] = raw.trim().split('\t').map(Number);
+  return { total, pending };
+}
+
+// The two required PR runs whose step verdicts decide() reads for the
+// red-head skip exceptions (workflow file paths, the form regenRuns uses).
+const REQUIRED_RUN_WORKFLOWS = ['scripts-verify.yml', 'land-verify.yml'];
+
+/**
+ * CI facts for one head sha, for the red-head skip exceptions: the failing
+ * step names on each required workflow's latest completed run, and the start
+ * time of the newest of those runs. Any unreadable piece (API error, no run,
+ * still in progress, cancelled) returns {} — decide() then keeps the
+ * red-head skip. Fail-closed: these fields only ever widen the sync for red
+ * classes a merge of main repairs, never for a red it cannot.
+ */
+function headRunFacts(repo, headSha) {
+  const failingSteps = [];
+  let headRunStartedAt = null;
+  for (const wf of REQUIRED_RUN_WORKFLOWS) {
+    let run;
+    try {
+      run = JSON.parse(gh(['api', `repos/${repo}/actions/workflows/${wf}/runs?head_sha=${headSha}&per_page=10`,
+        '--jq', '{conclusion: .workflow_runs[0].conclusion, started: .workflow_runs[0].run_started_at, id: .workflow_runs[0].id}'],
+        undefined, process.env.ACTIONS_READ_TOKEN));
+    } catch { return {}; }
+    if (!run || typeof run.conclusion !== 'string' || !Number.isFinite(Date.parse(run.started || null))) return {};
+    if (run.conclusion === 'failure') {
+      let steps;
+      try {
+        steps = JSON.parse(gh(['api', `repos/${repo}/actions/runs/${run.id}/jobs?per_page=100&filter=latest`,
+          '--jq', '[.jobs[] | .steps[]? | select(.conclusion == "failure") | .name]'],
+          undefined, process.env.ACTIONS_READ_TOKEN));
+      } catch { return {}; }
+      if (!Array.isArray(steps) || steps.some((s) => typeof s !== 'string')) return {};
+      failingSteps.push(...steps);
+    } else if (run.conclusion !== 'success' && run.conclusion !== 'skipped') {
+      return {};
+    }
+    headRunStartedAt = Math.max(headRunStartedAt, Date.parse(run.started));
+  }
+  return { failingSteps, headRunStartedAt };
+}
+
+/**
+ * Main's latest recovery from a Scripts Verify red episode, from a newest-first
+ * run list: the completion time (updated_at) of the FIRST success after the
+ * newest failure, i.e. the success immediately newer than that failure. Null
+ * when there is no such recovery: no failure in the window, or main's newest
+ * completed run is red, so main has not recovered. Pure.
+ *
+ * BOT-SYNC-RECOVERY-CLOCK-1 (2026-11-25): this used to return the NEWEST
+ * success whenever any failure sat anywhere in the 20-run window. Every new
+ * green main run then moved "recovery" forward, so every red PR whose run
+ * started before main's latest green run read as a stale red and was re-synced
+ * on each main merge, its red CI re-run for nothing. #2745 and #2763 were
+ * bot-synced 12 times each between 2026-11-23 21:32Z and 2026-11-25 01:29Z on
+ * the same Registry kernel-resolve red; main's real recovery in that window was
+ * 2026-11-24 16:33Z, so after one sync both should have stayed skipped.
+ * @param {Array<{conclusion:string|null, started:string, updated:string}>} runs newest first
+ * @returns {number|null} epoch ms
+ */
+export function recoveryFromRuns(runs) {
+  const completed = Array.isArray(runs)
+    ? runs.filter((r) => r && typeof r.conclusion === 'string'
+      && Number.isFinite(Date.parse(r.started || null)) && Number.isFinite(Date.parse(r.updated || null)))
+    : [];
+  if (!completed.length || completed[0].conclusion !== 'success') return null;
+  const lastFail = completed.findIndex((r) => r.conclusion === 'failure');
+  if (lastFail <= 0) return null;
+  // completed[lastFail - 1] is the newest run newer than that failure that is
+  // a success; cancelled or skipped runs between them are not recoveries.
+  for (let i = lastFail - 1; i >= 0; i--) {
+    if (completed[i].conclusion === 'success') return Date.parse(completed[i].updated);
+  }
+  return null;
+}
+
+/**
+ * Main's latest recovery from a Scripts Verify red episode (recoveryFromRuns
+ * over main's newest 20 runs). Null keeps the red-head skip (fail-closed).
+ * One read per process; the value cannot change under a run.
+ */
+let _mainRecoveryCache;
+function mainRecoveredAt(repo) {
+  if (_mainRecoveryCache === undefined) {
+    _mainRecoveryCache = null;
+    try {
+      const runs = JSON.parse(gh(['api', `repos/${repo}/actions/workflows/scripts-verify.yml/runs?branch=main&per_page=20`,
+        '--jq', '[.workflow_runs[] | {conclusion, started: .run_started_at, updated: .updated_at}]'],
+        undefined, process.env.ACTIONS_READ_TOKEN));
+      _mainRecoveryCache = recoveryFromRuns(runs);
+    } catch { /* keep null: unreadable -> keep the skip */ }
+  }
+  return _mainRecoveryCache;
+}
+
+function sleepSync(ms) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
+
+// Poll derived-artifacts-regen's runs on one sha until they have all
+// finished. 'absent': no run registered within appearMs (it fires on the same
+// push as this job, so it normally shows up in seconds). 'timeout': still
+// running after timeoutMs.
+export function waitForRegen(probe, { timeoutMs, appearMs, intervalMs, sleep = sleepSync, now = Date.now }) {
+  const start = now();
+  for (;;) {
+    const { total, pending } = probe();
+    const waitedMs = now() - start;
+    if (total > 0 && pending === 0) return { outcome: 'finished', waitedMs };
+    if (total === 0 && waitedMs >= appearMs) return { outcome: 'absent', waitedMs };
+    if (waitedMs >= timeoutMs) return { outcome: 'timeout', waitedMs };
+    sleep(intervalMs);
+  }
+}
+
+// Whether a push:main run syncs. It WAITS for the regen on its own sha
+// instead of exiting: a regen that commits nothing (the run on the regen
+// bot's own commit, every time) pushes nothing, so "exit and let the next
+// push re-run us" never re-ran it. After the wait, main is read again: if the
+// regen committed, main moved, and that commit's push run syncs instead. A
+// timeout still syncs, so the job can never strand itself; main-owned paths
+// it merges are re-derived by main's regen after the PR lands either way.
+export function regenGate({ eventSha, mainSha, probe, fetchMain, timeoutMs = REGEN_WAIT_MIN * 60_000,
+  appearMs = REGEN_APPEAR_SEC * 1000, intervalMs = REGEN_POLL_SEC * 1000, sleep, now }) {
+  const short = (s) => s.slice(0, 7);
+  if (eventSha !== mainSha) {
+    return { proceed: false, level: 'notice', title: 'bot-sync superseded',
+      msg: `main moved past ${short(eventSha)} (now ${short(mainSha)}); the newer push's run syncs against it.` };
+  }
+  const w = waitForRegen(probe, { timeoutMs, appearMs, intervalMs, sleep, now });
+  const after = fetchMain();
+  if (after !== mainSha) {
+    return { proceed: false, level: 'notice', title: 'bot-sync superseded', wait: w,
+      msg: `derived-artifacts-regen on ${short(mainSha)} ${w.outcome}; main moved to ${short(after)}, whose push run syncs against it.` };
+  }
+  if (w.outcome === 'timeout') {
+    return { proceed: true, level: 'warning', title: 'bot-sync regen wait timed out', wait: w,
+      msg: `derived-artifacts-regen still running on ${short(mainSha)} after ${Math.round(w.waitedMs / 60_000)} min; syncing against it anyway.` };
+  }
+  return { proceed: true, level: 'notice', title: 'bot-sync regen settled', wait: w,
+    msg: `derived-artifacts-regen on ${short(mainSha)} ${w.outcome} after ${Math.round(w.waitedMs / 1000)} s with main unchanged; syncing.` };
 }
 
 function table(rows) {
@@ -400,13 +916,15 @@ async function main() {
 
   git(['fetch', '--quiet', '--no-tags', 'origin', 'main']);
   const mainSha = git(['rev-parse', 'FETCH_HEAD^{commit}']).trim();
-  if (o.apply && o.eventSha && o.eventSha !== mainSha) {
-    console.log(`::notice title=bot-sync superseded::main moved past ${o.eventSha.slice(0, 7)} (now ${mainSha.slice(0, 7)}); the newer push's run syncs against it.`);
-    return;
-  }
-  if (o.apply && o.eventSha && regenPending(o.repo, mainSha)) {
-    console.log(`::notice title=bot-sync deferred::derived-artifacts-regen is still running on ${mainSha.slice(0, 7)}; its regen commit's push re-runs this sync against the fresh tree.`);
-    return;
+  if (o.apply && o.eventSha) {
+    const g = regenGate({
+      eventSha: o.eventSha, mainSha,
+      probe: () => regenRuns(o.repo, mainSha),
+      fetchMain: () => { git(['fetch', '--quiet', '--no-tags', 'origin', 'main']); return git(['rev-parse', 'FETCH_HEAD^{commit}']).trim(); },
+      timeoutMs: o.regenWaitMin * 60_000,
+    });
+    console.log(`::${g.level} title=${g.title}::${g.msg}`);
+    if (!g.proceed) return;
   }
 
   const owned = mainOwnedPaths();
@@ -416,12 +934,18 @@ async function main() {
 
   const rows = [];
   for (const pr of prs) {
-    const pred = pr.isCrossRepository ? { behind: false, conflicts: [] } : predict(pr.headRefOid, mainSha);
-    let attempts = 0, notified = false;
+    const pred = predictFor(pr, mainSha, o.repo);
+    let attempts = 0, notified = false, bodies = null;
+    // An eject-held PR's hold comment says why it was ejected (one API call,
+    // held PRs only); decide() forces a sync only for a main-moved cause.
+    if ((pr.labels || []).includes(EJECTED_LABEL)) {
+      bodies = botComments(o.repo, pr.number);
+      pred.ejectHold = ejectHoldFor(bodies, pr.headRefOid);
+    }
     // Comment markers are read only for PRs that would act (one API call each).
     const first = decide({ pr, ...pred, mainOwned: owned, minHeadAgeMs: o.minHeadAgeMin * 60_000 });
     if (o.apply && first.action !== 'skip') {
-      const bodies = botComments(o.repo, pr.number);
+      bodies ??= botComments(o.repo, pr.number);
       attempts = markerCount(bodies, MARK_ATTEMPT, pr.headRefOid);
       notified = markerCount(bodies, MARK_CONFLICT, pr.headRefOid) > 0;
     }
@@ -438,12 +962,13 @@ async function main() {
           comment(o.repo, pr.number,
             `bot-sync: real conflict in ${decision.paths.map((p) => `\`${p}\``).join(', ')}, needs a cure.\n\n` +
             `Merging \`main\` (${mainSha.slice(0, 7)}) into \`${pr.headRefName}\` conflicts outside the main-owned derived paths, so the bot did not resolve it. ` +
+            (decision.reason.startsWith('reservation-collision') ? `The id registry conflict is not a plain add: ${decision.reason.replace(/^reservation-collision: /, '')}. ` : '') +
             `Label \`${SKIP_LABEL}\` to opt this PR out.\n\n<!-- ${MARK_CONFLICT} head=${pr.headRefOid} -->`);
           r.result = 'commented';
         } else r.result = 'already-notified';
         continue;
       }
-      if (decision.action !== 'merge-clean' && decision.action !== 'merge-derived') continue;
+      if (!SYNC_ACTIONS.has(decision.action)) continue;
       if (pushes >= o.maxPrs) { r.result = 'deferred (max-prs)'; continue; }
       pushes++;
       let res = syncOne(pr, mainSha, new Set(decision.paths));
@@ -452,8 +977,8 @@ async function main() {
         const fresh = listOpenPrs(o.repo).find((p) => p.number === pr.number);
         if (fresh && fresh.headRefOid !== pr.headRefOid) {
           fetchShas([fresh.headRefOid]);
-          const d2 = decide({ pr: fresh, ...predict(fresh.headRefOid, mainSha), mainOwned: owned, minHeadAgeMs: o.minHeadAgeMin * 60_000 });
-          if (d2.action === 'merge-clean' || d2.action === 'merge-derived') res = syncOne(fresh, mainSha, new Set(d2.paths));
+          const d2 = decide({ pr: fresh, ...predictFor(fresh, mainSha, o.repo), mainOwned: owned, minHeadAgeMs: o.minHeadAgeMin * 60_000 });
+          if (SYNC_ACTIONS.has(d2.action)) res = syncOne(fresh, mainSha, new Set(d2.paths));
           else { r.result = `left alone after race: ${d2.action} (${d2.reason})`; continue; }
         }
       }
