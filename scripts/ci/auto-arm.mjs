@@ -159,12 +159,20 @@ const isGreen = (checks) => checks.length > 0 && checks.every((c) => ['pass', 's
 
 // Pick the lineage head. prs: [{number, isDraft, labels, files}] (any order);
 // checksOf: number -> required checks. Returns a PR number or null.
-export function pickLineageHead(prs, checksOf, queuedSet = new Set()) {
+// A workflow-touching PR or one with no required checks can never arm (decideLabeled waits on both forever),
+// so it is skipped here rather than holding the head; each skip is reported through log(line).
+export function pickLineageHead(prs, checksOf, queuedSet = new Set(), log = () => {}) {
   const cands = prs
     .filter((p) => p.labels.includes(ELIGIBLE_LABEL) && isLineageClass(p.files))
     .filter((p) => !p.isDraft && !p.labels.includes('hold'))
     .filter((p) => !p.labels.includes(LABEL) && !queuedSet.has(p.number))
-    .sort((a, b) => a.number - b.number);
+    .sort((a, b) => a.number - b.number)
+    .filter((p) => {
+      const why = p.files.some((f) => f.startsWith('.github/workflows/')) ? 'touches-.github/workflows'
+        : !(checksOf(p.number) || []).length ? 'no-required-checks-reported' : null;
+      if (why) log(`lineage head skip: #${p.number} (${why})`);
+      return !why;
+    });
   const head = cands.find((p) => !isRed(checksOf(p.number) || []));
   return head ? head.number : null;
 }
@@ -177,6 +185,7 @@ export function decideLabeled(pr, checks, ctx) {
   if (pr.isDraft) return wait('draft');
   if (pr.labels.includes('hold')) return wait('hold-label');
   if (pr.files.some((f) => f.startsWith('.github/workflows/'))) return wait('touches-.github/workflows');
+  if (ctx.repoOwner !== undefined && pr.headOwner !== ctx.repoOwner) return wait('fork-or-foreign-head');
   const lineage = isLineageClass(pr.files);
   if (lineage) {
     if (ctx.lineageHead !== pr.number) return wait(`lineage-head-is:#${ctx.lineageHead ?? 'none'}`);
@@ -184,6 +193,14 @@ export function decideLabeled(pr, checks, ctx) {
       const sh = sharedFiles(pr.files, o.files);
       if (sh.length) return wait(`lineage-overlap-with:#${o.number}:${sh.slice(0, 3).join(',')}`);
     }
+    // Legacy rules: a serial-class PR (registry write, or a file list gh truncated at FILE_CAP) arms only with
+    // zero other lineage PRs armed or queued; mainside PRs share the parallel cap.
+    const others = (ctx.armedLineage || []).filter((x) => x.number !== pr.number);
+    if (lineageKind(pr.files) !== 'mainside' && others.length) {
+      return wait(`another-lineage-pr-armed-or-queued:#${others[0].number}`);
+    }
+    const why = parallelSlotBlocker(pr, ctx.armedLineage || [], ctx.lineageParallel?.max ?? PARALLEL_MAX);
+    if (why) return wait(why);
   }
   if (!checks.length) return wait('no-required-checks-reported');
   if (!isGreen(checks)) {
@@ -212,6 +229,7 @@ function main() {
   const info = prs.map((p) => ({
     number: p.number, branch: p.headRefName, isDraft: p.isDraft,
     labels: p.labels.map((l) => l.name), files: p.files.map((f) => f.path),
+    headOwner: p.headRepositoryOwner?.login,
   })).sort((a, b) => a.number - b.number);
   const queued = (n) => {
     const id = ghJson(['pr', 'view', String(n), '-R', repo, '--json', 'id']).id;
@@ -233,9 +251,11 @@ function main() {
     .map((o) => o.number));
   const armedLineage = info.filter((o) => isLineageClass(o.files) && (o.labels.includes(LABEL) || queuedSet.has(o.number)))
     .map((o) => ({ number: o.number, files: o.files }));
-  const lineageHead = pickLineageHead(info, (n) => checksByPr.get(n), queuedSet);
+  const skipLines = [];
+  const lineageHead = pickLineageHead(info, (n) => checksByPr.get(n), queuedSet, (l) => skipLines.push(l));
+  const repoOwner = repo.split('/')[0];
   let failed = 0;
-  const lines = [`lineage head: ${lineageHead ? `#${lineageHead}` : 'none'}; ${eligible.length} PR(s) carry ${ELIGIBLE_LABEL}`];
+  const lines = [`lineage head: ${lineageHead ? `#${lineageHead}` : 'none'}; ${eligible.length} PR(s) carry ${ELIGIBLE_LABEL}`, ...skipLines];
   for (const pr of eligible) {
     let d;
     try {
@@ -244,7 +264,7 @@ function main() {
         const ref = ghJson(['api', `repos/${repo}/git/ref/pull/${pr.number}/merge`]).object.sha;
         mergeFirstParent = ghJson(['api', `repos/${repo}/git/commits/${ref}`]).parents[0]?.sha || null;
       } catch { mergeFirstParent = null; }
-      d = decideLabeled(pr, checksByPr.get(pr.number) || [], { mainTip, mergeFirstParent, lineageHead, armedLineage });
+      d = decideLabeled(pr, checksByPr.get(pr.number) || [], { mainTip, mergeFirstParent, lineageHead, armedLineage, repoOwner });
       if (!dry && d.action === 'arm') gh(['pr', 'edit', String(pr.number), '-R', repo, '--add-label', LABEL]);
       if (!dry && d.action === 'update-branch') {
         gh(['api', '-X', 'PUT', `repos/${repo}/pulls/${pr.number}/update-branch`]);

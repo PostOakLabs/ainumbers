@@ -210,3 +210,37 @@ test('OVERLAP: non-lineage PRs ignore the head and the overlap rule', () => {
   assert.equal(decideLabeled(mkPr({ labels: [L] }), green, lctx({ lineageHead: 99, armedLineage: [{ number: 9, files: ['tools/x.html'] }] })).action,
     'arm');
 });
+// --- PR-3323-DECIDE-LABELED-CURE-1: restored legacy safeguards ---
+test('CURE: a fork or foreign head waits; the repo owner head arms', () => {
+  const pr = mkPr({ labels: [L], headOwner: 'someone-else' });
+  assert.equal(decideLabeled(pr, green, lctx({ repoOwner: 'PostOakLabs' })).reason, 'fork-or-foreign-head');
+  assert.equal(decideLabeled({ ...pr, headOwner: undefined }, green, lctx({ repoOwner: 'PostOakLabs' })).reason, 'fork-or-foreign-head');
+  assert.equal(decideLabeled({ ...pr, headOwner: 'PostOakLabs' }, green, lctx({ repoOwner: 'PostOakLabs' })).action, 'arm');
+});
+test('CURE: a third lineage PR waits on the parallel cap', () => {
+  const two = [{ number: 8, files: ['chaingraph/kernels/x.mjs'] }, { number: 9, files: ['chaingraph/kernels/y.mjs'] }];
+  const pr = kpr(10, ['chaingraph/kernels/z.mjs']);
+  assert.match(decideLabeled(pr, green, lctx({ lineageHead: 10, armedLineage: two })).reason, /lineage-parallel-full:2\/2/);
+  assert.equal(decideLabeled(pr, green, lctx({ lineageHead: 10, armedLineage: two.slice(0, 1) })).action, 'arm');
+});
+test('CURE: a 100-file PR is serial and waits while another lineage PR is armed', () => {
+  const files = ['chaingraph/kernels/a.mjs', ...Array.from({ length: 99 }, (_, i) => `docs/f${i}.md`)];
+  const pr = kpr(10, files);
+  const other = [{ number: 9, files: ['chaingraph/kernels/b.mjs'] }];
+  assert.match(decideLabeled(pr, green, lctx({ lineageHead: 10, armedLineage: other })).reason, /another-lineage-pr-armed-or-queued:#9/);
+  assert.equal(decideLabeled(pr, green, lctx({ lineageHead: 10, armedLineage: [] })).action, 'arm');
+});
+test('CURE: a workflow-touching head is skipped, so the next PR becomes head', () => {
+  const lines = [];
+  const prs = [kpr(10, ['chaingraph/kernels/a.mjs', '.github/workflows/x.yml']), kpr(20)];
+  assert.equal(pickLineageHead(prs, () => green, new Set(), (l) => lines.push(l)), 20);
+  assert.equal(lines.length, 1);
+  assert.match(lines[0], /#10.*workflows/);
+});
+test('CURE: a no-checks head is skipped, so the next PR becomes head', () => {
+  const lines = [];
+  const checks = { 10: [], 20: green };
+  assert.equal(pickLineageHead([kpr(10), kpr(20)], (n) => checks[n], new Set(), (l) => lines.push(l)), 20);
+  assert.match(lines[0], /#10.*no-required-checks/);
+  assert.equal(pickLineageHead([kpr(10)], () => undefined), null);
+});
