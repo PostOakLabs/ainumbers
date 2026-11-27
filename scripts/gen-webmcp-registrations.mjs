@@ -891,6 +891,9 @@ export const propertyIdMap = {
   // runArb reads every camelCase control explicitly:
   //   chaingraph/art-212-prediction-market-arbitrage.html:414-419
   'art-212-prediction-market-arbitrage': {
+    as_of: { element_id: 'asOf', via: 'string' },
+    fee_regime: { element_id: 'feeRegime', via: 'string' },
+    market_category: { element_id: 'marketCategory', via: 'string' },
     no_price_b: { element_id: 'noPriceB', via: 'string' },
     payout: { element_id: 'payoutArb', via: 'string' },
     stake_total: { element_id: 'stakeTotal', via: 'string' },
