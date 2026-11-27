@@ -17,6 +17,7 @@ import { executionHash } from './_hash.mjs';
 import { sourceDigest } from './_buildid.mjs';
 import { classifyNode } from '../../scripts/check-compute-proof-coverage.mjs';
 import { matchVectors, honestyStatement } from './compute-proof-vector-match.test.mjs';
+import { runDualVerifierCases } from '../../scripts/dual-verifier.test.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 let fail = 0;
@@ -318,12 +319,10 @@ for (const deferredNode of deferredNodes) {
   ok(deferredVerdict.problems.length === 0, `(widened:deferred) ${id}'s deferral is well-formed (real, non-placeholder deferred_reason) — ${deferredVerdict.problems.join('; ')}`);
 }
 
-// ── the mixed-tree dual-verifier cases (RISC0-310-R4-DUAL-VERIFIER-1) run as their own file, here ──
+// ── the mixed-tree dual-verifier cases (RISC0-310-R4-DUAL-VERIFIER-1, scripts/dual-verifier.test.mjs) ──
 {
-  const { spawnSync } = await import('node:child_process');
-  const r = spawnSync(process.execPath, [resolve(HERE, 'dual-verifier.test.mjs')], { encoding: 'utf8' });
-  if (r.status !== 0) process.stderr.write(r.stdout + r.stderr);
-  ok(r.status === 0, '(dual) dual-verifier.test.mjs mixed-tree cases pass');
+  const dualFails = runDualVerifierCases();
+  ok(dualFails === 0, `(dual) scripts/dual-verifier.test.mjs mixed-tree cases pass (${dualFails} failed)`);
 }
 
 console.log(fail ? `\n✗ ${fail} FAILED` : '\n✓ all compute-proof (§18) assertions passed');

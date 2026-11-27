@@ -170,7 +170,7 @@ export function verifyBindingReport(artifact, { publishedImageIds = [], publishe
 // a pairing that holds under the set the imageId selects.
 // Cross-validated: this verifier ACCEPTS real RISC0_DEV_MODE=0 receipts under each set and REJECTS a
 // tampered seal / wrong journal / crossed set (kernels/fixtures/compute-proof/*.receipt.json,
-// kernels/fixtures/compute-proof-310/, compute-proof.test.mjs, dual-verifier.test.mjs).
+// kernels/fixtures/compute-proof-310/, compute-proof.test.mjs, scripts/dual-verifier.test.mjs).
 // ───────────────────────────────────────────────────────────────────────────────────────────────────────
 
 const { G1, G2, fields, pairingBatch } = bn254;
