@@ -47,7 +47,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { gitEnv } from './_git-env-lib.mjs';
-import { classify, REGION_WRITER_IDS } from './check-main-only-paths.mjs';
+import { classify, REGION_WRITER_IDS, SENTINEL_WRITER_IDS } from './check-main-only-paths.mjs';
 import { mainOwnedPaths, PER_PR_PAGE_PATCHERS, BROAD_PREFIX_ENTRIES, SENTINEL_PATCHER } from './ci/pr-sync-main.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -94,7 +94,7 @@ const declaredInputs = (e) => [...(e.reads || []), ...(e.inputs || [])];
 /** check-main-only-paths' classify(), tolerant of ids the other version lacks (drift guard is for the gate). */
 function safeClassify(covered, classifyFn) {
   const have = new Set(covered.map((c) => c.id));
-  const pad = [...REGION_WRITER_IDS, 'counts', 'stats'].filter((id) => !have.has(id)).map((id) => ({ id, artifacts: [] }));
+  const pad = [...REGION_WRITER_IDS, ...SENTINEL_WRITER_IDS].filter((id) => !have.has(id)).map((id) => ({ id, artifacts: [] }));
   try { return { sets: classifyFn([...covered, ...pad]) }; } catch (e) { return { sets: null, error: e.message }; }
 }
 
