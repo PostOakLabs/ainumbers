@@ -32,6 +32,16 @@
  *     mcp_tool_definition (the generator computes nothing and restates no
  *     computed value; the emitted name equals the node's mcp_name, so page,
  *     manifest and worker agree on one name per tool);
+ *   - title / outputSchema (WEBMCP-OUTPUT-SCHEMA-1, Row B): `title` reused
+ *     verbatim from the manifest's top-level `title` (page-<title>-minus-site
+ *     suffix only as the no-manifest-title fallback), and `outputSchema`
+ *     reused verbatim from the manifest's `output_schema` — but only for the
+ *     CONFORMED set: outputSchema is emitted only when that schema validates
+ *     the tool's fixture-0 output_payload (the execute return on the first
+ *     fixture vector) through check-output-schema-coverage.mjs's exported
+ *     validator, so the registration can never promise a shape execute does
+ *     not return. Non-conforming and unmeasurable tools emit no outputSchema;
+ *     the return value is never reshaped to fit;
  *   - required-input validation with actionable errors (the type contract comes
  *     from the manifest's own schema — restating it is derivation, not invention);
  *   - annotations: { readOnlyHint: true } — truthful-hint posture (#1616):
@@ -161,7 +171,9 @@ import { buildDeeplinkScript, buildFileImportScript, DEEPLINK_MARKER, FILE_IMPOR
 import { classifyPage } from './check-page-kernel-digest.mjs';
 import { sourceDigest } from '../chaingraph/kernels/_buildid.mjs';
 import { executionHash } from '../chaingraph/kernels/_hash.mjs';
-import { readOutcome } from '../chaingraph/kernels/_shape.mjs';
+import { readOutcome, readCases } from '../chaingraph/kernels/_shape.mjs';
+import { validateSubset } from './check-output-schema-coverage.mjs';
+import { isValidOutputSchema } from './check-webmcp-spec.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -1507,12 +1519,92 @@ function deeplinkPrefillTable(manifest, idMap) {
   return JSON.stringify(table);
 }
 
+// ── WEBMCP-OUTPUT-SCHEMA-1 (Row B): title + outputSchema emission ────────────
+/**
+ * The registration's `title`: reused verbatim from the manifest's top-level
+ * `title`. Only when the manifest declares none does it fall back to the
+ * page's <title> text minus the site suffix (everything from the first
+ * `·`/`&middot;` separator on is the site suffix; the caller passes that text
+ * so builders stay page-source-free). Returns null when neither source offers
+ * a title: the field is never invented.
+ */
+export function toolTitle(manifest, pageTitleTextValue) {
+  const t = manifest && manifest.title;
+  if (typeof t === 'string' && t.trim().length > 0) return t;
+  if (typeof pageTitleTextValue === 'string' && pageTitleTextValue.trim().length > 0) {
+    const first = pageTitleTextValue.replace(/&middot;/gi, '·').split('·')[0].trim();
+    if (first.length > 0) return first;
+  }
+  return null;
+}
+
+/** A page's <title> element text (undecoded), or null when the page has none. */
+export function pageTitleText(pageSrc) {
+  const m = /<title>([^<]*)<\/title>/i.exec(String(pageSrc || ''));
+  return m ? m[1] : null;
+}
+
+/**
+ * WEBMCP-OUTPUT-SCHEMA-1 conformance gate (parent row JOB step 1). The emitted
+ * `outputSchema` promises the execute() return shape, so it is emitted ONLY
+ * when the manifest's `output_schema` validates the tool's fixture-0
+ * output_payload — the return on the first fixture vector, the same vector the
+ * direct-mode probe's hash-parity leg runs — re-validated with
+ * check-output-schema-coverage.mjs's exported draft-2020-12-subset validator
+ * (one validator, one verdict: this emission and the SO #34c fixture gate
+ * cannot disagree). No fixtures to measure, an unparseable fixture file, a
+ * fixture 0 without output_payload, or a validator mismatch all withhold the
+ * field: the tool is listed in the row's PR body, never reshaped to fit.
+ * `repoRoot` is taken from the caller so the selftest's synthetic tree
+ * exercises every verdict class.
+ */
+export function conformedOutputSchema(manifest, toolId, repoRoot) {
+  const os = manifest && manifest.output_schema;
+  if (!os || typeof os !== 'object' || Array.isArray(os)) return null;
+  // The emitted outputSchema must be a valid JSON Schema object, judged by the
+  // SAME structural validator the spec gate enforces over emitted pages
+  // (check-webmcp-spec.mjs isValidOutputSchema) — one verdict, so a schema the
+  // generator emits can never red its own gate. A manifest whose output_schema
+  // is structurally malformed (e.g. required/additionalProperties misplaced
+  // inside properties) is withheld here and listed in the row's PR body; the
+  // manifest fix is out of this row's fence.
+  if (!isValidOutputSchema(os)) return null;
+  const root = repoRoot || REPO;
+  const fp = resolve(root, 'chaingraph', 'kernels', 'fixtures', `${toolId}.fixtures.json`);
+  if (!existsSync(fp)) return null;
+  let doc;
+  try { doc = JSON.parse(readFileSync(fp, 'utf8')); } catch { return null; }
+  let cases;
+  try { cases = readCases(doc); } catch { return null; }
+  const payload = cases.length ? cases[0].output_payload : undefined;
+  if (payload === undefined) return null;
+  const errs = [];
+  try { validateSubset(os, payload, 'output_payload', errs); } catch { return null; }
+  return errs.length === 0 ? os : null;
+}
+
+/** toolId for the conformance lookup: the manifest's own `tool_id` (the id the
+ *  fixture files are keyed by — manifest FILENAMES carry a numeric prefix the
+ *  tool id does not, e.g. 950-fx-100-selftest vs fx-100-selftest), falling
+ *  back to the manifest path stem when the field is absent. */
+function toolIdOfManifest(manifest, manifestPath) {
+  const id = manifest && manifest.tool_id;
+  if (typeof id === 'string' && id.length > 0) return id;
+  return basename(String(manifestPath || '')).replace(/\.manifest\.json$/, '');
+}
+
 /**
  * Builds the marker-delimited block for one tool page. Pure: same inputs, same
- * bytes (RESULT_GLOBAL is substituted by buildBlockForPage).
+ * bytes (RESULT_GLOBAL is substituted by buildBlockForPage; the title/
+ * outputSchema conformance reads only the committed fixture tree named by the
+ * inputs, so it is byte-stable for a given tree). `opts.pageTitleText` is the
+ * page's <title> text for the no-manifest-title fallback; `opts.repoRoot`
+ * relocates the fixture read (selftest).
  */
-export function buildBlock(manifest, manifestPath, idMap, wrapper) {
+export function buildBlock(manifest, manifestPath, idMap, wrapper, opts = {}) {
   const def = manifest.mcp_tool_definition;
+  const pageTitle = toolTitle(manifest, opts.pageTitleText);
+  const outSchema = conformedOutputSchema(manifest, toolIdOfManifest(manifest, manifestPath), opts.repoRoot);
   const props = Object.entries(def.inputSchema.properties);
   const required = Array.isArray(def.inputSchema.required) ? def.inputSchema.required : [];
   const target = wrapper || manifest.execution.function_name;
@@ -1538,7 +1630,9 @@ export function buildBlock(manifest, manifestPath, idMap, wrapper) {
   lines.push('  Promise.resolve(mc.registerTool({');
   lines.push(`    name: '${jsStr(def.name)}',`);
   lines.push(`    description: '${jsStr(def.description)}',`);
+  if (pageTitle !== null) lines.push(`    title: '${jsStr(pageTitle)}',`);
   lines.push(`    inputSchema: ${JSON.stringify(def.inputSchema, null, 2).replace(/\n/g, '\n    ')},`);
+  if (outSchema !== null) lines.push(`    outputSchema: ${JSON.stringify(outSchema, null, 2).replace(/\n/g, '\n    ')},`);
   lines.push('    annotations: { readOnlyHint: true },');
   lines.push('    execute: async function(params) {');
   lines.push('      try {');
@@ -1578,8 +1672,8 @@ export function buildBlock(manifest, manifestPath, idMap, wrapper) {
 
 /** buildBlock with the page's verified result global substituted in. `wrapper`
  *  is the page-verified no-arg wrapper (G3b) the emitted call must target. */
-export function buildBlockForPage(manifest, manifestPath, resGlobal, idMap, wrapper) {
-  return buildBlock(manifest, manifestPath, idMap, wrapper).replace('return RESULT_GLOBAL;', `return ${resGlobal};`);
+export function buildBlockForPage(manifest, manifestPath, resGlobal, idMap, wrapper, opts = {}) {
+  return buildBlock(manifest, manifestPath, idMap, wrapper, opts).replace('return RESULT_GLOBAL;', `return ${resGlobal};`);
 }
 
 export function regionOf(pageSrc) {
@@ -2154,7 +2248,10 @@ function expectedBlock(toolId, manifestIndex, mcpNameByTool, repoRoot) {
   const pageSrc = readRepoFile(`chaingraph/${toolId}.html`, repoRoot);
   const mapped = verifyPageMapping(loaded.m, pageSrc, toolId, propertyIdMap[toolId]);
   if (mapped.error) throw new Error(mapped.error);
-  return buildBlockForPage(loaded.m, loaded.file, mapped.resGlobal, propertyIdMap[toolId], mapped.wrapper);
+  return buildBlockForPage(loaded.m, loaded.file, mapped.resGlobal, propertyIdMap[toolId], mapped.wrapper, {
+    pageTitleText: pageTitleText(pageSrc),
+    repoRoot,
+  });
 }
 
 function runCheck() {
@@ -2504,6 +2601,13 @@ export function inputSchemaSha256(inputSchema) {
   return createHash('sha256').update(JSON.stringify(inputSchema), 'utf8').digest('hex');
 }
 
+/** sha256 over the compact JSON encoding of a manifest's output_schema — the
+ *  same construction as inputSchemaSha256 (WEBMCP-OUTPUT-SCHEMA-1: the
+ *  directory digest convention stays uniform across both schema digests). */
+export function outputSchemaSha256(outputSchema) {
+  return createHash('sha256').update(JSON.stringify(outputSchema), 'utf8').digest('hex');
+}
+
 /** One directory entry per emittable (registered) page. `targets` (optional)
  *  injects a precomputed deriveTargets result — the selftest's hermetic path;
  *  live callers derive from the tree. */
@@ -2525,12 +2629,27 @@ export function buildDirectoryEntries(repoRoot, targets) {
     const loaded = loadManifestFor(id, manifestIndex, mcpNameByTool, root);
     if (loaded.error) throw new Error(loaded.error);
     const def = loaded.m.mcp_tool_definition;
+    // WEBMCP-OUTPUT-SCHEMA-1: the entry mirrors the page registration. `title`
+    // comes from the manifest (page <title> minus the site suffix only as the
+    // fallback, read lazily) and is omitted when neither source offers one.
+    // `output_schema_sha256` is emitted exactly when the page emits
+    // outputSchema (the conformed set) — the directory can never promise an
+    // output shape the registered tool does not declare.
+    let title = toolTitle(loaded.m, null);
+    if (title === null) {
+      let pageSrc = null;
+      try { pageSrc = readRepoFile(d.detail.page, root); } catch { pageSrc = null; }
+      title = toolTitle(loaded.m, pageSrc === null ? null : pageTitleText(pageSrc));
+    }
+    const os = conformedOutputSchema(loaded.m, id, root);
     entries.push({
       url: `${SITE_ORIGIN}/chaingraph/${id}.html`,
       name: def.name,
       description: def.description,
       description_sha256: createHash('sha256').update(def.description, 'utf8').digest('hex'),
+      ...(title !== null ? { title } : {}),
       input_schema_sha256: inputSchemaSha256(def.inputSchema),
+      ...(os !== null ? { output_schema_sha256: outputSchemaSha256(os) } : {}),
       annotations: { readOnlyHint: true },
     });
   }
@@ -3918,9 +4037,13 @@ function directValidationLine(name, type) {
  * stores the result in the page's result global, lets the page's render
  * function paint, and returns the result global. No form prefill, no deep-link
  * or file-import readers (they prefill controls; direct pages have none per
- * prop). Pure: same inputs, same bytes.
+ * prop). Pure: same inputs, same bytes (title/outputSchema conformance reads
+ * only the committed fixture tree named by the inputs). `opts` is the same
+ * { pageTitleText, repoRoot } as buildBlock's (WEBMCP-OUTPUT-SCHEMA-1).
  */
-export function buildDirectBlock(manifest, manifestPath, resGlobal, renderFn) {
+export function buildDirectBlock(manifest, manifestPath, resGlobal, renderFn, opts = {}) {
+  const pageTitle = toolTitle(manifest, opts.pageTitleText);
+  const outSchema = conformedOutputSchema(manifest, toolIdOfManifest(manifest, manifestPath), opts.repoRoot);
   const def = manifest.mcp_tool_definition;
   const props = Object.entries(def.inputSchema.properties);
   const required = Array.isArray(def.inputSchema.required) ? def.inputSchema.required : [];
@@ -3955,7 +4078,9 @@ export function buildDirectBlock(manifest, manifestPath, resGlobal, renderFn) {
   lines.push('  Promise.resolve(mc.registerTool({');
   lines.push(`    name: '${jsStr(def.name)}',`);
   lines.push(`    description: '${jsStr(def.description)}',`);
+  if (pageTitle !== null) lines.push(`    title: '${jsStr(pageTitle)}',`);
   lines.push(`    inputSchema: ${JSON.stringify(def.inputSchema, null, 2).replace(/\n/g, '\n    ')},`);
+  if (outSchema !== null) lines.push(`    outputSchema: ${JSON.stringify(outSchema, null, 2).replace(/\n/g, '\n    ')},`);
   lines.push('    annotations: { readOnlyHint: true },');
   lines.push('    execute: async function(params) {');
   lines.push('      try {');
@@ -4000,8 +4125,8 @@ export function buildDirectBlock(manifest, manifestPath, resGlobal, renderFn) {
 
 /** buildDirectBlock with the probe-verified result global and render function
  *  substituted in (both come from directAdjudication's detail, never guessed). */
-export function buildDirectBlockForPage(manifest, manifestPath, resGlobal, renderFn) {
-  return buildDirectBlock(manifest, manifestPath, resGlobal, renderFn);
+export function buildDirectBlockForPage(manifest, manifestPath, resGlobal, renderFn, opts = {}) {
+  return buildDirectBlock(manifest, manifestPath, resGlobal, renderFn, opts);
 }
 
 /** A page's generated region is a DIRECT-mode region when its BEGIN line says so. */
@@ -4055,10 +4180,13 @@ async function runDirect({ write, onlyTool }) {
     verdicts.push(v);
     if (!v.eligible) continue;
     const loaded = loadManifestFor(id, manifestIndex, mcpNameByTool, REPO);
-    const block = buildDirectBlockForPage(loaded.m, v.detail.manifest, v.detail.resGlobal, v.detail.render);
     const pageAbs = resolve(REPO, v.detail.page);
+    const src = readFileSync(pageAbs, 'utf8');
+    const block = buildDirectBlockForPage(loaded.m, v.detail.manifest, v.detail.resGlobal, v.detail.render, {
+      pageTitleText: pageTitleText(src),
+      repoRoot: REPO,
+    });
     if (write) {
-      const src = readFileSync(pageAbs, 'utf8');
       const existing = regionOf(src);
       if (existing && !src.slice(existing.start, existing.start + 500).includes('mode=direct')) {
         console.error(`REFUSED ${v.detail.page}: page already carries a non-direct generated region — prefill mode owns it, direct mode never overwrites`);
@@ -4164,6 +4292,54 @@ async function selftest(){
     check('optional mapping guards undefined AND null (MR-R4-NULL-NORMALIZE-WEBMCP-1: a null optional is skipped, not stringified into the input), required unguarded', block.includes("if (params.flag !== undefined && params.flag !== null) document.getElementById('flag').checked") && block.includes("document.getElementById('principal').value = String(params.principal);"));
     check('feature-detect gates the registration', block.indexOf('document.modelContext') !== -1 && block.indexOf('registerTool') > block.indexOf('modelContext'));
     check('markers delimit the block', block.startsWith(beginLine('manifests/950-fx-100-selftest.manifest.json')) && block.endsWith(END));
+    check('Row B default: no title and no outputSchema when the manifest has neither (unmeasured schema never invented)', !block.includes('title:') && !block.includes('outputSchema:'));
+
+    // 3d. WEBMCP-OUTPUT-SCHEMA-1 (Row B): title + outputSchema emission over the
+    // conformed set. Synthetic fixture tree, all three verdict classes.
+    const fixturesDir = join(tmp, 'chaingraph', 'kernels', 'fixtures');
+    mkdirSync(fixturesDir, { recursive: true });
+    const osConform = { type: 'object', required: ['principal'], properties: { principal: { type: 'number' }, label: { type: 'string' } } };
+    writeFileSync(join(fixturesDir, 'fx-100-selftest.fixtures.json'), JSON.stringify({ tool_id: 'fx-100-selftest', note: 'selftest', vectors: [{ name: 'v0', policy_parameters: { principal: 1000, label: 'a' }, output_payload: { principal: 1000, label: 'a', flag: true, count: 0 } }] }));
+    const mTitle = JSON.parse(JSON.stringify(manifest));
+    mTitle.title = 'FX 100 Selftest Fixture Tool';
+    mTitle.output_schema = osConform;
+    const blockOS = buildBlockForPage(mTitle, 'manifests/950-fx-100-selftest.manifest.json', d.detail.resGlobal, undefined, wrap1, { repoRoot: tmp });
+    check('Row B: title emitted verbatim from the manifest title', blockOS.includes("title: 'FX 100 Selftest Fixture Tool',"));
+    check('Row B: outputSchema emitted verbatim from the conformed output_schema', blockOS.includes(`outputSchema: ${JSON.stringify(osConform, null, 2).replace(/\n/g, '\n    ')},`));
+    check('Row B: outputSchema sits between inputSchema and annotations', blockOS.indexOf('outputSchema:') > blockOS.indexOf('inputSchema:') && blockOS.indexOf('outputSchema:') < blockOS.indexOf('annotations:'));
+    writeFileSync(join(manifestsDir, '950-fx-100-selftest.manifest.json'), JSON.stringify(mTitle, null, 2));
+    const entriesOS = buildDirectoryEntries(tmp, { cleared: ['fx-100-selftest'], manifestFallback: [], manifestIndex, mcpNameByTool });
+    check('Row B: directory entry carries the manifest title', entriesOS.length === 1 && entriesOS[0].title === 'FX 100 Selftest Fixture Tool');
+    check('Row B: directory entry carries output_schema_sha256 (same construction as input_schema_sha256)', entriesOS.length === 1 && entriesOS[0].output_schema_sha256 === createHash('sha256').update(JSON.stringify(osConform), 'utf8').digest('hex'));
+    // fixture 0 mismatches the declared schema: outputSchema withheld everywhere,
+    // title unaffected, return value never reshaped.
+    writeFileSync(join(fixturesDir, 'fx-100-selftest.fixtures.json'), JSON.stringify({ tool_id: 'fx-100-selftest', note: 'selftest mismatch', vectors: [{ name: 'v0', policy_parameters: { principal: 1000, label: 'a' }, output_payload: { principal: 'not-a-number', label: 'a' } }] }));
+    const blockBad = buildBlockForPage(mTitle, 'manifests/950-fx-100-selftest.manifest.json', d.detail.resGlobal, undefined, wrap1, { repoRoot: tmp });
+    check('Row B: fixture-0 mismatch withholds outputSchema, title unaffected', blockBad.includes("title: 'FX 100 Selftest Fixture Tool',") && !blockBad.includes('outputSchema:'));
+    const entriesBad = buildDirectoryEntries(tmp, { cleared: ['fx-100-selftest'], manifestFallback: [], manifestIndex, mcpNameByTool });
+    check('Row B: directory withholds output_schema_sha256 for the non-conforming tool', entriesBad.length === 1 && entriesBad[0].title === 'FX 100 Selftest Fixture Tool' && !('output_schema_sha256' in entriesBad[0]));
+    // structurally invalid output_schema (the spec-gate validator's verdict,
+    // not just the fixture validator's): withheld even though fixture 0 would
+    // validate it — the emitted page can never red its own spec gate.
+    writeFileSync(join(fixturesDir, 'fx-100-selftest.fixtures.json'), JSON.stringify({ tool_id: 'fx-100-selftest', note: 'selftest', vectors: [{ name: 'v0', policy_parameters: { principal: 1000, label: 'a' }, output_payload: { principal: 1000, label: 'a' } }] }));
+    const mMalformed = JSON.parse(JSON.stringify(manifest));
+    mMalformed.title = 'FX 100 Selftest Fixture Tool';
+    mMalformed.output_schema = { type: 'object', properties: { principal: { type: 'number' }, required: ['principal'], additionalProperties: false } };
+    const blockMalformed = buildBlockForPage(mMalformed, 'manifests/950-fx-100-selftest.manifest.json', d.detail.resGlobal, undefined, wrap1, { repoRoot: tmp });
+    check('Row B: structurally invalid output_schema withheld (spec-gate verdict, not just the fixture verdict)', !blockMalformed.includes('outputSchema:') && blockMalformed.includes("title: 'FX 100 Selftest Fixture Tool',"));
+    // no fixtures file: unmeasurable, withheld.
+    rmSync(join(fixturesDir, 'fx-100-selftest.fixtures.json'));
+    const blockNoFx = buildBlockForPage(mTitle, 'manifests/950-fx-100-selftest.manifest.json', d.detail.resGlobal, undefined, wrap1, { repoRoot: tmp });
+    check('Row B: no fixtures to measure withholds outputSchema', !blockNoFx.includes('outputSchema:') && blockNoFx.includes("title: 'FX 100 Selftest Fixture Tool',"));
+    // page-title fallback (minus the site suffix) fires only without a manifest title.
+    const mNoTitle = JSON.parse(JSON.stringify(manifest));
+    mNoTitle.title = '';
+    const blockFallback = buildBlockForPage(mNoTitle, 'manifests/950-fx-100-selftest.manifest.json', d.detail.resGlobal, undefined, wrap1, { pageTitleText: 'Fallback Tool &middot; OpenChainGraph &middot; AINumbers.co', repoRoot: tmp });
+    check('Row B: page-title fallback strips the site suffix', blockFallback.includes("title: 'Fallback Tool',"));
+    const blockNoTitleSource = buildBlockForPage(mNoTitle, 'manifests/950-fx-100-selftest.manifest.json', d.detail.resGlobal, undefined, wrap1, { repoRoot: tmp });
+    check('Row B: no title line when neither the manifest nor the page offers one', !blockNoTitleSource.includes('title:'));
+    // restore the original manifest bytes for the later sections
+    writeFileSync(join(manifestsDir, '950-fx-100-selftest.manifest.json'), JSON.stringify(manifest, null, 2));
 
     // 3b. TOOLPAGE-DEEPLINK-1: the same region carries the chrome-sourced deep-link reader.
     check('deep-link reader present, sourced from _page-chrome.mjs', block.includes(DEEPLINK_MARKER) && block.includes('#p=v1.'));
@@ -4754,6 +4930,21 @@ async function selftest(){
     check('direct block: no form-prefill mapping lines at all', !dBlock.includes('.value = String(params.'));
     check('direct block: annotations readOnlyHint only', dBlock.includes('annotations: { readOnlyHint: true },') && !dBlock.includes('untrustedContentHint:') && !dBlock.includes('exposedTo:'));
     check('direct block: no deep-link/file-import readers (no controls to prefill)', !dBlock.includes(DEEPLINK_MARKER) && !dBlock.includes(FILE_IMPORT_MARKER));
+    check('direct block Row B default: no title and no outputSchema without a manifest title or a conformed schema', !dBlock.includes('title:') && !dBlock.includes('outputSchema:'));
+    // Row B (WEBMCP-OUTPUT-SCHEMA-1): the direct block carries title and the
+    // CONFORMED outputSchema (fixture 0's output_payload validates), withheld
+    // on a fixture-0 mismatch exactly like the prefill block.
+    const dManifestOS = JSON.parse(JSON.stringify(dManifest));
+    dManifestOS.title = 'Direct Fixture Tool';
+    dManifestOS.output_schema = { type: 'object', required: ['echo'], properties: { echo: { type: 'array' } } };
+    const dBlockOS = buildDirectBlockForPage(dManifestOS, 'manifests/953-fx-300-direct.manifest.json', '_lastResult', 'renderDirect', { repoRoot: tmp });
+    check('direct block Row B: title verbatim from the manifest', dBlockOS.includes("title: 'Direct Fixture Tool',"));
+    check('direct block Row B: outputSchema emitted for the conformed fixture 0', dBlockOS.includes(`outputSchema: ${JSON.stringify(dManifestOS.output_schema, null, 2).replace(/\n/g, '\n    ')},`));
+    const dManifestBad = JSON.parse(JSON.stringify(dManifest));
+    dManifestBad.title = 'Direct Fixture Tool';
+    dManifestBad.output_schema = { type: 'object', required: ['nonexistent'], properties: { nonexistent: { type: 'string' } } };
+    const dBlockBad = buildDirectBlockForPage(dManifestBad, 'manifests/953-fx-300-direct.manifest.json', '_lastResult', 'renderDirect', { repoRoot: tmp });
+    check('direct block Row B: fixture-0 mismatch withholds outputSchema, title unaffected', dBlockBad.includes("title: 'Direct Fixture Tool',") && !dBlockBad.includes('outputSchema:'));
     check('direct block: parses as JavaScript', (() => { try { new Function(dBlock.match(/<script>([\s\S]*?)<\/script>/)[1]); return true; } catch { return false; } })());
     // Schema validation accepts a property with NO type keyword: required
     // members get a presence check, no shape is invented (MCP-SCHEMA-CONFORMANCE-1).

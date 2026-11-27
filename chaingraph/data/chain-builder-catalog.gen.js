@@ -7123,7 +7123,7 @@ window.CHAINBUILDER_CATALOG = [
     "description": "Verifies a plain-text-accounting journal supplied as synthetic text: parses dated transactions and their indented postings, checks each tran",
     "consumes": [],
     "feeds": [],
-    "status": "planned"
+    "status": "live"
   },
   {
     "tool_id": "art-654-perp-funding-implied-yield",

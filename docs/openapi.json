@@ -36263,38 +36263,55 @@
                 "type": "object",
                 "properties": {
                   "collateral_type": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "ust_10y",
+                      "ust_30y",
+                      "agency_mbs",
+                      "ig_corp_bond",
+                      "gilt_10y",
+                      "eu_sovereign"
+                    ],
+                    "default": "ust_10y",
+                    "description": "Collateral class (case-insensitive). Unrecognised values fall back to a 4.0 percent base haircut."
                   },
-                  "notional": {
-                    "type": "number"
-                  },
-                  "currency": {
-                    "type": "string"
+                  "notional_usd": {
+                    "type": "number",
+                    "description": "Repo notional in US dollars. A missing or non-numeric value is treated as 0, which yields zero margin."
                   },
                   "tenor": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "overnight",
+                      "1w",
+                      "1m",
+                      "3m",
+                      "6m",
+                      "open_term"
+                    ],
+                    "default": "overnight",
+                    "description": "Repo tenor (case-insensitive). 6m and open_term add a roll-risk adjustment."
                   },
-                  "counterparty": {
-                    "type": "string"
+                  "counterparty_type": {
+                    "type": "string",
+                    "default": "bank",
+                    "description": "Counterparty type (case-insensitive). hedge_fund adds a counterparty surcharge; any other value, for example bank, adds none."
                   },
-                  "canton_247": {
-                    "type": "boolean"
-                  },
-                  "custodied": {
-                    "type": "boolean"
+                  "canton247": {
+                    "type": "boolean",
+                    "description": "True to value on Canton 24/7 atomic settlement (no weekend-gap adjustment) when computing initial margin."
                   },
                   "cross_border": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "description": "True to add the cross-border adjustment."
                   },
                   "concentration_pct": {
-                    "type": "number"
+                    "type": "number",
+                    "description": "Collateral concentration in percent. Above 20 adds a concentration adjustment."
                   }
                 },
                 "required": [
-                  "collateral_type",
-                  "notional",
-                  "tenor",
-                  "counterparty"
+                  "notional_usd"
                 ]
               }
             }
@@ -56561,10 +56578,12 @@
                 "type": "object",
                 "properties": {
                   "amount_usd": {
-                    "type": "number"
+                    "type": "number",
+                    "description": "Transaction amount in US dollars. Kernel falls back to 250 when missing or 0."
                   },
                   "monthly_volume": {
-                    "type": "number"
+                    "type": "number",
+                    "description": "Transactions per month. Kernel falls back to 5000 when missing or 0."
                   },
                   "payment_type": {
                     "type": "string",
@@ -56573,7 +56592,9 @@
                       "retail",
                       "b2b",
                       "cross_border"
-                    ]
+                    ],
+                    "default": "retail",
+                    "description": "Payment type. micropayment restricts to rails that support micropayments; cross_border to rails that support cross-border."
                   },
                   "finality_requirement": {
                     "type": "string",
@@ -56583,7 +56604,29 @@
                       "minutes",
                       "hours",
                       "days"
-                    ]
+                    ],
+                    "default": "fast",
+                    "description": "Required finality class."
+                  },
+                  "gas_tier": {
+                    "type": "string",
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high"
+                    ],
+                    "default": "medium",
+                    "description": "Network fee tier used to pick each rail fixed fee. An unrecognised value falls back to medium fees."
+                  },
+                  "chargeback_profile": {
+                    "type": "string",
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high"
+                    ],
+                    "default": "medium",
+                    "description": "Chargeback exposure profile. high favours rails with no chargeback risk."
                   }
                 },
                 "required": [
@@ -82306,20 +82349,67 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "as_of_date",
-                  "file_content",
-                  "records"
-                ],
                 "properties": {
                   "file_content": {
-                    "description": "type not evidenced by kernel source"
+                    "type": "string",
+                    "description": "CSV text, one address record per row, header optional. Used only when records is absent. Pipe-separate address_lines in one cell."
                   },
                   "records": {
-                    "type": "array"
+                    "type": "array",
+                    "description": "Pre-parsed address records; takes precedence over file_content. Every record field is optional.",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "network": {
+                          "type": "string",
+                          "enum": [
+                            "fedwire",
+                            "chips"
+                          ],
+                          "default": "fedwire",
+                          "description": "Payment network (case-insensitive). Anything else is treated as fedwire."
+                        },
+                        "street_name": {
+                          "type": "string",
+                          "description": "Street name (structured StrtNm)."
+                        },
+                        "building_number": {
+                          "type": "string",
+                          "description": "Building number (structured BldgNb)."
+                        },
+                        "post_code": {
+                          "type": "string",
+                          "description": "Postal code (structured PstCd)."
+                        },
+                        "town_name": {
+                          "type": "string",
+                          "description": "Town or city name (structured TwnNm)."
+                        },
+                        "country": {
+                          "type": "string",
+                          "description": "Two-letter ISO 3166 country code (case-insensitive)."
+                        },
+                        "country_subdivision": {
+                          "type": "string",
+                          "description": "Country subdivision, for example a US state (structured CtrySubDvsn)."
+                        },
+                        "address_lines": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Unstructured AdrLine entries; over 2 lines or 70 chars each is flagged."
+                        },
+                        "as_of_date": {
+                          "type": "string",
+                          "description": "Per-record as-of date; overrides the top-level as_of_date."
+                        }
+                      }
+                    }
                   },
                   "as_of_date": {
-                    "description": "type not evidenced by kernel source"
+                    "type": "string",
+                    "description": "As-of date (YYYY-MM-DD) applied to records lacking their own."
                   }
                 }
               }
