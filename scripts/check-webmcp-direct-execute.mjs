@@ -699,25 +699,6 @@ const RUN_PATH_ADAPTERS = {
       setVal(sandbox, 'sig_alg', pp.signature?.alg ?? '');
     },
   },
-  'art-373-recompute-fund-nav': {
-    // getPP always emits accruals (income/expense arrays) and takes
-    // shares_outstanding as the raw control string; positions_ref/pricing_ref
-    // stay blank so the additive NAV-LIN-WIRE-1 keys stay absent.
-    run: 'run',
-    prefill(sandbox, fx) {
-      const pp = fx.policy_parameters;
-      setVal(sandbox, 'fund_id', pp.fund_id ?? '');
-      setVal(sandbox, 'valuation_date', pp.valuation_date ?? '');
-      setVal(sandbox, 'base_currency', pp.base_currency ?? '');
-      setVal(sandbox, 'holdings', JSON.stringify(pp.holdings ?? [], null, 2));
-      setVal(sandbox, 'accruals_income', JSON.stringify((pp.accruals ?? {}).income ?? [], null, 2));
-      setVal(sandbox, 'accruals_expense', JSON.stringify((pp.accruals ?? {}).expense ?? [], null, 2));
-      setVal(sandbox, 'liabilities', JSON.stringify(pp.liabilities ?? [], null, 2));
-      setVal(sandbox, 'shares_outstanding', pp.shares_outstanding === undefined || pp.shares_outstanding === null ? '' : String(pp.shares_outstanding));
-      setVal(sandbox, 'decimal_places', String((pp.rounding ?? {}).decimal_places ?? 2));
-      setVal(sandbox, 'rounding_mode', (pp.rounding ?? {}).mode ?? '');
-    },
-  },
   'art-374-test-nav-error-materiality': {
     // getPP builds materiality_policy/affected_period only from non-blank
     // controls (fixture 0 carries neither) and reads the two NAV-per-share
