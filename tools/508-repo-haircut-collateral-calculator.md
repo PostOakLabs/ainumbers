@@ -8,15 +8,13 @@ Compute repo haircut with Canton 24/7 collateral valuation versus legacy weekend
 
 ## Inputs
 
-- collateral_type (string, required)
-- notional (number, required)
-- currency (string, optional)
-- tenor (string, required)
-- counterparty (string, required)
-- canton_247 (boolean, optional)
-- custodied (boolean, optional)
-- cross_border (boolean, optional)
-- concentration_pct (number, optional)
+- collateral_type (string, optional): Collateral class (case-insensitive). Unrecognised values fall back to a 4.0 percent base haircut.
+- notional_usd (number, required): Repo notional in US dollars. A missing or non-numeric value is treated as 0, which yields zero margin.
+- tenor (string, optional): Repo tenor (case-insensitive). 6m and open_term add a roll-risk adjustment.
+- counterparty_type (string, optional): Counterparty type (case-insensitive). hedge_fund adds a counterparty surcharge; any other value, for example bank, adds none.
+- canton247 (boolean, optional): True to value on Canton 24/7 atomic settlement (no weekend-gap adjustment) when computing initial margin.
+- cross_border (boolean, optional): True to add the cross-border adjustment.
+- concentration_pct (number, optional): Collateral concentration in percent. Above 20 adds a concentration adjustment.
 
 ## Outputs
 
