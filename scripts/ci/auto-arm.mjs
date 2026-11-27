@@ -161,7 +161,11 @@ const isGreen = (checks) => checks.length > 0 && checks.every((c) => ['pass', 's
 // checksOf: number -> required checks. Returns a PR number or null.
 // A workflow-touching PR or one with no required checks can never arm (decideLabeled waits on both forever),
 // so it is skipped here rather than holding the head; each skip is reported through log(line).
-export function pickLineageHead(prs, checksOf, queuedSet = new Set(), log = () => {}) {
+// An empty check list is passed over only when the head commit (p.headCommittedAt, epoch ms) is older than
+// EMPTY_CHECKS_STALE_MS; a fresh head (checks not yet reported after a push or update-branch) or a missing time holds the head.
+export const EMPTY_CHECKS_STALE_MS = 30 * 60 * 1000;
+export function pickLineageHead(prs, checksOf, queuedSet = new Set(), log = () => {}, now = Date.now()) {
+  const staleHead = (p) => Number.isFinite(p.headCommittedAt) && now - p.headCommittedAt > EMPTY_CHECKS_STALE_MS;
   const cands = prs
     .filter((p) => p.labels.includes(ELIGIBLE_LABEL) && isLineageClass(p.files))
     .filter((p) => !p.isDraft && !p.labels.includes('hold'))
@@ -169,7 +173,7 @@ export function pickLineageHead(prs, checksOf, queuedSet = new Set(), log = () =
     .sort((a, b) => a.number - b.number)
     .filter((p) => {
       const why = p.files.some((f) => f.startsWith('.github/workflows/')) ? 'touches-.github/workflows'
-        : !(checksOf(p.number) || []).length ? 'no-required-checks-reported' : null;
+        : !(checksOf(p.number) || []).length && staleHead(p) ? 'no-required-checks-reported' : null;
       if (why) log(`lineage head skip: #${p.number} (${why})`);
       return !why;
     });
@@ -199,6 +203,10 @@ export function decideLabeled(pr, checks, ctx) {
     if (lineageKind(pr.files) !== 'mainside' && others.length) {
       return wait(`another-lineage-pr-armed-or-queued:#${others[0].number}`);
     }
+    // Parallel arming is opt-in (ctx.lineageParallel), as in decide(); without it one lineage PR at a time.
+    if (!ctx.lineageParallel && others.length) {
+      return wait(`another-lineage-pr-armed-or-queued:#${others[0].number}`);
+    }
     const why = parallelSlotBlocker(pr, ctx.armedLineage || [], ctx.lineageParallel?.max ?? PARALLEL_MAX);
     if (why) return wait(why);
   }
@@ -223,13 +231,16 @@ function main() {
   const ri = argv.indexOf('--repo');
   const repo = ri >= 0 ? argv[ri + 1] : process.env.GITHUB_REPOSITORY || 'PostOakLabs/ainumbers';
   const prs = ghJson(['pr', 'list', '-R', repo, '--state', 'open', '--limit', '200', '--json',
-    'number,headRefName,isDraft,labels,files,headRepositoryOwner']);
+    'number,headRefName,isDraft,labels,files,headRepositoryOwner,headRefOid']);
+  // Opt-in parallel arming of mainside lineage PRs; off unless the flag is passed (no workflow passes it).
+  const lineageParallel = argv.includes('--lineage-parallel') ? { max: PARALLEL_MAX } : undefined;
   const mainTip = ghJson(['api', `repos/${repo}/commits/main`]).sha;
   // Oldest first: the sweep's ordering rule.
   const info = prs.map((p) => ({
     number: p.number, branch: p.headRefName, isDraft: p.isDraft,
     labels: p.labels.map((l) => l.name), files: p.files.map((f) => f.path),
     headOwner: p.headRepositoryOwner?.login,
+    headOid: p.headRefOid,
   })).sort((a, b) => a.number - b.number);
   const queued = (n) => {
     const id = ghJson(['pr', 'view', String(n), '-R', repo, '--json', 'id']).id;
@@ -251,6 +262,16 @@ function main() {
     .map((o) => o.number));
   const armedLineage = info.filter((o) => isLineageClass(o.files) && (o.labels.includes(LABEL) || queuedSet.has(o.number)))
     .map((o) => ({ number: o.number, files: o.files }));
+  // Head commit time (epoch ms), fetched only for eligible PRs whose checks are empty; any failure leaves NaN,
+  // which pickLineageHead treats as fresh (hold, never pass over).
+  for (const p of eligible) {
+    p.headCommittedAt = NaN;
+    if (!(checksByPr.get(p.number) || []).length && p.headOid) {
+      try {
+        p.headCommittedAt = Date.parse(ghJson(['api', `repos/${repo}/commits/${p.headOid}`]).commit?.committer?.date);
+      } catch { /* stays NaN */ }
+    }
+  }
   const skipLines = [];
   const lineageHead = pickLineageHead(info, (n) => checksByPr.get(n), queuedSet, (l) => skipLines.push(l));
   const repoOwner = repo.split('/')[0];
@@ -264,7 +285,7 @@ function main() {
         const ref = ghJson(['api', `repos/${repo}/git/ref/pull/${pr.number}/merge`]).object.sha;
         mergeFirstParent = ghJson(['api', `repos/${repo}/git/commits/${ref}`]).parents[0]?.sha || null;
       } catch { mergeFirstParent = null; }
-      d = decideLabeled(pr, checksByPr.get(pr.number) || [], { mainTip, mergeFirstParent, lineageHead, armedLineage, repoOwner });
+      d = decideLabeled(pr, checksByPr.get(pr.number) || [], { mainTip, mergeFirstParent, lineageHead, armedLineage, repoOwner, lineageParallel });
       if (!dry && d.action === 'arm') gh(['pr', 'edit', String(pr.number), '-R', repo, '--add-label', LABEL]);
       if (!dry && d.action === 'update-branch') {
         gh(['api', '-X', 'PUT', `repos/${repo}/pulls/${pr.number}/update-branch`]);
