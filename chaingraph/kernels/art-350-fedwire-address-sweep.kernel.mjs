@@ -259,15 +259,70 @@ async function auxDigest(value) {
   return executionHash(value, { digest_marker: TOOL_ID });
 }
 
+// ── never-throw guard (D6): mirrors the _hash.mjs limits so an unhashable input is
+// refused with a null hash and a named reason, never thrown out of buildArtifact.
+const HASH_MAX_DEPTH = 512;
+const HASH_MAX_ELEMENTS = 1000000;
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (typeof v === 'bigint') return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': bigint' };
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags, records, per_record } = compute(pp);
-  const file_digest = await auxDigest(typeof pp.file_content === 'string' ? pp.file_content : records);
-  const per_record_findings_digest = await auxDigest(per_record);
-  output_payload.file_digest = 'sha256:' + file_digest;
-  output_payload.per_record_findings_digest = 'sha256:' + per_record_findings_digest;
+  const auxFileInput = typeof (pp && pp.file_content) === 'string' ? pp.file_content : records;
+  // Guard every hash input (the two aux digests AND the final executionHash(pp) preimage)
+  // before calling the canonicalizer, so a BigInt or other unhashable value is refused
+  // with a null hash and a named reason instead of throwing out of buildArtifact (D6).
+  let refusal = null;
+  for (const [label, value] of [
+    ['artifact', { policy_parameters: pp, output_payload }],
+    ['file_digest', auxFileInput],
+    ['per_record_findings_digest', per_record],
+  ]) {
+    refusal = findHashRefusal(value, label, 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+    if (refusal !== null) break;
+  }
+  let file_digest = null, per_record_findings_digest = null, refusedAux = null;
+  if (refusal === null) {
+    file_digest = await auxDigest(auxFileInput);
+    per_record_findings_digest = await auxDigest(per_record);
+    // A null aux digest means the shared canonicalizer refused the value. Never write the literal
+    // 'sha256:null': refuse the whole artifact (null execution_hash + hash_refusal) instead.
+    refusedAux = file_digest === null || file_digest === undefined ? 'file_digest'
+      : per_record_findings_digest === null || per_record_findings_digest === undefined ? 'per_record_findings_digest' : null;
+    if (refusedAux === null) {
+      output_payload.file_digest = 'sha256:' + file_digest;
+      output_payload.per_record_findings_digest = 'sha256:' + per_record_findings_digest;
+    }
+  } else {
+    refusedAux = refusal.detail;
+  }
 
-  const hash = await executionHash(pp, output_payload);
-  return {
+  const hash = refusedAux === null ? await executionHash(pp, output_payload) : null;
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -283,4 +338,6 @@ export async function buildArtifact(pp, { now, parent_hashes = [], parent_tool_i
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (refusedAux !== null) artifact.hash_refusal = refusal !== null ? refusal : { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: refusedAux };
+  return artifact;
 }

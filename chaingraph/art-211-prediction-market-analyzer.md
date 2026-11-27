@@ -8,11 +8,14 @@ Computes prediction market PnL, implied probability, break-even, no-vig fair val
 
 ## Inputs
 
+- as_of (any, required): type not evidenced by kernel source
 - bankroll (number, optional)
 - contract_max (number, optional)
 - contract_min (number, optional)
 - entry_price (number, optional)
+- fee_regime (any, required): type not evidenced by kernel source
 - forecast_prob (number, required)
+- market_category (any, required): type not evidenced by kernel source
 - mode (any, required): type not evidenced by kernel source
 - n_contracts (number, optional)
 - no_ask (number, required)
@@ -33,7 +36,12 @@ Computes prediction market PnL, implied probability, break-even, no-vig fair val
 - disclaimer (string, required)
 - entry_price (number, optional)
 - expected_value (null,number, optional)
+- fee_as_of (null,string, optional)
+- fee_market_category (string,null, optional)
 - fee_paid (number, optional)
+- fee_regime (string, optional)
+- fee_rounding (string, optional)
+- fee_theta (string, optional)
 - half_kelly_stake (null,number, optional)
 - implied_probability (number, optional)
 - kelly_fraction (null,number, optional)

@@ -188,3 +188,44 @@ test('an unrelated README-only touched set selects no gate-machinery gate (no ch
   assert.deepEqual(r.classes, []);
   assert.ok(!labels(r).some((l) => /Workflow gate parity/.test(l)));
 });
+
+// ── KERNEL-SURFACE-STATIC-GATES-1 (2026-11-25, PR #2763 lesson) ──────────────
+// #2763 touched kernels + manifests + registry/kernel, ran its local legs green, and
+// first-failed CI on REGISTRY-RESOLVE-STATIC-1 (land-verify.yml, HARD) and
+// OUTPUTSCHEMA-GAP-1 (scripts-verify.yml's full preflight). The kernel class picked
+// only the former (label /kernel/) and the manifest class only the latter (\bMCP\b):
+// each static gate was reachable only from the one class its label happened to name.
+// Both classes now name both gates, so ANY of the three kernel-surface path classes
+// selects the PAIR. Real preflight labels below, mirroring the WebMCP pattern.
+const KS_LABELS = [
+  ['Registry kernel-resolve current (REGISTRY-RESOLVE-STATIC-1)', 'node scripts/gen-registry-kernel-resolve.mjs --check'],
+  ['MCP output-schema coverage (OUTPUTSCHEMA-GAP-1)', 'node scripts/check-output-schema-coverage.mjs'],
+];
+
+test('a kernel diff picks BOTH kernel-surface static gates (real preflight labels)', () => {
+  const r = affectedSelection(KS_LABELS, ['chaingraph/kernels/art-211-prediction-market-analyzer.kernel.mjs']);
+  assert.deepEqual(r.classes, ['kernel']);
+  assert.deepEqual(labels(r).sort(), KS_LABELS.map(([l]) => l).sort());
+});
+
+test('a registry/kernel record diff picks BOTH kernel-surface static gates', () => {
+  const r = affectedSelection(KS_LABELS, ['registry/kernel/31222c0fda696a9d02bc813abe3e55542deca4ec9e97a4059a342e35f037fa50.json']);
+  assert.deepEqual(r.classes, ['kernel']);
+  assert.deepEqual(labels(r).sort(), KS_LABELS.map(([l]) => l).sort());
+});
+
+test('a manifests-only diff picks BOTH kernel-surface static gates', () => {
+  const r = affectedSelection(KS_LABELS, ['manifests/art-211-prediction-market-analyzer.manifest.json']);
+  assert.deepEqual(r.classes, ['manifest']);
+  assert.deepEqual(labels(r).sort(), KS_LABELS.map(([l]) => l).sort());
+});
+
+test('a kernel fixtures diff picks BOTH kernel-surface static gates', () => {
+  const r = affectedSelection(KS_LABELS, ['chaingraph/kernels/fixtures/art-211-prediction-market-analyzer.fixtures.json']);
+  assert.deepEqual(labels(r).sort(), KS_LABELS.map(([l]) => l).sort());
+});
+
+test('an unrelated diff picks neither kernel-surface static gate', () => {
+  const r = affectedSelection(KS_LABELS, ['README.md', 'tools/1-example.html']);
+  assert.deepEqual(r.picked, []);
+});

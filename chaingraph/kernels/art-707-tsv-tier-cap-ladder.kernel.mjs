@@ -1,4 +1,7 @@
 import { executionHash } from './_hash.mjs';
+// Refusal-detail formatter: JSON.stringify throws on a BigInt, so render one as `<digits>n`.
+// Output for every non-BigInt value is identical to JSON.stringify.
+const fmt = (v) => JSON.stringify(v, (_k, x) => (typeof x === 'bigint' ? `${x}n` : x));
 
 // art-707-tsv-tier-cap-ladder — replays a tokenized-stock venue's (TSV's) daily per-symbol share
 // volume and distinct-symbol counts, aggregated across the TSV and its declared affiliates, against
@@ -113,15 +116,15 @@ export function compute(pp) {
 
   const tsvId = pp.tsv_id;
   if (typeof tsvId !== 'string' || tsvId.trim() === '') {
-    return refusal('TSV_ID_REQUIRED', 'tsv_id must be a non-empty string naming the venue being replayed; got ' + JSON.stringify(tsvId ?? null) + '.');
+    return refusal('TSV_ID_REQUIRED', 'tsv_id must be a non-empty string naming the venue being replayed; got ' + fmt(tsvId ?? null) + '.');
   }
   const asOf = pp.as_of_date;
   if (typeof asOf !== 'string' || !isRealDate(asOf)) {
-    return refusal('AS_OF_DATE_INVALID', 'as_of_date must be a YYYY-MM-DD date; got ' + JSON.stringify(asOf ?? null) + '.');
+    return refusal('AS_OF_DATE_INVALID', 'as_of_date must be a YYYY-MM-DD date; got ' + fmt(asOf ?? null) + '.');
   }
   const affiliates = pp.affiliated_tsv_ids === undefined ? [] : pp.affiliated_tsv_ids;
   if (!Array.isArray(affiliates) || affiliates.some((a) => typeof a !== 'string' || a.trim() === '')) {
-    return refusal('AFFILIATED_TSV_IDS_INVALID', 'affiliated_tsv_ids, when present, must be an array of non-empty strings; got ' + JSON.stringify(pp.affiliated_tsv_ids ?? null) + '.');
+    return refusal('AFFILIATED_TSV_IDS_INVALID', 'affiliated_tsv_ids, when present, must be an array of non-empty strings; got ' + fmt(pp.affiliated_tsv_ids ?? null) + '.');
   }
   if (affiliates.includes(tsvId)) {
     return refusal('AFFILIATE_EQUALS_TSV', 'affiliated_tsv_ids must not repeat the venue\u2019s own tsv_id (' + tsvId + '); the venue\u2019s volume is already included.');
@@ -130,25 +133,25 @@ export function compute(pp) {
 
   const stocksIn = pp.stocks;
   if (!Array.isArray(stocksIn)) {
-    return refusal('STOCKS_REQUIRED', 'stocks must be an array of { symbol, tier, prior_month_adv_shares }; got ' + JSON.stringify(stocksIn ?? null) + '.');
+    return refusal('STOCKS_REQUIRED', 'stocks must be an array of { symbol, tier, prior_month_adv_shares }; got ' + fmt(stocksIn ?? null) + '.');
   }
   const stockBySymbol = new Map();
   for (let i = 0; i < stocksIn.length; i++) {
     const s = deNull(stocksIn[i] || {});
     const sym = s.symbol;
     if (typeof sym !== 'string' || sym.trim() === '') {
-      return refusal('STOCK_SYMBOL_REQUIRED', 'stocks[' + i + '].symbol must be a non-empty string; got ' + JSON.stringify(sym ?? null) + '.');
+      return refusal('STOCK_SYMBOL_REQUIRED', 'stocks[' + i + '].symbol must be a non-empty string; got ' + fmt(sym ?? null) + '.');
     }
     if (stockBySymbol.has(sym)) {
       return refusal('STOCK_SYMBOL_DUPLICATED', 'stocks[' + i + '] repeats symbol ' + sym + '; each symbol must be declared once.');
     }
     const tier = s.tier;
     if (!TIERS.includes(tier)) {
-      return refusal('STOCK_TIER_INVALID', 'stocks[' + i + '] (' + sym + ') tier must be one of "tier_1" or "tier_2" (caller-declared, no LULD lookup); got ' + JSON.stringify(tier ?? null) + '.');
+      return refusal('STOCK_TIER_INVALID', 'stocks[' + i + '] (' + sym + ') tier must be one of "tier_1" or "tier_2" (caller-declared, no LULD lookup); got ' + fmt(tier ?? null) + '.');
     }
     const adv = s.prior_month_adv_shares;
     if (adv !== undefined && !isInt(adv)) {
-      return refusal('STOCK_ADV_INVALID', 'stocks[' + i + '] (' + sym + ') prior_month_adv_shares, when present, must be an integer share count; got ' + JSON.stringify(s.prior_month_adv_shares ?? null) + '. Pass null or omit it to have the stock reported INDETERMINATE.');
+      return refusal('STOCK_ADV_INVALID', 'stocks[' + i + '] (' + sym + ') prior_month_adv_shares, when present, must be an integer share count; got ' + fmt(s.prior_month_adv_shares ?? null) + '. Pass null or omit it to have the stock reported INDETERMINATE.');
     }
     if (adv !== undefined && adv <= 0) {
       return refusal('STOCK_ADV_NOT_POSITIVE', 'stocks[' + i + '] (' + sym + ') prior_month_adv_shares must be a positive integer when present; got ' + adv + '.');
@@ -158,23 +161,23 @@ export function compute(pp) {
 
   const dailyIn = pp.daily_volume === undefined ? [] : pp.daily_volume;
   if (!Array.isArray(dailyIn)) {
-    return refusal('DAILY_VOLUME_INVALID', 'daily_volume, when present, must be an array of { date, tsv_id, symbol, shares }; got ' + JSON.stringify(pp.daily_volume ?? null) + '.');
+    return refusal('DAILY_VOLUME_INVALID', 'daily_volume, when present, must be an array of { date, tsv_id, symbol, shares }; got ' + fmt(pp.daily_volume ?? null) + '.');
   }
   const volByKey = new Map(); // symbol \0 date -> shares summed over the declared group
   const volRowSeen = new Set(); // tsv_id \0 symbol \0 date
   for (let i = 0; i < dailyIn.length; i++) {
     const r = deNull(dailyIn[i] || {});
     if (typeof r.date !== 'string' || !isRealDate(r.date)) {
-      return refusal('VOLUME_DATE_INVALID', 'daily_volume[' + i + '].date must be a YYYY-MM-DD date; got ' + JSON.stringify(r.date ?? null) + '.');
+      return refusal('VOLUME_DATE_INVALID', 'daily_volume[' + i + '].date must be a YYYY-MM-DD date; got ' + fmt(r.date ?? null) + '.');
     }
     if (typeof r.tsv_id !== 'string' || !group.includes(r.tsv_id)) {
-      return refusal('VOLUME_TSV_UNKNOWN', 'daily_volume[' + i + '].tsv_id (' + JSON.stringify(r.tsv_id ?? null) + ') is neither tsv_id nor a member of affiliated_tsv_ids; this node aggregates only the declared group.');
+      return refusal('VOLUME_TSV_UNKNOWN', 'daily_volume[' + i + '].tsv_id (' + fmt(r.tsv_id ?? null) + ') is neither tsv_id nor a member of affiliated_tsv_ids; this node aggregates only the declared group.');
     }
     if (!stockBySymbol.has(r.symbol)) {
-      return refusal('VOLUME_SYMBOL_UNDECLARED', 'daily_volume[' + i + '] references symbol ' + JSON.stringify(r.symbol ?? null) + ', which is not declared in stocks[]; declare every symbol before replaying its volume.');
+      return refusal('VOLUME_SYMBOL_UNDECLARED', 'daily_volume[' + i + '] references symbol ' + fmt(r.symbol ?? null) + ', which is not declared in stocks[]; declare every symbol before replaying its volume.');
     }
     if (!isInt(r.shares) || r.shares < 0) {
-      return refusal('VOLUME_SHARES_INVALID', 'daily_volume[' + i + '].shares must be a non-negative integer share count; got ' + JSON.stringify(r.shares ?? null) + '.');
+      return refusal('VOLUME_SHARES_INVALID', 'daily_volume[' + i + '].shares must be a non-negative integer share count; got ' + fmt(r.shares ?? null) + '.');
     }
     const key = r.symbol + '\u0000' + r.date;
     const rowKey = r.tsv_id + '\u0000' + key;
@@ -187,7 +190,7 @@ export function compute(pp) {
 
   const symTradedIn = pp.symbols_traded === undefined ? null : pp.symbols_traded;
   if (symTradedIn !== null && !Array.isArray(symTradedIn)) {
-    return refusal('SYMBOLS_TRADED_INVALID', 'symbols_traded, when present, must be an array of { date, tsv_id, symbol }; got ' + JSON.stringify(symTradedIn ?? null) + '.');
+    return refusal('SYMBOLS_TRADED_INVALID', 'symbols_traded, when present, must be an array of { date, tsv_id, symbol }; got ' + fmt(symTradedIn ?? null) + '.');
   }
   // Symbol days per tier: tier -> date -> Set(symbol). When symbols_traded is absent, derive
   // from daily_volume (a day with reported volume is a day the symbol traded).
@@ -201,13 +204,13 @@ export function compute(pp) {
     for (let i = 0; i < symTradedIn.length; i++) {
       const r = deNull(symTradedIn[i] || {});
       if (typeof r.date !== 'string' || !isRealDate(r.date)) {
-        return refusal('SYMBOL_DAY_DATE_INVALID', 'symbols_traded[' + i + '].date must be a YYYY-MM-DD date; got ' + JSON.stringify(r.date ?? null) + '.');
+        return refusal('SYMBOL_DAY_DATE_INVALID', 'symbols_traded[' + i + '].date must be a YYYY-MM-DD date; got ' + fmt(r.date ?? null) + '.');
       }
       if (typeof r.tsv_id !== 'string' || !group.includes(r.tsv_id)) {
-        return refusal('SYMBOL_DAY_TSV_UNKNOWN', 'symbols_traded[' + i + '].tsv_id (' + JSON.stringify(r.tsv_id ?? null) + ') is neither tsv_id nor a member of affiliated_tsv_ids.');
+        return refusal('SYMBOL_DAY_TSV_UNKNOWN', 'symbols_traded[' + i + '].tsv_id (' + fmt(r.tsv_id ?? null) + ') is neither tsv_id nor a member of affiliated_tsv_ids.');
       }
       if (!stockBySymbol.has(r.symbol)) {
-        return refusal('SYMBOL_DAY_SYMBOL_UNDECLARED', 'symbols_traded[' + i + '] references symbol ' + JSON.stringify(r.symbol ?? null) + ', which is not declared in stocks[].');
+        return refusal('SYMBOL_DAY_SYMBOL_UNDECLARED', 'symbols_traded[' + i + '] references symbol ' + fmt(r.symbol ?? null) + ', which is not declared in stocks[].');
       }
       addSymDay(r.date, r.symbol);
     }
@@ -220,16 +223,16 @@ export function compute(pp) {
 
   const priorIn = pp.prior_breaches === undefined ? [] : pp.prior_breaches;
   if (!Array.isArray(priorIn)) {
-    return refusal('PRIOR_BREACHES_INVALID', 'prior_breaches, when present, must be an array of { symbol, date }; got ' + JSON.stringify(pp.prior_breaches ?? null) + '.');
+    return refusal('PRIOR_BREACHES_INVALID', 'prior_breaches, when present, must be an array of { symbol, date }; got ' + fmt(pp.prior_breaches ?? null) + '.');
   }
   const priorBySymbol = new Map();
   for (let i = 0; i < priorIn.length; i++) {
     const r = deNull(priorIn[i] || {});
     if (typeof r.date !== 'string' || !isRealDate(r.date)) {
-      return refusal('PRIOR_BREACH_DATE_INVALID', 'prior_breaches[' + i + '].date must be a YYYY-MM-DD date; got ' + JSON.stringify(r.date ?? null) + '.');
+      return refusal('PRIOR_BREACH_DATE_INVALID', 'prior_breaches[' + i + '].date must be a YYYY-MM-DD date; got ' + fmt(r.date ?? null) + '.');
     }
     if (!stockBySymbol.has(r.symbol)) {
-      return refusal('PRIOR_BREACH_SYMBOL_UNDECLARED', 'prior_breaches[' + i + '] references symbol ' + JSON.stringify(r.symbol ?? null) + ', which is not declared in stocks[].');
+      return refusal('PRIOR_BREACH_SYMBOL_UNDECLARED', 'prior_breaches[' + i + '] references symbol ' + fmt(r.symbol ?? null) + ', which is not declared in stocks[].');
     }
     if (!priorBySymbol.has(r.symbol)) priorBySymbol.set(r.symbol, []);
     priorBySymbol.get(r.symbol).push(r.date);

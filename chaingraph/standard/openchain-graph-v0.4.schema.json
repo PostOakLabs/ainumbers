@@ -72,7 +72,7 @@
       }
     },
     "anchorBinding": {
-      "description": "OCG Standard §20 Anchor Binding — portable, offline-verifiable evidence that execution_hash was included in a transparency log or timestamp service by a point in time. Optional; lives at the top-level anchor_bindings array. Attached AFTER hashing, EXCLUDED from execution_hash scope (like §16 audit_signature). anchored_hash MUST equal the artifact's execution_hash (enforced by anchor-binding.test.mjs; this schema validates shape). rfc3161-tst carries four additional REQUIRED members; the DER in proof is stored verbatim, never re-encoded. §20.4 solana-memo (v0.8.25) is the ONE exception to offline verification: that variant structurally requires a Solana RPC chosen by the verifier, and is a ledger-ordering anchor, not a timestamp token (see its variant description).",
+      "description": "OCG Standard §20 Anchor Binding — portable, offline-verifiable evidence that execution_hash was included in a transparency log or timestamp service by a point in time. Optional; lives at the top-level anchor_bindings array. Attached AFTER hashing, EXCLUDED from execution_hash scope (like §16 audit_signature). anchored_hash MUST equal the artifact's execution_hash (enforced by anchor-binding.test.mjs; this schema validates shape). rfc3161-tst carries four additional REQUIRED members; the DER in proof is stored verbatim, never re-encoded. §20.4 solana-memo (v0.8.25) and §20.5 evm-eas-timestamp (v0.8.26) are the two exceptions to offline verification: those variants structurally require a ledger RPC chosen by the verifier, and are ledger-ordering anchors, not timestamp tokens (see their variant descriptions).",
       "oneOf": [
         {
           "type": "object",
@@ -124,10 +124,27 @@
             "signature": { "type": "string", "pattern": "^[1-9A-HJ-NP-Za-km-z]{87,88}$", "description": "§20.4 — base58 transaction signature of the anchoring transaction (Ed25519, 64 bytes)." },
             "slot": { "type": "integer", "minimum": 0, "description": "§20.4 — the slot the transaction landed in. The claim is 'committed no later than slot N'." },
             "block_time": { "type": ["integer", "null"], "description": "§20.4 OPTIONAL — the RPC's stake-weighted validator ESTIMATE of block time (unix seconds). Never a signed time; MAY be null or absent, and absence means NO CLAIM." },
-            "commitment": { "const": "finalized", "description": "§20.4 — the only commitment level this section defines; a verifier MUST fetch at finalized." },
+            "commitment": { "const": "finalized", "description": "§20.4 — the only commitment level this section defines; a verifier MUST fetch at `finalized`." },
             "signer": { "type": "string", "pattern": "^[1-9A-HJ-NP-Za-km-z]{43,44}$", "description": "§20.4 — base58 pubkey of an account that signed the memo instruction. A verifier SHOULD pin it against its own published allowlist: without a signer pin anyone can write the same memo." },
             "anchored_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "§20.4 — equals execution_hash directly, or the §20.1 Merkle root when merkle_inclusion is present (the memo commits the root)." },
             "merkle_inclusion": { "$ref": "#/$defs/merkleInclusion", "description": "§20.4 OPTIONAL — §20.1 batch semantics unchanged: anchored_hash is the RFC 6962 root, the artifact execution_hash is a leaf." }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "chain_id", "contract", "anchored_hash", "timestamp", "independence_class"],
+          "description": "OCG Standard §20.5 (v0.8.26) — verification-only EVM ledger anchor: the Ethereum Attestation Service (EAS) contract named by contract, on the EVM chain named by chain_id (chain-neutral: Ethereum L1, Base, Optimism), records a nonzero timestamp for the 32 bytes of anchored_hash. NO stamping leg, NO key custody, NO funding. Verification structurally REQUIRES an EVM JSON-RPC endpoint chosen by the verifier, read at block tag `finalized` (no offline path). The read returns NO signer and the contract is first-writer-wins: the binding shows the earliest recorded stamp of this hash on this chain, never who stamped it. Ledger ordering only, NOT an RFC 3161 token (no accountable time authority, no eIDAS status, no signed time); sequencer and RPC operators are trusted. Copy calling this type independent, a TSA, RFC 3161-aligned, eIDAS-qualified or signed is non-conformant (§20.5).",
+          "properties": {
+            "type": { "const": "evm-eas-timestamp" },
+            "chain_id": { "type": "integer", "minimum": 1, "description": "§20.5 — the EIP-155 chain id of the chain holding the stamp. A verifier MUST confirm its RPC reports this chain id before reading." },
+            "contract": { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$", "description": "§20.5 — address of the EAS contract read for the stamp. A verifier MUST use only an address on its per-chain contract allowlist for chain_id; the allowlist is data held outside this standard, and an address not on it MUST NOT verify." },
+            "anchored_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "§20.5 — equals execution_hash directly, or the §20.1 Merkle root when merkle_inclusion is present. The bytes32 key read from the contract is the 32-byte digest this hex encodes." },
+            "timestamp": { "type": "integer", "minimum": 1, "description": "§20.5 — the uint64 value (unix seconds) the contract returns for anchored_hash at `finalized`: the block timestamp of the block that first stamped it, set by that chain's block producer, never a signed time. A verifier MUST reject when the `finalized` read differs; zero means not timestamped and can never verify." },
+            "tx_hash": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$", "description": "§20.5 OPTIONAL — locator of the stamping transaction. Informative: the contract state read is the evidence; a verifier that checks it MUST reject on mismatch." },
+            "block_number": { "type": "integer", "minimum": 0, "description": "§20.5 OPTIONAL — locator of the block holding the stamping transaction. Informative, same rule as tx_hash." },
+            "merkle_inclusion": { "$ref": "#/$defs/merkleInclusion", "description": "§20.5 OPTIONAL — §20.1 batch semantics unchanged: anchored_hash is the RFC 6962 root, the artifact execution_hash is a leaf." },
+            "independence_class": { "const": "single-chain-ledger", "description": "§20.5 — the trust-root class of this binding. An evm-eas-timestamp binding is never an independent authority; any number of them on one chain count as one single-chain-ledger root." }
           }
         }
       ]
@@ -770,6 +787,23 @@
           "type": "string",
           "minLength": 1,
           "description": "OCG Standard §NODEPAGE-1, additive — record stays 0.8.13, no version bump — OPTIONAL waiver declaring that this node has NO composer page of its own; the value is the prose reason the waiver was taken. What it LICENSES: the axis-(d) node-page requirement of scripts/check-node-complete.mjs is satisfied WITHOUT a page. What it does NOT license: it is not an exemption from nav reachability for a page that DOES exist, not an exemption from the required url member, and not an exemption from the §15 catalog-parity rule that a live node's url resolves. A FALSE declaration is a HARD FAIL, machine-checked and never taken on trust: chaingraph/standard/check-pageless-consistency.mjs recomputes page existence from the filesystem and rejects any node declaring pageless while a page it owns exists (canonical chaingraph/<tool_id>.html, or its own url resolving to an .html under chaingraph/ or tools/). Absence is the default and means the node is expected to carry a page."
+        },
+        "control_refs": {
+          "type": "array",
+          "description": "OCG profile CTRLREF-1 (chaingraph/standard/CONTROL-REFS.md), additive, SPEC.md unchanged — OPTIONAL GRC-consumer tags: which control ids in which framework this node's output is meant to be cited against. Ids only, never a control title or control text. The framework enum matches the controlRefs member of the OCG Execution Receipt predicate v0.2. A tag is a pointer for a human reviewer, not a claim that any control is satisfied. Machine-checked by chaingraph/standard/check-control-refs.mjs.",
+          "items": {
+            "type": "object",
+            "required": ["framework", "id"],
+            "additionalProperties": false,
+            "properties": {
+              "framework": { "enum": ["nist-800-53r5", "aiuc-1", "nist-ai-rmf", "soc2-tsc", "iso27001-2022"] },
+              "id": { "type": "string", "minLength": 1 }
+            },
+            "allOf": [
+              { "if": { "properties": { "framework": { "const": "nist-800-53r5" } } }, "then": { "properties": { "id": { "pattern": "^[A-Z]{2}-\\d+(\\(\\d+\\))?$" } } } },
+              { "if": { "properties": { "framework": { "const": "aiuc-1" } } }, "then": { "properties": { "id": { "pattern": "^AIUC-[A-F]-\\d{2}$" } } } }
+            ]
+          }
         }
       }
     },

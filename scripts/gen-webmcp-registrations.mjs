@@ -32,6 +32,16 @@
  *     mcp_tool_definition (the generator computes nothing and restates no
  *     computed value; the emitted name equals the node's mcp_name, so page,
  *     manifest and worker agree on one name per tool);
+ *   - title / outputSchema (WEBMCP-OUTPUT-SCHEMA-1, Row B): `title` reused
+ *     verbatim from the manifest's top-level `title` (page-<title>-minus-site
+ *     suffix only as the no-manifest-title fallback), and `outputSchema`
+ *     reused verbatim from the manifest's `output_schema` — but only for the
+ *     CONFORMED set: outputSchema is emitted only when that schema validates
+ *     the tool's fixture-0 output_payload (the execute return on the first
+ *     fixture vector) through check-output-schema-coverage.mjs's exported
+ *     validator, so the registration can never promise a shape execute does
+ *     not return. Non-conforming and unmeasurable tools emit no outputSchema;
+ *     the return value is never reshaped to fit;
  *   - required-input validation with actionable errors (the type contract comes
  *     from the manifest's own schema — restating it is derivation, not invention);
  *   - annotations: { readOnlyHint: true } — truthful-hint posture (#1616):
@@ -161,7 +171,9 @@ import { buildDeeplinkScript, buildFileImportScript, DEEPLINK_MARKER, FILE_IMPOR
 import { classifyPage } from './check-page-kernel-digest.mjs';
 import { sourceDigest } from '../chaingraph/kernels/_buildid.mjs';
 import { executionHash } from '../chaingraph/kernels/_hash.mjs';
-import { readOutcome } from '../chaingraph/kernels/_shape.mjs';
+import { readOutcome, readCases } from '../chaingraph/kernels/_shape.mjs';
+import { validateSubset } from './check-output-schema-coverage.mjs';
+import { isValidOutputSchema } from './check-webmcp-spec.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -879,6 +891,9 @@ export const propertyIdMap = {
   // runArb reads every camelCase control explicitly:
   //   chaingraph/art-212-prediction-market-arbitrage.html:414-419
   'art-212-prediction-market-arbitrage': {
+    as_of: { element_id: 'asOf', via: 'string' },
+    fee_regime: { element_id: 'feeRegime', via: 'string' },
+    market_category: { element_id: 'marketCategory', via: 'string' },
     no_price_b: { element_id: 'noPriceB', via: 'string' },
     payout: { element_id: 'payoutArb', via: 'string' },
     stake_total: { element_id: 'stakeTotal', via: 'string' },
@@ -1359,15 +1374,16 @@ export function findWrapperName(pageSrc, fn) {
   const names = new Set();
   let m;
   while ((m = declRe.exec(pageSrc)) !== null) {
-    let depth = 1;
-    let j = m.index + m[0].length; // m[0] ends with the opening '{'
-    while (j < pageSrc.length && depth > 0) {
-      const c = pageSrc[j];
-      if (c === '{') depth++; else if (c === '}') depth--;
-      j++;
-    }
-    if (depth !== 0) continue;
-    if (callRe.test(pageSrc.slice(m.index, j))) names.add(m[1]);
+    // WEBMCP-DIRECT-RENDER-PICKS-EXPORT-1 (second defect): the body span is
+    // walked strings/comments-aware (balancedSpan) and the call is matched on
+    // code only (codeBodyText). Measured defect: art-373's getPP() carries a
+    // NAV-LIN-WIRE-1 comment with an unbalanced 'chain{' and the literal
+    // 'compute(' — the raw brace count ran getPP's span into run(), so both
+    // were zero-arg compute invokers and the page was refused. A wrapper needs
+    // a real call site in its own code.
+    const span = balancedSpan(pageSrc, m.index + m[0].length - 1); // m[0] ends with '{'
+    if (!span) continue;
+    if (callRe.test(codeBodyText(pageSrc.slice(m.index, span.end)))) names.add(m[1]);
   }
   return names.size === 1 ? [...names][0] : null;
 }
@@ -1506,12 +1522,92 @@ function deeplinkPrefillTable(manifest, idMap) {
   return JSON.stringify(table);
 }
 
+// ── WEBMCP-OUTPUT-SCHEMA-1 (Row B): title + outputSchema emission ────────────
+/**
+ * The registration's `title`: reused verbatim from the manifest's top-level
+ * `title`. Only when the manifest declares none does it fall back to the
+ * page's <title> text minus the site suffix (everything from the first
+ * `·`/`&middot;` separator on is the site suffix; the caller passes that text
+ * so builders stay page-source-free). Returns null when neither source offers
+ * a title: the field is never invented.
+ */
+export function toolTitle(manifest, pageTitleTextValue) {
+  const t = manifest && manifest.title;
+  if (typeof t === 'string' && t.trim().length > 0) return t;
+  if (typeof pageTitleTextValue === 'string' && pageTitleTextValue.trim().length > 0) {
+    const first = pageTitleTextValue.replace(/&middot;/gi, '·').split('·')[0].trim();
+    if (first.length > 0) return first;
+  }
+  return null;
+}
+
+/** A page's <title> element text (undecoded), or null when the page has none. */
+export function pageTitleText(pageSrc) {
+  const m = /<title>([^<]*)<\/title>/i.exec(String(pageSrc || ''));
+  return m ? m[1] : null;
+}
+
+/**
+ * WEBMCP-OUTPUT-SCHEMA-1 conformance gate (parent row JOB step 1). The emitted
+ * `outputSchema` promises the execute() return shape, so it is emitted ONLY
+ * when the manifest's `output_schema` validates the tool's fixture-0
+ * output_payload — the return on the first fixture vector, the same vector the
+ * direct-mode probe's hash-parity leg runs — re-validated with
+ * check-output-schema-coverage.mjs's exported draft-2020-12-subset validator
+ * (one validator, one verdict: this emission and the SO #34c fixture gate
+ * cannot disagree). No fixtures to measure, an unparseable fixture file, a
+ * fixture 0 without output_payload, or a validator mismatch all withhold the
+ * field: the tool is listed in the row's PR body, never reshaped to fit.
+ * `repoRoot` is taken from the caller so the selftest's synthetic tree
+ * exercises every verdict class.
+ */
+export function conformedOutputSchema(manifest, toolId, repoRoot) {
+  const os = manifest && manifest.output_schema;
+  if (!os || typeof os !== 'object' || Array.isArray(os)) return null;
+  // The emitted outputSchema must be a valid JSON Schema object, judged by the
+  // SAME structural validator the spec gate enforces over emitted pages
+  // (check-webmcp-spec.mjs isValidOutputSchema) — one verdict, so a schema the
+  // generator emits can never red its own gate. A manifest whose output_schema
+  // is structurally malformed (e.g. required/additionalProperties misplaced
+  // inside properties) is withheld here and listed in the row's PR body; the
+  // manifest fix is out of this row's fence.
+  if (!isValidOutputSchema(os)) return null;
+  const root = repoRoot || REPO;
+  const fp = resolve(root, 'chaingraph', 'kernels', 'fixtures', `${toolId}.fixtures.json`);
+  if (!existsSync(fp)) return null;
+  let doc;
+  try { doc = JSON.parse(readFileSync(fp, 'utf8')); } catch { return null; }
+  let cases;
+  try { cases = readCases(doc); } catch { return null; }
+  const payload = cases.length ? cases[0].output_payload : undefined;
+  if (payload === undefined) return null;
+  const errs = [];
+  try { validateSubset(os, payload, 'output_payload', errs); } catch { return null; }
+  return errs.length === 0 ? os : null;
+}
+
+/** toolId for the conformance lookup: the manifest's own `tool_id` (the id the
+ *  fixture files are keyed by — manifest FILENAMES carry a numeric prefix the
+ *  tool id does not, e.g. 950-fx-100-selftest vs fx-100-selftest), falling
+ *  back to the manifest path stem when the field is absent. */
+function toolIdOfManifest(manifest, manifestPath) {
+  const id = manifest && manifest.tool_id;
+  if (typeof id === 'string' && id.length > 0) return id;
+  return basename(String(manifestPath || '')).replace(/\.manifest\.json$/, '');
+}
+
 /**
  * Builds the marker-delimited block for one tool page. Pure: same inputs, same
- * bytes (RESULT_GLOBAL is substituted by buildBlockForPage).
+ * bytes (RESULT_GLOBAL is substituted by buildBlockForPage; the title/
+ * outputSchema conformance reads only the committed fixture tree named by the
+ * inputs, so it is byte-stable for a given tree). `opts.pageTitleText` is the
+ * page's <title> text for the no-manifest-title fallback; `opts.repoRoot`
+ * relocates the fixture read (selftest).
  */
-export function buildBlock(manifest, manifestPath, idMap, wrapper) {
+export function buildBlock(manifest, manifestPath, idMap, wrapper, opts = {}) {
   const def = manifest.mcp_tool_definition;
+  const pageTitle = toolTitle(manifest, opts.pageTitleText);
+  const outSchema = conformedOutputSchema(manifest, toolIdOfManifest(manifest, manifestPath), opts.repoRoot);
   const props = Object.entries(def.inputSchema.properties);
   const required = Array.isArray(def.inputSchema.required) ? def.inputSchema.required : [];
   const target = wrapper || manifest.execution.function_name;
@@ -1537,7 +1633,9 @@ export function buildBlock(manifest, manifestPath, idMap, wrapper) {
   lines.push('  Promise.resolve(mc.registerTool({');
   lines.push(`    name: '${jsStr(def.name)}',`);
   lines.push(`    description: '${jsStr(def.description)}',`);
+  if (pageTitle !== null) lines.push(`    title: '${jsStr(pageTitle)}',`);
   lines.push(`    inputSchema: ${JSON.stringify(def.inputSchema, null, 2).replace(/\n/g, '\n    ')},`);
+  if (outSchema !== null) lines.push(`    outputSchema: ${JSON.stringify(outSchema, null, 2).replace(/\n/g, '\n    ')},`);
   lines.push('    annotations: { readOnlyHint: true },');
   lines.push('    execute: async function(params) {');
   lines.push('      try {');
@@ -1577,8 +1675,8 @@ export function buildBlock(manifest, manifestPath, idMap, wrapper) {
 
 /** buildBlock with the page's verified result global substituted in. `wrapper`
  *  is the page-verified no-arg wrapper (G3b) the emitted call must target. */
-export function buildBlockForPage(manifest, manifestPath, resGlobal, idMap, wrapper) {
-  return buildBlock(manifest, manifestPath, idMap, wrapper).replace('return RESULT_GLOBAL;', `return ${resGlobal};`);
+export function buildBlockForPage(manifest, manifestPath, resGlobal, idMap, wrapper, opts = {}) {
+  return buildBlock(manifest, manifestPath, idMap, wrapper, opts).replace('return RESULT_GLOBAL;', `return ${resGlobal};`);
 }
 
 export function regionOf(pageSrc) {
@@ -2153,7 +2251,10 @@ function expectedBlock(toolId, manifestIndex, mcpNameByTool, repoRoot) {
   const pageSrc = readRepoFile(`chaingraph/${toolId}.html`, repoRoot);
   const mapped = verifyPageMapping(loaded.m, pageSrc, toolId, propertyIdMap[toolId]);
   if (mapped.error) throw new Error(mapped.error);
-  return buildBlockForPage(loaded.m, loaded.file, mapped.resGlobal, propertyIdMap[toolId], mapped.wrapper);
+  return buildBlockForPage(loaded.m, loaded.file, mapped.resGlobal, propertyIdMap[toolId], mapped.wrapper, {
+    pageTitleText: pageTitleText(pageSrc),
+    repoRoot,
+  });
 }
 
 function runCheck() {
@@ -2503,6 +2604,13 @@ export function inputSchemaSha256(inputSchema) {
   return createHash('sha256').update(JSON.stringify(inputSchema), 'utf8').digest('hex');
 }
 
+/** sha256 over the compact JSON encoding of a manifest's output_schema — the
+ *  same construction as inputSchemaSha256 (WEBMCP-OUTPUT-SCHEMA-1: the
+ *  directory digest convention stays uniform across both schema digests). */
+export function outputSchemaSha256(outputSchema) {
+  return createHash('sha256').update(JSON.stringify(outputSchema), 'utf8').digest('hex');
+}
+
 /** One directory entry per emittable (registered) page. `targets` (optional)
  *  injects a precomputed deriveTargets result — the selftest's hermetic path;
  *  live callers derive from the tree. */
@@ -2524,12 +2632,27 @@ export function buildDirectoryEntries(repoRoot, targets) {
     const loaded = loadManifestFor(id, manifestIndex, mcpNameByTool, root);
     if (loaded.error) throw new Error(loaded.error);
     const def = loaded.m.mcp_tool_definition;
+    // WEBMCP-OUTPUT-SCHEMA-1: the entry mirrors the page registration. `title`
+    // comes from the manifest (page <title> minus the site suffix only as the
+    // fallback, read lazily) and is omitted when neither source offers one.
+    // `output_schema_sha256` is emitted exactly when the page emits
+    // outputSchema (the conformed set) — the directory can never promise an
+    // output shape the registered tool does not declare.
+    let title = toolTitle(loaded.m, null);
+    if (title === null) {
+      let pageSrc = null;
+      try { pageSrc = readRepoFile(d.detail.page, root); } catch { pageSrc = null; }
+      title = toolTitle(loaded.m, pageSrc === null ? null : pageTitleText(pageSrc));
+    }
+    const os = conformedOutputSchema(loaded.m, id, root);
     entries.push({
       url: `${SITE_ORIGIN}/chaingraph/${id}.html`,
       name: def.name,
       description: def.description,
       description_sha256: createHash('sha256').update(def.description, 'utf8').digest('hex'),
+      ...(title !== null ? { title } : {}),
       input_schema_sha256: inputSchemaSha256(def.inputSchema),
+      ...(os !== null ? { output_schema_sha256: outputSchemaSha256(os) } : {}),
       annotations: { readOnlyHint: true },
     });
   }
@@ -3466,6 +3589,26 @@ export const DIRECT_MODE_OPT_OUT = {
   // pre-fix status quo (not direct, zero page bytes) until a follow-up row
   // proves both legs and removes this entry.
   'art-561-currency-basket-index': 'newly direct-eligible only as a side effect of the ART704 render-finder literal-blanking fix; direct emission unproven (no leg-2 adapter), pinned to pre-fix status quo by ART704-DIRECT-EXECUTE-ARTIFACT-FIX-1',
+  // WEBMCP-DIRECT-RENDER-PICKS-EXPORT-1 (2026-11-27): dropping download/
+  // navigation helpers from the render candidates resolved the render
+  // ambiguity on these pages (most now elect verifyHash, a hash re-check, not
+  // a painter; art-109/art-285 resolve to no render call). 21 became newly
+  // direct-eligible and 2 (art-246, art-335) moved from refused:render to
+  // refused:fn-exec. This row's fence is the 8 export-picking direct pages
+  // only, so all 23 are pinned to their pre-fix status quo (not direct, zero
+  // page bytes) until a follow-up row proves both legs and removes the entry.
+  ...Object.fromEntries([
+    'art-109-dtc-tokenized-treasury', 'art-228-build-adverse-action-notice', 'art-231-compute-mla-mapr',
+    'art-246-lei-payment-binding-linter', 'art-251-compute-parametric-trigger-payout',
+    'art-253-run-illustration-selfsupport-test', 'art-255-compute-lcm-rate-derivation',
+    'art-257-calculate-claims-stp-economics', 'art-259-compute-multilateral-netting',
+    'art-261-test-hedge-effectiveness', 'art-262-validate-ebam-acmt-flow', 'art-264-validate-commission-hierarchy',
+    'art-265-amortize-asc606-commissions', 'art-266-reconcile-commission-statement',
+    'art-269-validate-w8-series-structural', 'art-285-acdc-delegation-chain-verifier', 'art-335-compute-dti-ratios',
+    'art-342-compute-escrow-analysis', 'art-352-etr-control-evidence-checker',
+    'art-355-erba-standardized-rwa-calculator', 'art-356-compute-oprisk-sma-2026',
+    'art-357-basel-2023-vs-2026-capital-delta-comparator', 'art-362-compute-raroc-loan-price',
+  ].map((id) => [id, 'render-ambiguity resolved only as a side effect of the WEBMCP-DIRECT-RENDER-PICKS-EXPORT-1 download-helper filter; direct emission unproven (no leg-2 adapter, no live probe), pinned to pre-fix status quo'])),
 };
 
 /** The DOM-read tokens condition (c) bans from an execution function's body. */
@@ -3531,13 +3674,41 @@ export function detectResultGlobal(pageSrc) {
  * and neither calls the execution fn nor assigns the global — a painter, not a
  * producer. Zero or multiple candidates -> null (the generator never guesses;
  * pages that render differently go in DIRECT_MODE_OPT_OUT with a reason).
+ *
+ * WEBMCP-DIRECT-RENDER-PICKS-EXPORT-1: a candidate whose body starts a file
+ * download or a navigation (isDownloadOrNavigationBody) is never a painter.
+ * Measured defect: on art-280/284/286/287/291/292/104/374 the only candidate
+ * was the Policy Mandate export helper exportAP2, so every read-only agent call
+ * downloaded a .policy.json file. When such helpers were the ONLY candidates,
+ * the return is NO_RENDER ('') — the page stays direct-eligible and the
+ * emitted delegate makes no render call. null still means "no painter found /
+ * ambiguous" (a refusal).
  */
+export const NO_RENDER = '';
+
+/** True when a function body starts a download or a navigation: anchor
+ *  .click() with a download attribute, URL.createObjectURL, window.open, or a
+ *  location assignment / assign / replace. Matched on the RAW body, not
+ *  codeBodyText: a regex literal holding a quote (art-109 exportCSV's
+ *  .replace(/"/g, ...)) desynchronises the string blanker and hides the rest of
+ *  the body. A token in a comment can only drop a candidate (never elect one). */
+export function isDownloadOrNavigationBody(rawBody) {
+  const code = rawBody;
+  if (/\.click\s*\(\s*\)/.test(code) && /download/.test(rawBody)) return true;
+  if (/URL\s*\.\s*createObjectURL\s*\(/.test(code)) return true;
+  if (/window\s*\.\s*open\s*\(/.test(code)) return true;
+  if (/(?:^|[^\w$])location(?:\s*\.\s*href)?\s*=(?!=)/.test(code)) return true;
+  if (/(?:^|[^\w$])location\s*\.\s*(?:assign|replace)\s*\(/.test(code)) return true;
+  return false;
+}
+
 export function findRenderFunctionName(pageSrc, fn, resGlobal) {
   const refRe = new RegExp(`(?:^|[^\\w$.])${resGlobal}(?![\\w$])`);
   const assignRe = new RegExp(`(?:^|[^\\w$.])${resGlobal}\\s*=`);
   const fnCallRe = new RegExp(`(?:^|[^\\w$.])${fn}\\s*\\(`);
   const declRe = /(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(\s*\)\s*\{/g;
   const names = new Set();
+  let sideEffectOnly = 0;
   let m;
   while ((m = declRe.exec(pageSrc)) !== null) {
     if (m[1] === fn) continue;
@@ -3557,11 +3728,15 @@ export function findRenderFunctionName(pageSrc, fn, resGlobal) {
     // an IIFE-scoped name the emitted delegate could never resolve
     // (ReferenceError 'artifact is not defined' -> compute_failed on every
     // direct call). A painter must READ the global in code.
-    const body = codeBodyText(pageSrc.slice(m.index, j));
+    const rawBody = pageSrc.slice(m.index, j);
+    const body = codeBodyText(rawBody);
     if (!refRe.test(body) || fnCallRe.test(body) || assignRe.test(body)) continue;
+    if (isDownloadOrNavigationBody(rawBody)) { sideEffectOnly++; continue; }
     names.add(m[1]);
   }
-  return names.size === 1 ? [...names][0] : null;
+  if (names.size === 1) return [...names][0];
+  if (names.size === 0 && sideEffectOnly > 0) return NO_RENDER;
+  return null;
 }
 
 /**
@@ -3630,7 +3805,7 @@ export async function directAdjudication(toolId, manifestIndex, mcpNameByTool, r
 
   // The render function the emitted delegate paints through.
   const renderFn = findRenderFunctionName(stripMarkedRegions(pageSrc), fn, resGlobal);
-  if (!renderFn) {
+  if (renderFn === null) {
     return { toolId, eligible: false, code: 'render', reason: `direct-probe: no unique zero-arg render function reading ${resGlobal} (direct mode renders through it; list the page in DIRECT_MODE_OPT_OUT with a reason if it renders differently)` };
   }
 
@@ -3865,9 +4040,13 @@ function directValidationLine(name, type) {
  * stores the result in the page's result global, lets the page's render
  * function paint, and returns the result global. No form prefill, no deep-link
  * or file-import readers (they prefill controls; direct pages have none per
- * prop). Pure: same inputs, same bytes.
+ * prop). Pure: same inputs, same bytes (title/outputSchema conformance reads
+ * only the committed fixture tree named by the inputs). `opts` is the same
+ * { pageTitleText, repoRoot } as buildBlock's (WEBMCP-OUTPUT-SCHEMA-1).
  */
-export function buildDirectBlock(manifest, manifestPath, resGlobal, renderFn) {
+export function buildDirectBlock(manifest, manifestPath, resGlobal, renderFn, opts = {}) {
+  const pageTitle = toolTitle(manifest, opts.pageTitleText);
+  const outSchema = conformedOutputSchema(manifest, toolIdOfManifest(manifest, manifestPath), opts.repoRoot);
   const def = manifest.mcp_tool_definition;
   const props = Object.entries(def.inputSchema.properties);
   const required = Array.isArray(def.inputSchema.required) ? def.inputSchema.required : [];
@@ -3902,7 +4081,9 @@ export function buildDirectBlock(manifest, manifestPath, resGlobal, renderFn) {
   lines.push('  Promise.resolve(mc.registerTool({');
   lines.push(`    name: '${jsStr(def.name)}',`);
   lines.push(`    description: '${jsStr(def.description)}',`);
+  if (pageTitle !== null) lines.push(`    title: '${jsStr(pageTitle)}',`);
   lines.push(`    inputSchema: ${JSON.stringify(def.inputSchema, null, 2).replace(/\n/g, '\n    ')},`);
+  if (outSchema !== null) lines.push(`    outputSchema: ${JSON.stringify(outSchema, null, 2).replace(/\n/g, '\n    ')},`);
   lines.push('    annotations: { readOnlyHint: true },');
   lines.push('    execute: async function(params) {');
   lines.push('      try {');
@@ -3929,7 +4110,10 @@ export function buildDirectBlock(manifest, manifestPath, resGlobal, renderFn) {
   lines.push(`      var __computeInput = __normalizeNullMembers(params, ${JSON.stringify(JSON.stringify(def.inputSchema))});`);
   lines.push(`      var __directResult = await ${fn}(__computeInput);`);
   lines.push(`      if (typeof __directResult !== 'undefined') ${resGlobal} = __directResult;`);
-  lines.push(`      await ${renderFn}();`);
+  // WEBMCP-DIRECT-RENDER-PICKS-EXPORT-1: NO_RENDER ('') = the page's only
+  // post-compute functions download or navigate; a read-only tool call emits
+  // no render call rather than triggering a file download.
+  if (renderFn) lines.push(`      await ${renderFn}();`);
   lines.push(`      return ${resGlobal};`);
   lines.push('      } catch (err) {');
   lines.push("        return { error: 'compute_failed', detail: String((err && err.message) || err) };");
@@ -3944,8 +4128,8 @@ export function buildDirectBlock(manifest, manifestPath, resGlobal, renderFn) {
 
 /** buildDirectBlock with the probe-verified result global and render function
  *  substituted in (both come from directAdjudication's detail, never guessed). */
-export function buildDirectBlockForPage(manifest, manifestPath, resGlobal, renderFn) {
-  return buildDirectBlock(manifest, manifestPath, resGlobal, renderFn);
+export function buildDirectBlockForPage(manifest, manifestPath, resGlobal, renderFn, opts = {}) {
+  return buildDirectBlock(manifest, manifestPath, resGlobal, renderFn, opts);
 }
 
 /** A page's generated region is a DIRECT-mode region when its BEGIN line says so. */
@@ -3999,10 +4183,13 @@ async function runDirect({ write, onlyTool }) {
     verdicts.push(v);
     if (!v.eligible) continue;
     const loaded = loadManifestFor(id, manifestIndex, mcpNameByTool, REPO);
-    const block = buildDirectBlockForPage(loaded.m, v.detail.manifest, v.detail.resGlobal, v.detail.render);
     const pageAbs = resolve(REPO, v.detail.page);
+    const src = readFileSync(pageAbs, 'utf8');
+    const block = buildDirectBlockForPage(loaded.m, v.detail.manifest, v.detail.resGlobal, v.detail.render, {
+      pageTitleText: pageTitleText(src),
+      repoRoot: REPO,
+    });
     if (write) {
-      const src = readFileSync(pageAbs, 'utf8');
       const existing = regionOf(src);
       if (existing && !src.slice(existing.start, existing.start + 500).includes('mode=direct')) {
         console.error(`REFUSED ${v.detail.page}: page already carries a non-direct generated region — prefill mode owns it, direct mode never overwrites`);
@@ -4012,10 +4199,10 @@ async function runDirect({ write, onlyTool }) {
       if (next !== src) {
         writeFileSync(pageAbs, next, 'utf8');
         written++;
-        console.log(`✓ wrote ${v.detail.page} (direct mode: name: ${v.detail.name}, result: ${v.detail.resGlobal}, render: ${v.detail.render}${ot.present ? '; OT meta in head' : ''})`);
+        console.log(`✓ wrote ${v.detail.page} (direct mode: name: ${v.detail.name}, result: ${v.detail.resGlobal}, render: ${v.detail.render || '(none)'}${ot.present ? '; OT meta in head' : ''})`);
       } else { exact++; }
     } else {
-      console.log(`DIRECT-ELIGIBLE ${v.detail.page} (name: ${v.detail.name}, manifest: ${v.detail.manifest}, result: ${v.detail.resGlobal}, render: ${v.detail.render})`);
+      console.log(`DIRECT-ELIGIBLE ${v.detail.page} (name: ${v.detail.name}, manifest: ${v.detail.manifest}, result: ${v.detail.resGlobal}, render: ${v.detail.render || '(none)'})`);
     }
   }
   verdicts.filter((v) => !v.eligible).forEach((v) => console.log(`  EXCLUDED ${v.toolId}: ${v.reason}`));
@@ -4108,6 +4295,54 @@ async function selftest(){
     check('optional mapping guards undefined AND null (MR-R4-NULL-NORMALIZE-WEBMCP-1: a null optional is skipped, not stringified into the input), required unguarded', block.includes("if (params.flag !== undefined && params.flag !== null) document.getElementById('flag').checked") && block.includes("document.getElementById('principal').value = String(params.principal);"));
     check('feature-detect gates the registration', block.indexOf('document.modelContext') !== -1 && block.indexOf('registerTool') > block.indexOf('modelContext'));
     check('markers delimit the block', block.startsWith(beginLine('manifests/950-fx-100-selftest.manifest.json')) && block.endsWith(END));
+    check('Row B default: no title and no outputSchema when the manifest has neither (unmeasured schema never invented)', !block.includes('title:') && !block.includes('outputSchema:'));
+
+    // 3d. WEBMCP-OUTPUT-SCHEMA-1 (Row B): title + outputSchema emission over the
+    // conformed set. Synthetic fixture tree, all three verdict classes.
+    const fixturesDir = join(tmp, 'chaingraph', 'kernels', 'fixtures');
+    mkdirSync(fixturesDir, { recursive: true });
+    const osConform = { type: 'object', required: ['principal'], properties: { principal: { type: 'number' }, label: { type: 'string' } } };
+    writeFileSync(join(fixturesDir, 'fx-100-selftest.fixtures.json'), JSON.stringify({ tool_id: 'fx-100-selftest', note: 'selftest', vectors: [{ name: 'v0', policy_parameters: { principal: 1000, label: 'a' }, output_payload: { principal: 1000, label: 'a', flag: true, count: 0 } }] }));
+    const mTitle = JSON.parse(JSON.stringify(manifest));
+    mTitle.title = 'FX 100 Selftest Fixture Tool';
+    mTitle.output_schema = osConform;
+    const blockOS = buildBlockForPage(mTitle, 'manifests/950-fx-100-selftest.manifest.json', d.detail.resGlobal, undefined, wrap1, { repoRoot: tmp });
+    check('Row B: title emitted verbatim from the manifest title', blockOS.includes("title: 'FX 100 Selftest Fixture Tool',"));
+    check('Row B: outputSchema emitted verbatim from the conformed output_schema', blockOS.includes(`outputSchema: ${JSON.stringify(osConform, null, 2).replace(/\n/g, '\n    ')},`));
+    check('Row B: outputSchema sits between inputSchema and annotations', blockOS.indexOf('outputSchema:') > blockOS.indexOf('inputSchema:') && blockOS.indexOf('outputSchema:') < blockOS.indexOf('annotations:'));
+    writeFileSync(join(manifestsDir, '950-fx-100-selftest.manifest.json'), JSON.stringify(mTitle, null, 2));
+    const entriesOS = buildDirectoryEntries(tmp, { cleared: ['fx-100-selftest'], manifestFallback: [], manifestIndex, mcpNameByTool });
+    check('Row B: directory entry carries the manifest title', entriesOS.length === 1 && entriesOS[0].title === 'FX 100 Selftest Fixture Tool');
+    check('Row B: directory entry carries output_schema_sha256 (same construction as input_schema_sha256)', entriesOS.length === 1 && entriesOS[0].output_schema_sha256 === createHash('sha256').update(JSON.stringify(osConform), 'utf8').digest('hex'));
+    // fixture 0 mismatches the declared schema: outputSchema withheld everywhere,
+    // title unaffected, return value never reshaped.
+    writeFileSync(join(fixturesDir, 'fx-100-selftest.fixtures.json'), JSON.stringify({ tool_id: 'fx-100-selftest', note: 'selftest mismatch', vectors: [{ name: 'v0', policy_parameters: { principal: 1000, label: 'a' }, output_payload: { principal: 'not-a-number', label: 'a' } }] }));
+    const blockBad = buildBlockForPage(mTitle, 'manifests/950-fx-100-selftest.manifest.json', d.detail.resGlobal, undefined, wrap1, { repoRoot: tmp });
+    check('Row B: fixture-0 mismatch withholds outputSchema, title unaffected', blockBad.includes("title: 'FX 100 Selftest Fixture Tool',") && !blockBad.includes('outputSchema:'));
+    const entriesBad = buildDirectoryEntries(tmp, { cleared: ['fx-100-selftest'], manifestFallback: [], manifestIndex, mcpNameByTool });
+    check('Row B: directory withholds output_schema_sha256 for the non-conforming tool', entriesBad.length === 1 && entriesBad[0].title === 'FX 100 Selftest Fixture Tool' && !('output_schema_sha256' in entriesBad[0]));
+    // structurally invalid output_schema (the spec-gate validator's verdict,
+    // not just the fixture validator's): withheld even though fixture 0 would
+    // validate it — the emitted page can never red its own spec gate.
+    writeFileSync(join(fixturesDir, 'fx-100-selftest.fixtures.json'), JSON.stringify({ tool_id: 'fx-100-selftest', note: 'selftest', vectors: [{ name: 'v0', policy_parameters: { principal: 1000, label: 'a' }, output_payload: { principal: 1000, label: 'a' } }] }));
+    const mMalformed = JSON.parse(JSON.stringify(manifest));
+    mMalformed.title = 'FX 100 Selftest Fixture Tool';
+    mMalformed.output_schema = { type: 'object', properties: { principal: { type: 'number' }, required: ['principal'], additionalProperties: false } };
+    const blockMalformed = buildBlockForPage(mMalformed, 'manifests/950-fx-100-selftest.manifest.json', d.detail.resGlobal, undefined, wrap1, { repoRoot: tmp });
+    check('Row B: structurally invalid output_schema withheld (spec-gate verdict, not just the fixture verdict)', !blockMalformed.includes('outputSchema:') && blockMalformed.includes("title: 'FX 100 Selftest Fixture Tool',"));
+    // no fixtures file: unmeasurable, withheld.
+    rmSync(join(fixturesDir, 'fx-100-selftest.fixtures.json'));
+    const blockNoFx = buildBlockForPage(mTitle, 'manifests/950-fx-100-selftest.manifest.json', d.detail.resGlobal, undefined, wrap1, { repoRoot: tmp });
+    check('Row B: no fixtures to measure withholds outputSchema', !blockNoFx.includes('outputSchema:') && blockNoFx.includes("title: 'FX 100 Selftest Fixture Tool',"));
+    // page-title fallback (minus the site suffix) fires only without a manifest title.
+    const mNoTitle = JSON.parse(JSON.stringify(manifest));
+    mNoTitle.title = '';
+    const blockFallback = buildBlockForPage(mNoTitle, 'manifests/950-fx-100-selftest.manifest.json', d.detail.resGlobal, undefined, wrap1, { pageTitleText: 'Fallback Tool &middot; OpenChainGraph &middot; AINumbers.co', repoRoot: tmp });
+    check('Row B: page-title fallback strips the site suffix', blockFallback.includes("title: 'Fallback Tool',"));
+    const blockNoTitleSource = buildBlockForPage(mNoTitle, 'manifests/950-fx-100-selftest.manifest.json', d.detail.resGlobal, undefined, wrap1, { repoRoot: tmp });
+    check('Row B: no title line when neither the manifest nor the page offers one', !blockNoTitleSource.includes('title:'));
+    // restore the original manifest bytes for the later sections
+    writeFileSync(join(manifestsDir, '950-fx-100-selftest.manifest.json'), JSON.stringify(manifest, null, 2));
 
     // 3b. TOOLPAGE-DEEPLINK-1: the same region carries the chrome-sourced deep-link reader.
     check('deep-link reader present, sourced from _page-chrome.mjs', block.includes(DEEPLINK_MARKER) && block.includes('#p=v1.'));
@@ -4698,6 +4933,21 @@ async function selftest(){
     check('direct block: no form-prefill mapping lines at all', !dBlock.includes('.value = String(params.'));
     check('direct block: annotations readOnlyHint only', dBlock.includes('annotations: { readOnlyHint: true },') && !dBlock.includes('untrustedContentHint:') && !dBlock.includes('exposedTo:'));
     check('direct block: no deep-link/file-import readers (no controls to prefill)', !dBlock.includes(DEEPLINK_MARKER) && !dBlock.includes(FILE_IMPORT_MARKER));
+    check('direct block Row B default: no title and no outputSchema without a manifest title or a conformed schema', !dBlock.includes('title:') && !dBlock.includes('outputSchema:'));
+    // Row B (WEBMCP-OUTPUT-SCHEMA-1): the direct block carries title and the
+    // CONFORMED outputSchema (fixture 0's output_payload validates), withheld
+    // on a fixture-0 mismatch exactly like the prefill block.
+    const dManifestOS = JSON.parse(JSON.stringify(dManifest));
+    dManifestOS.title = 'Direct Fixture Tool';
+    dManifestOS.output_schema = { type: 'object', required: ['echo'], properties: { echo: { type: 'array' } } };
+    const dBlockOS = buildDirectBlockForPage(dManifestOS, 'manifests/953-fx-300-direct.manifest.json', '_lastResult', 'renderDirect', { repoRoot: tmp });
+    check('direct block Row B: title verbatim from the manifest', dBlockOS.includes("title: 'Direct Fixture Tool',"));
+    check('direct block Row B: outputSchema emitted for the conformed fixture 0', dBlockOS.includes(`outputSchema: ${JSON.stringify(dManifestOS.output_schema, null, 2).replace(/\n/g, '\n    ')},`));
+    const dManifestBad = JSON.parse(JSON.stringify(dManifest));
+    dManifestBad.title = 'Direct Fixture Tool';
+    dManifestBad.output_schema = { type: 'object', required: ['nonexistent'], properties: { nonexistent: { type: 'string' } } };
+    const dBlockBad = buildDirectBlockForPage(dManifestBad, 'manifests/953-fx-300-direct.manifest.json', '_lastResult', 'renderDirect', { repoRoot: tmp });
+    check('direct block Row B: fixture-0 mismatch withholds outputSchema, title unaffected', dBlockBad.includes("title: 'Direct Fixture Tool',") && !dBlockBad.includes('outputSchema:'));
     check('direct block: parses as JavaScript', (() => { try { new Function(dBlock.match(/<script>([\s\S]*?)<\/script>/)[1]); return true; } catch { return false; } })());
     // Schema validation accepts a property with NO type keyword: required
     // members get a presence check, no shape is invented (MCP-SCHEMA-CONFORMANCE-1).
@@ -4713,6 +4963,81 @@ async function selftest(){
     // The histogram line format the PR body and --check quote.
     const dHist = directHistogram([{ code: 'eligible' }, { code: 'dom-read' }, { code: 'dom-read' }]);
     check('direct histogram: eligible and refused classes counted', dHist.includes('eligible=1') && dHist.includes('refused:dom-read=2'));
+
+    // 16b. WEBMCP-DIRECT-RENDER-PICKS-EXPORT-1: a download/navigation helper is
+    // never the render function. Measured defect: art-280 & co. elected the
+    // Policy Mandate export exportAP2 (Blob + a.click()), so every read-only
+    // agent call downloaded a file.
+    const dPaintLine = 'function renderDirect(){ statusEl.textContent = _lastResult ? "ready" : "idle"; }';
+    const dExportFn = [
+      'function exportAP2(){',
+      '  if (!_lastResult) return;',
+      '  const blob = new Blob([JSON.stringify(_lastResult)], { type: "application/json" });',
+      '  const url = URL.createObjectURL(blob);',
+      '  const a = document.createElement("a");',
+      '  a.href = url; a.download = "x.policy.json";',
+      '  document.body.appendChild(a); a.click(); document.body.removeChild(a);',
+      '}',
+    ].join('\n');
+    // Export-only page: the helper is the only post-compute function.
+    const dPageExportOnly = dPageGreen.replace(dPaintLine, dExportFn).replace('renderDirect();', '');
+    check('render picks: export-only page -> NO_RENDER (never the download helper)', findRenderFunctionName(dPageExportOnly, 'runDirect', '_lastResult') === NO_RENDER);
+    writeFileSync(join(tmp, 'chaingraph', 'fx-300-direct.html'), dPageExportOnly);
+    const dExpOnly = await directAdjudication('fx-300-direct', dIdx, mcpNameByTool, tmp);
+    check('render picks: export-only page stays direct-eligible with render NO_RENDER', dExpOnly.eligible === true && dExpOnly.detail.render === NO_RENDER);
+    const dExpBlock = buildDirectBlockForPage(dManifest, 'manifests/953-fx-300-direct.manifest.json', '_lastResult', dExpOnly.eligible ? dExpOnly.detail.render : 'exportAP2');
+    check('render picks: export-only block emits NO render call (no await exportAP2();)', !dExpBlock.includes('await exportAP2();') && !/await [A-Za-z_$][\w$]*\(\);/.test(dExpBlock));
+    check('render picks: export-only block still computes, stores and returns the result global', dExpBlock.includes('await runDirect(__computeInput);') && dExpBlock.includes('return _lastResult;'));
+    check('render picks: export-only block parses as JavaScript', (() => { try { new Function(dExpBlock.match(/<script>([\s\S]*?)<\/script>/)[1]); return true; } catch { return false; } })());
+    // RED control: the same helper renamed into a plain painter (download lines
+    // removed) IS elected — the filter keys on the download, not the name.
+    const dPageExportNamedPainter = dPageGreen.replace(dPaintLine, 'function exportAP2(){ statusEl.textContent = _lastResult ? "ready" : "idle"; }').replace('renderDirect();', '');
+    check('render picks RED control: a non-downloading function named exportAP2 is still a painter', findRenderFunctionName(dPageExportNamedPainter, 'runDirect', '_lastResult') === 'exportAP2');
+    // Paint + export page: the paint function is chosen (was ambiguous -> null).
+    const dPagePaintAndExport = dPageGreen.replace(dPaintLine, dPaintLine + '\n' + dExportFn);
+    check('render picks: paint + export page -> the paint function renderDirect', findRenderFunctionName(dPagePaintAndExport, 'runDirect', '_lastResult') === 'renderDirect');
+    writeFileSync(join(tmp, 'chaingraph', 'fx-300-direct.html'), dPagePaintAndExport);
+    const dPaintExp = await directAdjudication('fx-300-direct', dIdx, mcpNameByTool, tmp);
+    check('render picks: paint + export page adjudicates with render renderDirect', dPaintExp.eligible === true && dPaintExp.detail.render === 'renderDirect');
+    writeFileSync(join(tmp, 'chaingraph', 'fx-300-direct.html'), dPageGreen);
+    // Navigation helpers are refused the same way; two real painters stay ambiguous.
+    for (const [label, body] of [
+      ['window.open', 'function openIt(){ if (_lastResult) window.open("about:blank"); }'],
+      ['location.href assignment', 'function goIt(){ if (_lastResult) location.href = "#done"; }'],
+      ['location.assign', 'function goIt2(){ if (_lastResult) window.location.assign("#done"); }'],
+    ]) {
+      check(`render picks: ${label} helper is not a painter`, findRenderFunctionName(dPageGreen.replace(dPaintLine, dPaintLine + '\n' + body), 'runDirect', '_lastResult') === 'renderDirect');
+    }
+    check('render picks: a location comparison (==) is not a navigation', !isDownloadOrNavigationBody('function f(){ if (location == null) return; }'));
+    const dPageTwoPainters = dPageGreen.replace(dPaintLine, dPaintLine + '\nfunction paintToo(){ statusEl.title = _lastResult ? "y" : "n"; }');
+    check('render picks: two real painters stay ambiguous (null, refused)', findRenderFunctionName(dPageTwoPainters, 'runDirect', '_lastResult') === null);
+    check('render picks: no candidates at all stays null (refused, not NO_RENDER)', findRenderFunctionName(dPageNoRender, 'runDirect', '_lastResult') === null);
+
+    // 16c. WEBMCP-DIRECT-RENDER-PICKS-EXPORT-1 second defect: findWrapperName's
+    // brace scan ignores comments and needs a real call site. Measured on
+    // art-373: a getPP() comment holding an unbalanced 'chain{' and the literal
+    // 'compute(' ran getPP's span into run(), so both were candidates -> null.
+    const wcPage = [
+      '<script>',
+      'function compute(pp){ return pp; }',
+      'function getPP() {',
+      '  const pp = { a: 1 };',
+      '  // compute() never reads either key; only the chain{} envelope below does.',
+      '  /* and a block comment with an open brace { and compute( too */',
+      '  return pp;',
+      '}',
+      'async function run() {',
+      '  const pp = getPP();',
+      '  const result = compute(pp);',
+      '  return result;',
+      '}',
+      '</script>',
+    ].join('\n');
+    check('findWrapperName: comment with unbalanced brace + compute( literal does not elect getPP (art-373 shape) -> run', findWrapperName(wcPage, 'compute') === 'run');
+    const wcStrPage = wcPage.replace('  const result = compute(pp);\n  return result;', '  const label = "compute(pp)";\n  return label;');
+    check('findWrapperName: compute( only in comments/strings is not a call site -> null', findWrapperName(wcStrPage, 'compute') === null);
+    const wcTwoPage = wcPage.replace('  return pp;\n}', '  return compute(pp);\n}');
+    check('findWrapperName RED control: two real zero-arg callers stay ambiguous -> null', findWrapperName(wcTwoPage, 'compute') === null);
 
     // 17. Chain-mode composer_url resolution (WEBMCP-CHAIN-GEN-COMPOSER-URL-1):
     // resolution precedence, the frozen blocking set, and the advisory

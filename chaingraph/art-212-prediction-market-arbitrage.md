@@ -8,6 +8,9 @@ Calculates cross-venue prediction market arbitrage: gross spread, fee-adjusted n
 
 ## Inputs
 
+- as_of (any, required): type not evidenced by kernel source
+- fee_regime (any, required): type not evidenced by kernel source
+- market_category (any, required): type not evidenced by kernel source
 - no_price_b (number, optional)
 - payout (number, optional)
 - stake_total (number, optional)
@@ -22,7 +25,13 @@ Calculates cross-venue prediction market arbitrage: gross spread, fee-adjusted n
 - consensus_gap (number, required)
 - disclaimer (string, required)
 - fee_a (number, required)
+- fee_as_of (null,string, required)
 - fee_b (number, required)
+- fee_market_category (string,null, required)
+- fee_regime_a (string, required)
+- fee_regime_b (string, required)
+- fee_theta_a (string, required)
+- fee_theta_b (string,null, required)
 - gross_profit (number, required)
 - gross_spread (number, required)
 - gross_spread_pct (number, required)

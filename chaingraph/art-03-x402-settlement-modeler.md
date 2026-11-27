@@ -8,10 +8,12 @@ Rail-selection and finality recommendation across x402 (HTTP 402), Stripe USDC, 
 
 ## Inputs
 
-- amount_usd (number, required)
-- monthly_volume (number, optional)
-- payment_type (string, optional)
-- finality_requirement (string, optional)
+- amount_usd (number, required): Transaction amount in US dollars. Kernel falls back to 250 when missing or 0.
+- monthly_volume (number, optional): Transactions per month. Kernel falls back to 5000 when missing or 0.
+- payment_type (string, optional): Payment type. micropayment restricts to rails that support micropayments; cross_border to rails that support cross-border.
+- finality_requirement (string, optional): Required finality class.
+- gas_tier (string, optional): Network fee tier used to pick each rail fixed fee. An unrecognised value falls back to medium fees.
+- chargeback_profile (string, optional): Chargeback exposure profile. high favours rails with no chargeback risk.
 
 ## Outputs
 

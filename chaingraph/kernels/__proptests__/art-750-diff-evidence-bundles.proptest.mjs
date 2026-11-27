@@ -1,7 +1,7 @@
 // art-750-diff-evidence-bundles.proptest.mjs — class-K property-test FLOOR
 // (FV-PBT-FLOOR-BUILD-SPEC.md). Authored against the port of the root
 // bundle-diff.html comparison engine (kernel art-750, row BUNDLE-DIFF-KERNEL-1).
-// kernel_digest_at_authoring: sha256:693b7edea3f0a7a3d0123d9918e30abee3503aa91c3cf880d882c89fb78aab16
+// kernel_digest_at_authoring: sha256:10f7f50fb12b12ed1dacfb63edeeee56fba0eb383eb6cb7ed6fa0cf347b26b58
 // human_sign_off: PENDING
 //
 // SCOPE: floor tier only. NOT a proof. Internal engineering QC only.
@@ -26,7 +26,7 @@
 //
 // Run: node chaingraph/kernels/__proptests__/art-750-diff-evidence-bundles.proptest.mjs
 
-import { compute } from '../art-750-diff-evidence-bundles.kernel.mjs';
+import { compute, buildArtifact } from '../art-750-diff-evidence-bundles.kernel.mjs';
 import { runFixtureOracle, summarize, mulberry32 } from './_pbt-common.mjs';
 
 const KERNEL_ID = 'art-750-diff-evidence-bundles';
@@ -218,6 +218,47 @@ function checkP7DepthCap() {
   return { name: 'P7 depth cap refusal', checked, violations };
 }
 
+// P8 — type-preserving walk: values of different JSON types never compare equal.
+function checkP8TypePreserved() {
+  let checked = 0, violations = 0;
+  for (const n of [0, 1, 111, 42.5, -7]) {
+    const out = compute({ bundle_a: { execution_hash: n }, bundle_b: { execution_hash: String(n) } }).output_payload;
+    checked++;
+    if (out.bundles_identical !== false || out.hashes.status !== 'changed') violations++;
+    checked++;
+    const row = out.hashes.rows[0];
+    if (!row || row.kind !== 'changed' || row.from !== n || row.to !== String(n)) violations++;
+    // same type on both sides stays identical
+    checked++;
+    if (compute({ bundle_a: { execution_hash: n }, bundle_b: { execution_hash: n } }).output_payload.bundles_identical !== true) violations++;
+  }
+  return { name: 'P8 number vs string never compare equal', checked, violations };
+}
+
+// P9 — a BigInt anywhere in pp is refused with the named reason, never an opaque
+// serialization error; the same refusal surfaces through buildArtifact.
+async function checkP9BigIntRefused() {
+  let checked = 0, violations = 0;
+  const ok = (h) => ({ execution_hash: h });
+  const cases = [
+    ['in-field', { bundle_a: { execution_hash: 'h', tool_version: 7n }, bundle_b: ok('h2') }],
+    ['nested', { bundle_a: { execution_hash: 'h', output_payload: { x: [{ y: 3n }] } }, bundle_b: ok('h2') }],
+    ['top-level extra', { bundle_a: ok('h'), bundle_b: ok('h2'), zzz: 10n }],
+    ['as_of', { bundle_a: ok('h'), bundle_b: ok('h2'), as_of: 5n }],
+  ];
+  for (const [label, pp] of cases) {
+    checked++;
+    try { compute(pp); violations++; console.log('  miss: ' + label + ' did not throw'); }
+    catch (e) { if (!/bigint|as_of must be/i.test(e.message)) violations++; if (label !== 'as_of' && !/^REFUSED_INPUT_UNSAFE_NUMBER/.test(e.message)) violations++; }
+    checked++;
+    try {
+      await buildArtifact(pp, {});
+      violations++;
+    } catch (e) { if (/Do not know how to serialize/i.test(e.message)) violations++; }
+  }
+  return { name: 'P9 BigInt refused with named reason', checked, violations };
+}
+
 // ---------- run ----------
 let oracle;
 try {
@@ -233,6 +274,8 @@ const properties = [
   checkP5VerdictRegression(),
   checkP6ShapeMigrationInvariance(),
   checkP7DepthCap(),
+  checkP8TypePreserved(),
+  await checkP9BigIntRefused(),
 ];
 console.log(`[${KERNEL_ID}] class-K floor property test — bundle-diff kernel.`);
 const ok = summarize(KERNEL_ID, oracle, properties);

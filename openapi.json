@@ -3,7 +3,7 @@
   "info": {
     "title": "AINumbers.co Fintech Intelligence Suite",
     "version": "1.0.0",
-    "description": "**1334 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
+    "description": "**1336 fintech intelligence tools** covering ISO 20022, A2A payments, CFPB §1033, EU AI Act, DORA, MiCA, AML/KYC, BaaS, DLT/tokenization, ESG/climate finance, agentic payments (AP2, ACP, x402, Visa TAP, Mastercard Agent Pay), PQC migration, sanctions screening, and OpenChainGraph v0.4 computation chains.\n\n## Transport\n\n> **The live transport is MCP JSON-RPC 2.0 at `https://mcp.ainumbers.co/mcp` — not REST.**\n>\n> This OpenAPI file is a **descriptive data-room artifact** — a machine-readable index of all tools and their input/output schemas. The REST paths (`POST /v1/tools/{name}`) described here are a projection; they become functional only if the optional REST shim (Area 2 Path B) is deployed.\n>\n> To call tools today, connect via the [official MCP client SDKs](https://docs.ainumbers.co). TypeScript: `@modelcontextprotocol/sdk`. Python: `mcp`.\n\n## Architecture\n\nAll tools run **entirely client-side** (browser JavaScript). Zero PII. Zero server calls after page load. Deterministic, reproducible outputs. Licensed CC BY 4.0.\n\nOpenChainGraph v0.4 compute-binding nodes additionally run **server-side on the MCP Worker** and emit verifiable artifacts with `execution_hash` (WebCrypto SHA-256 over RFC 8785 canonical JSON).",
     "contact": {
       "name": "Post Oak Labs",
       "url": "https://postoaklabs.com",
@@ -2247,6 +2247,9 @@
       "name": "autonomy"
     },
     {
+      "name": "average-price"
+    },
+    {
       "name": "ba-cva"
     },
     {
@@ -2383,6 +2386,9 @@
     },
     {
       "name": "blake3"
+    },
+    {
+      "name": "block-allocation"
     },
     {
       "name": "blockchain"
@@ -3420,6 +3426,9 @@
       "name": "disputes"
     },
     {
+      "name": "dividend-purification"
+    },
+    {
       "name": "dlt-pilot"
     },
     {
@@ -3639,6 +3648,9 @@
       "name": "equity"
     },
     {
+      "name": "equity-index"
+    },
+    {
       "name": "erc-1155"
     },
     {
@@ -3742,6 +3754,9 @@
     },
     {
       "name": "evidence-linkage"
+    },
+    {
+      "name": "exact-arithmetic"
     },
     {
       "name": "exam-readiness"
@@ -4782,6 +4797,9 @@
       "name": "mcp:ai_displacement_risk_screener"
     },
     {
+      "name": "mcp:allocate_average_price"
+    },
+    {
       "name": "mcp:analyze_espp_disposition"
     },
     {
@@ -5041,6 +5059,9 @@
     },
     {
       "name": "mcp:resolve_rule_version"
+    },
+    {
+      "name": "mcp:screen_shariah_equity"
     },
     {
       "name": "mcp:servicing_compliance_clock"
@@ -6420,6 +6441,9 @@
       "name": "rounding-modes"
     },
     {
+      "name": "rounding-residual"
+    },
+    {
       "name": "roundtrip"
     },
     {
@@ -6733,6 +6757,9 @@
     },
     {
       "name": "shareholder meeting"
+    },
+    {
+      "name": "shariah-screening"
     },
     {
       "name": "sharing-deadline"
@@ -36236,38 +36263,55 @@
                 "type": "object",
                 "properties": {
                   "collateral_type": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "ust_10y",
+                      "ust_30y",
+                      "agency_mbs",
+                      "ig_corp_bond",
+                      "gilt_10y",
+                      "eu_sovereign"
+                    ],
+                    "default": "ust_10y",
+                    "description": "Collateral class (case-insensitive). Unrecognised values fall back to a 4.0 percent base haircut."
                   },
-                  "notional": {
-                    "type": "number"
-                  },
-                  "currency": {
-                    "type": "string"
+                  "notional_usd": {
+                    "type": "number",
+                    "description": "Repo notional in US dollars. A missing or non-numeric value is treated as 0, which yields zero margin."
                   },
                   "tenor": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "overnight",
+                      "1w",
+                      "1m",
+                      "3m",
+                      "6m",
+                      "open_term"
+                    ],
+                    "default": "overnight",
+                    "description": "Repo tenor (case-insensitive). 6m and open_term add a roll-risk adjustment."
                   },
-                  "counterparty": {
-                    "type": "string"
+                  "counterparty_type": {
+                    "type": "string",
+                    "default": "bank",
+                    "description": "Counterparty type (case-insensitive). hedge_fund adds a counterparty surcharge; any other value, for example bank, adds none."
                   },
-                  "canton_247": {
-                    "type": "boolean"
-                  },
-                  "custodied": {
-                    "type": "boolean"
+                  "canton247": {
+                    "type": "boolean",
+                    "description": "True to value on Canton 24/7 atomic settlement (no weekend-gap adjustment) when computing initial margin."
                   },
                   "cross_border": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "description": "True to add the cross-border adjustment."
                   },
                   "concentration_pct": {
-                    "type": "number"
+                    "type": "number",
+                    "description": "Collateral concentration in percent. Above 20 adds a concentration adjustment."
                   }
                 },
                 "required": [
-                  "collateral_type",
-                  "notional",
-                  "tenor",
-                  "counterparty"
+                  "notional_usd"
                 ]
               }
             }
@@ -44930,7 +44974,7 @@
       "post": {
         "operationId": "verify_vcjcs_envelope",
         "summary": "VC-JCS Envelope Verifier",
-        "description": "Offline verifier for W3C VC 2.0 Data Integrity (eddsa-jcs-2022 / did:key) exports produced by AINumbers tools. Decodes the did:key verificationMethod directly to Ed25519 key bytes, recomputes the JCS-canonicalized proof hash and verifies the signature, and independently recomputes every embedded execution_hash from its policy_parameters/output_payload — never trusting either the proof or the execution_hash fields as stated in the pasted document. Zero network calls anywhere in the tool.\n\n**Tool URL:** https://ainumbers.co/tools/624-vcjcs-envelope-verifier.html\n**AP2/Policy Mandate export:** yes",
+        "description": "Offline verifier for W3C VC 2.0 Data Integrity exports over did:key, covering both eddsa-jcs-2022 (Ed25519) and ecdsa-jcs-2019 (P-256, vendored sha256-pinned @noble/curves 2.4.0). Decodes the did:key verificationMethod directly to key bytes, recomputes the JCS-canonicalized proof hash and verifies the signature, shows the exact canonical bytes the signature covers, and independently recomputes every embedded execution_hash from its policy_parameters/output_payload — never trusting either the proof or the execution_hash fields as stated in the pasted document. Zero network calls anywhere in the tool.\n\n**Tool URL:** https://ainumbers.co/tools/624-vcjcs-envelope-verifier.html\n**AP2/Policy Mandate export:** yes",
         "tags": [
           "VC-JCS",
           "eddsa-jcs-2022",
@@ -56534,10 +56578,12 @@
                 "type": "object",
                 "properties": {
                   "amount_usd": {
-                    "type": "number"
+                    "type": "number",
+                    "description": "Transaction amount in US dollars. Kernel falls back to 250 when missing or 0."
                   },
                   "monthly_volume": {
-                    "type": "number"
+                    "type": "number",
+                    "description": "Transactions per month. Kernel falls back to 5000 when missing or 0."
                   },
                   "payment_type": {
                     "type": "string",
@@ -56546,7 +56592,9 @@
                       "retail",
                       "b2b",
                       "cross_border"
-                    ]
+                    ],
+                    "default": "retail",
+                    "description": "Payment type. micropayment restricts to rails that support micropayments; cross_border to rails that support cross-border."
                   },
                   "finality_requirement": {
                     "type": "string",
@@ -56556,7 +56604,29 @@
                       "minutes",
                       "hours",
                       "days"
-                    ]
+                    ],
+                    "default": "fast",
+                    "description": "Required finality class."
+                  },
+                  "gas_tier": {
+                    "type": "string",
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high"
+                    ],
+                    "default": "medium",
+                    "description": "Network fee tier used to pick each rail fixed fee. An unrecognised value falls back to medium fees."
+                  },
+                  "chargeback_profile": {
+                    "type": "string",
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high"
+                    ],
+                    "default": "medium",
+                    "description": "Chargeback exposure profile. high favours rails with no chargeback risk."
                   }
                 },
                 "required": [
@@ -65391,7 +65461,10 @@
               "schema": {
                 "type": "object",
                 "required": [
+                  "as_of",
+                  "fee_regime",
                   "forecast_prob",
+                  "market_category",
                   "mode",
                   "no_ask",
                   "outcome",
@@ -65401,6 +65474,9 @@
                   "won"
                 ],
                 "properties": {
+                  "as_of": {
+                    "description": "type not evidenced by kernel source"
+                  },
                   "bankroll": {
                     "type": "number",
                     "default": 1000
@@ -65417,8 +65493,14 @@
                     "type": "number",
                     "default": 0.5
                   },
+                  "fee_regime": {
+                    "description": "type not evidenced by kernel source"
+                  },
                   "forecast_prob": {
                     "type": "number"
+                  },
+                  "market_category": {
+                    "description": "type not evidenced by kernel source"
                   },
                   "mode": {
                     "description": "type not evidenced by kernel source"
@@ -65495,8 +65577,41 @@
                         "number"
                       ]
                     },
+                    "fee_as_of": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "fee_market_category": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "crypto",
+                        "finance",
+                        "geopolitics",
+                        "other",
+                        null
+                      ]
+                    },
                     "fee_paid": {
                       "type": "number"
+                    },
+                    "fee_regime": {
+                      "type": "string",
+                      "enum": [
+                        "kalshi",
+                        "polymarket_global",
+                        "polymarket_us"
+                      ]
+                    },
+                    "fee_rounding": {
+                      "type": "string"
+                    },
+                    "fee_theta": {
+                      "type": "string"
                     },
                     "half_kelly_stake": {
                       "type": [
@@ -65616,10 +65731,22 @@
               "schema": {
                 "type": "object",
                 "required": [
+                  "as_of",
+                  "fee_regime",
+                  "market_category",
                   "venue_a",
                   "venue_b"
                 ],
                 "properties": {
+                  "as_of": {
+                    "description": "type not evidenced by kernel source"
+                  },
+                  "fee_regime": {
+                    "description": "type not evidenced by kernel source"
+                  },
+                  "market_category": {
+                    "description": "type not evidenced by kernel source"
+                  },
                   "no_price_b": {
                     "type": "number",
                     "default": 0.5
@@ -65674,8 +65801,44 @@
                     "fee_a": {
                       "type": "number"
                     },
+                    "fee_as_of": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
                     "fee_b": {
                       "type": "number"
+                    },
+                    "fee_market_category": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "fee_regime_a": {
+                      "type": "string",
+                      "enum": [
+                        "kalshi",
+                        "polymarket_global",
+                        "polymarket_us"
+                      ]
+                    },
+                    "fee_regime_b": {
+                      "type": "string",
+                      "enum": [
+                        "cme_event_legacy",
+                        "kalshi"
+                      ]
+                    },
+                    "fee_theta_a": {
+                      "type": "string"
+                    },
+                    "fee_theta_b": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "gross_profit": {
                       "type": "number"
@@ -65740,7 +65903,13 @@
                     "consensus_gap",
                     "disclaimer",
                     "fee_a",
+                    "fee_as_of",
                     "fee_b",
+                    "fee_market_category",
+                    "fee_regime_a",
+                    "fee_regime_b",
+                    "fee_theta_a",
+                    "fee_theta_b",
                     "gross_profit",
                     "gross_spread",
                     "gross_spread_pct",
@@ -79297,7 +79466,9 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [],
+                "required": [
+                  "scaled_ui"
+                ],
                 "properties": {
                   "current_multiplier": {
                     "description": "type not evidenced by kernel source"
@@ -79315,6 +79486,9 @@
                     "description": "type not evidenced by kernel source"
                   },
                   "raw_balance_before": {
+                    "description": "type not evidenced by kernel source"
+                  },
+                  "scaled_ui": {
                     "description": "type not evidenced by kernel source"
                   }
                 }
@@ -79491,7 +79665,9 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [],
+                "required": [
+                  "scaled_ui"
+                ],
                 "properties": {
                   "applied_multiplier_in_expression": {
                     "description": "type not evidenced by kernel source"
@@ -79503,6 +79679,9 @@
                     "description": "type not evidenced by kernel source"
                   },
                   "raw_balance": {
+                    "description": "type not evidenced by kernel source"
+                  },
+                  "scaled_ui": {
                     "description": "type not evidenced by kernel source"
                   },
                   "ui_multiplier": {
@@ -82107,7 +82286,10 @@
                   "type": "object",
                   "properties": {
                     "compliant": {
-                      "type": "boolean"
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
                     },
                     "disambiguation": {
                       "type": "string"
@@ -82266,20 +82448,67 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "as_of_date",
-                  "file_content",
-                  "records"
-                ],
                 "properties": {
                   "file_content": {
-                    "description": "type not evidenced by kernel source"
+                    "type": "string",
+                    "description": "CSV text, one address record per row, header optional. Used only when records is absent. Pipe-separate address_lines in one cell."
                   },
                   "records": {
-                    "type": "array"
+                    "type": "array",
+                    "description": "Pre-parsed address records; takes precedence over file_content. Every record field is optional.",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "network": {
+                          "type": "string",
+                          "enum": [
+                            "fedwire",
+                            "chips"
+                          ],
+                          "default": "fedwire",
+                          "description": "Payment network (case-insensitive). Anything else is treated as fedwire."
+                        },
+                        "street_name": {
+                          "type": "string",
+                          "description": "Street name (structured StrtNm)."
+                        },
+                        "building_number": {
+                          "type": "string",
+                          "description": "Building number (structured BldgNb)."
+                        },
+                        "post_code": {
+                          "type": "string",
+                          "description": "Postal code (structured PstCd)."
+                        },
+                        "town_name": {
+                          "type": "string",
+                          "description": "Town or city name (structured TwnNm)."
+                        },
+                        "country": {
+                          "type": "string",
+                          "description": "Two-letter ISO 3166 country code (case-insensitive)."
+                        },
+                        "country_subdivision": {
+                          "type": "string",
+                          "description": "Country subdivision, for example a US state (structured CtrySubDvsn)."
+                        },
+                        "address_lines": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Unstructured AdrLine entries; over 2 lines or 70 chars each is flagged."
+                        },
+                        "as_of_date": {
+                          "type": "string",
+                          "description": "Per-record as-of date; overrides the top-level as_of_date."
+                        }
+                      }
+                    }
                   },
                   "as_of_date": {
-                    "description": "type not evidenced by kernel source"
+                    "type": "string",
+                    "description": "As-of date (YYYY-MM-DD) applied to records lacking their own."
                   }
                 }
               }
@@ -100737,7 +100966,10 @@
                   "type": "object",
                   "properties": {
                     "as_of_date": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "citations": {
                       "type": "object",
@@ -140065,7 +140297,31 @@
                           ],
                           "additionalProperties": false
                         },
+                        "constructor": {
+                          "type": "object",
+                          "properties": {
+                            "version": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "version"
+                          ],
+                          "additionalProperties": false
+                        },
                         "dev.ucp.shopping.checkout": {
+                          "type": "object",
+                          "properties": {
+                            "version": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "version"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "toString": {
                           "type": "object",
                           "properties": {
                             "version": {
@@ -141431,6 +141687,190 @@
         "x-source": "manifest"
       }
     },
+    "/v1/tools/screen_shariah_equity": {
+      "post": {
+        "operationId": "screen_shariah_equity",
+        "summary": "Shariah Equity Purification",
+        "description": "Screens one company's caller-supplied financial values under four pinned Shariah screening methodologies (MSCI long-form and average-cap, FTSE daily-average, NIFTY TASIS conservative), each verdict reported separately, never merged. Threshold comparisons are exact integer cross-multiplication on minor units; the compliant-debt carve-out covers eleven pinned country codes; purification runs per profile; unlisted methodologies refuse by name. Outputs verdict rows and purification arithmetic only.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-850-shariah-equity-purification.html\n**AP2/Policy Mandate export:** yes",
+        "tags": [
+          "shariah-screening",
+          "equity-index",
+          "dividend-purification",
+          "islamic-finance",
+          "mcp:screen_shariah_equity"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "methodologies": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "msci_islamic",
+                        "msci_islamic_m",
+                        "ftse_idealratings",
+                        "nifty_tasis"
+                      ]
+                    },
+                    "minItems": 1,
+                    "maxItems": 4
+                  },
+                  "is_current_constituent": {
+                    "type": "boolean"
+                  },
+                  "country_code": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{2}$"
+                  },
+                  "shariah_compliant_debt_minor": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000000000000
+                  },
+                  "total_assets_minor": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000000000000
+                  },
+                  "total_debt_minor": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000000000000
+                  },
+                  "cash_and_interest_bearing_securities_minor": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000000000000
+                  },
+                  "receivables_minor": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000000000000
+                  },
+                  "total_revenue_minor": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000000000000
+                  },
+                  "non_permissible_revenue_minor": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000000000000
+                  },
+                  "interest_income_minor": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000000000000
+                  },
+                  "total_income_minor": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000000000000
+                  },
+                  "interest_based_investments_minor": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000000000000
+                  },
+                  "market_cap_series_minor": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 10000000000000
+                    },
+                    "minItems": 1,
+                    "maxItems": 600
+                  },
+                  "market_cap_series_period": {
+                    "type": "string",
+                    "enum": [
+                      "month_end",
+                      "day"
+                    ]
+                  },
+                  "dividend_minor": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000000000000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "valid_input": {
+                      "type": "boolean"
+                    },
+                    "not_a_shariah_ruling": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "methodologies": {
+                      "type": [
+                        "array",
+                        "null"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "verdicts": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "description": "One verdict group per requested authority profile, keyed by profile name; null on refusal. Groups are never merged."
+                    },
+                    "domain_errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "purification": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "valid_input",
+                    "not_a_shariah_ruling",
+                    "verdicts",
+                    "warnings"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "screen_shariah_equity",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-850-shariah-equity-purification.html",
+        "x-source": "manifest",
+        "x-ap2-export": true
+      }
+    },
     "/v1/tools/compute_murabahah_ibra_settle": {
       "post": {
         "operationId": "compute_murabahah_ibra_settle",
@@ -141838,6 +142278,336 @@
         "x-tool-url": "https://ainumbers.co/chaingraph/art-855-murabahah-tawarruq-sequence.html",
         "x-source": "manifest",
         "x-ap2-export": true
+      }
+    },
+    "/v1/tools/allocate_average_price": {
+      "post": {
+        "operationId": "allocate_average_price",
+        "summary": "Average Price Allocation",
+        "description": "Split one block order's fills across accounts at one average price, in exact ISO 4217 minor units. Returns the total, the 8-decimal average, each account's amount before and after the rounding residual, the signed residual and where it went, and the identity check. The rounding basis and residual rule are declared conventions of this tool, not a regulatory or fairness rule. Calculation check, not investment, legal or regulatory advice.\n\n**Tool URL:** https://ainumbers.co/chaingraph/art-857-average-price-allocation.html",
+        "tags": [
+          "average-price",
+          "block-allocation",
+          "post-trade",
+          "minor-units",
+          "iso-4217",
+          "rounding-residual",
+          "exact-arithmetic",
+          "mcp:allocate_average_price"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "currency",
+                  "side",
+                  "fills",
+                  "allocations"
+                ],
+                "properties": {
+                  "currency": {
+                    "type": "string",
+                    "description": "ISO 4217 alphabetic code. Sets the minor unit (JPY 0; BHD, KWD, OMR, TND, JOD 3; most codes 2). Unknown codes are refused."
+                  },
+                  "side": {
+                    "type": "string",
+                    "enum": [
+                      "buy",
+                      "sell"
+                    ],
+                    "description": "buy labels amounts as cost, sell as proceeds. The arithmetic is the same."
+                  },
+                  "fills": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 5000,
+                    "description": "Executed fills of one block order, at most 5,000.",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "price_per_share",
+                        "quantity_shares"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "price_per_share": {
+                          "type": "string",
+                          "description": "Positive decimal string, at most 15 integer digits and 8 decimals, e.g. \"10.50\"."
+                        },
+                        "quantity_shares": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "description": "Whole shares in the fill."
+                        },
+                        "currency": {
+                          "type": "string",
+                          "description": "Optional per-fill currency; refused unless it equals the top-level currency."
+                        }
+                      }
+                    }
+                  },
+                  "allocations": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 500,
+                    "description": "Accounts receiving the fills, at most 500. Shares must sum exactly to the filled quantity.",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "account",
+                        "shares"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "account": {
+                          "type": "string",
+                          "description": "Pseudonymous account id, 1 to 64 of A-Z a-z 0-9 . _ : -. Duplicates are refused."
+                        },
+                        "shares": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "description": "Whole shares allocated to the account."
+                        }
+                      }
+                    }
+                  },
+                  "amount_basis": {
+                    "type": "string",
+                    "enum": [
+                      "unrounded_average",
+                      "rounded_average_dp"
+                    ],
+                    "description": "Default unrounded_average. rounded_average_dp rounds the average half-up to average_price_dp first."
+                  },
+                  "average_price_dp": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 8,
+                    "description": "Required with rounded_average_dp; refused with unrounded_average."
+                  },
+                  "residual_handling": {
+                    "type": "string",
+                    "enum": [
+                      "assign_largest",
+                      "report_unallocated"
+                    ],
+                    "description": "Default assign_largest under unrounded_average; required with no default under rounded_average_dp."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "allocations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "account": {
+                            "type": "string"
+                          },
+                          "amount_minor": {
+                            "type": "number"
+                          },
+                          "amount_minor_pre_residual": {
+                            "type": "number"
+                          },
+                          "shares": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "account",
+                          "amount_minor",
+                          "amount_minor_pre_residual",
+                          "shares"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "amount_basis": {
+                      "type": "string",
+                      "enum": [
+                        "rounded_average_dp",
+                        "unrounded_average"
+                      ]
+                    },
+                    "amount_label": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "cost",
+                        "proceeds",
+                        null
+                      ]
+                    },
+                    "average_price": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "average_price_dp": {
+                      "type": [
+                        "null",
+                        "number"
+                      ]
+                    },
+                    "currency": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "BHD",
+                        "EUR",
+                        "JPY",
+                        "USD",
+                        null
+                      ]
+                    },
+                    "identity_holds": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "minor_unit_exponent": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "note": {
+                      "type": "string"
+                    },
+                    "overall": {
+                      "type": "string",
+                      "enum": [
+                        "ALLOCATION_COMPUTED",
+                        "INPUT_REFUSED"
+                      ]
+                    },
+                    "refusals": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "residual_account": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "residual_handling": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "assign_largest",
+                        "report_unallocated",
+                        null
+                      ]
+                    },
+                    "residual_minor": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "rounded_average_price": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "side": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "buy",
+                        "sell",
+                        null
+                      ]
+                    },
+                    "total_minor": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "total_shares": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "unallocated_residual_minor": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "INPUT_REFUSED",
+                          "RESIDUAL_ASSIGNED",
+                          "RESIDUAL_UNALLOCATED"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "allocations",
+                    "amount_basis",
+                    "amount_label",
+                    "average_price",
+                    "average_price_dp",
+                    "currency",
+                    "identity_holds",
+                    "minor_unit_exponent",
+                    "note",
+                    "overall",
+                    "refusals",
+                    "residual_account",
+                    "residual_handling",
+                    "residual_minor",
+                    "rounded_average_price",
+                    "side",
+                    "total_minor",
+                    "total_shares",
+                    "unallocated_residual_minor",
+                    "warnings"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "x-mcp-tool-name": "allocate_average_price",
+        "x-tool-url": "https://ainumbers.co/chaingraph/art-857-average-price-allocation.html",
+        "x-source": "manifest"
       }
     },
     "/v1/tools/plan_tls_pki_migration": {
@@ -147262,7 +148032,7 @@
       "post": {
         "operationId": "check_event_contract_position_limits",
         "summary": "Event Contract Position Limit Check",
-        "description": "Checks a book of event-contract positions, stated as quantities and prices only, against caller-declared position accountability levels and position limits, per contract, per event or per series: computes each position maximum loss from the side (yes loses its full cost, no loses payout minus price), rounded up to the next minor unit (ceiling, conservative toward finding); nets yes and no quantities on the same contract only when the caller declares per_contract_net; applies market-maker treatment as data (accountability multiplier default 10x and limit exemption on program contracts under the pinned Kalshi rulebook profile, all values caller-overridable, no defaults on the generic profile); and reports accountability breaches and limit breaches each with the profile rule cite, verdict WITHIN, ACCOUNTABILITY_REVIEW or LIMIT_BREACH. Every limit figure is caller-supplied -- the node hard-codes no venue figure -- and aggregation across similar contracts is venue-specific: CFTC staff guidance on that question (staff advisory and advance notice, 2026) sets no numeric levels. The node reports arithmetic against declared levels; it never states that a participant violated a rule. Declared domain exclusions: identifier-like labels (account ids, member ids, addresses, emails, hashes) are refused and never echoed; unknown profiles, malformed dates, out-of-window as_of, out-of-enum aggregation, netting, participant class, side and limit basis are refused with structured non-verdicts; no fee or pricing arithmetic (fee and pricing nodes art-211 and art-212 cover that); no trading or legal advice.\n\n**Tool URL:** https://ainumbers.co/chaingraph/790-event-position-limit-check.html\n**Wave:** 141\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
+        "description": "Checks a book of event-contract positions, stated as quantities and prices only, against caller-declared position accountability levels and position limits, per contract, per event or per series: computes each position maximum loss from the side (yes loses its full cost, no loses payout minus price), rounded up to the next minor unit (ceiling, conservative toward finding); nets yes and no quantities on the same contract only when the caller declares per_contract_net; applies market-maker treatment as data (accountability multiplier default 10x and limit exemption on program contracts under the pinned Kalshi rulebook profile, all values caller-overridable, no defaults on the generic profile); and reports accountability breaches and limit breaches each with the profile rule cite, verdict WITHIN, ACCOUNTABILITY_REVIEW or LIMIT_BREACH. Every limit figure is caller-supplied -- the node hard-codes no venue figure -- and aggregation across similar contracts is venue-specific: CFTC staff guidance on that question (staff advisory and advance notice, 2026) sets no numeric levels. Under per_contract_net the node refuses (CROSS_EVENT_LABEL_REFUSED under per_event, CROSS_SERIES_LABEL_REFUSED under per_series) when a single contract's legs disagree on the label its aggregation groups by, rather than inherit the first leg's label; this is order-independent and invents no convention the venue rulebook does not state, so callers must split or relabel such books. The node reports arithmetic against declared levels; it never states that a participant violated a rule. Declared domain exclusions: identifier-like labels (account ids, member ids, addresses, emails, hashes) are refused and never echoed; unknown profiles, malformed dates, out-of-window as_of, out-of-enum aggregation, netting, participant class, side and limit basis are refused with structured non-verdicts; no fee or pricing arithmetic (fee and pricing nodes art-211 and art-212 cover that); no trading or legal advice.\n\n**Tool URL:** https://ainumbers.co/chaingraph/790-event-position-limit-check.html\n**Wave:** 141\n**mandate_type:** compliance_control\n**AP2/Policy Mandate export:** yes",
         "tags": [
           "compliance_control"
         ],

@@ -1,5 +1,5 @@
 // GENERATED FILE — do not hand-edit. Regenerate: node scripts/gen-chainbuilder-catalog.mjs
-// Source: chaingraph.json (777 nodes). Loaded via <script src> tag, not runtime
+// Source: chaingraph.json (779 nodes). Loaded via <script src> tag, not runtime
 // fetch — see CHAINBUILDER-CATALOG-BUILD-SPEC.md §1 for why (CSP connect-src:'none').
 window.CHAINBUILDER_CATALOG = [
   {
@@ -2366,7 +2366,7 @@ window.CHAINBUILDER_CATALOG = [
     "display_name": "Conforming Loan Limit Check",
     "mandate_type": "compliance_mandate",
     "url": "https://ainumbers.co/chaingraph/art-223-conforming-loan-limit.html",
-    "description": "FHFA annual conforming loan limit classifier. 2026 baseline: $832,750 (1-unit), $1,066,250 (2-unit), $1,288,800 (3-unit), $1,601,750 (4-unit",
+    "description": "FHFA annual conforming loan limit classifier. 2027 baseline: $855,400 (1-unit), $1,095,250 (2-unit), $1,323,900 (3-unit), $1,645,350 (4-unit",
     "consumes": [],
     "feeds": [
       "art-222-agency-eligibility-matrix"
@@ -7123,7 +7123,7 @@ window.CHAINBUILDER_CATALOG = [
     "description": "Verifies a plain-text-accounting journal supplied as synthetic text: parses dated transactions and their indented postings, checks each tran",
     "consumes": [],
     "feeds": [],
-    "status": "planned"
+    "status": "live"
   },
   {
     "tool_id": "art-654-perp-funding-implied-yield",
@@ -8570,6 +8570,16 @@ window.CHAINBUILDER_CATALOG = [
     "status": "live"
   },
   {
+    "tool_id": "art-850-shariah-equity-purification",
+    "display_name": "Shariah Equity Purification",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-850-shariah-equity-purification.html",
+    "description": "Screens one company's caller-supplied financials under four pinned Shariah screening methodologies, each as its own independent verdict grou",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
     "tool_id": "art-851-islamic-mmf-placement-limits",
     "display_name": "Islamic MMF Placement Limits",
     "mandate_type": "compliance_control",
@@ -8615,6 +8625,16 @@ window.CHAINBUILDER_CATALOG = [
     "mandate_type": "compliance_control",
     "url": "https://ainumbers.co/chaingraph/art-856-ijarah-imbt-schedule.html",
     "description": "Computes a month-by-month rental schedule for an ijarah lease that ends with the lessee owning the asset, against one pinned authority profi",
+    "consumes": [],
+    "feeds": [],
+    "status": "live"
+  },
+  {
+    "tool_id": "art-857-average-price-allocation",
+    "display_name": "Average Price Allocation",
+    "mandate_type": "compliance_control",
+    "url": "https://ainumbers.co/chaingraph/art-857-average-price-allocation.html",
+    "description": "Average-price allocation for one block order executed in several fills. Given an ISO 4217 currency, a side (buy labels amounts as cost, sell",
     "consumes": [],
     "feeds": [],
     "status": "live"

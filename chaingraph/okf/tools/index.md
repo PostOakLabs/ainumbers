@@ -615,6 +615,7 @@ status: stable
 - [AI Act Conformity Pack Builder](./art-65-ai-conformity-pack-builder.md) — `build_ai_conformity_pack`
 - [Authzen Conformance Fixture](./art-651-authzen-conformance-fixture.md) — `compute_authzen_conformance_fixture`
 - [Verify Receipt](./art-652-verify-receipt.md) — `compute_verify_receipt`
+- [Pta Verifier](./art-653-pta-verifier.md) — `compute_pta_verifier`
 - [Perp Funding Implied Yield](./art-654-perp-funding-implied-yield.md) — `compute_perp_funding_implied_yield`
 - [Publish Market Mark Head](./art-655-publish-market-mark-head.md) — `publish_market_mark_head`
 - [Derivatives Margin Workbench](./art-656-derivatives-margin-workbench.md) — `compute_derivatives_margin_workbench`
@@ -746,11 +747,13 @@ status: stable
 - [Cash-Leg Window Exposure](./art-847-cashleg-window-exposure.md) — `cashleg_window_exposure`
 - [Deferred Comp 457(b) Comparison](./art-849-deferred-comp-457b.md) — `compute_deferred_comp_457b`
 - [PQC Timeline & Migration Fit Diagnostic](./art-85-pqc-timeline-fit-diagnostic.md) — `run_pqc_timeline_fit`
+- [Shariah Equity Purification](./art-850-shariah-equity-purification.md) — `screen_shariah_equity`
 - [Islamic MMF Placement Limits](./art-851-islamic-mmf-placement-limits.md) — `check_islamic_mmf_placement_limits`
 - [Murabahah Ibra' Settlement](./art-852-murabahah-ibra-settlement.md) — `compute_murabahah_ibra_settle`
 - [Sukuk Tradability Composition](./art-854-sukuk-tradability-composition.md) — `check_sukuk_tradability_composition`
 - [Murabahah Tawarruq Sequence Check](./art-855-murabahah-tawarruq-sequence.md) — `check_murabahah_tawarruq_seq`
 - [Ijarah IMBT Rental Schedule](./art-856-ijarah-imbt-schedule.md) — `compute_ijarah_imbt_schedule`
+- [Average Price Allocation](./art-857-average-price-allocation.md) — `allocate_average_price`
 - [TLS / X.509 PKI Migration Planner](./art-86-tls-pki-migration-planner.md) — `plan_tls_pki_migration`
 - [SWIFT / ISO 20022 PQC Readiness Checker](./art-87-iso20022-pqc-readiness-checker.md) — `check_iso20022_pqc_readiness`
 - [FIDO2 / WebAuthn PQC Conformance Checker](./art-88-fido-pqc-conformance-checker.md) — `check_fido_pqc_conformance`

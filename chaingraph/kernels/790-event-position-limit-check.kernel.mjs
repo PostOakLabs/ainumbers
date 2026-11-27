@@ -263,6 +263,18 @@ export function compute(pp) {
     }
     books = [];
     for (const [, group] of byContract) {
+      // Order-independence refusal (Option 1): the netted book inherits group[0]'s label.
+      // If a contract's legs disagree on the label the caller aggregates by, which book the
+      // netted position lands in depends on leg order. Refuse coerce-free rather than pick
+      // a convention the venue rulebook does not state; callers split or relabel such books.
+      if (aggregation === 'per_event' && new Set(group.map((p) => p.event_label)).size > 1) {
+        return refused('CROSS_EVENT_LABEL_REFUSED', 'event_label',
+          'per_contract_net legs of one contract disagree on event_label under per_event aggregation; the netted book refuses rather than inherit group[0]\'s label (order-independent; no unstated convention)');
+      }
+      if (aggregation === 'per_series' && new Set(group.map((p) => p.series_label)).size > 1) {
+        return refused('CROSS_SERIES_LABEL_REFUSED', 'series_label',
+          'per_contract_net legs of one contract disagree on series_label under per_series aggregation; the netted book refuses rather than inherit group[0]\'s label (order-independent; no unstated convention)');
+      }
       const levels = new Set(group.map((p) => p.accountability_level_minor));
       const limits = new Set(group.map((p) => p.limit_minor));
       const bases = new Set(group.map((p) => p.limit_basis));

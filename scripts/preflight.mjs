@@ -1254,10 +1254,22 @@ const GATES = [
     'node .githooks/pre-push.test.mjs'],
   ['Pre-commit hygiene hook fixture proof (staged scoping, red blocks with gate and fix, green passes)',
     'node .githooks/pre-commit.test.mjs'],
+  // MQ-EJECT-CANCELLED-RUN-1: the merge-queue eject hold's run picker and comment
+  // helpers (automerge-label.yml dequeued path). Was authored with #2918 but never run.
+  ['Merge-queue eject hold fixture proof (cancelled ejecting run, MQ-EJECT-CANCELLED-RUN-1)',
+    'node --test scripts/mq-eject-hold.test.mjs'],
+  // The regen deadman retries a failed main regen only for a transient step,
+  // never for a deterministic gate red.
+  ['Regen deadman retry decision fixture proof (gate red skips the retry)',
+    'node --test scripts/ci/regen-retry-decide.test.mjs'],
   // PREPUSH-NARROW-1: red/green controls for the hook's full-suite trigger
   // (which diff paths owe the FULL leg; docs-only scripts/ edits no longer do).
   ['Pre-push full-suite trigger controls (RED/GREEN path classes, PREPUSH-NARROW-1)',
     'node scripts/prepush-full-trigger.mjs --self-test'],
+  // The push:main queue drain heartbeat (dispatch-heartbeat.yml): red when no
+  // schedule or dispatch run of the drain workflows came within the hour.
+  ['Queue drain heartbeat fixture proof (quiet over an hour is red)',
+    'node --test scripts/ci/dispatch-heartbeat.test.mjs'],
   // PREPUSH-PRID-ENV-1: red/green controls for the hook's PR_ID_COLLISION_PR export
   // (open PR on the pushed branch only; every error path exports nothing).
   ['Pre-push PR-id env export controls (RED/GREEN, PREPUSH-PRID-ENV-1)',
@@ -2000,6 +2012,8 @@ const GATES = [
   // HARD on pull_request and locally; not run on merge_group / push:main, which carry the regen's commits.
   ['Main-only derived paths (MAIN-ONLY-PATHS-GATE-1)', 'node scripts/check-main-only-paths.mjs'],
   ['Main-only derived paths controls (RED+GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-main-only-paths.mjs --self-test'],
+  // COVERED-DELTA-IMPACT-1: fixtures for the advisory COVERED-delta impact report (#3208 / #3282 shapes).
+  ['COVERED delta impact controls (RED+GREEN, COVERED-DELTA-IMPACT-1)', 'node scripts/check-covered-delta-impact.mjs --self-test'],
   // VINTAGE-TABLE-1: gates V1 (declared literal equals the dated table), V2 (kernels sharing a
   // fact and vintage agree) and V4 (every source digest resolves in the clause snapshot registry).
   ['Vintage table V1/V2/V4 (VINTAGE-TABLE-1)', 'node chaingraph/kernels/__vintages__/check-vintages.mjs'],
@@ -2017,6 +2031,9 @@ const GATES = [
   // ADVISORY hostile-input census of kernels this diff adds or changes (always exits 0).
   ['Kernel hostile-input census (ADVISORY)', 'node scripts/check-kernel-hostile-census.mjs'],
   ['Kernel hostile-input census controls (RED+GREEN)', 'node scripts/check-kernel-hostile-census.mjs --self-test'],
+  // BigInt never-throw probe; BLOCKING for new-node kernels, edited kernels no worse than main.
+  ['Kernel BigInt never-throw (new node blocking)', 'node scripts/check-kernel-bigint-newnode.mjs'],
+  ['Kernel BigInt never-throw controls (RED+GREEN)', 'node scripts/check-kernel-bigint-newnode.mjs --self-test'],
   // COMPOSER-PLAN-AND-ROOT-WEBMCP-1: parity gate A (in-repo SSOT recompute of every
   // chain plan hash vs the committed derived set + page-literal sample) and parity
   // gate B fixtures (session-receipt Merkle; the site-side routine test is
@@ -2113,6 +2130,15 @@ const GATES = [
   // (a DERIVED_ROOT_GATES member in derived-artifacts.mjs).
   ['Obligation page agreement (O6, OBLIGATION-PAGE-1)', 'node scripts/check-obligation-page.mjs'],
   ['Obligation page gate controls (RED/GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-obligation-page.selftest.mjs'],
+  // OBLIGATION-BACKFILL-1 (PR #3142): obligation map gates O1 (well-formed
+  // lists), O2 (coverage vectors are real), O3 (nothing outside the shrinking
+  // gap baseline) and O4 (cited digests are listed or baselined). Reads only
+  // tracked repo sidecars and fixtures; no network, no CI-only input. Its
+  // inputs chaingraph/obligations/** are in the scripts-verify relevance list
+  // (scripts/ci-paths.json), so a coverage-only PR still runs the full
+  // preflight that carries this gate.
+  ['Obligation coverage O1/O2/O3/O4 (OBLIGATION-BACKFILL-1)', 'node scripts/check-obligation-coverage.mjs'],
+  ['Obligation coverage gate controls (RED/GREEN, GATE-SELFTEST-META-1 pair)', 'node scripts/check-obligation-coverage.selftest.mjs'],
   // AI-CATALOG-1 (AGENT-REACH-BUILD-SPEC §3.2): both well-known catalogs from one
   // generator. Freshness is advisory on a PR via the generic ADVISORY_ON_PR
   // categorisation (derived-artifacts.mjs COVERED ids ai-catalog + api-catalog):
@@ -2571,6 +2597,7 @@ const GATES = [
   ['Ledger live channel de-dup + envelope (LEDGER-BRIDGE-LIVE-1, shipped source)', 'node scripts/ledger-dedup.test.mjs'],
   ['OCG verify.html proven-to-reject (AV-REJECT-FIX-1)', 'node scripts/ocg-verify-hash-tamper.test.mjs'],
   ['tools/568 receipt verifier proven-to-reject (AV-REJECT-FIX-1, shipped source)', 'node scripts/ocg-receipt-verifier-568-tamper.test.mjs'],
+  ['tools/624 VCJCS envelope verifier proven-to-reject + frozen-fixture regression (TSURF-VC-INSPECTOR-1, shipped source)', 'node scripts/vcjcs-envelope-verifier-624-tamper.test.mjs'],
   // TAMPER-GATE-SHIPPED-SOURCE-1: retitled off "proven-to-reject". That label claimed a
   // witness-signature rejection this gate never performs — it exercises the shipped
   // checkpoint-note parser and the root/origin cross-check only; the Ed25519 / ML-DSA-44
@@ -2650,6 +2677,10 @@ const GATES = [
   // local and owner/repo shapes RED, job-level and normal actions GREEN) plus the
   // ratchet states (missing baseline RED, ceiling never raised).
   ['Workflow step-uses controls (RED/GREEN + ratchet states)', 'node scripts/check-workflow-step-uses.test.mjs'],
+  // DEADMAN-RERUN-STALE-SHA-1: the deadman's retry-once re-runs a failed regen only while its
+  // commit is still main's head. A late re-run of an old commit takes the regen concurrency
+  // group's single pending slot and cancels the newest commit's regen (2026-11-25, 018b75f8).
+  ['Deadman retry skips a superseded commit (GREEN re-run / SKIP when main moved)', 'node scripts/derived-regen-deadman-retry.test.mjs'],
   // JSON-parse + no-read-only-fields check for .github/rulesets/*.json (RULESET-AS-CODE-1).
   // Purely local — the "does it match live" half needs an App token and stays CI-only
   // (ruleset-apply.yml / ruleset-drift-gate.yml).
@@ -3306,6 +3337,28 @@ function psParityGateChecks(files) {
   return [['Workflow gate parity (no CI↔preflight drift)', 'node scripts/check-workflow-gate-parity.mjs']];
 }
 
+// KERNEL-SURFACE-STATIC-GATES-1 (2026-11-25, PR #2763 lesson): a kernel-surface diff
+// (chaingraph/kernels/, manifests/, registry/kernel/) is judged in CI by two static
+// registry/schema checks this leg otherwise never runs. #2763 passed every local gate
+// but first-failed CI on both: REGISTRY-RESOLVE-STATIC-1 (land-verify.yml runs
+// `gen-registry-kernel-resolve.mjs --check` HARD on the kernels/** path filter; an
+// in-place kernel edit strands a stale registry/kernel/<hex>.json record) and
+// OUTPUTSCHEMA-GAP-1 (scripts-verify.yml's full preflight; a manifest's declared
+// output_schema must keep validating against the node fixture output_payloads the
+// kernel edit may have moved). The leg caught the parity-gate class the same way
+// (PREPUSH-SAFETY-LEG-1's psParityGateChecks); this is the same shape for the
+// kernel-surface pair. Both are ~1.5 s static scans of tracked files only, and both
+// are repairable in-branch (--write / --update-baseline per their own output), so
+// running them here blocks a push only when a one-command fix exists.
+const PS_KERNEL_SURFACE = /^(chaingraph\/kernels\/|manifests\/|registry\/kernel\/)/;
+function psKernelSurfaceChecks(files) {
+  if (!files.some((f) => PS_KERNEL_SURFACE.test(f))) return [];
+  return [
+    ['Registry kernel-resolve current (REGISTRY-RESOLVE-STATIC-1)', 'node scripts/gen-registry-kernel-resolve.mjs --check'],
+    ['MCP output-schema coverage (OUTPUTSCHEMA-GAP-1)', 'node scripts/check-output-schema-coverage.mjs'],
+  ];
+}
+
 async function runPushSafetySuite(selfTest) {
   const files = psChangedFiles();
   const kernelIds = psTouchedKernelIds(files);
@@ -3313,6 +3366,7 @@ async function runPushSafetySuite(selfTest) {
     ...QUICK_GATES,
     ['Changed-file secret scan (PREPUSH-SAFETY-LEG-1)', '__SECRET_SCAN__'],
     ...kernelIds.map((id) => [`Kernel gates (touched kernel ${id}, --fast --keep-going)`, `node scripts/kernel-preflight.mjs ${id} --fast --keep-going`]),
+    ...psKernelSurfaceChecks(files),
     ...psParityGateChecks(files),
     ...psChangedGateChecks(files),
   ];
@@ -3346,6 +3400,27 @@ async function runPushSafetySuite(selfTest) {
     }
     if (files.some((f) => PS_PARITY_TRIGGER.test(f)) && !labels.some((l) => l.includes('Workflow gate parity'))) {
       failures.push('push-safety is missing the workflow gate parity gate for a gate-machinery diff');
+    }
+    // KERNEL-SURFACE-STATIC-GATES-1: same probe shape as the parity block above —
+    // structural for each of the three kernel-surface path classes, plus the
+    // real-changed-set assertion that the leg actually carries both gates when the
+    // tree's own diff touches any of them.
+    const ksProbe = psKernelSurfaceChecks(['chaingraph/kernels/999-example.kernel.mjs']);
+    if (ksProbe.length !== 2
+        || !ksProbe.some(([l]) => l.includes('REGISTRY-RESOLVE-STATIC-1'))
+        || !ksProbe.some(([l]) => l.includes('OUTPUTSCHEMA-GAP-1'))) {
+      failures.push('push-safety kernel-surface probe broken for a kernel diff');
+    }
+    for (const f of ['manifests/999-example.manifest.json', 'registry/kernel/999f00d.json']) {
+      if (psKernelSurfaceChecks([f]).length !== 2) failures.push(`push-safety kernel-surface probe broken for ${f}`);
+    }
+    if (psKernelSurfaceChecks(['tools/1-example.html', 'README.md']).length !== 0) {
+      failures.push('push-safety kernel-surface gates must not ride an unrelated diff');
+    }
+    if (files.some((f) => PS_KERNEL_SURFACE.test(f))
+        && !labels.some((l) => l.includes('REGISTRY-RESOLVE-STATIC-1'))
+        && !labels.some((l) => l.includes('OUTPUTSCHEMA-GAP-1'))) {
+      failures.push('push-safety is missing the kernel-surface static gates for a kernel-surface diff');
     }
     if (failures.length) {
       for (const f of failures) console.error(`   ✗ ${f}`);
@@ -4136,6 +4211,25 @@ gateStart(BRIDGE_SYNC_LABEL);
       console.log('\n' + r.out.trim() + '\n');
       process.exit(1); // BLOCKING (was advisory): discovered after the gate loop, like L2-HARDLEG-BLOCKING-1 — no later checkpoint would otherwise make a recorded failure exit non-zero.
     }
+  }
+}
+
+// ── Advisory (non-blocking): COVERED delta impact (COVERED-DELTA-IMPACT-1) ──
+// When this diff changes scripts/derived-artifacts.mjs COVERED, reports the knock-on effects the
+// entry's own vet missed on 2026-11-24 (#3208 PER_PR_PAGE_PATCHERS, #3282 regen order / main-only
+// path): main-only delta, pr-sync delta, order / fixpoint, PR-side readers. Silent when COVERED is
+// unchanged. ADVISORY BY DESIGN, exit 0 always (--strict is for manual use only).
+const COVERED_DELTA_LABEL = 'COVERED delta impact (advisory, COVERED-DELTA-IMPACT-1)';
+gateStart(COVERED_DELTA_LABEL);
+{
+  const r = runAdvisoryChecker('node scripts/check-covered-delta-impact.mjs');
+  if (r.state === 'UNAVAILABLE') {
+    gateUnavailable(COVERED_DELTA_LABEL, r.reason, r.out);
+  } else {
+    const flags = (r.out.match(/^\s*FLAG\b/gm) || []).length;
+    gatePass(flags ? `${flags} FLAG(s), advisory: run node scripts/check-covered-delta-impact.mjs` : 'COVERED unchanged or no flags');
+    if (flags) console.log('\n' + r.out.trim() + '\n');
+    if (r.state === 'WARNED') gateFail(`   ⚠ note: ${r.reason} (its documented contract is exit 0 always)`);
   }
 }
 
