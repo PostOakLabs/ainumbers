@@ -1786,9 +1786,14 @@ export async function runOneKernel(id, scratchRoot, opts, strykerVersion, repoRo
       writeFileSync(config2Path, JSON.stringify(config2, null, 2));
 
       const t1 = Date.now();
-      // MUTATION-TRIALS-AUTO-BUDGET-1: the second run uses the SAME trial budget
-      // as the first, so the per-mutant diff compares like with like.
-      const run2 = await runStryker(config2Path, scratchRoot, strykerVersion, budgetS(), mutationEnv);
+      // PR-3308-DECOMPOSED-PARITY-CURE-1: with the auto budget off, the
+      // decomposed second run runs exactly as origin/main's second run runs —
+      // no extra env, full shipped trials. The budget env travels to run 2
+      // ONLY when a central `trials` entry names this kernel (the documented
+      // same-budget-as-run-1 behaviour); a mutationTrials sibling budgets run
+      // 1 only, never run 2.
+      const run2Env = Object.prototype.hasOwnProperty.call((tierConfig && tierConfig.trials) || {}, id) ? mutationEnv : undefined;
+      const run2 = await runStryker(config2Path, scratchRoot, strykerVersion, budgetS(), run2Env);
       const runtime2Ms = Date.now() - t1;
       if (run2.timedOut) {
         // Same loud bound as the as-shipped run, but a decomposed second-run

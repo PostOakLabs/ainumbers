@@ -1231,5 +1231,105 @@ await asyncTest('R42 runTier end to end: a seeded PASS with the equal key prints
   assert(readPassedVerdict(dir, 'fixture-id', keyOf(fx)) === null, 'no record exists for the new key, so the kernel runs');
 });
 
+// ── PR-3308-DECOMPOSED-PARITY-CURE-1: decomposed second-run env parity ────
+console.log('\nrun-mutation-tier controls — decomposed second-run parity (PR-3308-DECOMPOSED-PARITY-CURE-1)');
+
+/**
+ * A fixture repo whose kernel has one money-math mutant line (line 3 — outside
+ * the meta/buildArtifact peripheral ranges) and a proptest that imports the
+ * shared _pbt-common.mjs runFixtureOracle AND reads MUTATION_TIER_NUM_RUNS
+ * natively — the exact shape of the 8 sibling-budget estate kernels (e.g.
+ * art-458: `const TRIALS = env || <full>;`, uncapped). A STUB Stryker bin
+ * (MUTATION_TIER_STRYKER_BIN) records the exact env + argv each invocation
+ * receives and writes a one-mutant killed report, so the REAL runOneKernel
+ * flow — run 1 as-shipped, then the fixture-neutralized decomposed second run
+ * — executes end to end and the test asserts what each run was HANDED.
+ */
+function buildDecomposedParityRepo(id, budget) {
+  const root = mkdtempSync(join(tmpdir(), 'rmt-dec-parity-'));
+  cleanup.push(root);
+  const kd = join(root, 'chaingraph', 'kernels');
+  mkdirSync(join(kd, '__proptests__'), { recursive: true });
+  mkdirSync(join(kd, 'fixtures'), { recursive: true });
+  writeFileSync(join(kd, `${id}.kernel.mjs`),
+    `export const meta = { name: "${id}" };\nexport function buildArtifact() { return 1; }\nexport function moneyMathProbe(n) { return n * 2 + 1; }\n`);
+  writeFileSync(join(kd, '__proptests__', '_pbt-common.mjs'),
+    'export async function runFixtureOracle() { return { total: 0, failures: [] }; }\n');
+  // Native env reader, UNCAPPED — the sibling-kernel shape (art-458 ships 12000).
+  writeFileSync(join(kd, '__proptests__', `${id}.proptest.mjs`),
+    "import { runFixtureOracle } from './_pbt-common.mjs';\n" +
+    'const TRIALS = Number.isSafeInteger(Number(process.env.MUTATION_TIER_NUM_RUNS)) && Number(process.env.MUTATION_TIER_NUM_RUNS) > 0 ? Number(process.env.MUTATION_TIER_NUM_RUNS) : 100;\n' +
+    'let n = 0; for (let i = 0; i < TRIALS; i++) n++;\n' +
+    'const oracle = await runFixtureOracle();\n' +
+    'console.log(n + oracle.total + oracle.failures.length);\n');
+  writeFileSync(join(kd, 'fixtures', `${id}.fixtures.json`), '{}\n');
+  const config = { strykerVersion: '9.0.0', moneyMathBreakFloor: 80, peripheralBreakFloor: 50 };
+  if (budget && budget.sibling) writeFileSync(join(kd, `${id}.mutation.json`), JSON.stringify({ mutationTrials: budget.sibling }));
+  if (budget && budget.central) config.trials = { [id]: budget.central };
+  writeFileSync(join(kd, 'mutation-tiers.config.json'), JSON.stringify(config, null, 2));
+  const logPath = join(root, 'stub-stryker-log.json');
+  writeFileSync(join(root, 'stub-stryker.mjs'),
+    'import { readFileSync, writeFileSync, mkdirSync } from "node:fs";\n' +
+    'import { dirname } from "node:path";\n' +
+    'const cfgPath = process.argv[3];\n' +
+    'const cfg = JSON.parse(readFileSync(cfgPath, "utf8"));\n' +
+    'const logPath = ' + JSON.stringify(logPath) + ';\n' +
+    'let log = [];\n' +
+    'try { log = JSON.parse(readFileSync(logPath, "utf8")); } catch {}\n' +
+    'log.push({ argv: process.argv.slice(2), configPath: cfgPath, budget: process.env.MUTATION_TIER_NUM_RUNS ?? null, budgetVars: Object.keys(process.env).filter((k) => k === "MUTATION_TIER_NUM_RUNS") });\n' +
+    'writeFileSync(logPath, JSON.stringify(log, null, 2));\n' +
+    'const kernelRel = cfg.mutate[0];\n' +
+    'const report = { files: { [kernelRel]: { mutants: [{ id: "m1", status: "Killed", location: { start: { line: 3, column: 1 }, end: { line: 3, column: 2 } } }] } } };\n' +
+    'mkdirSync(dirname(cfg.jsonReporter.fileName), { recursive: true });\n' +
+    'writeFileSync(cfg.jsonReporter.fileName, JSON.stringify(report, null, 2));\n' +
+    'process.stdout.write("stub stryker run complete\\n");\n');
+  return { root, logPath, stubPath: join(root, 'stub-stryker.mjs') };
+}
+
+async function captureDecomposedParity(id, budget) {
+  const fx = buildDecomposedParityRepo(id, budget);
+  const saved = { ...process.env };
+  const logs = [];
+  const origLog = console.log;
+  delete process.env.MUTATION_TIER_NUM_RUNS;
+  delete process.env.MUTATION_VERDICT_DIR;
+  delete process.env.MUTATION_TIER_IN_HOOK;
+  process.env.MUTATION_TIER_STRYKER_BIN = fx.stubPath;
+  console.log = (...a) => logs.push(a.join(' '));
+  try { await runTier(['--kernel', id, '--decomposed'], fx.root); } finally {
+    console.log = origLog;
+    process.env = saved;
+  }
+  return { fx, out: logs.join('\n'), invocations: JSON.parse(readFileSync(fx.logPath, 'utf8')) };
+}
+
+await asyncTest('C7 decomposed second-run parity (the row case): a sibling-budget kernel runs its SECOND run on exactly main\'s env and argv — run 1 budgeted, run 2 with NO budget variable', async () => {
+  const { out, invocations } = await captureDecomposedParity('c7-parity-k', { sibling: 50 });
+  assert(out.includes('✓ run-mutation-tier PASSED'), `the tier must pass end to end (fixture health):\n${out.slice(-600)}`);
+  assert(invocations.length === 2, `exactly two stryker invocations (as-shipped + fixture-neutralized), got ${invocations.length}`);
+  const [run1, run2] = invocations;
+  assert(run1.configPath.endsWith(`stryker.c7-parity-k.json`), `invocation 1 must be the as-shipped config: ${run1.configPath}`);
+  assert(run1.budget === '50' && JSON.stringify(run1.budgetVars) === '["MUTATION_TIER_NUM_RUNS"]',
+    `run 1 must carry the sibling budget (unchanged by this row): ${JSON.stringify(run1)}`);
+  assert(run2.configPath.endsWith(`stryker.c7-parity-k.nofixture.json`), `invocation 2 must be the decomposed nofixture config: ${run2.configPath}`);
+  assert(run2.budget === null && JSON.stringify(run2.budgetVars) === '[]',
+    `run 2 must run on EXACTLY main's second-run env — NO budget variable added (origin/main: runStryker(config2Path, scratchRoot, strykerVersion, budgetS()) with no extra env): ${JSON.stringify(run2)}`);
+  assert(JSON.stringify(run2.argv) === JSON.stringify(['run', run2.configPath]),
+    `run 2 argv must be exactly main's second-run argv: ${JSON.stringify(run2.argv)}`);
+  const src = readFileSync(join(import.meta.dirname, 'run-mutation-tier.mjs'), 'utf8');
+  assert(!src.includes('runStryker(config2Path, scratchRoot, strykerVersion, budgetS(), mutationEnv)'),
+    'the unconditional budget hand-off to the decomposed second run must be gone from the call site');
+});
+
+await asyncTest('C8 a configured CENTRAL trials entry keeps the documented decomposed behaviour: run 2 receives the same budget as run 1', async () => {
+  const { out, invocations } = await captureDecomposedParity('c8-central-k', { central: 123 });
+  assert(out.includes('✓ run-mutation-tier PASSED'), `the tier must pass end to end (fixture health):\n${out.slice(-600)}`);
+  assert(invocations.length === 2, `exactly two stryker invocations, got ${invocations.length}`);
+  const [run1, run2] = invocations;
+  assert(run1.budget === '123', `run 1 carries the central trials budget: ${JSON.stringify(run1)}`);
+  assert(run2.budget === '123' && JSON.stringify(run2.budgetVars) === '["MUTATION_TIER_NUM_RUNS"]',
+    `a configured trials entry must keep the documented same-budget-as-run-1 second run: ${JSON.stringify(run2)}`);
+});
+
 console.log(`\nrun-mutation-tier controls: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
