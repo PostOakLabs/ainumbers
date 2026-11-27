@@ -61,7 +61,8 @@ function isPlainObject(v) {
 }
 
 function refusal(domain_errors) {
-  const compliance_flags = ['INPUT_REFUSED'];
+  const compliance_flags = [];
+  if (domain_errors.length > 0) compliance_flags.push('INPUT_REFUSED');
   const warnings = compliance_flags.slice();
   return {
     output_payload: { refused: true, domain_errors, warnings },

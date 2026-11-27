@@ -1,5 +1,5 @@
 // 858-fill-quality-summary — class-K property-test FLOOR (FV-PBT-FLOOR-BUILD-SPEC.md).
-// kernel_digest_at_authoring: sha256:af146258b97fd0e16a63b540ecf6824e0256dbcb3d341ab416751e3a6a7c0f55
+// kernel_digest_at_authoring: sha256:9cb6593dd7b5df7f20ad18aaed32b8e998abdd197681340441a20ffa06cee686
 // spec: board/claimed/FILL-QUALITY-SUMMARY-NODE-1.md (SPEC.md §4 execution_hash, §18 deferred landing)
 // human_sign_off: PENDING
 //
