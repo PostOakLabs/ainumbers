@@ -1359,15 +1359,16 @@ export function findWrapperName(pageSrc, fn) {
   const names = new Set();
   let m;
   while ((m = declRe.exec(pageSrc)) !== null) {
-    let depth = 1;
-    let j = m.index + m[0].length; // m[0] ends with the opening '{'
-    while (j < pageSrc.length && depth > 0) {
-      const c = pageSrc[j];
-      if (c === '{') depth++; else if (c === '}') depth--;
-      j++;
-    }
-    if (depth !== 0) continue;
-    if (callRe.test(pageSrc.slice(m.index, j))) names.add(m[1]);
+    // WEBMCP-DIRECT-RENDER-PICKS-EXPORT-1 (second defect): the body span is
+    // walked strings/comments-aware (balancedSpan) and the call is matched on
+    // code only (codeBodyText). Measured defect: art-373's getPP() carries a
+    // NAV-LIN-WIRE-1 comment with an unbalanced 'chain{' and the literal
+    // 'compute(' — the raw brace count ran getPP's span into run(), so both
+    // were zero-arg compute invokers and the page was refused. A wrapper needs
+    // a real call site in its own code.
+    const span = balancedSpan(pageSrc, m.index + m[0].length - 1); // m[0] ends with '{'
+    if (!span) continue;
+    if (callRe.test(codeBodyText(pageSrc.slice(m.index, span.end)))) names.add(m[1]);
   }
   return names.size === 1 ? [...names][0] : null;
 }
@@ -3466,6 +3467,26 @@ export const DIRECT_MODE_OPT_OUT = {
   // pre-fix status quo (not direct, zero page bytes) until a follow-up row
   // proves both legs and removes this entry.
   'art-561-currency-basket-index': 'newly direct-eligible only as a side effect of the ART704 render-finder literal-blanking fix; direct emission unproven (no leg-2 adapter), pinned to pre-fix status quo by ART704-DIRECT-EXECUTE-ARTIFACT-FIX-1',
+  // WEBMCP-DIRECT-RENDER-PICKS-EXPORT-1 (2026-11-27): dropping download/
+  // navigation helpers from the render candidates resolved the render
+  // ambiguity on these pages (most now elect verifyHash, a hash re-check, not
+  // a painter; art-109/art-285 resolve to no render call). 21 became newly
+  // direct-eligible and 2 (art-246, art-335) moved from refused:render to
+  // refused:fn-exec. This row's fence is the 8 export-picking direct pages
+  // only, so all 23 are pinned to their pre-fix status quo (not direct, zero
+  // page bytes) until a follow-up row proves both legs and removes the entry.
+  ...Object.fromEntries([
+    'art-109-dtc-tokenized-treasury', 'art-228-build-adverse-action-notice', 'art-231-compute-mla-mapr',
+    'art-246-lei-payment-binding-linter', 'art-251-compute-parametric-trigger-payout',
+    'art-253-run-illustration-selfsupport-test', 'art-255-compute-lcm-rate-derivation',
+    'art-257-calculate-claims-stp-economics', 'art-259-compute-multilateral-netting',
+    'art-261-test-hedge-effectiveness', 'art-262-validate-ebam-acmt-flow', 'art-264-validate-commission-hierarchy',
+    'art-265-amortize-asc606-commissions', 'art-266-reconcile-commission-statement',
+    'art-269-validate-w8-series-structural', 'art-285-acdc-delegation-chain-verifier', 'art-335-compute-dti-ratios',
+    'art-342-compute-escrow-analysis', 'art-352-etr-control-evidence-checker',
+    'art-355-erba-standardized-rwa-calculator', 'art-356-compute-oprisk-sma-2026',
+    'art-357-basel-2023-vs-2026-capital-delta-comparator', 'art-362-compute-raroc-loan-price',
+  ].map((id) => [id, 'render-ambiguity resolved only as a side effect of the WEBMCP-DIRECT-RENDER-PICKS-EXPORT-1 download-helper filter; direct emission unproven (no leg-2 adapter, no live probe), pinned to pre-fix status quo'])),
 };
 
 /** The DOM-read tokens condition (c) bans from an execution function's body. */
@@ -3531,13 +3552,41 @@ export function detectResultGlobal(pageSrc) {
  * and neither calls the execution fn nor assigns the global — a painter, not a
  * producer. Zero or multiple candidates -> null (the generator never guesses;
  * pages that render differently go in DIRECT_MODE_OPT_OUT with a reason).
+ *
+ * WEBMCP-DIRECT-RENDER-PICKS-EXPORT-1: a candidate whose body starts a file
+ * download or a navigation (isDownloadOrNavigationBody) is never a painter.
+ * Measured defect: on art-280/284/286/287/291/292/104/374 the only candidate
+ * was the Policy Mandate export helper exportAP2, so every read-only agent call
+ * downloaded a .policy.json file. When such helpers were the ONLY candidates,
+ * the return is NO_RENDER ('') — the page stays direct-eligible and the
+ * emitted delegate makes no render call. null still means "no painter found /
+ * ambiguous" (a refusal).
  */
+export const NO_RENDER = '';
+
+/** True when a function body starts a download or a navigation: anchor
+ *  .click() with a download attribute, URL.createObjectURL, window.open, or a
+ *  location assignment / assign / replace. Matched on the RAW body, not
+ *  codeBodyText: a regex literal holding a quote (art-109 exportCSV's
+ *  .replace(/"/g, ...)) desynchronises the string blanker and hides the rest of
+ *  the body. A token in a comment can only drop a candidate (never elect one). */
+export function isDownloadOrNavigationBody(rawBody) {
+  const code = rawBody;
+  if (/\.click\s*\(\s*\)/.test(code) && /download/.test(rawBody)) return true;
+  if (/URL\s*\.\s*createObjectURL\s*\(/.test(code)) return true;
+  if (/window\s*\.\s*open\s*\(/.test(code)) return true;
+  if (/(?:^|[^\w$])location(?:\s*\.\s*href)?\s*=(?!=)/.test(code)) return true;
+  if (/(?:^|[^\w$])location\s*\.\s*(?:assign|replace)\s*\(/.test(code)) return true;
+  return false;
+}
+
 export function findRenderFunctionName(pageSrc, fn, resGlobal) {
   const refRe = new RegExp(`(?:^|[^\\w$.])${resGlobal}(?![\\w$])`);
   const assignRe = new RegExp(`(?:^|[^\\w$.])${resGlobal}\\s*=`);
   const fnCallRe = new RegExp(`(?:^|[^\\w$.])${fn}\\s*\\(`);
   const declRe = /(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(\s*\)\s*\{/g;
   const names = new Set();
+  let sideEffectOnly = 0;
   let m;
   while ((m = declRe.exec(pageSrc)) !== null) {
     if (m[1] === fn) continue;
@@ -3557,11 +3606,15 @@ export function findRenderFunctionName(pageSrc, fn, resGlobal) {
     // an IIFE-scoped name the emitted delegate could never resolve
     // (ReferenceError 'artifact is not defined' -> compute_failed on every
     // direct call). A painter must READ the global in code.
-    const body = codeBodyText(pageSrc.slice(m.index, j));
+    const rawBody = pageSrc.slice(m.index, j);
+    const body = codeBodyText(rawBody);
     if (!refRe.test(body) || fnCallRe.test(body) || assignRe.test(body)) continue;
+    if (isDownloadOrNavigationBody(rawBody)) { sideEffectOnly++; continue; }
     names.add(m[1]);
   }
-  return names.size === 1 ? [...names][0] : null;
+  if (names.size === 1) return [...names][0];
+  if (names.size === 0 && sideEffectOnly > 0) return NO_RENDER;
+  return null;
 }
 
 /**
@@ -3630,7 +3683,7 @@ export async function directAdjudication(toolId, manifestIndex, mcpNameByTool, r
 
   // The render function the emitted delegate paints through.
   const renderFn = findRenderFunctionName(stripMarkedRegions(pageSrc), fn, resGlobal);
-  if (!renderFn) {
+  if (renderFn === null) {
     return { toolId, eligible: false, code: 'render', reason: `direct-probe: no unique zero-arg render function reading ${resGlobal} (direct mode renders through it; list the page in DIRECT_MODE_OPT_OUT with a reason if it renders differently)` };
   }
 
@@ -3929,7 +3982,10 @@ export function buildDirectBlock(manifest, manifestPath, resGlobal, renderFn) {
   lines.push(`      var __computeInput = __normalizeNullMembers(params, ${JSON.stringify(JSON.stringify(def.inputSchema))});`);
   lines.push(`      var __directResult = await ${fn}(__computeInput);`);
   lines.push(`      if (typeof __directResult !== 'undefined') ${resGlobal} = __directResult;`);
-  lines.push(`      await ${renderFn}();`);
+  // WEBMCP-DIRECT-RENDER-PICKS-EXPORT-1: NO_RENDER ('') = the page's only
+  // post-compute functions download or navigate; a read-only tool call emits
+  // no render call rather than triggering a file download.
+  if (renderFn) lines.push(`      await ${renderFn}();`);
   lines.push(`      return ${resGlobal};`);
   lines.push('      } catch (err) {');
   lines.push("        return { error: 'compute_failed', detail: String((err && err.message) || err) };");
@@ -4012,10 +4068,10 @@ async function runDirect({ write, onlyTool }) {
       if (next !== src) {
         writeFileSync(pageAbs, next, 'utf8');
         written++;
-        console.log(`✓ wrote ${v.detail.page} (direct mode: name: ${v.detail.name}, result: ${v.detail.resGlobal}, render: ${v.detail.render}${ot.present ? '; OT meta in head' : ''})`);
+        console.log(`✓ wrote ${v.detail.page} (direct mode: name: ${v.detail.name}, result: ${v.detail.resGlobal}, render: ${v.detail.render || '(none)'}${ot.present ? '; OT meta in head' : ''})`);
       } else { exact++; }
     } else {
-      console.log(`DIRECT-ELIGIBLE ${v.detail.page} (name: ${v.detail.name}, manifest: ${v.detail.manifest}, result: ${v.detail.resGlobal}, render: ${v.detail.render})`);
+      console.log(`DIRECT-ELIGIBLE ${v.detail.page} (name: ${v.detail.name}, manifest: ${v.detail.manifest}, result: ${v.detail.resGlobal}, render: ${v.detail.render || '(none)'})`);
     }
   }
   verdicts.filter((v) => !v.eligible).forEach((v) => console.log(`  EXCLUDED ${v.toolId}: ${v.reason}`));
@@ -4713,6 +4769,81 @@ async function selftest(){
     // The histogram line format the PR body and --check quote.
     const dHist = directHistogram([{ code: 'eligible' }, { code: 'dom-read' }, { code: 'dom-read' }]);
     check('direct histogram: eligible and refused classes counted', dHist.includes('eligible=1') && dHist.includes('refused:dom-read=2'));
+
+    // 16b. WEBMCP-DIRECT-RENDER-PICKS-EXPORT-1: a download/navigation helper is
+    // never the render function. Measured defect: art-280 & co. elected the
+    // Policy Mandate export exportAP2 (Blob + a.click()), so every read-only
+    // agent call downloaded a file.
+    const dPaintLine = 'function renderDirect(){ statusEl.textContent = _lastResult ? "ready" : "idle"; }';
+    const dExportFn = [
+      'function exportAP2(){',
+      '  if (!_lastResult) return;',
+      '  const blob = new Blob([JSON.stringify(_lastResult)], { type: "application/json" });',
+      '  const url = URL.createObjectURL(blob);',
+      '  const a = document.createElement("a");',
+      '  a.href = url; a.download = "x.policy.json";',
+      '  document.body.appendChild(a); a.click(); document.body.removeChild(a);',
+      '}',
+    ].join('\n');
+    // Export-only page: the helper is the only post-compute function.
+    const dPageExportOnly = dPageGreen.replace(dPaintLine, dExportFn).replace('renderDirect();', '');
+    check('render picks: export-only page -> NO_RENDER (never the download helper)', findRenderFunctionName(dPageExportOnly, 'runDirect', '_lastResult') === NO_RENDER);
+    writeFileSync(join(tmp, 'chaingraph', 'fx-300-direct.html'), dPageExportOnly);
+    const dExpOnly = await directAdjudication('fx-300-direct', dIdx, mcpNameByTool, tmp);
+    check('render picks: export-only page stays direct-eligible with render NO_RENDER', dExpOnly.eligible === true && dExpOnly.detail.render === NO_RENDER);
+    const dExpBlock = buildDirectBlockForPage(dManifest, 'manifests/953-fx-300-direct.manifest.json', '_lastResult', dExpOnly.eligible ? dExpOnly.detail.render : 'exportAP2');
+    check('render picks: export-only block emits NO render call (no await exportAP2();)', !dExpBlock.includes('await exportAP2();') && !/await [A-Za-z_$][\w$]*\(\);/.test(dExpBlock));
+    check('render picks: export-only block still computes, stores and returns the result global', dExpBlock.includes('await runDirect(__computeInput);') && dExpBlock.includes('return _lastResult;'));
+    check('render picks: export-only block parses as JavaScript', (() => { try { new Function(dExpBlock.match(/<script>([\s\S]*?)<\/script>/)[1]); return true; } catch { return false; } })());
+    // RED control: the same helper renamed into a plain painter (download lines
+    // removed) IS elected — the filter keys on the download, not the name.
+    const dPageExportNamedPainter = dPageGreen.replace(dPaintLine, 'function exportAP2(){ statusEl.textContent = _lastResult ? "ready" : "idle"; }').replace('renderDirect();', '');
+    check('render picks RED control: a non-downloading function named exportAP2 is still a painter', findRenderFunctionName(dPageExportNamedPainter, 'runDirect', '_lastResult') === 'exportAP2');
+    // Paint + export page: the paint function is chosen (was ambiguous -> null).
+    const dPagePaintAndExport = dPageGreen.replace(dPaintLine, dPaintLine + '\n' + dExportFn);
+    check('render picks: paint + export page -> the paint function renderDirect', findRenderFunctionName(dPagePaintAndExport, 'runDirect', '_lastResult') === 'renderDirect');
+    writeFileSync(join(tmp, 'chaingraph', 'fx-300-direct.html'), dPagePaintAndExport);
+    const dPaintExp = await directAdjudication('fx-300-direct', dIdx, mcpNameByTool, tmp);
+    check('render picks: paint + export page adjudicates with render renderDirect', dPaintExp.eligible === true && dPaintExp.detail.render === 'renderDirect');
+    writeFileSync(join(tmp, 'chaingraph', 'fx-300-direct.html'), dPageGreen);
+    // Navigation helpers are refused the same way; two real painters stay ambiguous.
+    for (const [label, body] of [
+      ['window.open', 'function openIt(){ if (_lastResult) window.open("about:blank"); }'],
+      ['location.href assignment', 'function goIt(){ if (_lastResult) location.href = "#done"; }'],
+      ['location.assign', 'function goIt2(){ if (_lastResult) window.location.assign("#done"); }'],
+    ]) {
+      check(`render picks: ${label} helper is not a painter`, findRenderFunctionName(dPageGreen.replace(dPaintLine, dPaintLine + '\n' + body), 'runDirect', '_lastResult') === 'renderDirect');
+    }
+    check('render picks: a location comparison (==) is not a navigation', !isDownloadOrNavigationBody('function f(){ if (location == null) return; }'));
+    const dPageTwoPainters = dPageGreen.replace(dPaintLine, dPaintLine + '\nfunction paintToo(){ statusEl.title = _lastResult ? "y" : "n"; }');
+    check('render picks: two real painters stay ambiguous (null, refused)', findRenderFunctionName(dPageTwoPainters, 'runDirect', '_lastResult') === null);
+    check('render picks: no candidates at all stays null (refused, not NO_RENDER)', findRenderFunctionName(dPageNoRender, 'runDirect', '_lastResult') === null);
+
+    // 16c. WEBMCP-DIRECT-RENDER-PICKS-EXPORT-1 second defect: findWrapperName's
+    // brace scan ignores comments and needs a real call site. Measured on
+    // art-373: a getPP() comment holding an unbalanced 'chain{' and the literal
+    // 'compute(' ran getPP's span into run(), so both were candidates -> null.
+    const wcPage = [
+      '<script>',
+      'function compute(pp){ return pp; }',
+      'function getPP() {',
+      '  const pp = { a: 1 };',
+      '  // compute() never reads either key; only the chain{} envelope below does.',
+      '  /* and a block comment with an open brace { and compute( too */',
+      '  return pp;',
+      '}',
+      'async function run() {',
+      '  const pp = getPP();',
+      '  const result = compute(pp);',
+      '  return result;',
+      '}',
+      '</script>',
+    ].join('\n');
+    check('findWrapperName: comment with unbalanced brace + compute( literal does not elect getPP (art-373 shape) -> run', findWrapperName(wcPage, 'compute') === 'run');
+    const wcStrPage = wcPage.replace('  const result = compute(pp);\n  return result;', '  const label = "compute(pp)";\n  return label;');
+    check('findWrapperName: compute( only in comments/strings is not a call site -> null', findWrapperName(wcStrPage, 'compute') === null);
+    const wcTwoPage = wcPage.replace('  return pp;\n}', '  return compute(pp);\n}');
+    check('findWrapperName RED control: two real zero-arg callers stay ambiguous -> null', findWrapperName(wcTwoPage, 'compute') === null);
 
     // 17. Chain-mode composer_url resolution (WEBMCP-CHAIN-GEN-COMPOSER-URL-1):
     // resolution precedence, the frozen blocking set, and the advisory
