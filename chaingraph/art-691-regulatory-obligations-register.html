@@ -663,6 +663,7 @@ if (mc) {
   Promise.resolve(mc.registerTool({
     name: 'compute_regulatory_obligations_register',
     description: 'Regime-agnostic rule-to-obligation-to-evidence register verdict: owner and evidence coverage percentages, control-linkage count, unassigned list, one FAIL finding per failing check, overall COVERED or GAPS_FOUND, per OBLIGATIONS-REGISTER-BUILD-SPEC.md',
+    title: 'Regulatory Obligations Register',
     inputSchema: {
       "type": "object",
       "required": [
@@ -731,6 +732,110 @@ if (mc) {
         }
       },
       "x_schema_provenance": "derived-from-golden-fixtures 2026-09-22 (mirrors input_schema: policy_parameters across the 22 golden fixture vectors)"
+    },
+    outputSchema: {
+      "type": "object",
+      "required": [
+        "total",
+        "owner_assigned",
+        "owner_coverage_pct",
+        "control_linked",
+        "evidence_linked",
+        "evidence_coverage_pct",
+        "unassigned",
+        "findings",
+        "overall_determination"
+      ],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Obligations in the register. 0 on the fail-closed intake path."
+        },
+        "owner_assigned": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Obligations with a non-null non-empty owner."
+        },
+        "owner_coverage_pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "owner_assigned / total as a percentage rounded to one decimal (66.7 for 2 of 3)."
+        },
+        "control_linked": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Obligations with at least one control_id. Measured, never gated."
+        },
+        "evidence_linked": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Obligations with at least one evidence_ref."
+        },
+        "evidence_coverage_pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "evidence_linked / total as a percentage rounded to one decimal (33.3 for 1 of 3)."
+        },
+        "unassigned": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "rule_id list of obligations with no owner, in input order. Empty on the fail-closed intake path."
+        },
+        "findings": {
+          "type": "array",
+          "description": "One FAIL finding per failing check; empty when every gated check passes. Passing checks emit nothing.",
+          "items": {
+            "type": "object",
+            "required": [
+              "check",
+              "status",
+              "detail"
+            ],
+            "properties": {
+              "check": {
+                "type": "string",
+                "enum": [
+                  "intake_validation",
+                  "owner_coverage",
+                  "evidence_coverage"
+                ]
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "FAIL"
+                ]
+              },
+              "detail": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "overall_determination": {
+          "type": "string",
+          "enum": [
+            "COVERED",
+            "GAPS_FOUND"
+          ],
+          "description": "COVERED iff findings is empty."
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Present only on the fail-closed intake path (malformed register), carrying the same string as the intake_validation finding's detail; non-empty exactly when the conditional compliance flag OBLREG_INTAKE_VALIDATION_FAILED is present (flag-mirror doctrine)."
+        }
+      },
+      "x_schema_provenance": "derived-from-golden-fixtures 2026-09-22 (re-derived over all 22 golden fixture output_payloads, incl. the spec-oracle worked example; errors observed on the 12 fail-closed intake vectors only, absent on the 10 well-formed vectors)"
     },
     annotations: { readOnlyHint: true },
     execute: async function(params) {
