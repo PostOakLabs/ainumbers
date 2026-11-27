@@ -120,6 +120,14 @@
  *                          extrapolates to ~11-12 hours (pilot measured
  *                          ~67s/kernel average), past GitHub Actions' 6-hour
  *                          hosted-runner ceiling.
+ *     --shadow-budget      PR-3308-BEST-PRACTICE-CURE-1: REPORT-ONLY mode.
+ *                          Measures, per kernel, the trial count the
+ *                          autoTrialBudget block WOULD suggest from a
+ *                          measurement (force-enabling the block for the
+ *                          measurement only — the config ships it disabled)
+ *                          and PRINTS it. No mutant phase runs, no verdict is
+ *                          produced, nothing any gate reads is written
+ *                          (--json is refused).
  *
  * Per-kernel wall-clock bound (MUTATION-TIER-HANG-MMS03-PNR01-1):
  *     Every kernel's Stryker run(s) share one deadline, default 600 s (10 min)
@@ -134,12 +142,15 @@
  *     name). On expiry the Stryker process TREE is killed (Windows:
  *     `taskkill /PID <npx> /T /F`; POSIX: SIGKILL the detached process group)
  *     and the kernel is a HARD FAIL printing
- *       `MUTATION-TIER TIMEOUT <kernel> after <s>s — treat as FAIL, see
- *        MUTATION-TIER-HANG-MMS03-PNR01-1`
+ *       `MUTATION-TIER INCONCLUSIVE (timeout) <kernel> after <s>s — treat as
+ *        FAIL, never a pass at a reduced count (PR-3308-BEST-PRACTICE-CURE-1;
+ *        see MUTATION-TIER-HANG-MMS03-PNR01-1)`
  *     — a hang must become a red gate with a name, never a silent multi-hour
  *     wait (measured: mms-03 = 564 mutants × ~26 s/mutant ≈ 2 h; pnr-01 =
  *     1,668 mutants × ~5 min/mutant ≈ days; both silent, since the json
- *     reporter prints nothing during the mutant phase).
+ *     reporter prints nothing during the mutant phase). PR-3308-BEST-
+ *     PRACTICE-CURE-1 pins the verdict shape: INCONCLUSIVE, non-zero exit,
+ *     and NEVER a pass at a reduced trial count.
  *
  * Exit 0 — every examined kernel's money-math tier meets its break floor (and
  *          peripheral tier too, if mutation-tiers.config.json's
@@ -186,6 +197,7 @@ function parseArgv(argv) {
     else if (a === '--timeout-ms') opts.timeoutMs = Number(argv[++i]);
     else if (a === '--decomposed') opts.decomposed = true;
     else if (a === '--survivors') opts.survivors = true;
+    else if (a === '--shadow-budget') opts.shadowBudget = true;
   }
   return opts;
 }
@@ -276,6 +288,57 @@ export function mutationEnvForKernel(id, config = null) {
   return n === null ? {} : { MUTATION_TIER_NUM_RUNS: String(n) };
 }
 
+// ── PR-3308-BEST-PRACTICE-CURE-1: config-only trial counts ────────────────
+// Tim 2026-11-27 ("Cure to best practice (Recommended)"): a kernel's trial
+// count n is CONFIG-ONLY. It comes from mutation-tiers.config.json's
+// per-kernel `trials` map, else its PER-KERNEL-CONFIG-SHARD-1 `mutationTrials`
+// sibling, else no budget at all (the floor runs its full shipped trial
+// count). NO run-time wall-clock input ever decides n: the same config gives
+// the same n on every host and every run, so verdicts near a floor cannot
+// flip. A kernel that misses its deadline at the configured count reports
+// INCONCLUSIVE (timeout) — never a pass at a reduced count. Naming a kernel
+// in BOTH maps is refused loudly, never a silent precedence (the
+// PER-KERNEL-CONFIG-SHARD-1 doctrine lib-per-kernel-config.mjs already
+// applies to its own maps).
+export function configuredTrialsForKernel(id, config = null) {
+  const trials = (config && config.trials) || {};
+  if (Object.prototype.hasOwnProperty.call(trials, id)) {
+    const v = trials[id];
+    if (!Number.isSafeInteger(v) || v <= 0) {
+      throw new Error(`mutation-tiers.config.json trials["${id}"] must be a positive safe integer, got ${JSON.stringify(v)}`);
+    }
+    const siblings = (config && config.mutationTrials) || {};
+    if (Object.prototype.hasOwnProperty.call(siblings, id)) {
+      throw new Error(`kernel "${id}" is named in BOTH mutation-tiers.config.json trials and a per-kernel mutationTrials sibling — an entry in both places is refused (never a silent precedence, PER-KERNEL-CONFIG-SHARD-1 doctrine); keep one`);
+    }
+    return v;
+  }
+  return mutationTrialsForKernel(id, config);
+}
+
+/**
+ * The verdict-run trial resolver (PR-3308-BEST-PRACTICE-CURE-1). Config-only:
+ * applies the configured count — if any — through the sandbox trial hook (the
+ * SAME application mechanism MUTATION-TRIALS-AUTO-BUDGET-1 shipped, now fed
+ * by config alone) and never measures. Empty object = no budget = the floor
+ * runs as shipped, byte-for-byte the pre-hook behaviour for a kernel nothing
+ * budgets. The measured resolver below (resolveTrialsEnv) survives for the
+ * --shadow-budget report mode only and is never consulted on a verdict run.
+ */
+export function resolveConfiguredTrialsEnv({ id, scratchRoot, proptestRelPath, tierConfig, log = console.log }) {
+  const n = configuredTrialsForKernel(id, tierConfig);
+  if (n === null) return {};
+  const sandboxProptest = path.join(scratchRoot, proptestRelPath);
+  const hook = sandboxTrialsHook(readFileSync(sandboxProptest, 'utf8'));
+  if (hook.status === 'patched') {
+    writeFileSync(sandboxProptest, hook.source);
+    log(`  mutation trials budget: ${n} (config-declared; sandbox trial hook applied to const TRIALS = ${hook.fullTrials})`);
+  } else {
+    log(`  mutation trials budget: ${n} (config-declared; proptest ${hook.status === 'native' ? 'reads MUTATION_TIER_NUM_RUNS itself' : `not hooked: ${hook.status}`})`);
+  }
+  return { MUTATION_TIER_NUM_RUNS: String(n) };
+}
+
 // ── MUTATION-TRIALS-AUTO-BUDGET-1: sandbox trial hook + measured auto budget ──
 // Seven P3 kernel PRs in two days (#3277 #3289 #3290 #3293 #3301 #3305 + floor
 // class) each hit the 600 s bound and each needed the same two-file cure: a
@@ -309,9 +372,18 @@ export function mutationEnvForKernel(id, config = null) {
 //     exit 0, or the count doubles until it does.
 //
 // Config-declared (SO #41): mutation-tiers.config.json `autoTrialBudget`.
-// Absent or `enabled: false` = today's behaviour byte-for-byte. Env
-// MUTATION_TIER_AUTO_BUDGET=0 turns it off for one run. The applied count is
-// printed per kernel, so a budgeted score is never silent.
+// PR-3308-BEST-PRACTICE-CURE-1 (Tim 2026-11-27, "Cure to best practice
+// (Recommended)") re-scoped this machinery: it NO LONGER decides anything on
+// a verdict run. The config ships `enabled: false`; a kernel's trial count is
+// config-only (resolveConfiguredTrialsEnv above), a deadline is INCONCLUSIVE
+// (timeout) and never a pass at a reduced count, and this measured resolver is
+// invoked ONLY by the --shadow-budget report mode, which force-enables the
+// block for the measurement, prints the count it would apply, and writes
+// nothing any gate reads. Absent or `enabled: false` = verdict-run behaviour
+// byte-for-byte origin/main. Env MUTATION_TIER_AUTO_BUDGET=0 suppresses the
+// shadow measurement too. Applying a measured count on a verdict run — and
+// what arming that would mean for the inconclusive-timeout rule — is a later
+// decision (Tim: "Turning it on is a later call") and needs its own row.
 
 const TRIALS_DECL_RE = /^const TRIALS = (\d+);/gm;
 
@@ -497,7 +569,60 @@ export function resolveTrialsEnv({ id, scratchRoot, proptestRelPath, tierConfig,
 }
 
 export function timeoutMessage(id, elapsedS) {
-  return `MUTATION-TIER TIMEOUT ${id} after ${elapsedS}s — treat as FAIL, see MUTATION-TIER-HANG-MMS03-PNR01-1`;
+  return `MUTATION-TIER INCONCLUSIVE (timeout) ${id} after ${elapsedS}s — treat as FAIL, never a pass at a reduced count (PR-3308-BEST-PRACTICE-CURE-1; see MUTATION-TIER-HANG-MMS03-PNR01-1)`;
+}
+
+/**
+ * PR-3308-BEST-PRACTICE-CURE-1 — the --shadow-budget report leg for ONE
+ * kernel. Measures, exactly as the auto budget would have, the trial count it
+ * would apply (raw 1-trial and full-trial timings, screen, Stryker dryRunOnly,
+ * chooseAutoTrials, the unmutated-floor verification), force-enabling the
+ * config's autoTrialBudget parameters for the MEASUREMENT only — the config
+ * ships it disabled, and this mode exists to show what enabling it would do —
+ * and RETURNS the suggestion for the caller to PRINT. It never runs Stryker's
+ * mutant phase, never produces a verdict, and writes nothing any gate reads:
+ * everything it touches lives in the session-private scratch, which dies with
+ * the process. Report-only by construction — the caller does not even hold a
+ * Stryker env to apply.
+ *
+ * @returns {{ skip: string } | { applied: { id: string, trials: number | null, logs: string[] } }}
+ */
+export function shadowBudgetForKernel({ id, scratchRoot, tierConfig, repoRoot, boundS, concurrency, strykerVersion, timeoutMs, log = console.log, timeRun = timeFloorRun, dryRun = null }) {
+  const kernelRelPath = `chaingraph/kernels/${id}.kernel.mjs`;
+  const proptestRelPath = `chaingraph/kernels/__proptests__/${id}.proptest.mjs`;
+  const fixturesRelPath = `chaingraph/kernels/fixtures/${id}.fixtures.json`;
+  for (const rel of [kernelRelPath, proptestRelPath, fixturesRelPath]) {
+    if (!existsSync(path.join(repoRoot, rel))) return { skip: `no ${rel}` };
+  }
+  const source = readFileSync(path.join(repoRoot, kernelRelPath), 'utf8');
+  const { hasCanonicalShape } = classifyKernelSource(source);
+  if (!hasCanonicalShape) return { skip: 'non-canonical kernel shape (the tier would never run it)' };
+  let surfaceSplit = null;
+  try { surfaceSplit = resolveSurfaceSplit(id, tierConfig, source); } catch (e) { return { skip: e.message }; }
+  try {
+    copySandboxDeps(kernelRelPath, proptestRelPath, fixturesRelPath, scratchRoot, repoRoot);
+  } catch (e) { return { skip: e.message }; }
+  // The split's directives land on the sandbox copy FIRST, so the dry-run
+  // measurement sees the same instrumented surface a verdict run would.
+  if (surfaceSplit) {
+    const vendoredLabel = 'named vendored-code surface split (mutation-tiers.config.json mutateSurfaceSplits kind "vendored"; ART699-MUTATION-SURFACE-SPLIT-1)';
+    writeFileSync(path.join(scratchRoot, kernelRelPath), surfaceSplitPatch(readFileSync(path.join(scratchRoot, kernelRelPath), 'utf8'), surfaceSplit.excludedRanges, surfaceSplit.kind === 'vendored' ? vendoredLabel : undefined));
+  }
+  const logs = [];
+  // Force-enable the block for the measurement only (validation happened at
+  // the caller); MUTATION_TIER_AUTO_BUDGET=0 is honoured inside
+  // resolveTrialsEnv and reads back as no suggestion at all.
+  const shadowConfig = { ...tierConfig, autoTrialBudget: { ...((tierConfig && tierConfig.autoTrialBudget) || {}), enabled: true } };
+  const dr = dryRun || (() => {
+    const dryConfigPath = path.join(scratchRoot, `stryker.${id}.dryrun.json`);
+    writeFileSync(dryConfigPath, JSON.stringify({ mutate: [kernelRelPath], testRunner: 'command', commandRunner: { command: `node chaingraph/kernels/__proptests__/${id}.proptest.mjs` }, reporters: [], dryRunOnly: true, timeoutMS: timeoutMs, concurrency, tempDirName: path.join(scratchRoot, '.stryker-tmp', `${id}-dryrun`) }, null, 2));
+    const inv = resolveStrykerInvocation({ strykerVersion, configPath: dryConfigPath });
+    const childEnv = { ...process.env }; delete childEnv.MUTATION_TIER_NUM_RUNS;
+    const r = spawnSync(inv.cmd, inv.args, { cwd: scratchRoot, env: childEnv, encoding: 'utf8', timeout: Math.max(30000, Math.min(240000, Math.floor((boundS || 600) * 1000 / 3))), maxBuffer: 1 << 26 });
+    return parseDryRunLog(`${r.stdout || ''}\n${r.stderr || ''}`);
+  });
+  const env = resolveTrialsEnv({ id, scratchRoot, proptestRelPath, tierConfig: shadowConfig, repoRoot, boundS, concurrency, remainingS: boundS || 600, log: (l) => logs.push(l), timeRun, dryRun: dr });
+  return { applied: { id, trials: env.MUTATION_TIER_NUM_RUNS !== undefined ? Number(env.MUTATION_TIER_NUM_RUNS) : null, logs } };
 }
 
 // Kill the whole process tree rooted at pid. On Windows `taskkill /T /F` walks
@@ -1540,27 +1665,19 @@ export async function runOneKernel(id, scratchRoot, opts, strykerVersion, repoRo
   const configPath = path.join(scratchRoot, `stryker.${id}.json`);
   writeFileSync(configPath, JSON.stringify(config, null, 2));
 
-  // MUTATION-TRIALS-BUDGET-458-1: the opt-in budget travels ONLY into this
-  // kernel's Stryker child env. The per-mutant command is
+  // MUTATION-TRIALS-BUDGET-458-1: the budget travels ONLY into this kernel's
+  // Stryker child env. The per-mutant command is
   // `node chaingraph/kernels/__proptests__/<proptest>`, so the override reaches
-  // every mutant (and the dry run) without touching global process.env.
-  // MUTATION-TRIALS-AUTO-BUDGET-1: an explicit sibling budget now also hooks a
-  // plain `const TRIALS = N` floor in the sandbox; with no sibling, the
-  // config-declared auto budget measures and caps only kernels whose estimate
-  // exceeds their bound. The measurement draws on this kernel's own deadline.
+  // every mutant without touching global process.env.
+  // PR-3308-BEST-PRACTICE-CURE-1: the count is CONFIG-ONLY
+  // (resolveConfiguredTrialsEnv). The measured auto budget never decides n on
+  // a verdict run — a kernel that hits its deadline reports INCONCLUSIVE
+  // (timeout) and never a pass at a reduced count — so the dryRunOnly
+  // measurement closure is gone from this path entirely; resolveTrialsEnv
+  // survives for --shadow-budget only.
   let mutationEnv;
   try {
-    // dryRunOnly: same mutate surface and floor command, no mutant phase.
-    // Stdout is captured (not inherited) so its two summary lines can be read.
-    const dryRun = () => {
-      const dryConfigPath = path.join(scratchRoot, `stryker.${id}.dryrun.json`);
-      writeFileSync(dryConfigPath, JSON.stringify({ ...config, dryRunOnly: true, reporters: [], tempDirName: path.join(scratchRoot, '.stryker-tmp', `${id}-dryrun`) }, null, 2));
-      const inv = resolveStrykerInvocation({ strykerVersion, configPath: dryConfigPath });
-      const env = { ...process.env }; delete env.MUTATION_TIER_NUM_RUNS;
-      const r = spawnSync(inv.cmd, inv.args, { cwd: scratchRoot, env, encoding: 'utf8', timeout: Math.max(30000, Math.min(240000, Math.floor((budgetS() || 600) * 1000 / 3))), maxBuffer: 1 << 26 });
-      return parseDryRunLog(`${r.stdout || ''}\n${r.stderr || ''}`);
-    };
-    mutationEnv = resolveTrialsEnv({ id, scratchRoot, proptestRelPath, tierConfig, repoRoot, boundS: opts.kernelTimeoutS, concurrency: opts.concurrency, remainingS: budgetS() || 600, dryRun });
+    mutationEnv = resolveConfiguredTrialsEnv({ id, scratchRoot, proptestRelPath, tierConfig, log: console.log });
   } catch (e) {
     return { id, hardFail: e.message };
   }
@@ -1788,9 +1905,13 @@ export async function runTier(argv, repoRoot = REPO) {
   // Stryker work, naming the kernel and the bad value.
   try {
     for (const id of toRun) mutationTrialsForKernel(id, config);
+    // PR-3308-BEST-PRACTICE-CURE-1: the config-only resolution validates here
+    // too — a bad trials[] value, or a kernel named in both the central map
+    // and a sibling, fails LOUDLY before any Stryker work.
+    for (const id of toRun) configuredTrialsForKernel(id, config);
     // MUTATION-TRIALS-AUTO-BUDGET-1: a malformed autoTrialBudget block fails here too.
     const auto = autoTrialBudgetConfig(config);
-    console.log(`run-mutation-tier: auto trial budget ${auto ? `ON (minTrials ${auto.minTrials}, targetFraction ${auto.targetFraction}, screen x${auto.screenFactor} / ${auto.screenMutants} mutants; applies only when a kernel's measured estimate exceeds its bound)` : 'off'}`);
+    console.log(`run-mutation-tier: auto trial budget ${auto ? `ON (minTrials ${auto.minTrials}, targetFraction ${auto.targetFraction}, screen x${auto.screenFactor} / ${auto.screenMutants} mutants)` : 'off — counts are config-only (trials map / mutationTrials sibling); --shadow-budget reports what this block would suggest (PR-3308-BEST-PRACTICE-CURE-1)'}`);
   } catch (e) {
     console.error(`run-mutation-tier: ${e.message}`);
     process.exit(1);
@@ -1802,8 +1923,40 @@ export async function runTier(argv, repoRoot = REPO) {
   rmSync(scratchRoot, { recursive: true, force: true });
   mkdirSync(scratchRoot, { recursive: true });
 
+  // ── PR-3308-BEST-PRACTICE-CURE-1: --shadow-budget report mode ───────────
+  // Prints, per kernel, the trial count the autoTrialBudget block WOULD apply
+  // from a measurement. Applies nothing: no mutant phase runs, no verdict is
+  // produced, and nothing any gate reads is written (--json is refused). The
+  // verdict path stays config-only whether or not this mode is used.
+  if (opts.shadowBudget) {
+    if (opts.jsonOut) {
+      console.error('run-mutation-tier: --shadow-budget is report-only and writes nothing any gate reads — refusing --json.');
+      process.exit(1);
+    }
+    if (!config.autoTrialBudget || typeof config.autoTrialBudget !== 'object') {
+      console.error('run-mutation-tier: no autoTrialBudget block in mutation-tiers.config.json — the shadow has nothing to evaluate.');
+      process.exit(1);
+    }
+    try { autoTrialBudgetConfig({ ...config, autoTrialBudget: { ...config.autoTrialBudget, enabled: true } }, {}); }
+    catch (e) { console.error(`run-mutation-tier: ${e.message}`); process.exit(1); }
+    const shadowSuppressed = process.env.MUTATION_TIER_AUTO_BUDGET === '0';
+    console.log(`run-mutation-tier: SHADOW-BUDGET report mode (PR-3308-BEST-PRACTICE-CURE-1) — measuring, per kernel, the trial count the auto budget would suggest${shadowSuppressed ? ' (SUPPRESSED: env MUTATION_TIER_AUTO_BUDGET=0)' : ''}; no mutant phase runs, no verdict is produced, nothing any gate reads is written. The config ships autoTrialBudget enabled:false; counts stay config-only.`);
+    for (const id of toRun) {
+      console.log(`\n=== ${id} (shadow-budget) ===`);
+      const boundS = kernelTimeoutSecondsForKernel(id, process.env, config);
+      console.log(`  per-kernel wall-clock bound: ${boundS}s`);
+      const r = shadowBudgetForKernel({ id, scratchRoot, tierConfig: config, repoRoot, boundS, concurrency: opts.concurrency, strykerVersion: config.strykerVersion, timeoutMs: opts.timeoutMs });
+      if (r.skip) { console.log(`  shadow budget: skipped — ${r.skip}`); continue; }
+      if (shadowSuppressed) { console.log(`  shadow budget: none (env MUTATION_TIER_AUTO_BUDGET=0 suppresses the measurement); verdicts unchanged.`); continue; }
+      for (const l of r.applied.logs) console.log(l.replace(/^  auto trial budget: /, '  shadow: the budget would say: '));
+      console.log(`  shadow budget: WOULD APPLY ${r.applied.trials === null ? 'no cap (full shipped trials)' : `${r.applied.trials} of the shipped trials`} — printed only; nothing was applied, every verdict a real run would produce is unchanged.`);
+    }
+    console.log(`\n=== SHADOW SUMMARY === examined ${toRun.length} kernel(s) — report-only mode; the applied budget stays config-only (trials map / mutationTrials sibling) and a deadline stays INCONCLUSIVE (timeout), never a pass.`);
+    return;
+  }
+
   console.log(`run-mutation-tier: running ${toRun.length} kernel(s) (${skipped.length} named exception(s) skipped), scratch=${scratchRoot}`);
-  console.log(`run-mutation-tier: per-kernel wall-clock bound resolution: env MUTATION_TIER_KERNEL_TIMEOUT_S > config kernelTimeoutSeconds > default ${DEFAULT_KERNEL_TIMEOUT_S}s (on expiry the stryker tree is killed and the kernel is a HARD FAIL — MUTATION-TIER-HANG-MMS03-PNR01-1)`);
+  console.log(`run-mutation-tier: per-kernel wall-clock bound resolution: env MUTATION_TIER_KERNEL_TIMEOUT_S > config kernelTimeoutSeconds > default ${DEFAULT_KERNEL_TIMEOUT_S}s (on expiry the stryker tree is killed and the kernel reports MUTATION-TIER INCONCLUSIVE (timeout) — a hard fail, never a pass at a reduced count; MUTATION-TIER-HANG-MMS03-PNR01-1, PR-3308-BEST-PRACTICE-CURE-1)`);
 
   const results = [];
   let hardFailCount = 0;

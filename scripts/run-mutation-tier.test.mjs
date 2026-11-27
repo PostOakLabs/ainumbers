@@ -1028,10 +1028,11 @@ test('AB9 parseDryRunLog reads Stryker 8.7.1 dryRunOnly lines (ANSI included) an
   assert(!parseDryRunLog('').ok, 'empty = not ok');
 });
 
-test('AB8 the live config block resolves and most estate floors have the shape the hook expects', () => {
+test('AB8 the live autoTrialBudget block ships DISABLED (PR-3308-BEST-PRACTICE-CURE-1) with resolving parameters (checked force-enabled), and most estate floors have the shape the hook expects', () => {
   const live = loadConfig();
-  const a = autoTrialBudgetConfig(live, {});
-  assert(a && a.minTrials === 50 && a.targetFraction > 0 && a.targetFraction <= 1, `live autoTrialBudget must resolve: ${JSON.stringify(a)}`);
+  assert(live.autoTrialBudget && live.autoTrialBudget.enabled === false, `the live config must ship autoTrialBudget disabled (PR-3308-BEST-PRACTICE-CURE-1): ${JSON.stringify(live.autoTrialBudget)}`);
+  const a = autoTrialBudgetConfig({ ...live, autoTrialBudget: { ...live.autoTrialBudget, enabled: true } }, {});
+  assert(a && a.minTrials === 50 && a.targetFraction > 0 && a.targetFraction <= 1, `live autoTrialBudget parameters must resolve: ${JSON.stringify(a)}`);
   const dir = join(fileURLToPathLocal(new URL('..', import.meta.url)), 'chaingraph', 'kernels', '__proptests__');
   const counts = {};
   for (const f of readdirSync(dir).filter((x) => x.endsWith('.proptest.mjs'))) {
@@ -1041,6 +1042,99 @@ test('AB8 the live config block resolves and most estate floors have the shape t
   assert((counts.patched || 0) > 500, `expected most estate floors hookable, got ${JSON.stringify(counts)}`);
   console.log(`      estate floor shapes: ${JSON.stringify(counts)}`);
 });
+
+// ── PR-3308-BEST-PRACTICE-CURE-1: config-only counts, INCONCLUSIVE timeouts, disabled shadow ──
+console.log('\nrun-mutation-tier controls — config-only trial counts + inconclusive timeout + shadow mode (PR-3308-BEST-PRACTICE-CURE-1)');
+
+const { configuredTrialsForKernel, resolveConfiguredTrialsEnv, shadowBudgetForKernel, timeoutMessage } = await import('./run-mutation-tier.mjs');
+
+test('C1 configuredTrialsForKernel: central trials map > mutationTrials sibling > null; bad values and both-places entries refuse loudly', () => {
+  assert(configuredTrialsForKernel('k-x', { trials: { 'k-x': 123 } }) === 123, 'the central trials map resolves');
+  assert(configuredTrialsForKernel('k-x', { mutationTrials: { 'k-x': 50 } }) === 50, 'a mutationTrials sibling still resolves (main mechanism unchanged)');
+  assert(configuredTrialsForKernel('k-x', {}) === null && configuredTrialsForKernel('k-x', null) === null, 'no entry anywhere = no budget');
+  for (const bad of [0, -4, 1.5, '50']) {
+    let threw = null;
+    try { configuredTrialsForKernel('k-x', { trials: { 'k-x': bad } }); } catch (e) { threw = e; }
+    assert(threw && /trials\["k-x"\]/.test(threw.message), `trials["k-x"] = ${JSON.stringify(bad)} must refuse loudly naming the map: ${threw && threw.message}`);
+  }
+  let threw = null;
+  try { configuredTrialsForKernel('k-x', { trials: { 'k-x': 80 }, mutationTrials: { 'k-x': 50 } }); } catch (e) { threw = e; }
+  assert(threw && /both places/.test(threw.message), `both places must refuse, never silently prefer: ${threw && threw.message}`);
+});
+
+test('C2 deterministic n (the row case): the same config gives the same n on two runs, and the auto flag or its parameters cannot move it', () => {
+  const cfg = { trials: { 'k-x': 123 }, autoTrialBudget: { enabled: true, minTrials: 50, targetFraction: 0.6, screenFactor: 15, screenMutants: 600 } };
+  const s1 = trialsScratch(PLAIN_FLOOR);
+  const s2 = trialsScratch(PLAIN_FLOOR);
+  const e1 = resolveConfiguredTrialsEnv({ id: 'k-x', scratchRoot: s1.root, proptestRelPath: s1.rel, tierConfig: cfg, log: quiet });
+  const e2 = resolveConfiguredTrialsEnv({ id: 'k-x', scratchRoot: s2.root, proptestRelPath: s2.rel, tierConfig: cfg, log: quiet });
+  assert(e1.MUTATION_TIER_NUM_RUNS === '123' && e2.MUTATION_TIER_NUM_RUNS === '123', `the same config must give the same n on every run: ${JSON.stringify(e1)} vs ${JSON.stringify(e2)}`);
+  // The resolver carries NO timing input at all — the extremes that used to
+  // move the old auto budget cannot move a config-only count.
+  const extreme = { trials: { 'k-x': 123 }, autoTrialBudget: { enabled: true, minTrials: 1, targetFraction: 0.01, screenFactor: 1, screenMutants: 1 } };
+  const e3 = resolveConfiguredTrialsEnv({ id: 'k-x', scratchRoot: trialsScratch(PLAIN_FLOOR).root, proptestRelPath: 'chaingraph/kernels/__proptests__/k-x.proptest.mjs', tierConfig: extreme, log: quiet });
+  assert(e3.MUTATION_TIER_NUM_RUNS === '123', `the auto block must not move n on a verdict run any more: ${JSON.stringify(e3)}`);
+  assert(readFileSync(join(s1.root, s1.rel), 'utf8').includes('MUTATION_TIER_NUM_RUNS'), 'the configured count must reach the sandbox floor through the trial hook');
+});
+
+test('C3 disabled/no budget: the sandbox floor stays byte-identical and the env empty, whatever the auto block says; the live config ships disabled with an EMPTY trials map', () => {
+  for (const auto of [undefined, { enabled: false, minTrials: 50, targetFraction: 0.6, screenFactor: 15, screenMutants: 600 }, { enabled: true, minTrials: 50, targetFraction: 0.6, screenFactor: 15, screenMutants: 600 }]) {
+    const s = trialsScratch(PLAIN_FLOOR);
+    const tierConfig = auto === undefined ? {} : { autoTrialBudget: auto };
+    const env = resolveConfiguredTrialsEnv({ id: 'k-x', scratchRoot: s.root, proptestRelPath: s.rel, tierConfig, log: quiet });
+    assert(JSON.stringify(env) === '{}', `no budget = empty env, got ${JSON.stringify(env)} (auto ${JSON.stringify(auto)})`);
+    assert(readFileSync(join(s.root, s.rel), 'utf8') === PLAIN_FLOOR, 'nothing budgets this kernel = no sandbox write — byte-identical to origin/main behaviour');
+  }
+  const live = loadConfig();
+  assert(live.autoTrialBudget && live.autoTrialBudget.enabled === false, 'the live config ships the auto budget DISABLED (PR-3308-BEST-PRACTICE-CURE-1)');
+  assert(live.trials && typeof live.trials === 'object' && Object.keys(live.trials).length === 0, `the trials map ships EMPTY by this row: ${JSON.stringify(live.trials)}`);
+});
+
+test('C4 a deadline hit reports INCONCLUSIVE (timeout) with the hard-fail wiring intact — never a pass', () => {
+  const m = timeoutMessage('k-x', 601);
+  assert(m.includes('INCONCLUSIVE (timeout)'), `the timeout verdict must say INCONCLUSIVE (timeout): ${m}`);
+  assert(/k-x/.test(m) && /601/.test(m), `the message must name the kernel and the elapsed seconds: ${m}`);
+  assert(/treat as FAIL/.test(m) && /never a pass at a reduced count/.test(m), `the non-zero-exit semantics must stay stated: ${m}`);
+  const src = readFileSync(join(import.meta.dirname, 'run-mutation-tier.mjs'), 'utf8');
+  assert(src.includes('hardFail: msg, timedOut: true'), 'the deadline path must still return a hardFail (non-zero gate exit in blocking mode), never a pass');
+  assert(!src.includes('resolveTrialsEnv({ id, scratchRoot, proptestRelPath, tierConfig, repoRoot, boundS: opts.kernelTimeoutS'), 'the measuring resolver must be gone from the verdict path (runOneKernel)');
+});
+
+test('C5 shadow mode: it SUGGESTS from a measurement (even with the block disabled) and writes nothing any gate reads — no report, no verdict change, no tracked byte', () => {
+  const root = mkdtempSync(join(tmpdir(), 'rmt-c5-fixture-'));
+  cleanup.push(root);
+  const kd = join(root, 'chaingraph', 'kernels');
+  mkdirSync(join(kd, '__proptests__'), { recursive: true });
+  mkdirSync(join(kd, 'fixtures'), { recursive: true });
+  writeFileSync(join(kd, 'k-x.kernel.mjs'), 'export const meta = { name: "k-x" };\nexport function buildArtifact() { return 1; }\n');
+  const C5_FLOOR = 'const TRIALS = 4000;\nlet n = 0; for (let i = 0; i < TRIALS; i++) n++;\nprocess.stdout.write(String(n));\n';
+  writeFileSync(join(kd, '__proptests__', 'k-x.proptest.mjs'), C5_FLOOR);
+  writeFileSync(join(kd, 'fixtures', 'k-x.fixtures.json'), '{}\n');
+  const scratch = mkdtempSync(join(tmpdir(), 'rmt-c5-scratch-'));
+  cleanup.push(scratch);
+  let calls = 0;
+  const r = shadowBudgetForKernel({ id: 'k-x', scratchRoot: scratch, tierConfig: { autoTrialBudget: { enabled: false, minTrials: 50, targetFraction: 0.6, screenFactor: 15, screenMutants: 600 } }, repoRoot: root, boundS: 600, concurrency: 2, strykerVersion: '8.7.1', timeoutMs: 15000, log: quiet,
+    timeRun: (_rt, _rel, n) => { calls++; return n === 1 ? { ok: true, timedOut: false, ms: 60 } : n === null ? { ok: true, timedOut: false, ms: 450 } : { ok: true, timedOut: false, ms: 50 }; },
+    dryRun: () => ({ ok: true, mutants: 607, netMs: 4243 }) });
+  assert(r && r.applied && r.applied.trials !== null && r.applied.trials >= 50 && r.applied.trials < 4000, `the shadow must SUGGEST a capped count from a measurement even though the block ships disabled: ${JSON.stringify(r)}`);
+  assert(calls > 0, 'the suggestion must come from a measurement, not a constant');
+  assert(!existsSync(join(scratch, 'reports')), 'shadow mode must not write any report a gate could read');
+  assert(readFileSync(join(kd, '__proptests__', 'k-x.proptest.mjs'), 'utf8') === C5_FLOOR, 'the shadow must never write a tracked byte');
+  const after = resolveConfiguredTrialsEnv({ id: 'k-x', scratchRoot: scratch, proptestRelPath: 'chaingraph/kernels/__proptests__/k-x.proptest.mjs', tierConfig: {}, log: quiet });
+  assert(JSON.stringify(after) === '{}', 'after a shadow run the verdict path still applies nothing — shadow changes no verdict');
+});
+
+test('C6 the --shadow-budget CLI: refuses --json (exit 1) and reports a missing kernel without ever starting Stryker (exit 0)', () => {
+  const cli = join(import.meta.dirname, 'run-mutation-tier.mjs');
+  const ref = spawnSync(process.execPath, [cli, '--kernel', 'c6-shadow-smoke-missing-kernel', '--shadow-budget', '--json', join(tmpdir(), 'c6-refused.json')], { encoding: 'utf8', timeout: 120000 });
+  assert(ref.status === 1 && /refusing --json/.test(String(ref.stderr)), `shadow + --json must be refused with exit 1 (got ${ref.status}): ${String(ref.stderr).slice(0, 400)}`);
+  const ok = spawnSync(process.execPath, [cli, '--kernel', 'c6-shadow-smoke-missing-kernel', '--shadow-budget'], { encoding: 'utf8', timeout: 120000 });
+  assert(ok.status === 0, `a report-only shadow over a missing kernel must exit 0 (got ${ok.status}): ${String(ok.stderr).slice(0, 400)}`);
+  const out = String(ok.stdout);
+  assert(/SHADOW-BUDGET report mode/.test(out) && /skipped — no chaingraph\/kernels\/c6-shadow-smoke-missing-kernel\.kernel\.mjs/.test(out), `the shadow must report and skip, never run:\n${out.slice(0, 800)}`);
+  assert(!/stryker path:/.test(out), 'shadow mode must never start a Stryker run');
+});
+
 
 // ── verdict reuse (MUTATION-TIER-VERDICT-REUSE-1) ────────────────────────
 console.log('\nrun-mutation-tier controls — verdict reuse (MUTATION-TIER-VERDICT-REUSE-1)');
