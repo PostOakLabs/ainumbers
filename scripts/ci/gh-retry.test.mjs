@@ -81,3 +81,10 @@ test('GH_RETRY_ATTEMPTS bounds the tries', () => {
   assert.equal(r.status, 1);
   assert.equal(r.tries, 2);
 });
+
+test('a non-numeric GH_RETRY_ATTEMPTS falls back to the default 4', () => {
+  const r = run([`1||${WRONG}`, `1||${WRONG}`, `1||${WRONG}`, '0|late|'], ['api', 'x'], { GH_RETRY_ATTEMPTS: 'abc' });
+  assert.equal(r.status, 0);
+  assert.equal(r.tries, 4);
+  assert.match(r.stderr, /try 3 of 4/);
+});

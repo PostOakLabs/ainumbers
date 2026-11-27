@@ -11,7 +11,8 @@
 # server-side cause (GraphQL "Something went wrong", HTTP 5xx or 429, a
 # secondary rate limit, a network timeout or reset). Anything else (a 404, a
 # validation error, "No merge queue found") returns at once with gh's own exit
-# code and output. Up to GH_RETRY_ATTEMPTS tries (default 4), sleeping
+# code and output. Up to GH_RETRY_ATTEMPTS tries (default 4; a non-numeric
+# value falls back to the default), sleeping
 # GH_RETRY_SLEEP * 2^n seconds between them (default base 2: 2, 4, 8 s).
 # Output is buffered per try, so a caller only ever sees the final try's.
 #
@@ -20,7 +21,11 @@
 set -u
 
 REAL="${GH_RETRY_REAL:-/usr/bin/gh}"
+# A non-numeric GH_RETRY_ATTEMPTS would make the cap test fail every loop
+# ("integer expression expected") and retry forever; anything but all digits
+# falls back to the default.
 ATTEMPTS="${GH_RETRY_ATTEMPTS:-4}"
+case "$ATTEMPTS" in ''|*[!0-9]*) ATTEMPTS=4 ;; esac
 BASE="${GH_RETRY_SLEEP:-2}"
 TRANSIENT='Something went wrong while executing your query|HTTP 5[0-9][0-9]|HTTP 429|secondary rate limit|was submitted too quickly|i/o timeout|TLS handshake timeout|connection reset by peer|unexpected EOF|Bad Gateway|Service Unavailable|Gateway Time-?out'
 
