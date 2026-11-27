@@ -41,9 +41,99 @@ const G1 = bn254.G1.Point;
 const G2 = bn254.G2.Point;
 const Fp12 = bn254.fields.Fp12;
 
-// The fixture-independent risc0 default ceremony parameters (from the zkprof
-// oracle dump; identical across every fixture and equal to the estate
-// reference verifier's constants).
+// TWO parameter sets (RISC0-310-R4-DUAL-VERIFIER-1), chosen by the receipt's
+// imageId from two CLOSED allowlists that mirror the estate reference verifier
+// (chaingraph/kernels/_computeproof.mjs). An imageId in neither list fails the
+// "imageId recognized" check and no pairing runs.
+//   RISC0_CURRENT_CONSTANTS — risc0 v3.1.0 default parameters.
+//   RISC0_ORACLE_CONSTANTS  — risc0 v3.0.x default parameters (LEGACY: "not yet
+//                             re-sealed", never evidence on its own).
+export const LEGACY_IMAGE_IDS = Object.freeze([
+  'sha256:a1a0bc89b5b1febaeda3519f6dbade0fa5ac16beeb143c4e1b01689573567bc6',
+  'sha256:6e5e88398691bb947308966a4df0019cfa1fc5894578c02f270320f1327ea8ac',
+  'sha256:adf39b5c4e8fe19f9dbc25e2b8eb84090f0ee6c9370f14ad10d5039e8e65b0ec',
+  'sha256:93c746e79afcf4b27f6d2a6da6cd142a4dd0da31f33d942f92b97344188526c5',
+  'sha256:33ac2853cd94704e42ceeab58625f396f74ef3286fa96d1a744d82c1167b7ca5',
+  'sha256:7908d47bb4367f3c11a4b906405113bad0a071ccfe5c5587455ad3132738911f',
+  'sha256:6548edabfc00736df6b3fa5954a8ac8a68df0855fbb5078f10c5916db9d5ac14',
+]);
+export const CURRENT_IMAGE_IDS = Object.freeze([
+  'sha256:bc07da19c899768781e91e439961b7c4da40bb103fcedba161f93fb5ccaa6d68',
+  'sha256:ac3a298fcd811bc61e673fe5cfc04389cc1a17e15c6fe1c64881f2d25125d6f0',
+  'sha256:64e63b2e26119983ca729084d2997533a25e2b6c31058d9a069687a8f1e3e1e5',
+  'sha256:90e562f44b674ec74e47f33ce510052559db7b4fd40c93cd697db4f6b932888d',
+  'sha256:e9ce36038e28758b5a6d9e9ee8b3242808d0e8411ba09b4d5bde2d330d6c14ef',
+  'sha256:f34f846d804810d19822593f58bff32aef290708a513bea42e76b89cfcfc60ef',
+  'sha256:541eb5581930c48777c5e39ac215b66d3ebc61ea8ede5da56d06be18fd7cf3a8',
+  'sha256:884b4f9546ad533db8b24fedd60de5901b5960ef2ac48d1c9a81ec9ac0c77222',
+]);
+
+// Which parameter set an imageId selects: 'current', 'legacy', or null.
+export function parameterSetFor(imageId) {
+  if (CURRENT_IMAGE_IDS.includes(imageId)) return 'current';
+  if (LEGACY_IMAGE_IDS.includes(imageId)) return 'legacy';
+  return null;
+}
+
+// risc0 v3.1.0 default ceremony parameters (CURRENT).
+export const RISC0_CURRENT_CONSTANTS = {
+  control_root: "e6feef13db7aed4a731c7b0852de1f5c89b137726073f625d05333184d3a551d",
+  bn254_control_id: "de81d091ba14062acb5023b3b36deee95624e3fd47475cb7ff64aed5f9eac20a",
+  verifying_key: {
+    "alpha": {
+      "x": "16428432848801857252194528405604668803277877773566238944394625302971855135431",
+      "y": "16846502678714586896801519656441059708016666274385668027902869494772365009666"
+    },
+    "beta": {
+      "x_c0": "16348171800823588416173124589066524623406261996681292662100840445103873053252",
+      "x_c1": "3182164110458002340215786955198810119980427837186618912744689678939861918171",
+      "y_c0": "19687132236965066906216944365591810874384658708175106803089633851114028275753",
+      "y_c1": "4920802715848186258981584729175884379674325733638798907835771393452862684714"
+    },
+    "delta": {
+      "x_c0": "15776672394616990683767400715354533957990327248900631669473166016258279232588",
+      "x_c1": "15616655295497688016920922285786248029410410634174255119755032442279507261612",
+      "y_c0": "6666730711543397578682474175129345128534747409410156889826997147291122518312",
+      "y_c1": "15603769682755083227316504195454390494226357053638046843688553601570183264395"
+    },
+    "gamma": {
+      "x_c0": "10857046999023057135944570762232829481370756359578518086990519993285655852781",
+      "x_c1": "11559732032986387107991004021392285783925812861821192530917403151452391805634",
+      "y_c0": "8495653923123431417604973247489272438418190587263600148770280649306958101930",
+      "y_c1": "4082367875863433681332203403145435568316851327593401208105741076214120093531"
+    },
+    "ic": [
+      {
+        "x": "18663918579753010382002747204100316475180663666125247285366810668134508578264",
+        "y": "17189072794432247265173990289507014998311702955803346313941168113828133843434"
+      },
+      {
+        "x": "10995657406716404592042449088731908804822551193011116024160605390904112699922",
+        "y": "16840054500543522560166231854936072122401577171365452702445604851845250658027"
+      },
+      {
+        "x": "17223746139751910493708334502747005647365937123243899090309734281916083451762",
+        "y": "4092210736358501801028887881307062309243791997444282548134854129284894411044"
+      },
+      {
+        "x": "3765213192101990618643617040373059738050185238026301923348610794767426428033",
+        "y": "12210223264334159465299028585581460715942724522871187397965100355295734194591"
+      },
+      {
+        "x": "10211980968769599651826920300372241897389214017084266564307091587192484525770",
+        "y": "6627619408770540710319105693121261544533216204749218194792386277379533604252"
+      },
+      {
+        "x": "13454640350766589059799184485082639692652215534373479852236969801352010275184",
+        "y": "8731676129773990833613417922371950977268622282768299686490610454524284784606"
+      }
+    ]
+  }
+};
+
+// The fixture-independent risc0 v3.0.x default ceremony parameters (LEGACY;
+// from the zkprof oracle dump; identical across every fixture and equal to the
+// estate reference verifier's legacy constants).
 export const RISC0_ORACLE_CONSTANTS = {
   control_root: "a54dc85ac99f851c92d7c96d7318af41dbe7c0194edfcc37eb4d422a998c1f56",
   bn254_control_id: "c07a65145c3cb48b6101962ea607a4dd93c753bb26975cb47feb00d3666e4404",
@@ -356,9 +446,16 @@ export function deriveDigests(receipt) {
 //          EQUAL this string. The page passes the risc0 image id published in
 //          chaingraph.json's compute_images[] for the node the receipt claims.
 //
-// Returns { valid, checks:[{name,passed,detail}] }.
+// Returns { valid, report, checks:[{name,passed,detail}] } where report is
+// 'current' | 'legacy' | 'invalid' (the parameter set that verified it).
 export function verify(receipt, opts = {}) {
-  const oracle = RISC0_ORACLE_CONSTANTS;
+  const out = verifyChecks(receipt, opts);
+  return { ...out, report: out.valid ? out.parameterSet : 'invalid' };
+}
+
+function verifyChecks(receipt, opts) {
+  let oracle = null;
+  let parameterSet = null;
   const checks = [];
   const push = (name, passed, detail) =>
     checks.push({
@@ -391,12 +488,16 @@ export function verify(receipt, opts = {}) {
   }
   const matchExpected =
     opts.expectedImageId === undefined || imageId === opts.expectedImageId;
-  const imageIdPassed = imageIdOk && matchExpected;
+  parameterSet = imageIdOk ? parameterSetFor(imageId) : null;
+  const imageIdPassed = imageIdOk && matchExpected && parameterSet !== null;
   push(
     'imageId recognized',
     imageIdPassed,
-    `imageId=${imageId} expected=${opts.expectedImageId ?? '(shape only)'}`
+    `imageId=${imageId} expected=${opts.expectedImageId ?? '(shape only)'} parameter_set=${parameterSet ?? '(none: not in either published allowlist)'}`
   );
+  // closed allowlist: an imageId in neither list never reaches the pairing.
+  if (parameterSet === null) return { valid: false, parameterSet, checks };
+  oracle = parameterSet === 'current' ? RISC0_CURRENT_CONSTANTS : RISC0_ORACLE_CONSTANTS;
 
   // 3) journal present
   const journal = receipt.journal;
@@ -449,5 +550,5 @@ export function verify(receipt, opts = {}) {
   }
 
   const valid = checks.every((c) => c.passed === true);
-  return { valid, checks };
+  return { valid, parameterSet, checks };
 }

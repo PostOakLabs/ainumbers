@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { buildArtifact } from './art-04-agent-identity-attestation-checker.kernel.mjs';
-import { attachComputeProof, verifyBinding, verifyBindingReport, setDefaultPublishedKernelDigests, verifySeal, SEAL_VERIFICATION, RECOMMENDED_RECEIPT_FORMAT } from './_computeproof.mjs';
+import { attachComputeProof, verifyBinding, verifyBindingReport, setDefaultPublishedKernelDigests, verifySeal, verifySealReport, sealParameterSet, SEAL_VERIFICATION, RECOMMENDED_RECEIPT_FORMAT } from './_computeproof.mjs';
 import { executionHash } from './_hash.mjs';
 import { sourceDigest } from './_buildid.mjs';
 import { classifyNode } from '../../scripts/check-compute-proof-coverage.mjs';
@@ -116,6 +116,16 @@ ok(SEAL_VERIFICATION === 'reference-verifier', '(verify) SEAL_VERIFICATION marke
 const FIXTURE = JSON.parse(readFileSync(resolve(HERE, 'fixtures/compute-proof/art-04-agent-identity-attestation-checker.receipt.json'), 'utf8'));
 ok(FIXTURE.receiptFormat === 'groth16-bn254' && FIXTURE.seal && FIXTURE.imageId.startsWith('sha256:'), '(verify) fixture is a groth16-bn254 receipt');
 ok(verifySeal(FIXTURE) === true, '(verify) verifySeal VERIFIES the real Groth16-BN254 receipt against its ImageID');
+// RISC0-310-R4-DUAL-VERIFIER-1: the art-04 fixture reads the set its imageId selects ('legacy' while it
+// is a risc0 3.0.x receipt, true from verifySeal); the committed 3.1.0 pilot below reads 'current'.
+ok(sealParameterSet(FIXTURE.imageId) !== null && verifySealReport(FIXTURE) === sealParameterSet(FIXTURE.imageId),
+  `(verify) verifySealReport reads the art-04 fixture as ${verifySealReport(FIXTURE)} (the set its imageId selects)`);
+const PILOT = JSON.parse(readFileSync(resolve(HERE, 'fixtures/compute-proof-310/art-313-traiga-exposure-assessor.receipt.json'), 'utf8'));
+ok(verifySealReport(PILOT) === 'current' && verifySeal(PILOT) === true, '(verify) verifySealReport reads the committed risc0 3.1.0 pilot receipt as current, verifySeal true');
+{
+  const b = Uint8Array.from(atob(PILOT.seal), (ch) => ch.charCodeAt(0)); b[200] ^= 0x01;
+  ok(verifySealReport({ ...PILOT, seal: btoa(String.fromCharCode(...b)) }) === 'invalid', '(verify) tampered seal on the current pilot is invalid');
+}
 
 // the real receipt must also bind to its own output_payload (full §18 chain on a real proof).
 const realArtifact = await buildArtifact(PP, { now: CREATED });
@@ -268,6 +278,11 @@ for (const { id, note, privateInput } of SAMPLE) {
 
   // the real seal actually verifies.
   ok(verifySeal(cp) === true, `(widened:${id}) verifySeal VERIFIES the real receipt`);
+  // RISC0-310-R4-DUAL-VERIFIER-1: the three-way verdict is the set the imageId selects (legacy for a
+  // risc0 3.0.x receipt, current once the node is re-sealed), never 'invalid'.
+  const wantSet = sealParameterSet(cp.imageId);
+  const gotSet = verifySealReport(cp);
+  ok(wantSet !== null && gotSet === wantSet, `(widened:${id}) verifySealReport reads ${gotSet} (imageId selects ${wantSet})`);
 
   // negative control — a tampered seal must be REJECTED.
   ok(verifySeal(tamperSeal(cp)) === false, `(widened:${id}) tampered seal is REJECTED`);
@@ -301,6 +316,14 @@ for (const deferredNode of deferredNodes) {
   const deferredVerdict = classifyNode(deferredNode);
   ok(deferredVerdict.state === 'deferred', `(widened:deferred) ${id} classifies as "deferred" (got "${deferredVerdict.state}")`);
   ok(deferredVerdict.problems.length === 0, `(widened:deferred) ${id}'s deferral is well-formed (real, non-placeholder deferred_reason) — ${deferredVerdict.problems.join('; ')}`);
+}
+
+// ── the mixed-tree dual-verifier cases (RISC0-310-R4-DUAL-VERIFIER-1) run as their own file, here ──
+{
+  const { spawnSync } = await import('node:child_process');
+  const r = spawnSync(process.execPath, [resolve(HERE, 'dual-verifier.test.mjs')], { encoding: 'utf8' });
+  if (r.status !== 0) process.stderr.write(r.stdout + r.stderr);
+  ok(r.status === 0, '(dual) dual-verifier.test.mjs mixed-tree cases pass');
 }
 
 console.log(fail ? `\n✗ ${fail} FAILED` : '\n✓ all compute-proof (§18) assertions passed');
