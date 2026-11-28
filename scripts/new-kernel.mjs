@@ -9,7 +9,8 @@
  *
  * Usage:
  *   node scripts/new-kernel.mjs <art-id> <slug> [--class A|B|K] [--mandate-type <value>]
- *                                [--mcp-name <value>] [--with-page --category "<hub category name>"]
+ *                                [--mcp-name <value>] [--with-page --category "<hub category name>"
+ *                                                           (--hub "<slug>[,<slug>]" | --hub-exempt "<reason>")]
  *
  *   <art-id>   e.g. art-999            (no trailing slug)
  *   <slug>     e.g. scaffold-probe     tool_id becomes "<art-id>-<slug>"
@@ -21,7 +22,14 @@
  *                    `node ../mcp-apps-poc/scripts/check-tool-names.mjs` after filling
  *                    compute() and before landing (CLAUDE.md's MCP invariant).
  *   --with-page      Emit chaingraph/<id>.html + chaingraph/hub-categories/<id>.json (--category
- *                    required). DEFAULT IS OFF — see "PAGE-LESS BY DEFAULT" below.
+ *                    required, plus exactly one of --hub/--hub-exempt). DEFAULT IS OFF — see
+ *                    "PAGE-LESS BY DEFAULT" below.
+ *   --hub            Comma-separated guides-hub slugs written as "hubs" into the per-node
+ *                    hub-categories file (HUB-AUTOSWEEP-SSOT-1). Requires --with-page.
+ *                    Prints PENDING-HUB / NEW-HUB-REQUIRED for slugs whose guides/<slug>-hub.html
+ *                    is absent (the 2+ live-node threshold, scoping doc §2(a)).
+ *   --hub-exempt     Reason string written as "hub_exempt" (with "hubs": []) when the node
+ *                    belongs to no guides hub. Requires --with-page; mutually exclusive with --hub.
  *
  * DECLARED FILE SET this command writes (SO #40(c) — `git status --porcelain` after one
  * run must touch exactly these paths, nothing else):
@@ -57,6 +65,8 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { HUB_SLUG_RE, resolveNodeHubs } from './_hub-categories.mjs';
+import { loadStatusLens } from './_node-status.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -71,7 +81,7 @@ const flag = (name, def = null) => {
 
 const [artId, slug] = positional;
 if (!artId || !slug) {
-  console.error('Usage: node scripts/new-kernel.mjs <art-id> <slug> [--class A|B|K] [--mandate-type <v>] [--mcp-name <v>] [--with-page --category "<name>"]');
+  console.error('Usage: node scripts/new-kernel.mjs <art-id> <slug> [--class A|B|K] [--mandate-type <v>] [--mcp-name <v>] [--with-page --category "<name>" (--hub "<slug>[,<slug>]" | --hub-exempt "<reason>")]');
   process.exit(2);
 }
 
@@ -91,9 +101,41 @@ const MANDATE_TYPE = flag('mandate-type', 'compliance_control');
 const MCP_NAME = flag('mcp-name', `compute_${slug.replace(/-/g, '_')}`);
 const WITH_PAGE = argv.includes('--with-page');
 const CATEGORY = flag('category', null);
+const HUB_FLAG = flag('hub', null); // "<slug>[,<slug>,...]" — names guides/<slug>-hub.html
+const HUB_EXEMPT = flag('hub-exempt', null); // "<reason>" — explicit belong-to-no-hub opt-out
 const ROW = flag('row', 'TODO-ROW'); // board row / branch that owns the id reservation; edit before push if left default
+if (!WITH_PAGE && (HUB_FLAG !== null || HUB_EXEMPT !== null)) {
+  console.error('✗ --hub/--hub-exempt require --with-page: they are written into chaingraph/hub-categories/<id>.json, which only --with-page emits.');
+  process.exit(2);
+}
 if (WITH_PAGE && !CATEGORY) {
   console.error('✗ --with-page requires --category "<hub category name>" (must match a key in chaingraph/hub-categories.json).');
+  process.exit(2);
+}
+// HUB-AUTOSWEEP-SSOT-1: exactly one hub decision accompanies every new page node —
+// the topic SSOT resolves a node's hubs at creation time, never by a later sweep row.
+if (WITH_PAGE && (HUB_FLAG === null) === (HUB_EXEMPT === null)) {
+  console.error('✗ --with-page requires exactly ONE of --hub "<slug>[,<slug>]" or --hub-exempt "<reason>" alongside --category (HUB-AUTOSWEEP-SSOT-1).');
+  process.exit(2);
+}
+const HUB_SLUGS = [];
+if (HUB_FLAG !== null) {
+  for (const raw of String(HUB_FLAG).split(',')) {
+    const slug = raw.trim();
+    if (!slug) continue;
+    if (!HUB_SLUG_RE.test(slug)) {
+      console.error(`✗ --hub "${slug}" is not a valid hub slug — it must match ${HUB_SLUG_RE} because it names guides/<slug>-hub.html.`);
+      process.exit(2);
+    }
+    if (!HUB_SLUGS.includes(slug)) HUB_SLUGS.push(slug);
+  }
+  if (!HUB_SLUGS.length) {
+    console.error('✗ --hub needs at least one slug (comma-separated).');
+    process.exit(2);
+  }
+}
+if (HUB_EXEMPT !== null && (typeof HUB_EXEMPT !== 'string' || HUB_EXEMPT.trim() === '')) {
+  console.error('✗ --hub-exempt needs a non-empty "<reason>" string (why this node belongs to no guides hub).');
   process.exit(2);
 }
 
@@ -205,13 +247,53 @@ if (WITH_PAGE) {
     process.exit(1);
   }
   mkdirSync(dirname(HUB_NODE_PATH), { recursive: true });
-  writeFileSync(HUB_NODE_PATH, JSON.stringify({ category: CATEGORY }, null, 2) + '\n');
+  // HUB-AUTOSWEEP-SSOT-1: the hub decision rides along in the same per-node file.
+  // The extra keys are invisible to every current reader (loadHubCategories()
+  // destructures only "category"); resolveNodeHubs() is the one that reads them.
+  const hubNode = { category: CATEGORY };
+  if (HUB_SLUGS.length) hubNode.hubs = HUB_SLUGS;
+  if (HUB_EXEMPT !== null) {
+    hubNode.hubs = [];
+    hubNode.hub_exempt = HUB_EXEMPT;
+  }
+  writeFileSync(HUB_NODE_PATH, JSON.stringify(hubNode, null, 2) + '\n');
 }
 
 // ── report ───────────────────────────────────────────────────────────────
 console.log(`\n✓ scaffolded ${TOOL_ID} (class ${CLASS}, digest ${DIGEST}):`);
 for (const p of [KERNEL_PATH, PROPTEST_PATH, FIXTURES_PATH, SHARD_PATH, RESERVATION_PATH, ...(WITH_PAGE ? [PAGE_PATH, HUB_NODE_PATH] : [])]) {
   console.log(`    ${p.replace(REPO + '\\', '').replace(REPO + '/', '')}`);
+}
+
+// ── HUB-AUTOSWEEP-SSOT-1: stage-time hub signal ─────────────────────────────
+// For each requested slug whose guides/<slug>-hub.html does not exist yet, tell the
+// builder where the topic stands BEFORE the autosweep gate does (scoping doc §2(a),
+// Tim's 2+ threshold): the PR that brings a topic to its 2nd live node must create
+// the hub page or point --hub at an existing slug; a 1-node topic is advisory only.
+// The count is live nodes resolving to the slug through resolveNodeHubs(), filtered
+// through the shard status lens (a departed node must not hold a topic at 1).
+if (WITH_PAGE && HUB_SLUGS.length) {
+  const cgPath = resolve(REPO, 'chaingraph', 'chaingraph.json');
+  let liveIds = null; // no assembled graph (bare scaffold estate) -> count every member
+  if (existsSync(cgPath)) {
+    liveIds = new Set(loadStatusLens(REPO).liveNodes.map((n) => n.tool_id));
+  }
+  const resolved = resolveNodeHubs(REPO);
+  for (const slug of HUB_SLUGS) {
+    if (existsSync(resolve(REPO, 'guides', `${slug}-hub.html`))) continue;
+    let count = 1; // the node this run is scaffolding
+    for (const [id, entry] of resolved) {
+      if (id === TOOL_ID) continue; // this run just wrote its own per-node file — not an existing member
+      if (!entry.hubs.includes(slug)) continue;
+      if (liveIds && !liveIds.has(id)) continue;
+      count += 1;
+    }
+    if (count >= 2) {
+      console.log(`NEW-HUB-REQUIRED ${slug} — guides/${slug}-hub.html is absent and ${TOOL_ID} is its ${count}th live node: create the hub page in this PR (prose shell + chrome is enough; the node GEN block fills on main) or point --hub at an existing slug.`);
+    } else {
+      console.log(`PENDING-HUB ${slug} — guides/${slug}-hub.html is absent, but the topic has ${count} live node so far; no hub page is required until a 2nd node picks the slug.`);
+    }
+  }
 }
 console.log(`\nNOT written (SO #35 single-writer): chaingraph/kernels/index.mjs. main's derived regen registers`);
 console.log(`  ${TOOL_ID} there after merge; do not commit index.mjs (check-main-only-paths.mjs refuses it).`);
