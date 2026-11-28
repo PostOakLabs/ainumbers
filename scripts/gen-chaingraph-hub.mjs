@@ -1,13 +1,22 @@
-// gen-chaingraph-hub.mjs — renders the ~400 chaingraph/art-*.html node cards in
-// chaingraph-hub.html from chaingraph.json + hub-categories.json. Mirrors gen-chain-index.mjs
-// (GEN:-marker block, --check freshness gate). Closes HUB-GEN-1: 314 of 404 art-* node pages
-// existed on disk + in chaingraph.json but had zero card in the hand-authored hub (only ~90
-// carded) — check-nav-reachability never caught it because reachability != discoverability.
+// gen-chaingraph-hub.mjs — renders the node cards in chaingraph-hub.html from chaingraph.json
+// + hub-categories.json. Mirrors gen-chain-index.mjs (GEN:-marker block, --check freshness
+// gate). Closes HUB-GEN-1: 314 of 404 art-* node pages existed on disk + in chaingraph.json
+// but had zero card in the hand-authored hub (only ~90 carded) — check-nav-reachability never
+// caught it because reachability != discoverability.
 //
-// hub-categories.json is the hand-editable grouping SSOT: { clusterTitle: {order, blurb,
-// art_ids:[...]} }. chaingraph.json (node list/titles/descriptions) is untouched — read-only
-// input. The --check coverage gate fails if any chaingraph.json art-* node is missing from
-// hub-categories.json (an unmapped new node), forcing a cluster assignment before it can ship.
+// CG-HUB-BARE-NUMBER-NODES-1 (2026-11-27): the node filter widened from art-only to BOTH
+// node-page id shapes, art-NN-slug and the bare-number NNN-slug pages (chaingraph/7xx-/8xx-
+// *.html). All 32 bare-number pages were live in chaingraph.json, 7 already mapped in
+// chaingraph/hub-categories/, yet none got a card and none hit the coverage gate — their only
+// static inbound link was sitemap.html. Prefix-numbered classes (cry-01-, ml-01-, qfa-01-,
+// …) stay OUT on purpose: this row's scope is the two shapes named above; widening to them
+// needs its own mapping row.
+//
+// hub-categories.json holds only cluster metadata; membership is one file per node at
+// chaingraph/hub-categories/<tool_id>.json ({ "category": "<clusterTitle>" }, see
+// _hub-categories.mjs). chaingraph.json (node list/titles/descriptions) is untouched —
+// read-only input. The --check coverage gate fails if any chaingraph.json node page of either
+// shape is unmapped (an unmapped new node), forcing a cluster assignment before it can ship.
 //
 // HUB-FOOTER-CANONICAL-1 (footer-plan v2 decision D3): this generator also owns the page's
 // single rendered <footer>, rendered from chaingraph/_page-chrome.mjs buildFooter() — the same
@@ -42,7 +51,11 @@ const categories = loadHubCategories(REPO); // art_ids derived from chaingraph/h
 // this same status-blind set. The shard's `status` is the only field that can
 // answer; see scripts/_node-status.mjs for the shared predicate and for why a
 // MISSING status is treated as live.
-const artNodesAll = cg.nodes.filter((n) => n.url && n.url.includes('/chaingraph/art-'));
+// A hub card target is any assembled-graph node whose url is a chaingraph node page of
+// EITHER id shape: art-NN-slug.html or the bare-number NNN-slug.html pages
+// (CG-HUB-BARE-NUMBER-NODES-1). Prefix-numbered classes (cry-01- …) deliberately stay out.
+const NODE_PAGE_URL_RE = /^https:\/\/ainumbers\.co\/chaingraph\/(art-\d+-|\d{3}-)[^/]*\.html$/;
+const artNodesAll = cg.nodes.filter((n) => n.url && NODE_PAGE_URL_RE.test(n.url));
 const artNodes = artNodesAll.filter((n) => !isNonLive(n));
 const byId = new Map(artNodes.map((n) => [n.tool_id, n]));
 // Derived cluster state (2026-09-22): which node ids are consumed by gated
@@ -63,7 +76,8 @@ for (const chain of cg.chains || []) {
 // delete a hub-categories.json entry that ART99-GHOST-CLEANUP-1 is holding open.
 const nonLiveMapped = new Map(artNodesAll.filter(isNonLive).map((n) => [n.tool_id, n.status]));
 
-// COVERAGE GATE: every art-* node in chaingraph.json must be mapped to a cluster.
+// COVERAGE GATE: every node page of either id shape (art-NN-, bare NNN-) in
+// chaingraph.json must be mapped to a cluster (CG-HUB-BARE-NUMBER-NODES-1).
 const mappedIds = new Set();
 for (const cluster of Object.values(categories)) {
   for (const id of cluster.art_ids) mappedIds.add(id);
@@ -71,9 +85,9 @@ for (const cluster of Object.values(categories)) {
 const unmapped = artNodes.map((n) => n.tool_id).filter((id) => !mappedIds.has(id));
 
 if (unmapped.length) {
-  console.error(`gen-chaingraph-hub: ${unmapped.length} art-* node(s) in chaingraph.json are NOT in hub-categories.json (would ship undiscoverable):`);
+  console.error(`gen-chaingraph-hub: ${unmapped.length} node page(s) in chaingraph.json are NOT mapped in chaingraph/hub-categories/ (would ship undiscoverable):`);
   unmapped.forEach((id) => console.error(`  UNMAPPED: ${id}`));
-  console.error('Assign each to a cluster in chaingraph/hub-categories.json, then regenerate.');
+  console.error('Add chaingraph/hub-categories/<tool_id>.json ({ "category": "<cluster title>" }) for each, then regenerate.');
   process.exit(1);
 }
 
@@ -126,14 +140,23 @@ function truncateOnWord(s, limit) {
   return (lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trim() + '…';
 }
 
+// Sort key for BOTH id shapes (CG-HUB-BARE-NUMBER-NODES-1): the art-NN- prefix number
+// or the bare NNN- leading number; anything else sorts last, as before.
 function artNum(id) {
-  const m = id.match(/^art-(\d+)-/);
+  const m = id.match(/^(?:art-)?(\d+)-/);
   return m ? parseInt(m[1], 10) : 999999;
+}
+
+// Card badge for both id shapes: art-NN- keeps the ART-<nn> label; a bare NNN- page shows
+// its own number (with the art-only key a bare page's badge read ART-999999).
+function cardBadge(id) {
+  if (/^\d{3}-/.test(id)) return id.slice(0, 3);
+  return `ART-${String(artNum(id)).padStart(2, '0')}`;
 }
 
 function cardHtml(node) {
   const rel = node.url.replace('https://ainumbers.co/chaingraph/', '');
-  const num = String(artNum(node.tool_id)).padStart(2, '0');
+  const num = cardBadge(node.tool_id);
   const title = escHtml(sanitizeCopy(node.display_name || node.tool_id));
   const descClean = sanitizeCopy(node.description || '');
   const desc = escHtml(truncateOnWord(descClean, 220));
@@ -142,7 +165,7 @@ function cardHtml(node) {
   if (node.gpu) tags.push('<span class="ctag ctag-purple">GPU</span>');
   return `    <a href="${escHtml(rel)}" class="tool-card da">
       <div class="card-inner">
-        <div class="card-top"><span class="card-num">ART-${num}</span><span class="card-arrow">→</span></div>
+        <div class="card-top"><span class="card-num">${escHtml(num)}</span><span class="card-arrow">→</span></div>
         <div class="card-name">${title}</div>
         <div class="card-desc">${desc}</div>
       </div>
