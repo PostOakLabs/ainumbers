@@ -130,6 +130,7 @@ const CLUSTERS = [
       'guides/lendtech-hub.html',
       'guides/open-wealth-architecture-hub.html',
       'guides/sme-financial-health-hub.html',
+      'guides/islamic-finance-hub.html',
     ],
   },
   {
