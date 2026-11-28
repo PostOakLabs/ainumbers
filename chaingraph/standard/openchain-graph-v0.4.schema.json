@@ -174,6 +174,22 @@
         "journal": { "type": "object", "description": "Public outputs committed by the guest; MUST bind output_payload (§18.0)." }
       }
     },
+    "twinExecution": {
+      "type": "object",
+      "description": "OCG Standard §29 Twin Execution Record (§29 text new in v0.8.20; this schema shape lands with OCG-S29-GATE-ROW-1) — records the agreement/divergence result of executing a kernel's hand-written implementation and a formally-modeled twin of the same specification against the same inputs. Optional; lives at audit_signature.twin_execution, a sibling of §18 compute_proof (§29.4: either may appear without the other). Hash-excluded (§29.3): adding, removing, or altering it leaves every execution_hash byte-identical (twin-execution.test.mjs); absence is fully conformant and means NO CLAIM. All eight §29.0 members are REQUIRED when the object is present, and the object is CLOSED. kernel_digest restates audit_signature.build_identity.kernel_digest so this object stays independently checkable (§29.0); the equality itself is enforced by twin-execution.test.mjs, since a JSON schema cannot cross-reference a sibling property. agreement:false is a recorded finding for human adjudication, never an automatic refusal (§29.1): a gate that treats it as a rejection misreads the section, so this schema and its gate accept it as a valid value. checked_at is the ISO 8601 timestamp of the comparison; max_divergence is null when the comparison is exact/boolean-only. chaingraph_version stays 0.4.0.",
+      "additionalProperties": false,
+      "required": ["twin_digest", "kernel_digest", "agreement", "max_divergence", "tolerance", "method", "cases_checked", "checked_at"],
+      "properties": {
+        "twin_digest": { "$ref": "#/$defs/sha256ref", "description": "Identity of the compiled twin module, the same sha256:-prefixed construction as §17's kernel_digest (§29.0)." },
+        "kernel_digest": { "$ref": "#/$defs/sha256ref", "description": "The hand-written kernel's digest; MUST equal audit_signature.build_identity.kernel_digest (§29.0) — the equality is enforced by twin-execution.test.mjs." },
+        "agreement": { "type": "boolean", "description": "Whether the twin's output matched the hand-written kernel's output within tolerance across cases_checked. false is a recorded finding requiring human adjudication (§29.1), never an automatic refusal." },
+        "max_divergence": { "type": ["number", "null"], "description": "The largest measured divergence across the comparison, or null when the comparison is exact/boolean-only (§29.0)." },
+        "tolerance": { "type": "string", "description": "The tolerance the comparison was run against (e.g. \"1/8pp §1026.22(a)(2)\")." },
+        "method": { "enum": ["differential", "property-based"], "description": "How the comparison was conducted (§29.0)." },
+        "cases_checked": { "type": "integer", "minimum": 0, "description": "Integer count of cases the comparison covered (§29.0)." },
+        "checked_at": { "type": "string", "format": "date-time", "description": "ISO 8601 timestamp of when the comparison ran (§29.5: validity is enforced by twin-execution.test.mjs; this validator subset does not assert format)." }
+      }
+    },
     "dataIntegrityProof": {
       "type": "object",
       "description": "OCG Standard §16 Proof Binding — a W3C Data Integrity proof (cryptosuite eddsa-jcs-2022) over the whole artifact (minus this proof). Optional; lives at audit_signature.proof. Hash-excluded; does not alter execution_hash or chaingraph_version. §16.5 (v0.7): optional id (referenceable by an endorsement) and previousProof (proof-chain endorsement — id(s) of the proof(s) this one countersigns).",
@@ -638,6 +654,7 @@
             "proof": { "$ref": "#/$defs/proofSetOrChain" },
             "build_identity": { "$ref": "#/$defs/buildIdentity" },
             "compute_proof": { "$ref": "#/$defs/computeProof" },
+            "twin_execution": { "$ref": "#/$defs/twinExecution" },
             "requesting_agent": { "$ref": "#/$defs/requestingAgent" }
           }
         }
