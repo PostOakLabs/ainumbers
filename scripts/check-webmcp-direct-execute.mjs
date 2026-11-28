@@ -734,6 +734,156 @@ const RUN_PATH_ADAPTERS = {
       setVal(sandbox, 'rounding_mode', pp.rounding?.mode ?? '');
     },
   },
+  'art-375-compute-fund-expense-ratios': {
+    // getPP emits average_net_assets as the raw control string while fixture 0
+    // carries a number, so the run-path pp cannot equal the golden (baselined);
+    // blank optional ids fold to null exactly as getPP does on an empty form.
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'fund_id', pp.fund_id ?? '');
+      setVal(sandbox, 'period_start', pp.period_start ?? '');
+      setVal(sandbox, 'period_end', pp.period_end ?? '');
+      setVal(sandbox, 'average_net_assets', pp.average_net_assets === undefined || pp.average_net_assets === null ? '' : String(pp.average_net_assets));
+      setVal(sandbox, 'gross_expense_components', pp.gross_expense_components === undefined ? '' : JSON.stringify(pp.gross_expense_components, null, 2));
+      setVal(sandbox, 'waivers', pp.waivers === undefined ? '' : JSON.stringify(pp.waivers, null, 2));
+      setVal(sandbox, 'decimal_places', pp.rounding?.decimal_places === undefined || pp.rounding?.decimal_places === null ? '' : String(pp.rounding.decimal_places));
+      setVal(sandbox, 'rounding_mode', pp.rounding?.mode ?? '');
+    },
+  },
+  'art-380-build-ai-workpaper-record': {
+    // runWorkpaperRecord appends reviewer_identity_id/reviewer_ha_role as ''
+    // (empty controls) and stamps result.generated_at from the wall clock
+    // after computeWorkpaperRecord returns; fixture 0 omits both reviewer
+    // keys, so the run-path pp cannot equal the golden (baselined).
+    run: 'runWorkpaperRecord',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'receiptToolId', pp.receipt_tool_id ?? '');
+      setVal(sandbox, 'receiptToolVersion', pp.receipt_tool_version ?? '');
+      setVal(sandbox, 'receiptExecHash', pp.receipt_execution_hash ?? '');
+      setVal(sandbox, 'receiptKernelDigest', pp.receipt_kernel_digest ?? '');
+      setVal(sandbox, 'receiptGeneratedAt', pp.receipt_generated_at ?? '');
+      setVal(sandbox, 'determinismClass', pp.determinism_class ?? '');
+      setVal(sandbox, 'declaredConventions', pp.declared_conventions ?? '');
+      setVal(sandbox, 'standardRef', pp.documentation_standard_ref ?? '');
+      setVal(sandbox, 'engagementId', pp.engagement_id ?? '');
+      setVal(sandbox, 'reportingPeriod', pp.reporting_period ?? '');
+      setVal(sandbox, 'reviewerRole', pp.reviewer_role ?? '');
+      setVal(sandbox, 'reviewerStatement', pp.reviewer_statement ?? '');
+      setVal(sandbox, 'previousHash', pp.previous_workpaper_hash ?? '');
+      setVal(sandbox, 'reviewerIdentityId', pp.reviewer_identity_id ?? '');
+      setVal(sandbox, 'reviewerHaRole', pp.reviewer_ha_role ?? '');
+    },
+  },
+  'art-397-lint-trace-cat-reports': {
+    // runCompute builds one DEMO cat_event (event_type NEW_ORDER, firm
+    // FIRM-1, symbol DEMO, side BUY) and hardcodes calendar_version and the
+    // weekend days; fixture 0's event carries different members, so the
+    // run-path pp cannot equal the golden (baselined). Holidays are a
+    // comma-separated control; blank folds to [].
+    run: 'runCompute',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'execTs', pp.execution_timestamp ?? '');
+      setVal(sandbox, 'repTs', pp.report_timestamp ?? '');
+      setVal(sandbox, 'holidays', Array.isArray(pp.calendar?.holidays) ? pp.calendar.holidays.join(',') : '');
+      setVal(sandbox, 'hStart', pp.trading_hours?.start_minutes_utc === undefined ? '' : String(pp.trading_hours.start_minutes_utc));
+      setVal(sandbox, 'hEnd', pp.trading_hours?.end_minutes_utc === undefined ? '' : String(pp.trading_hours.end_minutes_utc));
+      setVal(sandbox, 'winMin', pp.report_window_minutes === undefined ? '' : String(pp.report_window_minutes));
+      const ev = Array.isArray(pp.cat_events) ? pp.cat_events[0] : undefined;
+      setVal(sandbox, 'catCat', ev?.event_category ?? '');
+      setVal(sandbox, 'catTs', ev?.event_timestamp ?? '');
+      setVal(sandbox, 'catQty', ev?.quantity === undefined ? '' : String(ev.quantity));
+      setVal(sandbox, 'catStrike', ev?.strike_price === undefined ? '' : String(ev.strike_price));
+    },
+  },
+  'art-398-lint-metro2-record': {
+    // Checkboxes flip .checked (house rule); blank optional dofd folds to
+    // undefined exactly as the wrapper's `value || undefined` does.
+    run: 'runLint',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'accountType', pp.account_type ?? '');
+      setVal(sandbox, 'dateOpened', pp.date_opened ?? '');
+      setVal(sandbox, 'dateReported', pp.date_reported ?? '');
+      setVal(sandbox, 'currentBalance', pp.current_balance === undefined || pp.current_balance === null ? '' : String(pp.current_balance));
+      setVal(sandbox, 'amountPastDue', pp.amount_past_due === undefined || pp.amount_past_due === null ? '' : String(pp.amount_past_due));
+      setVal(sandbox, 'accountStatus', pp.account_status ?? '');
+      setVal(sandbox, 'paymentRating', pp.payment_rating ?? '');
+      setVal(sandbox, 'dofd', pp.date_of_first_delinquency ?? '');
+      sandbox.document.getElementById('hasJ1').checked = pp.has_j1_segment ?? false;
+      sandbox.document.getElementById('hasJ2').checked = pp.has_j2_segment ?? false;
+      sandbox.document.getElementById('hasK').checked = pp.has_k_segment ?? false;
+    },
+  },
+  'art-402-validate-regf-call-frequency': {
+    // The wrapper nests the calls JSON and the tz offset under pp.inputs;
+    // JSON.parse(JSON.stringify(...)) round-trips fixture arrays exactly.
+    run: 'runCheck',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'tzOffset', pp.inputs?.timezone_offset_minutes === undefined ? '' : String(pp.inputs.timezone_offset_minutes));
+      setVal(sandbox, 'callsJson', pp.inputs?.calls === undefined ? '' : JSON.stringify(pp.inputs.calls, null, 2));
+    },
+  },
+  'art-426-cecl-ecl-calculator': {
+    // JSON textareas stay JSON; the three balance controls run through the
+    // page's safe(value, 0) numeric parse, so they arrive as Strings.
+    run: 'runCecl',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'methodSel', pp.method ?? '');
+      setVal(sandbox, 'constantsVersion', pp.constants_version ?? '');
+      setVal(sandbox, 'priorAllowance', pp.prior_allowance_balance_usd === undefined || pp.prior_allowance_balance_usd === null ? '' : String(pp.prior_allowance_balance_usd));
+      setVal(sandbox, 'chargeOffs', pp.charge_offs_usd === undefined || pp.charge_offs_usd === null ? '' : String(pp.charge_offs_usd));
+      setVal(sandbox, 'recoveries', pp.recoveries_usd === undefined || pp.recoveries_usd === null ? '' : String(pp.recoveries_usd));
+      setVal(sandbox, 'forecastWeightsJson', pp.forecast_weights === undefined ? '' : JSON.stringify(pp.forecast_weights, null, 2));
+      setVal(sandbox, 'segmentsJson', pp.segments === undefined ? '' : JSON.stringify(pp.segments, null, 2));
+    },
+  },
+  'art-429-var-backtest-traffic-light': {
+    // The page reads observation rows OUT of the DOM (readObservations over
+    // #obsRows children, .obs-date/.obs-pnl/.obs-var cells), so the adapter
+    // serves fixture rows through a getElementById override — the same list
+    // a human builds with the add-row button.
+    run: 'runBacktest',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      const rows = (pp.observations ?? []).map((o) => ({
+        querySelector(sel) {
+          const v = sel === '.obs-date' ? o.date : sel === '.obs-pnl' ? o.pnl : o.var_estimate;
+          return { value: String(v) };
+        },
+      }));
+      const realGet = sandbox.document.getElementById.bind(sandbox.document);
+      sandbox.document.getElementById = (sel) => (sel === 'obsRows' ? { children: rows } : realGet(sel));
+    },
+  },
+  'art-431-fdic-assessment-rate-calculator': {
+    // The page reads bracket rows OUT of the DOM (readBrackets over
+    // #bracketRows children, .bkt-max/.bkt-rate cells), so the adapter serves
+    // fixture rows through a getElementById override; '' max folds to null.
+    run: 'runCalc',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'scheduleVersion', pp.rate_schedule_version ?? '');
+      setVal(sandbox, 'totalScore', pp.total_score === undefined || pp.total_score === null ? '' : String(pp.total_score));
+      setVal(sandbox, 'unsecuredAdj', pp.unsecured_debt_adjustment_bp === undefined || pp.unsecured_debt_adjustment_bp === null ? '' : String(pp.unsecured_debt_adjustment_bp));
+      setVal(sandbox, 'brokeredAdj', pp.brokered_deposit_adjustment_bp === undefined || pp.brokered_deposit_adjustment_bp === null ? '' : String(pp.brokered_deposit_adjustment_bp));
+      setVal(sandbox, 'rateFloor', pp.rate_floor_bp === undefined || pp.rate_floor_bp === null ? '' : String(pp.rate_floor_bp));
+      setVal(sandbox, 'rateCap', pp.rate_cap_bp === undefined || pp.rate_cap_bp === null ? '' : String(pp.rate_cap_bp));
+      setVal(sandbox, 'assessmentBase', pp.assessment_base_musd === undefined || pp.assessment_base_musd === null ? '' : String(pp.assessment_base_musd));
+      const rows = (pp.rate_brackets ?? []).map((b) => ({
+        querySelector(sel) {
+          const v = sel === '.bkt-max' ? b.max_score : b.base_rate_bp;
+          return { value: v === null || v === undefined ? '' : String(v) };
+        },
+      }));
+      const realGet = sandbox.document.getElementById.bind(sandbox.document);
+      sandbox.document.getElementById = (sel) => (sel === 'bracketRows' ? { children: rows } : realGet(sel));
+    },
+  },
 };
 
 function setVal(sandbox, id, v) {
