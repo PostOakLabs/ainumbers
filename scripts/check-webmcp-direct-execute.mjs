@@ -412,6 +412,48 @@ const RUN_PATH_ADAPTERS = {
       setVal(sandbox, 'tfr_threshold', '1000');
     },
   },
+  // WEBMCP-LEG1-TODO-ART100-105-1: the five leg-1 carryover repoints. Every
+  // fixture 0 carries {} (each kernel's default-inputs path); the pages' empty
+  // forms exercise that same path through their own controls, so the prefills
+  // stay empty like art-62's. Each getPP() always emits the full control shape,
+  // so the leg-2 form preimage cannot equal the golden {} preimage; every
+  // mismatch is baselined with a measured reason.
+  'art-100-mica-casp-authorization-readiness': {
+    run: 'run',
+    prefill(sandbox) {
+      // fixture 0 carries {} (the grade-F all-missing default-scenario path);
+      // no services checked + selects at 'none' is the same path through the
+      // page's own controls.
+    },
+  },
+  'art-101-mica-art67-own-funds-calculator': {
+    run: 'run',
+    prefill(sandbox) {
+      // fixture 0 carries {} (the permanent-minimum binding-basis path); the
+      // empty form is that same path through the page's own controls.
+    },
+  },
+  'art-102-crypto-asset-whitepaper-linter': {
+    run: 'run',
+    prefill(sandbox) {
+      // fixture 0 carries {}; the empty form is the kernel's default path
+      // through the page's own controls.
+    },
+  },
+  'art-103-mar-crypto-surveillance-readiness': {
+    run: 'run',
+    prefill(sandbox) {
+      // fixture 0 carries {}; the empty form is the kernel's default path
+      // through the page's own controls.
+    },
+  },
+  'art-105-mica-token-service-scoper': {
+    run: 'run',
+    prefill(sandbox) {
+      // fixture 0 carries {}; the empty form is the kernel's default path
+      // through the page's own controls.
+    },
+  },
   'art-62-ap2-payment-receipt-verifier': {
     run: 'run',
     prefill(sandbox) {
