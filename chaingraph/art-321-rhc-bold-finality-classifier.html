@@ -454,23 +454,30 @@ function compute(pp) {
 }
 
 function runClassifier() {
+  const challengeRaw = document.getElementById('challengeWindow').value;
   const policy_parameters = {
     l2_inclusion_timestamp: Number(document.getElementById('l2Inclusion').value),
     batch_posted_to_l1: document.getElementById('batchPosted').checked,
     assertion_created: document.getElementById('assertionCreated').checked,
     assertion_created_timestamp: Number(document.getElementById('assertionTimestamp').value),
-    challenge_window_seconds: Number(document.getElementById('challengeWindow').value),
     current_time: Number(document.getElementById('currentTime').value),
     finality_claim: document.getElementById('finalityClaim').value
   };
+  if (challengeRaw !== '') policy_parameters.challenge_window_seconds = Number(challengeRaw);
 
-  const output_payload = compute(policy_parameters);
-  _result = { policy_parameters, output_payload };
+  const envelope = computeEnvelope(policy_parameters);
+  const output_payload = envelope.output_payload;
+  _result = envelope;
   _lastResult = _result;
   paintResult();
 
   buildArtifact(policy_parameters, output_payload);
 }
+
+// WebMCP direct-mode envelope (WEBMCP-DIRECT-EXECUTE-VM-GATE-1): the registered
+// execute() hashes its return, so it needs the full { policy_parameters,
+// output_payload } artifact shape, not the bare payload compute() returns.
+function computeEnvelope(pp) { return { policy_parameters: pp, output_payload: compute(pp) }; }
 
 // WebMCP direct-mode render (WEBMCP-DIRECT-MODE-1): the page's render function
 // paints the stored result global, so the agent path and the form path paint
@@ -702,7 +709,7 @@ if (mc) {
         return value;
       };
       var __computeInput = __normalizeNullMembers(params, "{\"type\":\"object\",\"required\":[],\"properties\":{\"assertion_created\":{\"description\":\"type not evidenced by kernel source\"},\"assertion_created_timestamp\":{\"description\":\"type not evidenced by kernel source\"},\"batch_posted_to_l1\":{\"description\":\"type not evidenced by kernel source\"},\"challenge_window_seconds\":{\"default\":604800,\"description\":\"type not evidenced by kernel source\"},\"current_time\":{\"description\":\"type not evidenced by kernel source\"},\"finality_claim\":{\"description\":\"type not evidenced by kernel source\"},\"l2_inclusion_timestamp\":{\"description\":\"type not evidenced by kernel source\"}}}");
-      var __directResult = await compute(__computeInput);
+      var __directResult = await computeEnvelope(__computeInput);
       if (typeof __directResult !== 'undefined') _lastResult = __directResult;
       await paintResult();
       return _lastResult;

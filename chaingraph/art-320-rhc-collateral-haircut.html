@@ -460,22 +460,33 @@ function compute(pp) {
 }
 
 function runHaircut() {
+  const sinceRaw = document.getElementById('sequencerSince').value;
+  const graceRaw = document.getElementById('graceSeconds').value;
+  const sequencer_uptime = { is_up: document.getElementById('sequencerUp').checked };
+  if (sinceRaw !== '') sequencer_uptime.since_timestamp = Number(sinceRaw);
+  if (graceRaw !== '') sequencer_uptime.grace_period_seconds = Number(graceRaw);
   const policy_parameters = {
     position_value: Number(document.getElementById('positionValue').value),
     base_haircut: Number(document.getElementById('baseHaircut').value),
     feed_round: { timestamp: Number(document.getElementById('feedTimestamp').value), heartbeat_seconds: Number(document.getElementById('heartbeatSeconds').value) },
     current_time: Number(document.getElementById('currentTime').value),
-    sequencer_uptime: { is_up: document.getElementById('sequencerUp').checked, since_timestamp: Number(document.getElementById('sequencerSince').value), grace_period_seconds: Number(document.getElementById('graceSeconds').value) },
+    sequencer_uptime,
     underlying_market_state: { is_halted: document.getElementById('underlyingHalted').checked }
   };
 
-  const output_payload = compute(policy_parameters);
-  _result = { policy_parameters, output_payload };
+  const envelope = computeEnvelope(policy_parameters);
+  const output_payload = envelope.output_payload;
+  _result = envelope;
   _lastResult = _result;
   paintResult();
 
   buildArtifact(policy_parameters, output_payload);
 }
+
+// WebMCP direct-mode envelope (WEBMCP-DIRECT-EXECUTE-VM-GATE-1): the registered
+// execute() hashes its return, so it needs the full { policy_parameters,
+// output_payload } artifact shape, not the bare payload compute() returns.
+function computeEnvelope(pp) { return { policy_parameters: pp, output_payload: compute(pp) }; }
 
 // WebMCP direct-mode render (WEBMCP-DIRECT-MODE-1): the page's render function
 // paints the stored result global, so the agent path and the form path paint
@@ -716,7 +727,7 @@ if (mc) {
         return value;
       };
       var __computeInput = __normalizeNullMembers(params, "{\"type\":\"object\",\"required\":[],\"properties\":{\"base_haircut\":{\"description\":\"type not evidenced by kernel source\"},\"current_time\":{\"description\":\"type not evidenced by kernel source\"},\"feed_round\":{\"description\":\"type not evidenced by kernel source\"},\"position_value\":{\"description\":\"type not evidenced by kernel source\"},\"sequencer_uptime\":{\"description\":\"type not evidenced by kernel source\"},\"underlying_market_state\":{\"description\":\"type not evidenced by kernel source\"}}}");
-      var __directResult = await compute(__computeInput);
+      var __directResult = await computeEnvelope(__computeInput);
       if (typeof __directResult !== 'undefined') _lastResult = __directResult;
       await paintResult();
       return _lastResult;
