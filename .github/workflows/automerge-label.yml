@@ -293,6 +293,8 @@ jobs:
       #     (the group was rebuilt before checkout; the PR did not fail). Re-queue
       #     once through the step below, capped 1 per PR per hour, counted from
       #     this step's own marker comments.
+      #   cancelled-leg -> a required leg reported `cancelled` and no gate
+      #     failed. Same re-queue path and same 1-per-hour cap as checkout-fatal.
       #   derived-gate -> a DERIVED_ROOT_GATES member failed (a real
       #     stale-after-merge result). Never re-queued: one `[MQ-EJECT] #<n> <gate>
       #     run <id>` warning + job summary line for the coordinator.
@@ -330,10 +332,10 @@ jobs:
           KIND=$(echo "$VERDICT" | jq -r .kind)
           echo "run $RUN classified: $VERDICT"
           # Eject hold: any failed-check ejection that is not the checkout-fatal
-          # class is held at this head: `mq-ejected` label + ONE comment (updated in
+          # or cancelled-leg class (a re-run, no gate failed) is held at this head: `mq-ejected` label + ONE comment (updated in
           # place on a repeat) naming the failing workflow, step, run and head sha.
           # rearm-recovered and merge-lane skip the PR until a new head clears it.
-          if [ "$KIND" != "checkout-fatal" ] && [ "$REASON" = "failed_checks" ]; then
+          if [ "$KIND" != "checkout-fatal" ] && [ "$KIND" != "cancelled-leg" ] && [ "$REASON" = "failed_checks" ]; then
             HEAD_SHA=$(gh pr view "$PR" -R "$REPO" --json headRefOid -q .headRefOid)
             WF_NAME=$(gh run view "$RUN" -R "$REPO" --json workflowName -q .workflowName)
             FAIL_STEP=$(gh api "repos/$REPO/actions/runs/$RUN/jobs?per_page=100" | jq -r '[.jobs[] | select(.conclusion == "failure") | .name as $j | ((.steps // [])[] | select(.conclusion == "failure") | "\($j) / \(.name)")][0] // "unknown"')
@@ -353,11 +355,12 @@ jobs:
             echo "[MQ-EJECT] #$PR $GATES run $RUN" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          [ "$KIND" = "checkout-fatal" ] || exit 0
+          # cancelled-leg shares checkout-fatal's marker, so one re-queue per PR per hour covers both kinds.
+          { [ "$KIND" = "checkout-fatal" ] || [ "$KIND" = "cancelled-leg" ]; } || exit 0
           SINCE=$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ)
           RECENT=$(gh pr view "$PR" -R "$REPO" --json comments | jq --arg s "$SINCE" '[.comments[] | select(.createdAt >= $s and (.body | startswith("merge-queue: checkout-fatal re-queue")))] | length')
           if [ "$RECENT" -ge 1 ]; then echo "already re-queued for checkout-fatal within the hour; not again"; exit 0; fi
-          gh pr comment "$PR" -R "$REPO" --body "merge-queue: checkout-fatal re-queue (run $RUN: queue ref gone at checkout, group rebuilt). One re-queue per PR per hour."
+          gh pr comment "$PR" -R "$REPO" --body "merge-queue: checkout-fatal re-queue (run $RUN, class $KIND: queue ref gone at checkout or a required leg cancelled with no gate failing). One re-queue per PR per hour."
           echo "proceed=true" >> "$GITHUB_OUTPUT"
 
       # `gh pr merge --auto` silently no-ops on a PR that is ALREADY green
