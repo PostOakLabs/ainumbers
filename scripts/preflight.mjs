@@ -1258,6 +1258,10 @@ const GATES = [
   // helpers (automerge-label.yml dequeued path). Was authored with #2918 but never run.
   ['Merge-queue eject hold fixture proof (cancelled ejecting run, MQ-EJECT-CANCELLED-RUN-1)',
     'node --test scripts/mq-eject-hold.test.mjs'],
+  // automerge-label.yml puts scripts/ci/gh-retry.sh in front of gh: transient
+  // GitHub API errors retry with backoff, anything else returns at once.
+  ['gh retry wrapper fixture proof (transient API errors retry, others pass through)',
+    'node --test scripts/ci/gh-retry.test.mjs'],
   // The regen deadman retries a failed main regen only for a transient step,
   // never for a deterministic gate red.
   ['Regen deadman retry decision fixture proof (gate red skips the retry)',
