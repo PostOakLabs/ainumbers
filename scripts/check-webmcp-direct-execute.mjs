@@ -713,6 +713,27 @@ const RUN_PATH_ADAPTERS = {
       setVal(sandbox, 'corrected_nav_per_share', pp.corrected_nav_per_share === undefined || pp.corrected_nav_per_share === null ? '' : String(pp.corrected_nav_per_share));
     },
   },
+  'art-373-recompute-fund-nav': {
+    // getPP always emits the accruals member ({income,expense} parsed from the
+    // two accruals textareas, [] each on blank) and reads shares_outstanding
+    // as a raw control string; fixture 0 omits accruals and carries
+    // shares_outstanding as a number, so the run-path preimage cannot equal
+    // the golden (baselined). The two optional lineage-ref controls stay
+    // blank: blank parses to null and contributes no pp member at all
+    // (NAV-LIN-WIRE-1), byte-identical to the pre-lineage form shape.
+    run: 'run',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'fund_id', pp.fund_id ?? '');
+      setVal(sandbox, 'valuation_date', pp.valuation_date ?? '');
+      setVal(sandbox, 'base_currency', pp.base_currency ?? '');
+      setVal(sandbox, 'holdings', pp.holdings === undefined ? '' : JSON.stringify(pp.holdings, null, 2));
+      setVal(sandbox, 'liabilities', pp.liabilities === undefined ? '' : JSON.stringify(pp.liabilities, null, 2));
+      setVal(sandbox, 'shares_outstanding', pp.shares_outstanding === undefined || pp.shares_outstanding === null ? '' : String(pp.shares_outstanding));
+      setVal(sandbox, 'decimal_places', pp.rounding?.decimal_places === undefined || pp.rounding?.decimal_places === null ? '' : String(pp.rounding.decimal_places));
+      setVal(sandbox, 'rounding_mode', pp.rounding?.mode ?? '');
+    },
+  },
 };
 
 function setVal(sandbox, id, v) {
