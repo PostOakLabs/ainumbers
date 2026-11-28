@@ -1376,7 +1376,7 @@ const PREFLIGHT_ONLY = new Map([
     "Actions only calls reusable workflows from a job; the step form parses but dies " +
     "at run time). Declared here because the parity extractor credits literal " +
     "`node <script>` invocations only, and the CI route is the gates array loop in " +
-    ".github/workflows/unwired-gates.yml (Run the 18 measured-green gates), which " +
+    ".github/workflows/unwired-gates.yml (Run the 19 measured-green gates), which " +
     "invokes via `node \"$g\"`. The array entry is real blocking CI enforcement; " +
     "this declaration records the shape, it does not excuse an unwired gate."],
   ["check-workflow-step-uses.test.mjs", SELF_TEST],
@@ -1958,7 +1958,10 @@ const DECLARED_SOFTENERS = new Map([
   // 2026-10-28 moved it :147 -> :153 — fetch-depth: 0 added to the checkout
   // step above the surface-parity step (the changelog gate fail-closes on
   // shallow PR merge-ref checkouts); same pin-move.
-  ["unwired-gates.yml:continue-on-error:153",
+  // OCG-S29-GATE-ROW-1 (2026-11-28) moved it :153 -> :154 — one array line
+  // (chaingraph/standard/twin-execution.test.mjs) in the measured-green gates
+  // loop above the surface-parity step; same pin-move.
+  ["unwired-gates.yml:continue-on-error:154",
    "surface-parity step is REPORT MODE by design — red on main (171/624 divergent); " +
    "continue-on-error is deliberate so the job surfaces drift without blocking. " +
    "Promotion to blocking removes this entry together with the continue-on-error."],
