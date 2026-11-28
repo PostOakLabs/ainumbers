@@ -39,6 +39,8 @@ mkdirSync(join(root, 'scripts'), { recursive: true });
 mkdirSync(join(root, 'chaingraph', 'kernels'), { recursive: true });
 mkdirSync(join(root, 'chaingraph', 'graph', 'nodes'), { recursive: true });
 copyFileSync(resolve(HERE, 'new-kernel.mjs'), join(root, 'scripts', 'new-kernel.mjs'));
+// HUB-AUTOSWEEP-SSOT-1: new-kernel.mjs now statically imports these two readers.
+for (const f of ['_hub-categories.mjs', '_node-status.mjs']) copyFileSync(resolve(HERE, f), join(root, 'scripts', f));
 cpSync(resolve(HERE, 'kernel-templates'), join(root, 'scripts', 'kernel-templates'), { recursive: true });
 for (const f of ['_hash.mjs', '_buildid.mjs']) copyFileSync(resolve(REPO, 'chaingraph', 'kernels', f), join(root, 'chaingraph', 'kernels', f));
 writeFileSync(join(root, 'chaingraph', 'hub-categories.json'), JSON.stringify({ 'Sample Category': { order: 1 } }));
@@ -50,11 +52,15 @@ console.log('new-kernel.test.mjs — scaffold completeness by mutation\n');
 const ID = 'art-9001-scaffold-sample';
 const proc = spawnSync(process.execPath, [
   join(root, 'scripts', 'new-kernel.mjs'), 'art-9001', 'scaffold-sample',
-  '--with-page', '--category', 'Sample Category', '--row', 'SAMPLE-ROW',
+  '--with-page', '--category', 'Sample Category', '--hub', 'sample-topic', '--row', 'SAMPLE-ROW',
 ], { encoding: 'utf8' });
 check('scaffold exits 0', proc.status, 0);
+// …and the absent hub page with a 1-node topic prints the advisory (no guides/ dir in this estate).
+check('PENDING-HUB printed for the absent 1-node slug', proc.stdout.includes('PENDING-HUB sample-topic'), true);
 
 const p = (...a) => join(root, ...a);
+// HUB-AUTOSWEEP-SSOT-1: the hub decision rides in the per-node file.
+check('per-node file carries category + hubs', JSON.parse(readFileSync(p('chaingraph', 'hub-categories', `${ID}.json`), 'utf8')), { category: 'Sample Category', hubs: ['sample-topic'] });
 const kernelPath = p('chaingraph', 'kernels', `${ID}.kernel.mjs`);
 const kernelSrc = readFileSync(kernelPath, 'utf8');
 
@@ -101,9 +107,29 @@ check('flag-mirror gate RED after removing the warnings mirror', await quiet(() 
 
 // 6. idempotent: a second run refuses to overwrite
 const again = spawnSync(process.execPath, [
-  join(root, 'scripts', 'new-kernel.mjs'), 'art-9001', 'scaffold-sample', '--with-page', '--category', 'Sample Category',
+  join(root, 'scripts', 'new-kernel.mjs'), 'art-9001', 'scaffold-sample', '--with-page', '--category', 'Sample Category', '--hub', 'sample-topic',
 ], { encoding: 'utf8' });
 check('second scaffold refuses (exit 1)', again.status, 1);
+
+// 7. HUB-AUTOSWEEP-SSOT-1: hub-decision validation + the 2+ threshold signal.
+const nk = join(root, 'scripts', 'new-kernel.mjs');
+const noHub = spawnSync(process.execPath, [nk, 'art-9003', 'scaffold-nohub', '--with-page', '--category', 'Sample Category'], { encoding: 'utf8' });
+check('--with-page without exactly one hub flag exits 2', noHub.status, 2);
+const bothFlags = spawnSync(process.execPath, [nk, 'art-9003', 'scaffold-nohub', '--with-page', '--category', 'Sample Category', '--hub', 'sample-topic', '--hub-exempt', 'why'], { encoding: 'utf8' });
+check('--hub AND --hub-exempt together exit 2', bothFlags.status, 2);
+const hublessPage = spawnSync(process.execPath, [nk, 'art-9003', 'scaffold-nohub', '--hub', 'sample-topic'], { encoding: 'utf8' });
+check('--hub without --with-page exits 2', hublessPage.status, 2);
+const badSlug = spawnSync(process.execPath, [nk, 'art-9003', 'scaffold-nohub', '--with-page', '--category', 'Sample Category', '--hub', 'Bad_Slug'], { encoding: 'utf8' });
+check('invalid hub slug exits 2', badSlug.status, 2);
+// A live sibling already resolves to the slug, so scaffolding a 2nd node onto the
+// still-absent hub page must print the directive, not the advisory.
+mkdirSync(join(root, 'guides'), { recursive: true });
+mkdirSync(join(root, 'chaingraph', 'hub-categories'), { recursive: true });
+writeFileSync(join(root, 'chaingraph', 'chaingraph.json'), JSON.stringify({ nodes: [{ tool_id: 'art-9000-earlier', status: 'live' }] }));
+writeFileSync(join(root, 'chaingraph', 'hub-categories', 'art-9000-earlier.json'), JSON.stringify({ category: 'Sample Category', hubs: ['sample-topic'] }));
+const secondTopicNode = spawnSync(process.execPath, [nk, 'art-9003', 'scaffold-second', '--with-page', '--category', 'Sample Category', '--hub', 'sample-topic', '--row', 'SAMPLE-ROW-2'], { encoding: 'utf8' });
+check('2nd node onto absent hub exits 0', secondTopicNode.status, 0);
+check('NEW-HUB-REQUIRED printed at the 2-node threshold', secondTopicNode.stdout.includes('NEW-HUB-REQUIRED sample-topic'), true);
 
 rmSync(root, { recursive: true, force: true });
 if (failures) { console.error(`\n✗ ${failures} case(s) failed`); process.exit(1); }
