@@ -687,6 +687,54 @@ export function visibleText(html) {
   return proseHtml(html).replace(/<[^>]+>/g, ' ');
 }
 
+// ── META-DESC-COPY-DEFECTS-1 (2026-11-27): <head> meta-description integrity ──
+// Two assertions on the three reader-facing description metas (name="description",
+// og:description, twitter:description), hosted here because this gate already owns
+// reader-facing copy and walks the whole published estate:
+//   (a) PLACEHOLDER, zero-tolerance, no baseline: the generator template sentence
+//       ("Replace this sentence with what the page explains ...") must never ship
+//       in any of the three fields. Measured 2026-11-27 at origin/main d062317549:
+//       exactly 7 pages carried it (chaingraph/art-777/-778/-779/-781 plus the
+//       inverted-database / mcp-failure-paths / randomness-ceremony explainers),
+//       all fixed in the same PR that added this rule — no legacy debt to shield.
+//   (b) DUPLICATE name="description", baseline-shielded shrink-only: two published
+//       pages whose meta description is byte-identical (whitespace-collapsed) are
+//       a copy-paste defect. Legacy identical groups are pinned in
+//       scripts/meta-desc-baseline.json keyed by the exact text; counts only go
+//       down via --update; the baseline never absorbs a new group or a group grown
+//       past its pin. og:description/twitter:description are placeholder-checked
+//       but NOT duplicate-checked: they legitimately mirror the page description,
+//       and the cross-page og copy on art-793/art-734 arrives inside a whole
+//       foreign <head> block (732-borrower-escrow-auditor, second canonical URL
+//       and all — reported for a follow-up row) that this rule does not need to
+//       re-detect field by field.
+const META_DESC_FIELDS = ['description', 'og:description', 'twitter:description'];
+export const META_DESC_PLACEHOLDER = /Replace this sentence with what the page explains/i;
+const META_DESC_BASELINE_PATH = resolve(REPO, 'scripts', 'meta-desc-baseline.json');
+
+/** Extract {kind, content} for every description-bearing <meta> tag, from
+ * script/style/comment-stripped HTML (a <meta> inside a <script> template
+ * literal or a JSON-LD sample is not head chrome). Pure: no IO. Exported for
+ * check-copy-hallmarks.test.mjs. */
+export function metaDescriptionTags(raw) {
+  const scope = raw
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ');
+  const out = [];
+  const re = /<meta\b[^>]*>/gi;
+  let m;
+  while ((m = re.exec(scope))) {
+    const key = (m[0].match(/\b(?:name|property)\s*=\s*["']([^"']+)["']/i) || [])[1];
+    if (!key) continue;
+    const kind = key.trim().toLowerCase();
+    if (!META_DESC_FIELDS.includes(kind)) continue;
+    const content = (m[0].match(/\bcontent\s*=\s*["']([\s\S]*?)["']/i) || [])[1];
+    if (typeof content === 'string') out.push({ kind, content });
+  }
+  return out;
+}
+
 /** Header-only visible text: content of <h1>-<h6>, tags stripped, badges already gone. */
 function headerText(prose) {
   const out = [];
@@ -940,6 +988,31 @@ if (UPDATE) {
   }
   writeFileSync(BASELINE_PATH, JSON.stringify(baseline, null, 2) + '\n');
   console.log(`copy-hallmarks: baseline written for ${Object.keys(baseline).length} file(s).`);
+  // META-DESC-COPY-DEFECTS-1: regenerate the duplicate-description pin map from
+  // the current estate, same lifecycle as the em-dash baseline above — --update
+  // is the explicit regeneration act (it re-measures and may drop dissolved
+  // pins); the gate run is what judges a group grown past its pin.
+  const updateDescEstate = new Map();
+  for (const file of htmlFiles(REPO)) {
+    let tags;
+    try {
+      tags = metaDescriptionTags(readFileSync(file, 'utf8'));
+    } catch {
+      continue;
+    }
+    for (const t of tags) {
+      if (t.kind !== 'description' || !t.content.trim()) continue;
+      const key = t.content.replace(/\s+/g, ' ').trim();
+      if (!updateDescEstate.has(key)) updateDescEstate.set(key, []);
+      updateDescEstate.get(key).push(relative(REPO, file).replace(/\\/g, '/'));
+    }
+  }
+  const dupPins = {};
+  for (const [text, rels] of [...updateDescEstate.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    if (rels.length > 1) dupPins[text] = rels.length;
+  }
+  writeFileSync(META_DESC_BASELINE_PATH, JSON.stringify({ duplicateDescriptions: dupPins }, null, 2) + '\n');
+  console.log(`copy-hallmarks: meta-description duplicate baseline written (${Object.keys(dupPins).length} pinned group(s)).`);
   process.exit(0);
 }
 
@@ -964,6 +1037,57 @@ for (const nodeFile of readdirSync(resolve(REPO, 'chaingraph', 'graph', 'nodes')
 }
 const improvements = [];
 const advisories = [];
+
+// ── META-DESC-COPY-DEFECTS-1: judge placeholder + duplicate head meta descriptions.
+// Rules and rationale live with metaDescriptionTags() above. The duplicate check is
+// inherently cross-file, so the estate map below reads every published page's
+// description metas REGARDLESS of --changed scoping (metadata-only extract, no
+// baseline bookkeeping); a --changed run then flags only groups a touched page
+// participates in, while untouched legacy groups stay the full run's (and CI's) job,
+// judged against scripts/meta-desc-baseline.json pins. Pins are shrink-only: a group
+// below its pin is an improvement (--update tightens), a new group or a group grown
+// past its pin is a failure the baseline never absorbs.
+const metaDescPins = existsSync(META_DESC_BASELINE_PATH)
+  ? (JSON.parse(readFileSync(META_DESC_BASELINE_PATH, 'utf8')).duplicateDescriptions || {})
+  : {};
+const descEstate = new Map(); // whitespace-collapsed description text -> [rel]
+for (const file of htmlFiles(REPO)) {
+  const rel = relative(REPO, file).replace(/\\/g, '/');
+  let tags;
+  try {
+    tags = metaDescriptionTags(readFileSync(file, 'utf8'));
+  } catch {
+    continue; // unreadable page: read errors are the findings loop's / other gates' to name
+  }
+  for (const t of tags) {
+    if (t.kind !== 'description' || !t.content.trim()) continue;
+    const key = t.content.replace(/\s+/g, ' ').trim();
+    if (!descEstate.has(key)) descEstate.set(key, []);
+    descEstate.get(key).push(rel);
+  }
+}
+// (a) the template placeholder, zero-tolerance, in any of the three fields —
+// scanned scope only (touched pages on a --changed run, whole estate on a full run).
+for (const file of scanFiles) {
+  const rel = relative(REPO, file).replace(/\\/g, '/');
+  for (const t of metaDescriptionTags(readFileSync(file, 'utf8'))) {
+    if (META_DESC_PLACEHOLDER.test(t.content)) {
+      failures.push(`${rel}: template placeholder sentence left in <meta ${t.kind}> description ("${t.content.replace(/\s+/g, ' ').trim().slice(0, 72)}...") — write the page's own description from its MANIFEST/shard (META-DESC-COPY-DEFECTS-1)`);
+    }
+  }
+}
+// (b) byte-identical name="description" across published pages, pinned shrink-only.
+for (const [text, rels] of descEstate) {
+  if (rels.length < 2) continue;
+  const pin = metaDescPins[text];
+  if (pin != null && rels.length <= pin) {
+    if (rels.length < pin) improvements.push(`${rels.slice(0, 4).join(', ')}: identical-description group shrank ${pin} -> ${rels.length} — tighten scripts/meta-desc-baseline.json with --update`);
+    continue;
+  }
+  const owners = CHANGED ? rels.filter((r) => isTouched(r, CHANGED)) : rels;
+  if (!owners.length) continue; // --changed run: no touched page participates in this group
+  failures.push(`${owners[0]}: <meta name="description"> is byte-identical to ${rels.length - 1} other published page(s) (${rels.filter((r) => r !== owners[0]).slice(0, 4).join(', ')}) — write each page's own description (META-DESC-COPY-DEFECTS-1); pre-existing identical groups are pinned shrink-only in scripts/meta-desc-baseline.json and counts only go down`);
+}
 
 // ── HALLMARK-CAP-PR-SIDE-1 (2026-11-16): assembled hub + sitemap ",-not X" caps ──
 // The two pages below are shared derived artifacts with a single writer
