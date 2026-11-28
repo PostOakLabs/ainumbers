@@ -15,7 +15,11 @@
  *
  * Usage:
  *   node scripts/gen-sitemap-html.mjs          # regenerate
- *   node scripts/gen-sitemap-html.mjs --check  # freshness gate (exit 1 if stale)
+ *   node scripts/gen-sitemap-html.mjs --check  # freshness + coverage gate
+ *                                              # (exit 1 if stale, or if any
+ *                                              # sitemap.xml URL is missing
+ *                                              # from sitemap.html — see
+ *                                              # SITEMAP-HTML-COVERAGE-1 below)
  */
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { gitSync } from './_git-env-lib.mjs';
@@ -98,8 +102,19 @@ const headingNames = new Map();
 const catOrder = [];
 const catTools = new Map();
 {
-  const re = /<a\s+href="(tools\/[^"]+\.html)"\s+class="tool-card"([^>]*)>([\s\S]*?)<\/a>/g;
+  // SITEMAP-HTML-COVERAGE-1 card-scan hardening (measured 2026-11-27): the old
+  // body `([\s\S]*?)<\/a>` crossed card boundaries whenever a card's closing
+  // </a> is missing — tools.html cards 323 and 440 are unclosed, and their lazy
+  // bodies swallowed the NEXT card's anchor, silently dropping tools/452 and
+  // tools/453 from sitemap.html while a plain --check stayed green. The body is
+  // now open-tag anchored (ends at the next <a or </a>, whichever comes first),
+  // which reconstructs the browser's auto-close behavior and lists every card.
+  // The class match also accepts variants ("tool-card ref-card"), which had
+  // excluded tools/paycode-decoder.html. Per-card desc extraction only reads
+  // the card-desc div, so a truncated body loses nothing it used.
+  const re = /<a\s+href="(tools\/[^"]+\.html)"\s+class="tool-card(?:\s[^"]*)?"([^>]*)>([\s\S]*?)(?=<a[\s>]|<\/a>)/g;
   let m;
+  const seenCardHrefs = new Set();
   while ((m = re.exec(toolsHtml))) {
     const [, href, attrs, body] = m;
     const catM = attrs.match(/data-cat="([^"]+)"/);
@@ -109,6 +124,10 @@ const catTools = new Map();
     const name = decodeEntities(nameM[1]);
     const descM = body.match(/<div class="card-desc">([\s\S]*?)<\/div>/);
     const desc = descM ? decodeEntities(descM[1].trim()) : '';
+    // Variant classes (tool-card ref-card) can share an href with a standard
+    // card elsewhere on the page; list each tool page once.
+    if (seenCardHrefs.has(href)) continue;
+    seenCardHrefs.add(href);
     if (!catTools.has(cat)) { catTools.set(cat, []); catOrder.push(cat); }
     catTools.get(cat).push({ href, name, desc });
   }
@@ -205,6 +224,69 @@ const chaingraphInfra = scanHtmlDir(
 );
 
 // ---------------------------------------------------------------------------
+// 5b. Chain composer pages — chaingraph/chains/*.html (SITEMAP-HTML-COVERAGE-1).
+//     Scan-driven, never a hand list: every non-shim composer page under
+//     chains/ is listed, whatever lands there next. Composer titles are of the
+//     form "Name · OpenChainGraph Suite · AINumbers.co" (with the middot
+//     authored as &middot;); trim everything from the first middot so the row
+//     shows the workflow name alone, and never re-escapes the raw entity.
+// ---------------------------------------------------------------------------
+function trimMidDotSuffix(items) {
+  return items.map((item) => ({
+    ...item,
+    name: String(item.name).split(/\s+(?:·|&middot;)\s*/)[0].trim() || item.name,
+  }));
+}
+const chainPages = trimMidDotSuffix(
+  scanHtmlDir(resolve(REPO, 'chaingraph/chains'), 'chaingraph/chains')
+    .filter(p => !isRedirectShim(p.href))
+);
+
+// ---------------------------------------------------------------------------
+// 5c. Trust pages — trust/*.html (SITEMAP-HTML-COVERAGE-1): threat models,
+//     data handling, key ceremony, ledger, MCP endpoint, network behavior.
+// ---------------------------------------------------------------------------
+const trustPages = scanHtmlDir(resolve(REPO, 'trust'), 'trust')
+  .filter(p => !isRedirectShim(p.href));
+
+// ---------------------------------------------------------------------------
+// 5d. Attestation packs — attestations/**/index.html (SITEMAP-HTML-COVERAGE-1):
+//     versioned in-toto attestation pages, one row per published version.
+// ---------------------------------------------------------------------------
+function scanAttestationIndexFiles(dirPath, relPrefix) {
+  let entries;
+  try { entries = readdirSync(dirPath, { withFileTypes: true }); } catch { return []; }
+  const out = [];
+  for (const e of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+    const rel = relPrefix ? relPrefix + '/' + e.name : e.name;
+    if (e.isDirectory()) out.push(...scanAttestationIndexFiles(resolve(dirPath, e.name), rel));
+    else if (e.name === 'index.html') {
+      const html = readFileSync(resolve(dirPath, e.name), 'utf8');
+      out.push({
+        href: rel,
+        name: extractTitle(html, rel),
+        desc: extractDesc(html),
+        file: e.name,
+      });
+    }
+  }
+  return out;
+}
+const attestationPages = scanAttestationIndexFiles(resolve(REPO, 'attestations'), 'attestations')
+  .filter(p => !isRedirectShim(p.href));
+
+// ---------------------------------------------------------------------------
+// 5e. chaingraph/explainers/ — concept explainers the xml publishes and the
+//     infra section's own desc already promises ("explainer"); they live in a
+//     subdirectory the top-level-only scan above never walked
+//     (SITEMAP-HTML-COVERAGE-1). Appended to the infra rows, same section.
+// ---------------------------------------------------------------------------
+chaingraphInfra.push(...trimMidDotSuffix(
+  scanHtmlDir(resolve(REPO, 'chaingraph/explainers'), 'chaingraph/explainers')
+    .filter(p => !isRedirectShim(p.href))
+));
+
+// ---------------------------------------------------------------------------
 // 6. Root pages — fixed curated list (too much non-page noise in a root
 //    directory scan; audit-check this list stays current as new root pages
 //    are added). Extends the prior hand-typed list with the 2 pages the
@@ -229,6 +311,7 @@ const rootPages = [
   { icon: '🔁', name: 'Front-to-Back Prompts', href: 'front-to-back.html' },
   { icon: '🧰', name: 'All Tools (directory)', href: 'tools.html' },
   { icon: '🗂', name: 'Workpaper Index (hash-anchored bundles)', href: 'workpaper-index.html' },
+  { icon: '🧾', name: 'Evidence Register (hash-anchored claims)', href: 'evidence/index.html' },
   { icon: '🔍', name: 'OIM Viewer', href: 'oim-viewer.html' },
   { icon: '🗓', name: 'Deadline Wall', href: 'deadline-wall.html' },
   { icon: '🔀', name: 'Bundle Diff', href: 'bundle-diff.html' },
@@ -352,6 +435,9 @@ sections.push({ id: 'cat-guides', num: '–', name: 'Integration Guides & Hubs',
 sections.push({ id: 'cat-ocg-nodes', num: 'OCG', name: 'OpenChainGraph Nodes', desc: 'Every live OpenChainGraph node: single-step, chainable, MCP-callable tools. Composed into multi-step workflows on the OpenChainGraph hub.', rows: ocgNodes });
 sections.push({ id: 'cat-ocg-guides', num: 'OCG', name: 'OpenChainGraph Topic Guides', desc: '', rows: chaingraphGuides });
 sections.push({ id: 'cat-ocg-infra', num: 'OCG', name: 'OpenChainGraph Infrastructure', desc: 'Spec, verifier, explainer, and utility pages supporting the OpenChainGraph standard.', rows: chaingraphInfra });
+sections.push({ id: 'cat-chains', num: 'OCG', name: 'Chain Composers', desc: 'Every live chain composer page: guided, multi-step workflows assembled from the OpenChainGraph node suite, from policy drafting to evidence packs and audit trails.', rows: chainPages });
+sections.push({ id: 'cat-trust', num: '–', name: 'Trust & Transparency', desc: 'Threat models and operating policies: anchor relay, data handling, key ceremony, ledger, MCP endpoint, network behavior, and reliance terms.', rows: trustPages });
+sections.push({ id: 'cat-attestations', num: '–', name: 'Attestation Packs', desc: 'Versioned in-toto attestation packs for OpenChainGraph execution receipts.', rows: attestationPages });
 
 const geoBlock = `          <!-- GEO / LLMEO block -->
           <div class="geo-block" aria-label="About AINumbers.co for search engines and language models">
@@ -489,7 +575,92 @@ src = spliceSentinel(
   if (src !== before) changed = true;
 }
 
+// ---------------------------------------------------------------------------
+// SITEMAP-HTML-COVERAGE-1 (SO #34c red-before-green): every apex URL listed in
+// sitemap.xml must also be reachable by a human from sitemap.html. The xml is
+// crawler-complete by construction (regen-sitemap.mjs scans
+// scripts/published-dirs.json), but the HUMAN page's sections drifted silently
+// (measured 2026-11-27 on origin/main: 452 xml URLs with no sitemap.html link,
+// 412 of them chain-composer pages, plus every trust/ page and both
+// attestation packs). This assertion turns that drift into a hard --check
+// failure. Two exemptions, both explicit:
+//   shims      — redirect forwarders (<meta http-equiv=refresh> / robots
+//                noindex) are auto-exempt, detecting them exactly the way
+//                NAV-ISLAND-1's check-nav-reachability.mjs isShim() does;
+//   exclusions — the reviewed, commented list below: xml-published surfaces
+//                this page intentionally does not enumerate as sections (yet).
+// The check reads the GENERATED src (post-splice), so --check validates what
+// would ship, not the stale committed bytes; after merge the main-side
+// single-writer regen (SO #35) writes the sections and satisfies it.
+// ---------------------------------------------------------------------------
+const SITEMAP_COVERAGE_APEX = 'https://ainumbers.co/';
+const SITEMAP_XML_COVERAGE_EXCLUSIONS = new Map([
+  ['rss.xml', 'non-HTML feed artifact: xml-listed for crawlers, not a human page'],
+  ['CHANGELOG.md', 'non-HTML document: xml-listed for crawlers, not a human page'],
+  // disclosures/ is xml-published (published-dirs flatDir) but has no
+  // sitemap.html section in SITEMAP-HTML-COVERAGE-1 scope (the row adds
+  // Chains/Trust/Attestations only). Add a section before removing these.
+  ['disclosures/index.html', 'disclosures/ has no sitemap.html section in SITEMAP-HTML-COVERAGE-1 scope'],
+  ['disclosures/gated-chains.html', 'disclosures/ has no sitemap.html section in SITEMAP-HTML-COVERAGE-1 scope'],
+  ['disclosures/mandate-compilation.html', 'disclosures/ has no sitemap.html section in SITEMAP-HTML-COVERAGE-1 scope'],
+  ['disclosures/receipt-anchor-binding.html', 'disclosures/ has no sitemap.html section in SITEMAP-HTML-COVERAGE-1 scope'],
+  ['disclosures/terms.html', 'disclosures/ has no sitemap.html section in SITEMAP-HTML-COVERAGE-1 scope'],
+  // research/ is xml-published (published-dirs recursiveDir) working notes,
+  // deliberately outside the human tool/composer sitemap sections.
+  ['research/engineering-decision-schema/index.html', 'research/ working notes, not a sitemap section in SITEMAP-HTML-COVERAGE-1 scope'],
+  ['research/free-web-ai-redteam-benchmark/index.html', 'research/ working notes, not a sitemap section in SITEMAP-HTML-COVERAGE-1 scope'],
+  ['research/free-web-ai-redteam-benchmark/day1.html', 'research/ working notes, not a sitemap section in SITEMAP-HTML-COVERAGE-1 scope'],
+  ['research/free-web-ai-redteam-benchmark/day2.html', 'research/ working notes, not a sitemap section in SITEMAP-HTML-COVERAGE-1 scope'],
+  ['research/free-web-ai-redteam-benchmark/day3.html', 'research/ working notes, not a sitemap section in SITEMAP-HTML-COVERAGE-1 scope'],
+  ['research/free-web-ai-redteam-benchmark/day4.html', 'research/ working notes, not a sitemap section in SITEMAP-HTML-COVERAGE-1 scope'],
+  ['research/free-web-ai-redteam-benchmark/day5.html', 'research/ working notes, not a sitemap section in SITEMAP-HTML-COVERAGE-1 scope'],
+  ['research/free-web-ai-redteam-benchmark/day6.html', 'research/ working notes, not a sitemap section in SITEMAP-HTML-COVERAGE-1 scope'],
+  ['research/free-web-ai-redteam-benchmark/day7.html', 'research/ working notes, not a sitemap section in SITEMAP-HTML-COVERAGE-1 scope'],
+  ['research/free-web-ai-redteam-benchmark/day8.html', 'research/ working notes, not a sitemap section in SITEMAP-HTML-COVERAGE-1 scope'],
+  ['research/openeda-decision-dataset/index.html', 'research/ working notes, not a sitemap section in SITEMAP-HTML-COVERAGE-1 scope'],
+  ['research/zkprof-harness/index.html', 'research/ working notes, not a sitemap section in SITEMAP-HTML-COVERAGE-1 scope'],
+]);
+
+// Mirror of check-nav-reachability.mjs isShim() (NAV-ISLAND-1): whitespace-
+// stripped meta-refresh / robots-noindex detection. An UNREADABLE file is NOT
+// exempt — a sitemap.xml URL whose page is missing from the tree is exactly
+// the drift this assertion must report, never silently excuse.
+function isRedirectShim(relPath) {
+  let html;
+  try { html = readFileSync(resolve(REPO, relPath), 'utf8'); } catch { return false; }
+  const t = html.replace(/\s+/g, '');
+  return /http-equiv=["']?refresh/i.test(t) || /name=["']?robots["']?content=["'][^"']*noindex/i.test(t);
+}
+
+function checkXmlCoverage(src) {
+  const xml = readFileSync(resolve(REPO, 'sitemap.xml'), 'utf8');
+  const linked = new Set();
+  for (const m of src.matchAll(/href="([^"]+)"/g)) {
+    const h = m[1].split('#')[0];
+    if (/^(https?:|mailto:|tel:|javascript:|data:)/i.test(h)) continue;
+    linked.add(h);
+  }
+  const missing = [];
+  for (const m of xml.matchAll(/<loc>([^<]+)<\/loc>/g)) {
+    const loc = m[1];
+    // External surfaces (docs./anchor./mcp. hosts) are curated links, not a
+    // scannable section; only apex URLs are assertable here.
+    if (!loc.startsWith(SITEMAP_COVERAGE_APEX)) continue;
+    const rel = loc.slice(SITEMAP_COVERAGE_APEX.length).replace(/\/$/, '') || 'index.html';
+    if (linked.has(rel)) continue;
+    if (SITEMAP_XML_COVERAGE_EXCLUSIONS.has(rel)) continue;
+    if (isRedirectShim(rel)) continue;
+    missing.push(rel);
+  }
+  if (missing.length) {
+    console.error(`gen-sitemap-html --check: sitemap.xml coverage FAIL — ${missing.length} sitemap.xml URL(s) are neither linked from sitemap.html, nor redirect shims, nor on the reviewed exclusion list (SITEMAP-HTML-COVERAGE-1):`);
+    for (const rel of missing) console.error('  ' + rel);
+    process.exit(1);
+  }
+}
+
 if (CHECK) {
+  checkXmlCoverage(src);
   if (changed || src !== readFileSync(TARGET, 'utf8')) {
     console.error('gen-sitemap-html --check FAIL: sitemap.html is stale. Run: node scripts/gen-sitemap-html.mjs');
     process.exit(1);
