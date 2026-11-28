@@ -884,6 +884,146 @@ const RUN_PATH_ADAPTERS = {
       sandbox.document.getElementById = (sel) => (sel === 'bracketRows' ? { children: rows } : realGet(sel));
     },
   },
+  'art-432-call-report-rc-balance-sheet': {
+    // readField runs every amount through safeNum, so String(...)-fed controls
+    // arrive as the fixture's numbers; entity/period are raw control strings.
+    run: 'runMapper',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'entityIdInput', pp.entity_id ?? '');
+      setVal(sandbox, 'periodInput', pp.reporting_period ?? '');
+      setVal(sandbox, 'tolInput', pp.rounding_tolerance_usd === undefined || pp.rounding_tolerance_usd === null ? '' : String(pp.rounding_tolerance_usd));
+      for (const k of ['cash_and_due_from_usd', 'securities_htm_usd', 'securities_afs_usd', 'loans_and_leases_net_usd', 'bank_premises_usd', 'other_assets_usd', 'total_deposits_usd', 'borrowings_usd', 'other_liabilities_usd', 'common_stock_usd', 'surplus_usd', 'retained_earnings_usd', 'aoci_usd']) {
+        setVal(sandbox, k, pp[k] === undefined || pp[k] === null ? '' : String(pp[k]));
+      }
+    },
+  },
+  'art-433-call-report-rcr-capital': {
+    // tier1_capital_usd is read as a raw control string and the five
+    // min/buffer pct readField defaults always emit; fixture-0 pp omits all
+    // six members, so the run-path pp cannot equal the golden (baselined).
+    run: 'runMapper',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'entityIdInput', pp.entity_id ?? '');
+      setVal(sandbox, 'periodInput', pp.reporting_period ?? '');
+      setVal(sandbox, 'constVerInput', pp.constants_version ?? '');
+      sandbox.document.getElementById('isGsibInput').checked = pp.is_gsib ?? false;
+      for (const k of ['cet1_capital_usd', 'additional_tier1_capital_usd', 'tier2_capital_usd', 'total_rwa_usd', 'total_leverage_exposure_usd']) {
+        setVal(sandbox, k, pp[k] === undefined || pp[k] === null ? '' : String(pp[k]));
+      }
+    },
+  },
+  'art-434-call-report-edit-check-gate': {
+    // The two schedule payloads stay JSON textareas; parseJsonSafe round-trips
+    // the fixture objects exactly (canon is key-order-insensitive), tolerance
+    // via safeNum.
+    run: 'runGate',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'rcInput', pp.rc_output_payload === undefined ? '' : JSON.stringify(pp.rc_output_payload, null, 2));
+      setVal(sandbox, 'rcrInput', pp.rcr_output_payload === undefined ? '' : JSON.stringify(pp.rcr_output_payload, null, 2));
+      setVal(sandbox, 'tolInput', pp.rounding_tolerance_usd === undefined || pp.rounding_tolerance_usd === null ? '' : String(pp.rounding_tolerance_usd));
+    },
+  },
+  'art-435-bhc-schedule-hc-balance-sheet': {
+    // Same shape as the RC sibling: readField runs every amount through
+    // safeNum, entity/period are raw control strings.
+    run: 'runMapper',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'entityIdInput', pp.entity_id ?? '');
+      setVal(sandbox, 'periodInput', pp.reporting_period ?? '');
+      setVal(sandbox, 'tolInput', pp.rounding_tolerance_usd === undefined || pp.rounding_tolerance_usd === null ? '' : String(pp.rounding_tolerance_usd));
+      for (const k of ['cash_and_due_from_usd', 'securities_htm_usd', 'securities_afs_usd', 'loans_and_leases_net_usd', 'bank_premises_usd', 'other_assets_usd', 'total_deposits_usd', 'borrowings_usd', 'other_liabilities_usd', 'common_stock_usd', 'surplus_usd', 'retained_earnings_usd', 'aoci_usd']) {
+        setVal(sandbox, k, pp[k] === undefined || pp[k] === null ? '' : String(pp[k]));
+      }
+    },
+  },
+  'art-436-bhc-schedule-hcr-capital': {
+    // All amounts run through readField's numeric parse; is_gsib flips
+    // .checked; constants_version is a raw control string.
+    run: 'runCalc',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'entityIdInput', pp.entity_id ?? '');
+      setVal(sandbox, 'periodInput', pp.reporting_period ?? '');
+      setVal(sandbox, 'constantsVersionInput', pp.constants_version ?? '');
+      sandbox.document.getElementById('isGsibInput').checked = pp.is_gsib ?? false;
+      for (const k of ['cet1_capital_usd', 'additional_tier1_capital_usd', 'tier2_capital_usd', 'total_rwa_usd', 'total_leverage_exposure_usd', 'eslr_buffer_pct']) {
+        setVal(sandbox, k, pp[k] === undefined || pp[k] === null ? '' : String(pp[k]));
+      }
+    },
+  },
+  'art-439-y14-capital-worksheet-rollforward': {
+    // Nested pp groups (beginning_balances/additions/deductions/
+    // published_scenario/cross_check) map one-to-one onto scalar controls;
+    // every fixture member has a control, so the preimage can equal golden.
+    run: 'runRollforward',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      const num = (v) => (v === undefined || v === null ? '' : String(v));
+      setVal(sandbox, 'entityIdInput', pp.entity_id ?? '');
+      setVal(sandbox, 'periodInput', pp.reporting_period ?? '');
+      setVal(sandbox, 'constVerInput', pp.constants_version ?? '');
+      setVal(sandbox, 'beg_cet1', num(pp.beginning_balances?.cet1));
+      setVal(sandbox, 'beg_at1', num(pp.beginning_balances?.at1));
+      setVal(sandbox, 'beg_t2', num(pp.beginning_balances?.t2));
+      setVal(sandbox, 'add_cet1', num(pp.additions?.cet1));
+      setVal(sandbox, 'add_at1', num(pp.additions?.at1));
+      setVal(sandbox, 'add_t2', num(pp.additions?.t2));
+      setVal(sandbox, 'ded_cet1', num(pp.deductions?.cet1));
+      setVal(sandbox, 'ded_at1', num(pp.deductions?.at1));
+      setVal(sandbox, 'ded_t2', num(pp.deductions?.t2));
+      setVal(sandbox, 'scenarioName', pp.published_scenario?.name ?? '');
+      setVal(sandbox, 'scenarioCitation', pp.published_scenario?.citation ?? '');
+      setVal(sandbox, 'scen_cet1', num(pp.published_scenario?.cet1_adjustment_usd));
+      setVal(sandbox, 'scen_at1', num(pp.published_scenario?.at1_adjustment_usd));
+      setVal(sandbox, 'scen_t2', num(pp.published_scenario?.t2_adjustment_usd));
+      setVal(sandbox, 'ref_total_capital', num(pp.cross_check?.reported_total_capital_usd));
+      setVal(sandbox, 'tolerance', num(pp.cross_check?.tolerance_usd));
+    },
+  },
+  'art-446-counterparty-internal-limit-check': {
+    // The page reads counterparty rows OUT of the DOM (#cpRows children: one
+    // text input, one select, three number inputs), so the adapter serves
+    // fixture rows through a getElementById override. The fixture rows'
+    // counterparty_name has no row control and stays out of the run-path pp
+    // (baselined).
+    run: 'runCheck',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      const rows = (pp.counterparties ?? []).map((c) => ({
+        querySelector(sel) {
+          if (sel === 'input[type="text"]') return { value: c.counterparty_id ?? '' };
+          return { value: c.limit_type ?? '' };
+        },
+        querySelectorAll(sel) {
+          const vals = sel === 'input[type="number"]'
+            ? [c.approved_limit_musd, c.current_exposure_musd, c.warning_threshold_pct]
+            : [];
+          return vals.map((v) => ({ value: v === null || v === undefined ? '' : String(v) }));
+        },
+      }));
+      const realGet = sandbox.document.getElementById.bind(sandbox.document);
+      sandbox.document.getElementById = (sel) => (sel === 'cpRows' ? { children: rows } : realGet(sel));
+    },
+  },
+  'art-447-securitization-risk-retention-check': {
+    // Amounts run through safe(..., 0); the three attestation flags flip
+    // .checked; jurisdiction/method are raw control strings.
+    run: 'runCheck',
+    prefill(sandbox, fx) {
+      const pp = fx.policy_parameters;
+      setVal(sandbox, 'jurisdiction', pp.jurisdiction ?? '');
+      setVal(sandbox, 'method', pp.retention_method ?? '');
+      setVal(sandbox, 'totalExposure', pp.total_securitized_exposure_musd === undefined || pp.total_securitized_exposure_musd === null ? '' : String(pp.total_securitized_exposure_musd));
+      setVal(sandbox, 'retained', pp.retained_amount_musd === undefined || pp.retained_amount_musd === null ? '' : String(pp.retained_amount_musd));
+      sandbox.document.getElementById('qrm').checked = pp.all_exposures_qrm_qualified ?? false;
+      sandbox.document.getElementById('solePurpose').checked = pp.retainer_is_sole_purpose_entity ?? false;
+      sandbox.document.getElementById('hedged').checked = pp.retained_interest_hedged_or_sold ?? false;
+    },
+  },
 };
 
 function setVal(sandbox, id, v) {
