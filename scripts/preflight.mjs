@@ -3215,6 +3215,11 @@ async function runQuickSuite(selfTest) {
     }
     console.log('✅ --quick --self-test PASSED — ordering, ≤90 s budget, clean-tree and presence controls all green.');
   }
+  // STALE-STAMP-QUICK-WIRE-1: report-only SHADOW leg (not a gate, never in QUICK_GATES, sunset 2026-12-01).
+  // It cannot change the exit code below: the module never throws and this call is wrapped too.
+  if (!red.length) {
+    try { await (await import('./lib/stale-stamp-shadow.mjs')).runShadow({ repo: REPO, ref: QUICK_REF }); } catch { /* shadow never blocks */ }
+  }
   process.exit(red.length ? 1 : 0);
 }
 if (QUICK) await runQuickSuite(process.argv.includes('--self-test'));
