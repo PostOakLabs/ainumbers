@@ -26,6 +26,7 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
+import { fileURLToPath as fileURLToPathLocal } from 'node:url';
 import { copySandboxDeps, shortCircuitFixtureOracle, neutralizationTargets, decomposeMoneyMath, decomposedGateDecision, kernelTimeoutSecondsFromEnv, kernelTimeoutSecondsForKernel, mutationTrialsForKernel, mutationEnvForKernel, runProcessBounded, resolveStrykerInvocation, findDetmathMarkerRange, surfaceSplitPatch, resolveSurfaceSplit, survivorLocations, assertSurvivorsComplete, buildJsonResult, artifactConstRanges, tierOfMutantWithArtifact, tierReportWithArtifact, loadConfig, kernelVerdictKey, readPassedVerdict, writePassedVerdict, runTier } from './run-mutation-tier.mjs';
 import { mergeMutationSiblings, loadOriginalAuthorshipAllowlist } from './lib-per-kernel-config.mjs';
 import { classifyKernelSource, tierReport } from '../chaingraph/kernels/mutation-tier-split.mjs';
@@ -896,6 +897,245 @@ await asyncTest('R37 the computed env reaches a spawned child for the keyed kern
   assert(b.status === 0 && b.stdout === '', `the unkeyed kernel's child must see no var (got ${b.stdout})`);
 });
 
+// Numbered AB1..AB8 (not R38+) so this block cannot collide with #3271's R-numbers.
+console.log('\nrun-mutation-tier controls — sandbox trial hook + auto budget (MUTATION-TRIALS-AUTO-BUDGET-1)');
+
+const { sandboxTrialsHook, chooseAutoTrials, autoTrialBudgetConfig, resolveTrialsEnv, parseDryRunLog } = await import('./run-mutation-tier.mjs');
+const PLAIN_FLOOR = "import x from './y.mjs';\nconst TRIALS = 4000;\nlet n = 0; for (let i = 0; i < TRIALS; i++) n++;\nprocess.stdout.write(String(n));\n";
+
+test('AB1 the hook rewrites exactly one top-level `const TRIALS = N;` and the env reaches it (unset = shipped count, cap never above it)', () => {
+  const h = sandboxTrialsHook(PLAIN_FLOOR);
+  assert(h.status === 'patched' && h.fullTrials === 4000, `expected patched/4000, got ${h.status}/${h.fullTrials}`);
+  assert(!/^const TRIALS = 4000;/m.test(h.source) && h.source.includes('MUTATION_TIER_NUM_RUNS'), 'the literal declaration must be replaced by the env-reading one');
+  assert(h.source.split('\n')[0] === PLAIN_FLOOR.split('\n')[0], 'nothing outside the declaration may change');
+  const body = h.source.split('\n').slice(1).join('\n');
+  const run = (env) => {
+    const e = { ...process.env }; delete e.MUTATION_TIER_NUM_RUNS; Object.assign(e, env);
+    return spawnSync(process.execPath, ['--input-type=module', '-e', body], { env: e, encoding: 'utf8' }).stdout;
+  };
+  assert(run({}) === '4000', `unset env must run the shipped 4000 trials (got ${run({})})`);
+  assert(run({ MUTATION_TIER_NUM_RUNS: '50' }) === '50', 'a budget of 50 must run 50 trials');
+  assert(run({ MUTATION_TIER_NUM_RUNS: '99999' }) === '4000', 'a budget above the shipped count must never raise it');
+  assert(run({ MUTATION_TIER_NUM_RUNS: 'junk' }) === '4000', 'a junk value falls back to the shipped count');
+});
+
+test('AB2 the hook leaves native, own-cap and ambiguous floors alone', () => {
+  assert(sandboxTrialsHook('const TRIALS = Number(process.env.MUTATION_TIER_NUM_RUNS) || 10;\n').status === 'native', 'env-reading floor is native');
+  assert(sandboxTrialsHook('const MUTATION_MODE = true;\nconst TRIALS = MUTATION_MODE ? 50 : 4000;\n').status === 'own-cap', 'MUTATION_MODE floor keeps its own cap');
+  assert(sandboxTrialsHook('let c = process.env.PROPFLOOR_TRIAL_CAP;\nconst TRIALS = 4000;\n').status === 'own-cap', 'PROPFLOOR_TRIAL_CAP floor keeps its own cap');
+  assert(sandboxTrialsHook('const TRIALS = 10;\nconst TRIALS = 20;\n').status === 'no-single-decl', 'two declarations are ambiguous');
+  assert(sandboxTrialsHook('function f() {\n  const TRIALS = 10;\n}\n').status === 'no-single-decl', 'an indented (non-top-level) declaration is not hooked');
+  assert(sandboxTrialsHook('const N = 3;\n').status === 'no-single-decl', 'no declaration, no hook');
+});
+
+test('AB3 chooseAutoTrials: a kernel whose estimate fits keeps full trials; one that does not gets the largest count fitting the target', () => {
+  const base = { fullTrials: 5000, t1Ms: 100, minTrials: 50, targetFraction: 0.6, boundS: 600, concurrency: 2 };
+  const fits = chooseAutoTrials({ ...base, tFullMs: 1000, mutants: 400 }); // 400 x 1 s / 2 = 200 s
+  assert(fits.trials === null && /fits/.test(fits.reason), `200 s estimate must keep full trials: ${JSON.stringify(fits)}`);
+  const big = chooseAutoTrials({ ...base, tFullMs: 5100, mutants: 400 }); // 400 x 5.1 / 2 = 1020 s
+  assert(big.trials !== null && big.trials >= 50 && big.trials < 5000, `1020 s estimate must budget: ${JSON.stringify(big)}`);
+  const perTrial = (5.1 - 0.1) / 4999;
+  const est = (k) => (400 * (0.1 + (k - 1) * perTrial)) / 2;
+  assert(est(big.trials) <= 0.6 * 600 + 1e-6, `the chosen count must fit 60% of the bound (est ${est(big.trials).toFixed(1)} s)`);
+  assert(est(big.trials + 1) > 0.6 * 600 - 1e-6, 'the chosen count must be the LARGEST that fits');
+  const huge = chooseAutoTrials({ ...base, t1Ms: 3000, tFullMs: 60000, mutants: 2000 });
+  assert(huge.trials === 50, `start-up cost alone over target still floors at minTrials: ${JSON.stringify(huge)}`);
+  assert(chooseAutoTrials({ ...base, fullTrials: 50, tFullMs: 60000, mutants: 2000 }).trials === null, 'a floor already at minTrials is never budgeted');
+  assert(chooseAutoTrials({ ...base, boundS: 0, tFullMs: 60000, mutants: 2000 }).trials === null, 'an unbounded run is never budgeted');
+});
+
+test('AB4 autoTrialBudgetConfig: absent / disabled / env=0 mean off; malformed values refuse loudly', () => {
+  assert(autoTrialBudgetConfig(null) === null && autoTrialBudgetConfig({}) === null, 'absent = off');
+  const good = { autoTrialBudget: { enabled: true, minTrials: 50, targetFraction: 0.6, screenFactor: 15, screenMutants: 600 } };
+  assert(autoTrialBudgetConfig({ autoTrialBudget: { ...good.autoTrialBudget, enabled: false } }) === null, 'enabled false = off');
+  assert(autoTrialBudgetConfig(good, { MUTATION_TIER_AUTO_BUDGET: '0' }) === null, 'env 0 = off for one run');
+  assert(autoTrialBudgetConfig(good, {}).minTrials === 50, 'a good block resolves');
+  for (const bad of [{ minTrials: 0 }, { targetFraction: 1.5 }, { targetFraction: 0 }, { screenFactor: 0.5 }, { screenMutants: -3 }]) {
+    let threw = null;
+    try { autoTrialBudgetConfig({ autoTrialBudget: { ...good.autoTrialBudget, ...bad } }, {}); } catch (e) { threw = e; }
+    assert(threw && /autoTrialBudget\./.test(threw.message), `${JSON.stringify(bad)} must refuse loudly`);
+  }
+});
+
+function trialsScratch(source) {
+  const root = mkdtempSync(join(tmpdir(), 'rmt-trials-'));
+  cleanup.push(root);
+  const rel = 'chaingraph/kernels/__proptests__/k-x.proptest.mjs';
+  mkdirSync(join(root, 'chaingraph', 'kernels', '__proptests__'), { recursive: true });
+  writeFileSync(join(root, rel), source);
+  return { root, rel };
+}
+const AUTO_ON = { autoTrialBudget: { enabled: true, minTrials: 50, targetFraction: 0.6, screenFactor: 15, screenMutants: 600 } };
+const quiet = () => {};
+// Default dry run: the art-584 shape measured 11-25 (607 mutants, 4243 ms instrumented).
+const DRY_584 = () => ({ ok: true, mutants: 607, netMs: 4243 });
+const callResolve = (s, tierConfig, timeRun, dryRun = DRY_584) => resolveTrialsEnv({ id: 'k-x', scratchRoot: s.root, proptestRelPath: s.rel, tierConfig, repoRoot: s.root, boundS: 600, concurrency: 2, remainingS: 600, log: quiet, timeRun, dryRun });
+
+test('AB5 resolveTrialsEnv: an explicit sibling hooks the plain floor in the sandbox and never measures', () => {
+  const s = trialsScratch(PLAIN_FLOOR);
+  let measured = 0;
+  const env = callResolve(s, { ...AUTO_ON, mutationTrials: { 'k-x': 50 } }, () => { measured++; return { ok: true, timedOut: false, ms: 1 }; });
+  assert(env.MUTATION_TIER_NUM_RUNS === '50', `sibling budget must pass through: ${JSON.stringify(env)}`);
+  assert(measured === 0, 'an explicit sibling must never trigger the auto measurement');
+  assert(readFileSync(join(s.root, s.rel), 'utf8').includes('MUTATION-TRIALS-AUTO-BUDGET-1 sandbox-only hook'), 'the sandbox floor must be hooked so the sibling takes effect');
+});
+
+test('AB6 resolveTrialsEnv: auto off leaves the sandbox floor byte-identical; a kernel the screen clears never pays for a dry run', () => {
+  const a = trialsScratch(PLAIN_FLOOR);
+  const off = callResolve(a, {}, () => { throw new Error('must not measure'); }, () => { throw new Error('must not dry-run'); });
+  assert(JSON.stringify(off) === '{}' && readFileSync(join(a.root, a.rel), 'utf8') === PLAIN_FLOOR, 'auto off = no env, no sandbox write');
+  let dry = 0;
+  // raw 0.1 s x 15 x 600 / 2 = 450 s <= 600 s: screened out.
+  const fit = callResolve(trialsScratch(PLAIN_FLOOR), AUTO_ON, (_r, _p, n) => ({ ok: true, timedOut: false, ms: n === 1 ? 50 : 100 }), () => { dry++; return DRY_584(); });
+  assert(JSON.stringify(fit) === '{}' && dry === 0, `a screened-out kernel gets no env and no dry run: ${JSON.stringify(fit)} dry=${dry}`);
+  // Screen fails (raw 0.45 s), dry run says it fits: 300 mutants x 1.5 s / 2 = 225 s.
+  const fits2 = callResolve(trialsScratch(PLAIN_FLOOR), AUTO_ON, (_r, _p, n) => ({ ok: true, timedOut: false, ms: n === 1 ? 60 : 450 }), () => ({ ok: true, mutants: 300, netMs: 1500 }));
+  assert(JSON.stringify(fits2) === '{}', `a dry-run estimate inside the bound keeps full trials: ${JSON.stringify(fits2)}`);
+  // Screen fails and the dry run is unavailable: no budget (never worse than today).
+  const nodry = callResolve(trialsScratch(PLAIN_FLOOR), AUTO_ON, (_r, _p, n) => ({ ok: true, timedOut: false, ms: n === 1 ? 60 : 450 }), () => ({ ok: false }));
+  assert(JSON.stringify(nodry) === '{}', 'no dry-run measurement = no budget');
+});
+
+test('AB7 resolveTrialsEnv: the measured art-584 shape is capped; a count the unmutated floor fails at doubles until it passes', () => {
+  const raw = (passFrom) => (_r, _p, n) => (n === 1 ? { ok: true, timedOut: false, ms: 60 } : n === null ? { ok: true, timedOut: false, ms: 450 } : { ok: n >= passFrom, timedOut: false, ms: 50 });
+  const env = callResolve(trialsScratch(PLAIN_FLOOR), AUTO_ON, raw(0));
+  const n = Number(env.MUTATION_TIER_NUM_RUNS);
+  // 607 x 4.243 / 2 = 1288 s > 600: budget; 4000-trial floor scaled by the 9.4x instrumented ratio.
+  assert(n >= 50 && n < 4000, `art-584 shape must be capped, got ${JSON.stringify(env)}`);
+  const env2 = callResolve(trialsScratch(PLAIN_FLOOR), AUTO_ON, raw(Math.max(n * 2, 200)));
+  assert(Number(env2.MUTATION_TIER_NUM_RUNS) >= Math.max(n * 2, 200), `a failing count must double until the unmutated floor passes: ${JSON.stringify(env2)}`);
+  const none = callResolve(trialsScratch(PLAIN_FLOOR), AUTO_ON, raw(Infinity));
+  assert(JSON.stringify(none) === '{}', 'a floor that only passes at full trials gets no budget');
+  const broken = callResolve(trialsScratch(PLAIN_FLOOR), AUTO_ON, () => ({ ok: false, timedOut: false, ms: 10 }));
+  assert(JSON.stringify(broken) === '{}', 'a floor that fails unmutated gets no budget (Stryker reports it)');
+});
+
+test('AB10 resolveTrialsEnv: a floor whose time does not shrink with TRIALS is halved to minTrials and warned, never left at the model pick', () => {
+  const logs = [];
+  const seen = [];
+  // Fixed-cost floor: 400 ms raw at ANY trial count (the art-584 shape: other loops dominate).
+  const env = resolveTrialsEnv({ id: 'k-x', scratchRoot: trialsScratch(PLAIN_FLOOR).root, proptestRelPath: 'chaingraph/kernels/__proptests__/k-x.proptest.mjs', tierConfig: AUTO_ON, repoRoot: tmpdir(), boundS: 600, concurrency: 2, remainingS: 600, log: (l) => logs.push(l),
+    timeRun: (_r, _p, n) => { seen.push(n); return n === 1 ? { ok: true, timedOut: false, ms: 60 } : { ok: true, timedOut: false, ms: n === null ? 450 : 400 }; }, dryRun: DRY_584 });
+  assert(env.MUTATION_TIER_NUM_RUNS === '50', `must halve down to minTrials: ${JSON.stringify(env)} calls ${JSON.stringify(seen)}`);
+  assert(logs.some((l) => /WARNING: still predicted/.test(l)), `must warn that fixed costs remain: ${logs.join(' | ')}`);
+});
+
+test('AB9 parseDryRunLog reads Stryker 8.7.1 dryRunOnly lines (ANSI included) and refuses partial logs', () => {
+  const log = '\x1b[32m21:49:24 (40268) INFO Instrumenter\x1b[39m Instrumented 1 source file(s) with 607 mutant(s)\n\x1b[32m21:49:29 (40268) INFO DryRunExecutor\x1b[39m Initial test run succeeded. Ran 1 tests in 4 seconds (net 4243 ms, overhead 1 ms).\n';
+  const p = parseDryRunLog(log);
+  assert(p.ok && p.mutants === 607 && p.netMs === 4243, `got ${JSON.stringify(p)}`);
+  assert(!parseDryRunLog('Instrumented 1 source file(s) with 607 mutant(s)').ok, 'no dry-run line = not ok');
+  assert(!parseDryRunLog('').ok, 'empty = not ok');
+});
+
+test('AB8 the live autoTrialBudget block ships DISABLED (PR-3308-BEST-PRACTICE-CURE-1) with resolving parameters (checked force-enabled), and most estate floors have the shape the hook expects', () => {
+  const live = loadConfig();
+  assert(live.autoTrialBudget && live.autoTrialBudget.enabled === false, `the live config must ship autoTrialBudget disabled (PR-3308-BEST-PRACTICE-CURE-1): ${JSON.stringify(live.autoTrialBudget)}`);
+  const a = autoTrialBudgetConfig({ ...live, autoTrialBudget: { ...live.autoTrialBudget, enabled: true } }, {});
+  assert(a && a.minTrials === 50 && a.targetFraction > 0 && a.targetFraction <= 1, `live autoTrialBudget parameters must resolve: ${JSON.stringify(a)}`);
+  const dir = join(fileURLToPathLocal(new URL('..', import.meta.url)), 'chaingraph', 'kernels', '__proptests__');
+  const counts = {};
+  for (const f of readdirSync(dir).filter((x) => x.endsWith('.proptest.mjs'))) {
+    const st = sandboxTrialsHook(readFileSync(join(dir, f), 'utf8')).status;
+    counts[st] = (counts[st] || 0) + 1;
+  }
+  assert((counts.patched || 0) > 500, `expected most estate floors hookable, got ${JSON.stringify(counts)}`);
+  console.log(`      estate floor shapes: ${JSON.stringify(counts)}`);
+});
+
+// ── PR-3308-BEST-PRACTICE-CURE-1: config-only counts, INCONCLUSIVE timeouts, disabled shadow ──
+console.log('\nrun-mutation-tier controls — config-only trial counts + inconclusive timeout + shadow mode (PR-3308-BEST-PRACTICE-CURE-1)');
+
+const { configuredTrialsForKernel, resolveConfiguredTrialsEnv, shadowBudgetForKernel, timeoutMessage } = await import('./run-mutation-tier.mjs');
+
+test('C1 configuredTrialsForKernel: central trials map > mutationTrials sibling > null; bad values and both-places entries refuse loudly', () => {
+  assert(configuredTrialsForKernel('k-x', { trials: { 'k-x': 123 } }) === 123, 'the central trials map resolves');
+  assert(configuredTrialsForKernel('k-x', { mutationTrials: { 'k-x': 50 } }) === 50, 'a mutationTrials sibling still resolves (main mechanism unchanged)');
+  assert(configuredTrialsForKernel('k-x', {}) === null && configuredTrialsForKernel('k-x', null) === null, 'no entry anywhere = no budget');
+  for (const bad of [0, -4, 1.5, '50']) {
+    let threw = null;
+    try { configuredTrialsForKernel('k-x', { trials: { 'k-x': bad } }); } catch (e) { threw = e; }
+    assert(threw && /trials\["k-x"\]/.test(threw.message), `trials["k-x"] = ${JSON.stringify(bad)} must refuse loudly naming the map: ${threw && threw.message}`);
+  }
+  let threw = null;
+  try { configuredTrialsForKernel('k-x', { trials: { 'k-x': 80 }, mutationTrials: { 'k-x': 50 } }); } catch (e) { threw = e; }
+  assert(threw && /both places/.test(threw.message), `both places must refuse, never silently prefer: ${threw && threw.message}`);
+});
+
+test('C2 deterministic n (the row case): the same config gives the same n on two runs, and the auto flag or its parameters cannot move it', () => {
+  const cfg = { trials: { 'k-x': 123 }, autoTrialBudget: { enabled: true, minTrials: 50, targetFraction: 0.6, screenFactor: 15, screenMutants: 600 } };
+  const s1 = trialsScratch(PLAIN_FLOOR);
+  const s2 = trialsScratch(PLAIN_FLOOR);
+  const e1 = resolveConfiguredTrialsEnv({ id: 'k-x', scratchRoot: s1.root, proptestRelPath: s1.rel, tierConfig: cfg, log: quiet });
+  const e2 = resolveConfiguredTrialsEnv({ id: 'k-x', scratchRoot: s2.root, proptestRelPath: s2.rel, tierConfig: cfg, log: quiet });
+  assert(e1.MUTATION_TIER_NUM_RUNS === '123' && e2.MUTATION_TIER_NUM_RUNS === '123', `the same config must give the same n on every run: ${JSON.stringify(e1)} vs ${JSON.stringify(e2)}`);
+  // The resolver carries NO timing input at all — the extremes that used to
+  // move the old auto budget cannot move a config-only count.
+  const extreme = { trials: { 'k-x': 123 }, autoTrialBudget: { enabled: true, minTrials: 1, targetFraction: 0.01, screenFactor: 1, screenMutants: 1 } };
+  const e3 = resolveConfiguredTrialsEnv({ id: 'k-x', scratchRoot: trialsScratch(PLAIN_FLOOR).root, proptestRelPath: 'chaingraph/kernels/__proptests__/k-x.proptest.mjs', tierConfig: extreme, log: quiet });
+  assert(e3.MUTATION_TIER_NUM_RUNS === '123', `the auto block must not move n on a verdict run any more: ${JSON.stringify(e3)}`);
+  assert(readFileSync(join(s1.root, s1.rel), 'utf8').includes('MUTATION_TIER_NUM_RUNS'), 'the configured count must reach the sandbox floor through the trial hook');
+});
+
+test('C3 disabled/no budget: the sandbox floor stays byte-identical and the env empty, whatever the auto block says; the live config ships disabled with an EMPTY trials map', () => {
+  for (const auto of [undefined, { enabled: false, minTrials: 50, targetFraction: 0.6, screenFactor: 15, screenMutants: 600 }, { enabled: true, minTrials: 50, targetFraction: 0.6, screenFactor: 15, screenMutants: 600 }]) {
+    const s = trialsScratch(PLAIN_FLOOR);
+    const tierConfig = auto === undefined ? {} : { autoTrialBudget: auto };
+    const env = resolveConfiguredTrialsEnv({ id: 'k-x', scratchRoot: s.root, proptestRelPath: s.rel, tierConfig, log: quiet });
+    assert(JSON.stringify(env) === '{}', `no budget = empty env, got ${JSON.stringify(env)} (auto ${JSON.stringify(auto)})`);
+    assert(readFileSync(join(s.root, s.rel), 'utf8') === PLAIN_FLOOR, 'nothing budgets this kernel = no sandbox write — byte-identical to origin/main behaviour');
+  }
+  const live = loadConfig();
+  assert(live.autoTrialBudget && live.autoTrialBudget.enabled === false, 'the live config ships the auto budget DISABLED (PR-3308-BEST-PRACTICE-CURE-1)');
+  assert(live.trials && typeof live.trials === 'object' && Object.keys(live.trials).length === 0, `the trials map ships EMPTY by this row: ${JSON.stringify(live.trials)}`);
+});
+
+test('C4 a deadline hit reports INCONCLUSIVE (timeout) with the hard-fail wiring intact — never a pass', () => {
+  const m = timeoutMessage('k-x', 601);
+  assert(m.includes('INCONCLUSIVE (timeout)'), `the timeout verdict must say INCONCLUSIVE (timeout): ${m}`);
+  assert(/k-x/.test(m) && /601/.test(m), `the message must name the kernel and the elapsed seconds: ${m}`);
+  assert(/treat as FAIL/.test(m) && /never a pass at a reduced count/.test(m), `the non-zero-exit semantics must stay stated: ${m}`);
+  const src = readFileSync(join(import.meta.dirname, 'run-mutation-tier.mjs'), 'utf8');
+  assert(src.includes('hardFail: msg, timedOut: true'), 'the deadline path must still return a hardFail (non-zero gate exit in blocking mode), never a pass');
+  assert(!src.includes('resolveTrialsEnv({ id, scratchRoot, proptestRelPath, tierConfig, repoRoot, boundS: opts.kernelTimeoutS'), 'the measuring resolver must be gone from the verdict path (runOneKernel)');
+});
+
+test('C5 shadow mode: it SUGGESTS from a measurement (even with the block disabled) and writes nothing any gate reads — no report, no verdict change, no tracked byte', () => {
+  const root = mkdtempSync(join(tmpdir(), 'rmt-c5-fixture-'));
+  cleanup.push(root);
+  const kd = join(root, 'chaingraph', 'kernels');
+  mkdirSync(join(kd, '__proptests__'), { recursive: true });
+  mkdirSync(join(kd, 'fixtures'), { recursive: true });
+  writeFileSync(join(kd, 'k-x.kernel.mjs'), 'export const meta = { name: "k-x" };\nexport function buildArtifact() { return 1; }\n');
+  const C5_FLOOR = 'const TRIALS = 4000;\nlet n = 0; for (let i = 0; i < TRIALS; i++) n++;\nprocess.stdout.write(String(n));\n';
+  writeFileSync(join(kd, '__proptests__', 'k-x.proptest.mjs'), C5_FLOOR);
+  writeFileSync(join(kd, 'fixtures', 'k-x.fixtures.json'), '{}\n');
+  const scratch = mkdtempSync(join(tmpdir(), 'rmt-c5-scratch-'));
+  cleanup.push(scratch);
+  let calls = 0;
+  const r = shadowBudgetForKernel({ id: 'k-x', scratchRoot: scratch, tierConfig: { autoTrialBudget: { enabled: false, minTrials: 50, targetFraction: 0.6, screenFactor: 15, screenMutants: 600 } }, repoRoot: root, boundS: 600, concurrency: 2, strykerVersion: '8.7.1', timeoutMs: 15000, log: quiet,
+    timeRun: (_rt, _rel, n) => { calls++; return n === 1 ? { ok: true, timedOut: false, ms: 60 } : n === null ? { ok: true, timedOut: false, ms: 450 } : { ok: true, timedOut: false, ms: 50 }; },
+    dryRun: () => ({ ok: true, mutants: 607, netMs: 4243 }) });
+  assert(r && r.applied && r.applied.trials !== null && r.applied.trials >= 50 && r.applied.trials < 4000, `the shadow must SUGGEST a capped count from a measurement even though the block ships disabled: ${JSON.stringify(r)}`);
+  assert(calls > 0, 'the suggestion must come from a measurement, not a constant');
+  assert(!existsSync(join(scratch, 'reports')), 'shadow mode must not write any report a gate could read');
+  assert(readFileSync(join(kd, '__proptests__', 'k-x.proptest.mjs'), 'utf8') === C5_FLOOR, 'the shadow must never write a tracked byte');
+  const after = resolveConfiguredTrialsEnv({ id: 'k-x', scratchRoot: scratch, proptestRelPath: 'chaingraph/kernels/__proptests__/k-x.proptest.mjs', tierConfig: {}, log: quiet });
+  assert(JSON.stringify(after) === '{}', 'after a shadow run the verdict path still applies nothing — shadow changes no verdict');
+});
+
+test('C6 the --shadow-budget CLI: refuses --json (exit 1) and reports a missing kernel without ever starting Stryker (exit 0)', () => {
+  const cli = join(import.meta.dirname, 'run-mutation-tier.mjs');
+  const ref = spawnSync(process.execPath, [cli, '--kernel', 'c6-shadow-smoke-missing-kernel', '--shadow-budget', '--json', join(tmpdir(), 'c6-refused.json')], { encoding: 'utf8', timeout: 120000 });
+  assert(ref.status === 1 && /refusing --json/.test(String(ref.stderr)), `shadow + --json must be refused with exit 1 (got ${ref.status}): ${String(ref.stderr).slice(0, 400)}`);
+  const ok = spawnSync(process.execPath, [cli, '--kernel', 'c6-shadow-smoke-missing-kernel', '--shadow-budget'], { encoding: 'utf8', timeout: 120000 });
+  assert(ok.status === 0, `a report-only shadow over a missing kernel must exit 0 (got ${ok.status}): ${String(ok.stderr).slice(0, 400)}`);
+  const out = String(ok.stdout);
+  assert(/SHADOW-BUDGET report mode/.test(out) && /skipped — no chaingraph\/kernels\/c6-shadow-smoke-missing-kernel\.kernel\.mjs/.test(out), `the shadow must report and skip, never run:\n${out.slice(0, 800)}`);
+  assert(!/stryker path:/.test(out), 'shadow mode must never start a Stryker run');
+});
+
+
 // ── verdict reuse (MUTATION-TIER-VERDICT-REUSE-1) ────────────────────────
 console.log('\nrun-mutation-tier controls — verdict reuse (MUTATION-TIER-VERDICT-REUSE-1)');
 
@@ -989,6 +1229,106 @@ await asyncTest('R42 runTier end to end: a seeded PASS with the equal key prints
   writeFileSync(join(fx.root, fx.proptestRelPath), "import { scale } from './helper.mjs';\nconsole.log(scale(9));\n");
   assert(keyOf(fx) !== key, 'precondition: the key moved');
   assert(readPassedVerdict(dir, 'fixture-id', keyOf(fx)) === null, 'no record exists for the new key, so the kernel runs');
+});
+
+// ── PR-3308-DECOMPOSED-PARITY-CURE-1: decomposed second-run env parity ────
+console.log('\nrun-mutation-tier controls — decomposed second-run parity (PR-3308-DECOMPOSED-PARITY-CURE-1)');
+
+/**
+ * A fixture repo whose kernel has one money-math mutant line (line 3 — outside
+ * the meta/buildArtifact peripheral ranges) and a proptest that imports the
+ * shared _pbt-common.mjs runFixtureOracle AND reads MUTATION_TIER_NUM_RUNS
+ * natively — the exact shape of the 8 sibling-budget estate kernels (e.g.
+ * art-458: `const TRIALS = env || <full>;`, uncapped). A STUB Stryker bin
+ * (MUTATION_TIER_STRYKER_BIN) records the exact env + argv each invocation
+ * receives and writes a one-mutant killed report, so the REAL runOneKernel
+ * flow — run 1 as-shipped, then the fixture-neutralized decomposed second run
+ * — executes end to end and the test asserts what each run was HANDED.
+ */
+function buildDecomposedParityRepo(id, budget) {
+  const root = mkdtempSync(join(tmpdir(), 'rmt-dec-parity-'));
+  cleanup.push(root);
+  const kd = join(root, 'chaingraph', 'kernels');
+  mkdirSync(join(kd, '__proptests__'), { recursive: true });
+  mkdirSync(join(kd, 'fixtures'), { recursive: true });
+  writeFileSync(join(kd, `${id}.kernel.mjs`),
+    `export const meta = { name: "${id}" };\nexport function buildArtifact() { return 1; }\nexport function moneyMathProbe(n) { return n * 2 + 1; }\n`);
+  writeFileSync(join(kd, '__proptests__', '_pbt-common.mjs'),
+    'export async function runFixtureOracle() { return { total: 0, failures: [] }; }\n');
+  // Native env reader, UNCAPPED — the sibling-kernel shape (art-458 ships 12000).
+  writeFileSync(join(kd, '__proptests__', `${id}.proptest.mjs`),
+    "import { runFixtureOracle } from './_pbt-common.mjs';\n" +
+    'const TRIALS = Number.isSafeInteger(Number(process.env.MUTATION_TIER_NUM_RUNS)) && Number(process.env.MUTATION_TIER_NUM_RUNS) > 0 ? Number(process.env.MUTATION_TIER_NUM_RUNS) : 100;\n' +
+    'let n = 0; for (let i = 0; i < TRIALS; i++) n++;\n' +
+    'const oracle = await runFixtureOracle();\n' +
+    'console.log(n + oracle.total + oracle.failures.length);\n');
+  writeFileSync(join(kd, 'fixtures', `${id}.fixtures.json`), '{}\n');
+  const config = { strykerVersion: '9.0.0', moneyMathBreakFloor: 80, peripheralBreakFloor: 50 };
+  if (budget && budget.sibling) writeFileSync(join(kd, `${id}.mutation.json`), JSON.stringify({ mutationTrials: budget.sibling }));
+  if (budget && budget.central) config.trials = { [id]: budget.central };
+  writeFileSync(join(kd, 'mutation-tiers.config.json'), JSON.stringify(config, null, 2));
+  const logPath = join(root, 'stub-stryker-log.json');
+  writeFileSync(join(root, 'stub-stryker.mjs'),
+    'import { readFileSync, writeFileSync, mkdirSync } from "node:fs";\n' +
+    'import { dirname } from "node:path";\n' +
+    'const cfgPath = process.argv[3];\n' +
+    'const cfg = JSON.parse(readFileSync(cfgPath, "utf8"));\n' +
+    'const logPath = ' + JSON.stringify(logPath) + ';\n' +
+    'let log = [];\n' +
+    'try { log = JSON.parse(readFileSync(logPath, "utf8")); } catch {}\n' +
+    'log.push({ argv: process.argv.slice(2), configPath: cfgPath, budget: process.env.MUTATION_TIER_NUM_RUNS ?? null, budgetVars: Object.keys(process.env).filter((k) => k === "MUTATION_TIER_NUM_RUNS") });\n' +
+    'writeFileSync(logPath, JSON.stringify(log, null, 2));\n' +
+    'const kernelRel = cfg.mutate[0];\n' +
+    'const report = { files: { [kernelRel]: { mutants: [{ id: "m1", status: "Killed", location: { start: { line: 3, column: 1 }, end: { line: 3, column: 2 } } }] } } };\n' +
+    'mkdirSync(dirname(cfg.jsonReporter.fileName), { recursive: true });\n' +
+    'writeFileSync(cfg.jsonReporter.fileName, JSON.stringify(report, null, 2));\n' +
+    'process.stdout.write("stub stryker run complete\\n");\n');
+  return { root, logPath, stubPath: join(root, 'stub-stryker.mjs') };
+}
+
+async function captureDecomposedParity(id, budget) {
+  const fx = buildDecomposedParityRepo(id, budget);
+  const saved = { ...process.env };
+  const logs = [];
+  const origLog = console.log;
+  delete process.env.MUTATION_TIER_NUM_RUNS;
+  delete process.env.MUTATION_VERDICT_DIR;
+  delete process.env.MUTATION_TIER_IN_HOOK;
+  process.env.MUTATION_TIER_STRYKER_BIN = fx.stubPath;
+  console.log = (...a) => logs.push(a.join(' '));
+  try { await runTier(['--kernel', id, '--decomposed'], fx.root); } finally {
+    console.log = origLog;
+    process.env = saved;
+  }
+  return { fx, out: logs.join('\n'), invocations: JSON.parse(readFileSync(fx.logPath, 'utf8')) };
+}
+
+await asyncTest('C7 decomposed second-run parity (the row case): a sibling-budget kernel runs its SECOND run on exactly main\'s env and argv — run 1 budgeted, run 2 with NO budget variable', async () => {
+  const { out, invocations } = await captureDecomposedParity('c7-parity-k', { sibling: 50 });
+  assert(out.includes('✓ run-mutation-tier PASSED'), `the tier must pass end to end (fixture health):\n${out.slice(-600)}`);
+  assert(invocations.length === 2, `exactly two stryker invocations (as-shipped + fixture-neutralized), got ${invocations.length}`);
+  const [run1, run2] = invocations;
+  assert(run1.configPath.endsWith(`stryker.c7-parity-k.json`), `invocation 1 must be the as-shipped config: ${run1.configPath}`);
+  assert(run1.budget === '50' && JSON.stringify(run1.budgetVars) === '["MUTATION_TIER_NUM_RUNS"]',
+    `run 1 must carry the sibling budget (unchanged by this row): ${JSON.stringify(run1)}`);
+  assert(run2.configPath.endsWith(`stryker.c7-parity-k.nofixture.json`), `invocation 2 must be the decomposed nofixture config: ${run2.configPath}`);
+  assert(run2.budget === null && JSON.stringify(run2.budgetVars) === '[]',
+    `run 2 must run on EXACTLY main's second-run env — NO budget variable added (origin/main: runStryker(config2Path, scratchRoot, strykerVersion, budgetS()) with no extra env): ${JSON.stringify(run2)}`);
+  assert(JSON.stringify(run2.argv) === JSON.stringify(['run', run2.configPath]),
+    `run 2 argv must be exactly main's second-run argv: ${JSON.stringify(run2.argv)}`);
+  const src = readFileSync(join(import.meta.dirname, 'run-mutation-tier.mjs'), 'utf8');
+  assert(!src.includes('runStryker(config2Path, scratchRoot, strykerVersion, budgetS(), mutationEnv)'),
+    'the unconditional budget hand-off to the decomposed second run must be gone from the call site');
+});
+
+await asyncTest('C8 a configured CENTRAL trials entry keeps the documented decomposed behaviour: run 2 receives the same budget as run 1', async () => {
+  const { out, invocations } = await captureDecomposedParity('c8-central-k', { central: 123 });
+  assert(out.includes('✓ run-mutation-tier PASSED'), `the tier must pass end to end (fixture health):\n${out.slice(-600)}`);
+  assert(invocations.length === 2, `exactly two stryker invocations, got ${invocations.length}`);
+  const [run1, run2] = invocations;
+  assert(run1.budget === '123', `run 1 carries the central trials budget: ${JSON.stringify(run1)}`);
+  assert(run2.budget === '123' && JSON.stringify(run2.budgetVars) === '["MUTATION_TIER_NUM_RUNS"]',
+    `a configured trials entry must keep the documented same-budget-as-run-1 second run: ${JSON.stringify(run2)}`);
 });
 
 console.log(`\nrun-mutation-tier controls: ${passed} passed, ${failed} failed`);
