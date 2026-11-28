@@ -75,7 +75,10 @@ const FIXTURES = resolve(HERE, 'check-main-only-paths.fixtures.json');
 
 // Entries that rewrite count sentinels inside authored pages (verify-counts.mjs --fix,
 // sync-stats.mjs --fix). Each id must exist in COVERED (drift guard in classify()).
-export const SENTINEL_WRITER_IDS = new Set(['counts', 'stats']);
+// MAIN-ONLY-CHROME-REGION-1: 'zk-trust-page' (check-zk-trust-page.mjs --fix) heals only the
+// <!--COUNT:trust.*-->N<!--/COUNT--> sentinel values in chaingraph/zk-trust-stages.html (fixCounts,
+// span-precise); the page's prose and chrome CSS are PR-authored and no regen ever refreshes them.
+export const SENTINEL_WRITER_IDS = new Set(['counts', 'stats', 'zk-trust-page']);
 
 // Entries that rewrite one generated block inside a PR-authored page. Each id must exist in COVERED.
 export const REGION_WRITER_IDS = new Set([
@@ -88,6 +91,7 @@ export const REGION_WRITER_IDS = new Set([
   'replay-roll-surface', // REPLAY-ROLL-SURFACE-1: witness-roll section between REPLAY-ROLL-SURFACE markers on chaingraph/determinism-attestation-explainer.html (the roll JSON itself is whole-file via 'replay-witness-roll', prAbsentOk)
   'fact-stamps',        // FACT-STAMP region on the pilot node/tool pages; the page itself is PR-authored (REGEN-OWNS-FACT-STAMPS-1; gen-fact-stamps.mjs splices strictly inside FACT-STAMP:START..END)
   'node-page-proof-links', // PROOF-LINKS block between <!--PROOF-LINKS-->..<!--/PROOF-LINKS--> on node pages; the page itself is PR-authored (PROOFLINKS-GEN-1; gen-proof-links.mjs splices strictly inside the marker pair)
+  'integrator-profile', // GEN:KERNEL-IDENTITY / COMPAT-CONTRACT / LADDER blocks on chaingraph/integrator-profile.html; the page's prose and chrome are PR-authored (MAIN-ONLY-CHROME-REGION-1; gen-integrator-profile.mjs splices strictly inside each GEN:<marker>:START..END pair)
 ]);
 
 // pr-autofix.yml writer-scope containment: the writers' own baseline outputs a PR may carry.
@@ -430,6 +434,7 @@ function selfTest() {
   console.log('layer 2 — classifier invariants');
   for (const p of fx.mustBeWhole) check(`whole-file: ${p}`, sets.whole.has(p));
   for (const p of fx.mustBeSentinel) check(`sentinel: ${p}`, sets.sentinel.has(p));
+  check('region: chaingraph/integrator-profile.html (MAIN-ONLY-CHROME-REGION-1)', sets.region.has('chaingraph/integrator-profile.html') && !sets.whole.has('chaingraph/integrator-profile.html'));
   for (const p of PER_PR_DERIVABLES) check(`per-PR derivable never refused: ${p}`, !sets.whole.has(p) && !sets.sentinel.has(p));
   let threw = false;
   try { classify([{ id: 'only', artifacts: ['x.json'] }], () => false); } catch { threw = true; }
@@ -442,6 +447,8 @@ function selfTest() {
     { id: 'replay-roll-surface', artifacts: [] },
     { id: 'fact-stamps', artifacts: [] },
     { id: 'node-page-proof-links', artifacts: [] },
+    { id: 'zk-trust-page', artifacts: [] },
+    { id: 'integrator-profile', artifacts: [] },
     { id: 'tree', artifacts: ['dir/'] },
   ], (p) => p.endsWith('/'), []);
   check('toy: sentinel-only file is sentinel', toy.sentinel.has('a.html') && !toy.whole.has('a.html'));

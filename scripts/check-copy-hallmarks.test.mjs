@@ -8,7 +8,7 @@ import { readFileSync, writeFileSync, rmSync, mkdtempSync, mkdirSync } from 'nod
 import { tmpdir } from 'node:os';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cosignVocabHits, insiderHits, aiVocabHits, absolutesHits, anchorWordingHits, notXCount, visibleText, panelHits, fragHeadHits, pairHeadHits } from './check-copy-hallmarks.mjs';
+import { cosignVocabHits, insiderHits, aiVocabHits, absolutesHits, anchorWordingHits, notXCount, visibleText, panelHits, fragHeadHits, pairHeadHits, metaDescriptionTags, META_DESC_PLACEHOLDER } from './check-copy-hallmarks.mjs';
 
 let fail = 0;
 const ok = (c, m) => { if (!c) { fail++; console.error('  ✗ ' + m); } else console.log('  ✓ ' + m); };
@@ -437,6 +437,33 @@ ok(pairHeadHits('<h2>widget Header Decoder, and Payload Linter</h2>').length ===
     rmSync(tmp, { recursive: true, force: true });
   }
 }
+
+// --- META-DESC-COPY-DEFECTS-1 (2026-11-27): head meta-description integrity ---
+// metaDescriptionTags() must extract exactly the three reader-facing description
+// fields from script/style/comment-stripped HTML (a <meta> inside a <script>
+// template literal or a JSON-LD sample is not head chrome), and the placeholder
+// detector must trip on the generator's template sentence and not on real copy.
+const metaFixture = `<!DOCTYPE html><html><head>
+<meta charset="UTF-8">
+<meta name="description" content="Real page description.">
+<meta property="og:description" content="Social card line.">
+<meta name="twitter:description" content="Card fallback.">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script type="application/ld+json">{"@type":"WebApplication","description":"JSON-LD sample description, not head chrome"}</script>
+<script>var tpl = '<meta name="description" content="script template description">';</script>
+<!-- <meta name="description" content="commented-out description"> -->
+</head><body></body></html>`;
+const metaTags = metaDescriptionTags(metaFixture);
+ok(metaTags.length === 3, `META-DESC: extracts exactly the 3 description metas from a mixed head — got ${metaTags.length}: ${JSON.stringify(metaTags)}`);
+ok(metaTags.some((t) => t.kind === 'description' && t.content === 'Real page description.'), 'META-DESC: name="description" extracted with its content');
+ok(metaTags.some((t) => t.kind === 'og:description' && t.content === 'Social card line.'), 'META-DESC: og:description extracted with its content');
+ok(metaTags.some((t) => t.kind === 'twitter:description' && t.content === 'Card fallback.'), 'META-DESC: twitter:description extracted with its content');
+ok(!metaTags.some((t) => /JSON-LD sample|script template|commented-out/.test(t.content)), 'META-DESC: descriptions inside <script> (JSON-LD or template literal) or comments are NOT extracted');
+const phTag = metaDescriptionTags('<meta property="og:description" content="Replace this sentence with what the page explains and what a reader can check for themselves.">');
+ok(phTag.length === 1 && META_DESC_PLACEHOLDER.test(phTag[0].content), 'META-DESC: placeholder detector trips on the template sentence in og:description');
+ok((metaDescriptionTags('<meta name="description" content="Replace this sentence with what the page explains and what a reader can check for themselves.">')).length === 1
+  && META_DESC_PLACEHOLDER.test(metaDescriptionTags('<meta name="description" content="Replace this sentence with what the page explains and what a reader can check for themselves.">')[0].content), 'META-DESC: placeholder detector trips on the template sentence in name="description"');
+ok(!META_DESC_PLACEHOLDER.test('Checks a book of pasted event-contract positions against caller-declared accountability levels and position limits.'), 'META-DESC: placeholder detector does not fire on real page copy');
 
 if (fail) {
   console.error(`\ncheck-copy-hallmarks.test.mjs: ${fail} FAILURE(s)`);

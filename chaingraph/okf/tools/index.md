@@ -52,6 +52,7 @@ status: stable
 - [Planning Materiality](./841-planning-materiality.md) — `compute_planning_materiality`
 - [Workload Identity Claims Lint](./844-workload-identity-claims.md) — `lint_workload_identity_token_claims`
 - [Je Period Lock Gate](./845-je-period-lock-gate.md) — `gate_je_period_lock`
+- [Fill Quality Summary](./858-fill-quality-summary.md) — `summarize_fill_quality`
 - [AP2 Mandate-Chain Validator](./art-01-ap2-mandate-chain-validator.md) — `validate_ap2_mandate_chain`
 - [Agent Spend-Policy Simulator](./art-02-agent-spend-policy-simulator.md) — `simulate_spend_policy`
 - [x402 Settlement Cost & Finality Modeler](./art-03-x402-settlement-modeler.md) — `model_x402_settlement`

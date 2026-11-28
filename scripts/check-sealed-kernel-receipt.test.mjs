@@ -16,6 +16,12 @@
 //   6. RED    — sealed kernel file deleted while its node is still live.
 //   7. GREEN  — sealed kernel deleted together with its node (retired).
 //   8. RED    — head node lost its compute_proof entirely.
+//   9. RED    — production accept set: a legacy (risc0 3.0.x) seal is not a fresh receipt.
+//  10. GREEN  — production accept set: a current (risc0 3.1.0) seal binding the new bytes is fresh
+//              (committed pilot receipt, kernels/fixtures/compute-proof-310/).
+// Cases 1-8 still pick estate receipts, which are all legacy until two current receipts sit in node
+// shards (RISC0-310-R4-DUAL-VERIFIER-1), so they run with accept ['current','legacy']; cases 9-10 run
+// with the gate's own default (current only).
 
 import { evaluate } from './check-sealed-kernel-receipt.mjs';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
@@ -24,8 +30,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { sourceDigest } = await import(pathToFileURL(resolve(ROOT, 'chaingraph/kernels/_buildid.mjs')).href);
-const { verifySeal } = await import(pathToFileURL(resolve(ROOT, 'chaingraph/kernels/_computeproof.mjs')).href);
-const deps = { sourceDigest, verifySeal };
+const { verifySeal, verifySealReport } = await import(pathToFileURL(resolve(ROOT, 'chaingraph/kernels/_computeproof.mjs')).href);
+const deps = { sourceDigest, verifySealReport, accept: ['current', 'legacy'] };
+const prodDeps = { sourceDigest, verifySealReport };
 
 let failures = 0;
 function assert(cond, name) {
@@ -96,5 +103,26 @@ delete stripped.compute_proof;
 r = await one({ oldSrc: X.src, newSrc: mutate(X.src), baseNode: X.node, headNode: stripped });
 assert(r.verdict === 'red' && /no compute_proof/.test(r.why), 'RED: receipt removed');
 
+console.log('case 9: production accept set, legacy seal over the new bytes');
+r = (await evaluate([{ path: X.path, tool_id: X.node.tool_id, oldSrc: X.src, newSrc: Y.src, baseNode: X.node, headNode: Y.node }], prodDeps))[0];
+if (verifySealReport(Y.node.compute_proof) === 'legacy') {
+  assert(r.verdict === 'red' && /legacy/.test(r.why), 'RED: a legacy seal is not a fresh receipt');
+} else {
+  assert(r.verdict === 'fresh', 'GREEN: estate pick Y already carries a current seal');
+}
+
+console.log('case 10: production accept set, current seal over the new bytes');
+{
+  const PILOT_ID = 'art-313-traiga-exposure-assessor';
+  const pilot = JSON.parse(readFileSync(resolve(ROOT, 'chaingraph/kernels/fixtures/compute-proof-310', `${PILOT_ID}.receipt.json`), 'utf8'));
+  const pilotSrc = readFileSync(resolve(ROOT, 'chaingraph/kernels', `${PILOT_ID}.kernel.mjs`), 'utf8');
+  const oldSrc = mutate(pilotSrc); // a sealed earlier revision: the base receipt binds these bytes
+  const baseNode = { tool_id: PILOT_ID, status: 'live', compute_proof: { journal: { kernel_digest: await sourceDigest(oldSrc) } } };
+  const headNode = { tool_id: PILOT_ID, status: 'live', compute_proof: pilot };
+  assert(verifySealReport(pilot) === 'current' && pilot.journal.kernel_digest === await sourceDigest(pilotSrc), 'setup: pilot is current and binds the kernel bytes on disk');
+  r = (await evaluate([{ path: `chaingraph/kernels/${PILOT_ID}.kernel.mjs`, tool_id: PILOT_ID, oldSrc, newSrc: pilotSrc, baseNode, headNode }], prodDeps))[0];
+  assert(r.verdict === 'fresh' && r.seal === 'current', 'GREEN: current seal binding the new bytes is fresh');
+}
+
 if (failures) { console.error(`\n✗ check-sealed-kernel-receipt controls: ${failures} failure(s)`); process.exit(1); }
-console.log('\n✓ check-sealed-kernel-receipt controls: 8/8 cases behave (red on the #2175 shape, green on a fresh verifying receipt)');
+console.log('\n✓ check-sealed-kernel-receipt controls: 10/10 cases behave (red on the #2175 shape and on a legacy seal, green on a fresh verifying receipt)');

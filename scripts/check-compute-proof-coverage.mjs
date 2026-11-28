@@ -90,6 +90,15 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isMainContext, derivedResolve } from './derived-artifacts.mjs';
 import { loadRatchetBaselineOrExit, readBaselineForUpdate, assertFiniteCeiling } from './ratchet-baseline.mjs';
+import { sealParameterSet } from '../chaingraph/kernels/_computeproof.mjs';
+
+// ── LEGACY COUNT (RISC0-310-R4-DUAL-VERIFIER-1) ────────────────────────────────────────────────────
+// A receipt whose imageId is in the legacy (risc0 3.0.x) allowlist can only ever verify under the legacy
+// parameter set: "not yet re-sealed", never evidence. It is COUNTED here, not treated as missing (a
+// same-bytes revert of a re-seal batch must stay green), against a down-only ceiling over live nodes.
+// The count is by imageId (no pairing; ledger parity and compute-proof.test run the pairing). Lower the
+// ceiling only in a separate PR after a re-seal batch's rollback window, never in the batch itself.
+export const LEGACY_CEILING = 730;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -201,6 +210,18 @@ export function zkCoverage(chaingraph) {
   return { provenNodes, provenTotal, provenPct };
 }
 
+// ── legacyReceipts ────────────────────────────────────────────────────────────────────────────────
+// Names of LIVE nodes whose receipt imageId selects the legacy parameter set (see LEGACY COUNT above).
+export function legacyReceipts(chaingraph) {
+  return (chaingraph.nodes ?? [])
+    .filter((n) => n.status === 'live')
+    .filter((n) => {
+      const cp = n.audit_signature?.compute_proof ?? n.compute_proof;
+      return !!cp && sealParameterSet(cp.imageId) === 'legacy';
+    })
+    .map((n) => n.mcp_name || n.tool_id || '(unnamed)');
+}
+
 // ── fixtureGap ────────────────────────────────────────────────────────────────────────────────────
 // Conformance-fixture presence (§18.0 binding prerequisite).
 // A §18 proof binds journal.output == the fixture vector's output_payload; a node that declares
@@ -244,7 +265,15 @@ export function evaluateCoverage(chaingraph, readFixture = defaultReadFixture) {
     deferred: results.filter((r) => r.state === 'deferred'),
     missing: results.filter((r) => r.state === 'missing'),
     fixtureGaps: gpuFalse.map((n) => fixtureGap(n, readFixture)).filter(Boolean),
+    legacy: legacyReceipts(chaingraph),
   };
+}
+
+// ── legacyBreach ─────────────────────────────────────────────────────────────────────────────────
+// Down-only ceiling on the legacy count. Pure, so the self-test drives it directly.
+export function legacyBreach(legacy, ceiling = LEGACY_CEILING) {
+  const c = assertFiniteCeiling(ceiling, { label: '§18 legacy-receipt ceiling', keyName: 'LEGACY_CEILING' });
+  return { ceiling: c, count: legacy.length, over: legacy.length > c };
 }
 
 // ── findRegressions ──────────────────────────────────────────────────────────────────────────────
@@ -341,7 +370,7 @@ if (IS_MAIN) {
 
 // ── load ──────────────────────────────────────────────────────────────────────────────────────────
 const cg = JSON.parse(readFileSync(CG_PATH, 'utf8'));
-const { gpuFalse, gpuTrue, proven, deferred, missing, fixtureGaps } = evaluateCoverage(cg);
+const { gpuFalse, gpuTrue, proven, deferred, missing, fixtureGaps, legacy } = evaluateCoverage(cg);
 
 // ── --update-baseline ───────────────────────────────────────────────────────────────────────────
 if (UPDATE_BASELINE) {
@@ -406,7 +435,7 @@ if (REGEN_BASELINE || CHECK_BASELINE) {
 
 // ── --summary / --list-deferred (non-strict) ──────────────────────────────────────────────────────
 if (SUMMARY || LIST_DEFERRED) {
-  console.log(`§18 compute-proof coverage — gpu:false live: ${gpuFalse.length} | proven: ${proven.length} | deferred: ${deferred.length} | missing: ${missing.length}   (gpu:true out-of-scope: ${gpuTrue.length})`);
+  console.log(`§18 compute-proof coverage — gpu:false live: ${gpuFalse.length} | proven: ${proven.length} | deferred: ${deferred.length} | missing: ${missing.length}   (gpu:true out-of-scope: ${gpuTrue.length}) | legacy receipts (live, not yet re-sealed): ${legacy.length} of ceiling ${LEGACY_CEILING}`);
   if (LIST_DEFERRED) for (const r of deferred) console.log('  deferred: ' + r.name);
   if (missing.length) for (const r of missing) console.log('  MISSING:  ' + r.name + ' — ' + r.problems.join('; '));
   if (fixtureGaps.length) for (const g of fixtureGaps) console.log('  NO-FIXTURE: ' + g.name + ' — ' + g.reason);
@@ -433,6 +462,15 @@ if (fixtureGaps.length) {
   for (const g of fixtureGaps) console.error(`  • ${g.name} — ${g.reason}`);
   console.error('\nAuthor chaingraph/kernels/fixtures/<tool_id>.fixtures.json with >=1 vector (policy_parameters + output_payload from compute()),');
   console.error('then run: node chaingraph/kernels/golden-parity.test.mjs --update. A deferred node still needs fixtures to be provable later.');
+}
+
+// (1c) legacy-receipt ceiling (RISC0-310-R4-DUAL-VERIFIER-1): counted, never "missing"; down only.
+{
+  const lb = legacyBreach(legacy);
+  if (lb.over) {
+    failed = true;
+    console.error(`\n✗ §18 legacy-receipt ceiling FAILED — ${lb.count} live node(s) carry a receipt under a legacy (risc0 3.0.x) image id, ceiling is ${lb.ceiling} (down only). A new receipt must be sealed under a current (risc0 3.1.0) guest image.`);
+  }
 }
 
 // (2) ratchet: deferred count must not exceed the pinned baseline.
@@ -482,6 +520,6 @@ if (mode === 'advisory') {
   process.exit(0);
 }
 if (exit !== 0) process.exit(exit);
-console.log(`✓ §18 coverage clean — ${proven.length}/${gpuFalse.length} gpu:false live nodes proven, ${deferred.length} deferred (≤ baseline), ${gpuTrue.length} gpu:true out-of-scope.`);
+console.log(`✓ §18 coverage clean — ${proven.length}/${gpuFalse.length} gpu:false live nodes proven, ${deferred.length} deferred (≤ baseline), ${gpuTrue.length} gpu:true out-of-scope; ${legacy.length} live legacy receipt(s) (≤ ${LEGACY_CEILING}).`);
 
 } // IS_MAIN

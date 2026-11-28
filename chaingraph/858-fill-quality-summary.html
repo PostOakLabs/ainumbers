@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'none';">
+<title>Fill Quality Summary &middot; ART-858 &middot; OpenChainGraph &middot; AINumbers.co</title>
+<meta name="description" content="Summarise one order's fill quality from the fills you declare: VWAP with its exact residual, fill rate, participation, auction share, cancel ratio and orders placed per fill. Integer arithmetic only.">
+<meta name="ain:category" content="run">
+<link rel="canonical" href="https://ainumbers.co/chaingraph/858-fill-quality-summary.html">
+<link rel="alternate" type="text/markdown" href="https://ainumbers.co/chaingraph/858-fill-quality-summary.md">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23080E1A'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='Sora,sans-serif' font-weight='600' font-size='13' fill='%2314B8A6'>AI</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Sora:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080E1A;--bg-2:#0D1627;--bg-3:#111E35;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--white:#EEF6FD;--teal:#14B8A6;--teal-lt:#2DD4BF;--gold:#D4A847;--green:#22C55E;--red:#EF4444;--warn:#F59E0B;--radius:6px;--radius-lg:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',system-ui,sans-serif;font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--teal-lt);text-decoration:none}
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 80px}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--teal);margin:18px 0 8px}
+h1{font-size:1.6rem;color:var(--white);margin-bottom:8px;font-weight:600;font-family:'DM Serif Display',serif}
+.sub{color:var(--body);max-width:660px;margin-bottom:8px}
+.flag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.6rem;background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.25);padding:.2rem .55rem;border-radius:20px;margin:4px 2px}
+.flag.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border-color:rgba(20,184,166,.25)}
+.pii-notice{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);background:var(--bg-3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:4px;padding:.5rem .85rem;line-height:1.5;margin:12px 0}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin:16px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.section-head{font-size:.78rem;color:var(--bright);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.q{margin-bottom:1.2rem}.q:last-child{margin-bottom:0}
+.q-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:.4rem;display:block}
+.q-help{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6}
+input[type="number"],input[type="text"],select{width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:.5rem .7rem;outline:none;transition:border-color .2s}
+input:focus,select:focus{border-color:var(--teal)}
+button{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;background:var(--teal);color:#06121f;border:none;border-radius:var(--radius);padding:.6rem 1.2rem;cursor:pointer;font-weight:600}
+button:hover{opacity:.9}
+.results-panel{display:none}.results-panel.show{display:block}
+.exec-hash{font-family:'JetBrains Mono',monospace;font-size:.64rem;color:var(--teal-lt);word-break:break-all;margin:6px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:.15rem .45rem;border-radius:10px;display:inline-block;white-space:nowrap;margin:2px 2px}
+.badge.ok{background:rgba(34,197,94,.08);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.badge.fail{background:rgba(239,68,68,.08);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.badge.warn{background:rgba(245,158,11,.08);color:var(--warn);border:1px solid rgba(245,158,11,.2)}
+.badge.info{background:rgba(20,184,166,.08);color:var(--teal-lt);border:1px solid rgba(20,184,166,.25)}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}
+.stat{background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;text-align:center;min-width:90px}
+.stat-val{font-size:1.1rem;color:var(--bright);font-weight:600;display:block}
+.stat-key{font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.74rem}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--body)}.kv-v{color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.verdict-box{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600;border-radius:var(--radius-lg);padding:14px 18px;margin:12px 0;text-align:center}
+.results-export-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);align-items:center}
+.anchor-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--gold);border:1px solid rgba(212,168,71,.35);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer;text-decoration:none;display:inline-block}
+.verify-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.5rem .9rem;cursor:pointer}
+.verify-result{font-family:'JetBrains Mono',monospace;font-size:.62rem;margin-left:8px}
+.mfst-btn{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius);padding:.3rem .7rem;cursor:pointer;display:block;margin:24px auto 0;text-transform:uppercase;letter-spacing:.08em}
+#mfstBody{display:none;margin-top:10px}
+pre{background:#06101e;border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text);margin-top:10px;max-height:380px}
+.claim-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:8px}
+.claim-remove{font-family:'JetBrains Mono',monospace;font-size:.6rem;background:none;color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius);padding:.4rem .6rem;cursor:pointer}
+.claim-add{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:none;color:var(--teal-lt);border:1px solid rgba(45,212,191,.3);border-radius:var(--radius);padding:.4rem .8rem;cursor:pointer;margin-top:4px}
+</style>
+<style>
+/* OCG-CHROME-CSS:v1 */
+:where(:root){--bg-2:#0D1627;--border:#1E2F4A;--border-2:#263855;--muted:#3A5270;--body:#6888A8;--text:#A8C4DE;--bright:#D4E8F8;--teal:#14B8A6;--gold:#D4A847;--radius:6px}
+/* Canonical nav — derived from chaingraph-hub.html */
+nav{position:sticky;top:0;z-index:100;background:rgba(8,14,26,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0;height:auto}
+.nav-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;justify-content:flex-start;flex-wrap:nowrap;gap:16px;padding:0 24px;height:58px}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none;color:inherit}
+.logo-name{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:500;color:var(--bright);letter-spacing:-.02em;line-height:1}
+.logo-ai{color:var(--teal)}
+.logo-co{color:var(--muted);font-size:.8rem}
+.nav-breadcrumb{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);display:flex;align-items:center;gap:6px}
+.nav-breadcrumb a{color:var(--body);transition:color .15s}
+.nav-breadcrumb a:hover{color:var(--teal)}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-pill{background:none;border:1px solid var(--border-2);border-radius:var(--radius);color:var(--body);font-size:.65rem;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;letter-spacing:.04em;transition:border-color .15s,color .15s;display:inline-block}
+.nav-pill:hover{border-color:var(--text);color:var(--text)}
+.nav-cta{background:var(--gold);color:#080E1A;border:none;border-radius:var(--radius);font-size:.65rem;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:.06em;padding:.35rem .85rem;display:inline-block;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
+@media(max-width:768px){.nav-pill{display:none}}
+@media(max-width:480px){.nav-inner{gap:10px;padding:0 14px}.nav-breadcrumb{flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap}.nav-breadcrumb>:not(:last-child){display:none}.nav-breadcrumb>:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+/* Canonical footer — derived from chaingraph-hub.html */
+footer{border-top:1px solid var(--border);background:var(--bg-2);padding:24px 0;margin:0;font-family:'Sora',sans-serif;color:var(--text)}
+.footer-inner{max-width:1440px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:500;color:var(--bright)}
+.footer-brand-mark{display:flex;align-items:center;gap:8px}
+.footer-brand span{color:var(--muted)}
+.footer-cc{font-size:.65rem;color:var(--muted);margin-top:4px}
+.footer-cols{display:grid;grid-template-columns:repeat(4,auto);gap:2rem 2.5rem}
+@media(max-width:700px){.footer-cols{grid-template-columns:repeat(2,1fr)}}
+.footer-col{display:flex;flex-direction:column}
+.footer-col-label{font-family:'JetBrains Mono',monospace;font-size:.44rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.55rem}
+.footer-col a{display:block;font-size:.68rem;color:var(--body);margin-bottom:.3rem;transition:color .12s}
+.footer-col a:hover{color:var(--teal)}
+.social-row{display:flex;gap:12px;margin-top:10px}
+.social-row a{color:var(--muted);display:inline-flex;transition:color .12s}
+.social-row a:hover{color:var(--teal)}
+.social-row svg{width:18px;height:18px;fill:currentColor}
+.related-topics{max-width:900px;margin:0 auto}
+
+</style>
+<style>.generated-at{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;text-align:center;margin-bottom:10px}</style>
+<!-- Kernel this page was built against. Machine-checked by scripts/check-page-kernel-digest.mjs against chaingraph/kernels/858-fill-quality-summary.kernel.mjs; restamp with --digest whenever the inline compute() is rebuilt. -->
+<meta name="kernel-digest" content="sha256:9cb6593dd7b5df7f20ad18aaed32b8e998abdd197681340441a20ffa06cee686">
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="../index.html" class="logo">
+      <svg width="28" height="28" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+        <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+        <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+        <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+        <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+        <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+        <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+        <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+        <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+        <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+        <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+      </svg>
+      <div class="logo-name"><span class="logo-ai">AI</span>Numbers<span class="logo-co">.co</span></div>
+    </a>
+    <div class="nav-breadcrumb">
+      <a href="../index.html">All Tools</a>
+      <span>›</span>
+      <a href="chaingraph-hub.html">OpenChainGraph Suite</a>
+      <span>›</span>
+      <span style="color:var(--gold)">Fill Quality Summary</span>
+    </div>
+    <div class="nav-right">
+      <a href="chaingraph-hub.html" class="nav-pill">ChainGraph Hub</a>
+      <a href="../start.html" class="nav-cta">Start</a>
+    </div>
+  </div>
+</nav>
+
+
+<div class="wrap">
+  <div class="eyebrow">OpenChainGraph Suite &middot; ART-858 &middot; Execution Quality</div>
+  <h1>Fill Quality Summary</h1>
+  <p class="sub">Summarise one order&rsquo;s fill quality from the fills you declare: the average price actually paid with its exact rounding residual, how much of the order filled, how much of the declared market volume it took, and how much came from auctions. Integer arithmetic only.</p>
+  <div style="margin-bottom:6px">
+    <span class="flag info">Exact integer arithmetic</span>
+    <span class="flag">Declared fills only</span>
+    <span class="flag">Refused fields named</span>
+  </div>
+  <div class="pii-notice">🔒 All inputs are processed locally in your browser. No data is transmitted. Do not enter real personal data — use synthetic or anonymised inputs only.</div>
+  <div class="pii-notice">&#9888; A calculation check on the fills and the market volume you declare. It is not investment advice and not a best-execution determination. No market data is fetched; the market volume and its window label are yours. It computes no arrival shortfall and no opportunity cost.</div>
+
+  <div class="card">
+    <div class="section-head">Inputs</div>
+    <div class="q">
+      <label class="q-label" for="ppInput">Order and fills (JSON)</label>
+      <div class="q-help">Every number is a decimal string, never a JSON number. order_side is buy or sell. currency is one of USD, EUR, GBP, CHF, JPY, BHD, KWD, OMR, TND, JOD, IQD or LYD, and its minor-unit exponent is derived from the code. Prices are integers in units of 10^-price_decimals of the currency; price_decimals is optional (0 to 8) and defaults to the currency exponent, so 100.005 is price "100005" with price_decimals "3". Each fill needs fill_id (unique), side (equal to the order side), currency (equal to the order currency), price, quantity_shares and venue_type (auction or continuous). Up to 5,000 fills. market_volume_shares and market_volume_window (a label that is echoed and never interpreted) are your declaration. orders_placed must be at least the number of fills, and cancels between 0 and orders_placed.</div>
+      <textarea id="ppInput" rows="22" spellcheck="false" style="width:100%;background:var(--bg-3);border:1px solid var(--border-2);border-radius:var(--radius);color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:.6rem .7rem">{
+  "order_side": "buy",
+  "order_target_qty": "1000",
+  "currency": "USD",
+  "market_volume_shares": "20000",
+  "market_volume_window": "declared session window",
+  "orders_placed": "4",
+  "cancels": "1",
+  "fills": [
+    {
+      "fill_id": "f1",
+      "side": "buy",
+      "currency": "USD",
+      "price": "9990",
+      "quantity_shares": "400",
+      "venue_type": "auction"
+    },
+    {
+      "fill_id": "f2",
+      "side": "buy",
+      "currency": "USD",
+      "price": "10010",
+      "quantity_shares": "600",
+      "venue_type": "continuous"
+    }
+  ]
+}</textarea>
+    </div>
+    <div style="margin-top:20px">
+      <button onclick="runSummary()">&#9654; Summarise Fill Quality</button>
+    </div>
+  </div>
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="generated-at" id="generatedAt"></div>
+    <div class="card">
+      <div id="verdictBox" class="verdict-box" role="status" aria-live="polite"></div>
+      <div class="stat-row" id="statRow"></div>
+      <div id="flagRow" style="margin:8px 0"></div>
+      <div class="section-head" style="margin-top:14px">Detail</div>
+      <div id="kvDiv"></div>
+      <div class="section-head" style="margin-top:14px">Execution Hash (SHA-256)</div>
+      <div class="exec-hash" id="execHashBox"></div>
+      <div class="results-export-row">
+        <button onclick="exportArtifact()">Export &#167;4 Artifact</button>
+        <button class="verify-btn" onclick="verifyHash()">&#10003; Verify Hash</button>
+        <span class="verify-result" id="verifyResult"></span>
+        <a id="anchorBtn" class="anchor-btn" style="display:none" target="_blank" rel="noopener">&#9875; Anchor &rarr;</a>
+      </div>
+      <pre id="artifactPre" style="display:none"></pre>
+    </div>
+  </div>
+
+  <button class="mfst-btn" onclick="toggleMfst()">[ manifest ]</button>
+  <div id="mfstBody"><pre id="mfstCode"></pre></div>
+</div>
+
+<!-- ASK-AGENT:BEGIN generator=scripts/check-ask-agent-block.mjs manifest=manifests/858-fill-quality-summary.manifest.json -->
+<!-- ASK-AGENT:END -->
+
+<!--PROOF-LINKS-->
+<details class="proof-links">
+  <summary>Verification artifacts</summary>
+  <ul>
+  <li>Kernel source: <a href="kernels/858-fill-quality-summary.kernel.mjs">858-fill-quality-summary.kernel.mjs</a></li>
+  <li>Kernel digest: sha256:9cb6593dd7b5df7f20ad18aaed32b8e998abdd197681340441a20ffa06cee686</li>
+  <li>Golden fixtures: <a href="kernels/fixtures/858-fill-quality-summary.fixtures.json">fixtures</a></li>
+  <li>Property tests: <a href="kernels/__proptests__/858-fill-quality-summary.proptest.mjs">proptest</a></li>
+  <li>zk receipt: proof deferred</li>
+  <li>Proof status: deferred</li>
+  <li>Formal verification tier: not published</li>
+  <li>Formal verification status: <a href="../fv-status/37b2765b72de9ec5b40410b047032dc017c20b2a4ade61ca2f32e5d748b55dd6.json">0.8.13</a></li>
+  <li>Formal verification explainer: <a href="../fv-explainer.html">fv-explainer.html</a></li>
+  <li>Formal verification source: formal proof not published</li>
+  <li>On-chain registry record: <a href="../registry/kernel/9cb6593dd7b5df7f20ad18aaed32b8e998abdd197681340441a20ffa06cee686.json">9cb6593dd7b5df7f20ad18aaed32b8e998abdd197681340441a20ffa06cee686</a></li>
+  <li>Timestamp record: <a href="https://anchor.ainumbers.co/?hash=a52d8b5ad7c680fd44be1fedea44cdd36446b79e4e30c58ce4c18fdab1e845d2">record this example execution hash</a></li>
+  <li>Timestamp explainer: <a href="anchors-explainer.html">timestamp explainer</a></li>
+  </ul>
+</details>
+<!--/PROOF-LINKS-->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-brand-mark">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="AINumbers.co mark">
+          <rect width="48" height="48" rx="9" fill="var(--bg-2)"/>
+          <rect x="1" y="1" width="46" height="46" rx="8" fill="none" stroke="var(--border)" stroke-width="1"/>
+          <rect x="9"  y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity="1"/>
+          <rect x="20" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".45"/>
+          <rect x="31" y="9"  width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".15"/>
+          <rect x="9"  y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".6"/>
+          <rect x="20" y="20" width="8" height="8" rx="1.5" fill="var(--gold)" opacity=".9"/>
+          <rect x="31" y="20" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".3"/>
+          <rect x="9"  y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".2"/>
+          <rect x="20" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".35"/>
+          <rect x="31" y="31" width="8" height="8" rx="1.5" fill="var(--teal)" opacity=".7"/>
+        </svg>
+        <span style="color:var(--teal)">AI</span>Numbers<span>.co</span> &middot; OpenChainGraph Suite
+      </div>
+      <div class="footer-cc"><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY 4.0</a> &middot; Zero PII &middot; Client-side only</div>
+      <div class="social-row">
+        <a href="https://x.com/ai_numbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on X (Twitter)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+        </a>
+        <a href="https://github.com/PostOakLabs/ainumbers" target="_blank" rel="noopener noreferrer" aria-label="AINumbers on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.302 3.438 9.8 8.205 11.385.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <div class="footer-col-label">Platform</div>
+        <a href="../start.html">Start Here</a>
+        <a href="../front-to-back.html">Front-to-Back Prompts</a>
+        <a href="../prompts.html">Prompt Library</a>
+        <a href="chaingraph-hub.html">ChainGraph Hub</a>
+        <a href="rfp-evidence-desk.html">RFP Evidence Desk</a>
+        <a href="openchain-graph-spec.html">Spec v0.8.13</a>
+        <a href="openchain-graph-explainer.html">OCG Explainer</a>
+        <a href="ocg-sandbox.html">Sandbox</a>
+        <a href="ocg-chain-builder.html">Chain Builder</a>
+        <a href="ocg-legacy-vs-ocg.html">For Stakeholders</a>
+        <a href="ocg-integration-guide.html">Integration Guide</a>
+        <a href="ocg-guide-export.html">Export Profiles</a>
+        <a href="../helm.html">Helm</a>
+        <a href="../convert.html">Conversion Suite</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Hubs</div>
+        <a href="../hub-for-hubs.html">Hubs and Guides</a>
+        <a href="visual-explainers-hub.html">Visual Explainers</a>
+        <a href="education-hub.html">Learn OpenChainGraph</a>
+        <a href="../guides/web3-hub.html">Web3 Hub</a>
+        <a href="../guides/canton-tmf-hub.html">Canton</a>
+        <a href="../guides/ethereum-hub.html">Ethereum</a>
+        <a href="../guides/stablecoin-reserve-hub.html">Stablecoin Reserve</a>
+        <a href="../guides/token-standards-hub.html">Token Standards</a>
+        <a href="../guides/tradetech-hub.html">TradeTech</a>
+        <a href="../guides/capital-markets-settlement-hub.html">Capital Markets Settlement</a>
+        <a href="../guides/broker-dealer-ops-hub.html">Broker-Dealer Ops</a>
+        <a href="../guides/treasury-liquidity-hub.html">Treasury and Strategy</a>
+        <a href="../guides/wealthtech-hub.html">WealthTech</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">Developers</div>
+        <a href="../mcp.html">MCP Docs</a>
+        <a href="../mcp-playground.html">MCP Playground</a>
+        <a href="../webmcp.html">WebMCP</a>
+        <a href="../mcp-benchmark.html">MCP Benchmark</a>
+        <a href="https://mcp.ainumbers.co/mcp" target="_blank">MCP Server &#8599;</a>
+        <a href="https://github.com/PostOakLabs/ainumbers-mcp-apps" target="_blank" rel="noopener">MCP Repo &#8599;</a>
+        <a href="../openapi.json" target="_blank">openapi.json</a>
+        <a href="chaingraph.json" target="_blank">chaingraph.json</a>
+        <a href="okf/index.md" target="_blank">OKF bundle</a>
+        <a href="standard/SPEC.md" target="_blank">OCG SPEC.md</a>
+        <a href="../llms.txt" target="_blank">llms.txt</a>
+        <a href="../verification-desk.html">Verification Desk</a>
+        <a href="verify.html">Artifact Verifier</a>
+        <a href="../ledger/index.html">Receipt Ledger</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-label">About</div>
+        <a href="../infrastructure.html">Infrastructure Map</a>
+        <a href="../tools.html">All Tools</a>
+        <a href="../about.html">About</a>
+        <a href="../methods.html">Methods</a>
+        <a href="../fv-explainer.html">FV Process Explainer</a>
+        <a href="../errata.html">FV Errata</a>
+        <a href="../suggest.html">Suggest</a>
+        <a href="agent-staircase-explainer.html">Agent Staircase</a>
+        <a href="../privacy.html">Privacy</a>
+        <a href="../contact.html">Contact</a>
+        <a href="../sitemap.html">Sitemap</a>
+        <a href="https://postoaklabs.com" target="_blank" rel="noopener">PostOakLabs.com &#8599;</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+var MANIFEST = {
+  tool_id: '858-fill-quality-summary',
+  version: '1.0.0',
+  mcp_name: 'summarize_fill_quality',
+  title: 'Fill Quality Summary',
+  description: 'Summarises one order\'s fill quality from caller-declared fills in exact integer arithmetic: VWAP with its exact residual, fill rate, participation against a declared market volume, auction share, cancel ratio and orders placed divided by fills count.',
+  spec_version: '0.8.0',
+  chaingraph_version: '0.4.0',
+  regulation: 'None: a calculation check on declared inputs. ISO 4217 minor-unit exponents for the closed currency table.',
+  mcp_tool_definition: {
+    name: 'summarize_fill_quality',
+    description: 'Summarise one order\'s fill quality from caller-declared fills in exact integer arithmetic. All numbers are integer strings.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        order_side: { type: 'string', enum: ['buy', 'sell'] },
+        order_target_qty: { type: 'string' },
+        currency: { type: 'string' },
+        price_decimals: { type: 'string' },
+        fills: { type: 'array' },
+        market_volume_shares: { type: 'string' },
+        market_volume_window: { type: 'string' },
+        orders_placed: { type: 'string' },
+        cancels: { type: 'string' }
+      }
+    }
+  }
+};
+
+var ANCHOR_BASE = 'https://anchor.ainumbers.co';
+var _lastResult = null;
+
+function cgCanon(v) { return Array.isArray(v) ? v.map(cgCanon) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce(function(o,k){o[k]=cgCanon(v[k]);return o;}, Object.create(null)) : v; }
+async function computeExecHash(pp, op) {
+  var payload = JSON.stringify(cgCanon({policy_parameters: pp, output_payload: op}));
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  var hex = Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  return 'sha256:' + hex;
+}
+
+// ISO 4217 minor-unit exponents (ISO 4217 amendment tables). Closed table; the exponent is
+// derived from the code and is never accepted as input.
+const CURRENCY_EXPONENT = new Map([
+  ['USD', 2], ['EUR', 2], ['GBP', 2], ['CHF', 2], ['JPY', 0],
+  ['BHD', 3], ['KWD', 3], ['OMR', 3], ['TND', 3], ['JOD', 3], ['IQD', 3], ['LYD', 3],
+]);
+
+const MAX_FILLS = 5000;
+const MAX_DIGITS = 30;
+const UINT_RE = /^(0|[1-9][0-9]*)$/;
+
+/** Parse a non-negative integer string (no sign, no leading zeros, bounded length), else null. */
+function parseUint(v) {
+  if (typeof v !== 'string') return null;
+  if (v.length === 0 || v.length > MAX_DIGITS) return null;
+  if (!UINT_RE.test(v)) return null;
+  return BigInt(v);
+}
+
+/** Integer division of non-negative n by positive d, rounded half away from zero. */
+function rdiv(n, d) {
+  return (2n * n + d) / (2n * d);
+}
+
+/** Scaled-by-100 non-negative integer to a string with exactly 2 decimals. */
+function fmt2(x) {
+  const whole = x / 100n;
+  const frac = x % 100n;
+  return whole.toString() + '.' + (frac < 10n ? '0' : '') + frac.toString();
+}
+
+function isPlainObject(v) {
+  return v !== null && typeof v === 'object' && !Array.isArray(v);
+}
+
+function refusal(domain_errors) {
+  const compliance_flags = [];
+  if (domain_errors.length > 0) compliance_flags.push('INPUT_REFUSED');
+  const warnings = compliance_flags.slice();
+  return {
+    output_payload: { refused: true, domain_errors, warnings },
+    compliance_flags,
+  };
+}
+
+/**
+ * compute(pp) — pure decision kernel. Never throws on junk input: every defect becomes a
+ * named entry in domain_errors, and on any refusal no figure is computed.
+ * @param {object} pp policy_parameters
+ * @returns {{ output_payload: object, compliance_flags: string[] }}
+ */
+function compute(pp) {
+  if (!isPlainObject(pp)) return refusal([{ field: 'policy_parameters', code: 'NOT_AN_OBJECT' }]);
+  const errors = [];
+  const bad = (field, code) => { errors.push({ field, code }); };
+
+  // order_side: exact lowercase enum.
+  const side = pp.order_side;
+  if (side == null) bad('order_side', 'MISSING');
+  else if (side !== 'buy' && side !== 'sell') bad('order_side', 'NOT_ALLOWED');
+
+  // order_target_qty: integer string > 0.
+  let target = null;
+  if (pp.order_target_qty == null) bad('order_target_qty', 'MISSING');
+  else {
+    target = parseUint(pp.order_target_qty);
+    if (target === null) bad('order_target_qty', 'NOT_AN_INTEGER_STRING');
+    else if (target <= 0n) { bad('order_target_qty', 'NOT_POSITIVE'); target = null; }
+  }
+
+  // currency: closed ISO 4217 table; exponent derived.
+  let currency = null;
+  let exponent = null;
+  if (pp.currency == null) bad('currency', 'MISSING');
+  else if (typeof pp.currency !== 'string' || !CURRENCY_EXPONENT.has(pp.currency)) bad('currency', 'UNKNOWN_CURRENCY');
+  else { currency = pp.currency; exponent = CURRENCY_EXPONENT.get(currency); }
+
+  // price_decimals: optional single digit string 0..8; default is the currency exponent.
+  let priceDecimals = exponent;
+  if (pp.price_decimals != null) {
+    if (typeof pp.price_decimals === 'string' && /^[0-8]$/.test(pp.price_decimals)) priceDecimals = Number.parseInt(pp.price_decimals, 10);
+    else { bad('price_decimals', 'OUT_OF_RANGE_0_TO_8'); priceDecimals = null; }
+  }
+
+  // market volume and its window label.
+  let market = null;
+  if (pp.market_volume_shares == null) bad('market_volume_shares', 'MISSING');
+  else {
+    market = parseUint(pp.market_volume_shares);
+    if (market === null) bad('market_volume_shares', 'NOT_AN_INTEGER_STRING');
+    else if (market <= 0n) { bad('market_volume_shares', 'NOT_POSITIVE'); market = null; }
+  }
+  const windowLabel = pp.market_volume_window;
+  if (windowLabel == null) bad('market_volume_window', 'MISSING');
+  else if (typeof windowLabel !== 'string' || windowLabel.length === 0) bad('market_volume_window', 'NOT_A_NON_EMPTY_STRING');
+
+  // fills[]
+  let fillCount = 0;
+  let filled = 0n;
+  let auctionQty = 0n;
+  let pqSum = 0n;
+  let fillsOk = false;
+  const fills = pp.fills;
+  if (fills == null) bad('fills', 'MISSING');
+  else if (!Array.isArray(fills)) bad('fills', 'NOT_AN_ARRAY');
+  else if (fills.length === 0) bad('fills', 'EMPTY');
+  else if (fills.length > MAX_FILLS) bad('fills', 'TOO_MANY');
+  else {
+    const before = errors.length;
+    const seen = new Set();
+    for (let i = 0; i < fills.length; i++) {
+      const f = fills[i];
+      const at = 'fills[' + i + ']';
+      if (!isPlainObject(f)) { bad(at, 'NOT_AN_OBJECT'); continue; }
+      if (typeof f.fill_id !== 'string' || f.fill_id.length === 0) bad(at + '.fill_id', 'NOT_A_NON_EMPTY_STRING');
+      else if (seen.has(f.fill_id)) bad(at + '.fill_id', 'DUPLICATE');
+      else seen.add(f.fill_id);
+      if (side === 'buy' || side === 'sell') {
+        if (f.side !== side) bad(at + '.side', 'SIDE_MISMATCH');
+      } else if (f.side !== 'buy' && f.side !== 'sell') bad(at + '.side', 'NOT_ALLOWED');
+      if (currency !== null) {
+        if (f.currency !== currency) bad(at + '.currency', 'CURRENCY_MISMATCH');
+      } else if (typeof f.currency !== 'string') bad(at + '.currency', 'NOT_A_STRING');
+      const price = parseUint(f.price);
+      if (price === null) bad(at + '.price', 'NOT_AN_INTEGER_STRING');
+      else if (price <= 0n) bad(at + '.price', 'NOT_POSITIVE');
+      const qty = parseUint(f.quantity_shares);
+      if (qty === null) bad(at + '.quantity_shares', 'NOT_AN_INTEGER_STRING');
+      else if (qty <= 0n) bad(at + '.quantity_shares', 'NOT_POSITIVE');
+      if (f.venue_type == null) bad(at + '.venue_type', 'MISSING');
+      else if (f.venue_type !== 'auction' && f.venue_type !== 'continuous') bad(at + '.venue_type', 'NOT_ALLOWED');
+      if (price !== null && price > 0n && qty !== null && qty > 0n && (f.venue_type === 'auction' || f.venue_type === 'continuous')) {
+        filled += qty;
+        pqSum += price * qty;
+        if (f.venue_type === 'auction') auctionQty += qty;
+      }
+    }
+    fillCount = fills.length;
+    fillsOk = errors.length === before;
+  }
+
+  // orders_placed and cancels.
+  let orders = null;
+  if (pp.orders_placed == null) bad('orders_placed', 'MISSING');
+  else {
+    orders = parseUint(pp.orders_placed);
+    if (orders === null) bad('orders_placed', 'NOT_AN_INTEGER_STRING');
+    else if (fillCount > 0 && orders < BigInt(fillCount)) { bad('orders_placed', 'BELOW_FILLS_COUNT'); orders = null; }
+  }
+  let cancels = null;
+  if (pp.cancels == null) bad('cancels', 'MISSING');
+  else {
+    cancels = parseUint(pp.cancels);
+    if (cancels === null) bad('cancels', 'NOT_AN_INTEGER_STRING');
+    else if (orders !== null && cancels > orders) { bad('cancels', 'ABOVE_ORDERS_PLACED'); cancels = null; }
+  }
+
+  // Cross-field refusals, only once the fills themselves are clean.
+  if (fillsOk) {
+    if (target !== null && filled > target) {
+      bad('filled_qty', 'ABOVE_ORDER_TARGET');
+      bad('order_target_qty', 'BELOW_FILLED_QTY');
+    }
+    if (market !== null && filled > market) {
+      bad('filled_qty', 'ABOVE_MARKET_VOLUME');
+      bad('market_volume_shares', 'BELOW_FILLED_QTY');
+    }
+  }
+
+  if (errors.length > 0 || !fillsOk) return refusal(errors);
+
+  // Every input is valid: compute. (target, market, orders, cancels, priceDecimals are non-null.)
+  const vwap = rdiv(pqSum, filled);
+  const residual = pqSum - vwap * filled;
+  const complete = filled === target;
+  const compliance_flags = [];
+  if (!complete) compliance_flags.push('ORDER_INCOMPLETE');
+  const warnings = compliance_flags.slice();
+
+  return {
+    output_payload: {
+      refused: false,
+      order_side: side,
+      currency,
+      minor_unit_exponent: String(exponent),
+      price_decimals: String(priceDecimals),
+      market_volume_window: windowLabel,
+      fills_count: String(fillCount),
+      filled_qty: filled.toString(),
+      unfilled_qty: (target - filled).toString(),
+      order_complete: complete ? 'true' : 'false',
+      fill_rate_pct: fmt2(rdiv(filled * 10000n, target)),
+      price_quantity_sum: pqSum.toString(),
+      vwap_price: vwap.toString(),
+      vwap_residual: residual.toString(),
+      participation_pct: fmt2(rdiv(filled * 10000n, market)),
+      auction_fill_share_pct: fmt2(rdiv(auctionQty * 10000n, filled)),
+      cancel_ratio: fmt2(rdiv(cancels * 100n, orders)),
+      order_to_trade_ratio: fmt2(rdiv(orders * 100n, BigInt(fillCount))),
+      domain_errors: [],
+      warnings,
+    },
+    compliance_flags,
+  };
+}
+
+// Never-throw hash guard: mirrors the _hash.mjs canonicalizer limits (depth 512, 1e6
+// values, finite safe numbers, no BigInt) so an unhashable input is refused with a null
+// execution_hash and a named hash_refusal, never thrown out of buildArtifact ('Do not
+// know how to serialize a BigInt'). Keep the walk in the kernel file, wired through
+// buildArtifact exactly as below.
+const HASH_MAX_DEPTH = 512;        // _hash.mjs MAX_DEPTH
+const HASH_MAX_ELEMENTS = 1000000; // _hash.mjs MAX_ELEMENTS
+
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > budget.maxDepth) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > budget.maxElements) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (typeof v === 'bigint') return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': bigint' };
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const r = findHashRefusal(v[i], path + '[' + i + ']', depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  if (v !== null && typeof v === 'object') {
+    const ks = Object.keys(v).sort();
+    for (let i = 0; i < ks.length; i++) {
+      const r = findHashRefusal(v[ks[i]], path + '.' + ks[i], depth + 1, budget);
+      if (r !== null) return r;
+    }
+    return null;
+  }
+  return null;
+}
+
+
+function esc(v) { return String(v).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+function runSummary() {
+  var pp, parseFailed = false;
+  try { pp = JSON.parse(document.getElementById('ppInput').value); } catch (e) { pp = null; parseFailed = true; }
+  var r = parseFailed ? { output_payload: { refused: true, domain_errors: [{ field: 'policy_parameters', code: 'NOT_VALID_JSON' }], warnings: ['INPUT_REFUSED'] }, compliance_flags: ['INPUT_REFUSED'] } : compute(pp);
+  var op = r.output_payload;
+  var flags = r.compliance_flags;
+  var unhashable = parseFailed ? null : findHashRefusal({ policy_parameters: pp, output_payload: op }, 'artifact', 1, { maxDepth: HASH_MAX_DEPTH, maxElements: HASH_MAX_ELEMENTS, n: 0 });
+  _lastResult = { pp: pp === null ? {} : pp, output_payload: op, compliance_flags: flags, unhashable: unhashable };
+
+  var refused = op.refused === true;
+  var warn = !refused && op.order_complete === 'false';
+  var vColor = refused ? 'var(--red)' : (warn ? 'var(--warn)' : 'var(--green)');
+  var vBox = document.getElementById('verdictBox');
+  vBox.style.color = vColor; vBox.style.border = '1px solid ' + vColor;
+  vBox.textContent = refused ? 'REFUSED: ' + op.domain_errors.length + ' FIELD' + (op.domain_errors.length === 1 ? '' : 'S') + ' NAMED, NO FIGURES COMPUTED' : (op.order_complete === 'true' ? 'ORDER COMPLETE' : 'ORDER PARTLY FILLED');
+
+  document.getElementById('statRow').innerHTML = refused ? '' :
+    '<div class="stat"><span class="stat-val">'+esc(op.vwap_price)+'</span><span class="stat-key">VWAP (scale 10^-'+esc(op.price_decimals)+')</span></div>'+
+    '<div class="stat"><span class="stat-val">'+esc(op.fill_rate_pct)+'%</span><span class="stat-key">Fill rate</span></div>'+
+    '<div class="stat"><span class="stat-val">'+esc(op.participation_pct)+'%</span><span class="stat-key">Participation</span></div>'+
+    '<div class="stat"><span class="stat-val">'+esc(op.auction_fill_share_pct)+'%</span><span class="stat-key">Auction share</span></div>'+
+    '<div class="stat"><span class="stat-val">'+esc(op.cancel_ratio)+'</span><span class="stat-key">Cancel ratio</span></div>'+
+    '<div class="stat"><span class="stat-val">'+esc(op.order_to_trade_ratio)+'</span><span class="stat-key">Orders placed &divide; fills count</span></div>';
+
+  var badges = [];
+  if (refused) badges.push('<span class="badge fail">INPUT_REFUSED</span>');
+  else if (op.order_complete === 'false') badges.push('<span class="badge warn">ORDER_INCOMPLETE</span>');
+  else badges.push('<span class="badge ok">ORDER COMPLETE</span>');
+  if (unhashable) badges.push('<span class="badge fail">HASH REFUSED: ' + esc(unhashable.reason) + '</span>');
+  document.getElementById('flagRow').innerHTML = badges.join('');
+
+  var rows = refused ? op.domain_errors.map(function(e){ return [e.field, e.code]; }) : [
+    ['Order side', op.order_side],
+    ['Currency / minor-unit exponent', op.currency + ' / ' + op.minor_unit_exponent],
+    ['Price decimals', op.price_decimals],
+    ['Market volume window', op.market_volume_window],
+    ['Fills count', op.fills_count],
+    ['Filled quantity', op.filled_qty],
+    ['Unfilled quantity', op.unfilled_qty],
+    ['Order complete', op.order_complete],
+    ['Sum of price x quantity', op.price_quantity_sum],
+    ['VWAP price', op.vwap_price],
+    ['VWAP residual (sum of price x quantity minus VWAP x filled quantity)', op.vwap_residual],
+    ['Fill rate (%)', op.fill_rate_pct],
+    ['Participation (%)', op.participation_pct],
+    ['Auction fill share (%)', op.auction_fill_share_pct],
+    ['Cancel ratio (cancels / orders placed)', op.cancel_ratio],
+    ['Order-to-trade ratio (orders placed \u00f7 fills count)', op.order_to_trade_ratio]
+  ];
+  document.getElementById('kvDiv').innerHTML = rows.map(function(x){return '<div class="kv"><span class="kv-k">'+esc(x[0])+'</span><span class="kv-v">'+esc(x[1])+'</span></div>';}).join('');
+
+  document.getElementById('resultsPanel').classList.add('show');
+  document.getElementById('verifyResult').textContent = '';
+  document.getElementById('anchorBtn').style.display = 'none';
+  if (unhashable || parseFailed) {
+    document.getElementById('execHashBox').textContent = 'null (' + (parseFailed ? 'input is not valid JSON' : unhashable.reason) + ')';
+    return;
+  }
+  document.getElementById('execHashBox').textContent = 'computing...';
+  computeExecHash(_lastResult.pp, op).then(function(h) {
+    document.getElementById('execHashBox').textContent = h;
+    var aBtn = document.getElementById('anchorBtn');
+    aBtn.href = ANCHOR_BASE + '/?hash=' + encodeURIComponent(h);
+    aBtn.style.display = 'inline-block';
+  });
+}
+
+function verifyHash() {
+  if (!_lastResult || _lastResult.unhashable) return;
+  computeExecHash(_lastResult.pp, _lastResult.output_payload).then(function(h) {
+    var cur = document.getElementById('execHashBox').textContent;
+    document.getElementById('verifyResult').innerHTML = h === cur ? '<span style="color:var(--green)">&#10003; Hash verified</span>' : '<span style="color:var(--red)">&#10007; Mismatch</span>';
+  });
+}
+
+function exportArtifact() {
+  if (!_lastResult) return;
+  var hashText = document.getElementById('execHashBox').textContent;
+  var hash = _lastResult.unhashable ? null : (hashText || 'pending');
+  const __generatedAtCapture = new Date().toISOString();
+  var artifact = {
+    '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
+    chaingraph_version: '0.4.0',
+    mandate_type: 'compliance_control',
+    tool_id: '858-fill-quality-summary',
+    tool_version: '1.0.0',
+    generated_at: __generatedAtCapture,
+    execution_hash: hash,
+    chain: { parent_hashes: [], parent_tool_ids: [], chain_depth: 0 },
+    policy_parameters: _lastResult.pp,
+    output_payload: _lastResult.output_payload,
+    compliance_flags: _lastResult.compliance_flags,
+    compute_mode: 'browser',
+    audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [], client_side_executed: true, zero_pii_verified: true, deterministic_run: true }
+  };
+  if (_lastResult.unhashable) artifact.hash_refusal = { reason: _lastResult.unhashable.reason, detail: _lastResult.unhashable.detail };
+  document.getElementById('generatedAt').textContent='generated_at '+__generatedAtCapture;
+  var json = JSON.stringify(artifact, null, 2);
+  document.getElementById('artifactPre').textContent = json;
+  document.getElementById('artifactPre').style.display = 'block';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  a.download = '858-fill-quality-summary.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+function toggleMfst() {
+  var b = document.getElementById('mfstBody');
+  if (b.style.display === 'none' || !b.style.display) {
+    b.style.display = 'block';
+    document.getElementById('mfstCode').textContent = JSON.stringify(MANIFEST, null, 2);
+  } else { b.style.display = 'none'; }
+}
+</script>
+</body>
+</html>

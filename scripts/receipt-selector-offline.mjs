@@ -1,17 +1,21 @@
-// receipt-selector-offline.mjs -- recompute the RISC Zero Groth16 verifier selector with no network.
-// Run: node scripts/receipt-selector-offline.mjs   (exit 0 = selector is 0x73c457ba)
-// Reads the estate constants (control root, BN254 control id, VK points) out of
-// chaingraph/kernels/_computeproof.mjs and applies the risc0 v3.0.x derivation:
+// receipt-selector-offline.mjs -- recompute the RISC Zero Groth16 verifier selectors with no network.
+// Run: node scripts/receipt-selector-offline.mjs   (exit 0 = both pinned selectors reproduce)
+// Reads BOTH estate constant sets (control root, BN254 control id, VK points; RISC0-310-R4-DUAL-VERIFIER-1)
+// out of chaingraph/kernels/_computeproof.mjs and applies the risc0 derivation to each:
 //   research/RISC0-GROTH16-VK-DIGEST-PIN-2026-11.md (VerifyingKey::digest, tagged_struct,
 //   Groth16ReceiptVerifierParameters::digest; Solidity: RiscZeroGroth16Verifier.sol v3.0.0 lines 88-132).
-// node built-in crypto only. The VK digest is recomputed, never hardcoded.
+//   CURRENT_ (risc0 v3.1.0) -> 0xe71e6620; LEGACY_ (risc0 v3.0.x) -> 0x73c457ba.
+// node built-in crypto only. The VK digests are recomputed, never hardcoded.
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-export const EXPECTED_SELECTOR = '73c457ba';
+// One pin per constant set, keyed by the declaration prefix used in _computeproof.mjs.
+export const EXPECTED_SELECTORS = Object.freeze({ CURRENT_: 'e71e6620', LEGACY_: '73c457ba' });
+// Kept for callers that read the single legacy pin.
+export const EXPECTED_SELECTOR = EXPECTED_SELECTORS.LEGACY_;
 export const KERNEL_SRC = resolve(HERE, '../chaingraph/kernels/_computeproof.mjs');
 
 const sha256 = (b) => createHash('sha256').update(b).digest();
@@ -32,16 +36,19 @@ export function taggedList(tag, items) {
   return acc;
 }
 
-// Pull the constants out of the kernel source text so drift in the estate is what gets tested.
-export function readEstateConstants(src = readFileSync(KERNEL_SRC, 'utf8')) {
-  const hex32 = (name) => {
-    const m = src.match(new RegExp(`const ${name}\\s*=\\s*'([0-9a-f]{64})'`));
-    if (!m) throw new Error(`constant ${name} not found in _computeproof.mjs`);
-    return m[1];
+// Pull one constant set out of the kernel source text so drift in the estate is what gets tested.
+// prefix selects the set: 'CURRENT_' or 'LEGACY_' (declarations `const <prefix>CONTROL_ROOT_HEX`,
+// `const <prefix>BN254_CONTROL_ID_HEX`, `const <prefix>VK = {`). Each must appear exactly once.
+export function readEstateConstants(src = readFileSync(KERNEL_SRC, 'utf8'), prefix = 'LEGACY_') {
+  const once = (re, what) => {
+    const all = [...src.matchAll(new RegExp(re.source, 'g'))];
+    if (all.length === 0) throw new Error(`${what} not found in _computeproof.mjs`);
+    if (all.length > 1) throw new Error(`${what} declared ${all.length} times in _computeproof.mjs (want exactly one)`);
+    return all[0];
   };
+  const hex32 = (name) => once(new RegExp(`const ${prefix}${name}\\s*=\\s*'([0-9a-f]{64})'`), `constant ${prefix}${name}`)[1];
   const decs = (text) => [...text.matchAll(/'(\d+)'/g)].map((m) => m[1]);
-  const vkBlock = src.match(/const VK = \{([\s\S]*?)\n\};/);
-  if (!vkBlock) throw new Error('VK block not found in _computeproof.mjs');
+  const vkBlock = once(new RegExp(`const ${prefix}VK = \\{([\\s\\S]*?)\\n\\};`), `${prefix}VK block`);
   const field = (name) => {
     const m = vkBlock[1].match(new RegExp(`\\b${name}:\\s*\\[([\\s\\S]*?)\\]`));
     if (!m) throw new Error(`VK.${name} not found`);
@@ -82,14 +89,20 @@ export function computeSelector(c, log = () => {}) {
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
   // RECEIPT_SELECTOR_KERNEL_SRC lets the selftest point at a perturbed scratch copy.
-  const c = readEstateConstants(readFileSync(process.env.RECEIPT_SELECTOR_KERNEL_SRC || KERNEL_SRC, 'utf8'));
-  console.log(`control_root     ${c.controlRoot}`);
-  console.log(`bn254_control_id ${c.bn254ControlId}`);
-  const sel = computeSelector(c, (l) => console.log(l));
-  console.log(`selector 0x${sel} (expected 0x${EXPECTED_SELECTOR})`);
-  if (sel !== EXPECTED_SELECTOR) {
-    console.error(`FAIL: selector 0x${sel} != 0x${EXPECTED_SELECTOR}; estate control constants or VK parameters drifted`);
-    process.exit(1);
+  const src = readFileSync(process.env.RECEIPT_SELECTOR_KERNEL_SRC || KERNEL_SRC, 'utf8');
+  let failed = 0;
+  for (const [prefix, expected] of Object.entries(EXPECTED_SELECTORS)) {
+    const c = readEstateConstants(src, prefix);
+    console.log(`[${prefix.slice(0, -1)}]`);
+    console.log(`control_root     ${c.controlRoot}`);
+    console.log(`bn254_control_id ${c.bn254ControlId}`);
+    const sel = computeSelector(c, (l) => console.log(l));
+    console.log(`selector 0x${sel} (expected 0x${expected})`);
+    if (sel !== expected) {
+      console.error(`FAIL: ${prefix.slice(0, -1)} selector 0x${sel} != 0x${expected}; estate control constants or VK parameters drifted`);
+      failed++;
+    }
   }
-  console.log('OK: selector reproduced offline, no verifier call needed');
+  if (failed) process.exit(1);
+  console.log('OK: both selectors reproduced offline, no verifier call needed');
 }

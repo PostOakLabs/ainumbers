@@ -30,7 +30,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 
 import { jcsStringify } from '../chaingraph/kernels/_hash.mjs';
-import { verifySeal, normId } from '../chaingraph/kernels/_computeproof.mjs';
+import { verifySealReport, normId } from '../chaingraph/kernels/_computeproof.mjs';
 import {
   bytesToHex,
   hexToBytes,
@@ -191,14 +191,19 @@ export async function verifyProofHalf(bundle) {
   // §3.1.5 — the Groth16/BN254 pairing equation, via the §18.1 reference verifier. This recomputes the
   // ReceiptClaim digest from (imageId, JCS journal bytes) and the 5 public inputs internally; the pinned
   // ceremony constants (VK / CONTROL_ROOT / BN254_CONTROL_ID) live there, not here.
-  let sealOk = false;
-  try { sealOk = verifySeal(r) === true; } catch (e) { sealOk = false; add('seal.pairing.error', false, String(e.message || e)); }
+  // RISC0-310-R4-DUAL-VERIFIER-1: the imageId selects the parameter set (closed allowlists); the verdict
+  // token stays the §3.3 two-value enum, and `parameter_set` says which set held ('current' = risc0
+  // 3.1.0, 'legacy' = risc0 3.0.x, not yet re-sealed; null when the seal is invalid).
+  let report = 'invalid';
+  try { report = verifySealReport(r); } catch (e) { report = 'invalid'; add('seal.pairing.error', false, String(e.message || e)); }
+  const sealOk = report === 'current' || report === 'legacy';
   add('seal.groth16_pairing', sealOk,
-    sealOk ? 'e(A,B)·e(-α,β)·e(-vk_x,γ)·e(-C,δ) == 1 against the risc0 3.0.x verifying key'
-           : 'pairing equation did NOT hold for the decoded seal over the recomputed ReceiptClaim');
+    sealOk ? `e(A,B)·e(-α,β)·e(-vk_x,γ)·e(-C,δ) == 1 against the risc0 ${report === 'current' ? '3.1.0' : '3.0.x (legacy, not yet re-sealed)'} verifying key`
+           : 'pairing equation did NOT hold for the decoded seal over the recomputed ReceiptClaim (or the imageId is in neither published allowlist)');
 
   return {
     verdict: sealOk ? 'PROOF-VALID' : 'PROOF-INVALID',
+    parameter_set: sealOk ? report : null,
     checks, annotations, recomputed: { journal_digest: recomputed.journalDigest },
   };
 }
@@ -393,7 +398,7 @@ export async function verifyBundle(bundle, opts = {}) {
   return {
     bundle_version: bundle?.bundle_version ?? null,
     bundle_version_supported: versionOk,
-    proof: { verdict: proof.verdict, checks: proof.checks, annotations: proof.annotations, recomputed: proof.recomputed },
+    proof: { verdict: proof.verdict, parameter_set: proof.parameter_set ?? null, checks: proof.checks, annotations: proof.annotations, recomputed: proof.recomputed },
     logged: { verdict: logged.verdict, checks: logged.checks, quorum: logged.quorum, failing: logged.failing },
     subject: logged.subject,
     subject_scope: subjectScopeSentence(logged.subject, bundle?.anchor?.record),
@@ -443,16 +448,18 @@ const FIXTURE_DIR = 'chaingraph/standard/fixtures/receipt-bundle';
 // Each fixture declares the two half-verdicts it MUST produce. The RED controls exist to prove the verifier
 // fails honestly and that the two halves are INDEPENDENTLY decidable (§5): a mutated seal must leave the
 // logged half green, and a forged cosignature must leave the proof half green.
+// `seal` is the parameter set the proof half must report (RISC0-310-R4-DUAL-VERIFIER-1): every fixture
+// below is a risc0 3.0.x receipt, so the valid ones read 'legacy' and the tampered one reads null.
 const EXPECTED = [
-  { file: 'a-single-node-both-green.bundle.json', proof: 'PROOF-VALID', logged: 'LOGGED',
+  { file: 'a-single-node-both-green.bundle.json', proof: 'PROOF-VALID', logged: 'LOGGED', seal: 'legacy',
     why: 'live single-node receipt + published registry-checkpoint anchor: both halves verify' },
-  { file: 'b-proof-valid-log-absent.bundle.json', proof: 'PROOF-VALID', logged: 'NOT-LOGGED',
+  { file: 'b-proof-valid-log-absent.bundle.json', proof: 'PROOF-VALID', logged: 'NOT-LOGGED', seal: 'legacy',
     why: 'the §3.3 non-collapse control: proof-valid, log-absent, and reported as exactly that' },
-  { file: 'c-tampered-journal.bundle.json', proof: 'PROOF-INVALID', logged: 'LOGGED',
+  { file: 'c-tampered-journal.bundle.json', proof: 'PROOF-INVALID', logged: 'LOGGED', seal: null,
     why: 'RED control, proof half: journal mutated, so the recomputed ReceiptClaim no longer matches the seal; the logged half is untouched and still passes' },
-  { file: 'd-forged-cosignature.bundle.json', proof: 'PROOF-VALID', logged: 'NOT-LOGGED',
+  { file: 'd-forged-cosignature.bundle.json', proof: 'PROOF-VALID', logged: 'NOT-LOGGED', seal: 'legacy',
     why: 'RED control, logged half: a witness cosignature is forged, so the pinned quorum is not met; the proof half is untouched and still passes' },
-  { file: 'e-composed-receipt.bundle.json', proof: 'PROOF-VALID', logged: 'LOGGED',
+  { file: 'e-composed-receipt.bundle.json', proof: 'PROOF-VALID', logged: 'LOGGED', seal: 'legacy',
     why: 'composed chain-level receipt from CHAIN-PROOF-TRIAL-1 (§7.2 chain-walk shape): the same verifier accepts a composed seal with no format change' },
 ];
 
@@ -475,12 +482,12 @@ async function selfTest({ repoRoot = REPO } = {}) {
       continue;
     }
     const v = await verifyBundle(bundle, { repoRoot });
-    const ok = v.proof.verdict === exp.proof && v.logged.verdict === exp.logged;
+    const ok = v.proof.verdict === exp.proof && v.logged.verdict === exp.logged && v.proof.parameter_set === exp.seal;
     if (ok) pass++; else fail++;
     console.log(`${ok ? 'PASS' : 'FAIL'}  ${exp.file}`);
     console.log(`      ${exp.why}`);
-    console.log(`      expected: ${exp.proof} + ${exp.logged}`);
-    console.log(`      observed: ${v.combined}`);
+    console.log(`      expected: ${exp.proof} + ${exp.logged} (seal set: ${exp.seal})`);
+    console.log(`      observed: ${v.combined} (seal set: ${v.proof.parameter_set})`);
     for (const line of renderVerdict(v).split('\n')) console.log(`      ${line}`);
     if (!ok) {
       const failed = [...v.proof.checks, ...v.logged.checks].filter((c) => c.ok === false);
