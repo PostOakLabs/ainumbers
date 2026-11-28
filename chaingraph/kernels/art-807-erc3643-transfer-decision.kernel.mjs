@@ -34,6 +34,11 @@ export const meta = {
 // an explicit empty list is the caller's own statement that nothing is
 // required, trusted or bound, and evaluates as such.
 //
+// Token state is required for a mint without a supply-limit module: an absent,
+// null, non-object or empty token_state refuses with TOKEN_STATE_MISSING rather
+// than evaluating against a defaulted empty state. Mints that already carry a
+// supply-limit module, and all transfers, keep their previous verdicts.
+//
 // Modules re-implemented as pure rules over declared params:
 //   max_balance          deny if amount > max, or receiver identity balance
 //                        (params.identity_balance, else balances[to]) plus
@@ -218,11 +223,14 @@ function parseInputs(pp, refuse) {
     }
   }
 
+  // A mint with no supply-limit module has no other gate that forces the caller
+  // to declare token state. Defer the non-object refusal until the module set is
+  // known so that case classifies an absent, null, non-object or empty state as
+  // TOKEN_STATE_MISSING rather than recomputing from a defaulted empty state.
   const ts = pp.token_state === undefined ? {} : pp.token_state;
+  const tokenStateMissing = !isObj(pp.token_state) || Object.keys(pp.token_state).length === 0;
   const token = { paused: false, frozen: {}, frozen_tokens: {}, balances: {}, total_supply: null };
-  if (!isObj(ts)) {
-    refuse('TOKEN_STATE_MALFORMED');
-  } else {
+  if (isObj(ts)) {
     if (ts.paused !== undefined && typeof ts.paused !== 'boolean') refuse('TOKEN_STATE_MALFORMED');
     token.paused = ts.paused === true;
     token.frozen = addrMap(ts.frozen, 'bool', refuse, 'FROZEN');
@@ -268,6 +276,16 @@ function parseInputs(pp, refuse) {
       }
       modules.push(mod);
     }
+  }
+
+  // A mint without a supply-limit module has no other gate that would force the
+  // caller to declare token state, so recomputing against a defaulted empty state
+  // fails open. Refuse with the named reason instead. Every other verdict (all
+  // transfers, and mints already fail closed on TOTAL_SUPPLY_MISSING, and this edit leaves that path as it was.
+  if (from === ZERO && !modules.some((m) => m.type === 'supply_limit')) {
+    if (tokenStateMissing) refuse('TOKEN_STATE_MISSING');
+  } else if (!isObj(ts)) {
+    refuse('TOKEN_STATE_MALFORMED');
   }
 
   let covenant = null;
@@ -461,10 +479,50 @@ export function compute(pp) {
   };
 }
 
+const SCAN_DEPTH_MAX = 512;
+const SCAN_ELEMENTS_MAX = 1000000;
+
+// Hashability walk (D6): mirrors the classes _hash.mjs refuses before canonicalizing
+// (non-finite number, integer beyond 2^53, bigint, nesting past MAX_DEPTH, more values
+// than MAX_ELEMENTS). Returns { reason, detail } naming the path and class, never the
+// value; null when the subtree is safe to hash. The shared _hash.mjs stays untouched.
+function findHashRefusal(v, path, depth, budget) {
+  if (depth > SCAN_DEPTH_MAX) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_deep' };
+  if (++budget.n > SCAN_ELEMENTS_MAX) return { reason: 'REFUSED_INPUT_HASH_LIMIT', detail: path + ': too_many_values' };
+  const t = typeof v;
+  if (t === 'number') {
+    if (!Number.isFinite(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': non_finite' };
+    if (Number.isInteger(v) && !Number.isSafeInteger(v)) return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': unsafe_integer' };
+    return null;
+  }
+  if (t === 'bigint') return { reason: 'REFUSED_INPUT_UNSAFE_NUMBER', detail: path + ': bigint' };
+  if (v !== null && t === 'object') {
+    const ks = Object.keys(v);
+    for (let i = 0; i < ks.length; i++) {
+      const seg = Array.isArray(v) ? '[' + ks[i] + ']' : '.' + ks[i];
+      const r = findHashRefusal(v[ks[i]], path + seg, depth + 1, budget);
+      if (r !== null) return r;
+    }
+  }
+  return null;
+}
+
 export async function buildArtifact(pp, { now = null, parent_hashes = [], parent_tool_ids = [], chain_depth = 0 } = {}) {
   const { output_payload, compliance_flags } = compute(pp);
-  const hash = await executionHash(pp, output_payload);
-  return {
+  // The object walked below is the exact execution_hash preimage. When the shared
+  // canonicalizer would refuse it, mint the artifact with a null execution_hash and the
+  // reason beside it; the walk names the path and class, never the value. The
+  // last-resort catch keeps buildArtifact from throwing on anything the walk missed.
+  let hash = null;
+  let refusal = findHashRefusal({ policy_parameters: pp, output_payload: output_payload }, 'pp', 1, { n: 0 });
+  if (refusal === null) {
+    try {
+      hash = await executionHash(pp, output_payload);
+    } catch (e) {
+      refusal = { reason: 'REFUSED_INPUT_UNHASHABLE', detail: 'pp: canonicalizer_rejected' };
+    }
+  }
+  const artifact = {
     '@context': 'https://ainumbers.co/chaingraph/context/v0.3/context.jsonld',
     chaingraph_version: '0.4.0',
     mandate_type: meta.mandate_type,
@@ -480,4 +538,6 @@ export async function buildArtifact(pp, { now = null, parent_hashes = [], parent
     compute_proof_ready: 'deferred',
     audit_signature: { payloadType: 'application/vnd.openchain.graph+json;version=0.4', payload: '', signatures: [] },
   };
+  if (refusal !== null) artifact.hash_refusal = { reason: refusal.reason, detail: refusal.detail };
+  return artifact;
 }

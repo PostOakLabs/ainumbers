@@ -11,13 +11,12 @@
  *   - RED  (declaration contradicted): a well-formed declaration pinning the real pair
  *     2c54b26ea5 (art-593), injected because the head commit predates the declaration path;
  *     the corpus finds 23 divergent probes, so the declaration is a lie and must read RED.
- *   - GREEN (declaration verified): a byte-identical kernel pair (59a5e7cbc7 vs HEAD for
- *     art-807) through the full verifier (load both versions, corpus, probes). No real
+ *   - GREEN (declaration verified): a byte-identical kernel pair (59a5e7cbc7 vs the pinned
+ *     main commit 728ce618c4 for art-807) through the full verifier (load both versions, corpus, probes). No real
  *     byte-equal-output fix exists in the scanned history - every in-place edit so far was
  *     a fix - so this control proves the verifier's machinery accepts when outputs truly
- *     agree, and the contradicting side is proven by the RED control above. If a later
- *     commit touches the art-807 kernel the precondition assert breaks and this control
- *     must be re-pinned.
+ *     agree, and the contradicting side is proven by the RED control above. The pair is
+ *     pinned to a fixed commit (not HEAD) so a later art-807 kernel edit cannot break it.
  *   - Unit controls on validateDeclaration: five malformed declarations each rejected.
  *   - Mode switch controls (KERNEL-ERRATA-CURE-HOOK-1): resolveGateMode over a scratch root
  *     (absent file = advisory default, both values resolve, an out-of-range value and
@@ -81,7 +80,9 @@ expect('precondition: the real art-807 entry names the digest at 59a5e7cbc7^', A
 }
 // GREEN: the verifier accepts a pair whose outputs truly agree (byte-identical kernel bytes).
 {
-  const head = resolveCommit(REPO_ROOT, 'HEAD');
+  // Pinned to a main commit whose art-807 kernel is byte-identical to 59a5e7cbc7, not HEAD:
+  // a later art-807 edit on any branch would otherwise break this control.
+  const head = resolveCommit(REPO_ROOT, '728ce618c42212fa80cdb7f5065b2ec6682e1ea3');
   expect('K2 precondition: art-807 kernel is byte-identical at 59a5e7cbc7 and HEAD', (await loadKernelAt(REPO_ROOT, FIX807, ART807)).digest === (await loadKernelAt(REPO_ROOT, head, ART807)).digest);
   const v = await verifyNoSemanticChange(REPO_ROOT, FIX807, head, ART807);
   expect('K2 green: the verifier passes a truly unchanged pair (non-vacuous)', v.ok === true && v.probes > 0 && v.divergent === 0);
